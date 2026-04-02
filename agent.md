@@ -17,6 +17,7 @@
 ✅ Fase 11 [x] 13_ArrowColumnar (Semana 25-26)
 ✅ Fase 12 [x] 14_Observability (Semana 27-28)
 🟡 Fase 13 [/] 15_TTL_GC        (Semana 29-30)
+⬜ Fase 14 [ ] 16_IQL_Mutations  (Semana 31-33)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -175,6 +176,21 @@
 [ ] 4. Mover a complete/15_TTL_GC ✅
 ```
 **Métricas**: Eviction <5ms overhead per sweep
+
+### FASE 14: 16_IQL_Mutations (Semana 31-33)
+```
+[ ] 1. docDev/16_IQL_Mutations/mutation_syntax.md ✅ (CREADO)
+[ ] 2. src/query.rs: Statement enum (Insert/Update/Delete/Relate) + structs AST
+[ ] 3. src/parser.rs: parse_insert(), parse_update(), parse_delete(), parse_relate(), parse_statement()
+[ ] 4. src/parser.rs: Fix SIGUE con TYPE <tipo> AS <alias> (desambiguación)
+[ ] 5. src/executor.rs: Rama de ejecución para mutaciones → StorageEngine
+[ ] 6. src/server.rs: /api/v1/query acepta lectura Y escritura
+[ ] 7. src/bin/iadbms-cli.rs: REPL detecta mutación vs lectura
+[ ] 8. tests/parser.rs: Tests para INSERT, UPDATE, DELETE, RELATE
+[ ] 9. tests/mutations.rs: [NUEVO] Integración parse → execute → verify
+[ ] 10. Mover a complete/16_IQL_Mutations ✅
+```
+**Métricas**: Parse INSERT <1ms, >1k stmts/sec, 100% backward-compatible
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
