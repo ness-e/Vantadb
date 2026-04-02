@@ -8,6 +8,8 @@
 ✅ Fase 3 [x] 04_ResourceMgmt     (Semana 7-8) 
 ✅ Fase 3 [x] 05_Integrations     (Semana 9-10)
 ✅ Fase 4 [x] 06_Benchmarks       (Semana 11-12)
+✅ Fase 5 [x] 07_Production      (Semana 13)
+🟡 Fase 6 [/] 08_ExecutionEngine (Semana 14-16)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -83,6 +85,25 @@
 [x] 5. Mover a complete/06_Benchmarks ✅
 ```
 **Métricas**: 500 stars GitHub
+
+### FASE 5: 07_ProductionDeploy (Semana 13)
+```
+[x] 1. docDev/07_ProductionDeploy/cicd_pipeline.md
+[x] 2. .github/workflows/rust_ci.yml
+[x] 3. .gitignore y pipeline rules
+[x] 4. Mover a complete/07_ProductionDeploy ✅
+```
+**Métricas**: Pipeline en MAIN con 100% tests pasados
+
+### FASE 6: 08_ExecutionEngine (Semana 14-16)
+```
+[ ] 1. docDev/08_ExecutionEngine/hnsw_execution.md
+[ ] 2. src/executor.rs: Physical Plan & Traversal
+[ ] 3. src/index.rs: Refactor HNSW L2/Cosine
+[ ] 4. tests/executor.rs
+[ ] 5. Mover a complete/08_ExecutionEngine ✅
+```
+**Métricas**: Distancias L2 reales calculadas <2ms
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
