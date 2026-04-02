@@ -20,6 +20,8 @@ pub mod integrations;
 pub mod executor;
 pub mod graph;
 pub mod server;
+#[cfg(feature = "python_sdk")]
+pub mod python;
 
 // Re-exports for ergonomic API
 pub use error::{IadbmsError, Result};

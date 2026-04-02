@@ -12,7 +12,8 @@
 ✅ Fase 6 [x] 08_ExecutionEngine (Semana 14-16)
 ✅ Fase 7 [x] 09_GraphEngine     (Semana 17-18)
 ✅ Fase 8 [x] 10_ServerDaemon    (Semana 19-20)
-🟡 Fase 9 [/] 11_CliClient       (Semana 21-22)
+✅ Fase 9 [x] 11_CliClient       (Semana 21-22)
+🟡 Fase 10 [/] 12_PythonSDK     (Semana 23-24)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -130,11 +131,20 @@
 
 ### FASE 9: 11_CliClient (Semana 21-22)
 ```
-[ ] 1. docDev/11_CliClient/terminal_frontend.md
-[ ] 2. src/bin/iadbms-cli.rs: CLI shell
-[ ] 3. Mover a complete/11_CliClient ✅
+[x] 1. docDev/11_CliClient/terminal_frontend.md
+[x] 2. src/bin/iadbms-cli.rs: CLI shell
+[x] 3. Mover a complete/11_CliClient ✅
 ```
 **Métricas**: REPL responsivo <2ms
+
+### FASE 10: 12_PythonSDK (Semana 23-24)
+```
+[ ] 1. docDev/12_PythonSDK/pyo3_bindings.md
+[ ] 2. src/python.rs: PyO3 module exposing Engine
+[ ] 3. tests/python.rs
+[ ] 4. Mover a complete/12_PythonSDK ✅
+```
+**Métricas**: Ingesta LangChain Python <10ms overhead
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
