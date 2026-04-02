@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn test_sweep_logic() {
-    let storage = StorageEngine::new();
+    let storage = StorageEngine::open("tests_gc_db").unwrap();
     let mut worker = GcWorker::new(&storage);
 
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();

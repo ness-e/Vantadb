@@ -15,7 +15,7 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
     for node in nodes {
         ids.push(node.id);
         // Only push first vector dimension to prove columnar packing capabilities
-        if let Some(ref v) = node.vector_data {
+        if let crate::node::VectorData::F32(ref v) = node.vector {
             if !v.is_empty() {
                 vec_coords.push(v[0]);
             } else {

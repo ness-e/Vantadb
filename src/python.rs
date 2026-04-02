@@ -1,7 +1,7 @@
 #![cfg(feature = "python_sdk")]
 use pyo3::prelude::*;
 use crate::storage::StorageEngine;
-use crate::node::UnifiedNode;
+use crate::node::{UnifiedNode, VectorData};
 
 #[pyclass]
 pub struct ClientEngine {
@@ -13,7 +13,7 @@ impl ClientEngine {
     #[new]
     pub fn new() -> Self {
         ClientEngine {
-            _storage: StorageEngine::new()
+            _storage: StorageEngine::open("iadbms_internal_db").unwrap()
         }
     }
 
@@ -28,9 +28,9 @@ impl ClientEngine {
     pub fn insert_node(&self, id: u64, vec_data: Option<Vec<f32>>) -> PyResult<()> {
         let mut node = UnifiedNode::new(id);
         if let Some(v) = vec_data {
-            node.set_vector(v);
+            node.vector = VectorData::F32(v);
         }
-        self._storage.put(node).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        self._storage.insert(&node).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(())
     }
 }
