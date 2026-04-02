@@ -22,7 +22,7 @@ impl<'a> Executor<'a> {
         match statement {
             Statement::Query(query) => {
                 let plan = query.into_logical_plan();
-                let nodes = self.execute_plan(plan)?;
+                let nodes = self.execute_plan(plan).await?;
                 Ok(ExecutionResult::Read(nodes))
             }
             Statement::Insert(insert) => {
@@ -113,31 +113,32 @@ impl<'a> Executor<'a> {
     }
 
     /// Evaluates the Logical Plan over the underlying storage engine
-    pub fn execute_plan(&self, plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
+    pub async fn execute_plan(&self, plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
         let mut results = Vec::new();
-        
-        // MVP: Ejecutor híbrido simple
         let mut target_nodes = Vec::new();
 
         // Pass 1: Resolver Escaneo Vectorial Dinámico (Si hubiere Condition::VectorSim)
-        // Check for Vector conditions in plan
-        let mut requires_hnsw = false;
+        let mut searched_hnsw = false;
 
-        // Scaffolding: Simulated context of "WHERE bio ~ VECTOR[...]"
-        // For this milestone, we intercept the logical scan and ask HNSW instead.
-        // As a mock for MVP execution, we pull the whole HNSW entries.
-        if plan.operators.len() > 0 { // Placeholder for condition parsing
-            let index = self.storage.hnsw.read().unwrap();
-            let prompt_mock = vec![0.1; 128]; // Fake query vector
-            let neighbors = index.search_nearest(&prompt_mock, 0, 5); 
-            
-            for (id, _sim) in neighbors {
-                target_nodes.push(id);
+        for op in &plan.operators {
+            if let LogicalOperator::VectorSearch { field: _, query_vec, min_score: _ } = op {
+                let llm = crate::llm::LlmClient::new();
+                
+                // Real Inference: Translate NLP into Embedded Vectors
+                if let Ok(vector) = llm.generate_embedding(query_vec).await {
+                    let index = self.storage.hnsw.read().unwrap();
+                    let neighbors = index.search_nearest(&vector, 0, 5); // MVP: top_k = 5
+                    
+                    for (id, _sim) in neighbors {
+                        target_nodes.push(id);
+                    }
+                    searched_hnsw = true;
+                }
             }
         }
 
-        if target_nodes.is_empty() {
-            // Fallback mock
+        if !searched_hnsw {
+            // Fallback mock if it's not a vector query (linear scan mock)
             target_nodes.push(1); 
         }
 
