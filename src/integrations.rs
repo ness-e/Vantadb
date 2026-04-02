@@ -1,6 +1,5 @@
 //! IADBMS Integrations (Ollama, LangChain)
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 /// Request mapping for a simple LangChain vector store search
 #[derive(Deserialize, Serialize, Clone, Debug)]

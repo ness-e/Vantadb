@@ -8,7 +8,7 @@ async fn main() {
     println!("Starting IADBMS Protocol Daemon on port 8080...");
     
     // Initialize storage engine and wrap in Arc for Axum state sharing
-    let storage = Arc::new(StorageEngine::new());
+    let storage = Arc::new(StorageEngine::open("iadbms_data").unwrap());
     let state = Arc::new(ServerState { storage });
 
     let router = app(state);

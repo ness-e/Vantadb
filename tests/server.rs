@@ -2,14 +2,14 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use iadbms::server::{app, ServerState, QueryRequest};
+use iadbms::server::{app, ServerState};
 use iadbms::storage::StorageEngine;
 use std::sync::Arc;
 use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_health_check() {
-    let storage = Arc::new(StorageEngine::new());
+    let storage = Arc::new(StorageEngine::open("tests_server_db").unwrap());
     let state = Arc::new(ServerState { storage });
     let app = app(state);
 
