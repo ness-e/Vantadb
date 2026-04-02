@@ -1,9 +1,12 @@
 use rocksdb::{Options, DB};
 use crate::error::{IadbmsError, Result};
 use crate::node::UnifiedNode;
+use crate::index::CPIndex;
+use std::sync::RwLock;
 
 pub struct StorageEngine {
     db: DB,
+    pub hnsw: RwLock<CPIndex>,
 }
 
 impl StorageEngine {
@@ -13,16 +16,28 @@ impl StorageEngine {
         opts.set_max_background_jobs(4);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         
-        // Disable WAL inside rocksdb, we have our own WAL (or we combine them).
-        // For zero-copy, we use pinned gets.
         let db = DB::open(&opts, path).map_err(|e| IadbmsError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
-        Ok(Self { db })
+        
+        Ok(Self { 
+            db,
+            hnsw: RwLock::new(CPIndex::new())
+        })
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
+        // RocksDB Disk Persistence (Durability)
         let key = node.id.to_le_bytes();
         let val = bincode::serialize(node).map_err(|e| IadbmsError::SerializationError(e.to_string()))?;
         self.db.put(&key, &val).map_err(|e| IadbmsError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+        // In-Memory Index Tracking (HNSW)
+        if node.flags.contains(crate::node::NodeFlags::HAS_VECTOR) {
+            if let crate::node::VectorData::F32(vec) = &node.vector {
+                let mut index = self.hnsw.write().unwrap();
+                index.add(node.id, 0, Some(vec.clone())); // MVP mask 0
+            }
+        }
+
         Ok(())
     }
 

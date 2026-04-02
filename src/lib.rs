@@ -25,6 +25,7 @@ pub mod python;
 pub mod columnar;
 pub mod metrics;
 pub mod gc;
+pub mod llm;
 
 // Re-exports for ergonomic API
 pub use error::{IadbmsError, Result};

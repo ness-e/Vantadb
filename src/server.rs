@@ -45,7 +45,7 @@ async fn execute_query(
     match parse_statement(&payload.query) {
         Ok((_, statement)) => {
             let executor = Executor::new(&state.storage);
-            match executor.execute_statement(statement) {
+            match executor.execute_statement(statement).await {
                 Ok(ExecutionResult::Read(nodes)) => {
                     Json(QueryResponse {
                         success: true,

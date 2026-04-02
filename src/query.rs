@@ -8,6 +8,7 @@ pub enum Statement {
     Update(UpdateStatement),
     Delete(DeleteStatement),
     Relate(RelateStatement),
+    InsertMessage(InsertMessageStatement), // Conversational Primitive
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,6 +40,13 @@ pub struct RelateStatement {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct InsertMessageStatement {
+    pub msg_role: String, // system, user, assistant
+    pub content: String,
+    pub thread_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Query {
     pub from_entity: String,
     pub traversal: Option<Traversal>,
@@ -47,6 +55,7 @@ pub struct Query {
     pub fetch: Option<Vec<String>>,
     pub rank_by: Option<RankBy>,
     pub temperature: Option<f32>,
+    pub owner_role: Option<String>, // RBAC
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,6 +106,7 @@ pub enum LogicalOperator {
 pub struct LogicalPlan {
     pub operators: Vec<LogicalOperator>,
     pub temperature: f32,
+    pub enforce_role: Option<String>,
 }
 
 impl Query {
@@ -138,6 +148,7 @@ impl Query {
         LogicalPlan {
             operators: ops,
             temperature: self.temperature.unwrap_or(0.0), // 0.0 default (Exhaustive)
+            enforce_role: self.owner_role,
         }
     }
 }

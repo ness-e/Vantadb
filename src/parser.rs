@@ -143,6 +143,11 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
         ws(float),
     )))(i)?;
 
+    let (i, owner_role) = opt(tuple((
+        ws(tag("ROLE")),
+        ws(string_literal),
+    )))(i)?;
+
     Ok((i, Query {
         from_entity,
         traversal,
@@ -151,6 +156,7 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
         fetch: fetch.map(|(_, f)| f),
         rank_by: rank_by.map(|(_, f, d)| RankBy { field: f, desc: d.is_some() }),
         temperature: temperature.map(|(_, _, t)| t),
+        owner_role: owner_role.map(|(_, r)| r),
     }))
 }
 
@@ -258,10 +264,34 @@ fn parse_relate(i: &str) -> IResult<&str, RelateStatement> {
     }))
 }
 
+fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
+    let (i, _) = ws(tag("INSERT"))(i)?;
+    let (i, _) = ws(tag("MESSAGE"))(i)?;
+    
+    let (i, msg_role) = alt((
+        map(ws(tag("SYSTEM")), |_| "system".to_string()),
+        map(ws(tag("USER")), |_| "user".to_string()),
+        map(ws(tag("ASSISTANT")), |_| "assistant".to_string()),
+    ))(i)?;
+
+    let (i, content) = ws(string_literal)(i)?;
+    
+    let (i, _) = ws(tag("TO"))(i)?;
+    let (i, _) = ws(tag("THREAD#"))(i)?;
+    let (i, thread_id) = ws(parse_u64_id)(i)?;
+
+    Ok((i, InsertMessageStatement {
+        msg_role,
+        content,
+        thread_id,
+    }))
+}
+
 // ─── Entry Point ───────────────────────────────────────────────
 
 pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
     alt((
+        map(parse_insert_message, Statement::InsertMessage), // Must be before parse_insert to prevent shadowing
         map(parse_insert, Statement::Insert),
         map(parse_update, Statement::Update),
         map(parse_delete, Statement::Delete),
