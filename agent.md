@@ -14,7 +14,9 @@
 ✅ Fase 8 [x] 10_ServerDaemon    (Semana 19-20)
 ✅ Fase 9 [x] 11_CliClient       (Semana 21-22)
 ✅ Fase 10 [x] 12_PythonSDK     (Semana 23-24)
-🟡 Fase 11 [/] 13_ArrowColumnar (Semana 25-26)
+✅ Fase 11 [x] 13_ArrowColumnar (Semana 25-26)
+✅ Fase 12 [x] 14_Observability (Semana 27-28)
+🟡 Fase 13 [/] 15_TTL_GC        (Semana 29-30)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -158,12 +160,21 @@
 
 ### FASE 12: 14_Observability (Semana 27-28)
 ```
-[ ] 1. docDev/14_Observability/metrics_layer.md
-[ ] 2. src/metrics.rs: Prometheus counters
-[ ] 3. Cargo.toml update
-[ ] 4. Mover a complete/14_Observability ✅
+[x] 1. docDev/14_Observability/metrics_layer.md
+[x] 2. src/metrics.rs: Prometheus counters
+[x] 3. Cargo.toml update
+[x] 4. Mover a complete/14_Observability ✅
 ```
 **Métricas**: Zero-overhead Telemetry
+
+### FASE 13: 15_TTL_GC (Semana 29-30)
+```
+[ ] 1. docDev/15_TTL_GC/eviction_policy.md
+[ ] 2. src/gc.rs: Background Time-To-Live sweeper
+[ ] 3. tests/gc.rs
+[ ] 4. Mover a complete/15_TTL_GC ✅
+```
+**Métricas**: Eviction <5ms overhead per sweep
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
