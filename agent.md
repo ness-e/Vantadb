@@ -11,7 +11,8 @@
 ✅ Fase 5 [x] 07_Production      (Semana 13)
 ✅ Fase 6 [x] 08_ExecutionEngine (Semana 14-16)
 ✅ Fase 7 [x] 09_GraphEngine     (Semana 17-18)
-🟡 Fase 8 [/] 10_ServerDaemon    (Semana 19-20)
+✅ Fase 8 [x] 10_ServerDaemon    (Semana 19-20)
+🟡 Fase 9 [/] 11_CliClient       (Semana 21-22)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -119,13 +120,21 @@
 
 ### FASE 8: 10_ServerDaemon (Semana 19-20)
 ```
-[ ] 1. docDev/10_ServerDaemon/api_layer.md
-[ ] 2. src/server.rs: Axum HTTPS/REST setup 
-[ ] 3. src/bin/iadbms-server.rs: Entrypoint daemon CLI
-[ ] 4. tests/server.rs
-[ ] 5. Mover a complete/10_ServerDaemon ✅
+[x] 1. docDev/10_ServerDaemon/api_layer.md
+[x] 2. src/server.rs: Axum HTTPS/REST setup 
+[x] 3. src/bin/iadbms-server.rs: Entrypoint daemon CLI
+[x] 4. tests/server.rs
+[x] 5. Mover a complete/10_ServerDaemon ✅
 ```
 **Métricas**: <10ms latencia HTTP overhead
+
+### FASE 9: 11_CliClient (Semana 21-22)
+```
+[ ] 1. docDev/11_CliClient/terminal_frontend.md
+[ ] 2. src/bin/iadbms-cli.rs: CLI shell
+[ ] 3. Mover a complete/11_CliClient ✅
+```
+**Métricas**: REPL responsivo <2ms
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
