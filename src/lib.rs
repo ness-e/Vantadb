@@ -18,6 +18,7 @@ pub mod index;
 pub mod governor;
 pub mod integrations;
 pub mod executor;
+pub mod graph;
 
 // Re-exports for ergonomic API
 pub use error::{IadbmsError, Result};
