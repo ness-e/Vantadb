@@ -13,7 +13,8 @@
 ✅ Fase 7 [x] 09_GraphEngine     (Semana 17-18)
 ✅ Fase 8 [x] 10_ServerDaemon    (Semana 19-20)
 ✅ Fase 9 [x] 11_CliClient       (Semana 21-22)
-🟡 Fase 10 [/] 12_PythonSDK     (Semana 23-24)
+✅ Fase 10 [x] 12_PythonSDK     (Semana 23-24)
+🟡 Fase 11 [/] 13_ArrowColumnar (Semana 25-26)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -139,12 +140,21 @@
 
 ### FASE 10: 12_PythonSDK (Semana 23-24)
 ```
-[ ] 1. docDev/12_PythonSDK/pyo3_bindings.md
-[ ] 2. src/python.rs: PyO3 module exposing Engine
-[ ] 3. tests/python.rs
-[ ] 4. Mover a complete/12_PythonSDK ✅
+[x] 1. docDev/12_PythonSDK/pyo3_bindings.md
+[x] 2. src/python.rs: PyO3 module exposing Engine
+[x] 3. tests/python.rs
+[x] 4. Mover a complete/12_PythonSDK ✅
 ```
 **Métricas**: Ingesta LangChain Python <10ms overhead
+
+### FASE 11: 13_ArrowColumnar (Semana 25-26)
+```
+[ ] 1. docDev/13_ArrowColumnar/ipc_format.md
+[ ] 2. src/columnar.rs: Apache Arrow IPC conversion
+[ ] 3. tests/columnar.rs
+[ ] 4. Mover a complete/13_ArrowColumnar ✅
+```
+**Métricas**: Zero-copy SIMD scans
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
