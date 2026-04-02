@@ -17,7 +17,8 @@
 ✅ Fase 11 [x] 13_ArrowColumnar (Semana 25-26)
 ✅ Fase 12 [x] 14_Observability (Semana 27-28)
 ✅ Fase 13 [x] 15_TTL_GC        (Semana 29-30)
-🟡 Fase 14 [/] 16_IQL_Mutations  (Semana 31-33)
+✅ Fase 14 [x] 16_IQL_Mutations (Semana 31-33)
+🟡 Fase 15 [/] 17_LLM_Agents    (Semana 34-36)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -170,27 +171,44 @@
 
 ### FASE 13: 15_TTL_GC (Semana 29-30)
 ```
-[ ] 1. docDev/15_TTL_GC/eviction_policy.md
-[ ] 2. src/gc.rs: Background Time-To-Live sweeper
-[ ] 3. tests/gc.rs
-[ ] 4. Mover a complete/15_TTL_GC ✅
+[x] 1. complete/15_TTL_GC/eviction_policy.md
+[x] 2. src/gc.rs: Background Time-To-Live sweeper
+[x] 3. tests/gc.rs
+[x] 4. Mover a complete/15_TTL_GC ✅
 ```
 **Métricas**: Eviction <5ms overhead per sweep
 
 ### FASE 14: 16_IQL_Mutations (Semana 31-33)
 ```
-[ ] 1. docDev/16_IQL_Mutations/mutation_syntax.md ✅ (CREADO)
-[ ] 2. src/query.rs: Statement enum (Insert/Update/Delete/Relate) + structs AST
-[ ] 3. src/parser.rs: parse_insert(), parse_update(), parse_delete(), parse_relate(), parse_statement()
-[ ] 4. src/parser.rs: Fix SIGUE con TYPE <tipo> AS <alias> (desambiguación)
-[ ] 5. src/executor.rs: Rama de ejecución para mutaciones → StorageEngine
-[ ] 6. src/server.rs: /api/v1/query acepta lectura Y escritura
-[ ] 7. src/bin/iadbms-cli.rs: REPL detecta mutación vs lectura
-[ ] 8. tests/parser.rs: Tests para INSERT, UPDATE, DELETE, RELATE
-[ ] 9. tests/mutations.rs: [NUEVO] Integración parse → execute → verify
-[ ] 10. Mover a complete/16_IQL_Mutations ✅
+[x] 1. complete/16_IQL_Mutations/mutation_syntax.md ✅ (CREADO)
+[x] 2. src/query.rs: Statement enum (Insert/Update/Delete/Relate) + structs AST
+[x] 3. src/parser.rs: parse_insert(), parse_update(), parse_delete(), parse_relate(), parse_statement()
+[x] 4. src/parser.rs: Fix SIGUE con TYPE <tipo> AS <alias> (desambiguación)
+[x] 5. src/executor.rs: Rama de ejecución para mutaciones → StorageEngine
+[x] 6. src/server.rs: /api/v1/query acepta lectura Y escritura
+[x] 7. src/bin/iadbms-cli.rs: REPL detecta mutación vs lectura
+[x] 8. tests/parser.rs: Tests para INSERT, UPDATE, DELETE, RELATE
+[x] 9. tests/mutations.rs: [NUEVO] Integración parse → execute → verify
+[x] 10. Mover a complete/16_IQL_Mutations ✅
 ```
 **Métricas**: Parse INSERT <1ms, >1k stmts/sec, 100% backward-compatible
+
+### FASE 15: 17_LLM_Agents (Semana 34-36)
+```
+[ ] 1. docDev/17_LLM_Agents/rag_architecture.md: Diseño de Búsqueda Vectorial Nativa (HNSW)
+[ ] 2. docDev/17_LLM_Agents/inference_bridge.md: Conector Agnóstico LLM (Ollama)
+[ ] 3. docDev/17_LLM_Agents/auto_embedding.md: Vectores Automáticos en Background
+[ ] 4. docDev/17_LLM_Agents/agent_rbac.md: Particionamiento de Seguridad por Roles (RBAC)
+[ ] 5. docDev/17_LLM_Agents/conversational.md: Nodos Nativos de Chat (Conversational Primitives)
+[ ] 6. src/index.rs: Conectar motor estructural HNSW matemático real
+[ ] 7. src/llm/: Construir adaptador HTTP estricto hacia '/api/embeddings'
+[ ] 8. src/executor.rs: Hook de Auto-Embedding para INSERTs sin VECTOR explícito
+[ ] 9. src/security.rs: Filtro de permisos por Sub-Grafo
+[ ] 10. src/types.rs: Incorporar MessageThread
+[ ] 11. tests/llm_agents.rs: Integración completa de Agentes
+[ ] 12. Mover a complete/17_LLM_Agents ✅
+```
+**Métricas**: Auto-Embedding overhead <2ms, HNSW search <5ms, Agnostic Bridge 100% Rust-native
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
