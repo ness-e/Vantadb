@@ -34,10 +34,11 @@ impl<'a> GcWorker<'a> {
         let mut keys_to_remove = Vec::new();
         for (expiry, ids) in self.index_ttl.iter() {
             if *expiry <= now {
-                for &_id in ids {
-                    // Attempt deletion via StorageEngine (Mocked delete here)
-                    // Normally: self.storage.delete(id);
-                    expired_count += 1;
+                for &id in ids {
+                    // Attempt deletion via StorageEngine physical store
+                    if self.storage.delete(id).is_ok() {
+                        expired_count += 1;
+                    }
                 }
                 keys_to_remove.push(*expiry);
             } else {

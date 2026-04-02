@@ -39,4 +39,11 @@ impl StorageEngine {
             Err(e) => Err(IadbmsError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))),
         }
     }
+
+    pub fn delete(&self, id: u64) -> Result<()> {
+        let key = id.to_le_bytes();
+        self.db.delete(&key)
+            .map_err(|e| IadbmsError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        Ok(())
+    }
 }
