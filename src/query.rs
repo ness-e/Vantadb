@@ -1,4 +1,42 @@
 use crate::node::FieldValue;
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Statement {
+    Query(Query),
+    Insert(InsertStatement),
+    Update(UpdateStatement),
+    Delete(DeleteStatement),
+    Relate(RelateStatement),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InsertStatement {
+    pub node_id: u64,
+    pub node_type: String,
+    pub fields: BTreeMap<String, FieldValue>,
+    pub vector: Option<Vec<f32>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpdateStatement {
+    pub node_id: u64,
+    pub fields: BTreeMap<String, FieldValue>,
+    pub vector: Option<Vec<f32>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeleteStatement {
+    pub node_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RelateStatement {
+    pub source_id: u64,
+    pub target_id: u64,
+    pub label: String,
+    pub weight: Option<f32>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
@@ -16,6 +54,8 @@ pub struct Traversal {
     pub min_depth: u32,
     pub max_depth: u32,
     pub edge_label: String,
+    pub target_type: Option<String>,
+    pub alias: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

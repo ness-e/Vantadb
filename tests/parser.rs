@@ -43,3 +43,59 @@ fn test_parse_full_query() {
     assert!(parsed.rank_by.as_ref().unwrap().desc);
     assert_eq!(parsed.temperature.unwrap(), 0.5);
 }
+
+#[test]
+fn test_parse_insert() {
+    let q = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
+    let (_, stmt) = parse_statement(q).unwrap();
+    match stmt {
+        Statement::Insert(ins) => {
+            assert_eq!(ins.node_id, 101);
+            assert_eq!(ins.node_type, "Usuario");
+            assert_eq!(ins.fields.get("nombre").unwrap(), &FieldValue::String("Eros".to_string()));
+            assert_eq!(ins.fields.get("edad").unwrap(), &FieldValue::Int(28));
+            assert_eq!(ins.vector.unwrap()[0], 0.1);
+        },
+        _ => panic!("Expected insert"),
+    }
+}
+
+#[test]
+fn test_parse_update() {
+    let q = r#"UPDATE NODE#101 SET nombre = "Eros Dev", activo = true"#;
+    let (_, stmt) = parse_statement(q).unwrap();
+    match stmt {
+        Statement::Update(upd) => {
+            assert_eq!(upd.node_id, 101);
+            assert_eq!(upd.fields.get("activo").unwrap(), &FieldValue::Bool(true));
+        },
+        _ => panic!("Expected update"),
+    }
+}
+
+#[test]
+fn test_parse_relate() {
+    let q = r#"RELATE NODE#1 --"amigo"--> NODE#2 WEIGHT 0.95"#;
+    let (_, stmt) = parse_statement(q).unwrap();
+    match stmt {
+        Statement::Relate(rel) => {
+            assert_eq!(rel.source_id, 1);
+            assert_eq!(rel.target_id, 2);
+            assert_eq!(rel.label, "amigo");
+            assert_eq!(rel.weight.unwrap(), 0.95);
+        },
+        _ => panic!("Expected relate"),
+    }
+}
+
+#[test]
+fn test_parse_delete() {
+    let q = r#"DELETE NODE#5"#;
+    let (_, stmt) = parse_statement(q).unwrap();
+    match stmt {
+        Statement::Delete(del) => {
+            assert_eq!(del.node_id, 5);
+        },
+        _ => panic!("Expected delete"),
+    }
+}

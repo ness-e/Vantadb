@@ -16,8 +16,8 @@
 ✅ Fase 10 [x] 12_PythonSDK     (Semana 23-24)
 ✅ Fase 11 [x] 13_ArrowColumnar (Semana 25-26)
 ✅ Fase 12 [x] 14_Observability (Semana 27-28)
-🟡 Fase 13 [/] 15_TTL_GC        (Semana 29-30)
-⬜ Fase 14 [ ] 16_IQL_Mutations  (Semana 31-33)
+✅ Fase 13 [x] 15_TTL_GC        (Semana 29-30)
+🟡 Fase 14 [/] 16_IQL_Mutations  (Semana 31-33)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)

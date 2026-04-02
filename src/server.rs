@@ -36,13 +36,41 @@ async fn health_check() -> Json<QueryResponse> {
 }
 
 async fn execute_query(
-    State(_state): State<Arc<ServerState>>,
+    State(state): State<Arc<ServerState>>,
     Json(payload): Json<QueryRequest>,
 ) -> Json<QueryResponse> {
-    // Scaffold: Normally parses payload.query string into LogicalPlan, then Executor.
-    // For now we map success for the ping.
-    Json(QueryResponse {
-        success: true,
-        data: format!("Executed: {}", payload.query),
-    })
+    use crate::parser::parse_statement;
+    use crate::executor::{Executor, ExecutionResult};
+
+    match parse_statement(&payload.query) {
+        Ok((_, statement)) => {
+            let executor = Executor::new(&state.storage);
+            match executor.execute_statement(statement) {
+                Ok(ExecutionResult::Read(nodes)) => {
+                    Json(QueryResponse {
+                        success: true,
+                        data: format!("Read {} nodes.", nodes.len()),
+                    })
+                }
+                Ok(ExecutionResult::Write { affected_nodes, message }) => {
+                    Json(QueryResponse {
+                        success: true,
+                        data: format!("Mutated {} nodes: {}", affected_nodes, message),
+                    })
+                }
+                Err(e) => {
+                    Json(QueryResponse {
+                        success: false,
+                        data: format!("Execution Error: {}", e),
+                    })
+                }
+            }
+        }
+        Err(e) => {
+            Json(QueryResponse {
+                success: false,
+                data: format!("Parse Error: {}", e),
+            })
+        }
+    }
 }

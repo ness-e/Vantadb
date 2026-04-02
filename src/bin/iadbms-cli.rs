@@ -30,11 +30,19 @@ async fn main() {
             continue;
         }
 
-        // Send query to the REST API defined in Phase 8
+        // Send query to the REST API
         match client.post(url).json(&serde_json::json!({ "query": input })).send().await {
             Ok(response) => {
-                if let Ok(text) = response.text().await {
-                    println!("<< {}", text);
+                if let Ok(json) = response.json::<serde_json::Value>().await {
+                    let success = json["success"].as_bool().unwrap_or(false);
+                    let data = json["data"].as_str().unwrap_or("");
+                    if success {
+                        println!("✅ SUCCESS\n{}", data);
+                    } else {
+                        println!("❌ ERROR\n{}", data);
+                    }
+                } else {
+                    println!("Error parsing daemon response");
                 }
             }
             Err(e) => {
