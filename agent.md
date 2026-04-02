@@ -7,7 +7,7 @@
 ✅ Fase 2 [x] 03_StorageEngine    (Semana 5-6) 
 ✅ Fase 3 [x] 04_ResourceMgmt     (Semana 7-8) 
 ✅ Fase 3 [x] 05_Integrations     (Semana 9-10)
-🟡 Fase 4 [/] 06_Benchmarks       (Semana 11-12)
+✅ Fase 4 [x] 06_Benchmarks       (Semana 11-12)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -18,7 +18,9 @@
    - ✅ Benchmarks cumplidos  
    - ✅ README actualizado
 4. NUNCA código sin .md correspondiente
-5. Commits: `feat(fase-XX): nombre_feature`
+5. GIT PIPELINE RIGUROSO (CADA PASO):
+   - Al terminar los archivos de cada paso o fase, es OBLIGATORIO ejecutar los comandos: `git add .`, seguido de un `git commit` profesional, descriptivo y arquitectónico, y obligatoriamente `git push`.
+   - Formato de Commits: `feat(fase-XX): <título>` con cuerpo detallado explicando el QUÉ y el POR QUÉ.
 
 ## 📖 PASOS EXACTOS POR FASE
 
@@ -78,7 +80,7 @@
 [x] 2. benches/hybrid_queries.rs
 [x] 3. README.md: Qdrant/Neo4j comparison
 [x] 4. GitHub RELEASE v0.1.0
-[ ] 5. Mover a complete/06_Benchmarks ✅
+[x] 5. Mover a complete/06_Benchmarks ✅
 ```
 **Métricas**: 500 stars GitHub
 

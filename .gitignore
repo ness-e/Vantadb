@@ -1,0 +1,16 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Local Database instances and logs
+*.log
+*.db
+/data/
+/rocksdb_data/
+*.rdb
+
+# External IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
