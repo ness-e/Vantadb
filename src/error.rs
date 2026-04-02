@@ -26,6 +26,9 @@ pub enum IadbmsError {
 
     #[error("Resource limit exceeded: {0}")]
     ResourceLimit(String),
+
+    #[error("Execution error: {0}")]
+    Execution(String),
 }
 
 /// Crate-wide Result alias
