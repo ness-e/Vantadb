@@ -18,7 +18,7 @@
 ✅ Fase 12 [x] 14_Observability (Semana 27-28)
 ✅ Fase 13 [x] 15_TTL_GC        (Semana 29-30)
 ✅ Fase 14 [x] 16_IQL_Mutations (Semana 31-33)
-🟡 Fase 15 [/] 17_LLM_Agents    (Semana 34-36)
+✅ Fase 15 [x] 17_LLM_Agents    (Semana 34-36)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -195,18 +195,18 @@
 
 ### FASE 15: 17_LLM_Agents (Semana 34-36)
 ```
-[ ] 1. docDev/17_LLM_Agents/rag_architecture.md: Diseño de Búsqueda Vectorial Nativa (HNSW)
-[ ] 2. docDev/17_LLM_Agents/inference_bridge.md: Conector Agnóstico LLM (Ollama)
-[ ] 3. docDev/17_LLM_Agents/auto_embedding.md: Vectores Automáticos en Background
-[ ] 4. docDev/17_LLM_Agents/agent_rbac.md: Particionamiento de Seguridad por Roles (RBAC)
-[ ] 5. docDev/17_LLM_Agents/conversational.md: Nodos Nativos de Chat (Conversational Primitives)
-[ ] 6. src/index.rs: Conectar motor estructural HNSW matemático real
-[ ] 7. src/llm/: Construir adaptador HTTP estricto hacia '/api/embeddings'
-[ ] 8. src/executor.rs: Hook de Auto-Embedding para INSERTs sin VECTOR explícito
-[ ] 9. src/security.rs: Filtro de permisos por Sub-Grafo
-[ ] 10. src/types.rs: Incorporar MessageThread
-[ ] 11. tests/llm_agents.rs: Integración completa de Agentes
-[ ] 12. Mover a complete/17_LLM_Agents ✅
+[x] 1. docDev/17_LLM_Agents/rag_architecture.md: Diseño de Búsqueda Vectorial Nativa (HNSW)
+[x] 2. docDev/17_LLM_Agents/inference_bridge.md: Conector Agnóstico LLM (Ollama)
+[x] 3. docDev/17_LLM_Agents/auto_embedding.md: Vectores Automáticos en Background
+[x] 4. docDev/17_LLM_Agents/agent_rbac.md: Particionamiento de Seguridad por Roles (RBAC)
+[x] 5. docDev/17_LLM_Agents/conversational.md: Nodos Nativos de Chat (Conversational Primitives)
+[x] 6. src/index.rs: Conectar motor estructural HNSW matemático real
+[x] 7. src/llm/: Construir adaptador HTTP estricto hacia '/api/embeddings'
+[x] 8. src/executor.rs: Hook de Auto-Embedding para INSERTs sin VECTOR explícito
+[x] 9. src/executor.rs: Filtro de permisos por Sub-Grafo (RBAC en execution plan)
+[x] 10. src/query.rs: Incorporar MessageThread Sugar Syntax
+[x] 11. tests/hnsw.rs: Integración matemática de Agentes
+[x] 12. Mover a complete/17_LLM_Agents ✅
 ```
 **Métricas**: Auto-Embedding overhead <2ms, HNSW search <5ms, Agnostic Bridge 100% Rust-native
 
