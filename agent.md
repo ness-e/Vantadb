@@ -149,12 +149,21 @@
 
 ### FASE 11: 13_ArrowColumnar (Semana 25-26)
 ```
-[ ] 1. docDev/13_ArrowColumnar/ipc_format.md
-[ ] 2. src/columnar.rs: Apache Arrow IPC conversion
-[ ] 3. tests/columnar.rs
-[ ] 4. Mover a complete/13_ArrowColumnar ✅
+[x] 1. docDev/13_ArrowColumnar/ipc_format.md
+[x] 2. src/columnar.rs: Apache Arrow IPC conversion
+[x] 3. tests/columnar.rs
+[x] 4. Mover a complete/13_ArrowColumnar ✅
 ```
 **Métricas**: Zero-copy SIMD scans
+
+### FASE 12: 14_Observability (Semana 27-28)
+```
+[ ] 1. docDev/14_Observability/metrics_layer.md
+[ ] 2. src/metrics.rs: Prometheus counters
+[ ] 3. Cargo.toml update
+[ ] 4. Mover a complete/14_Observability ✅
+```
+**Métricas**: Zero-overhead Telemetry
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```

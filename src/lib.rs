@@ -23,6 +23,7 @@ pub mod server;
 #[cfg(feature = "python_sdk")]
 pub mod python;
 pub mod columnar;
+pub mod metrics;
 
 // Re-exports for ergonomic API
 pub use error::{IadbmsError, Result};
