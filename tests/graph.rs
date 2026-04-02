@@ -4,23 +4,24 @@ use iadbms::graph::GraphTraverser;
 
 #[test]
 fn test_bfs_traversal() {
-    let mut storage = StorageEngine::new();
+    let storage = StorageEngine::open("tests_graph_db").unwrap();
     
     // root -> 2 -> 3
     //   |----> 4
     let mut node1 = UnifiedNode::new(1);
-    node1.graph_edges = Some(vec![2, 4]);
+    node1.add_edge(2, "relates_to");
+    node1.add_edge(4, "relates_to");
 
     let mut node2 = UnifiedNode::new(2);
-    node2.graph_edges = Some(vec![3]);
+    node2.add_edge(3, "relates_to");
 
-    let mut node3 = UnifiedNode::new(3);
-    let mut node4 = UnifiedNode::new(4);
+    let node3 = UnifiedNode::new(3);
+    let node4 = UnifiedNode::new(4);
 
-    storage.put(node1).unwrap();
-    storage.put(node2).unwrap();
-    storage.put(node3).unwrap();
-    storage.put(node4).unwrap();
+    storage.insert(&node1).unwrap();
+    storage.insert(&node2).unwrap();
+    storage.insert(&node3).unwrap();
+    storage.insert(&node4).unwrap();
 
     let traverser = GraphTraverser::new(&storage);
     

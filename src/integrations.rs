@@ -18,7 +18,7 @@ pub struct SearchResponse {
 }
 
 /// Simulated Axum handler for Hybrid Search
-pub async fn search_handler(payload: SearchRequest) -> SearchResponse {
+pub async fn search_handler(_payload: SearchRequest) -> SearchResponse {
     // Converts hybrid text query to logical plan here
     SearchResponse {
         results: vec![],

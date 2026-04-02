@@ -33,11 +33,9 @@ impl<'a> GraphTraverser<'a> {
             if depth < max_depth {
                 // Fetch the node from the storage engine
                 if let Ok(Some(node)) = self.storage.get(curr_id) {
-                    if let Some(edges) = &node.graph_edges {
-                        for &target_id in edges {
-                            if !visited.contains(&target_id) {
-                                queue.push_back((target_id, depth + 1));
-                            }
+                    for edge in &node.edges {
+                        if !visited.contains(&edge.target) {
+                            queue.push_back((edge.target, depth + 1));
                         }
                     }
                 }
