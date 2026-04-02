@@ -10,7 +10,8 @@
 ✅ Fase 4 [x] 06_Benchmarks       (Semana 11-12)
 ✅ Fase 5 [x] 07_Production      (Semana 13)
 ✅ Fase 6 [x] 08_ExecutionEngine (Semana 14-16)
-🟡 Fase 7 [/] 09_GraphEngine     (Semana 17-18)
+✅ Fase 7 [x] 09_GraphEngine     (Semana 17-18)
+🟡 Fase 8 [/] 10_ServerDaemon    (Semana 19-20)
 ```
 
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
@@ -108,13 +109,23 @@
 
 ### FASE 7: 09_GraphEngine (Semana 17-18)
 ```
-[ ] 1. docDev/09_GraphEngine/bfs_traversal.md
-[ ] 2. src/graph.rs: BFS Graph Traverser logic
-[ ] 3. src/lib.rs: Export graph module
-[ ] 4. tests/graph.rs
-[ ] 5. Mover a complete/09_GraphEngine ✅
+[x] 1. docDev/09_GraphEngine/bfs_traversal.md
+[x] 2. src/graph.rs: BFS Graph Traverser logic
+[x] 3. src/lib.rs: Export graph module
+[x] 4. tests/graph.rs
+[x] 5. Mover a complete/09_GraphEngine ✅
 ```
 **Métricas**: BFS depth=3 en <5ms
+
+### FASE 8: 10_ServerDaemon (Semana 19-20)
+```
+[ ] 1. docDev/10_ServerDaemon/api_layer.md
+[ ] 2. src/server.rs: Axum HTTPS/REST setup 
+[ ] 3. src/bin/iadbms-server.rs: Entrypoint daemon CLI
+[ ] 4. tests/server.rs
+[ ] 5. Mover a complete/10_ServerDaemon ✅
+```
+**Métricas**: <10ms latencia HTTP overhead
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```

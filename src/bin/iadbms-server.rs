@@ -1,0 +1,20 @@
+use iadbms::server::{app, ServerState};
+use iadbms::storage::StorageEngine;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+
+#[tokio::main]
+async fn main() {
+    println!("Starting IADBMS Protocol Daemon on port 8080...");
+    
+    // Initialize storage engine and wrap in Arc for Axum state sharing
+    let storage = Arc::new(StorageEngine::new());
+    let state = Arc::new(ServerState { storage });
+
+    let router = app(state);
+
+    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+    println!("IADBMS successfully bound to 127.0.0.1:8080");
+
+    axum::serve(listener, router).await.unwrap();
+}
