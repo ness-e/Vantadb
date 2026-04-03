@@ -214,7 +214,15 @@ impl<'a> Executor<'a> {
     }
 
     /// Evaluates the Logical Plan over the underlying storage engine
-    pub async fn execute_plan(&self, plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
+    pub async fn execute_plan(&self, mut plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
+        use crate::governor::ResourceGovernor;
+        
+        let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50); // 2GB Soft Limit, 50ms timeout
+        governor.apply_temperature_limits(&mut plan);
+        
+        let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
+        governor.request_allocation(estimated_mem_cost)?;
+
         let mut results = Vec::new();
         let mut target_nodes = Vec::new();
 
@@ -274,6 +282,7 @@ impl<'a> Executor<'a> {
             }
         }
 
+        governor.free_allocation(estimated_mem_cost);
         Ok(results)
     }
 }
