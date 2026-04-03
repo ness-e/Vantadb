@@ -1,7 +1,6 @@
 use crate::parser::lisp::LispExpr;
 use crate::executor::{Executor, ExecutionResult};
 use crate::error::{ConnectomeError, Result};
-use crate::query::{Statement, InsertStatement};
 use std::collections::BTreeMap;
 use crate::node::FieldValue;
 
@@ -66,13 +65,20 @@ impl<'a> LispSandbox<'a> {
         // Atar Metadata Homoiconica por v0.4.0 directiva "sys_rule: true"
         fields.insert("sys_rule".to_string(), FieldValue::Bool(true));
 
-        let stmt = Statement::Insert(InsertStatement {
-            node_id,
-            node_type,
-            fields,
-            vector: None,
-        });
+        // Las reglas LISP son nodos cognitivos activos (STNeuron) —
+        // deben vivir en cortex_ram para ser accesibles sin hit de disco.
+        let mut node = crate::node::UnifiedNode::new(node_id);
+        node.neuron_type = crate::node::NeuronType::STNeuron;
+        node.set_field("type", FieldValue::String(node_type.clone()));
+        for (k, v) in &fields {
+            node.set_field(k.as_str(), v.clone());
+        }
 
-        self.executor.execute_statement(stmt).await
+        self.executor.storage.insert(&node)?;
+        Ok(ExecutionResult::Write {
+            affected_nodes: 1,
+            message: format!("LISP Node {} inserted as STNeuron.", node_id),
+            node_id: Some(node_id),
+        })
     }
 }
