@@ -1,5 +1,5 @@
-use iadbms::node::{UnifiedNode, VectorData};
-use iadbms::columnar::nodes_to_record_batch;
+use connectomedb::node::{UnifiedNode, VectorData};
+use connectomedb::columnar::nodes_to_record_batch;
 
 #[test]
 fn test_arrow_conversion() {

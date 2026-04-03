@@ -1,4 +1,4 @@
-use iadbms::index::{CPIndex, cosine_similarity};
+use connectomedb::index::{CPIndex, cosine_similarity};
 
 #[test]
 fn test_cosine_math() {

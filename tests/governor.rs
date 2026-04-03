@@ -1,4 +1,4 @@
-use iadbms::governor::{ResourceGovernor, ALLOCATED_BYTES};
+use connectomedb::governor::{ResourceGovernor, ALLOCATED_BYTES};
 use std::sync::atomic::Ordering;
 
 #[test]

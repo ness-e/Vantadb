@@ -1,6 +1,6 @@
-use iadbms::query::*;
-use iadbms::parser::*;
-use iadbms::node::FieldValue;
+use connectomedb::query::*;
+use connectomedb::parser::*;
+use connectomedb::node::FieldValue;
 
 #[test]
 fn test_parse_full_query() {

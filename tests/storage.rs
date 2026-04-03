@@ -1,5 +1,5 @@
-use iadbms::storage::StorageEngine;
-use iadbms::node::UnifiedNode;
+use connectomedb::storage::StorageEngine;
+use connectomedb::node::UnifiedNode;
 use tempfile::tempdir;
 
 #[test]

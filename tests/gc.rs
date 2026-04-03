@@ -1,6 +1,6 @@
-use iadbms::gc::GcWorker;
-use iadbms::storage::StorageEngine;
-use iadbms::node::UnifiedNode;
+use connectomedb::gc::GcWorker;
+use connectomedb::storage::StorageEngine;
+use connectomedb::node::UnifiedNode;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
 

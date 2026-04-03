@@ -1,6 +1,6 @@
-use iadbms::storage::StorageEngine;
-use iadbms::node::UnifiedNode;
-use iadbms::graph::GraphTraverser;
+use connectomedb::storage::StorageEngine;
+use connectomedb::node::UnifiedNode;
+use connectomedb::graph::GraphTraverser;
 
 #[test]
 fn test_bfs_traversal() {

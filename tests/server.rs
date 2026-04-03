@@ -2,8 +2,8 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use iadbms::server::{app, ServerState};
-use iadbms::storage::StorageEngine;
+use connectomedb::server::{app, ServerState};
+use connectomedb::storage::StorageEngine;
 use std::sync::Arc;
 use tower::ServiceExt;
 

@@ -1,4 +1,4 @@
-use iadbms::integrations::*;
+use connectomedb::integrations::*;
 use tokio;
 
 #[tokio::test]

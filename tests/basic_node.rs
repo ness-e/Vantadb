@@ -1,6 +1,6 @@
-//! Integration tests for IADBMS Fase 1: node CRUD, vector search, graph traversal
+//! Integration tests for ConnectomeDB Fase 1: node CRUD, vector search, graph traversal
 
-use iadbms::{FieldValue, InMemoryEngine, UnifiedNode};
+use connectomedb::{FieldValue, InMemoryEngine, UnifiedNode};
 use std::time::Instant;
 
 #[test]
@@ -183,7 +183,7 @@ fn test_field_filter() {
 
 #[test]
 fn test_wal_persistence() {
-    let wal_path = std::env::temp_dir().join("iadbms_test_wal_persist.bin");
+    let wal_path = std::env::temp_dir().join("connectomedb_test_wal_persist.bin");
     let _ = std::fs::remove_file(&wal_path);
 
     // Write

@@ -1,6 +1,6 @@
-use iadbms::storage::StorageEngine;
-use iadbms::parser::parse_statement;
-use iadbms::executor::{Executor, ExecutionResult};
+use connectomedb::storage::StorageEngine;
+use connectomedb::parser::parse_statement;
+use connectomedb::executor::{Executor, ExecutionResult};
 use tempfile::tempdir;
 
 #[test]
@@ -34,7 +34,7 @@ fn test_dml_pipeline_e2e() {
 
     // 3. RELATE
     // Insert another node first
-    let q_insert2 = r#"INSERT NODE#5 TYPE Tarea { nombre: "IADBMS Tarea" }"#;
+    let q_insert2 = r#"INSERT NODE#5 TYPE Tarea { nombre: "ConnectomeDB Tarea" }"#;
     let (_, stmt_insert2) = parse_statement(q_insert2).unwrap();
     executor.execute_statement(stmt_insert2).unwrap();
 
