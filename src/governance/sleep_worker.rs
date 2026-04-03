@@ -32,8 +32,7 @@ impl SleepWorker {
         let mut to_consolidate = Vec::new();
         let mut to_purge = Vec::new();
 
-        let mut total_nodes = 0;
-        let mut deleted_count = 0;
+        let total_nodes;
 
         {
             // Acquire Write Lock transitorio sobre Cortex RAM
@@ -80,6 +79,7 @@ impl SleepWorker {
             }
         }
 
+        let mut deleted_count = 0usize;
         for id in to_purge {
             let _ = storage.delete(id, "Olvido Bayesiano (Trust < 0.2)");
             deleted_count += 1;
