@@ -17,6 +17,7 @@ pub mod wal;
 pub mod engine;
 pub mod query;
 pub mod parser;
+pub mod eval;
 pub mod storage;
 pub mod index;
 pub mod governor;

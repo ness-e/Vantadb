@@ -28,6 +28,7 @@ axum = "0.7"
 serde_json = "1.0"
 prometheus = "0.13"
 pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+wide = "1.2.0"
 
 [features]
 python_sdk = ["pyo3"]

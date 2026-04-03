@@ -3,6 +3,9 @@ use crate::query::{LogicalPlan, LogicalOperator, Statement};
 use crate::node::{UnifiedNode, VectorData};
 use crate::storage::StorageEngine;
 use crate::governance::{DevilsAdvocate, TrustArbiter, ResolutionResult};
+use crate::parser::lisp::parse as parse_lisp_expr;
+use crate::parser::parse_statement;
+use crate::eval::LispSandbox;
 
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
@@ -16,6 +19,21 @@ pub struct Executor<'a> {
 impl<'a> Executor<'a> {
     pub fn new(storage: &'a StorageEngine) -> Self {
         Self { storage }
+    }
+
+    pub async fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
+        let trimmed = query_string.trim_start();
+        if trimmed.starts_with('(') {
+            let expr = parse_lisp_expr(trimmed)
+                .map_err(|e| ConnectomeError::Execution(format!("LISP Parse Error: {}", e)))?;
+            let mut sandbox = LispSandbox::new(self);
+            sandbox.eval(std::borrow::Cow::Owned(expr)).await
+        } else {
+            match parse_statement(trimmed) {
+                Ok((_, stmt)) => self.execute_statement(stmt).await,
+                Err(e) => Err(ConnectomeError::Execution(format!("IQL Parse Error: {}", e)))
+            }
+        }
     }
 
     /// Ejecuta el Statement completo, distinguiendo entre Query de lectura y DML de escritura

@@ -52,14 +52,33 @@ impl VectorData {
         if a.len() != b.len() || a.is_empty() {
             return None;
         }
-        let mut dot = 0.0f32;
-        let mut norm_a = 0.0f32;
-        let mut norm_b = 0.0f32;
-        for i in 0..a.len() {
-            dot += a[i] * b[i];
-            norm_a += a[i] * a[i];
-            norm_b += b[i] * b[i];
+        let mut dot_v = wide::f32x8::ZERO;
+        let mut norm_a_v = wide::f32x8::ZERO;
+        let mut norm_b_v = wide::f32x8::ZERO;
+
+        let chunks_a = a.chunks_exact(8);
+        let chunks_b = b.chunks_exact(8);
+        let rem_a = chunks_a.remainder();
+        let rem_b = chunks_b.remainder();
+
+        for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
+            let va = wide::f32x8::from([a_chunk[0], a_chunk[1], a_chunk[2], a_chunk[3], a_chunk[4], a_chunk[5], a_chunk[6], a_chunk[7]]);
+            let vb = wide::f32x8::from([b_chunk[0], b_chunk[1], b_chunk[2], b_chunk[3], b_chunk[4], b_chunk[5], b_chunk[6], b_chunk[7]]);
+            dot_v += va * vb;
+            norm_a_v += va * va;
+            norm_b_v += vb * vb;
         }
+
+        let mut dot = dot_v.reduce_add();
+        let mut norm_a = norm_a_v.reduce_add();
+        let mut norm_b = norm_b_v.reduce_add();
+
+        for i in 0..rem_a.len() {
+            dot += rem_a[i] * rem_b[i];
+            norm_a += rem_a[i] * rem_a[i];
+            norm_b += rem_b[i] * rem_b[i];
+        }
+
         let denom = norm_a.sqrt() * norm_b.sqrt();
         if denom < f32::EPSILON {
             None
