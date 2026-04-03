@@ -47,9 +47,9 @@ impl<'a> LispSandbox<'a> {
 
         let target = if let LispExpr::Keyword(k) = &args[0] { k.as_str() } else { "neuron" };
         let mut fields = HashMap::new();
-        let mut node_type = target.to_string();
+        let node_type = target.to_string();
         
-        let mut node_id = rand::random::<u64>(); // Generación genérica
+        let node_id = rand::random::<u64>(); // Generación genérica
 
         if let LispExpr::Map(map) = &args[1] {
             for (key, val) in map {

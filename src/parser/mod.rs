@@ -14,7 +14,7 @@ pub mod lisp;
 use crate::query::*;
 use crate::node::FieldValue;
 
-pub fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(mut inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+pub fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
 where
     F: Parser<&'a str, O, E>,
 {
