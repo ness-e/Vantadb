@@ -25,6 +25,12 @@ impl<'a> Executor<'a> {
         Self { storage }
     }
 
+    /// Inserts a pre-built UnifiedNode directly into storage.
+    /// Used by the LISP sandbox to inject STNeuron cognitive rules.
+    pub fn insert_node(&self, node: &crate::node::UnifiedNode) -> crate::error::Result<()> {
+        self.storage.insert(node)
+    }
+
     pub async fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {

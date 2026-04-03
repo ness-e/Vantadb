@@ -74,7 +74,7 @@ impl<'a> LispSandbox<'a> {
             node.set_field(k.as_str(), v.clone());
         }
 
-        self.executor.storage.insert(&node)?;
+        self.executor.insert_node(&node)?;
         Ok(ExecutionResult::Write {
             affected_nodes: 1,
             message: format!("LISP Node {} inserted as STNeuron.", node_id),
