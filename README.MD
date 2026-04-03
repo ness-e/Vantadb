@@ -94,12 +94,14 @@ Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
 ---
 
-## 🛠️ Arquitectura Interna
+## 🛠️ Arquitectura Interna y Soberanía Cognitiva (v0.4.0)
 
 - **Zero-Copy Architecture:** Serialización directa `bincode` sobre slices cacheados en RocksDB. 
-- **CP-Index (Co-located Pre-filter):** Integra clústeres HNSW con máscaras de bits `u128` (bitsets) lo que permite hacer skip de nodos estáticamente incompatibles antes de hacer cuentas costosas de álgebra lineal.
-- **Resource Governor:** Circuit breakers internos y monitors asumen límites dinámicos hostiles (hasta un hard limit de 2GB overhead RAM para equipos edge).
-- **Integración nativa con Ollama:** En la versión `v0.2.0-alpha`, el motor incluye compatibilidad con los embeddings de los stacks open source locales más modernos sin necesidad de proxies.
+- **Cognitive Sovereignty (Devil's Advocate):** El motor audita proactivamente las escrituras. Si detecta similitud vectorial extrema (>0.95) pero disparidad en la certeza (Trust Score), el *Arbiter* bloquea mutaciones falaces emitiendo `Sovereignty Rejected`.
+- **Shadow Kernel & Lápidas:** Borrados y purgas protegidas bajo el capó. Cada mutación de borrado atómico se desvía al Shadow Arc con un "Auditable Tombstone" para prevención de pérdida semántica.
+- **Security Axioms & Life Insurance:** Protección pasiva contra extinción. Checkpoints veloces basados en Hard Links de RocksDB con control estricto de Memoria (BlockCache restringido a 2GB de overhead para operar eficientemente en entornos Edge/Laptops).
+- **CP-Index (Co-located Pre-filter):** Integra clústeres HNSW con máscaras de bits `u128` (bitsets) saltando nodos estáticamente incompatibles antes del álgebra pesada.
+- **Integración nativa con Ollama:** Embeddings directos de stacks open source locales sin middlewares externos.
 
 ---
 
