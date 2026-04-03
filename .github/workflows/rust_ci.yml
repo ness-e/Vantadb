@@ -18,6 +18,9 @@ jobs:
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
 
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
     - name: Install dependencies (RocksDB requirements)
       run: |
         sudo apt-get update
