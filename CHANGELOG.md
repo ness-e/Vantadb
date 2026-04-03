@@ -2,10 +2,10 @@
 
 ## [v0.4.0] - current
 ### ✨ Features
-- **Cognitive Logic:** Hybrid execution layer supporting LISP S-Expressions (`src/eval`).
-- **Development Roadmap (Phase 24-28):** Initiation of "Cognitive OS" architecture including Lobes, tiered memory, and Bayesian forgetfulness.
-- **Sovereignty Module:** `DevilsAdvocate` write auditing to prevent contradictory or low-trust mutations.
-- **Shadow Kernel:** Auditable memory via soft-deletion (Tombstones) and async Garbage Collection.
+- **NeuLISP (Cognitive Inference):** Evolution of LISP S-Expressions to support native probabilistic inference returning `(Value, TrustScore)`. Includes `OP_VEC_SIM` for SIMD-accelerated execution of the Similitude Operator (`~`) and `OP_TRUST_CHECK`.
+- **Biological Governance (Amygdala Budget):** SleepWorker now enforces a strict 5% budget on RAM-resident nodes with high `semantic_valence` (>0.8) to protect them from Bayesian Forgetfulness and consolidation, emulating human core memory.
+- **Multi-Lobe Memory Architecture (RocksDB):** Data partitioning now extends explicitly to `default`, `shadow_kernel`, `tombstones`, and `deep_memory` Column Families.
+- **Cognitive Sovereignty:** `DevilsAdvocate` write auditing to prevent contradictory or low-trust mutations.
 - **Cognitive Fuel:** Sandbox-protected execution of dynamic rules with resource limits.
 
 ## [v0.3.0]

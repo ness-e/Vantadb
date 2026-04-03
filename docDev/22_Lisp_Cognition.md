@@ -12,6 +12,10 @@ Se utiliza un parser secundario basado en `nom` que identifica estructuras balan
 - **Variables**: Identificadores dinámicos que comienzan con `?`.
 - **Mapas**: Representación de payloads complejos `{ :key "val" }`.
 
+#### Operaciones de Primer Orden Avanzadas:
+- **Operador de Similitud (`~`)**: Enlace directo y nativo entre expresiones LISP y el clúster HNSW. Evalúa la distancia coseno. Ejemplo: `(if (~ query-vector node-vector 0.9) (allow) (reject))`
+- **Valencia Gated-Macros**: Macros de ejecución condicionada a que la neurona posea un calor semántico superior (valencia alta), ejecutables activamente por el ciclo circadiano del SleepWorker.
+
 ### 2. Sandbox de Ejecución (`src/eval/mod.rs`)
 Para prevenir ataques de denegación de servicio (DoS) mediante recursión infinita o bucles lógicos, se implementa el `LispSandbox`.
 - **Cognitive Fuel**: Cada paso de evaluación consume 1 unidad de "combustible". El límite por defecto es `1000`. Si se agota, la ejecución aborta con `Sandbox Abort: Out of Cognitive Fuel`.

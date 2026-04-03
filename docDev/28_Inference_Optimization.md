@@ -2,12 +2,13 @@
 
 Para lograr el objetivo de sub-milisegundos en consultas híbridas complejas, ConnectomeDB evoluciona su motor de ejecución desde la interpretación directa hacia una arquitectura de Máquina Virtual ligera.
 
-## 1. El Salto a Bytecode (LISP VM)
-La interpretación recursiva del AST de las S-Expressions consume ciclos de CPU excesivos.
+## 1. El Salto a Bytecode (NeuLISP VM)
+La interpretación recursiva del AST de las S-Expressions consume ciclos de CPU excesivos, por lo que hemos transicionado hacia una arquitectura de Inferencia Cognitiva.
 - **Implementación**:
-    1. El motor LISP compila la expresión `.lisp` en una secuencia plana de **Opcodes** (ej. `OP_INSERT_NODE`, `OP_VALIDATE_AXIOM`).
-    2. Una VM escrita en Rust seguro ejecuta este bytecode utilizando un dispatch basado en `match` optimizado.
-- **Beneficio**: Velocidad $10\times$ superior y control total sobre el consumo de `Cognitive Fuel`.
+    1. El motor LISP compila la expresión `.lisp` en una secuencia plana de **Opcodes de Dominio** (ej. `OP_VEC_SIM`, `OP_TRUST_CHECK`, `OP_SUMMARIZE`).
+    2. Una VM escrita en Rust seguro ejecuta este bytecode. 
+    3. **Inferencia Probabilística (Tensores de Certeza)**: El evaluador ya no retorna un binario o valor plano, sino un par `(Value, TrustScore)`. El score se va ajustando o difuminando (penalización) según las operaciones internas que puedan tener incertidumbre (ej. mediciones de similitud pobres).
+- **Beneficio**: Velocidad $10\times$ superior y control total sobre el consumo de `Cognitive Fuel`, dándole un sentido biológico a la lógica.
 
 ## 2. Aceleración de Búsquedas (Bloom Co-location)
 Integración de los **Filtros de Bloom** en el flujo del `Cortex`.
