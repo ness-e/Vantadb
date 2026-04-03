@@ -104,15 +104,25 @@ impl StorageEngine {
         match self.db.get_pinned(&key) {
             Ok(Some(slice)) => {
                 let mut node: UnifiedNode = bincode::deserialize(&slice).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-                
+
+                // Incrementar hits y recencia ANTES de evaluar el umbral.
+                // Sin esto, cada get() ve el valor serializado inicial y nunca llega a 50.
+                node.hits += 1;
+                node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+
                 // --- Dynamic Memory Promotion (Fase 20.5) ---
-                // Si el nodo es popular (hits > 50), lo promovemos a RAM (STN)
+                // Si el nodo alcanzó popularidad suficiente (hits >= 50), lo promovemos a STN.
                 if node.hits >= 50 {
                     node.neuron_type = crate::node::NeuronType::STNeuron;
                     let mut cache = self.cortex_ram.write().unwrap();
                     cache.insert(node.id, node.clone());
                 }
-                
+
+                // Persistir el nodo con hits/last_accessed actualizados para que el
+                // próximo get() desde disco vea el contador correcto.
+                let updated_val = bincode::serialize(&node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+                let _ = self.db.put(&key, &updated_val); // best-effort: no propagamos error de escritura de métrica
+
                 Ok(Some(node))
             }
             Ok(None) => Ok(None),
