@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/ness-e/IADBMS/main/connectome-web/public/favicon.ico" width="80" alt="ConnectomeDB Logo">
+  <img src="https://raw.githubusercontent.com/ness-e/ConnectomeDB/main/connectome-web/public/favicon.ico" width="80" alt="ConnectomeDB Logo">
   <h1>ConnectomeDB</h1>
   <p><strong>El Núcleo de Memoria Cognitiva para Agentes Autónomos.</strong></p>
   <p>Vectores, Grafos y Reglas Lógicas en un motor bio-inspirado escrito en Rust. Memoria que aprende, olvida y razona.</p>
@@ -7,7 +7,7 @@
   <p>
     <a href="https://connectomedb.dev"><img src="https://img.shields.io/badge/Website-connectomedb.dev-00d4ff?style=flat-square" alt="Website"></a>
     <a href="https://hub.docker.com/r/ness-e/connectomedb"><img src="https://img.shields.io/badge/docker-pull-0ea5e9?style=flat-square&logo=docker" alt="Docker"></a>
-    <a href="https://github.com/ness-e/IADBMS/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-a855f7?style=flat-square" alt="License"></a>
+    <a href="https://github.com/ness-e/ConnectomeDB/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-a855f7?style=flat-square" alt="License"></a>
     <img src="https://img.shields.io/badge/Rust-1.75+-ce422b?style=flat-square&logo=rust" alt="Rust Version">
   </p>
 </div>
@@ -111,7 +111,7 @@ ConnectomeDB es open source (Apache 2.0) y construido para el ecosistema emergen
 
 - 📚 [Documentación Oficial](https://connectomedb.dev/docs)
 - 💬 [Discord de la Comunidad](https://discord.gg/connectomedb)
-- 🐛 [Reportar un Bug](https://github.com/ness-e/IADBMS/issues)
+- 🐛 [Reportar un Bug](https://github.com/ness-e/ConnectomeDB/issues)
 - 💖 [Sponsor el Desarrollo](https://github.com/sponsors/ness-e)
 
 ## Licencia
