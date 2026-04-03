@@ -37,7 +37,7 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
     let batch = RecordBatch::try_new(
         schema,
         vec![Arc::new(id_array), Arc::new(coords_array)],
-    ).map_err(|e| crate::error::IadbmsError::Execution(e.to_string()))?;
+    ).map_err(|e| crate::error::ConnectomeError::Execution(e.to_string()))?;
 
     Ok(batch)
 }

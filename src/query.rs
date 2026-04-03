@@ -153,3 +153,9 @@ impl Query {
     }
 }
 
+// ── ConnectomeDB Biological Nomenclature (Type Alias) ────────────
+
+/// The **Cortex** is ConnectomeDB's query decision engine.
+/// Technically identical to `LogicalPlan` — it decides what to scan,
+/// how to filter, and which traversal strategy to execute.
+pub type Cortex = LogicalPlan;

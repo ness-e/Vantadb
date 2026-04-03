@@ -1,4 +1,4 @@
-use crate::error::{Result, IadbmsError};
+use crate::error::{Result, ConnectomeError};
 use crate::query::{LogicalPlan, LogicalOperator, Statement};
 use crate::node::{UnifiedNode, VectorData};
 use crate::storage::StorageEngine;
@@ -55,7 +55,7 @@ impl<'a> Executor<'a> {
             Statement::Update(update) => {
                 let mut node = match self.storage.get(update.node_id)? {
                     Some(n) => n,
-                    None => return Err(IadbmsError::Execution(format!("Node {} not found for update", update.node_id))),
+                    None => return Err(ConnectomeError::Execution(format!("Node {} not found for update", update.node_id))),
                 };
                 for (k, v) in update.fields {
                     node.set_field(k, v);
@@ -74,7 +74,7 @@ impl<'a> Executor<'a> {
             Statement::Relate(relate) => {
                 let mut node = match self.storage.get(relate.source_id)? {
                     Some(n) => n,
-                    None => return Err(IadbmsError::Execution(format!("Source Node {} not found for relation", relate.source_id))),
+                    None => return Err(ConnectomeError::Execution(format!("Source Node {} not found for relation", relate.source_id))),
                 };
                 if let Some(w) = relate.weight {
                     node.add_weighted_edge(relate.target_id, relate.label, w);
@@ -138,8 +138,19 @@ impl<'a> Executor<'a> {
         }
 
         if !searched_hnsw {
-            // Fallback mock if it's not a vector query (linear scan mock)
-            target_nodes.push(1); 
+            // Fallback: real scan based on FROM entity (Scan operator)
+            for op in &plan.operators {
+                if let LogicalOperator::Scan { entity } = op {
+                    // If entity contains '#', it's a specific node ID (e.g., "Usuario#45")
+                    if let Some(id_str) = entity.split('#').nth(1) {
+                        if let Ok(id) = id_str.parse::<u64>() {
+                            target_nodes.push(id);
+                        }
+                    }
+                    // Otherwise, scan is deferred to post-filter (MVP limitation)
+                    break;
+                }
+            }
         }
 
         // Pass 2: Materializar los nodos devueltos por el índice y filtrar RBAC
@@ -148,7 +159,7 @@ impl<'a> Executor<'a> {
                 // Agented RBAC (Role-Based Access Control) Graph pruning
                 if let Some(required_role) = &plan.enforce_role {
                     let mut role_match = false;
-                    if let Some(crate::node::FieldValue::String(node_role)) = node.fields.get("_owner_role") {
+                    if let Some(crate::node::FieldValue::String(node_role)) = node.relational.get("_owner_role") {
                         if node_role == required_role {
                             role_match = true;
                         }

@@ -1,4 +1,4 @@
-name: IADBMS CI
+name: ConnectomeDB CI
 
 on:
   push:

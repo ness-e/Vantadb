@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::error::{IadbmsError, Result};
+use crate::error::{ConnectomeError, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorData};
 use crate::wal::{WalReader, WalRecord, WalWriter};
 
@@ -124,7 +124,7 @@ impl InMemoryEngine {
 
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
-            return Err(IadbmsError::DuplicateNode(id));
+            return Err(ConnectomeError::DuplicateNode(id));
         }
         nodes.insert(id, node);
         Ok(id)
@@ -150,7 +150,7 @@ impl InMemoryEngine {
         }
         let mut nodes = self.nodes.write();
         if !nodes.contains_key(&id) {
-            return Err(IadbmsError::NodeNotFound(id));
+            return Err(ConnectomeError::NodeNotFound(id));
         }
         nodes.insert(id, node);
         Ok(())
@@ -163,7 +163,7 @@ impl InMemoryEngine {
         }
         let mut nodes = self.nodes.write();
         if nodes.remove(&id).is_none() {
-            return Err(IadbmsError::NodeNotFound(id));
+            return Err(ConnectomeError::NodeNotFound(id));
         }
         Ok(())
     }
@@ -236,7 +236,7 @@ impl InMemoryEngine {
     ) -> Result<Vec<(u64, u32)>> {
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
-            return Err(IadbmsError::NodeNotFound(start));
+            return Err(ConnectomeError::NodeNotFound(start));
         }
 
         let mut visited = HashMap::new();

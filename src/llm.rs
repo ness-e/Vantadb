@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
-use crate::error::{IadbmsError, Result};
+use crate::error::{ConnectomeError, Result};
 
 #[derive(Serialize)]
 struct OllamaEmbeddingRequest<'a> {
@@ -28,11 +28,13 @@ impl Default for LlmClient {
 
 impl LlmClient {
     pub fn new() -> Self {
-        let base_url = env::var("IADBMS_LLM_URL")
+        let base_url = env::var("CONNECTOME_LLM_URL")
+            .or_else(|_| env::var("IADBMS_LLM_URL"))  // Fallback for migration
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
         
         // El predeterminado de ollama para embeddings vectoriales es nomic-embed-text o all-minilm
-        let default_model = env::var("IADBMS_LLM_MODEL")
+        let default_model = env::var("CONNECTOME_LLM_MODEL")
+            .or_else(|_| env::var("IADBMS_LLM_MODEL"))  // Fallback for migration
             .unwrap_or_else(|_| "all-minilm".to_string());
             
         Self {
@@ -58,17 +60,17 @@ impl LlmClient {
             .json(&req_body)
             .send()
             .await
-            .map_err(|e| IadbmsError::Execution(format!("Network error communicating with Inference Bridge: {}", e)))?;
+            .map_err(|e| ConnectomeError::Execution(format!("Network error communicating with Inference Bridge: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(IadbmsError::Execution(format!(
+            return Err(ConnectomeError::Execution(format!(
                 "Inference Bridge returned error status: {}", status
             )));
         }
 
         let result: OllamaEmbeddingResponse = response.json().await
-            .map_err(|e| IadbmsError::Execution(format!("Invalid response format from Inference Bridge: {}", e)))?;
+            .map_err(|e| ConnectomeError::Execution(format!("Invalid response format from Inference Bridge: {}", e)))?;
 
         Ok(result.embedding)
     }

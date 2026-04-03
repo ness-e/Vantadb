@@ -1,8 +1,8 @@
 # Dockerfile
-# Target: 5-minute setup worldwide (Local/Cloud)
+# ConnectomeDB: Neural-Inspired Multimodel Database for Local AI
 FROM rust:1.76-slim-bullseye AS builder
 
-WORKDIR /usr/src/iadbms
+WORKDIR /usr/src/connectomedb
 COPY Cargo.toml Cargo.lock ./
 # Note: In a real project, we would build dependencies here to cache them using dummy main.rs
 COPY src ./src
@@ -15,9 +15,9 @@ FROM debian:bullseye-slim
 # Install curl for healthchecks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/src/iadbms/target/release/iadbms /usr/local/bin/iadbms
+COPY --from=builder /usr/src/connectomedb/target/release/connectome-server /usr/local/bin/connectome-server
 
 ENV RUST_LOG=info
 EXPOSE 8080
 
-CMD ["iadbms"]
+CMD ["connectome-server"]

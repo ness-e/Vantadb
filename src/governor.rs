@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::error::{IadbmsError, Result};
+use crate::error::{ConnectomeError, Result};
 use crate::query::LogicalPlan;
 
 /// Global counter of bytes currently allocated by queries in flight.
@@ -22,7 +22,7 @@ impl ResourceGovernor {
     pub fn request_allocation(&self, bytes: usize) -> Result<()> {
         let current = ALLOCATED_BYTES.load(Ordering::Relaxed);
         if current + bytes > self.max_memory_bytes {
-            return Err(IadbmsError::ResourceLimit("OOM Guard triggered: query exceeds soft memory limit.".to_string()));
+            return Err(ConnectomeError::ResourceLimit("OOM Guard triggered: query exceeds soft memory limit.".to_string()));
         }
         ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
         Ok(())

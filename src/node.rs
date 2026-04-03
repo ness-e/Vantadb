@@ -348,3 +348,19 @@ mod tests {
         assert_eq!(node.get_field("missing"), None);
     }
 }
+
+// ── ConnectomeDB Biological Nomenclature (Type Aliases) ──────────
+//
+// These aliases allow users to choose between traditional database terms
+// and the biologically-inspired ConnectomeDB vocabulary.
+// Both names compile identically — the struct definitions remain unchanged.
+
+/// A **Neuron** is the fundamental cognitive unit of ConnectomeDB.
+/// Technically identical to `UnifiedNode` — the unified multimodel data structure
+/// containing relational fields, graph edges, and vector embeddings.
+pub type Neuron = UnifiedNode;
+
+/// A **Synapse** is a weighted, directed connection between two Neurons.
+/// Technically identical to `Edge`. The name `Edge` is retained as the primary
+/// identifier for compatibility with the Rust graph ecosystem.
+pub type Synapse = Edge;

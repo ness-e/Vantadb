@@ -1,9 +1,9 @@
 use std::io::{self, Write};
-// Mock of the CLI REPL for MVP. In reality, we would use `rustyline` for a proper term.
+// ConnectomeDB CLI REPL. In production, use `rustyline` for proper terminal support.
 
 #[tokio::main]
 async fn main() {
-    println!("IADBMS Interactive Shell v0.1.0");
+    println!("ConnectomeDB Interactive Shell v0.2.0");
     println!("Type '\\help' for commands, or write your query directly.");
     println!("Connecting to tcp://127.0.0.1:8080...");
 
@@ -11,7 +11,7 @@ async fn main() {
     let url = "http://127.0.0.1:8080/api/v1/query";
 
     loop {
-        print!("iadbms> ");
+        print!("connectome> ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();

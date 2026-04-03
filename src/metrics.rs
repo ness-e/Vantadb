@@ -6,20 +6,20 @@ pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
 pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(
-        prometheus::HistogramOpts::new("iadbms_query_latency_ms", "Query execution times in ms")
+        prometheus::HistogramOpts::new("connectome_query_latency_ms", "Query execution times in ms")
     ).unwrap();
     METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
     hist
 });
 
 pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new("iadbms_oom_circuit_trips_total", "Governor OOM prevents").unwrap();
+    let counter = IntCounter::new("connectome_oom_circuit_trips_total", "Governor OOM prevents").unwrap();
     METRICS_REGISTRY.register(Box::new(counter.clone())).unwrap();
     counter
 });
 
 pub static CACHE_HITS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new("iadbms_cache_hits_total", "CP-Index fast path matches").unwrap();
+    let counter = IntCounter::new("connectome_cache_hits_total", "CP-Index fast path matches").unwrap();
     METRICS_REGISTRY.register(Box::new(counter.clone())).unwrap();
     counter
 });

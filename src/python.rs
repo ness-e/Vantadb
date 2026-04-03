@@ -13,7 +13,7 @@ impl ClientEngine {
     #[new]
     pub fn new() -> Self {
         ClientEngine {
-            _storage: StorageEngine::open("iadbms_internal_db").unwrap()
+            _storage: StorageEngine::open("connectome_data").unwrap()
         }
     }
 
@@ -38,7 +38,7 @@ impl ClientEngine {
 /// The python module definition. 
 /// Compiled utilizing `maturin develop --features python_sdk`.
 #[pymodule]
-fn iadbms_core(_py: Python, m: &PyModule) -> PyResult<()> {
+fn connectomedb(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ClientEngine>()?;
     Ok(())
 }

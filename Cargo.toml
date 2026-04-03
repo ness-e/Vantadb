@@ -1,11 +1,11 @@
 [package]
-name = "iadbms"
-version = "0.1.0"
+name = "connectomedb"
+version = "0.2.0"
 edition = "2021"
-description = "Multimodel Database for Local AI — Vector + Graph + Relational unified engine"
+description = "ConnectomeDB: A neural-inspired multimodel database for local AI agents. Maps vectors-graphs-tables like neurons in a brain."
 license = "Apache-2.0"
 readme = "README.md"
-keywords = ["database", "vector", "graph", "ai", "embedded"]
+keywords = ["database", "vector", "graph", "ai", "connectome"]
 categories = ["database-implementations"]
 
 [dependencies]
@@ -15,7 +15,8 @@ bincode = "1.3"
 thiserror = "1"
 parking_lot = "0.12"
 
-# ── Fase 2: Parser + Storage (activar en Fase 2) ──
+# ── Fase 2: Parser + Storage ──
+rand = "0.8"
 nom = "7"
 arrow = { version = "53", features = ["ipc"] }
 rocksdb = "0.22"

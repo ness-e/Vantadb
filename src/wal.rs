@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{IadbmsError, Result};
+use crate::error::{ConnectomeError, Result};
 use crate::node::UnifiedNode;
 
 // ─── WAL Record ────────────────────────────────────────────
@@ -47,7 +47,7 @@ impl WalWriter {
     /// Append a record to the WAL
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         let payload = bincode::serialize(record)
-            .map_err(|e| IadbmsError::SerializationError(e.to_string()))?;
+            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
         let len = payload.len() as u32;
         let crc = crc32(&payload);
 
@@ -117,14 +117,14 @@ impl WalReader {
         let computed_crc = crc32(&payload);
 
         if stored_crc != computed_crc {
-            return Err(IadbmsError::WalError(format!(
+            return Err(ConnectomeError::WalError(format!(
                 "CRC mismatch at record {}: stored={:#x}, computed={:#x}",
                 self.records_read, stored_crc, computed_crc
             )));
         }
 
         let record: WalRecord = bincode::deserialize(&payload)
-            .map_err(|e| IadbmsError::SerializationError(e.to_string()))?;
+            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
         self.records_read += 1;
         Ok(Some(record))
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_wal_roundtrip() {
-        let dir = std::env::temp_dir().join("iadbms_test_wal_rt");
+        let dir = std::env::temp_dir().join("connectome_test_wal_rt");
         let _ = std::fs::remove_file(&dir);
 
         {
@@ -196,8 +196,8 @@ mod tests {
 
     #[test]
     fn test_crc32_deterministic() {
-        let data = b"iadbms wal test";
+        let data = b"connectome wal test";
         assert_eq!(crc32(data), crc32(data));
-        assert_ne!(crc32(data), crc32(b"iadbms wal tesx"));
+        assert_ne!(crc32(data), crc32(b"connectome wal tesx"));
     }
 }

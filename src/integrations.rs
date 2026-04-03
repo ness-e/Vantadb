@@ -1,4 +1,4 @@
-//! IADBMS Integrations (Ollama, LangChain)
+//! ConnectomeDB Integrations (Ollama, LangChain)
 use serde::{Deserialize, Serialize};
 
 /// Request mapping for a simple LangChain vector store search
@@ -35,7 +35,7 @@ pub struct OllamaGenerateRequest {
 
 /// Simulated context retrieval and proxy
 pub async fn ollama_proxy_handler(req: OllamaGenerateRequest) -> String {
-    // 1. Search IADBMS for semantically similar nodes
+    // 1. Search ConnectomeDB for semantically similar nodes
     // 2. Inject results into `req.prompt`
     // 3. Forward to actual localhost Ollama
     format!("Proximamente: Context-Aware proxy response para {}", req.model)
