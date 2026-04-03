@@ -36,6 +36,10 @@
 - [ ] Implementar modo 'Abogado del Diablo' para detección de sesgos y contradicciones lógicas.
 - [ ] Algoritmo de resolución automática de conflictos basado en Trust Scores de fuentes.
 
+**FASE 20: Mantenimiento Circadiano (Auditoría de Sueño)**
+- [ ] **Fase REM:** Escaneo de IDs en RAM vs Point-Lookup en RocksDB (Reconstrucción probabilística de Bloom Filters si el desvío es > 0.01%).
+- [ ] **Fase de Podado (Pruning):** Desalojo masivo de `trust_score` crítico o `hits` nulos a `shadow_kernel`, validando que cada lápida esté íntegra sin interrumpir el I/O del usuario.
+
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
 ✅ MVP: 1M nodos + 100k vectores en 16GB RAM

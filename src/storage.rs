@@ -20,6 +20,15 @@ impl StorageEngine {
         opts.set_max_background_jobs(4);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         
+        opts.set_write_buffer_size(128 * 1024 * 1024); // 128MB
+        opts.set_max_write_buffer_number(4);
+
+        // Optimización Bloom Filter & Block Cache
+        let mut bopts = rocksdb::BlockBasedOptions::default();
+        bopts.set_bloom_filter(10, false);
+        bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024).unwrap()); // 2GB
+        opts.set_block_based_table_factory(&bopts);
+        
         let cfs = vec!["default", "shadow_kernel", "tombstones"];
         let db = DB::open_cf(&opts, path, cfs).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         

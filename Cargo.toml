@@ -42,6 +42,10 @@ http = "1"
 name = "hybrid_queries"
 harness = false
 
+[[bench]]
+name = "stress_test"
+harness = false
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
