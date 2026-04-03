@@ -1,4 +1,4 @@
-# IADBMS — Go-To-Market Timeline (30/90/180 Days)
+# ConnectomeDB — Go-To-Market Timeline (30/90/180 Days)
 
 ---
 
@@ -8,7 +8,7 @@
 ```
 DAY 1-2:
   [ ] README rewrite completo (demo GIF, benchmarks table, 60s quickstart)
-  [ ] Docker Compose file: IADBMS + Ollama one-command setup
+  [ ] Docker Compose file: ConnectomeDB + Ollama one-command setup
   [ ] GitHub repo cleanup (proper .gitignore, issue templates, CONTRIBUTING.md)
 
 DAY 3-4:
@@ -41,7 +41,7 @@ DAY 10:
 ```
 DAY 11 (MARTES 10AM EST):
   [ ] 🚀 HackerNews "Show HN" post
-  [ ] Formato: "Show HN: IADBMS – Rust database unifying vectors, graphs, and SQL for local AI"
+  [ ] Formato: "Show HN: ConnectomeDB – Rust database unifying vectors, graphs, and SQL for local AI"
   [ ] First comment: founder story + technical decisions
   [ ] Responder CADA comment por 6 horas
 
@@ -54,7 +54,7 @@ DAY 13:
   [ ] TLDR Newsletter submission
 
 DAY 14:
-  [ ] Follow-up blog: "How IADBMS does hybrid queries in 8ms"
+  [ ] Follow-up blog: "How ConnectomeDB does hybrid queries in 8ms"
 ```
 
 ### Week 4 — Community Bootstrap
@@ -93,9 +93,9 @@ DAY 20-21:
 ### Month 2 — Content & Partnerships
 ```
 WEEK 5-6:
-  [ ] mdBook documentation site live on iadbms.dev
-  [ ] Tutorial: "Build a RAG agent with IADBMS + Ollama (10 min)"
-  [ ] Tutorial: "IADBMS for recommendation engines"
+  [ ] mdBook documentation site live on connectomedb.dev
+  [ ] Tutorial: "Build a RAG agent with ConnectomeDB + Ollama (10 min)"
+  [ ] Tutorial: "ConnectomeDB for recommendation engines"
   
 WEEK 7-8:
   [ ] Reach out to Ollama team for partnership/mention
@@ -141,8 +141,8 @@ WEEK 11-12:
 ### Month 4-5 — Cloud Beta
 ```
 WEEK 13-16:
-  [ ] IADBMS Cloud: beta infrastructure on Fly.io
-  [ ] Signup page: iadbms.dev/cloud
+  [ ] ConnectomeDB Cloud: beta infrastructure on Fly.io
+  [ ] Signup page: connectomedb.dev/cloud
   [ ] 10 beta testers (free, in exchange for feedback)
   [ ] Manual provisioning initially (automate in month 6)
 
@@ -150,7 +150,7 @@ WEEK 17-20:
   [ ] Enterprise outreach: 10 companies contacted
   [ ] 2-3 Enterprise pilot conversations
   [ ] Case study from beta tester #1
-  [ ] Blog: "IADBMS in production: [Company X] story"
+  [ ] Blog: "ConnectomeDB in production: [Company X] story"
 ```
 
 ### Month 6 — Scale
@@ -159,14 +159,14 @@ WEEK 21-22:
   [ ] Cloud GA launch with self-service signup
   [ ] Pricing page live: Hobby ($29) / Startup ($99) / Business ($299)
   [ ] Stripe integration for billing
-  [ ] Status page: status.iadbms.dev
+  [ ] Status page: status.connectomedb.dev
 
 WEEK 23-24:
   [ ] First Enterprise signed ($299/mo)
   [ ] v1.5 feature launch (WASM playground OR Web UI visualizer)
   [ ] Apply to Y Combinator AI Batch (if timing aligns)
   [ ] Apply to GitHub Accelerator
-  [ ] Second HackerNews post: "IADBMS 6 months later"
+  [ ] Second HackerNews post: "ConnectomeDB 6 months later"
 ```
 
 ### Metrics Target (Day 180):
@@ -186,7 +186,7 @@ WEEK 23-24:
 
 | Task | When | Cost | Priority |
 |---|---|---|---|
-| **Register domain** (iadbms.dev) | Week 1 | $12/yr | 🔴 Critical |
+| **Register domain** (connectomedb.dev) | Week 1 | $12/yr | 🔴 Critical |
 | **Apache 2.0 LICENSE** file | Week 1 | Free | 🔴 Critical |
 | **GitHub Sponsors** setup | Week 1 | Free | 🔴 Critical |
 | **Contributor License Agreement** | Month 2 | Free (cla-bot) | 🟡 High |
@@ -204,8 +204,8 @@ WEEK 23-24:
 
 | Task | When | Platform |
 |---|---|---|
-| **Discord server** | Week 3 | discord.gg/iadbms |
-| **GitHub Discussions** enabled | Week 1 | github.com/ness-e/IADBMS |
+| **Discord server** | Week 3 | discord.gg/connectomedb |
+| **GitHub Discussions** enabled | Week 1 | github.com/ness-e/ConnectomeDB |
 | **Roadmap público** | Week 2 | GitHub Projects board |
 | **Monthly dev update** (blog) | Monthly | dev.to + mailing list |
 | **Weekly office hours** (Discord) | Month 2+ | Discord voice channel |
@@ -219,7 +219,7 @@ WEEK 23-24:
 
 | Category | Monthly | Total 6 Mo | Notes |
 |---|---|---|---|
-| Domain + DNS | $1 | $12 | iadbms.dev |
+| Domain + DNS | $1 | $12 | connectomedb.dev |
 | Cloud hosting (docs) | $0 | $0 | GitHub Pages |
 | Cloud hosting (Cloud beta) | $50 | $200 | Fly.io (month 4+) |
 | Design (logo, social) | $50 | $50 | One-time via Fiverr/AI |

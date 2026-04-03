@@ -15,4 +15,4 @@ We measure core hybrid capabilities:
 ## 3. Comparison Metrics
 Against specialized competitors:
 - vs **Qdrant**: Memory overhead. HNSW only requires 60% memory because we omit string payload caching when CP-Index is heavily utilized.
-- vs **Neo4j**: Write latency for dense vectors. IADBMS serializes edges and vectors inline in `UnifiedNode`, achieving O(1) single-write persistence instead of disconnected node/property patches.
+- vs **Neo4j**: Write latency for dense vectors. ConnectomeDB serializes edges and vectors inline in `UnifiedNode`, achieving O(1) single-write persistence instead of disconnected node/property patches.

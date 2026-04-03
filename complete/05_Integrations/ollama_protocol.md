@@ -2,10 +2,10 @@
 > **Status**: 🟡 In Progress — FASE 3B
 
 ## 1. Local-First AI Stack Strategy
-IADBMS is designed to operate locally alongside LLMs (e.g., Ollama). Instead of using a traditional TCP connection, we expose a REST API that intercepts, caches, and stores context.
+ConnectomeDB is designed to operate locally alongside LLMs (e.g., Ollama). Instead of using a traditional TCP connection, we expose a REST API that intercepts, caches, and stores context.
 
 ## 2. Ollama Compatibility
-By providing an `/api/generate` proxy, clients can point their `OLLAMA_HOST` directly to IADBMS. We perform semantic similarity lookups using the CP-Index on the incoming prompt, append the resulting node data as context, then forward the request to the upstream local Ollama daemon.
+By providing an `/api/generate` proxy, clients can point their `OLLAMA_HOST` directly to ConnectomeDB. We perform semantic similarity lookups using the CP-Index on the incoming prompt, append the resulting node data as context, then forward the request to the upstream local Ollama daemon.
 
 ## 3. LangChain/VectorStore Interface
 To support out-of-the-box ecosystems, we expose standard vector store ingestion endpoints:

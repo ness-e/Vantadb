@@ -2,7 +2,7 @@
 
 > **Fase 13 · Carpeta 15_TTL_GC · Semana 29-30**
 
-Este documento detalla la política de expiración de tiempo de vida (TTL) y el colector de basura (GC) en segundo plano del IADBMS, diseñado para liberar memoria de nodos obsoletos (por ejemplo, interacciones antiguas de agentes).
+Este documento detalla la política de expiración de tiempo de vida (TTL) y el colector de basura (GC) en segundo plano del ConnectomeDB, diseñado para liberar memoria de nodos obsoletos (por ejemplo, interacciones antiguas de agentes).
 
 ## 1. Arquitectura de TTL
 

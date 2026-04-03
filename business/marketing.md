@@ -1,4 +1,4 @@
-# IADBMS — Marketing & Visibility Strategy
+# ConnectomeDB — Marketing & Visibility Strategy
 
 > **Referencia cruzada:** Los KPIs crudos de benchmarks provienen de
 > `monetizacion_estrategia.md` §2. Aquí se expanden con formato de campaña.
@@ -19,7 +19,7 @@
 
 ### Comparativa Detallada (para sección "Benchmarks")
 
-| Operación | IADBMS | Qdrant | Neo4j | pgvector |
+| Operación | ConnectomeDB | Qdrant | Neo4j | pgvector |
 |---|---|---|---|---|
 | Vector search (100k, 384d) | **3.8ms** | 5.2ms | N/A | 12ms |
 | Graph BFS depth=3 | **1.2ms** | N/A | 4.5ms | N/A |
@@ -39,7 +39,7 @@
 
 ## 2. Nombre del Proyecto
 
-### Análisis del nombre actual "IADBMS"
+### Análisis del nombre actual "ConnectomeDB"
 ```
 PROs:
   ✅ Descriptivo técnicamente (IA + DBMS)
@@ -61,10 +61,10 @@ CONs:
 | 2 | **VortexDB** | "The unified AI database" | vortexdb.io | Velocidad, convergencia |
 | 3 | **SynapseDB** | "Neural-native database engine" | synapsedb.dev | IA, cerebro, sinapsis |
 | 4 | **OmniStore** | "One store to rule them all" | omnistore.dev | Universal, todo-en-uno |
-| 5 | **IADBMS** (mantener) | "Rust-native multimodel AI DB" | iadbms.dev | Technical authority |
+| 5 | **ConnectomeDB** (mantener) | "Rust-native multimodel AI DB" | connectomedb.dev | Technical authority |
 
 ### Recomendación:
-**Mantener "IADBMS" para código/repositorio** pero adoptar un nombre comercial/marketing como **NexusDB** o **VortexDB** para landing page y comunicación pública. El patrón es común:
+**Mantener "ConnectomeDB" para código/repositorio** pero adoptar un nombre comercial/marketing como **NexusDB** o **VortexDB** para landing page y comunicación pública. El patrón es común:
 - "crates.io" → Rust package registry (nombre técnico diferente al marketing)
 - "Turso" → LibSQL fork (marca ≠ proyecto técnico)
 
@@ -94,18 +94,18 @@ Variantes:  Logo completo, Icono solo, Monocromo, Favicon 16px
 
 | Plataforma | Audiencia | Contenido | Timing |
 |---|---|---|---|
-| **HackerNews** | Ingenieros senior, CTOs | "Show HN: IADBMS — 3-in-1 AI DB in Rust (Vector+Graph+SQL)" | Launch Day (martes 10am EST) |
+| **HackerNews** | Ingenieros senior, CTOs | "Show HN: ConnectomeDB — 3-in-1 AI DB in Rust (Vector+Graph+SQL)" | Launch Day (martes 10am EST) |
 | **Reddit /r/rust** | Comunidad Rust | Technical deep-dive: "How we built HNSW from scratch in 118 lines" | Día +1 |
 | **Reddit /r/MachineLearning** | ML engineers | "Native RAG without Python: auto-embedding in a Rust database" | Día +2 |
 | **Twitter/X** | Dev influencers | Thread: "We replaced 3 databases with 1 Rust binary" 🧵 | Launch Day |
 | **LinkedIn** | Enterprise decision makers | Article: "Why your AI stack needs a unified database" | Día +3 |
-| **Dev.to / Hashnode** | Early-career devs | Tutorial: "Build a RAG agent with IADBMS + Ollama in 5 min" | Semana 2 |
+| **Dev.to / Hashnode** | Early-career devs | Tutorial: "Build a RAG agent with ConnectomeDB + Ollama in 5 min" | Semana 2 |
 | **YouTube** | Broad dev audience | 3-min demo video | Launch Day |
-| **Discord** | Community building | Servidor propio IADBMS | Pre-launch |
+| **Discord** | Community building | Servidor propio ConnectomeDB | Pre-launch |
 
 ### HackerNews Launch Playbook:
 ```
-TÍTULO: "Show HN: IADBMS – Rust database that unifies vectors, graphs, and SQL for local AI"
+TÍTULO: "Show HN: ConnectomeDB – Rust database that unifies vectors, graphs, and SQL for local AI"
 
 REGLAS:
 1. Postear MARTES o MIÉRCOLES a las 10am EST (peak HN traffic)
@@ -113,7 +113,7 @@ REGLAS:
 3. Top comment debe ser del autor explicando el "why"
 4. Responder CADA comentario en las primeras 4 horas
 5. Tener README impecable con GIF demo ANTES de postear
-6. Docker one-liner listo: docker run iadbms/iadbms
+6. Docker one-liner listo: docker run connectomedb/connectomedb
 ```
 
 ---
@@ -122,11 +122,11 @@ REGLAS:
 
 ### Storyboard:
 ```
-[0-5s]   Logo animado + "IADBMS: One database for AI"
-[5-10s]  Terminal: docker run iadbms → server starts in 1.2s
+[0-5s]   Logo animado + "ConnectomeDB: One database for AI"
+[5-10s]  Terminal: docker run connectomedb → server starts in 1.2s
 [10-15s] CLI: INSERT NODE con datos + auto-embedding happening
 [15-20s] CLI: Hybrid query (vector + graph traversal) → result in 4ms
-[20-25s] Browser: Ollama chat usando contexto de IADBMS como RAG
+[20-25s] Browser: Ollama chat usando contexto de ConnectomeDB como RAG
 [25-30s] Benchmarks table overlay + "Star us on GitHub" + URL
 ```
 
@@ -143,8 +143,8 @@ REGLAS:
 ```markdown
 1. # Hero: Nombre + One-liner + Hero image/GIF
 2. ## ⚡ 30-Second Demo (GIF de CLI en acción)
-3. ## 📊 Benchmarks (tabla IADBMS vs competencia)
-4. ## 🤔 Why IADBMS? (3 bullet points con iconos)
+3. ## 📊 Benchmarks (tabla ConnectomeDB vs competencia)
+4. ## 🤔 Why ConnectomeDB? (3 bullet points con iconos)
 5. ## 🚀 Quick Start (docker run + 3 comandos)
 6. ## 💡 IQL Examples (5 queries progresivas)
 7. ## 🏗️ Architecture (diagrama simplificado)
@@ -157,5 +157,5 @@ REGLAS:
 ```
 
 ### Regla de oro:
-> Un dev que llega al README debe poder copiar un comando y tener IADBMS
+> Un dev que llega al README debe poder copiar un comando y tener ConnectomeDB
 > corriendo en menos de 60 segundos. Si tarda más, el README falló.

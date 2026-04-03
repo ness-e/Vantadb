@@ -1,4 +1,4 @@
-# IADBMS — Monetization Plan (Detailed)
+# ConnectomeDB — Monetization Plan (Detailed)
 
 > **Relación con documentos existentes:**
 > Este plan extiende y detalla `monetizacion_estrategia.md` (modelo Open-Core conceptual)
@@ -14,7 +14,7 @@
 |---|---|---|
 | Motor Central (storage, parser, executor, HNSW, graph) | **Apache 2.0** | Máxima adopción. Compatible con uso enterprise sin miedos legales. Superior a MIT por cláusula de patentes. |
 | Enterprise Plugins (sharding, backup S3, audit trail, SSO) | **BSL 1.1** (Business Source License) | Modelo probado por MariaDB, CockroachDB, Sentry. Código visible pero uso comercial requiere licencia. Se convierte en OSS tras 4 años. |
-| IADBMS Cloud (SaaS gestionado) | **Propietario** | Ingresos principales. El código del cloud orchestrator nunca se abre. |
+| ConnectomeDB Cloud (SaaS gestionado) | **Propietario** | Ingresos principales. El código del cloud orchestrator nunca se abre. |
 
 ### ¿Por qué NO MIT?
 MIT no tiene cláusula de patentes. Si AWS clona el proyecto (como hizo con Elasticsearch), no tienes protección legal. Apache 2.0 + BSL es el escudo perfecto.
@@ -84,7 +84,7 @@ Todo lo de Pro +
 ✅ Revisión de seguridad trimestral
 ```
 
-### Tier 4: IADBMS Cloud (SaaS — desde $29/mes)
+### Tier 4: ConnectomeDB Cloud (SaaS — desde $29/mes)
 ```
 Licencia: Propietario (managed service)
 Target: Equipos que no quieren operar infraestructura
@@ -105,7 +105,7 @@ Pricing escalonado:
 | **GitHub Sponsors** | $200-500/mes | Mes 1+ |
 | **Consulting / Workshops** | $150/h | Mes 3+ |
 | **Enterprise Support** | $2,000-10,000/mes por cliente | Mes 6+ |
-| **IADBMS Cloud SaaS** | $5,000-50,000/mes | Mes 12+ |
+| **ConnectomeDB Cloud SaaS** | $5,000-50,000/mes | Mes 12+ |
 | **Training / Certificación** | $500 por persona | Mes 9+ |
 | **Plugin Marketplace** (conectores IA) | 30% commission | Mes 12+ |
 
@@ -114,14 +114,14 @@ Pricing escalonado:
 ## 4. Proyección de Ingresos
 
 ### Basado en trayectorias comparables:
-| Métrica | Turso (SQLite Edge) | Qdrant (Vector DB) | IADBMS (Proyección) |
+| Métrica | Turso (SQLite Edge) | Qdrant (Vector DB) | ConnectomeDB (Proyección) |
 |---|---|---|---|
 | Mes 1 | $0 | $0 | $200 (Sponsors) |
 | Mes 6 | $2k MRR | $5k MRR | $1,500 MRR |
 | Mes 12 | $15k MRR | $30k MRR | $8,000 MRR |
 | Mes 24 | $80k MRR | $200k MRR | $40,000 MRR |
 
-### Escenario conservador IADBMS:
+### Escenario conservador ConnectomeDB:
 ```
 MES 1-3:   $200-500/mes   → GitHub Sponsors + primeros consulting
 MES 3-6:   $500-1,500/mes → 3 clientes Pro ($49 × 3) + Sponsors + consulting
@@ -148,11 +148,11 @@ Total:     ~$995 MRR
 | **Neo4j** | Freemium/Cloud | $65/mes (Aura) | Solo grafos, sin vectores nativos |
 | **Pinecone** | SaaS puro | $70/mes | Solo vectores, vendor lock-in |
 | **Supabase** | Open-core | $25/mes | PostgreSQL, sin grafos ni HNSW nativo |
-| **IADBMS** | Open-core | $29/mes Cloud / $49 Pro | **3-en-1: Vector+Grafo+Relacional** |
+| **ConnectomeDB** | Open-core | $29/mes Cloud / $49 Pro | **3-en-1: Vector+Grafo+Relacional** |
 
 ### Ventaja competitiva en precio:
 > "Reemplazas Qdrant ($25) + Neo4j ($65) + Supabase ($25) = **$115/mes**
-> con un solo IADBMS Pro: **$49/mes**. Ahorro del **57%.**"
+> con un solo ConnectomeDB Pro: **$49/mes**. Ahorro del **57%.**"
 
 ---
 

@@ -4,5 +4,5 @@
 ## TODO
 - [ ] PG wire protocol (simple query flow)
 - [ ] Compatible with psql, DBeaver, pgAdmin
-- [ ] Map IADBMS types to PG types
+- [ ] Map ConnectomeDB types to PG types
 - [ ] Driver matrix: Rust/Python/Go/JS

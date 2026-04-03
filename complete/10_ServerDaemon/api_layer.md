@@ -2,7 +2,7 @@
 > **Status**: 🟡 In Progress — FASE 8
 
 ## 1. Local-First Daemon
-The IADBMS architecture designates a background binary daemon `iadbms-server` which listens on a local port (e.g., `8080`). Agent architectures (such as LangChain or custom Python scripts) interface with this Daemon via REST calls.
+The ConnectomeDB architecture designates a background binary daemon `connectomedb-server` which listens on a local port (e.g., `8080`). Agent architectures (such as LangChain or custom Python scripts) interface with this Daemon via REST calls.
 
 ## 2. API Design
 An `Axum` based web routing system exposes the execution pipeline:

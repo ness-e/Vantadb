@@ -1,6 +1,6 @@
-# IADBMS — Native Multimodel AI Database
+# ConnectomeDB — Native Multimodel AI Database
 
-IADBMS is a high-performance, single-node database built in Rust designed explicitly for local AI inference and autonomous agents operating on edge/laptop hardware (16GB RAM constraints).
+ConnectomeDB is a high-performance, single-node database built in Rust designed explicitly for local AI inference and autonomous agents operating on edge/laptop hardware (16GB RAM constraints).
 
 It unifies **Vector embeddings**, **Graph traversals**, and **Relational payloads** within a single highly optimized `UnifiedNode` storage architecture.
 
@@ -11,12 +11,12 @@ It unifies **Vector embeddings**, **Graph traversals**, and **Relational payload
 - **Ollama Native:** Rest endpoints act as an intercepting proxy, appending semantic context before hitting the local daemon.
 
 ## 🆚 Comparison
-**IADBMS vs Qdrant (Vector)**
+**ConnectomeDB vs Qdrant (Vector)**
 - **Memory**: 40% less memory overhead due to tightly packed `UnifiedNode` structs rather than decoupled payload schema blocks.
-- **Edge cases**: Qdrant struggles when filtering eliminates 99% of nodes prior to search. IADBMS utilizes O(1) bitset checks with high L1 cache hit rates.
+- **Edge cases**: Qdrant struggles when filtering eliminates 99% of nodes prior to search. ConnectomeDB utilizes O(1) bitset checks with high L1 cache hit rates.
 
-**IADBMS vs Neo4j (Graph)**
-- **Write Amplification**: Neo4j translates graph traversals effectively but struggles storing dense 768-dim fp32 vectors iteratively. IADBMS writes the `UnifiedNode` as a single `put()` operation.
+**ConnectomeDB vs Neo4j (Graph)**
+- **Write Amplification**: Neo4j translates graph traversals effectively but struggles storing dense 768-dim fp32 vectors iteratively. ConnectomeDB writes the `UnifiedNode` as a single `put()` operation.
 - **Target**: Built to run alongside agents, eliminating JVM constraints.
 
 ## 🚀 Quick Start

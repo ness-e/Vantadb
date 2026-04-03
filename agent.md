@@ -1,4 +1,4 @@
-# 🚀 IADBMS - AGENT MAESTRO (Actualizado: 2026-04-01)
+# 🚀 ConnectomeDB - AGENT MAESTRO (Actualizado: 2026-04-01)
 
 ## 📋 ESTADO DEL PROYECTO
 ```
@@ -128,7 +128,7 @@
 ```
 [x] 1. docDev/10_ServerDaemon/api_layer.md
 [x] 2. src/server.rs: Axum HTTPS/REST setup 
-[x] 3. src/bin/iadbms-server.rs: Entrypoint daemon CLI
+[x] 3. src/bin/connectomedb-server.rs: Entrypoint daemon CLI
 [x] 4. tests/server.rs
 [x] 5. Mover a complete/10_ServerDaemon ✅
 ```
@@ -137,7 +137,7 @@
 ### FASE 9: 11_CliClient (Semana 21-22)
 ```
 [x] 1. docDev/11_CliClient/terminal_frontend.md
-[x] 2. src/bin/iadbms-cli.rs: CLI shell
+[x] 2. src/bin/connectomedb-cli.rs: CLI shell
 [x] 3. Mover a complete/11_CliClient ✅
 ```
 **Métricas**: REPL responsivo <2ms
@@ -186,7 +186,7 @@
 [x] 4. src/parser.rs: Fix SIGUE con TYPE <tipo> AS <alias> (desambiguación)
 [x] 5. src/executor.rs: Rama de ejecución para mutaciones → StorageEngine
 [x] 6. src/server.rs: /api/v1/query acepta lectura Y escritura
-[x] 7. src/bin/iadbms-cli.rs: REPL detecta mutación vs lectura
+[x] 7. src/bin/connectomedb-cli.rs: REPL detecta mutación vs lectura
 [x] 8. tests/parser.rs: Tests para INSERT, UPDATE, DELETE, RELATE
 [x] 9. tests/mutations.rs: [NUEVO] Integración parse → execute → verify
 [x] 10. Mover a complete/16_IQL_Mutations ✅

@@ -1,6 +1,6 @@
 # Diagrams
 
-Architecture diagrams for IADBMS. See `architecture.md` for ASCII versions.
+Architecture diagrams for ConnectomeDB. See `architecture.md` for ASCII versions.
 
 ## Files
 - System layer diagram (in architecture.md)

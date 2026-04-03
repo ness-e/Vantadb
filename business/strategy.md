@@ -1,12 +1,12 @@
-# IADBMS - Estrategia Técnica y Comercial
+# ConnectomeDB - Estrategia Técnica y Comercial
 
-Este documento detalla la propuesta de valor, casos de uso y visión estratégica del motor IADBMS.
+Este documento detalla la propuesta de valor, casos de uso y visión estratégica del motor ConnectomeDB.
 
 ---
 
-## 1. ¿El IADBMS no era la unión de 3 tipos de bases de datos?
+## 1. ¿El ConnectomeDB no era la unión de 3 tipos de bases de datos?
 
-**Sí, exactamente.** Y esta es la propuesta de valor más poderosa del proyecto. IADBMS unifica en un solo motor:
+**Sí, exactamente.** Y esta es la propuesta de valor más poderosa del proyecto. ConnectomeDB unifica en un solo motor:
 
 | Motor | Tecnología Interna | Qué resuelve |
 |---|---|---|
@@ -50,7 +50,7 @@ UPDATE NODE#101 SET nombre = "Eros Dev" WHERE id = 101
 
 ---
 
-## 3. ¿Cuáles son los casos de uso para IADBMS?
+## 3. ¿Cuáles son los casos de uso para ConnectomeDB?
 
 ### Casos nativos (para lo que fue diseñado):
 
@@ -65,7 +65,7 @@ UPDATE NODE#101 SET nombre = "Eros Dev" WHERE id = 101
    → Vector + Grafo + Relacional en una sola consulta IQL.
 
 🧠 CASO 3 — Base de Conocimiento Empresarial (RAG)
-   Los LLMs (Ollama, vLLM) consultan IADBMS para recuperar contexto 
+   Los LLMs (Ollama, vLLM) consultan ConnectomeDB para recuperar contexto 
    relevante antes de generar respuestas. Más rápido que ChromaDB + Neo4j.
 
 🔗 CASO 4 — Análisis de Redes Sociales / Fraude
@@ -105,7 +105,7 @@ UPDATE NODE#101 SET nombre = "Eros Dev" WHERE id = 101
    Vectores = perfiles de tráfico por hora
 ```
 
-**Ventaja clave sobre la competencia:** Las empresas actualmente usan PostgreSQL + Neo4j + Pinecone = 3 servicios, 3 equipos, 3 facturas. IADBMS los reemplaza con un solo binario Rust de 128MB en cold start.
+**Ventaja clave sobre la competencia:** Las empresas actualmente usan PostgreSQL + Neo4j + Pinecone = 3 servicios, 3 equipos, 3 facturas. ConnectomeDB los reemplaza con un solo binario Rust de 128MB en cold start.
 
 ---
 
@@ -122,8 +122,8 @@ ANTES (Stack típico 2024):
 ├── 3 equipos de infraestructura
 └── ~$4,000/mes en cloud
 
-DESPUÉS (IADBMS):
-├── IADBMS       → TODO lo anterior en un solo proceso
+DESPUÉS (ConnectomeDB):
+├── ConnectomeDB       → TODO lo anterior en un solo proceso
 ├── Ollama       → LLM local para respuestas en lenguaje natural
 ├── 1 servidor on-premise o VPS $40/mes
 └── API REST que ya tienes (Axum server, Fase 8)
@@ -141,9 +141,9 @@ RANK BY Persona.relevancia DESC
 ```
 [Clientes / Apps]
       ↓  HTTP/REST
-[IADBMS Server (Axum)] ← tu src/bin/iadbms-server.rs
+[ConnectomeDB Server (Axum)] ← tu src/bin/connectomedb-server.rs
       ↓
-[IADBMS Core Engine]  ← RocksDB + HNSW + Graph BFS
+[ConnectomeDB Core Engine]  ← RocksDB + HNSW + Graph BFS
       ↓
 [Disco Local / NVMe]  ← WAL + Snapshots
       ↓  (opcional)
@@ -152,7 +152,7 @@ RANK BY Persona.relevancia DESC
 
 ---
 
-## 6. ¿IADBMS podría sustituir los archivos `.md` de configuración en agentes/orquestadores de IA?
+## 6. ¿ConnectomeDB podría sustituir los archivos `.md` de configuración en agentes/orquestadores de IA?
 
 **Esta es la pregunta más estratégica de todas — y la respuesta es un SÍ matizado.**
 
@@ -166,9 +166,9 @@ RANK BY Persona.relevancia DESC
 - Contexto RAG: docs/catalogo/*.md
 ```
 
-### ¿Por qué IADBMS es superior?
+### ¿Por qué ConnectomeDB es superior?
 
-| Característica | `.md` / JSON / YAML | IADBMS |
+| Característica | `.md` / JSON / YAML | ConnectomeDB |
 |---|---|---|
 | Búsqueda semántica | ❌ Solo texto literal | ✅ Vector similarity |
 | Relaciones entre agentes | ❌ Hardcoded | ✅ Grafo dinámico |
@@ -188,7 +188,7 @@ WITH TEMPERATURE 0.3
 ```
 
 ### El límite honesto:
-Los `.md` son legibles por humanos sin herramientas. IADBMS necesita el servidor activo. Para configuraciones de bootstrap inicial (antes de que el motor arranque) los `.md` siguen siendo necesarios. **El modelo ideal es híbrido:** `.md` para config de arranque, IADBMS para todo el conocimiento operacional del agente en tiempo de ejecución.
+Los `.md` son legibles por humanos sin herramientas. ConnectomeDB necesita el servidor activo. Para configuraciones de bootstrap inicial (antes de que el motor arranque) los `.md` siguen siendo necesarios. **El modelo ideal es híbrido:** `.md` para config de arranque, ConnectomeDB para todo el conocimiento operacional del agente en tiempo de ejecución.
 
 ---
 

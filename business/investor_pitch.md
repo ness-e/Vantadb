@@ -1,4 +1,4 @@
-# IADBMS — Investor Pitch Deck (15 Slides)
+# ConnectomeDB — Investor Pitch Deck (15 Slides)
 
 > **Para uso en:** Y Combinator AI Batch, a16z OSS Fund, reuniones ángeles,
 > GitHub Accelerator, Antler, pre-seed rounds.
@@ -7,13 +7,13 @@
 
 ## Slide 1: Title
 ```
-IADBMS
+ConnectomeDB
 The Unified Database for AI Agents
 
 "3 databases in 1 Rust binary"
 
 [Logo]                              [Founder Name]
-iadbms.dev                          CEO / Creator
+connectomedb.dev                          CEO / Creator
 ```
 
 ---
@@ -41,10 +41,10 @@ vector similarity + graph traversal + relational filter.
 
 ## Slide 3: The Solution
 ```
-IADBMS: One binary. Three engines. Zero overhead.
+ConnectomeDB: One binary. Three engines. Zero overhead.
 
   ┌─────────────────────────────────┐
-  │           IADBMS                │
+  │           ConnectomeDB                │
   │  ┌─────────┬────────┬────────┐ │
   │  │ Vector  │ Graph  │  SQL   │ │
   │  │  HNSW   │  BFS   │ KV+B  │ │
@@ -62,7 +62,7 @@ IADBMS: One binary. Three engines. Zero overhead.
 ## Slide 4: Demo (Live or Video)
 ```
 # 1. Start (2 seconds)
-$ docker run -p 3000:3000 iadbms/iadbms
+$ docker run -p 3000:3000 connectomedb/connectomedb
 
 # 2. Insert with auto-embedding (Ollama does the vectors)
 > INSERT NODE#1 TYPE Persona { nombre: "Eros", bio: "Rust developer" }
@@ -131,7 +131,7 @@ Open-Core (Apache 2.0 core + BSL enterprise)
 
 Revenue streams:
 
-1. IADBMS Cloud (SaaS)          → 70% of revenue
+1. ConnectomeDB Cloud (SaaS)          → 70% of revenue
    $29-$299/mo per tenant
    92% gross margin
 
@@ -161,9 +161,9 @@ pgvector            Vector+SQL      ❌ PG overhead  ❌         $25/mo
 Weaviate            Vector+some     ❌ Go+heavy     ❌         $25/mo
 SurrealDB           Multi (SQL)     ✅              ✅         Free
 ────────────────────────────────────────────────────────────────────
-IADBMS              Vec+Graph+SQL   ✅ 15MB start   ✅         $29/mo
+ConnectomeDB              Vec+Graph+SQL   ✅ 15MB start   ✅         $29/mo
 
-Only IADBMS does all three paradigms natively
+Only ConnectomeDB does all three paradigms natively
 in a single unified data structure.
 ```
 
@@ -209,7 +209,7 @@ Written in 100% Rust. No JVM. No Python. No GC pauses.
    Turso, SurrealDB, Neon, Redb → Rust is eating databases
    Developer trust in Rust for critical infrastructure
 
-IADBMS sits at the intersection of all three.
+ConnectomeDB sits at the intersection of all three.
 ```
 
 ---
@@ -268,7 +268,7 @@ Allocation:
 Runway: 12-14 months to reach $8k MRR
 
 Key milestones this round funds:
-  ✅ IADBMS Cloud launch (SaaS)
+  ✅ ConnectomeDB Cloud launch (SaaS)
   ✅ 5,000 GitHub stars
   ✅ 3 Enterprise pilot customers
   ✅ v2.0 with distributed mode
@@ -295,11 +295,11 @@ Key milestones this round funds:
 ```
 [Founder Name]
 [email]
-[GitHub: github.com/ness-e/IADBMS]
-[Website: iadbms.dev]
-[Demo: iadbms.dev/playground]
+[GitHub: github.com/ness-e/ConnectomeDB]
+[Website: connectomedb.dev]
+[Demo: connectomedb.dev/playground]
 
-"Star us: github.com/ness-e/IADBMS ⭐"
+"Star us: github.com/ness-e/ConnectomeDB ⭐"
 ```
 
 ---

@@ -1,7 +1,7 @@
 # RAG Architecture & Native Vector Search
 
 ## 1. Fundamento (Por qué HNSW)
-Hasta ahora, la búsqueda vectorial (`VECTOR [...] min=0.85`) en IADBMS escaneaba los nodos de forma lineal. Para 1 Millón de nodos, esto es inservible. 
+Hasta ahora, la búsqueda vectorial (`VECTOR [...] min=0.85`) en ConnectomeDB escaneaba los nodos de forma lineal. Para 1 Millón de nodos, esto es inservible. 
 Implementaremos **HNSW (Hierarchical Navigable Small World)**, un algoritmo probabilístico que crea grafos estratificados para encontrar vecinos matemáticos en <5 milisegundos sin importar el tamaño absoluto del dataset.
 
 ## 2. Estructura Matemática 

@@ -1,4 +1,4 @@
-# IADBMS — Post-MVP Roadmap v2.0
+# ConnectomeDB — Post-MVP Roadmap v2.0
 
 > **Estado actual:** MVP completo (15 fases). Este documento define la ruta
 > de features para las versiones v1.1 → v3.0 del motor.
@@ -44,11 +44,11 @@ v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation
 | # | Feature | Detalle | Esfuerzo |
 |---|---|---|---|
 | 1 | **WASM Build** | Compilar core a `wasm32-wasi` para browser playground. Sin RocksDB (in-memory backend). Dataset demo precargado. | 2 semanas |
-| 2 | **Backup/Restore** | Export completo a archivo `.iadbms` (bincode snapshot). Import desde snapshot. Compatible con S3 upload vía CLI flag. | 1 semana |
+| 2 | **Backup/Restore** | Export completo a archivo `.connectomedb` (bincode snapshot). Import desde snapshot. Compatible con S3 upload vía CLI flag. | 1 semana |
 | 3 | **Web UI Visualizador** | Panel web servido por Axum: graph explorer (vis.js), vector scatter (plotly), query editor (CodeMirror). | 3 semanas |
 | 4 | **Bulk Import** | `.import file.csv` y `.import file.json` en CLI. Batch inserts con progress bar. Target: 100k nodes/sec. | 1 semana |
-| 5 | **Multi-model Hooks** | Soporte para múltiples LLM backends: Ollama, vLLM, OpenAI API. Configurable por env var `IADBMS_LLM_PROVIDER`. | 1 semana |
-| 6 | **Monitoring Dashboard** | Grafana dashboard preconfigurado. Docker Compose con Prometheus + Grafana + IADBMS. | 3 días |
+| 5 | **Multi-model Hooks** | Soporte para múltiples LLM backends: Ollama, vLLM, OpenAI API. Configurable por env var `ConnectomeDB_LLM_PROVIDER`. | 1 semana |
+| 6 | **Monitoring Dashboard** | Grafana dashboard preconfigurado. Docker Compose con Prometheus + Grafana + ConnectomeDB. | 3 días |
 | 7 | **Connection Pooling** | Tokio-based connection pool para el REST API. Max concurrent queries configurable. Backpressure via circuit breaker. | 1 semana |
 | 8 | **TLS/HTTPS** | Soporte nativo de TLS en Axum server. Self-signed cert generator para dev. Let's Encrypt integration para prod. | 3 días |
 | 9 | **Schema Validation** | Optional strict mode: definir schema por TYPE. Rechazar INSERTs que no cumplan. `CREATE SCHEMA Persona { nombre: String, edad: Int }`. | 1 semana |
@@ -66,7 +66,7 @@ v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation
 | 2 | **Hash Sharding** | Partition by `node_id % shard_count`. Automatic rebalancing on node join/leave. |
 | 3 | **Cross-Shard Queries** | Scatter-gather para FROM queries. Merge sort para RANK BY across shards. |
 | 4 | **Replication** | Configurable replication factor (1-5). Async replication by default, sync optional. |
-| 5 | **Cluster CLI** | `iadbms cluster status`, `iadbms cluster add-node`, `iadbms cluster rebalance`. |
+| 5 | **Cluster CLI** | `connectomedb cluster status`, `connectomedb cluster add-node`, `connectomedb cluster rebalance`. |
 | 6 | **Zero-Downtime Upgrades** | Rolling restart. One node at a time. Automatic leader failover during upgrade. |
 
 ### Arquitectura Distribuida:
@@ -112,7 +112,7 @@ v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation
 |---|---|---|
 | 1 | **Multi-Tenant** | Aislamiento completo por tenant. Separate RocksDB instances. Shared HNSW with tenant masking. |
 | 2 | **Plugin Marketplace** | Third-party connectors: Slack, Notion, Gmail, Jira. Rust WASM plugins. 70/30 revenue split. |
-| 3 | **Edge Federation** | Multiple IADBMS nodes distribuidos geográficamente con sync eventual. Perfect for IoT + Edge AI. |
+| 3 | **Edge Federation** | Multiple ConnectomeDB nodes distribuidos geográficamente con sync eventual. Perfect for IoT + Edge AI. |
 | 4 | **Time-Series Mode** | Window functions para datos temporales. Downsampling automático. Retention policies. |
 | 5 | **GraphQL API** | Además de REST, ofrecer endpoint GraphQL auto-generado desde el schema. |
 | 6 | **CDC (Change Data Capture)** | Stream de cambios en tiempo real vía WebSocket. Para sincronizar con sistemas externos. |

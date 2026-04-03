@@ -1,7 +1,7 @@
 # Auto-Embedding (Generación Diferida Opt-In)
 
 ## 1. El Concepto Funcional
-Facilitar a los orquestadores el guardado en la base de datos eximiéndolos de calcular los vectores manualmente. El Orquestador manda texto a IADBMS, e IADBMS se voltea y los calcula interactuando transparente con el LLM.
+Facilitar a los orquestadores el guardado en la base de datos eximiéndolos de calcular los vectores manualmente. El Orquestador manda texto a ConnectomeDB, e ConnectomeDB se voltea y los calcula interactuando transparente con el LLM.
 
 ## 2. Detección en el AST (`src/executor.rs`)
 La condición para detonar un auto-embedding será estricta y predecible:
@@ -22,4 +22,4 @@ storage.insert(statement);
 ```
 
 ## 4. Eficiencia
-El puente se ejecutará concurrente sin congelar peticiones. Su única dependencia técnica externa es asegurar que el "texto objetivo" a convertir tenga una clave nombrada estandarizada o un parámetro dinámico extra para que IADBMS sepa qué propiedad es la que debe pasar por embebido. (Sugiero flag global de configuración para mapear `texto` por defecto).
+El puente se ejecutará concurrente sin congelar peticiones. Su única dependencia técnica externa es asegurar que el "texto objetivo" a convertir tenga una clave nombrada estandarizada o un parámetro dinámico extra para que ConnectomeDB sepa qué propiedad es la que debe pasar por embebido. (Sugiero flag global de configuración para mapear `texto` por defecto).

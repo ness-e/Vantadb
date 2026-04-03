@@ -1,10 +1,10 @@
-# IADBMS — System Architecture
+# ConnectomeDB — System Architecture
 
 > **Fase**: 01_Architecture | **Status**: In Progress | **Target**: Semana 1-2
 
 ## 1. Overview
 
-IADBMS is a **single-node, multimodel database engine** that natively unifies three data models in a single storage layer:
+ConnectomeDB is a **single-node, multimodel database engine** that natively unifies three data models in a single storage layer:
 
 | Model | Purpose | Index | Query Operator |
 |-------|---------|-------|----------------|

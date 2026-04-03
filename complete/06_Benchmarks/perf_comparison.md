@@ -5,4 +5,4 @@
 - [ ] qdrant benchmark (vector-only queries)
 - [ ] neo4j benchmark (graph traversal)
 - [ ] pgvector benchmark (hybrid SQL+vector)
-- [ ] IADBMS unified benchmark (all three combined)
+- [ ] ConnectomeDB unified benchmark (all three combined)

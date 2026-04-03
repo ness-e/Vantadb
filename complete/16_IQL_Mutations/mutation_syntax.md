@@ -14,7 +14,7 @@ El parser actual (`src/parser.rs`) solo soporta **lectura**. Toda mutación de
 datos (crear nodos, editar campos, borrar, crear aristas) se hace exclusivamente
 por API programática (Rust directo o Python SDK vía PyO3). Esto significa que:
 
-- El CLI (`iadbms-cli`) no puede insertar datos
+- El CLI (`connectomedb-cli`) no puede insertar datos
 - El servidor REST no puede recibir comandos de escritura por query string
 - Los agentes de IA no pueden mutar el grafo mediante lenguaje natural traducido a IQL
 
@@ -43,7 +43,7 @@ INSERT NODE#<id> TYPE <tipo> { <campo>: <valor>, ... } [VECTOR [<f32>, ...]]
 INSERT NODE#101 TYPE Usuario { nombre: "Eros", pais: "VE", edad: 28 }
 
 -- Nodo con datos relacionales + vector de embedding
-INSERT NODE#102 TYPE Documento { titulo: "Manual IADBMS" } VECTOR [0.12, -0.45, 0.99, 0.33]
+INSERT NODE#102 TYPE Documento { titulo: "Manual ConnectomeDB" } VECTOR [0.12, -0.45, 0.99, 0.33]
 
 -- Nodo vectorial puro (sin campos relacionales)
 INSERT NODE#103 TYPE Embedding {} VECTOR [0.1, 0.4, 0.9]
@@ -192,7 +192,7 @@ pub struct Traversal {
 |---------|--------|
 | `src/executor.rs` | Agregar rama de ejecución para cada `Statement` que traduzca a operaciones de `StorageEngine` |
 | `src/server.rs` | El endpoint `/api/v1/query` debe aceptar tanto queries de lectura como de escritura |
-| `src/bin/iadbms-cli.rs` | El REPL debe detectar si el input es mutación o lectura |
+| `src/bin/connectomedb-cli.rs` | El REPL debe detectar si el input es mutación o lectura |
 
 ### Tests
 | Archivo | Cambio |

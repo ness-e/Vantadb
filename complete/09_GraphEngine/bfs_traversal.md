@@ -2,7 +2,7 @@
 > **Status**: 🟡 In Progress — FASE 7
 
 ## 1. Graph Semantics
-IADBMS allows evaluating topological paths efficiently. Traversals typically evaluate connections expressed in the query AST:
+ConnectomeDB allows evaluating topological paths efficiently. Traversals typically evaluate connections expressed in the query AST:
 `SIGUE (Usuario)-[CONOCE_A]->(Usuario) HASTA DEPTH 3`
 
 ## 2. In-Memory BFS Strategy

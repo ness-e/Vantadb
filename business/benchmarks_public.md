@@ -1,4 +1,4 @@
-# IADBMS — Public Benchmarks
+# ConnectomeDB — Public Benchmarks
 
 > **Methodology:** All benchmarks run on a single-node setup.
 > Hardware: Laptop-class (16GB RAM, NVMe SSD, 6-core/12-thread).
@@ -9,7 +9,7 @@
 ## 1. Core Performance
 
 ### Insert Throughput
-| Operation | IADBMS | Qdrant | Neo4j | pgvector |
+| Operation | ConnectomeDB | Qdrant | Neo4j | pgvector |
 |---|---|---|---|---|
 | Insert 1k nodes (no vector) | **0.8ms** | N/A | 45ms | 12ms |
 | Insert 1k nodes (384d vector) | **4.2ms** | 8ms | N/A | 15ms |
@@ -18,7 +18,7 @@
 | Batch insert 1M nodes | **3.8s** | 12s | N/A | 35s |
 
 ### Query Latency
-| Query Type | IADBMS | Qdrant | Neo4j | pgvector |
+| Query Type | ConnectomeDB | Qdrant | Neo4j | pgvector |
 |---|---|---|---|---|
 | KNN search (100k, 384d, top-10) | **3.8ms** | 5.2ms | N/A | 12ms |
 | KNN search (1M, 384d, top-10) | **8.5ms** | 11ms | N/A | 45ms |
@@ -31,7 +31,7 @@
 > † = Requires external orchestration across multiple services. Not natively possible.
 
 ### Memory Footprint
-| Metric | IADBMS | Qdrant | Neo4j | pgvector |
+| Metric | ConnectomeDB | Qdrant | Neo4j | pgvector |
 |---|---|---|---|---|
 | Cold start (empty DB) | **15MB** | 180MB | 2.1GB | 400MB |
 | 100k nodes (384d vectors) | **220MB** | 350MB | N/A | 580MB |
@@ -43,7 +43,7 @@
 ## 2. AI-Specific Benchmarks
 
 ### Auto-Embedding (Ollama Integration)
-| Operation | IADBMS Native | Python LangChain + pgvector |
+| Operation | ConnectomeDB Native | Python LangChain + pgvector |
 |---|---|---|
 | Embed + Insert 1 document | **12ms** (8ms Ollama + 4ms insert) | 85ms (60ms Python + 15ms HTTP + 10ms PG) |
 | Embed + Insert 100 documents | **890ms** | 6.2s |
@@ -51,7 +51,7 @@
 
 ### Explanation:
 ```
-IADBMS:  App → IQL INSERT → [Auto-detect text] → Ollama TCP → Store
+ConnectomeDB:  App → IQL INSERT → [Auto-detect text] → Ollama TCP → Store
          1 hop. Rust-native. No serialization overhead.
 
 Traditional:
@@ -65,7 +65,7 @@ Traditional:
 ## 3. Resource Governor
 
 ### OOM Protection
-| Scenario | IADBMS | Qdrant | Neo4j |
+| Scenario | ConnectomeDB | Qdrant | Neo4j |
 |---|---|---|---|
 | Insert until 16GB limit | **Graceful reject at 14GB** | OOM kill at 15.8GB | JVM OutOfMemory |
 | Recovery after OOM | **Automatic (circuit breaker)** | Requires restart | Requires restart |
@@ -75,7 +75,7 @@ Traditional:
 ```
 Test: 10,000 concurrent queries on 16GB machine
 
-IADBMS:
+ConnectomeDB:
   ✅ All queries served (some with degraded latency)
   ✅ Memory never exceeded 14GB threshold
   ✅ Automatic backoff when approaching limit
@@ -103,10 +103,10 @@ docker (for competitors)
 ollama (for AI benchmarks)
 ```
 
-### Run IADBMS benchmarks:
+### Run ConnectomeDB benchmarks:
 ```bash
-git clone https://github.com/ness-e/IADBMS
-cd IADBMS
+git clone https://github.com/ness-e/ConnectomeDB
+cd ConnectomeDB
 cargo bench --bench hybrid_queries
 ```
 
@@ -132,7 +132,7 @@ python3 benchmarks/pgvector_bench.py
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
-│  "IADBMS uses 12x less memory than Neo4j at cold start"     │
+│  "ConnectomeDB uses 12x less memory than Neo4j at cold start"     │
 │                                                              │
 │  "Hybrid queries in 8ms — something no other DB can do      │
 │   in a single native call"                                   │

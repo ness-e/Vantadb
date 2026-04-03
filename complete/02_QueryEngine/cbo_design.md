@@ -2,7 +2,7 @@
 > **Status**: 🟡 In Progress — FASE 2A
 
 ## 1. Overview
-The IADBMS CBO decides the execution order of cross-model operations. Classical CBOs focus on relational joins. Our CBO focuses on:
+The ConnectomeDB CBO decides the execution order of cross-model operations. Classical CBOs focus on relational joins. Our CBO focuses on:
 1. Bitset filtering (Fastest)
 2. Graph Traversal (`SIGUE`)
 3. Relational Filtering

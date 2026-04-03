@@ -1,4 +1,4 @@
-# IADBMS — Documentation & Developer Experience Strategy
+# ConnectomeDB — Documentation & Developer Experience Strategy
 
 ---
 
@@ -22,7 +22,7 @@ docs/
 ├── book.toml                    # mdBook config
 ├── src/
 │   ├── SUMMARY.md               # Table of Contents
-│   ├── introduction.md          # What is IADBMS
+│   ├── introduction.md          # What is ConnectomeDB
 │   │
 │   ├── getting-started/
 │   │   ├── installation.md      # cargo, docker, binary
@@ -99,7 +99,7 @@ jobs:
 cargo doc --no-deps --open
 
 # Se ejecuta automáticamente en CI y se publica en:
-# https://iadbms.dev/rustdoc/
+# https://connectomedb.dev/rustdoc/
 ```
 
 **Capa 2 — REST API Reference (OpenAPI/Swagger):**
@@ -130,7 +130,7 @@ endpoints:
 
 ```
 Arquitectura:
-  IADBMS Server (Axum)
+  ConnectomeDB Server (Axum)
     ├── /api/v1/query     → Motor IQL
     ├── /api/v1/health    → Status
     ├── /metrics           → Prometheus
@@ -223,7 +223,7 @@ function planToMermaid(plan) {
 
 ### Fase 1 (Mes 3): Embeddable WASM Playground
 ```
-Tecnología: IADBMS compilado a WebAssembly (wasm32-unknown-unknown)
+Tecnología: ConnectomeDB compilado a WebAssembly (wasm32-unknown-unknown)
 Hosting: GitHub Pages estáticas
 Limitaciones: 
   - Sin RocksDB (in-memory only, BTreeMap backend)
@@ -231,7 +231,7 @@ Limitaciones:
   - Dataset demo de 1000 nodos precargado
 
 Experiencia:
-  1. Usuario abre iadbms.dev/playground
+  1. Usuario abre connectomedb.dev/playground
   2. Editor IQL a la izquierda
   3. Resultados + graph viz a la derecha
   4. Queries de ejemplo clickeables
@@ -241,18 +241,18 @@ Experiencia:
 ### Fase 2 (Mes 6): Replit-like con Backend Real
 ```
 Tecnología: Fly.io ephemeral VMs
-  - Cada sesión: VM efímera con IADBMS + Ollama preinstalado
+  - Cada sesión: VM efímera con ConnectomeDB + Ollama preinstalado
   - TTL: 30 minutos por sesión
   - Costo: ~$0.003 por sesión (spot instances ARM)
 ```
 
 ---
 
-## 6. CLI Mejorado (`iadbms shell`)
+## 6. CLI Mejorado (`connectomedb shell`)
 
 ### Estado actual:
 ```
-src/bin/iadbms-cli.rs — REPL básico con rustyline
+src/bin/connectomedb-cli.rs — REPL básico con rustyline
 ```
 
 ### Mejoras propuestas:
