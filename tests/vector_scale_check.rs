@@ -1,6 +1,5 @@
 use connectomedb::storage::StorageEngine;
 use connectomedb::node::{UnifiedNode, NeuronType};
-use connectomedb::index::CPIndex;
 use std::sync::Arc;
 use tempfile::tempdir;
 use std::time::Instant;

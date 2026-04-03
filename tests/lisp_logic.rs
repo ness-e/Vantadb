@@ -1,6 +1,6 @@
 use connectomedb::storage::StorageEngine;
 use connectomedb::executor::{Executor, ExecutionResult};
-use connectomedb::error::ConnectomeError;
+use connectomedb::node::FieldValue;
 use std::sync::Arc;
 use tempfile::tempdir;
 
@@ -27,7 +27,7 @@ async fn test_lisp_rule_insertion() {
         let node = storage.get(id).unwrap().expect("El nodo no fue persistido correctamente");
         assert_eq!(
             node.get_field("label"), 
-            Some(&crate::node::FieldValue::String("CognitiveRule".to_string()))
+            Some(&FieldValue::String("CognitiveRule".to_string()))
         );
     }
 
@@ -35,12 +35,12 @@ async fn test_lisp_rule_insertion() {
     {
         let cortex = storage.cortex_ram.read().unwrap();
         for (_, node) in cortex.iter() {
-            if let Some(crate::node::FieldValue::Bool(is_rule)) = node.get_field("sys_rule") {
+            if let Some(FieldValue::Bool(is_rule)) = node.get_field("sys_rule") {
                 if *is_rule {
                     found = true;
                     assert_eq!(
                         node.get_field("label"), 
-                        Some(&crate::node::FieldValue::String("CognitiveRule".to_string()))
+                        Some(&FieldValue::String("CognitiveRule".to_string()))
                     );
                 }
             }

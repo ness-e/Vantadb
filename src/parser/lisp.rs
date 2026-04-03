@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
-    character::complete::{alpha1, alphanumeric1, char, multispace0, none_of},
+    character::complete::{alpha1, alphanumeric1, char, multispace0},
     number::complete::float,
     combinator::{map, recognize},
     multi::{many0, many1},

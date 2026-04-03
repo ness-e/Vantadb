@@ -2,7 +2,7 @@ use crate::parser::lisp::LispExpr;
 use crate::executor::{Executor, ExecutionResult};
 use crate::error::{ConnectomeError, Result};
 use crate::query::{Statement, InsertStatement};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::BTreeMap;
 use crate::node::FieldValue;
 
 const MAX_FUEL: u64 = 1000;
