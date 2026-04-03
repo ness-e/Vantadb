@@ -3,8 +3,25 @@ name: ConnectomeDB CI
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.github/workflows/rust_ci.yml'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.github/workflows/rust_ci.yml'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

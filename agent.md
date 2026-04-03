@@ -86,7 +86,12 @@ Mes 6: 500 stars, 50 contribs
 ✅ Bitset: u128 (128 filterable dims, mechanical sympathy)
 ✅ WAL: Bincode Fase 1 (Arrow IPC deferred to Fase 2)
 ```
+
+## CI/CD Y GITHUB ACTIONS (ACTUALIZADO)
+Las pruebas y despliegues están optimizados estratégicamente para el **Plan Gratuito de GitHub Accions**, respetando la arquitectura del proyecto:
+1. **Path Filtering (`rust_ci.yml`):** El motor CI de Rust *SOLO* se ejecuta si hay cambios en `src/`, `tests/`, `benches/`, `Cargo.toml`, `Cargo.lock` o `build.rs`. Los cambios en Markdown, UI (`connectome-web`), o documentación (`docs/`, `business/`) son ignorados para ahorrar agresivamente minutos de cómputo gratuitos.
+2. **Ejecución Unificada (Crate Monolítico):** NO dividimos los tests en múltiples "jobs paralelos". Dado que el proyecto es un Crate único grande con dependencias pesadas de compilación C++ (RocksDB, Clang), cada job re-compilaría todo desde cero e inflaría la factura astronómicamente. Todos los tests corren en un solo Job secuencial usando `--test-threads=2` (para no saturar RAM) y un `swapfile` manual de 6GB contra crashes del Linker (Error OOM).
+3. **Workflow Dispatch:** Implementamos el gatillo manual (`workflow_dispatch`) en `release.yml` y `rust_ci.yml` para posibilitar ejecuciones forzadas desde la interfaz web de GitHub en caso de depuración pesada.
+
 ## RECORDATORIOS
-```
-No ejecutar corgo build ni cargo test ya que en github action se ejecuta automaticamente
-```
+- Por regla general el entorno CI de GitHub Actions compilará automáticamente las modificaciones clave. Se recomienda ser minucioso con el path filtering al agregar nuevas carpetas base.
