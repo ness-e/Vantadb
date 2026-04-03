@@ -244,6 +244,8 @@ pub struct UnifiedNode {
     pub last_accessed: u64,
     /// Static Bayesian logic confidence
     pub trust_score: f32,
+    /// Biological Amygdala limit: emotional/semantic importance (0.0 - 1.0)
+    pub semantic_valence: f32,
     /// Forward-compatible schema metadata without breaking Bincode
     pub ext_metadata: HashMap<String, Vec<u8>>,
 }
@@ -275,6 +277,7 @@ impl UnifiedNode {
                 .unwrap_or_default()
                 .as_millis() as u64,
             trust_score: 0.5,
+            semantic_valence: 0.0,
             ext_metadata: HashMap::new(),
         }
     }
