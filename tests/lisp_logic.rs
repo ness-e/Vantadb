@@ -18,11 +18,17 @@ async fn test_lisp_rule_insertion() {
     assert!(result.is_ok(), "Fallo al ejecutar instrucción LISP");
 
     // Verificar si el motor lo guardó y aplicó sys_rule
-    if let Ok(ExecutionResult::Write { affected_nodes, message: _ }) = result {
+    if let Ok(ExecutionResult::Write { affected_nodes, node_id, .. }) = result {
         assert_eq!(affected_nodes, 1);
-        // Extraer id insertado parsing el mensaje (MVP) o buscando el registro en Storage
-        // Como no devolvemos el ID exacto en MVP fácil (rand id), iteraremos `cortex_ram` que está en memoria 
-        // porque INSERT Lisp entra directo 
+        assert!(node_id.is_some(), "El ID del nodo no fue devuelto por el Executor LISP");
+        
+        let id = node_id.unwrap();
+        // El nodo debe estar accesible vía storage con ese ID
+        let node = storage.get(id).unwrap().expect("El nodo no fue persistido correctamente");
+        assert_eq!(
+            node.get_field("label"), 
+            Some(&crate::node::FieldValue::String("CognitiveRule".to_string()))
+        );
     }
 
     let mut found = false;

@@ -96,11 +96,11 @@ Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
 ## 🛠️ Arquitectura Interna y Soberanía Cognitiva (v0.4.0)
 
-- **Zero-Copy Architecture:** Serialización directa `bincode` sobre slices cacheados en RocksDB. 
+- **Cognitive Logic (v0.4.0):** Capa de ejecución híbrida que soporta tanto IQL (SQL-like) como S-Expressions (LISP). Permite definir reglas de negocio homoicónicas directamente en el grafo.
 - **Cognitive Sovereignty (Devil's Advocate):** El motor audita proactivamente las escrituras. Si detecta similitud vectorial extrema (>0.95) pero disparidad en la certeza (Trust Score), el *Arbiter* bloquea mutaciones falaces emitiendo `Sovereignty Rejected`.
 - **Shadow Kernel & Lápidas:** Borrados y purgas protegidas bajo el capó. Cada mutación de borrado atómico se desvía al Shadow Arc con un "Auditable Tombstone" para prevención de pérdida semántica.
-- **Security Axioms & Life Insurance:** Protección pasiva contra extinción. Checkpoints veloces basados en Hard Links de RocksDB con control estricto de Memoria (BlockCache restringido a 2GB de overhead para operar eficientemente en entornos Edge/Laptops).
 - **CP-Index (Co-located Pre-filter):** Integra clústeres HNSW con máscaras de bits `u128` (bitsets) saltando nodos estáticamente incompatibles antes del álgebra pesada.
+- **SIMD-Accelerated:** Búsqueda vectorial optimizada mediante instrucciones SIMD (vía `wide` crate) para máximo rendimiento en CPUs modernas.
 - **Integración nativa con Ollama:** Embeddings directos de stacks open source locales sin middlewares externos.
 
 ---

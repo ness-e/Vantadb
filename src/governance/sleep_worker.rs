@@ -47,7 +47,7 @@ impl SleepWorker {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
                     println!("🔌 [Circadian] Interrupción de Fase REM (Actividad de I/O detectada).");
-                    return; // Yield by returning early
+                    break; // Yield to processing loop
                 }
 
                 // 1. Olvido Bayesiano
@@ -58,8 +58,8 @@ impl SleepWorker {
                     // Criterio de Eliminación Permanente
                     keys_to_remove.push(id);
                     to_purge.push(id);
-                } else if node.hits < 10 && !node.is_pinned() {
-                    // Consolidación (STN -> LTN)
+                } else if node.hits < 10 && !node.is_pinned() && (now - node.last_accessed > 60_000) {
+                    // Consolidación (STN -> LTN) - Solo si ha pasado el periodo de gracia de 60s
                     keys_to_remove.push(id);
                     to_consolidate.push(node.clone());
                 }

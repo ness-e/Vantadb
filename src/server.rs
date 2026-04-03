@@ -14,7 +14,9 @@ pub struct QueryRequest {
 #[derive(Serialize, Deserialize)]
 pub struct QueryResponse {
     pub success: bool,
-    pub data: String, // Simplified response message
+    pub data: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<u64>,
 }
 
 pub struct ServerState {
@@ -47,18 +49,21 @@ async fn execute_query(
             Json(QueryResponse {
                 success: true,
                 data: format!("Read {} nodes.", nodes.len()),
+                node_id: None,
             })
         }
-        Ok(ExecutionResult::Write { affected_nodes, message }) => {
+        Ok(ExecutionResult::Write { affected_nodes, message, node_id }) => {
             Json(QueryResponse {
                 success: true,
                 data: format!("Mutated {} nodes: {}", affected_nodes, message),
+                node_id,
             })
         }
         Err(e) => {
             Json(QueryResponse {
                 success: false,
                 data: format!("Execution Error: {}", e),
+                node_id: None,
             })
         }
     }

@@ -9,7 +9,11 @@ use crate::eval::LispSandbox;
 
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
-    Write { affected_nodes: usize, message: String },
+    Write { 
+        affected_nodes: usize, 
+        message: String,
+        node_id: Option<u64>,
+    },
 }
 
 pub struct Executor<'a> {
@@ -91,7 +95,11 @@ impl<'a> Executor<'a> {
                 }
 
                 self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} inserted.", insert.node_id) })
+                Ok(ExecutionResult::Write { 
+                    affected_nodes: 1, 
+                    message: format!("Node {} inserted.", insert.node_id),
+                    node_id: Some(insert.node_id),
+                })
             }
             Statement::Update(update) => {
                 let mut node = match self.storage.get(update.node_id)? {
@@ -127,11 +135,19 @@ impl<'a> Executor<'a> {
                 }
 
                 self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} updated.", update.node_id) })
+                Ok(ExecutionResult::Write { 
+                    affected_nodes: 1, 
+                    message: format!("Node {} updated.", node.id),
+                    node_id: Some(node.id),
+                })
             }
             Statement::Delete(delete) => {
                 self.storage.delete(delete.node_id, "IQL Manual Deletion")?;
-                Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} deleted.", delete.node_id) })
+                Ok(ExecutionResult::Write { 
+                    affected_nodes: 1, 
+                    message: format!("Node {} deleted.", delete.node_id),
+                    node_id: Some(delete.node_id),
+                })
             }
             Statement::Relate(relate) => {
                 let mut node = match self.storage.get(relate.source_id)? {
@@ -154,7 +170,11 @@ impl<'a> Executor<'a> {
                     node.add_edge(relate.target_id, relate.label);
                 }
                 self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Edge related from {} to {}.", relate.source_id, relate.target_id) })
+                Ok(ExecutionResult::Write { 
+                    affected_nodes: 1, 
+                    message: format!("Edge related from {} to {}.", relate.source_id, relate.target_id),
+                    node_id: Some(relate.source_id),
+                })
             }
             Statement::InsertMessage(msg) => {
                 // Syntactic Sugar for Chat Threads: Creates a node and relates it.
@@ -172,14 +192,17 @@ impl<'a> Executor<'a> {
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
 
-                // Node is saved
-                self.storage.insert(&node)?;
-
                 // Now create relationship: MESSAGE -> belongs_to -> THREAD
                 node.add_edge(msg.thread_id, "belongs_to_thread".to_string());
+
+                // Node is saved (Atomic write for State + Edge)
                 self.storage.insert(&node)?;
 
-                Ok(ExecutionResult::Write { affected_nodes: 2, message: format!("Message {} inserted and linked to Thread {}.", msg_id, msg.thread_id) })
+                Ok(ExecutionResult::Write { 
+                    affected_nodes: 2, 
+                    message: format!("Message {} inserted and linked to Thread {}.", msg_id, msg.thread_id),
+                    node_id: Some(msg_id),
+                })
             }
         }
     }

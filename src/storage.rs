@@ -55,22 +55,26 @@ impl StorageEngine {
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.touch_activity();
 
+        // Creamos un clon ejecutable para actualizar metadatos de actividad antes de persistir
+        let mut active_node = node.clone();
+        active_node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+
         // 1. Durabilidad: Inserción directa (Write-Through)
-        let key = node.id.to_le_bytes();
-        let val = bincode::serialize(node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+        let key = active_node.id.to_le_bytes();
+        let val = bincode::serialize(&active_node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
         self.db.put(&key, &val).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
 
         // 2. L1 Cache / STN Storage
-        if node.neuron_type == crate::node::NeuronType::STNeuron {
+        if active_node.neuron_type == crate::node::NeuronType::STNeuron {
             let mut cache = self.cortex_ram.write().unwrap();
-            cache.insert(node.id, node.clone());
+            cache.insert(active_node.id, active_node.clone());
         }
 
         // 3. In-Memory Index Tracking (HNSW)
-        if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-            if let crate::node::VectorData::F32(vec) = &node.vector {
+        if active_node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+            if let crate::node::VectorData::F32(vec) = &active_node.vector {
                 let mut index = self.hnsw.write().unwrap();
-                index.add(node.id, 0, Some(vec.clone())); // MVP mask 0
+                index.add(active_node.id, 0, Some(vec.clone())); // MVP mask 0
             }
         }
 
@@ -84,6 +88,10 @@ impl StorageEngine {
         {
             let mut cache = self.cortex_ram.write().unwrap();
             if let Some(node) = cache.get_mut(&id) {
+                // Verificar si es una lápida en RAM (Invalidation check)
+                if node.flags.is_tombstone() {
+                    return Ok(None);
+                }
                 // Actualizar Heurísticas Base
                 node.hits += 1;
                 node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
@@ -95,9 +103,16 @@ impl StorageEngine {
         let key = id.to_le_bytes();
         match self.db.get_pinned(&key) {
             Ok(Some(slice)) => {
-                // Zero-copy deserialization reference via bincode if using borrowed struct,
-                // otherwise it dynamically allocates the struct content but copies pinned data directly.
-                let node: UnifiedNode = bincode::deserialize(&slice).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+                let mut node: UnifiedNode = bincode::deserialize(&slice).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+                
+                // --- Dynamic Memory Promotion (Fase 20.5) ---
+                // Si el nodo es popular (hits > 50), lo promovemos a RAM (STN)
+                if node.hits >= 50 {
+                    node.neuron_type = crate::node::NeuronType::STNeuron;
+                    let mut cache = self.cortex_ram.write().unwrap();
+                    cache.insert(node.id, node.clone());
+                }
+                
                 Ok(Some(node))
             }
             Ok(None) => Ok(None),
@@ -118,6 +133,14 @@ impl StorageEngine {
 
             let tomb = AuditableTombstone::new(id, reason, hash);
             let tomb_val = bincode::serialize(&tomb).unwrap();
+
+            // 1. Invalidation: Marcar como Tombstone en RAM (Evita lecturas zombies)
+            {
+                let mut cache = self.cortex_ram.write().unwrap();
+                let mut tomb_node = node.clone();
+                tomb_node.flags.set(crate::node::NodeFlags::TOMBSTONE);
+                cache.insert(id, tomb_node);
+            }
 
             let mut batch = WriteBatch::default();
             

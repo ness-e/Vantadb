@@ -1,43 +1,13 @@
 use std::collections::HashMap;
 use rand::Rng;
 
+// Reutilizamos la lógica SIMD centralizada en node.rs
+pub use crate::node::VectorData;
+
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-
-    let mut dot_v = wide::f32x8::ZERO;
-    let mut norm_a_v = wide::f32x8::ZERO;
-    let mut norm_b_v = wide::f32x8::ZERO;
-
-    let chunks_a = a.chunks_exact(8);
-    let chunks_b = b.chunks_exact(8);
-    let rem_a = chunks_a.remainder();
-    let rem_b = chunks_b.remainder();
-
-    for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
-        let va = wide::f32x8::from([a_chunk[0], a_chunk[1], a_chunk[2], a_chunk[3], a_chunk[4], a_chunk[5], a_chunk[6], a_chunk[7]]);
-        let vb = wide::f32x8::from([b_chunk[0], b_chunk[1], b_chunk[2], b_chunk[3], b_chunk[4], b_chunk[5], b_chunk[6], b_chunk[7]]);
-        dot_v += va * vb;
-        norm_a_v += va * va;
-        norm_b_v += vb * vb;
-    }
-
-    let mut dot = dot_v.reduce_add();
-    let mut norm_a = norm_a_v.reduce_add();
-    let mut norm_b = norm_b_v.reduce_add();
-
-    for i in 0..rem_a.len() {
-        dot += rem_a[i] * rem_b[i];
-        norm_a += rem_a[i] * rem_a[i];
-        norm_b += rem_b[i] * rem_b[i];
-    }
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 0.0;
-    }
-    
-    dot / (norm_a.sqrt() * norm_b.sqrt())
+    let va = VectorData::F32(a.to_vec());
+    let vb = VectorData::F32(b.to_vec());
+    va.cosine_similarity(&vb).unwrap_or(0.0)
 }
 
 /// Simplified HNSW node with embedded filter and multi-layer neighbors
@@ -129,18 +99,59 @@ impl CPIndex {
             curr_node_id = self.greedy_step(curr_node_id, query_vec, layer);
         }
 
-        // Phase 2: Exhaustive local search at layer 0 (Neighborhood scanning)
-        // MVP logic: linear scan around the vicinity of the found node.
-        for (id, node) in &self.nodes {
-            if node.bitset & query_mask == query_mask {
-                let sim = cosine_similarity(query_vec, &node.vec_data);
-                results.push((*id, sim));
+        // Phase 2: Greedy local search at layer 0 (Topological navigation)
+        let mut visited = std::collections::HashSet::new();
+        let mut candidates = std::collections::BinaryHeap::new();
+        
+        // Use custom wrapper to store (similarity, node_id) in BinaryHeap (Max-Heap)
+        #[derive(num_traits::AsPrimitive, PartialEq)]
+        struct NodeSim(f32, u64);
+        impl Eq for NodeSim {}
+        impl PartialOrd for NodeSim {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                self.0.partial_cmp(&other.0)
+            }
+        }
+        impl Ord for NodeSim {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
             }
         }
 
-        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        results.truncate(top_k);
-        results
+        // Add start point for layer 0
+        if let Some(node) = self.nodes.get(&curr_node_id) {
+            let sim = cosine_similarity(query_vec, &node.vec_data);
+            candidates.push(NodeSim(sim, curr_node_id));
+            visited.insert(curr_node_id);
+        }
+
+        let mut neighborhood_results = Vec::new();
+
+        while let Some(NodeSim(sim, id)) = candidates.pop() {
+            neighborhood_results.push((id, sim));
+            if neighborhood_results.len() >= top_k * 2 { break; } // Bounded search
+
+            // Explore neighbors
+            if let Some(node) = self.nodes.get(&id) {
+                if let Some(neighbors) = node.neighbors.get(0) {
+                    for &neighbor_id in neighbors {
+                        if !visited.contains(&neighbor_id) {
+                            visited.insert(neighbor_id);
+                            if let Some(neighbor_node) = self.nodes.get(&neighbor_id) {
+                                if neighbor_node.bitset & query_mask == query_mask {
+                                    let n_sim = cosine_similarity(query_vec, &neighbor_node.vec_data);
+                                    candidates.push(NodeSim(n_sim, neighbor_id));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        neighborhood_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        neighborhood_results.truncate(top_k);
+        neighborhood_results
     }
 
     fn greedy_step(&self, enter_id: u64, query_vec: &[f32], layer: usize) -> u64 {

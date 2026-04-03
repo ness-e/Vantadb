@@ -8,32 +8,37 @@
 ## Visión de Versiones
 
 ```
-v1.0 (ACTUAL)  → MVP: Single-node, local-first, Ollama-native
-v1.1 (Q3 2026) → Polish: DX, docs site, playground, CLI improvements
-v1.5 (Q4 2026) → Scale: WASM build, backup/restore, monitoring dashboard
-v2.0 (Q1 2027) → Distributed: Sharding, replication, cloud-ready
-v2.5 (Q2 2027) → Intelligence: ML query optimizer (CBO), auto-indexing
-v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation
+v0.4 (ACTUAL)  → Cognitive Sovereignty: LISP logic, DevilsAdvocate, SIMD.
+v1.0 (Q3 2026) → Stable MVP: Performance polish, CLI DX, Full IQL compliance.
+v1.5 (Q4 2026) → Scale: WASM build, backup/restore, monitoring dashboard.
+v2.0 (Q1 2027) → Distributed: Sharding, replication, cloud-ready.
+v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation.
 ```
 
 ---
 
-## v1.1 — Developer Experience (Target: Q3 2026)
+## [COMPLETADO] v0.1 - v0.4 Core Foundations
 
-### Prioridad: CRÍTICA (retención de early adopters)
+### Hitos Alcanzados:
+- [x] **UnifiedNode Architecture**: Almacenamiento unificado de vectores, grafos y campos.
+- [x] **RocksDB Integration**: Persistencia industrial con zero-copy pinning.
+- [x] **Neon Synapse (SIMD)**: Aceleración por hardware de búsqueda vectorial.
+- [x] **Cognitive Sovereignty**: Auditoría de escrituras mediante `DevilsAdvocate`.
+- [x] **Hybrid Execution**: Parser `nom` para IQL y Evaluador LISP funcional.
+
+---
+
+## v1.0 — Stable MVP & DX (Target: Q3 2026)
+
+### Prioridad: CRÍTICA (estabilidad y adopción)
 
 | # | Feature | Esfuerzo | Impacto |
 |---|---|---|---|
-| 1 | **mdBook docs site** con GitHub Pages deploy | 1 semana | ⭐⭐⭐⭐⭐ |
-| 2 | **README rewrite** (demo GIF, benchmarks, quickstart 60s) | 3 días | ⭐⭐⭐⭐⭐ |
-| 3 | **CLI syntax highlighting** (colored + regex IQL) | 2 días | ⭐⭐⭐⭐ |
-| 4 | **CLI `.explain`** (muestra LogicalPlan sin ejecutar) | 1 día | ⭐⭐⭐⭐ |
-| 5 | **CLI table output** (tabled crate) | 1 día | ⭐⭐⭐⭐ |
-| 6 | **Docker Compose** con Ollama preconfigurado | 2 días | ⭐⭐⭐⭐⭐ |
-| 7 | **OpenAPI spec** generada desde Axum handlers | 3 días | ⭐⭐⭐ |
-| 8 | **Error messages mejorados** con sugerencias IQL | 2 días | ⭐⭐⭐⭐ |
-| 9 | **GitHub Release binarios** (Linux, macOS, Windows) | 1 día | ⭐⭐⭐⭐ |
-| 10 | **Contributing.md + Issue templates** | 1 día | ⭐⭐⭐ |
+| 1 | **Full IQL Compliance** (JOINs, Subqueries) | 3 semanas | ⭐⭐⭐⭐⭐ |
+| 2 | **CLI syntax highlighting** (colored + regex IQL) | 2 días | ⭐⭐⭐⭐ |
+| 3 | **CLI `.explain`** | 1 día | ⭐⭐⭐⭐ |
+| 4 | **Docker Compose** con Ollama y UI básica | 3 días | ⭐⭐⭐⭐⭐ |
+| 5 | **GitHub Release binarios** | 1 día | ⭐⭐⭐⭐ |
 
 ---
 

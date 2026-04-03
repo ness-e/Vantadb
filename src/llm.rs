@@ -6,7 +6,7 @@ use crate::error::{ConnectomeError, Result};
 #[derive(Serialize)]
 struct OllamaEmbeddingRequest<'a> {
     model: &'a str,
-    prompt: &'a str,
+    input: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -51,7 +51,7 @@ impl LlmClient {
         
         let req_body = OllamaEmbeddingRequest {
             model: &self.default_model,
-            prompt: text,
+            input: text,
         };
 
         let response = self.client.post(&url)
