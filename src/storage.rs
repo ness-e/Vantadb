@@ -7,9 +7,14 @@ use crate::index::CPIndex;
 use crate::governance::AuditableTombstone;
 use std::sync::RwLock;
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
 pub struct StorageEngine {
-    db: DB,
+    pub db: DB, // Expuesto pub temporalmente si se necesita compactación desde sleep_worker
     pub hnsw: RwLock<CPIndex>,
+    pub cortex_ram: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    pub last_query_timestamp: AtomicU64,
 }
 
 impl StorageEngine {
@@ -34,17 +39,34 @@ impl StorageEngine {
         
         Ok(Self { 
             db,
-            hnsw: RwLock::new(CPIndex::new())
+            hnsw: RwLock::new(CPIndex::new()),
+            cortex_ram: RwLock::new(std::collections::HashMap::new()),
+            last_query_timestamp: AtomicU64::new(
+                SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+            )
         })
     }
 
+    pub fn touch_activity(&self) {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        self.last_query_timestamp.store(now, Ordering::Release);
+    }
+
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
-        // RocksDB Disk Persistence (Durability)
+        self.touch_activity();
+
+        // 1. Durabilidad: Inserción directa (Write-Through)
         let key = node.id.to_le_bytes();
         let val = bincode::serialize(node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
         self.db.put(&key, &val).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
 
-        // In-Memory Index Tracking (HNSW)
+        // 2. L1 Cache / STN Storage
+        if node.neuron_type == crate::node::NeuronType::STNeuron {
+            let mut cache = self.cortex_ram.write().unwrap();
+            cache.insert(node.id, node.clone());
+        }
+
+        // 3. In-Memory Index Tracking (HNSW)
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorData::F32(vec) = &node.vector {
                 let mut index = self.hnsw.write().unwrap();
@@ -56,6 +78,20 @@ impl StorageEngine {
     }
 
     pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
+        self.touch_activity();
+
+        // 1. Buscar en L1 Cache (cortex_ram)
+        {
+            let mut cache = self.cortex_ram.write().unwrap();
+            if let Some(node) = cache.get_mut(&id) {
+                // Actualizar Heurísticas Base
+                node.hits += 1;
+                node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+                return Ok(Some(node.clone()));
+            }
+        }
+
+        // 2. Si es Miss de RAM, Buscar en LTN (RocksDB)
         let key = id.to_le_bytes();
         match self.db.get_pinned(&key) {
             Ok(Some(slice)) => {

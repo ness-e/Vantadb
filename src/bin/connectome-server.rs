@@ -9,7 +9,13 @@ async fn main() {
     
     // Initialize storage engine and wrap in Arc for Axum state sharing
     let storage = Arc::new(StorageEngine::open("connectome_data").unwrap());
-    let state = Arc::new(ServerState { storage });
+    let state = Arc::new(ServerState { storage: storage.clone() });
+
+    // Iniciar Mantenimiento Circadiano (Background Garbage Collector)
+    let sleep_storage_ctx = storage.clone();
+    tokio::spawn(async move {
+        connectomedb::governance::sleep_worker::SleepWorker::start(sleep_storage_ctx).await;
+    });
 
     let router = app(state);
 
