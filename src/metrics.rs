@@ -1,4 +1,4 @@
-use prometheus::{Counter, Histogram, Registry, IntCounter};
+use prometheus::{Histogram, Registry, IntCounter};
 use std::sync::LazyLock;
 
 // Ensure singleton metrics registry across the binary

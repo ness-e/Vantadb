@@ -36,7 +36,7 @@ impl<'a> GcWorker<'a> {
             if *expiry <= now {
                 for &id in ids {
                     // Attempt deletion via StorageEngine physical store
-                    if self.storage.delete(id).is_ok() {
+                    if self.storage.delete(id, "GC TTL Expired").is_ok() {
                         expired_count += 1;
                     }
                 }
