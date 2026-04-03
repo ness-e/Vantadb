@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  connectomedb:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: connectomedb-server
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - CONNECTOMEDB_PORT=8080
+      - OLLAMA_HOST=http://ollama-llm:11434
+    volumes:
+      - connectomedb_data:/data
+    networks:
+      - agent-network
+    depends_on:
+      - ollama-llm
+    restart: unless-stopped
+
+  ollama-llm:
+    image: ollama/ollama:latest
+    container_name: ollama-ai-companion
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - agent-network
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # We don't automatically pull the model to avoid huge startup times.
+    # The user should run: docker exec -it ollama-ai-companion ollama pull llama3 (or gemma/nomic-embed-text)
+    
+volumes:
+  connectomedb_data:
+  ollama_models:
+
+networks:
+  agent-network:
+    driver: bridge

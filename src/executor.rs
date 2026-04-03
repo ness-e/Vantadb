@@ -68,7 +68,7 @@ impl<'a> Executor<'a> {
                 Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} updated.", update.node_id) })
             }
             Statement::Delete(delete) => {
-                self.storage.delete(delete.node_id)?;
+                self.storage.delete(delete.node_id, "IQL Manual Deletion")?;
                 Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} deleted.", delete.node_id) })
             }
             Statement::Relate(relate) => {

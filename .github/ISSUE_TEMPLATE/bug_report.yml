@@ -1,0 +1,58 @@
+name: Bug Report
+description: Create a report to help us improve ConnectomeDB.
+title: "[BUG] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thank you for taking the time to file a bug report! Before you submit, please search the issue tracker to ensure it hasn't been reported already."
+
+  - type: input
+    id: version
+    attributes:
+      label: ConnectomeDB Version
+      description: "What version of ConnectomeDB are you using? (e.g. `connectomedb-cli --version`)"
+      placeholder: "e.g. 1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: "On what OS did you encounter this bug?"
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Docker
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: "A clear and concise description of what the bug is."
+      placeholder: "When I run an IQL query with X, it panics with Y..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: "How can we reproduce the problem? (Provide the specific IQL query if applicable)"
+      value: |
+        1. Run `connectomedb-server`
+        2. Execute query `FROM...`
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Rust Error Logs / Panic Trace
+      description: "If the engine crashed, please paste the panic output or `RUST_BACKTRACE=1` logs here."
+      render: shell

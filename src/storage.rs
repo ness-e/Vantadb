@@ -1,7 +1,8 @@
-use rocksdb::{Options, DB};
+use rocksdb::{Options, DB, WriteBatch};
 use crate::error::{ConnectomeError, Result};
 use crate::node::UnifiedNode;
 use crate::index::CPIndex;
+use crate::governance::AuditableTombstone;
 use std::sync::RwLock;
 
 pub struct StorageEngine {
@@ -13,10 +14,12 @@ impl StorageEngine {
     pub fn open(path: &str) -> Result<Self> {
         let mut opts = Options::default();
         opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
         opts.set_max_background_jobs(4);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         
-        let db = DB::open(&opts, path).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        let cfs = vec!["default", "shadow_kernel", "tombstones"];
+        let db = DB::open_cf(&opts, path, cfs).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         
         Ok(Self { 
             db,
@@ -55,10 +58,49 @@ impl StorageEngine {
         }
     }
 
-    pub fn delete(&self, id: u64) -> Result<()> {
+    pub fn delete(&self, id: u64, reason: &str) -> Result<()> {
+        if let Some(node) = self.get(id)? {
+            let key = id.to_le_bytes();
+            let val = bincode::serialize(&node).unwrap();
+
+            use std::hash::{Hash, Hasher};
+            use std::collections::hash_map::DefaultHasher;
+            let mut hasher = DefaultHasher::new();
+            val.hash(&mut hasher);
+            let hash = hasher.finish();
+
+            let tomb = AuditableTombstone::new(id, reason, hash);
+            let tomb_val = bincode::serialize(&tomb).unwrap();
+
+            let mut batch = WriteBatch::default();
+            
+            let cf_default = self.db.cf_handle("default").unwrap();
+            let cf_shadow = self.db.cf_handle("shadow_kernel").unwrap();
+            let cf_tomb = self.db.cf_handle("tombstones").unwrap();
+
+            batch.put_cf(&cf_shadow, &key, &val);
+            batch.put_cf(&cf_tomb, &key, &tomb_val);
+            batch.delete_cf(&cf_default, &key);
+
+            self.db.write(batch).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn purge_permanent(&self, id: u64) -> Result<()> {
         let key = id.to_le_bytes();
-        self.db.delete(&key)
-            .map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        let mut batch = WriteBatch::default();
+        let cf_default = self.db.cf_handle("default").unwrap();
+        let cf_shadow = self.db.cf_handle("shadow_kernel").unwrap();
+        let cf_tomb = self.db.cf_handle("tombstones").unwrap();
+
+        batch.delete_cf(&cf_default, &key);
+        batch.delete_cf(&cf_shadow, &key);
+        batch.delete_cf(&cf_tomb, &key);
+        
+        self.db.write(batch).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         Ok(())
     }
 }

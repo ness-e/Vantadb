@@ -29,6 +29,7 @@ pub mod python;
 pub mod columnar;
 pub mod metrics;
 pub mod gc;
+pub mod governance;
 pub mod llm;
 
 // Re-exports for ergonomic API

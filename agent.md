@@ -17,16 +17,24 @@
    - Formato de Commits: `feat(fase-XX): <título>` con cuerpo detallado explicando el QUÉ y el POR QUÉ.
 
 ### FASE 16: 18_CognitiveArchitecture
-- [ ] Implementar Trait `CognitiveUnit` y enum `Neuron` en `src/node.rs`.
-- [ ] Crear flags de `PINNED` y sistema de hits/recencia.
+- [ ] Implementar Trait `CognitiveUnit` y enum `NeuronType` en `src/node.rs`.
+- [ ] Inyectar campos: `hits`, `last_accessed` y `trust_score` (v0.5 por defecto).
+- [ ] Crear flags de `PINNED` y lógica de integración en el Parser IQL.
+- [ ] **Estrategia:** Lazy Write-Back en `executor.rs` para proteger performance de lectura y evitar write amplification.
 
-### FASE 17: 19_DataGovernance
-- [ ] Implementar Column Family `shadow_kernel` en `StorageEngine`.
-- [ ] Crear el sistema inmutable de `Trust Score` y generador de `Tombstones`.
+### FASE 17: 19_ShadowKernel & Trust Governance
+- [ ] Configurar Column Families en `StorageEngine` ('default' + 'shadow_kernel').
+- [ ] Crear el sistema de `AuditableTombstones` para el rastreo de borrados lógicos.
+- [ ] Implementar el "Flujo de Represión": Mover nodos de default a shadow_kernel al expirar TTL o Trust.
 
 ### FASE 18: 20_SecurityAxioms
 - [ ] Implementar reglas `Iron Axioms` para consistencia del DAG en `src/engine.rs`.
 - [ ] Configurar RocksDB Checkpointing en `src/storage.rs` (Life Insurance).
+
+### Hoja de Ruta de Inteligencia (V0.4.0+)
+**FASE 19: Cognitive Sovereignty**
+- [ ] Implementar modo 'Abogado del Diablo' para detección de sesgos y contradicciones lógicas.
+- [ ] Algoritmo de resolución automática de conflictos basado en Trust Scores de fuentes.
 
 ## 🎯 OBJETIVOS CRÍTICOS
 ```
@@ -40,7 +48,7 @@
 ## 🚫 LIMITACIONES TÉCNICAS
 ```
 ❌ NO cloud-first (16GB laptop target)
-❌ NO distributed (single-node MVP)
+❌ Preparar para Sharding Semántico en v0.4.0+ (Mantiene MV local, pero abre puerta enterprise)
 ❌ NO ML-heavy (heurístico → estadístico)
 ❌ Storage-over-Compute first
 ```
