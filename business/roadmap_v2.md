@@ -9,10 +9,11 @@
 
 ```
 v0.4 (ACTUAL)  → Cognitive Sovereignty: LISP logic, DevilsAdvocate, SIMD.
-v1.0 (Q3 2026) → Stable MVP: Performance polish, CLI DX, Full IQL compliance.
-v1.5 (Q4 2026) → Scale: WASM build, backup/restore, monitoring dashboard.
-v2.0 (Q1 2027) → Distributed: Sharding, replication, cloud-ready.
-v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation.
+v0.5 (Q2 2026) → Biological Infrastructure: Lobes, Memory Hierarchy, MCP.
+v0.6 (Q3 2026) → Active Intelligence: SleepWorker v2, Olvido Bayesiano, Compresión.
+v1.0 (Q4 2026) → Stable MVP: Performance polish, CLI DX, Full IQL compliance.
+v2.0 (Q1 2027) → Distributed: Sharding, Cloud-ready.
+v3.0 (Q4 2027) → Platform: Marketplace, Multi-tenant.
 ```
 
 ---
@@ -127,10 +128,10 @@ v3.0 (Q4 2027) → Platform: Marketplace, multi-tenant, edge federation.
 ## Prioridades Técnicas Inmediatas (Próximas 4 semanas)
 
 ```
-SEMANA 1:  README rewrite + Docker Compose + docs skeleton
-SEMANA 2:  CLI improvements (syntax highlight, tables, .explain)
-SEMANA 3:  mdBook docs deployment + OpenAPI spec
-SEMANA 4:  GitHub Release binarios + Contributing guide + HN launch prep
+SEMANA 1:  Nesting biological terms in code + LISP Bytecode VM Prototype.
+SEMANA 2:  Lobe Separation (RocksDB CF) + Memory Hierarchy implementation.
+SEMANA 3:  SleepWorker v2 (Bayesian Forgetfulness) + MCP Endpoint.
+SEMANA 4:  Hardware detection + Adaptive Profiles (Survival vs Enterprise).
 ```
 
 ---

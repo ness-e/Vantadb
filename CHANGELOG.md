@@ -3,6 +3,7 @@
 ## [v0.4.0] - current
 ### ✨ Features
 - **Cognitive Logic:** Hybrid execution layer supporting LISP S-Expressions (`src/eval`).
+- **Development Roadmap (Phase 24-28):** Initiation of "Cognitive OS" architecture including Lobes, tiered memory, and Bayesian forgetfulness.
 - **Sovereignty Module:** `DevilsAdvocate` write auditing to prevent contradictory or low-trust mutations.
 - **Shadow Kernel:** Auditable memory via soft-deletion (Tombstones) and async Garbage Collection.
 - **Cognitive Fuel:** Sandbox-protected execution of dynamic rules with resource limits.

@@ -17,16 +17,29 @@ Resuelve los conflictos identificados por el Abogado del Diablo.
     - `Reject(reason)`: Se bloquea la escritura para preservar la integridad (Sovereignty Rejected).
     - `Shadow(id)`: La escritura se permite pero se marca para revisión manual o se desvía a una capa de almacenamiento de baja confianza.
 
+## Axiomas de Seguridad (Axioms of Iron)
+Los axiomas son reglas inmutables de bajo nivel que protegen el motor contra la entropía informacional.
+
+### 1. Aceleración vía Bloom Filters
+Para escalar a millones de nodos sin penalizar la latencia de escritura (`INSERT/RELATE`), ConnectomeDB utiliza **Filtros de Bloom** en memoria por cada Lóbulo.
+- **Mecanismo**: Antes de realizar un `Point-Lookup` en RocksDB para verificar el **Axioma Topológico** (ej: "¿existe el nodo destino?"), se consulta el Bloom Filter.
+- **Resultado**: El 99% de las referencias inexistentes se descartan en nanosegundos sin tocar el disco.
+
+### 2. El Proxy de Estado de Pánico (Panic State)
+Si se detecta una violación de un Axioma de Hierro que no puede ser resuelta (ej: bit-flip en RAM detectado por checksum), el sistema entra en `Panic Mode`:
+- **std::process::exit(1)**: Interrupción forzada para evitar la propagación de corrupción.
+- **Emergency Dump**: Antes del cierre, el motor intenta realizar un volcado de memoria de los últimos vectores procesados para análisis forense.
+
 ## El Shadow Kernel (Núcleo en la Sombra)
 
 ### Borrados Atómicos y Lápidas (Tombstones)
 ConnectomeDB no utiliza borrados físicos inmediatos (`hard-delete`). En su lugar, implementa un sistema de **Lápidas Auditables**:
-- Al borrar un nodo, se mueve al **Shadow Archive**.
+- Al borrar un nodo, se mueve al **Shadow Archive** (Column Family dedicada).
 - Se deja una "lápida" (tombstone) con metadatos sobre por qué y quién realizó el borrado.
 - Esto permite la prevención de pérdida semántica y auditorías post-mortem.
 
 ### Garbage Collection (GC) Asíncrono (`src/gc.rs`)
-Un worker en segundo plano se encarga de la purga física de datos basados en políticas de retención (TTL) y el estado de las lápidas, liberando espacio en RocksDB sin comprometer la latencia de las queries activas.
+Un worker en segundo plano se encarga de la purga física de datos basados en políticas de retención (TTL), el estado de las lápidas y el `Trust Score` acumulado, liberando espacio en RocksDB sin comprometer la latencia de las queries activas.
 
 ## Axiomas de Seguridad (v0.4.0)
 - **Topological Consistency**: No se permiten relaciones hacia nodos ya "difuntos" (tombstoned).

@@ -1,8 +1,8 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/ness-e/IADBMS/main/connectome-web/public/favicon.ico" width="80" alt="ConnectomeDB Logo">
   <h1>ConnectomeDB</h1>
-  <p><strong>La capa de memoria unificada para agentes autónomos.</strong></p>
-  <p>Vectores, Grafos y SQL en un único binario Rust de 15MB. Sin glue code. Sin JVM.</p>
+  <p><strong>El Núcleo de Memoria Cognitiva para Agentes Autónomos.</strong></p>
+  <p>Vectores, Grafos y Reglas Lógicas en un motor bio-inspirado escrito en Rust. Memoria que aprende, olvida y razona.</p>
 
   <p>
     <a href="https://connectomedb.dev"><img src="https://img.shields.io/badge/Website-connectomedb.dev-00d4ff?style=flat-square" alt="Website"></a>
