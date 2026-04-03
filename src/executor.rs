@@ -2,6 +2,7 @@ use crate::error::{Result, ConnectomeError};
 use crate::query::{LogicalPlan, LogicalOperator, Statement};
 use crate::node::{UnifiedNode, VectorData};
 use crate::storage::StorageEngine;
+use crate::governance::{DevilsAdvocate, TrustArbiter, ResolutionResult};
 
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
@@ -49,6 +50,28 @@ impl<'a> Executor<'a> {
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
 
+                // Soberanía Cognitiva: Devil's Advocate
+                if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+                    if let crate::node::VectorData::F32(vec) = &node.vector {
+                        let nearest = {
+                            let index = self.storage.hnsw.read().unwrap();
+                            // MVP: mask 0, y top 1 para validar contradicción
+                            index.search_nearest(vec, 0, 1)
+                        };
+                        
+                        if let Some((incumbent_id, _)) = nearest.first() {
+                            if *incumbent_id != node.id {
+                                if let Some(incumbent) = self.storage.get(*incumbent_id)? {
+                                    let advocate = DevilsAdvocate::new();
+                                    if let ResolutionResult::Reject(reason) = advocate.evaluate_conflict(&incumbent, &node) {
+                                        return Err(ConnectomeError::Execution(format!("Sovereignty Rejected: {}", reason)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 self.storage.insert(&node)?;
                 Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} inserted.", insert.node_id) })
             }
@@ -64,6 +87,27 @@ impl<'a> Executor<'a> {
                     node.vector = VectorData::F32(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
+                // Soberanía Cognitiva: Devil's Advocate evalúa a la mutación en curso
+                if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+                    if let crate::node::VectorData::F32(vec) = &node.vector {
+                        let nearest = {
+                            let index = self.storage.hnsw.read().unwrap();
+                            index.search_nearest(vec, 0, 1)
+                        };
+                        
+                        if let Some((incumbent_id, _)) = nearest.first() {
+                            if *incumbent_id != node.id {
+                                if let Some(incumbent) = self.storage.get(*incumbent_id)? {
+                                    let advocate = DevilsAdvocate::new();
+                                    if let ResolutionResult::Reject(reason) = advocate.evaluate_conflict(&incumbent, &node) {
+                                        return Err(ConnectomeError::Execution(format!("Sovereignty Rejected (Update): {}", reason)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 self.storage.insert(&node)?;
                 Ok(ExecutionResult::Write { affected_nodes: 1, message: format!("Node {} updated.", update.node_id) })
             }

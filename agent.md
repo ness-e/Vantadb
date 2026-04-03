@@ -33,8 +33,8 @@
 
 ### Hoja de Ruta de Inteligencia (V0.4.0+)
 **FASE 19: Cognitive Sovereignty**
-- [ ] Implementar modo 'Abogado del Diablo' para detección de sesgos y contradicciones lógicas.
-- [ ] Algoritmo de resolución automática de conflictos basado en Trust Scores de fuentes.
+- [x] Implementar modo 'Abogado del Diablo' para detección de sesgos y contradicciones lógicas.
+- [x] Algoritmo de resolución automática de conflictos basado en Trust Scores de fuentes.
 
 **FASE 20: Mantenimiento Circadiano (Auditoría de Sueño)**
 - [ ] **Fase REM:** Escaneo de IDs en RAM vs Point-Lookup en RocksDB (Reconstrucción probabilística de Bloom Filters si el desvío es > 0.01%).

@@ -25,3 +25,44 @@ impl AuditableTombstone {
         }
     }
 }
+
+// ─── Soberanía Cognitiva (Devil's Advocate) ────────────────
+use crate::node::{UnifiedNode, CognitiveUnit};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResolutionResult {
+    Accept,
+    Reject(String),               // Razón basada en Trust Score
+    Merge { new_trust: f32 },     // Combinar aserciones bajando certeza
+}
+
+pub trait TrustArbiter {
+    fn evaluate_conflict(&self, incumbent: &UnifiedNode, challenger: &UnifiedNode) -> ResolutionResult;
+}
+
+pub struct DevilsAdvocate;
+
+impl DevilsAdvocate {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TrustArbiter for DevilsAdvocate {
+    fn evaluate_conflict(&self, incumbent: &UnifiedNode, challenger: &UnifiedNode) -> ResolutionResult {
+        // Obtenemos similitud de vectores
+        if let Some(sim) = incumbent.vector.cosine_similarity(&challenger.vector) {
+            // Umbral del 95% de similitud para evaluar si hablan del mismo tema
+            if sim > 0.95 {
+                // Heurística de conflictos base (ej: Campos vacíos o mutaciones sospechosas)
+                if challenger.trust_score() < incumbent.trust_score() {
+                    return ResolutionResult::Reject(format!(
+                        "Disonancia Cognitiva Detectada (Sim: {:.2}). Challenger Trust ({:.2}) es inferior al Incumbent Trust ({:.2}). Se rechaza la mutación.",
+                        sim, challenger.trust_score(), incumbent.trust_score()
+                    ));
+                }
+            }
+        }
+        ResolutionResult::Accept
+    }
+}
