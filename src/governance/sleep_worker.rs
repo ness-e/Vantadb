@@ -38,6 +38,8 @@ impl SleepWorker {
             // Acquire Write Lock transitorio sobre Cortex RAM
             let mut cortex = storage.cortex_ram.write().unwrap();
             total_nodes = cortex.len();
+            let max_amygdala_shielded = (total_nodes as f32 * 0.05).ceil() as usize;
+            let mut current_shielded = 0;
 
             let mut keys_to_remove = Vec::new();
 
@@ -47,6 +49,12 @@ impl SleepWorker {
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
                     println!("🔌 [Circadian] Interrupción de Fase REM (Actividad de I/O detectada).");
                     break; // Yield to processing loop
+                }
+
+                // Amygdala Budget: Protect high-valence nodes from forgetting
+                if node.semantic_valence >= 0.8 && current_shielded < max_amygdala_shielded {
+                    current_shielded += 1;
+                    continue; // Skip entropy pruning and consolidation
                 }
 
                 // 1. Olvido Bayesiano
