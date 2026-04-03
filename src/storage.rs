@@ -1,4 +1,6 @@
-use rocksdb::{Options, DB, WriteBatch};
+use rocksdb::{Options, DB, WriteBatch, FlushOptions};
+use rocksdb::checkpoint::Checkpoint;
+use std::env;
 use crate::error::{ConnectomeError, Result};
 use crate::node::UnifiedNode;
 use crate::index::CPIndex;
@@ -102,5 +104,64 @@ impl StorageEngine {
         
         self.db.write(batch).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         Ok(())
+    }
+
+    pub fn is_tombstoned(&self, id: u64) -> Result<bool> {
+        let key = id.to_le_bytes();
+        let cf_tomb = self.db.cf_handle("tombstones").unwrap();
+        match self.db.get_cf(&cf_tomb, &key) {
+            Ok(Some(_)) => Ok(true),
+            Ok(None) => Ok(false),
+            Err(e) => Err(ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))),
+        }
+    }
+
+    pub fn flush(&self) -> Result<()> {
+        let mut flush_opt = FlushOptions::default();
+        flush_opt.set_wait(true);
+        self.db.flush_opt(&flush_opt).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        Ok(())
+    }
+
+    pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
+        let cp = Checkpoint::new(&self.db).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, format!("Error creando inicialización de Checkpoint: {}", e))))?;
+        
+        let mut save_path = std::path::PathBuf::from("./connectome_snapshots");
+        if let Ok(override_dir) = env::var("CONNECTOME_BACKUP_DIR") {
+            save_path = std::path::PathBuf::from(override_dir);
+        }
+        save_path.push(timestamp_name);
+        
+        // Crear directorio padre si no existe (RocksDB requiere que el padre exista pero el destino no)
+        if let Some(parent) = save_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        cp.create_checkpoint(&save_path).map_err(|e| {
+            ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, format!("Error escribiendo Life Insurance Checkpoint: {}", e)))
+        })?;
+        
+        Ok(())
+    }
+
+    /// Dispara un estado de pánico del sistema controlado para proteger el grafo.
+    /// Frena la ejecución, sincroniza logs a disco, emite el rastro y termina el proceso.
+    pub fn trigger_panic_state(&self, reason: &str, stmt: Option<&str>) -> ! {
+        println!("\n=======================================================");
+        println!("🔥 CONNECTOMEDB KERNEL PANIC: Security Axiom Violated 🔥");
+        println!("=======================================================");
+        println!("Reason: {}", reason);
+        if let Some(s) = stmt {
+            println!("Offending Transaction: {}", s);
+        }
+        
+        println!("Attempting controlled WAL flush...");
+        if let Err(e) = self.flush() {
+            eprintln!("CRITICAL ERROR: Failed to flush OS buffers during panic: {}", e);
+        } else {
+            println!("Buffers successfully flushed to disk. Graph state secured.");
+        }
+        println!("System halted to prevent database corruption.");
+        std::process::exit(1);
     }
 }

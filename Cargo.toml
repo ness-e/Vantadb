@@ -19,7 +19,7 @@ parking_lot = "0.12"
 rand = "0.8"
 nom = "7"
 arrow = { version = "53", features = ["ipc"] }
-rocksdb = "0.22"
+rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 
 # ── Fase 3: Async + Integrations + Server ──
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }

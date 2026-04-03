@@ -76,6 +76,16 @@ impl<'a> Executor<'a> {
                     Some(n) => n,
                     None => return Err(ConnectomeError::Execution(format!("Source Node {} not found for relation", relate.source_id))),
                 };
+
+                // Axioma 1: Consistencia Topológica (No Huérfanos)
+                if self.storage.get(relate.target_id)?.is_none() {
+                    if self.storage.is_tombstoned(relate.target_id).unwrap_or(false) {
+                        return Err(ConnectomeError::Execution(format!("Referencia a nodo difunto: ID {} reside en el Shadow Archive", relate.target_id)));
+                    } else {
+                        return Err(ConnectomeError::Execution(format!("Axioma Topológico violado: El Nodo destino {} no existe", relate.target_id)));
+                    }
+                }
+
                 if let Some(w) = relate.weight {
                     node.add_weighted_edge(relate.target_id, relate.label, w);
                 } else {

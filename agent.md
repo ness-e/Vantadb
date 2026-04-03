@@ -28,8 +28,8 @@
 - [x] Implementar Borrado Atómico (WriteBatch): Clonar a shadow_kernel, crear lápida y borrar de default en `.delete()`.
 
 ### FASE 18: 20_SecurityAxioms
-- [ ] Implementar reglas `Iron Axioms` para consistencia del DAG en `src/engine.rs`.
-- [ ] Configurar RocksDB Checkpointing en `src/storage.rs` (Life Insurance).
+- [x] Implementar reglas `Iron Axioms` para consistencia del DAG en `src/engine.rs`.
+- [x] Configurar RocksDB Checkpointing en `src/storage.rs` (Life Insurance).
 
 ### Hoja de Ruta de Inteligencia (V0.4.0+)
 **FASE 19: Cognitive Sovereignty**
@@ -81,4 +81,8 @@ Mes 6: 500 stars, 50 contribs
 ✅ HNSW: NO persistir índice (rebuild on cold start, 3-5s para 100k vec)
 ✅ Bitset: u128 (128 filterable dims, mechanical sympathy)
 ✅ WAL: Bincode Fase 1 (Arrow IPC deferred to Fase 2)
+```
+## RECORDATORIOS
+```
+No ejecutar corgo build ni cargo test ya que en github action se ejecuta automaticamente
 ```
