@@ -29,12 +29,10 @@ impl Default for LlmClient {
 impl LlmClient {
     pub fn new() -> Self {
         let base_url = env::var("CONNECTOME_LLM_URL")
-            .or_else(|_| env::var("IADBMS_LLM_URL"))  // Fallback for migration
             .unwrap_or_else(|_| "http://localhost:11434".to_string());
         
         // El predeterminado de ollama para embeddings vectoriales es nomic-embed-text o all-minilm
         let default_model = env::var("CONNECTOME_LLM_MODEL")
-            .or_else(|_| env::var("IADBMS_LLM_MODEL"))  // Fallback for migration
             .unwrap_or_else(|_| "all-minilm".to_string());
             
         Self {
