@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 use rand::Rng;
-use num_traits::AsPrimitive;
 
 // Reutilizamos la lógica SIMD centralizada en node.rs
 pub use crate::node::VectorData;
@@ -105,7 +103,7 @@ impl CPIndex {
         let mut candidates = std::collections::BinaryHeap::new();
         
         // Use custom wrapper to store (similarity, node_id) in BinaryHeap (Max-Heap)
-        #[derive(num_traits::AsPrimitive, PartialEq)]
+        #[derive(PartialEq)]
         struct NodeSim(f32, u64);
         impl Eq for NodeSim {}
         impl PartialOrd for NodeSim {

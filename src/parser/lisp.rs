@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
     character::complete::{alpha1, alphanumeric1, char, multispace0, none_of},
-    number::complete::f32,
+    number::complete::float,
     combinator::{map, recognize},
     multi::{many0, many1},
     sequence::{delimited, preceded, tuple},
@@ -47,7 +47,7 @@ fn parse_atom(i: &str) -> IResult<&str, LispExpr> {
 }
 
 fn parse_number(i: &str) -> IResult<&str, LispExpr> {
-    map(f32, |n| LispExpr::Number(n))(i)
+    map(float, |n| LispExpr::Number(n))(i)
 }
 
 fn parse_expr(i: &str) -> IResult<&str, LispExpr> {

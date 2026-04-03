@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "ConnectomeDB: A neural-inspired multimodel database for local AI agents. Maps vectors-graphs-tables like neurons in a brain."
 license = "Apache-2.0"
-readme = "README.md"
+readme = "README.MD"
 keywords = ["database", "vector", "graph", "ai", "connectome"]
 categories = ["database-implementations"]
 
