@@ -24,12 +24,14 @@ async fn test_circadian_rem_cycle() {
         let mut node = UnifiedNode::new(i);
         node.neuron_type = NeuronType::STNeuron;
         node.hits = 5; // Bajo número de hits para inducir consolidación
-        node.last_accessed = now - 65_000; // Simular envejecimiento > 60s
         storage.insert(&node).unwrap();
     }
 
     {
-        let cortex = storage.cortex_ram.read().unwrap();
+        let mut cortex = storage.cortex_ram.write().unwrap();
+        for (_, node) in cortex.iter_mut() {
+            node.last_accessed = now - 65_000; // Modificamos en RAM directo porque `storage.insert` reescribe esto
+        }
         assert_eq!(cortex.len(), 10000, "Cortex RAM no retuvo los STNeurons");
     }
 
