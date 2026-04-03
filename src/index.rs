@@ -1,4 +1,5 @@
 use rand::Rng;
+use std::collections::HashMap;
 
 // Reutilizamos la lógica SIMD centralizada en node.rs
 pub use crate::node::VectorData;
@@ -86,11 +87,9 @@ impl CPIndex {
 
     /// HNSW Greedy Search
     pub fn search_nearest(&self, query_vec: &[f32], query_mask: u128, top_k: usize) -> Vec<(u64, f32)> {
-        let results = Vec::new();
-
         let mut curr_node_id = match self.entry_point {
             Some(id) => id,
-            None => return results,
+            None => return Vec::new(),
         };
 
         // Phase 1: Descend layers from max_layer down to 1
