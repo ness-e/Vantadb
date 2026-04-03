@@ -1,5 +1,5 @@
 use connectomedb::storage::StorageEngine;
-use connectomedb::executor::{Executor, ExecutionResult};
+use connectomedb::executor::Executor;
 use connectomedb::query::{Statement, RelateStatement, InsertStatement};
 use connectomedb::error::ConnectomeError;
 use std::sync::Arc;
@@ -18,7 +18,7 @@ async fn test_ghost_node_and_tombstone_axioms() {
     let insert_stmt = Statement::Insert(InsertStatement {
         node_id: 1,
         node_type: "Test".to_string(),
-        fields: std::collections::HashMap::new(),
+        fields: std::collections::BTreeMap::new(),
         vector: None,
     });
     executor.execute_statement(insert_stmt).await.unwrap();
@@ -27,7 +27,7 @@ async fn test_ghost_node_and_tombstone_axioms() {
     let insert_stmt2 = Statement::Insert(InsertStatement {
         node_id: 2,
         node_type: "Test".to_string(),
-        fields: std::collections::HashMap::new(),
+        fields: std::collections::BTreeMap::new(),
         vector: None,
     });
     executor.execute_statement(insert_stmt2).await.unwrap();

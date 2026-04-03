@@ -1,5 +1,5 @@
 use connectomedb::storage::StorageEngine;
-use connectomedb::executor::{Executor, ExecutionResult};
+use connectomedb::executor::Executor;
 use connectomedb::query::{Statement, InsertStatement};
 use connectomedb::error::ConnectomeError;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ async fn test_devil_advocate_trust_conflict() {
     let insert_incumbent = Statement::Insert(InsertStatement {
         node_id: 1,
         node_type: "Fact".to_string(),
-        fields: std::collections::HashMap::new(),
+        fields: std::collections::BTreeMap::new(),
         vector: Some(vector_base.clone()),
     });
     executor.execute_statement(insert_incumbent).await.unwrap();
@@ -35,7 +35,7 @@ async fn test_devil_advocate_trust_conflict() {
     let insert_challenger = Statement::Insert(InsertStatement {
         node_id: 2,
         node_type: "FactDisputed".to_string(),
-        fields: std::collections::HashMap::new(),
+        fields: std::collections::BTreeMap::new(),
         vector: Some(vector_base.clone()),
     });
     // Por defecto `UnifiedNode::new()` le asigna `trust_score = 0.5`. 0.5 < 0.9, así que debería rechazarlo igual.
