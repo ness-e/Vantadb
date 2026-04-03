@@ -103,30 +103,39 @@ impl StorageEngine {
         let key = id.to_le_bytes();
         match self.db.get_pinned(&key) {
             Ok(Some(slice)) => {
-                let mut node: UnifiedNode = bincode::deserialize(&slice).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+                let mut node: UnifiedNode = bincode::deserialize(&slice)
+                    .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
 
                 // Incrementar hits y recencia ANTES de evaluar el umbral.
-                // Sin esto, cada get() ve el valor serializado inicial y nunca llega a 50.
-                node.hits += 1;
-                node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+                node.hits = node.hits.saturating_add(1);
+                node.last_accessed = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+
+                // Persistir el contador actualizado. Sin esto cada get() ve el valor
+                // serializado original y el umbral de promoción nunca se alcanza.
+                let updated_val = bincode::serialize(&node)
+                    .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+                self.db.put(&key, &updated_val)
+                    .map_err(|e| ConnectomeError::IoError(
+                        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+                    ))?;
 
                 // --- Dynamic Memory Promotion (Fase 20.5) ---
-                // Si el nodo alcanzó popularidad suficiente (hits >= 50), lo promovemos a STN.
+                // Al alcanzar el umbral de popularidad, el nodo asciende de LTN a STN.
                 if node.hits >= 50 {
                     node.neuron_type = crate::node::NeuronType::STNeuron;
                     let mut cache = self.cortex_ram.write().unwrap();
                     cache.insert(node.id, node.clone());
                 }
 
-                // Persistir el nodo con hits/last_accessed actualizados para que el
-                // próximo get() desde disco vea el contador correcto.
-                let updated_val = bincode::serialize(&node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-                let _ = self.db.put(&key, &updated_val); // best-effort: no propagamos error de escritura de métrica
-
                 Ok(Some(node))
             }
             Ok(None) => Ok(None),
-            Err(e) => Err(ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))),
+            Err(e) => Err(ConnectomeError::IoError(
+                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+            )),
         }
     }
 
