@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // ─── Vector Data ───────────────────────────────────────────
 
@@ -155,6 +156,7 @@ impl NodeFlags {
     pub const TOMBSTONE: u32 = 1 << 3;
     pub const HAS_VECTOR: u32 = 1 << 4;
     pub const HAS_EDGES: u32 = 1 << 5;
+    pub const PINNED: u32 = 1 << 6;
 
     pub fn new() -> Self {
         Self(Self::ACTIVE)
@@ -174,6 +176,23 @@ impl NodeFlags {
     pub fn is_tombstone(&self) -> bool {
         self.is_set(Self::TOMBSTONE)
     }
+}
+
+// ─── Cognitive Architecture ────────────────────────────────
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum NeuronType {
+    STNeuron, // Fast volatile memory
+    LTNeuron, // Long-term persistent graph memory
+}
+
+pub trait CognitiveUnit {
+    fn trust_score(&self) -> f32;
+    fn hits(&self) -> u32;
+    fn last_accessed(&self) -> u64; // Unix ms
+    fn pin(&mut self);
+    fn unpin(&mut self);
+    fn is_pinned(&self) -> bool;
 }
 
 // ─── UnifiedNode ───────────────────────────────────────────
@@ -198,6 +217,25 @@ pub struct UnifiedNode {
     pub edges: Vec<Edge>,
     /// Relational key-value fields
     pub relational: RelFields,
+    /// Fast volatile vs long-term persistent behavior
+    pub neuron_type: NeuronType,
+    /// Access frequency heuristic
+    pub hits: u32,
+    /// Recency heuristic (Unix MS)
+    pub last_accessed: u64,
+    /// Static Bayesian logic confidence
+    pub trust_score: f32,
+    /// Forward-compatible schema metadata without breaking Bincode
+    pub ext_metadata: HashMap<String, Vec<u8>>,
+}
+
+impl CognitiveUnit for UnifiedNode {
+    fn trust_score(&self) -> f32 { self.trust_score }
+    fn hits(&self) -> u32 { self.hits }
+    fn last_accessed(&self) -> u64 { self.last_accessed }
+    fn pin(&mut self) { self.flags.set(NodeFlags::PINNED); }
+    fn unpin(&mut self) { self.flags.clear(NodeFlags::PINNED); }
+    fn is_pinned(&self) -> bool { self.flags.is_set(NodeFlags::PINNED) }
 }
 
 impl UnifiedNode {
@@ -211,6 +249,14 @@ impl UnifiedNode {
             vector: VectorData::None,
             edges: Vec::new(),
             relational: BTreeMap::new(),
+            neuron_type: NeuronType::LTNeuron,
+            hits: 0,
+            last_accessed: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+            trust_score: 0.5,
+            ext_metadata: HashMap::new(),
         }
     }
 
