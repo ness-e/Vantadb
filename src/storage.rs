@@ -34,7 +34,7 @@ impl StorageEngine {
         bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024)); // 2GB
         opts.set_block_based_table_factory(&bopts);
         
-        let cfs = vec!["default", "shadow_kernel", "tombstones"];
+        let cfs = vec!["default", "shadow_kernel", "deep_memory", "tombstones"];
         let db = DB::open_cf(&opts, path, cfs).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         
         Ok(Self { 
