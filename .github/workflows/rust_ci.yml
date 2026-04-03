@@ -13,7 +13,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+
+    - name: Add swap space (prevent OOM linker crash)
+      run: |
+        sudo fallocate -l 4G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
@@ -21,16 +29,16 @@ jobs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
 
-    - name: Install dependencies (RocksDB requirements)
+    - name: Install system dependencies (RocksDB + Clang)
       run: |
         sudo apt-get update
-        sudo apt-get install -y libclang-dev clang
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
 
-    - name: Build
-      run: cargo build --verbose
+    - name: Build (limited parallelism to reduce memory pressure)
+      run: cargo build --tests --release -j 2
 
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Run tests (limited threads to reduce memory pressure)
+      run: cargo test --release -- --test-threads=2
 
-    - name: Run benchmarks (verification)
+    - name: Run benchmarks (verification only)
       run: cargo bench --no-run
