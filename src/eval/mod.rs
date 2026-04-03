@@ -4,6 +4,8 @@ use crate::error::{ConnectomeError, Result};
 use std::collections::BTreeMap;
 use crate::node::FieldValue;
 
+pub mod vm;
+
 const MAX_FUEL: u64 = 1000;
 
 pub struct LispSandbox<'a> {
