@@ -17,15 +17,15 @@
    - Formato de Commits: `feat(fase-XX): <título>` con cuerpo detallado explicando el QUÉ y el POR QUÉ.
 
 ### FASE 16: 18_CognitiveArchitecture
-- [ ] Implementar Trait `CognitiveUnit` y enum `NeuronType` en `src/node.rs`.
-- [ ] Inyectar campos: `hits`, `last_accessed` y `trust_score` (v0.5 por defecto).
-- [ ] Crear flags de `PINNED` y lógica de integración en el Parser IQL.
-- [ ] **Estrategia:** Lazy Write-Back en `executor.rs` para proteger performance de lectura y evitar write amplification.
+- [x] Implementar Trait `CognitiveUnit` y enum `NeuronType` en `src/node.rs`.
+- [x] Inyectar campos: `hits`, `last_accessed` y `trust_score` (v0.5 por defecto).
+- [x] Crear flags de `PINNED` y logica de metadatos expandibles.
+- [x] **Estrategia:** Lazy Write-Back en memoria protegida sin romper bincode para evitar write amplification.
 
 ### FASE 17: 19_ShadowKernel & Trust Governance
-- [ ] Configurar Column Families en `StorageEngine` ('default' + 'shadow_kernel').
-- [ ] Crear el sistema de `AuditableTombstones` para el rastreo de borrados lógicos.
-- [ ] Implementar el "Flujo de Represión": Mover nodos de default a shadow_kernel al expirar TTL o Trust.
+- [x] Configurar Column Families en `StorageEngine` ('default', 'shadow_kernel', 'tombstones').
+- [x] Crear el submódulo `governance.rs` con `AuditableTombstone` y `original_hash`.
+- [x] Implementar Borrado Atómico (WriteBatch): Clonar a shadow_kernel, crear lápida y borrar de default en `.delete()`.
 
 ### FASE 18: 20_SecurityAxioms
 - [ ] Implementar reglas `Iron Axioms` para consistencia del DAG en `src/engine.rs`.
