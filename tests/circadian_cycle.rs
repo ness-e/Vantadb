@@ -18,11 +18,13 @@ async fn test_circadian_rem_cycle() {
     // Como el `SleepWorker` corre un bucle sin fin, podríamos spawnear el thread real, 
     // pero esperaría `inactivity_threshold_ms` realista (5s) + sleep interval (10s), sumando ~15s al bench.
     
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
     // Inyectar 10000 Nodos Transitorios (STNeuron)
     for i in 1..=10000 {
         let mut node = UnifiedNode::new(i);
         node.neuron_type = NeuronType::STNeuron;
         node.hits = 5; // Bajo número de hits para inducir consolidación
+        node.last_accessed = now - 65_000; // Simular envejecimiento > 60s
         storage.insert(&node).unwrap();
     }
 
