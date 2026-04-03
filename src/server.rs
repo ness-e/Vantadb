@@ -34,6 +34,7 @@ async fn health_check() -> Json<QueryResponse> {
     Json(QueryResponse {
         success: true,
         data: "OK".to_string(),
+        node_id: None,
     })
 }
 

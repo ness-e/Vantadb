@@ -30,8 +30,8 @@ impl StorageEngine {
 
         // Optimización Bloom Filter & Block Cache
         let mut bopts = rocksdb::BlockBasedOptions::default();
-        bopts.set_bloom_filter(10, false);
-        bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024).unwrap()); // 2GB
+        bopts.set_bloom_filter(10.0, false);
+        bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024)); // 2GB
         opts.set_block_based_table_factory(&bopts);
         
         let cfs = vec!["default", "shadow_kernel", "tombstones"];

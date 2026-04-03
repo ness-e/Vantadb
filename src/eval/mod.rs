@@ -2,7 +2,7 @@ use crate::parser::lisp::LispExpr;
 use crate::executor::{Executor, ExecutionResult};
 use crate::error::{ConnectomeError, Result};
 use crate::query::{Statement, InsertStatement};
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use crate::node::FieldValue;
 
 const MAX_FUEL: u64 = 1000;
@@ -46,7 +46,7 @@ impl<'a> LispSandbox<'a> {
         if args.len() < 2 { return Err(ConnectomeError::Execution("INSERT requires target and payload".to_string())); }
 
         let target = if let LispExpr::Keyword(k) = &args[0] { k.as_str() } else { "neuron" };
-        let mut fields = HashMap::new();
+        let mut fields = BTreeMap::new();
         let node_type = target.to_string();
         
         let node_id = rand::random::<u64>(); // Generación genérica
