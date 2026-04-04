@@ -96,12 +96,11 @@ Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
 ## 🛠️ Arquitectura Interna y Soberanía Cognitiva (v0.4.0)
 
-- **Cognitive Logic (v0.4.0):** Capa de ejecución híbrida que soporta tanto IQL (SQL-like) como S-Expressions (LISP). Permite definir reglas de negocio homoicónicas directamente en el grafo.
-- **Cognitive Sovereignty (Devil's Advocate):** El motor audita proactivamente las escrituras. Si detecta similitud vectorial extrema (>0.95) pero disparidad en la certeza (Trust Score), el *Arbiter* bloquea mutaciones falaces emitiendo `Sovereignty Rejected`.
-- **Shadow Kernel & Lápidas:** Borrados y purgas protegidas bajo el capó. Cada mutación de borrado atómico se desvía al Shadow Arc con un "Auditable Tombstone" para prevención de pérdida semántica.
-- **CP-Index (Co-located Pre-filter):** Integra clústeres HNSW con máscaras de bits `u128` (bitsets) saltando nodos estáticamente incompatibles antes del álgebra pesada.
-- **SIMD-Accelerated:** Búsqueda vectorial optimizada mediante instrucciones SIMD (vía `wide` crate) para máximo rendimiento en CPUs modernas.
-- **Integración nativa con Ollama:** Embeddings directos de stacks open source locales sin middlewares externos.
+- **NeuLISP (Inferencia Cognitiva):** Capa de ejecución híbrida orientada al Hardware (SIMD). Las instrucciones S-Expressions no solo ejecutan lógica booleana, sino que retornan Tensores de Certeza (`(Value, TrustScore)`), permitiendo evaluar probabilidades e incertidumbres en tiempo de ejecución de las reglas operativas locales.
+- **Soberanía y Lóbulos de Memoria:** El almacenamiento RocksDB está particionado anatómicamente en Column Families: `default` (Primario), `shadow_kernel`, `tombstones` y ahora `deep_memory`.
+- **Gobierno Biológico (Presupuesto de Amígdala):** El recolector de basura circadiano (`SleepWorker`) audita y aplica Olvido Bayesiano, pero respeta incondicionalmente un "Presupuesto de Valencia" (máximo 5% de memoria L1 retenida inmutable por alta carga semántica/emocional).
+- **Devil's Advocate:** El motor audita proactivamente silenciosamente cada escritura para evitar disonancias lógicas cruzadas en el índice HNSW.
+- **CP-Index & SIMD:** Combina máscaras de bits `u128` (Co-location) con SIMD-Accelerated cosine distance (vía crate `wide` AVX-512) para que las macros NeuLISP que usan el operador de similitud `~` se resuelvan en sub-milisegundos.
 
 ---
 

@@ -15,23 +15,32 @@ pub struct StorageEngine {
     pub hnsw: RwLock<CPIndex>,
     pub cortex_ram: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
     pub last_query_timestamp: AtomicU64,
+    pub emergency_rem_trigger: std::sync::atomic::AtomicBool,
 }
 
 impl StorageEngine {
     pub fn open(path: &str) -> Result<Self> {
+        let caps = crate::hardware::HardwareCapabilities::global();
+
         let mut opts = Options::default();
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
         opts.set_max_background_jobs(4);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         
-        opts.set_write_buffer_size(128 * 1024 * 1024); // 128MB
-        opts.set_max_write_buffer_number(4);
-
-        // Optimización Bloom Filter & Block Cache
+        // Modo Camaleón: Ajuste dinámico de RocksDB basado en RAM total
         let mut bopts = rocksdb::BlockBasedOptions::default();
         bopts.set_bloom_filter(10.0, false);
-        bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024)); // 2GB
+
+        if caps.total_memory < 4 * 1024 * 1024 * 1024 { // Menos de 4GB (Survival Profile)
+            opts.set_write_buffer_size(32 * 1024 * 1024); // 32MB
+            opts.set_max_write_buffer_number(2);
+            bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(128 * 1024 * 1024)); // 128MB
+        } else { // Enterprise o Performance 
+            opts.set_write_buffer_size(128 * 1024 * 1024); // 128MB
+            opts.set_max_write_buffer_number(4);
+            bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024)); // 2GB
+        }
         opts.set_block_based_table_factory(&bopts);
         
         let cfs = vec!["default", "shadow_kernel", "deep_memory", "tombstones"];
@@ -43,7 +52,8 @@ impl StorageEngine {
             cortex_ram: RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: AtomicU64::new(
                 SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
-            )
+            ),
+            emergency_rem_trigger: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -68,6 +78,17 @@ impl StorageEngine {
         if active_node.neuron_type == crate::node::NeuronType::STNeuron {
             let mut cache = self.cortex_ram.write().unwrap();
             cache.insert(active_node.id, active_node.clone());
+
+            // OOM Guard (Modo Camaleón): Regla del 25%
+            let caps = crate::hardware::HardwareCapabilities::global();
+            let cortex_cap_bytes = caps.total_memory / 4;
+            // Aproximación: 1536 bytes promedio por nodo STN + overhead BTreeMap/Hash
+            let approx_node_size = 1536; 
+            let max_stn_nodes = (cortex_cap_bytes / approx_node_size) as usize;
+
+            if cache.len() > max_stn_nodes {
+                self.emergency_rem_trigger.store(true, Ordering::Release);
+            }
         }
 
         // 3. In-Memory Index Tracking (HNSW)

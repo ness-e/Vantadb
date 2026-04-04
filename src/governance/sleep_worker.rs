@@ -24,6 +24,13 @@ impl SleepWorker {
         let inactivity_threshold_ms = 5000;
 
         loop {
+            // Wake up periodically or immediately if emergency memory cap is hit
+            if storage.emergency_rem_trigger.load(Ordering::Acquire) {
+                println!("🚨 [Circadian] TRIGGER DE EMERGENCIA: Cortex RAM al límite. Iniciando Fase REM Agresiva (OOM Guard).");
+                storage.emergency_rem_trigger.store(false, Ordering::Release);
+                Self::execute_rem_phase(&storage).await;
+            }
+
             sleep(sleep_duration).await;
 
             let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;

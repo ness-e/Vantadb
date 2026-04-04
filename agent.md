@@ -162,19 +162,16 @@
 
 ---
 
-### 🔲 FASE 27 — `27_Hardware_Adapters.md` → **Modo Camaleón**
-**Archivos a crear/modificar:** `src/config.rs` (nuevo), `src/main.rs`, `src/storage.rs`, `Cargo.toml`
+### ✅ FASE 27 — `27_Hardware_Adapters.md` → **Modo Camaleón** (COMPLETA)
+**Archivos:** `src/hardware/mod.rs` (nuevo), `src/storage.rs`, `Cargo.toml`, `src/node.rs`, `src/governance/sleep_worker.rs`
 
-- 🔲 Enum `HardwareProfile { Survival, Standard, Enterprise }` en `src/config.rs`.
-- 🔲 Función `detect_hardware_profile() -> HardwareProfile`:
-  - CPU: `std::is_x86_feature_detected!("avx512f")` → activa SIMD full.
-  - RAM: crate `sysinfo` → si total < 16GB → `SurvivalProfile` forzado.
-  - I/O: escritura dummy para medir latencia del directorio de datos.
-- 🔲 Inyectar perfil en `StorageEngine::open()`:
-  - `Survival`: BlockCache 512MB, SleepWorker cada 5s, I8 quantization.
-  - `Enterprise`: BlockCache ∝ RAM, poda diferida, FP32 completo.
-- 🔲 Throttling Cognitivo: delay configurable entre inferencias si CPU sobreca lentada.
-- 🔲 Test `tests/hardware_profiles.rs`.
+- ✅ Enum `HardwareProfile { Enterprise, Performance, Survival }` y `InstructionSet` detectados con `cpufeatures`.
+- ✅ Constante global `OnceLock<HardwareCapabilities>` para despacho escalar O(1).
+- ✅ Fallback explícito seguro si no se detecta AVX512/AVX2/NEON en `cosine_similarity`.
+- ✅ Ajuste dinámico de RocksDB caché (bopts) basado en la RAM disponible de `sysinfo`.
+- ✅ Capacidad dinámica de `cortex_ram` configurada al 25% de la RAM para evitar "Panic de Hardware".
+- ✅ `emergency_rem_trigger` integrado al `SleepWorker` para inicio REM agresivo.
+- ✅ Tests de validación en `tests/hardware_profiles.rs`.
 
 ---
 
