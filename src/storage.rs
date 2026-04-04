@@ -31,6 +31,9 @@ impl StorageEngine {
         // Modo Camaleón: Ajuste dinámico de RocksDB basado en RAM total
         let mut bopts = rocksdb::BlockBasedOptions::default();
         bopts.set_bloom_filter(10.0, false);
+        // RAM Booster: Forzar retención de índices y bloom filters de L0 permanentemente
+        bopts.set_cache_index_and_filter_blocks(true);
+        bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
 
         if caps.total_memory < 4 * 1024 * 1024 * 1024 { // Menos de 4GB (Survival Profile)
             opts.set_write_buffer_size(32 * 1024 * 1024); // 32MB
@@ -46,22 +49,26 @@ impl StorageEngine {
         if caps.profile == crate::hardware::HardwareProfile::Survival || caps.total_memory < 16 * 1024 * 1024 * 1024 {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
-            println!("🚨 [HARDWARE] RAM < 16GB. Forzando MMap Access (Survival Mode).");
+            eprintln!("🚨 [HARDWARE] RAM < 16GB. Forzando MMap Access (Survival Mode).");
         }
 
         // Lóbulos Calientes (LZ4 veloz)
         let mut default_opts = opts.clone();
         default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
         
-        // Lóbulos Fríos (ZSTD densa)
-        let mut zstd_opts = opts.clone();
-        zstd_opts.set_compression_type(rocksdb::DBCompressionType::Zstd);
-        zstd_opts.set_bottommost_compression_type(rocksdb::DBCompressionType::Zstd);
+        // shadow_kernel y deep_memory: Lz4 (bypass de ZSTD)
+        let mut shadow_opts = rocksdb::Options::default();
+        shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        shadow_opts.set_block_based_table_factory(&bopts);
+        
+        let mut mem_opts = rocksdb::Options::default();
+        mem_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        mem_opts.set_block_based_table_factory(&bopts);
 
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts.clone()),
-            rocksdb::ColumnFamilyDescriptor::new("shadow_kernel", zstd_opts.clone()),
-            rocksdb::ColumnFamilyDescriptor::new("deep_memory", zstd_opts.clone()),
+            rocksdb::ColumnFamilyDescriptor::new("shadow_kernel", shadow_opts),
+            rocksdb::ColumnFamilyDescriptor::new("deep_memory", mem_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstones", default_opts),
         ];
 
@@ -150,6 +157,14 @@ impl StorageEngine {
 
         // Keep the HNSW index synchronized
         self.refresh_index(&persisted);
+
+        // Evict from cortex_ram: the node is now an LTNeuron on disk,
+        // so it should no longer live in the STN cache.
+        {
+            let mut cache = self.cortex_ram.write().unwrap();
+            cache.remove(&node.id);
+        }
+
         Ok(())
     }
 

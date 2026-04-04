@@ -33,6 +33,7 @@ pub mod gc;
 pub mod governance;
 pub mod llm;
 pub mod hardware;
+pub mod api;
 
 // Re-exports for ergonomic API
 pub use error::{ConnectomeError, Result};

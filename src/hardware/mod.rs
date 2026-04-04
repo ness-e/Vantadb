@@ -125,11 +125,11 @@ impl HardwareScout {
         // Cortex RAM cap is 25% of total memory
         let cortex_cap_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
 
-        println!(
+        eprintln!(
             "\n[HARDWARE] 🦎 MODO CAMALEÓN: [{}] DETECTADO | RAM: {}GB (Cortex Cap: {}GB) | NÚCLEOS: {} | VITALITY: {}",
             instr_str, ram_gb, cortex_cap_gb, caps.logical_cores, caps.vitality_score
         );
-        println!(
+        eprintln!(
             "[HARDWARE] 🛡️ PERFIL ACTIVADO: [{}]",
             profile_str
         );

@@ -27,14 +27,16 @@ async fn test_dynamic_memory_promotion() {
 
     // 2. Realizar consultas (get) para subir los hits
     // Primer Get: hits pasa de 48 a 49 (Todavía LTN)
-    let _ = storage.get(node_id).unwrap();
+    let node1 = storage.get(node_id).unwrap().unwrap();
+    println!("Primer get hits: {}", node1.hits);
     {
         let cortex = storage.cortex_ram.read().unwrap();
         assert!(!cortex.contains_key(&node_id), "No debería promoverse con 49 hits");
     }
 
     // Segundo Get: hits pasa de 49 a 50 -> Gatilla Promoción
-    let _ = storage.get(node_id).unwrap();
+    let node2 = storage.get(node_id).unwrap().unwrap();
+    println!("Segundo get hits: {}", node2.hits);
 
     // 3. Verificar que ahora el nodo reside en el Cortex RAM (STN)
     {
