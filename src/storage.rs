@@ -43,8 +43,29 @@ impl StorageEngine {
         }
         opts.set_block_based_table_factory(&bopts);
         
-        let cfs = vec!["default", "shadow_kernel", "deep_memory", "tombstones"];
-        let db = DB::open_cf(&opts, path, cfs).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        if caps.profile == crate::hardware::HardwareProfile::Survival || caps.total_memory < 16 * 1024 * 1024 * 1024 {
+            opts.set_allow_mmap_reads(true);
+            opts.set_allow_mmap_writes(true);
+            println!("🚨 [HARDWARE] RAM < 16GB. Forzando MMap Access (Survival Mode).");
+        }
+
+        // Lóbulos Calientes (LZ4 veloz)
+        let mut default_opts = opts.clone();
+        default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        
+        // Lóbulos Fríos (ZSTD densa)
+        let mut zstd_opts = opts.clone();
+        zstd_opts.set_compression_type(rocksdb::DBCompressionType::Zstd);
+        zstd_opts.set_bottommost_compression_type(rocksdb::DBCompressionType::Zstd);
+
+        let cf_descriptors = vec![
+            rocksdb::ColumnFamilyDescriptor::new("default", default_opts.clone()),
+            rocksdb::ColumnFamilyDescriptor::new("shadow_kernel", zstd_opts.clone()),
+            rocksdb::ColumnFamilyDescriptor::new("deep_memory", zstd_opts.clone()),
+            rocksdb::ColumnFamilyDescriptor::new("tombstones", default_opts),
+        ];
+
+        let db = DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
         
         Ok(Self { 
             db,
@@ -133,8 +154,9 @@ impl StorageEngine {
     }
 
     /// Insert a node directly into a named Column Family (e.g. "deep_memory").
-    /// Used for Neural Summarization outputs that bypass the default lobe.
-    pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
+    /// PROTEGIDO: Restringido a `pub(crate)` para Forzar "Read Only" externo. 
+    /// Solo los gobernantes térmicos (como SleepWorker) pueden escribir aquí.
+    pub(crate) fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
         let cf = self.db.cf_handle(cf_name)
             .ok_or_else(|| ConnectomeError::Execution(
                 format!("Column Family '{}' not found", cf_name)

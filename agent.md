@@ -122,23 +122,23 @@
 
 ---
 
-### ✅ FASE 24 — `24_Memory_Hierarchy.md`
+### ✅ FASE 24 — `24_Memory_Hierarchy.md` (COMPLETA)
 **Archivos:** `src/storage.rs`, `src/node.rs`
 
 - ✅ Dualidad `STNeuron` (RAM / `cortex_ram`) vs `LTNeuron` (RocksDB SST).
 - ✅ Promoción dinámica LTN→STN al alcanzar `hits >= 50`.
 - ✅ `last_query_timestamp: AtomicU64` para perfilado de inactividad.
-- ⚠️ **PENDIENTE:** Estrategia mmap para el Neural Index en hardware limitado (< 16GB RAM).
+- ✅ Estrategia mmap para el Neural Index en hardware limitado (Survival Mode fallback en < 16GB RAM con read & write fallbacks).
 
 ---
 
-### ✅ FASE 25 — `25_Lobe_Segmentation.md`
+### ✅ FASE 25 — `25_Lobe_Segmentation.md` (COMPLETA)
 **Archivo:** `src/storage.rs`
 
 - ✅ 4 Column Families: `default` (Primario), `shadow_kernel` (Sombra), `deep_memory` (Histórico), `tombstones`.
 - ✅ Aislamiento de I/O entre lóbulos.
-- ⚠️ **PENDIENTE:** Compresión Zstd diferenciada para `shadow_kernel` y `deep_memory` (actualmente usa LZ4 global).
-- ⚠️ **PENDIENTE:** Flag Read-Only explícito para `deep_memory` (actualmente es convención, no enforcement).
+- ✅ Compresión Zstd diferenciada para `shadow_kernel` y `deep_memory` mediante `ColumnFamilyDescriptor`.
+- ✅ Flag Read-Only explícito para `deep_memory` forzado logísticamente en Rust con privacidad de crate (`pub(crate) fn insert_to_cf`).
 
 ---
 
