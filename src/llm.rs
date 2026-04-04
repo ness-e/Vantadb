@@ -72,4 +72,100 @@ impl LlmClient {
 
         Ok(result.embedding)
     }
+
+    /// Invoke the LLM to generate a cognitive summary of a group of dying neurons.
+    /// The prompt includes semantic_valence and keywords so the summary preserves
+    /// the "hot spots" of the memory rather than being a generic recap.
+    pub async fn summarize_context(&self, nodes: &[&crate::node::UnifiedNode]) -> Result<String> {
+
+        // Build structured context: each node contributes its content + importance metadata
+        let mut context_blocks = Vec::new();
+        for (i, node) in nodes.iter().enumerate() {
+            let content = node.relational.get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("[no content]");
+
+            let keywords = node.relational.get("keywords")
+                .and_then(|v| v.as_str())
+                .unwrap_or("none");
+
+            let node_type = node.relational.get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+
+            context_blocks.push(format!(
+                "--- Memory Fragment #{} ---\nType: {}\nContent: {}\nSemantic Valence: {:.2}\nTrust Score: {:.2}\nKeywords: {}\nAccess Count: {}",
+                i + 1, node_type, content,
+                node.semantic_valence, node.trust_score,
+                keywords, node.hits
+            ));
+        }
+
+        let full_context = context_blocks.join("\n\n");
+
+        if full_context.trim().is_empty() {
+            return Err(ConnectomeError::Execution(
+                "No summarizable content found in node group".to_string()
+            ));
+        }
+
+        let system_prompt = "You are ConnectomeDB's Neural Compression Engine. \
+            Your task is to distill a group of related memory fragments into a single, \
+            dense summary that preserves the most semantically important information. \
+            Pay special attention to fragments with high Semantic Valence — these are \
+            emotionally or contextually critical and their essence MUST be preserved. \
+            Output ONLY the summary text, no preamble or formatting.";
+
+        let user_prompt = format!(
+            "Compress the following {} memory fragments into a single coherent summary:\n\n{}",
+            nodes.len(), full_context
+        );
+
+        let summarize_model = env::var("CONNECTOME_LLM_SUMMARIZE_MODEL")
+            .unwrap_or_else(|_| "llama3".to_string());
+
+        let url = format!("{}/api/generate", self.base_url);
+
+        let req_body = OllamaGenerateRequest {
+            model: &summarize_model,
+            system: system_prompt,
+            prompt: &user_prompt,
+            stream: false,
+        };
+
+        let response = self.client.post(&url)
+            .json(&req_body)
+            .send()
+            .await
+            .map_err(|e| ConnectomeError::Execution(
+                format!("Network error during Neural Summarization: {}", e)
+            ))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            return Err(ConnectomeError::Execution(
+                format!("Inference Bridge returned error status during summarization: {}", status)
+            ));
+        }
+
+        let result: OllamaGenerateResponse = response.json().await
+            .map_err(|e| ConnectomeError::Execution(
+                format!("Invalid response format from Inference Bridge (summarize): {}", e)
+            ))?;
+
+        Ok(result.response)
+    }
+}
+
+#[derive(Serialize)]
+struct OllamaGenerateRequest<'a> {
+    model: &'a str,
+    system: &'a str,
+    prompt: &'a str,
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct OllamaGenerateResponse {
+    response: String,
 }

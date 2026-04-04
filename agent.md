@@ -142,18 +142,23 @@
 
 ---
 
-### ⚠️ FASE 26 — `26_Bayesian_Forgetfulness.md` (PARCIAL)
-**Archivos:** `src/governance/sleep_worker.rs`, `src/llm.rs`
+### ✅ FASE 26 — `26_Bayesian_Forgetfulness.md` (COMPLETA)
+**Archivos:** `src/governance/sleep_worker.rs`, `src/llm.rs`, `src/storage.rs`
 
 - ✅ Poda de Entropía: `hits *= 0.5` por ciclo REM.
 - ✅ Axioma de Inmortalidad (`PINNED` flag).
 - ✅ Tabla de estados (Lúcido / Dudoso / Onírico / Difunto).
 - ✅ `LlmClient` con `generate_embedding()` vía Ollama.
-- 🔲 **FALTA:** Detección de grupos "Oniricos" relacionados para compresión.
-- 🔲 **FALTA:** Invocación de Ollama con prompt `"Summarize Context"` para grupo de nodos.
-- 🔲 **FALTA:** Crear **Neurona de Resumen** en `deep_memory` CF.
-- 🔲 **FALTA:** Mover nodos originales a `shadow_kernel` como `AuditableTombstone`.
-- 🔲 **FALTA:** Test `tests/neural_summarization.rs`.
+- ✅ Detección de grupos "Oníricos" por campo `belongs_to_thread` (clustering por thread).
+- ✅ `LlmClient::summarize_context()` con prompt estructurado (incluye `semantic_valence`, `keywords`, `trust_score`).
+- ✅ Creación de **Neurona de Resumen** (`NeuralSummary`) en `deep_memory` CF con linaje semántico (`ancestors`).
+- ✅ Movimiento atómico de originales a `shadow_kernel` como `AuditableTombstone` (solo si resumen exitoso).
+- ✅ Presupuesto de tiempo: 8s máx para Stage 3 (`MAX_SUMMARIZATION_DURATION_MS`).
+- ✅ Validación de peso mínimo: grupos con `sum(hits) < 3` se purgan sin gastar LLM.
+- ✅ `StorageEngine::consolidate_node()` — fix del gap HNSW (sincroniza disco + index).
+- ✅ `StorageEngine::insert_to_cf()` — escritura directa a CFs nombrados.
+- ✅ Test `tests/neural_summarization.rs` (4 tests unitarios + 1 test integración `#[ignore]`).
+
 
 ---
 
@@ -261,7 +266,7 @@ Concepto: Completar el pendiente de Fase 24 — acceso a vectores via Memory-Map
 |---|---|---|
 | `tests/lisp_logic.rs` | ✅ PASSING | Fase 22 |
 | `tests/memory_promotion.rs` | ✅ PASSING | Fase 24 |
-| `tests/neural_summarization.rs` | 🔲 PENDIENTE | Fase 26 |
+| `tests/neural_summarization.rs` | ✅ IMPLEMENTED | Fase 26 |
 | `tests/hardware_profiles.rs` | 🔲 PENDIENTE | Fase 27 |
 | `tests/bloom_filter.rs` | 🔲 PENDIENTE | Fase 28 |
 | `tests/mcp_integration.rs` | 🔲 PENDIENTE | Fase 28 |

@@ -81,6 +81,56 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Refresh the in-memory HNSW index for a node that was mutated outside of insert().
+    /// Called by SleepWorker after consolidation to prevent index-disk divergence.
+    pub fn refresh_index(&self, node: &UnifiedNode) {
+        if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+            if let crate::node::VectorData::F32(vec) = &node.vector {
+                let mut index = self.hnsw.write().unwrap();
+                index.add(node.id, node.bitset, Some(vec.clone()));
+            }
+        }
+    }
+
+    /// Consolidate a node from STN (RAM) to LTN (disk) while keeping the HNSW index in sync.
+    /// Used by the SleepWorker during REM phase to avoid the raw db.put() gap.
+    pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
+        let mut persisted = node.clone();
+        persisted.neuron_type = crate::node::NeuronType::LTNeuron;
+
+        let key = persisted.id.to_le_bytes();
+        let val = bincode::serialize(&persisted)
+            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+        self.db.put(&key, &val)
+            .map_err(|e| ConnectomeError::IoError(
+                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+            ))?;
+
+        // Keep the HNSW index synchronized
+        self.refresh_index(&persisted);
+        Ok(())
+    }
+
+    /// Insert a node directly into a named Column Family (e.g. "deep_memory").
+    /// Used for Neural Summarization outputs that bypass the default lobe.
+    pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
+        let cf = self.db.cf_handle(cf_name)
+            .ok_or_else(|| ConnectomeError::Execution(
+                format!("Column Family '{}' not found", cf_name)
+            ))?;
+        let key = node.id.to_le_bytes();
+        let val = bincode::serialize(node)
+            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+        self.db.put_cf(&cf, &key, &val)
+            .map_err(|e| ConnectomeError::IoError(
+                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+            ))?;
+
+        // Also update the HNSW index so the summary is searchable
+        self.refresh_index(node);
+        Ok(())
+    }
+
     pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
         self.touch_activity();
 

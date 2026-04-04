@@ -7,6 +7,9 @@
 - **Multi-Lobe Memory Architecture (RocksDB):** Data partitioning now extends explicitly to `default`, `shadow_kernel`, `tombstones`, and `deep_memory` Column Families.
 - **Cognitive Sovereignty:** `DevilsAdvocate` write auditing to prevent contradictory or low-trust mutations.
 - **Cognitive Fuel:** Sandbox-protected execution of dynamic rules with resource limits.
+- **Neural Summarization (Fase 26):** SleepWorker Stage 3 clusters "Onírico" nodes by thread and invokes Ollama (`summarize_context`) to compress them into a single Neurona de Resumen in `deep_memory`, preserving semantic lineage via `ancestors` field for future Archeological Rehydration.
+- **HNSW Consolidation Fix:** `StorageEngine::consolidate_node()` now atomically persists nodes AND updates the in-memory HNSW index, preventing index-disk divergence during circadian maintenance.
+- **Deep Memory Writer:** New `StorageEngine::insert_to_cf()` method for direct writes to named Column Families (e.g. `deep_memory`), enabling Lobe-specific persistence bypassing the default CF.
 
 ## [v0.3.0]
 ### 🚀 Features
