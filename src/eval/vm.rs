@@ -6,11 +6,13 @@ pub enum Opcode {
     OpPushVector(VectorData),
     OpTrustCheck,
     OpVecSim,
+    OpRehydrate,
 }
 
 pub struct NeuLispVM {
     float_stack: Vec<f32>,
     vec_stack: Vec<VectorData>,
+    pub needs_rehydration: bool,
 }
 
 impl NeuLispVM {
@@ -18,6 +20,7 @@ impl NeuLispVM {
         Self {
             float_stack: Vec::new(),
             vec_stack: Vec::new(),
+            needs_rehydration: false,
         }
     }
 
@@ -49,6 +52,11 @@ impl NeuLispVM {
                         op_trust *= 0.8;
                         self.float_stack.push(0.0);
                     }
+                }
+                Opcode::OpRehydrate => {
+                    self.needs_rehydration = true;
+                    // Retorna temporalmente NaN float o similar para la pila (o simplemente ignora)
+                    self.float_stack.push(0.0);
                 }
             }
         }

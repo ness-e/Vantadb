@@ -78,5 +78,8 @@ async fn test_rehydration_core() {
         _ => panic!("Unexpected result variant"),
     }
 
-    dir.close().unwrap();
+    // Windows: RocksDB mantiene file handles abiertos.
+    // drop(storage) libera el DB antes de limpiar el tempdir.
+    drop(storage);
+    let _ = dir.close();
 }

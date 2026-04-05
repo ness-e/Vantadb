@@ -205,6 +205,7 @@ impl NodeFlags {
     pub const HAS_VECTOR: u32 = 1 << 4;
     pub const HAS_EDGES: u32 = 1 << 5;
     pub const PINNED: u32 = 1 << 6;
+    pub const REHYDRATED: u32 = 1 << 7;
 
     pub fn new() -> Self {
         Self(Self::ACTIVE)

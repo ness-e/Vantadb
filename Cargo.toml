@@ -1,6 +1,6 @@
 [package]
 name = "connectomedb"
-version = "0.2.0"
+version = "0.5.0"
 edition = "2021"
 description = "ConnectomeDB: A neural-inspired multimodel database for local AI agents. Maps vectors-graphs-tables like neurons in a brain."
 license = "Apache-2.0"

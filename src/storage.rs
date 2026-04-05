@@ -351,6 +351,48 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Rehidrata nodos inactivos y olvidados mediante Arqueología Semántica.
+    /// Utiliza get_pinned para transferencia zero-copy directo desde el Shadow Kernel.
+    pub fn rehydrate(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
+        let cf = self.db.cf_handle("shadow_kernel")
+            .ok_or_else(|| ConnectomeError::Execution(
+                "Column Family 'shadow_kernel' not found".to_string()
+            ))?;
+            
+        let mut rehydrated = Vec::new();
+        // Escaneo de llaves en shadow_kernel
+        for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
+            let (k, _) = item.map_err(|e| ConnectomeError::IoError(
+                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+            ))?;
+            
+            // Requerimiento de Precisión: usar get_pinned
+            if let Ok(Some(slice)) = self.db.get_pinned_cf(&cf, &k) {
+                if let Ok(mut node) = bincode::deserialize::<crate::node::UnifiedNode>(&slice) {
+                    // Verificar pertinencia: existir en shadow_kernel ya implica archivado.
+                    // (delete() almacena el nodo original SIN flag TOMBSTONE en este CF)
+                    if node.edges.iter().any(|e| e.target == summary_id && e.label == "belonged_to") {
+                        // Resucitación Efímera
+                        node.flags.set(crate::node::NodeFlags::ACTIVE);
+                        node.flags.set(crate::node::NodeFlags::REHYDRATED);
+                        node.neuron_type = crate::node::NeuronType::STNeuron;
+                        
+                        // Sincronización Inmediata Vectorial
+                        self.refresh_index(&node);
+                        
+                        // Carga en Cortex
+                        {
+                            let mut cache = self.cortex_ram.write().unwrap();
+                            cache.insert(node.id, node.clone());
+                        }
+                        rehydrated.push(node);
+                    }
+                }
+            }
+        }
+        Ok(rehydrated)
+    }
+
     /// Dispara un estado de pánico del sistema controlado para proteger el grafo.
     /// Frena la ejecución, sincroniza logs a disco, emite el rastro y termina el proceso.
     pub fn trigger_panic_state(&self, reason: &str, stmt: Option<&str>) -> ! {

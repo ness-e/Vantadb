@@ -94,13 +94,15 @@ Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
 ---
 
-## 🛠️ Arquitectura Interna y Soberanía Cognitiva (v0.4.0)
+## 🛠️ Arquitectura Interna y Soberanía Cognitiva (v0.5.0)
 
 - **NeuLISP (Inferencia Cognitiva):** Capa de ejecución híbrida orientada al Hardware (SIMD). Las instrucciones S-Expressions no solo ejecutan lógica booleana, sino que retornan Tensores de Certeza (`(Value, TrustScore)`), permitiendo evaluar probabilidades e incertidumbres en tiempo de ejecución de las reglas operativas locales.
-- **Soberanía y Lóbulos de Memoria:** El almacenamiento RocksDB está particionado anatómicamente en Column Families: `default` (Primario), `shadow_kernel`, `tombstones` y ahora `deep_memory`.
+- **Soberanía y Lóbulos de Memoria:** El almacenamiento RocksDB está particionado anatómicamente en Column Families: `default` (Primario), `shadow_kernel`, `tombstones` y `deep_memory`.
 - **Gobierno Biológico (Presupuesto de Amígdala):** El recolector de basura circadiano (`SleepWorker`) audita y aplica Olvido Bayesiano, pero respeta incondicionalmente un "Presupuesto de Valencia" (máximo 5% de memoria L1 retenida inmutable por alta carga semántica/emocional).
 - **Devil's Advocate:** El motor audita proactivamente silenciosamente cada escritura para evitar disonancias lógicas cruzadas en el índice HNSW.
 - **CP-Index & SIMD:** Combina máscaras de bits `u128` (Co-location) con SIMD-Accelerated cosine distance (vía crate `wide` AVX-512) para que las macros NeuLISP que usan el operador de similitud `~` se resuelvan en sub-milisegundos.
+- **Arqueología Semántica:** Protocolo de Rehidratación de Memoria que recupera datos archivados del Shadow Kernel cuando una Neurona de Resumen tiene baja fidelidad (`TrustScore < 0.4`), con sincronización HNSW inmediata y limpieza circadiana automática.
+- **MCP (Model Context Protocol):** Comunicación STDIO (JSON-RPC 2.0) para integración directa con Claude Desktop, Cursor y otros orquestadores de IA.
 
 ---
 

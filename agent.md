@@ -1,4 +1,4 @@
-# 🧠 ConnectomeDB — AGENT MAESTRO (v0.4.0 · Actualizado: 2026-04-03)
+# 🧠 ConnectomeDB — AGENT MAESTRO (v0.5.0 · Actualizado: 2026-04-05)
 
 > **ConnectomeDB** es un Motor de Inferencia Cognitiva escrito en Rust.
 > Combina vectores (HNSW), grafos dirigidos y campos relacionales en un único `UnifiedNode` persistido sobre RocksDB.
@@ -9,7 +9,7 @@
 ## ⚙️ REGLAS ABSOLUTAS (NUNCA VIOLAR)
 
 1. **LEE `docDev/` ANTES de escribir código.** Cada fase tiene especificación técnica aprobada.
-2. **LA NUMERACIÓN DE FASES SIGUE LOS ARCHIVOS DE `docDev/`** (ej. Fase 20 = `20_SleepWorker_Spec.md`).
+2. **LA NUMERACIÓN DE FASES SIGUE LOS ARCHIVOS DE `docDev/`** (ej. Fase 31 = `31_Uncertainty_Zones.md`).
 3. **UNA FASE POR COMMIT.** No mezclar fases distintas en un solo commit.
 4. **NUNCA código sin su `.md` de especificación correspondiente en `docDev/`.**
 5. **Mover `docDev/XX_*.md` → `complete/XX_*/` SOLO cuando:**
@@ -37,190 +37,97 @@
 | **Sleep Worker** | `GC / Maintenance Daemon` | Consolidador circadiano en segundo plano |
 | **Neural Index** | `HNSW Index` | Navegación vectorial optimizada |
 | **Amygdala Budget** | `semantic_valence guard` | Protege el 5% más importante de la RAM |
+| **Rehydration** | `StorageEngine::rehydrate()` | Arqueología Semántica desde Shadow Archive |
 
 ---
 
-## 📦 ESTADO DEL SOFTWARE POR VERSIÓN
+## 📦 HISTORIAL DE VERSIONES
 
 ### ✅ v0.1.0 — Fundación
-- `UnifiedNode`: vectores F32/I8, edges, relational `BTreeMap`.
-- Parser IQL con `nom` (sintaxis `FROM`, `SIGUE`, `~`, `RANK BY`).
-- RocksDB WAL atómico y serialización `bincode`.
+Parser IQL, `UnifiedNode`, serialización bincode.
 
 ### ✅ v0.2.0 — Motor de Almacenamiento
-- RocksDB como motor primario de persistencia.
-- Zero-copy buffer pinning (`get_pinned`).
-- Bloom Filters (nivel RocksDB) y Block Cache 2GB.
+RocksDB, Zero-copy pinning, Bloom Filters nativos.
 
 ### ✅ v0.3.0 — Aceleración SIMD y Cognición
-- SIMD vectorial mediante crate `wide` (`f32x8`) en `cosine_similarity`.
-- CP-Index con bitsets `u128` para pre-filtrado semántico.
-- `HNSW` para navegación vectorial sub-milisegundo.
+SIMD vectorial (`wide`), CP-Index bitsets `u128`, HNSW.
 
-### ✅ v0.4.0 — Cognitive OS (ESTADO ACTUAL)
-- `UnifiedNode` + campos: `hits`, `last_accessed`, `trust_score`, `semantic_valence`.
-- `NeuronType` enum (`STNeuron` / `LTNeuron`) + `CognitiveUnit` trait.
-- `LispSandbox` con Cognitive Fuel (1000 steps).
-- `NeuLISP VM` (`src/eval/vm.rs`): `OP_VEC_SIM`, `OP_TRUST_CHECK`. Retorna `(Value, TrustScore)`.
-- `SleepWorker` (Fase REM): Olvido Bayesiano + migración STN→LTN + Presupuesto de Amígdala (5%).
-- `DevilsAdvocate` + `TrustArbiter`: auditoría de escrituras.
-- 4 Column Families: `default`, `shadow_kernel`, `deep_memory`, `tombstones`.
-- `ResourceGovernor`: OOM guard 2GB + timeout 50ms.
-- `LlmClient` (`src/llm.rs`): cliente Ollama para embeddings (`generate_embedding`).
-- `GcWorker` (`src/gc.rs`): purga por TTL asíncrona.
-- `Server` (`src/server.rs`): endpoints `/health` y `/api/v1/query` via Axum.
+### ✅ v0.4.0 — Cognitive OS (Fases 20–30)
+Arquitectura Cognitiva completa: NeuronType, CognitiveUnit, SleepWorker, DevilsAdvocate, NeuLISP VM, MCP STDIO, Modo Camaleón, Neural Summarization, Memory Rehydration.
+
+### 🚧 v0.5.0 — Quantum Cognition (EN PROGRESO)
+Siguiente evolución: Superposición Lógica, Depresión Sináptica, Caché Anticipatorio.
 
 ---
 
-## 🚦 ROADMAP DE IMPLEMENTACIÓN POR FASES
+## 🏗️ ARQUITECTURA ACTIVA (v0.5.0)
 
-> Numeración basada en los archivos de `docDev/`. ✅ = implementado. ⚠️ = parcial. 🔲 = pendiente.
+### Archivos Principales
+| Archivo | Responsabilidad |
+|---|---|
+| `src/node.rs` | `UnifiedNode`, `VectorData`, `Edge`, `NodeFlags` (8 flags: ACTIVE..REHYDRATED), `CognitiveUnit` trait |
+| `src/storage.rs` | `StorageEngine` — RocksDB multi-CF, `cortex_ram`, `rehydrate()`, Bloom L0 Pinning |
+| `src/executor.rs` | `Executor` — Orquestador IQL/LISP híbrido, `StaleContext` no-bloqueante |
+| `src/index.rs` | `CPIndex` — HNSW vectorial con bitset pre-filtering |
+| `src/eval/vm.rs` | `NeuLispVM` — Bytecode: `OpPushFloat`, `OpPushVector`, `OpTrustCheck`, `OpVecSim`, `OpRehydrate` |
+| `src/eval/mod.rs` | `LispSandbox` — Parser + Fuel-limited execution |
+| `src/parser/` | IQL parser (`nom`) + LISP S-Expression parser |
+| `src/governance/` | `DevilsAdvocate`, `TrustArbiter`, `SleepWorker` (REM + Neural Summarization + Rehydration Purge) |
+| `src/hardware/mod.rs` | `HardwareCapabilities` — Modo Camaleón (Survival/Performance/Enterprise) |
+| `src/server.rs` | HTTP API Axum (`/health`, `/api/v1/query`) |
+| `src/api/mcp.rs` | MCP STDIO (JSON-RPC 2.0) — `query_lisp`, `search_semantic`, `inject_context`, `read_axioms` |
+| `src/llm.rs` | `LlmClient` — Ollama bridge (`generate_embedding`, `summarize_context`) |
 
----
+### Column Families (RocksDB)
+| CF | Propósito | Bloom Pinning |
+|---|---|---|
+| `default` | Datos primarios activos | ✅ L0 pinned |
+| `deep_memory` | Neuronas de Resumen (LTN inmutables) | ✅ L0 pinned |
+| `shadow_kernel` | Archive arqueológico (nodos originales pre-tombstone) | ❌ |
+| `tombstones` | Registro auditable de eliminaciones | ❌ |
 
-### ✅ FASE 20 — `20_SleepWorker_Spec.md`
-**Archivo:** `src/governance/sleep_worker.rs`
-
-- ✅ `SleepWorker` daemon con cadencia 10s e inception condition (5s inactividad).
-- ✅ Fase REM: Olvido Bayesiano `hits *= 0.5` por ciclo.
-- ✅ Migración STN→LTN si `hits < 10 && !PINNED && last_accessed > 60s`.
-- ✅ Poda al Shadow Archive si `trust_score < 0.2`.
-- ✅ **Presupuesto de Amígdala**: máx 5% de `cortex_ram` blindado por `semantic_valence >= 0.8`.
-- ✅ Interrupción de Fase REM si se detecta I/O activo del usuario.
-
----
-
-### ✅ FASE 21 — `21_SIMD_Optimization.md`
-**Archivo:** `src/node.rs` → `cosine_similarity()`
-
-- ✅ `wide::f32x8` para procesar 8 floats simultáneos.
-- ✅ Fallback escalar automático para hardware sin AVX.
-- ✅ HNSW validaciones con read-locks refinados en `src/index.rs`.
-
----
-
-### ✅ FASE 22 — `22_Lisp_Cognition.md` (Evolutivo: NeuLISP)
-**Archivos:** `src/parser/lisp.rs`, `src/eval/mod.rs`, `src/eval/vm.rs`
-
-- ✅ Parser `nom` para S-Expressions balanceadas.
-- ✅ `LispSandbox` con Cognitive Fuel (1000 steps).
-- ✅ `INSERT` LISP crea nodos directamente como `STNeuron` en `cortex_ram`.
-- ✅ **Operador de Similitud (`~`)** nativo: despacha `OP_VEC_SIM`.
-- ✅ **Valencia Gated-Macros**: macros condicionadas por `semantic_valence`.
-- ✅ NeuLISP VM: `OP_VEC_SIM` (cosine SIMD), `OP_TRUST_CHECK`. Retorno `(Value, TrustScore)`.
-
----
-
-### ✅ FASE 23 — `23_Sovereignty_Governance.md`
-**Archivos:** `src/governance/mod.rs`, `src/executor.rs`
-
-- ✅ `DevilsAdvocate`: detección de contradicciones vectoriales (similitud > 0.95 + Trust divergente).
-- ✅ `TrustArbiter`: `Accept / Reject / Shadow`.
-- ✅ Bloom Filters a nivel RocksDB para axioma topológico.
-- ✅ `trigger_panic_state()` para violaciones de Axiomas de Hierro.
-- ✅ Borrados atómicos (`WriteBatch`): Clone → Shadow → Tombstone → Delete.
+### NodeFlags Bitfield
+| Bit | Constante | Propósito |
+|---|---|---|
+| 0 | `ACTIVE` | Nodo vivo |
+| 1 | `INDEXED` | Indexado en HNSW |
+| 2 | `DIRTY` | Pendiente de flush |
+| 3 | `TOMBSTONE` | Eliminado lógicamente |
+| 4 | `HAS_VECTOR` | Tiene embedding vectorial |
+| 5 | `HAS_EDGES` | Tiene aristas |
+| 6 | `PINNED` | Inmutable a recolección |
+| 7 | `REHYDRATED` | Provenance arqueológica (dato resucitado del Shadow) |
 
 ---
 
-### ✅ FASE 24 — `24_Memory_Hierarchy.md` (COMPLETA)
-**Archivos:** `src/storage.rs`, `src/node.rs`
+## 🚦 FASES COMPLETADAS (v0.4.0 · Resumen Ejecutivo)
 
-- ✅ Dualidad `STNeuron` (RAM / `cortex_ram`) vs `LTNeuron` (RocksDB SST).
-- ✅ Promoción dinámica LTN→STN al alcanzar `hits >= 50`.
-- ✅ `last_query_timestamp: AtomicU64` para perfilado de inactividad.
-- ✅ Estrategia mmap para el Neural Index en hardware limitado (Survival Mode fallback en < 16GB RAM con read & write fallbacks).
+> Detalle completo de cada fase en `docDev/XX_*.md`.
 
----
-
-### ✅ FASE 25 — `25_Lobe_Segmentation.md` (COMPLETA)
-**Archivo:** `src/storage.rs`
-
-- ✅ 4 Column Families: `default` (Primario), `shadow_kernel` (Sombra), `deep_memory` (Histórico), `tombstones`.
-- ✅ Aislamiento de I/O entre lóbulos.
-- ✅ Compresión Zstd diferenciada para `shadow_kernel` y `deep_memory` mediante `ColumnFamilyDescriptor`.
-- ✅ Flag Read-Only explícito para `deep_memory` forzado logísticamente en Rust con privacidad de crate (`pub(crate) fn insert_to_cf`).
-
----
-
-### ✅ FASE 26 — `26_Bayesian_Forgetfulness.md` (COMPLETA)
-**Archivos:** `src/governance/sleep_worker.rs`, `src/llm.rs`, `src/storage.rs`
-
-- ✅ Poda de Entropía: `hits *= 0.5` por ciclo REM.
-- ✅ Axioma de Inmortalidad (`PINNED` flag).
-- ✅ Tabla de estados (Lúcido / Dudoso / Onírico / Difunto).
-- ✅ `LlmClient` con `generate_embedding()` vía Ollama.
-- ✅ Detección de grupos "Oníricos" por campo `belongs_to_thread` (clustering por thread).
-- ✅ `LlmClient::summarize_context()` con prompt estructurado (incluye `semantic_valence`, `keywords`, `trust_score`).
-- ✅ Creación de **Neurona de Resumen** (`NeuralSummary`) en `deep_memory` CF con linaje semántico (`ancestors`).
-- ✅ Movimiento atómico de originales a `shadow_kernel` como `AuditableTombstone` (solo si resumen exitoso).
-- ✅ Presupuesto de tiempo: 8s máx para Stage 3 (`MAX_SUMMARIZATION_DURATION_MS`).
-- ✅ Validación de peso mínimo: grupos con `sum(hits) < 3` se purgan sin gastar LLM.
-- ✅ `StorageEngine::consolidate_node()` — fix del gap HNSW (sincroniza disco + index).
-- ✅ `StorageEngine::insert_to_cf()` — escritura directa a CFs nombrados.
-- ✅ Test `tests/neural_summarization.rs` (4 tests unitarios + 1 test integración `#[ignore]`).
-
+| Fase | Nombre | Test | Estado |
+|---|---|---|---|
+| 20 | SleepWorker (Circadian GC) | — | ✅ |
+| 21 | SIMD Optimization | — | ✅ |
+| 22 | Lisp Cognition / NeuLISP | `lisp_logic.rs` | ✅ |
+| 23 | Sovereignty Governance | — | ✅ |
+| 24 | Memory Hierarchy | `memory_promotion.rs` | ✅ |
+| 25 | Lobe Segmentation | — | ✅ |
+| 26 | Bayesian Forgetfulness + Neural Summarization | `neural_summarization.rs` | ✅ |
+| 27 | Hardware Adapters (Modo Camaleón) | `hardware_profiles.rs` | ✅ |
+| 28 | Inference Optimization (MCP + Bloom) | `mcp_integration.rs` | ✅ |
+| 29 | NeuLISP Spec (VM Bytecode) | — | ✅ |
+| 30 | Memory Rehydration (Arqueología Semántica) | `memory_rehydration.rs` | ✅ |
 
 ---
 
-### ✅ FASE 27 — `27_Hardware_Adapters.md` → **Modo Camaleón** (COMPLETA)
-**Archivos:** `src/hardware/mod.rs` (nuevo), `src/storage.rs`, `Cargo.toml`, `src/node.rs`, `src/governance/sleep_worker.rs`
+## 🔲 ROADMAP v0.5.0 (FASES PENDIENTES)
 
-- ✅ Enum `HardwareProfile { Enterprise, Performance, Survival }` y `InstructionSet` detectados con `cpufeatures`.
-- ✅ Constante global `OnceLock<HardwareCapabilities>` para despacho escalar O(1).
-- ✅ Fallback explícito seguro si no se detecta AVX512/AVX2/NEON en `cosine_similarity`.
-- ✅ Ajuste dinámico de RocksDB caché (bopts) basado en la RAM disponible de `sysinfo`.
-- ✅ Capacidad dinámica de `cortex_ram` configurada al 25% de la RAM para evitar "Panic de Hardware".
-- ✅ `emergency_rem_trigger` integrado al `SleepWorker` para inicio REM agresivo.
-- ✅ Tests de validación en `tests/hardware_profiles.rs`.
-
----
-
-### ⚠️ FASE 28### Fase 28: Inference Optimization (`✅`) [FINALIZADA]
-* Objetivo: Optimización extrema para modelos de LLM locales (Zero-Cost Abstractions y Caches).
-* Labores:
-  - `✅` **MMap / Direct IO Override:** Si la RAM es < 16GB, pasar directamente a disco mapeado en memoria puenteando la User-Space Cache.
-  - `✅` **L0 Pinning Native:** Pines explícitos del Nivel 0 de Filtros Bloom de RocksDB en memoria RAM puramente (`default` y `deep_memory`).
-  - `✅` **Zero-Copy Serialization:** Uso estricto de slices sobre Bincode (sin asignaciones innecesarias String).
-  - `✅` **Endpoints MCP:** Exposición del Engine como Herramientas sobre JSON-RPC (STDIO)
-    - `inject_context` para anclar contexto extra a hilos asíncronos.
-    - `read_axioms` para inyectar reglas duras en el pipeline del sistema.
-
-### Fase 30: Semantic Router / Vector Index (`✅`) [REVISAR].
-- 🔲 **FALTA:** Tests `tests/bloom_filter.rs` y `tests/mcp_integration.rs`.
-
----
-
-### ✅ FASE 29 — `29_NeuLISP_Spec.md`
-**Archivos:** `src/eval/vm.rs`, `docDev/29_NeuLISP_Spec.md`
-
-- ✅ Especificación de gramática NeuLISP con operador `~`.
-- ✅ NeuLISP VM bytecode con pila de floats y vectores.
-- ✅ Inferencia probabilística: retorno `(Value: f32, TrustScore: f32)`.
-- ✅ Penalización de `TrustScore` si similitud es incalculable.
-
----
-
-### 🔲 FASE 30 — `30_Memory_Rehydration_Protocol.md` → **Arqueología Semántica**
-**Archivos a crear/modificar:** `src/eval/vm.rs`, `src/storage.rs`, `src/governance/sleep_worker.rs`
-
-- 🔲 Opcode `OP_REHYDRATE` en NeuLISP VM.
-- 🔲 Función `StorageEngine::rehydrate(summary_id: u64) -> Result<Vec<UnifiedNode>>`:
-  - Busca nodos con relación `belonged_to` en `shadow_kernel` CF.
-  - Los restaura como `STNeuron` de solo lectura (`PINNED`).
-- 🔲 Auto-proponer rehydration si `TrustScore < 0.4` en Neurona de Resumen.
-- 🔲 Post-aprobación del usuario: consolidar nodos y elevar `TrustScore`.
-- 🔲 Test `tests/memory_rehydration.rs`.
-
----
-
-## 🧬 NUEVAS FASES PROPUESTAS (Post-30, sin docDev aún)
-
-> Estas fases requieren **primero crear su `docDev/XX_*.md`** antes de implementar.
+> Cada fase requiere **primero crear su `docDev/XX_*.md`** antes de implementar.
 
 ---
 
 ### 🔲 FASE 31 — **Uncertainty Zones (Superposición Lógica)**
-**Spec a crear:** `docDev/31_Uncertainty_Zones.md`
+**Spec:** `docDev/31_Uncertainty_Zones.md`
 
 Concepto: Nodos en "superposición" (contradicciones pendientes de colapso temporal).
 - `QuantumNeuron { candidates: Vec<UnifiedNode>, collapse_deadline_ms: u64 }`.
@@ -230,7 +137,7 @@ Concepto: Nodos en "superposición" (contradicciones pendientes de colapso tempo
 ---
 
 ### 🔲 FASE 32 — **LTD Synaptic Depression (Edges)**
-**Spec a crear:** `docDev/32_Synaptic_Depression.md`
+**Spec:** `docDev/32_Synaptic_Depression.md`
 
 Concepto: Decaimiento del peso de los `Edge` no traversados (Long-Term Depression biológica).
 - Campos `last_traversed_ms: u64`, `traversal_count: u32` en `Edge`.
@@ -240,7 +147,7 @@ Concepto: Decaimiento del peso de los `Edge` no traversados (Long-Term Depressio
 ---
 
 ### 🔲 FASE 33 — **Contextual Priming (Caché Anticipatorio)**
-**Spec a crear:** `docDev/33_Contextual_Priming.md`
+**Spec:** `docDev/33_Contextual_Priming.md`
 
 Concepto: Pre-cargar vecinos de nodos populares antes de ser consultados.
 - En `StorageEngine::get()`: si `hits > 20` → `tokio::spawn` carga edges nivel 1 a `cortex_ram`.
@@ -250,89 +157,52 @@ Concepto: Pre-cargar vecinos de nodos populares antes de ser consultados.
 ---
 
 ### 🔲 FASE 34 — **mmap Neural Index (Survival Mode)**
-**Spec a crear:** `docDev/34_MMap_NeuralIndex.md`
+**Spec:** `docDev/34_MMap_NeuralIndex.md`
 
-Concepto: Completar el pendiente de Fase 24 — acceso a vectores via Memory-Mapped Files.
+Concepto: Acceso a vectores HNSW via Memory-Mapped Files.
 - Mapear descriptores vectoriales del HNSW desde disco al espacio virtual.
 - Activar automáticamente en `SurvivalProfile` (RAM < 16GB).
 
 ---
 
-## 📊 ESTADO REAL DE TESTS
+## 📊 ESTADO DE TESTS
 
-| Test File | Estado | Fase Doc |
+| Test File | Estado | Fase |
 |---|---|---|
-| `tests/lisp_logic.rs` | ✅ PASSING | Fase 22 |
-| `tests/memory_promotion.rs` | ✅ PASSING | Fase 24 |
-| `tests/neural_summarization.rs` | ✅ IMPLEMENTED | Fase 26 |
-| `tests/hardware_profiles.rs` | 🔲 PENDIENTE | Fase 27 |
-| `tests/bloom_filter.rs` | 🔲 PENDIENTE | Fase 28 |
-| `tests/mcp_integration.rs` | 🔲 PENDIENTE | Fase 28 |
-| `tests/memory_rehydration.rs` | 🔲 PENDIENTE | Fase 30 |
-| `tests/uncertainty_zones.rs` | 🔲 PENDIENTE | Fase 31 |
-| `tests/synaptic_depression.rs` | 🔲 PENDIENTE | Fase 32 |
-| `tests/contextual_priming.rs` | 🔲 PENDIENTE | Fase 33 |
-
----
-
-## 🎯 OBJETIVOS CRÍTICOS
-
-```
-✅ MVP: 1M nodos + 100k vectores en 16GB RAM
-✅ Latencia: <20ms hybrid queries
-✅ Overhead: <128MB cold start
-✅ Docker: <5min setup mundial
-✅ Integración: Ollama native (CONNECTOME_LLM_URL)
-✅ NeuLISP: retorna (Value, TrustScore) — inferencia probabilística
-🔲 Neural Summarization: grupos degenerados → Neurona de Resumen via Ollama (Fase 26)
-🔲 Modo Camaleón: auto-detección Survival/Standard/Enterprise (Fase 27)
-🔲 Bloom explícito en RAM + MCP Endpoint /mcp/context (Fase 28)
-🔲 Memory Rehydration: OP_REHYDRATE + arqueología semántica (Fase 30)
-```
-
----
-
-## 🚫 LIMITACIONES TÉCNICAS
-
-```
-❌ NO cloud-first (target: 16GB laptop edge)
-❌ NO ML-heavy (heurístico → estadístico → LLM solo para compresión cognitiva)
-❌ NO sharding en v0.4.x (diferido a v0.5+ Enterprise)
-❌ NO mutaciones directas en deep_memory sin cirugía lógica explícita
-```
+| `tests/parser.rs` | ✅ PASSING | Core |
+| `tests/lisp_logic.rs` | ✅ PASSING | 22 |
+| `tests/structured_api_v2.rs` | ✅ PASSING | 22 |
+| `tests/memory_promotion.rs` | ✅ PASSING | 24 |
+| `tests/neural_summarization.rs` | ✅ PASSING | 26 |
+| `tests/hardware_profiles.rs` | ✅ PASSING | 27 |
+| `tests/mcp_integration.rs` | ✅ PASSING | 28 |
+| `tests/vector_scale_check.rs` | ✅ PASSING | 28 |
+| `tests/memory_rehydration.rs` | ✅ PASSING | 30 |
 
 ---
 
 ## 🔑 DECISIONES TÉCNICAS APROBADAS
 
-```
-✅ HNSW: NO persistir índice (rebuild en cold start, 3-5s para 100k vec)
-✅ Bitset: u128 (128 dims filtrables, cache-friendly)
-✅ WAL: Bincode Fase 1 (Arrow IPC diferido a v0.5)
-✅ LISP INSERT: crea STNeuron directamente en cortex_ram
-✅ Amygdala Budget: 5% máximo de cortex_ram protegido por valencia >= 0.8
-✅ NeuLISP VM: retorno probabilístico (Value, TrustScore)
-✅ 4 Column Families: default | shadow_kernel | deep_memory | tombstones
-✅ ResourceGovernor: 2GB OOM limit + 50ms timeout por query
-✅ LlmClient: Ollama vía CONNECTOME_LLM_URL + CONNECTOME_LLM_MODEL
-```
+- HNSW: NO persistido (rebuild en cold start, 3-5s para 100k vec)
+- Bitset: `u128` (128 dims filtrables, cache-friendly)
+- LISP INSERT: crea `STNeuron` directamente en `cortex_ram`
+- Amygdala Budget: 5% máximo de `cortex_ram` protegido por `semantic_valence >= 0.8`
+- NeuLISP VM: retorno probabilístico `(Value, TrustScore)`
+- 4 Column Families: `default` | `shadow_kernel` | `deep_memory` | `tombstones`
+- ResourceGovernor: 2GB OOM limit + 50ms timeout por query
+- LlmClient: Ollama vía `CONNECTOME_LLM_URL` + `CONNECTOME_LLM_MODEL`
+- Bloom Filter: nativo RocksDB (10 bits/key), L0 pinned en `default` y `deep_memory`
+- MCP: STDIO puro (JSON-RPC 2.0), logs a stderr con `--mcp`
+- Rehydration: Non-blocking `StaleContext` + Transparencia Selectiva
 
 ---
 
-## 🤖 COMANDOS ANTI-GRAVITY
+## 🚫 LIMITACIONES TÉCNICAS
 
-```
-"Implementa Fase 26: Neural Summarization completa (Ollama)"
-"Implementa Fase 27: Modo Camaleón / Hardware Profiles"
-"Implementa Fase 28: Bloom explícito en RAM + endpoints MCP"
-"Implementa Fase 30: Memory Rehydration / OP_REHYDRATE"
-"Implementa Fase 31: Uncertainty Zones / QuantumNeuron"
-"Implementa Fase 32: LTD Synaptic Depression en Edges"
-"Implementa Fase 33: Contextual Priming / Caché Anticipatorio"
-"Implementa Fase 34: mmap Neural Index para Survival Mode"
-"Lee docDev/XX antes de código"
-"Genera tests primero, luego implementación"
-```
+- ❌ NO cloud-first (target: 16GB laptop edge)
+- ❌ NO ML-heavy (heurístico → estadístico → LLM solo para compresión cognitiva)
+- ❌ NO sharding en v0.5.x (diferido a v1.0 Enterprise)
+- ❌ NO mutaciones directas en `deep_memory` sin cirugía lógica explícita
 
 ---
 
@@ -341,7 +211,6 @@ Concepto: Completar el pendiente de Fase 24 — acceso a vectores via Memory-Map
 1. **Path Filtering (`rust_ci.yml`)**: Solo dispara con cambios en `src/`, `tests/`, `benches/`, `Cargo.toml`, `Cargo.lock`, `build.rs`.
 2. **Ejecución Unificada (Monolito)**: Un solo Job secuencial con `--test-threads=2` y swapfile 6GB.
 3. **Workflow Dispatch**: Gatillo manual en `release.yml` y `rust_ci.yml`.
-4. **Recordatorio**: Al agregar nuevas carpetas raíz, actualizar el path filtering en `rust_ci.yml`.
 
 ---
 
@@ -350,5 +219,5 @@ Concepto: Completar el pendiente de Fase 24 — acceso a vectores via Memory-Map
 ```
 Mes 1:  50 stars · Docker demo publicado
 Mes 3: 200 stars · 20 forks · MCP endpoint live
-Mes 6: 500 stars · 50 contribs · v0.5 Federación de Lóbulos
+Mes 6: 500 stars · 50 contribs · v0.5 Quantum Cognition
 ```

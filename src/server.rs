@@ -60,6 +60,13 @@ async fn execute_query(
                 node_id,
             })
         }
+        Ok(ExecutionResult::StaleContext(summary_id)) => {
+            Json(QueryResponse {
+                success: true,
+                data: format!("STALE_CONTEXT: TrustScore critical. Rehydration available for summary {}", summary_id),
+                node_id: Some(summary_id),
+            })
+        }
         Err(e) => {
             Json(QueryResponse {
                 success: false,

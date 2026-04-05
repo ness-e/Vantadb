@@ -1,15 +1,32 @@
-# CHANGELOG - v0.4.0 "Cognitive Sovereignty"
+# CHANGELOG
 
-## [v0.4.0] - current
+## [v0.5.0] - 2026-04-05 "Quantum Cognition" (EN PROGRESO)
+### 🔄 Version Bump
+- Transición de v0.4.0 a v0.5.0 tras completar las 11 fases del Cognitive OS (Fases 20-30).
+- Próximas fases: Uncertainty Zones, Synaptic Depression, Contextual Priming, MMap Neural Index.
+
+---
+
+## [v0.4.0] - 2026-04-05 "Cognitive Sovereignty"
 ### ✨ Features
-- **NeuLISP (Cognitive Inference):** Evolution of LISP S-Expressions to support native probabilistic inference returning `(Value, TrustScore)`. Includes `OP_VEC_SIM` for SIMD-accelerated execution of the Similitude Operator (`~`) and `OP_TRUST_CHECK`.
-- **Biological Governance (Amygdala Budget):** SleepWorker now enforces a strict 5% budget on RAM-resident nodes with high `semantic_valence` (>0.8) to protect them from Bayesian Forgetfulness and consolidation, emulating human core memory.
-- **Multi-Lobe Memory Architecture (RocksDB):** Data partitioning now extends explicitly to `default`, `shadow_kernel`, `tombstones`, and `deep_memory` Column Families.
-- **Cognitive Sovereignty:** `DevilsAdvocate` write auditing to prevent contradictory or low-trust mutations.
-- **Cognitive Fuel:** Sandbox-protected execution of dynamic rules with resource limits.
-- **Neural Summarization (Fase 26):** SleepWorker Stage 3 clusters "Onírico" nodes by thread and invokes Ollama (`summarize_context`) to compress them into a single Neurona de Resumen in `deep_memory`, preserving semantic lineage via `ancestors` field for future Archeological Rehydration.
-- **HNSW Consolidation Fix:** `StorageEngine::consolidate_node()` now atomically persists nodes AND updates the in-memory HNSW index, preventing index-disk divergence during circadian maintenance.
-- **Deep Memory Writer:** New `StorageEngine::insert_to_cf()` method for direct writes to named Column Families (e.g. `deep_memory`), enabling Lobe-specific persistence bypassing the default CF.
+- **Memory Rehydration Protocol (Fase 30):** Arqueología Semántica — recuperación zero-copy de nodos archivados en `shadow_kernel` via `StorageEngine::rehydrate()`. Flag `NodeFlags::REHYDRATED` para trazabilidad de provenance. `ExecutionResult::StaleContext` no-bloqueante cuando `TrustScore < 0.4`. `SleepWorker` purga nodos archaeológicos en fase REM.
+- **NeuLISP VM Bytecode (Fase 29):** Máquina virtual con pila de floats y vectores. Opcodes: `OpPushFloat`, `OpPushVector`, `OpTrustCheck`, `OpVecSim`, `OpRehydrate`. Retorno probabilístico `(Value, TrustScore)`.
+- **Inference Optimization (Fase 28):** Bloom Filters nativos RocksDB con L0 Pinning en RAM para `default` y `deep_memory`. Protocolo MCP sobre STDIO (JSON-RPC 2.0) con herramientas `query_lisp`, `search_semantic`, `inject_context`, `read_axioms`.
+- **Modo Camaleón (Fase 27):** Auto-detección de hardware (`cpufeatures` + `sysinfo`). Perfiles `Survival/Performance/Enterprise`. Ajuste dinámico de RocksDB cache y `cortex_ram` capacity (25% RAM).
+- **Neural Summarization (Fase 26):** SleepWorker Stage 3 agrupa nodos "Oníricos" por thread e invoca Ollama (`summarize_context`) para comprimir en Neurona de Resumen (`deep_memory`). Linaje semántico via campo `ancestors`.
+- **Lobe Segmentation (Fase 25):** 4 Column Families: `default`, `shadow_kernel`, `deep_memory`, `tombstones`. Compresión Zstd diferenciada.
+- **Memory Hierarchy (Fase 24):** Dualidad `STNeuron` (RAM) / `LTNeuron` (disco). Promoción dinámica al alcanzar `hits >= 50`.
+- **Sovereignty Governance (Fase 23):** `DevilsAdvocate` + `TrustArbiter`. Borrados atómicos via `WriteBatch`.
+- **NeuLISP Cognition (Fase 22):** Parser S-Expressions, `LispSandbox` con Cognitive Fuel (1000 steps), operador de similitud `~`.
+- **SIMD Optimization (Fase 21):** `wide::f32x8` para cosine similarity. Fallback escalar para hardware sin AVX.
+- **SleepWorker (Fase 20):** Daemon circadiano con Olvido Bayesiano, migración STN→LTN, Presupuesto de Amígdala (5%).
+
+### 🐛 Fixes
+- `StorageEngine::consolidate_node()` — fix del gap HNSW (sincroniza disco + index).
+- `rehydrate()` — corregida verificación `is_tombstone()` (shadow_kernel almacena nodos originales sin flag).
+- MCP/HTTP handlers — cobertura exhaustiva de `ExecutionResult::StaleContext`.
+
+---
 
 ## [v0.3.0]
 ### 🚀 Features
@@ -25,6 +42,6 @@
 
 ## [v0.1.0] - Foundation
 ### Features
-- **Phase 1 (Architecture):** `UnifiedNode` struct containing vectors, edges, and relational data. Custom `RwLock` in-memory engine.
+- **Phase 1 (Architecture):** `UnifiedNode` struct containing vectors, edges, and relational data.
 - **Phase 2 (Query Engine):** EBNF `nom` parser resolving hybrid syntax (`FROM`, `SIGUE`, `~`, `RANK BY`).
-- **Phase 3 (Integrations):** Added Resource Governor (OOM guard & Temperature execution). Scaffolded API handlers for Ollama.
+- **Phase 3 (Integrations):** Added Resource Governor (OOM guard & Temperature execution).

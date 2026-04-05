@@ -185,6 +185,15 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
                     })).unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
                 }
+                Ok(ExecutionResult::StaleContext(summary_id)) => {
+                    let content = serde_json::to_string(&json!({
+                        "stale_context": true,
+                        "rehydration_available": true,
+                        "summary_id": summary_id,
+                        "message": "Arqueología Semántica sugerida (TrustScore Crítico)."
+                    })).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
                 Err(e) => {
                     Ok(json!({"isError": true, "content": [{"type": "text", "text": format!("LISP Runtime Error: {}", e)}]}))
                 }

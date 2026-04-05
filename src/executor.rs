@@ -14,6 +14,7 @@ pub enum ExecutionResult {
         message: String,
         node_id: Option<u64>,
     },
+    StaleContext(u64), // Phase 30: Señal de que un contexto requiere rehidratación (TrustScore crítico)
 }
 
 pub struct Executor<'a> {
@@ -52,6 +53,17 @@ impl<'a> Executor<'a> {
             Statement::Query(query) => {
                 let plan = query.into_logical_plan();
                 let nodes = self.execute_plan(plan).await?;
+                
+                use crate::node::CognitiveUnit;
+                // Fase 30: Interceptación Arqueológica (Non-blocking)
+                for node in &nodes {
+                    if let Some(crate::node::FieldValue::String(node_type)) = node.relational.get("type") {
+                        if node_type == "NeuralSummary" && node.trust_score() < 0.4 {
+                            return Ok(ExecutionResult::StaleContext(node.id));
+                        }
+                    }
+                }
+
                 Ok(ExecutionResult::Read(nodes))
             }
             Statement::Insert(insert) => {

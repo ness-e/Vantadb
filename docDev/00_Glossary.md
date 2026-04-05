@@ -13,6 +13,12 @@ Este documento define la terminología dual de ConnectomeDB. Para mantener el ri
 | **Axon** (Axón) | `Stream / WAL` | El flujo de datos secuencial que garantiza la durabilidad (Write-Ahead Log). |
 | **Sleep Worker** | `GC / Maintenance` | Proceso en segundo plano que consolida la memoria y aplica el Olvido Bayesiano. |
 | **Neural Index** | `HNSW Index` | Estructura de navegación vectorial optimizada para búsqueda semántica. |
+| **Amygdala Budget** | `semantic_valence guard` | Presupuesto que protege el 5% de nodos de mayor valencia semántica contra el olvido. |
+| **Neural Summary** | `NeuralSummary node` | Neurona de Resumen creada por compresión LLM de un grupo de nodos degenerados. |
+| **Rehydration** | `StorageEngine::rehydrate()` | Arqueología Semántica: recuperación zero-copy de nodos archivados en el Shadow Kernel. |
+| **StaleContext** | `ExecutionResult::StaleContext` | Señal no-bloqueante emitida cuando un resumen tiene TrustScore crítico (< 0.4). |
+| **Quantum Neuron** | `QuantumNeuron` | (v0.5.0) Nodo en superposición que mantiene candidatos contradictorios hasta colapso. |
+| **Synaptic Depression** | `Edge decay` | (v0.5.0) Decaimiento circadiano del peso de edges no traversados. |
 
 ---
 

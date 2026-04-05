@@ -62,6 +62,14 @@ impl SleepWorker {
 
             for (&id, node) in cortex.iter_mut() {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+
+                // Fase 30: Purga Arqueológica
+                if node.flags.is_set(NodeFlags::REHYDRATED) {
+                    // Los recuerdos rehidratados solo viven temporalmente para ser sintetizados.
+                    // Si alcanzó la fase REM, su ventana expiró, evict de RAM. (Ya existen intactos en Shadow Archive)
+                    keys_to_remove.push(id);
+                    continue;
+                }
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
                     println!("🔌 [Circadian] Interrupción de Fase REM (Actividad de I/O detectada).");
                     break;
