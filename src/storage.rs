@@ -35,41 +35,55 @@ impl StorageEngine {
         bopts.set_cache_index_and_filter_blocks(true);
         bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
 
+        // Standard Bopts para lóbulos fríos (sin pinning L0)
+        let mut cold_bopts = rocksdb::BlockBasedOptions::default();
+        cold_bopts.set_bloom_filter(10.0, false);
+
         if caps.total_memory < 4 * 1024 * 1024 * 1024 { // Menos de 4GB (Survival Profile)
             opts.set_write_buffer_size(32 * 1024 * 1024); // 32MB
             opts.set_max_write_buffer_number(2);
-            bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(128 * 1024 * 1024)); // 128MB
+            let cache = rocksdb::Cache::new_lru_cache(128 * 1024 * 1024);
+            bopts.set_block_cache(&cache);
+            cold_bopts.set_block_cache(&cache);
         } else { // Enterprise o Performance 
             opts.set_write_buffer_size(128 * 1024 * 1024); // 128MB
             opts.set_max_write_buffer_number(4);
-            bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024)); // 2GB
+            let cache = rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024);
+            bopts.set_block_cache(&cache);
+            cold_bopts.set_block_cache(&cache);
         }
         opts.set_block_based_table_factory(&bopts);
         
         if caps.profile == crate::hardware::HardwareProfile::Survival || caps.total_memory < 16 * 1024 * 1024 * 1024 {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
+            // Redirigir el log de Hardware a stderr explícitamente para cumplimiento MCP
             eprintln!("🚨 [HARDWARE] RAM < 16GB. Forzando MMap Access (Survival Mode).");
         }
 
-        // Lóbulos Calientes (LZ4 veloz)
+        // Lóbulos Calientes (LZ4 veloz) y Pines de Memoria
         let mut default_opts = opts.clone();
         default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        default_opts.set_block_based_table_factory(&bopts); // Pinned Bloom
         
-        // shadow_kernel y deep_memory: Lz4 (bypass de ZSTD)
+        // shadow_kernel: Lz4 pero sin pinning agresivo
         let mut shadow_opts = rocksdb::Options::default();
         shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        shadow_opts.set_block_based_table_factory(&bopts);
+        shadow_opts.set_block_based_table_factory(&cold_bopts); // Unpinned Bloom
         
         let mut mem_opts = rocksdb::Options::default();
         mem_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        mem_opts.set_block_based_table_factory(&bopts);
+        mem_opts.set_block_based_table_factory(&bopts); // Pinned Bloom
+        
+        // Tombstones
+        let mut tombstone_opts = default_opts.clone();
+        tombstone_opts.set_block_based_table_factory(&cold_bopts); // Unpinned Bloom
 
         let cf_descriptors = vec![
-            rocksdb::ColumnFamilyDescriptor::new("default", default_opts.clone()),
+            rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
             rocksdb::ColumnFamilyDescriptor::new("shadow_kernel", shadow_opts),
             rocksdb::ColumnFamilyDescriptor::new("deep_memory", mem_opts),
-            rocksdb::ColumnFamilyDescriptor::new("tombstones", default_opts),
+            rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
         ];
 
         let db = DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;

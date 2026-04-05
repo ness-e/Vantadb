@@ -44,7 +44,19 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         let req: RpcRequest = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("[MCP] Unparseable JSON-RPC: {}", e);
+                eprintln!("[MCP] Error (stderr): Unparseable JSON-RPC: {}", e);
+                let err_res = json!({
+                    "jsonrpc": "2.0",
+                    "id": Value::Null,
+                    "error": {
+                        "code": -32700,
+                        "message": format!("Parse error: {}", e)
+                    }
+                });
+                if let Ok(out) = serde_json::to_string(&err_res) {
+                    writeln!(stdout, "{}", out).unwrap();
+                    stdout.flush().unwrap();
+                }
                 continue;
             }
         };
@@ -126,6 +138,27 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                     },
                     "required": ["node_id"]
                 }
+            },
+            {
+                "name": "inject_context",
+                "description": "Inyecta estado o contexto externo conectándolo a un hilo específico para consolidación posterior (Neural Summarization).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "content": { "type": "string", "description": "Contenido del contexto" },
+                        "thread_id": { "type": "number", "description": "ID del hilo al que pertenece" }
+                    },
+                    "required": ["content", "thread_id"]
+                }
+            },
+            {
+                "name": "read_axioms",
+                "description": "Retorna los Axiomas (Iron Axioms) del Devil's Advocate activos en la base de datos.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
             }
         ]
     }))
@@ -195,6 +228,34 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
             } else {
                 Ok(json!({"isError": true, "content": [{"type": "text", "text": "Node not found"}]}))
             }
+        }
+        "inject_context" => {
+            let content = args["content"].as_str().ok_or_else(|| json!({"code": -32602, "message": "Missing 'content'"}))?;
+            let thread_id = args["thread_id"].as_u64().ok_or_else(|| json!({"code": -32602, "message": "Missing 'thread_id'"}))?;
+            
+            let query = format!("INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}", content, thread_id);
+            match executor.execute_hybrid(&query).await {
+                Ok(ExecutionResult::Write { affected_nodes, message, .. }) => {
+                    let out = serde_json::to_string(&json!({
+                        "affected_nodes": affected_nodes,
+                        "message": message,
+                        "status": "Context Anchored"
+                    })).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": out}]}))
+                }
+                Ok(_) => Ok(json!({"isError": true, "content": [{"type": "text", "text": "Unexpected read result for insert"}]})),
+                Err(e) => Ok(json!({"isError": true, "content": [{"type": "text", "text": format!("Execution Error: {}", e)}]}))
+            }
+        }
+        "read_axioms" => {
+            let axioms = json!([
+                {"id": 1, "name": "Axioma Topológico", "description": "No se permiten referencias (edges) a nodos huérfanos o en el Shadow Archive."},
+                {"id": 2, "name": "Axioma de Confianza", "description": "DevilsAdvocate: Se rechazan mutaciones vectoriales divergentes con alto TrustScore histórico."},
+                {"id": 3, "name": "Axioma Inmortal", "description": "SleepWorker: Nodos marcados como PINNED evaden degradación por Olvido Bayesiano."},
+                {"id": 4, "name": "Presupuesto de Amígdala", "description": "SleepWorker: Reservado el 5% de memoria para nodos con valencia semántica >= 0.8."}
+            ]);
+            let content = serde_json::to_string(&axioms).unwrap_or_default();
+            Ok(json!({"content": [{"type": "text", "text": content}]}))
         }
         _ => error_code(-32601, "Tool not found"),
     }

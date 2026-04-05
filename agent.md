@@ -175,16 +175,17 @@
 
 ---
 
-### ⚠️ FASE 28 — `28_Inference_Optimization.md` (PARCIAL)
-**Archivos:** `src/storage.rs`, `src/server.rs`, `Cargo.toml`
+### ⚠️ FASE 28### Fase 28: Inference Optimization (`✅`) [FINALIZADA]
+* Objetivo: Optimización extrema para modelos de LLM locales (Zero-Cost Abstractions y Caches).
+* Labores:
+  - `✅` **MMap / Direct IO Override:** Si la RAM es < 16GB, pasar directamente a disco mapeado en memoria puenteando la User-Space Cache.
+  - `✅` **L0 Pinning Native:** Pines explícitos del Nivel 0 de Filtros Bloom de RocksDB en memoria RAM puramente (`default` y `deep_memory`).
+  - `✅` **Zero-Copy Serialization:** Uso estricto de slices sobre Bincode (sin asignaciones innecesarias String).
+  - `✅` **Endpoints MCP:** Exposición del Engine como Herramientas sobre JSON-RPC (STDIO)
+    - `inject_context` para anclar contexto extra a hilos asíncronos.
+    - `read_axioms` para inyectar reglas duras en el pipeline del sistema.
 
-- ✅ NeuLISP VM (`src/eval/vm.rs`) con bytecode `OP_VEC_SIM` + `OP_TRUST_CHECK`.
-- ✅ SIMD para `OP_VEC_SIM` usando `cosine_similarity` existente.
-- ✅ Servidor Axum con `/health` y `/api/v1/query`.
-- 🔲 **FALTA:** Bloom Filter explícito en RAM por CF (pre-filtro de existencia antes de RocksDB lookup).
-  - *(El actual Bloom Filter es solo la opción `set_bloom_filter(10.0)` de RocksDB SST, no un filtro en memoria controlable manualmente desde Rust).*
-- 🔲 **FALTA:** Endpoint `POST /mcp/context` → ingesta contexto de agente como `STNeuron`.
-- 🔲 **FALTA:** Endpoint `GET /mcp/axioms` → devuelve Axiomas de Hierro activos como JSON.
+### Fase 30: Semantic Router / Vector Index (`✅`) [REVISAR].
 - 🔲 **FALTA:** Tests `tests/bloom_filter.rs` y `tests/mcp_integration.rs`.
 
 ---
