@@ -112,7 +112,10 @@ impl CPIndex {
         }
         impl Ord for NodeSim {
             fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+                match self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal) {
+                    std::cmp::Ordering::Equal => other.1.cmp(&self.1), // Smaller ID is preferred when similarities are equal
+                    cmp => cmp,
+                }
             }
         }
 
@@ -132,7 +135,7 @@ impl CPIndex {
                     neighborhood_results.push((id, sim));
                 }
             }
-            if neighborhood_results.len() >= top_k * 2 { break; } // Bounded search
+            if neighborhood_results.len() >= top_k * 400 { break; } // Bounded search limit increased for orthogonal vector search
 
             // Explore neighbors
             if let Some(node) = self.nodes.get(&id) {
@@ -152,7 +155,12 @@ impl CPIndex {
             }
         }
 
-        neighborhood_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        neighborhood_results.sort_by(|a, b| {
+            match b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal) {
+                std::cmp::Ordering::Equal => a.0.cmp(&b.0),
+                cmp => cmp,
+            }
+        });
         neighborhood_results.truncate(top_k);
         neighborhood_results
     }
