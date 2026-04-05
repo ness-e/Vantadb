@@ -31,6 +31,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
     - uses: actions/checkout@v4
 
     - name: Add swap space (prevent OOM linker crash)
