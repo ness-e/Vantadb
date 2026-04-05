@@ -169,9 +169,7 @@ impl StorageEngine {
     }
 
     /// Insert a node directly into a named Column Family (e.g. "deep_memory").
-    /// PROTEGIDO: Restringido a `pub(crate)` para Forzar "Read Only" externo. 
-    /// Solo los gobernantes térmicos (como SleepWorker) pueden escribir aquí.
-    pub(crate) fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
+    pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
         let cf = self.db.cf_handle(cf_name)
             .ok_or_else(|| ConnectomeError::Execution(
                 format!("Column Family '{}' not found", cf_name)

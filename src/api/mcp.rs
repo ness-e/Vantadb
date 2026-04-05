@@ -77,7 +77,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     }
 }
 
-pub(crate) fn handle_initialize() -> Result<Value, Value> {
+pub fn handle_initialize() -> Result<Value, Value> {
     Ok(json!({
         "protocolVersion": "2024-11-05",
         "serverInfo": {
@@ -90,7 +90,7 @@ pub(crate) fn handle_initialize() -> Result<Value, Value> {
     }))
 }
 
-pub(crate) fn handle_tools_list() -> Result<Value, Value> {
+pub fn handle_tools_list() -> Result<Value, Value> {
     Ok(json!({
         "tools": [
             {
@@ -131,7 +131,7 @@ pub(crate) fn handle_tools_list() -> Result<Value, Value> {
     }))
 }
 
-pub(crate) async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, storage: &StorageEngine) -> Result<Value, Value> {
+pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, storage: &StorageEngine) -> Result<Value, Value> {
     let p = params.as_ref().ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
     let name = p["name"].as_str().unwrap_or("");
     let args = &p["arguments"];

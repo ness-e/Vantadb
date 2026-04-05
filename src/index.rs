@@ -126,7 +126,12 @@ impl CPIndex {
         let mut neighborhood_results = Vec::new();
 
         while let Some(NodeSim(sim, id)) = candidates.pop() {
-            neighborhood_results.push((id, sim));
+            // Only include in results if the node passes the bitset filter
+            if let Some(node) = self.nodes.get(&id) {
+                if node.bitset & query_mask == query_mask {
+                    neighborhood_results.push((id, sim));
+                }
+            }
             if neighborhood_results.len() >= top_k * 2 { break; } // Bounded search
 
             // Explore neighbors

@@ -26,7 +26,7 @@ async fn test_mcp_tool_execution() {
     let executor = Executor::new(&storage);
 
     // Insertar nodo dummy para get_node_neighbors
-    let mut node = UnifiedNode::new(Some(100));
+    let mut node = UnifiedNode::new(100);
     node.trust_score = 0.99;
     node.semantic_valence = 0.5;
     storage.insert(&node).unwrap();
@@ -48,7 +48,7 @@ async fn test_mcp_tool_execution() {
     let lisp_params = Some(json!({
         "name": "query_lisp",
         "arguments": {
-            "query": "(insert-node (list (tuple \"type\" \"MCP_TEST\")))"
+            "query": "(INSERT :neuron {:label \"MCP_TEST\"})"
         }
     }));
     let lisp_res = handle_tools_call(&lisp_params, &executor, &storage).await.expect("Debería parsear");

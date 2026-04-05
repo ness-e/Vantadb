@@ -3,9 +3,7 @@
 /// These tests validate the dynamic hardware detection and OOM emergency REM flags.
 
 use connectomedb::storage::StorageEngine;
-use connectomedb::node::{UnifiedNode, NeuronType};
 use std::sync::Arc;
-use std::time::Duration;
 
 fn temp_storage() -> Arc<StorageEngine> {
     let dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -20,7 +18,7 @@ async fn test_oom_emergency_trigger_activation() {
     let caps = connectomedb::hardware::HardwareCapabilities::global();
     let cortex_cap_bytes = caps.total_memory / 4;
     let approx_node_size = 1536; 
-    let max_stn_nodes = (cortex_cap_bytes / approx_node_size) as usize;
+    let _max_stn_nodes = (cortex_cap_bytes / approx_node_size) as usize;
 
     // Simulate inserting nodes up to the threshold
     // WARNING: For actual 16GB machines, this would require 2.7 Million inserts and could OOM the test OS.
