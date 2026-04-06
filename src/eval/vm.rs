@@ -1,9 +1,9 @@
-use crate::node::{UnifiedNode, VectorData};
+use crate::node::{UnifiedNode, VectorRepresentations};
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
     OpPushFloat(f32),
-    OpPushVector(VectorData),
+    OpPushVector(VectorRepresentations),
     OpTrustCheck,
     OpVecSim,
     OpRehydrate,
@@ -11,7 +11,7 @@ pub enum Opcode {
 
 pub struct NeuLispVM {
     float_stack: Vec<f32>,
-    vec_stack: Vec<VectorData>,
+    vec_stack: Vec<VectorRepresentations>,
     pub needs_rehydration: bool,
 }
 

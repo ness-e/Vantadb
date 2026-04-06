@@ -12,6 +12,7 @@
 //! - **Cortex** = `LogicalPlan` (the query decision engine)
 
 pub mod error;
+pub mod vector;
 pub mod node;
 pub mod wal;
 pub mod engine;
@@ -37,7 +38,7 @@ pub mod api;
 
 // Re-exports for ergonomic API
 pub use error::{ConnectomeError, Result};
-pub use node::{UnifiedNode, VectorData, Edge, FieldValue, NodeFlags, RelFields};
+pub use node::{UnifiedNode, VectorRepresentations, Edge, FieldValue, NodeFlags, RelFields};
 pub use node::{Neuron, Synapse}; // Biological aliases
 pub use engine::{InMemoryEngine, EngineStats, QueryResult, SourceType};
 pub use wal::{WalWriter, WalReader, WalRecord};

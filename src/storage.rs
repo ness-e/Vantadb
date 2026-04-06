@@ -135,7 +135,7 @@ impl StorageEngine {
 
         // 3. In-Memory Index Tracking (HNSW)
         if active_node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-            if let crate::node::VectorData::F32(vec) = &active_node.vector {
+            if let crate::node::VectorRepresentations::Full(vec) = &active_node.vector {
                 let mut index = self.hnsw.write().unwrap();
                 index.add(active_node.id, 0, Some(vec.clone())); // MVP mask 0
             }
@@ -148,7 +148,7 @@ impl StorageEngine {
     /// Called by SleepWorker after consolidation to prevent index-disk divergence.
     pub fn refresh_index(&self, node: &UnifiedNode) {
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-            if let crate::node::VectorData::F32(vec) = &node.vector {
+            if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                 let mut index = self.hnsw.write().unwrap();
                 index.add(node.id, node.bitset, Some(vec.clone()));
             }

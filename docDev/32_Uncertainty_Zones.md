@@ -1,18 +1,18 @@
-# Fase 31: Uncertainty Zones (Superposición Lógica)
+# Fase 32: Uncertainty Zones (Superposición Lógica)
 
 > **Estado:** 🔲 PENDIENTE  
 > **Versión Objetivo:** v0.5.0  
-> **Prerequisito:** Fase 30 (Memory Rehydration Protocol) ✅
+> **Prerequisito:** Fase 31 (Hybrid Quantization & Reactive Invalidation) ✅
 
 ---
 
 ## Concepto
 
-Cuando el `DevilsAdvocate` detecta una contradicción entre nodos (similitud vectorial > 0.95 pero TrustScores divergentes), actualmente **rechaza** la escritura. Esta fase introduce un tercer camino: en lugar de rechazar, el motor crea un `QuantumNeuron` que mantiene ambos candidatos en **superposición** hasta que un agente externo o un deadline temporal colapse el estado.
+Cuando el `DevilsAdvocate` detecta una contradicción entre nodos, ahora tiene un desencadenante mecánico primario: el **Pánico Axiomático de Cuantización** introducido en la Fase 31. Si la inferencia de re-ranking (Turbo 3-bit o Binary 1-bit) choca con los Axiomas de Hierro tras recuperar la fidelidad FP32 (L3), se asume ruido de compresión. En lugar de rechazar el dato o paralizar el sistema, el motor crea un `QuantumNeuron` que mantiene ambos candidatos en **superposición** hasta que un agente externo o un deadline temporal colapse el estado.
 
 ## Objetivo
 
-Permitir que ConnectomeDB maneje incertidumbre como un ciudadano de primera clase, en lugar de forzar decisiones binarias (Accept/Reject).
+Permir que ConnectomeDB maneje la incertidumbre como ciudadano de primera clase, mitigando las colisiones causadas por el muro de memoria (cuantización). Transforma las alucinaciones del hardware edge en objetos "superpuesto" que esperan resolución.
 
 ## Componentes Propuestos
 

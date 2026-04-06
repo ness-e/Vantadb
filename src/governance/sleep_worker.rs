@@ -201,7 +201,7 @@ impl SleepWorker {
             if let Ok(vec) = llm.generate_embedding(
                 summary_node.get_field("content").and_then(|f| f.as_str()).unwrap_or("")
             ).await {
-                summary_node.vector = crate::node::VectorData::F32(vec);
+                summary_node.vector = crate::node::VectorRepresentations::Full(vec);
                 summary_node.flags.set(NodeFlags::HAS_VECTOR);
             }
 

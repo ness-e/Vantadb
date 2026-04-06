@@ -126,42 +126,46 @@ Siguiente evolución: Superposición Lógica, Depresión Sináptica, Caché Anti
 
 ---
 
-### 🔲 FASE 31 — **Uncertainty Zones (Superposición Lógica)**
-**Spec:** `docDev/31_Uncertainty_Zones.md`
+### 🔲 FASE 31 — **Hybrid Quantization & Reactive Invalidation**
+**Spec:** `docDev/31_Hybrid_Quantization_Architecture.md`
 
-Concepto: Nodos en "superposición" (contradicciones pendientes de colapso temporal).
+Concepto: Cuantización de 3 niveles para vector indexing y validación axiomática con backpressure.
+- `VectorRepresentations`: `Binary(L1)`, `Turbo(L2)`, `Full(L3)`.
+- Re-ranking L2 y validación L3 con `InvalidationDispatcher` para Pánico Axiomático.
+
+---
+
+### 🔲 FASE 32 — **Uncertainty Zones (Superposición Lógica)**
+**Spec:** `docDev/32_Uncertainty_Zones.md`
+
+Concepto: Nodos en "superposición" generados por la disonancia de cuantización e I/O.
 - `QuantumNeuron { candidates: Vec<UnifiedNode>, collapse_deadline_ms: u64 }`.
-- `TrustArbiter` colapsa el candidato de mayor `TrustScore` al vencer el plazo.
-- Contradictions del `DevilsAdvocate` crean `QuantumNeuron` en lugar de rechazar.
+- Si el nivel L3 contradice el L2, el Devil's Advocate empuja el nodo a incertumbre en lugar de descartarlo de inmediato.
 
 ---
 
-### 🔲 FASE 32 — **LTD Synaptic Depression (Edges)**
-**Spec:** `docDev/32_Synaptic_Depression.md`
+### 🔲 FASE 33 — **LTD Synaptic Depression (Edges)**
+**Spec:** `docDev/33_Synaptic_Depression.md`
 
-Concepto: Decaimiento del peso de los `Edge` no traversados (Long-Term Depression biológica).
-- Campos `last_traversed_ms: u64`, `traversal_count: u32` en `Edge`.
-- `SleepWorker` aplica `edge.weight *= 0.95` a edges sin traversal en 24h.
-- Si `edge.weight < 0.05` → remover edge y registrar `AuditableTombstone`.
-
----
-
-### 🔲 FASE 33 — **Contextual Priming (Caché Anticipatorio)**
-**Spec:** `docDev/33_Contextual_Priming.md`
-
-Concepto: Pre-cargar vecinos de nodos populares antes de ser consultados.
-- En `StorageEngine::get()`: si `hits > 20` → `tokio::spawn` carga edges nivel 1 a `cortex_ram`.
-- Límite: máx 50 nodos por operación de priming.
-- Configurable: `CONNECTOME_PRIMING_ENABLED=true/false`.
+Concepto: Decaimiento del peso de los `Edge` generados como ruido espaciotemporal (Hash Collisions L1).
+- `SleepWorker` aplica decaimiento a edges sin traversal.
+- Limpia el grafo fantasma producido por el índice binario RaBitQ de la Fase 31.
 
 ---
 
-### 🔲 FASE 34 — **mmap Neural Index (Survival Mode)**
-**Spec:** `docDev/34_MMap_NeuralIndex.md`
+### 🔲 FASE 34 — **Contextual Priming (Caché Anticipatorio)**
+**Spec:** `docDev/34_Contextual_Priming.md`
 
-Concepto: Acceso a vectores HNSW via Memory-Mapped Files.
-- Mapear descriptores vectoriales del HNSW desde disco al espacio virtual.
-- Activar automáticamente en `SurvivalProfile` (RAM < 16GB).
+Concepto: Pre-cargar bloques TurboQuant MMap y vecinos de nodos calientes a L1 RAM.
+- Carga predictiva ante hits altos para mitigar I/O bottleneck en el Executor.
+
+---
+
+### 🔲 FASE 35 — **mmap Neural Index (Survival Mode)**
+**Spec:** `docDev/35_MMap_NeuralIndex.md`
+
+Concepto: Configuración de hardware para almacenar L2 (Turbo 3-bit) fuera de la RAM.
+- Activar de forma selectiva MMap fallback si Hardware == Survival Profile (< 16GB).
 
 ---
 

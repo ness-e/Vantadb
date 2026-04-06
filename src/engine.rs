@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use parking_lot::{Mutex, RwLock};
 
 use crate::error::{ConnectomeError, Result};
-use crate::node::{FieldValue, UnifiedNode, VectorData};
+use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::wal::{WalReader, WalRecord, WalWriter};
 
 // ─── Query Result ──────────────────────────────────────────
@@ -187,7 +187,7 @@ impl InMemoryEngine {
         min_score: f32,
         bitset_filter: Option<u128>,
     ) -> QueryResult {
-        let query_vec = VectorData::F32(query.to_vec());
+        let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
 
         let mut scored: Vec<(u64, f32)> = nodes
@@ -290,7 +290,7 @@ impl InMemoryEngine {
         bitset_mask: Option<u128>,
         field_filters: &[(String, FieldValue)],
     ) -> QueryResult {
-        let query_vec = VectorData::F32(query_vector.to_vec());
+        let query_vec = VectorRepresentations::Full(query_vector.to_vec());
         let nodes = self.nodes.read();
 
         let mut scored: Vec<(u64, f32)> = nodes

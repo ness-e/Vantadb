@@ -1,7 +1,7 @@
 #![cfg(feature = "python_sdk")]
 use pyo3::prelude::*;
 use crate::storage::StorageEngine;
-use crate::node::{UnifiedNode, VectorData};
+use crate::node::{UnifiedNode, VectorRepresentations};
 
 #[pyclass]
 pub struct ClientEngine {
@@ -28,7 +28,7 @@ impl ClientEngine {
     pub fn insert_node(&self, id: u64, vec_data: Option<Vec<f32>>) -> PyResult<()> {
         let mut node = UnifiedNode::new(id);
         if let Some(v) = vec_data {
-            node.vector = VectorData::F32(v);
+            node.vector = VectorRepresentations::Full(v);
         }
         self._storage.insert(&node).map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(())

@@ -1,6 +1,6 @@
 use crate::error::{Result, ConnectomeError};
 use crate::query::{LogicalPlan, LogicalOperator, Statement};
-use crate::node::{UnifiedNode, VectorData};
+use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::storage::StorageEngine;
 use crate::governance::{DevilsAdvocate, TrustArbiter, ResolutionResult};
 use crate::parser::lisp::parse as parse_lisp_expr;
@@ -81,18 +81,18 @@ impl<'a> Executor<'a> {
                         let llm = crate::llm::LlmClient::new();
                         // Request vectors to local Ollama inference bridge
                         if let Ok(vec) = llm.generate_embedding(text).await {
-                            node.vector = VectorData::F32(vec);
+                            node.vector = VectorRepresentations::Full(vec);
                             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                         }
                     }
                 } else if let Some(vec) = insert.vector {
-                    node.vector = VectorData::F32(vec);
+                    node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
 
                 // Soberanía Cognitiva: Devil's Advocate
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                    if let crate::node::VectorData::F32(vec) = &node.vector {
+                    if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
                             let index = self.storage.hnsw.read().unwrap();
                             // MVP: mask 0, y top 1 para validar contradicción
@@ -128,12 +128,12 @@ impl<'a> Executor<'a> {
                     node.set_field(k, v);
                 }
                 if let Some(vec) = update.vector {
-                    node.vector = VectorData::F32(vec);
+                    node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
                 // Soberanía Cognitiva: Devil's Advocate evalúa a la mutación en curso
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                    if let crate::node::VectorData::F32(vec) = &node.vector {
+                    if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
                             let index = self.storage.hnsw.read().unwrap();
                             index.search_nearest(vec, 0, 1)
@@ -206,7 +206,7 @@ impl<'a> Executor<'a> {
                 // Embed directly via LLM since it's a message
                 let llm = crate::llm::LlmClient::new();
                 if let Ok(vec) = llm.generate_embedding(&msg.content).await {
-                    node.vector = VectorData::F32(vec);
+                    node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
 

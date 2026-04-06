@@ -2,11 +2,11 @@ use rand::Rng;
 use std::collections::HashMap;
 
 // Reutilizamos la lógica SIMD centralizada en node.rs
-pub use crate::node::VectorData;
+pub use crate::node::VectorRepresentations;
 
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let va = VectorData::F32(a.to_vec());
-    let vb = VectorData::F32(b.to_vec());
+    let va = VectorRepresentations::Full(a.to_vec());
+    let vb = VectorRepresentations::Full(b.to_vec());
     va.cosine_similarity(&vb).unwrap_or(0.0)
 }
 
