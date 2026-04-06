@@ -45,14 +45,14 @@ fn test_hardware_profile_detection() {
 
 #[test]
 fn test_scalar_fallback_cosine_similarity() {
-    let a = connectomedb::node::VectorData::F32(vec![1.0, 0.0, 0.0]);
-    let b = connectomedb::node::VectorData::F32(vec![1.0, 0.0, 0.0]);
+    let a = connectomedb::node::VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
+    let b = connectomedb::node::VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
     
     // Test similarity computation regardless of the active instruction set branch.
     let sim = a.cosine_similarity(&b).unwrap();
     assert!((sim - 1.0).abs() < 1e-6);
 
-    let c = connectomedb::node::VectorData::F32(vec![0.0, 1.0, 0.0]);
+    let c = connectomedb::node::VectorRepresentations::Full(vec![0.0, 1.0, 0.0]);
     let sim2 = a.cosine_similarity(&c).unwrap();
     assert!(sim2.abs() < 1e-6); // orthogonal = 0
 }

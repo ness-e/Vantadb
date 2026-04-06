@@ -1,8 +1,8 @@
-# Fase 33: Contextual Priming (Caché Anticipatorio)
+# Fase 34: Contextual Priming (Caché Anticipatorio)
 
 > **Estado:** 🔲 PENDIENTE  
 > **Versión Objetivo:** v0.5.0  
-> **Prerequisito:** Fase 32
+> **Prerequisito:** Fase 33
 
 ---
 

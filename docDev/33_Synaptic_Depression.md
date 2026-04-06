@@ -1,8 +1,8 @@
-# Fase 32: LTD Synaptic Depression (Edges)
+# Fase 33: LTD Synaptic Depression (Edges)
 
 > **Estado:** 🔲 PENDIENTE  
 > **Versión Objetivo:** v0.5.0  
-> **Prerequisito:** Fase 31
+> **Prerequisito:** Fase 32
 
 ---
 

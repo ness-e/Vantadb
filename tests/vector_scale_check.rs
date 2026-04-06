@@ -20,7 +20,7 @@ async fn test_hnsw_scale_performance_logarithmic() {
         
         let mut node = UnifiedNode::new(i as u64);
         node.neuron_type = NeuronType::STNeuron;
-        node.vector = connectomedb::node::VectorData::F32(vec);
+        node.vector = connectomedb::node::VectorRepresentations::Full(vec);
         node.flags.set(connectomedb::node::NodeFlags::HAS_VECTOR);
         
         storage.insert(&node).unwrap();

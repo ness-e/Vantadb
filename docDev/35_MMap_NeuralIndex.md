@@ -1,8 +1,8 @@
-# Fase 34: mmap Neural Index (Survival Mode)
+# Fase 35: mmap Neural Index (Survival Mode)
 
 > **Estado:** 🔲 PENDIENTE  
 > **Versión Objetivo:** v0.5.0  
-> **Prerequisito:** Fase 33
+> **Prerequisito:** Fase 34
 
 ---
 

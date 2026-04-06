@@ -207,7 +207,7 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
             
             let mut results = Vec::new();
             if let Ok(index) = storage.hnsw.read() {
-                let neighbors = index.search_nearest(&vector, 0, k);
+                let neighbors = index.search_nearest(&vector, None, None, 0, k);
                 for (id, distance) in neighbors {
                     if let Ok(Some(node)) = storage.get(id) {
                         results.push(json!({"id": id, "distance": distance, "node": node}));

@@ -96,7 +96,7 @@ impl<'a> Executor<'a> {
                         let nearest = {
                             let index = self.storage.hnsw.read().unwrap();
                             // MVP: mask 0, y top 1 para validar contradicción
-                            index.search_nearest(vec, 0, 1)
+                            index.search_nearest(vec, None, None, 0, 1)
                         };
                         
                         if let Some((incumbent_id, _)) = nearest.first() {
@@ -136,7 +136,7 @@ impl<'a> Executor<'a> {
                     if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
                             let index = self.storage.hnsw.read().unwrap();
-                            index.search_nearest(vec, 0, 1)
+                            index.search_nearest(vec, None, None, 0, 1)
                         };
                         
                         if let Some((incumbent_id, _)) = nearest.first() {
@@ -248,7 +248,7 @@ impl<'a> Executor<'a> {
                 // Real Inference: Translate NLP into Embedded Vectors
                 if let Ok(vector) = llm.generate_embedding(query_vec).await {
                     let index = self.storage.hnsw.read().unwrap();
-                    let neighbors = index.search_nearest(&vector, 0, 5); // MVP: top_k = 5
+                    let neighbors = index.search_nearest(&vector, None, None, 0, 5); // MVP: top_k = 5
                     
                     for (id, _sim) in neighbors {
                         target_nodes.push(id);

@@ -137,7 +137,7 @@ impl StorageEngine {
         if active_node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &active_node.vector {
                 let mut index = self.hnsw.write().unwrap();
-                index.add(active_node.id, 0, Some(vec.clone())); // MVP mask 0
+                index.add(active_node.id, 0, crate::node::VectorRepresentations::Full(vec.clone())); // MVP mask 0
             }
         }
 
@@ -150,7 +150,7 @@ impl StorageEngine {
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                 let mut index = self.hnsw.write().unwrap();
-                index.add(node.id, node.bitset, Some(vec.clone()));
+                index.add(node.id, node.bitset, crate::node::VectorRepresentations::Full(vec.clone()));
             }
         }
     }

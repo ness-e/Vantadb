@@ -1,5 +1,5 @@
 use connectomedb::storage::StorageEngine;
-use connectomedb::node::{UnifiedNode, NodeFlags, NeuronType, FieldValue, VectorData, CognitiveUnit};
+use connectomedb::node::{UnifiedNode, NodeFlags, NeuronType, FieldValue, VectorRepresentations, CognitiveUnit};
 use connectomedb::executor::{Executor, ExecutionResult};
 use tempfile::tempdir;
 
@@ -20,12 +20,12 @@ async fn test_rehydration_core() {
     // 2. Create Component Nodes and then tombstone them to shadow_kernel
     let mut comp1 = UnifiedNode::new(1001);
     comp1.add_edge(summary_id, "belonged_to");
-    comp1.vector = VectorData::F32(vec![0.1, 0.2, 0.3]);
+    comp1.vector = VectorRepresentations::Full(vec![0.1, 0.2, 0.3]);
     comp1.flags.set(NodeFlags::HAS_VECTOR);
 
     let mut comp2 = UnifiedNode::new(1002);
     comp2.add_edge(summary_id, "belonged_to");
-    comp2.vector = VectorData::F32(vec![0.4, 0.5, 0.6]);
+    comp2.vector = VectorRepresentations::Full(vec![0.4, 0.5, 0.6]);
     comp2.flags.set(NodeFlags::HAS_VECTOR);
 
     storage.insert(&comp1).unwrap();
