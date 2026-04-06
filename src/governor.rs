@@ -5,6 +5,12 @@ use crate::query::LogicalPlan;
 /// Global counter of bytes currently allocated by queries in flight.
 pub static ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AllocationStatus {
+    Granted,
+    GrantedWithPressure, // Usado para invocar NMI si es necesario
+}
+
 pub struct ResourceGovernor {
     pub max_memory_bytes: usize,
     pub query_timeout_ms: u64,
@@ -19,13 +25,23 @@ impl ResourceGovernor {
     }
 
     /// Request allocation before executing an expensive step
-    pub fn request_allocation(&self, bytes: usize) -> Result<()> {
+    pub fn request_allocation(&self, bytes: usize) -> Result<AllocationStatus> {
         let current = ALLOCATED_BYTES.load(Ordering::Relaxed);
-        if current + bytes > self.max_memory_bytes {
+        let new_total = current + bytes;
+        
+        if new_total > self.max_memory_bytes {
             return Err(ConnectomeError::ResourceLimit("OOM Guard triggered: query exceeds soft memory limit.".to_string()));
         }
+        
+        let pressure_threshold = (self.max_memory_bytes as f64 * 0.9) as usize;
+        let status = if new_total > pressure_threshold {
+            AllocationStatus::GrantedWithPressure
+        } else {
+            AllocationStatus::Granted
+        };
+
         ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
-        Ok(())
+        Ok(status)
     }
 
     /// Free allocation

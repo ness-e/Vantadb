@@ -118,6 +118,20 @@ impl<'a> Executor<'a> {
 
     /// Ejecuta el Statement completo, distinguiendo entre Query de lectura y DML de escritura
     pub async fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
+        // ── NMI Pressure Check: applies to ALL statement types ──
+        {
+            use crate::governor::{ResourceGovernor, AllocationStatus};
+            let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
+            let probe_cost = 0; // Zero-cost probe: just check current pressure
+            if let Ok(AllocationStatus::GrantedWithPressure) = governor.request_allocation(probe_cost) {
+                println!("🚨 [NMI] Presión de memoria > 90% detectada en execute_statement. Ejecutando colapso forzado.");
+                if let Some(winner) = self.storage.uncertainty_buffer.force_collapse_nmi() {
+                    println!("    └─ Superviviente seleccionado por valencia: {}", winner.id);
+                    let _ = self.storage.insert(&winner);
+                }
+            }
+        }
+        
         match statement {
             Statement::Query(query) => {
                 let plan = query.into_logical_plan();
@@ -367,7 +381,16 @@ impl<'a> Executor<'a> {
         governor.apply_temperature_limits(&mut plan);
         
         let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
-        governor.request_allocation(estimated_mem_cost)?;
+        match governor.request_allocation(estimated_mem_cost)? {
+            crate::governor::AllocationStatus::GrantedWithPressure => {
+                println!("🚨 [NMI] OOM Guard: Presión de memoria > 90%. Ejecutando colapso forzado (NMI).");
+                if let Some(winner) = self.storage.uncertainty_buffer.force_collapse_nmi() {
+                    println!("    └─ Superviviente seleccionado por valencia: {}", winner.id);
+                    let _ = self.storage.insert(&winner);
+                }
+            },
+            crate::governor::AllocationStatus::Granted => {}
+        }
 
         let mut results = Vec::new();
         let mut target_nodes = Vec::new();

@@ -12,8 +12,8 @@ if (Test-Path $outputFile) {
     Write-Host "Reanudando... Se encontraron $($alreadyProcessed.Count) archivos ya presentes en todo.md"
 }
 
-$excludedDirs = @(".git","connectome-web", "target", "connectome_snapshots", "tmp")
-$excludedExts = @(".exe", ".png", ".jpg", ".rlib", ".rmeta", ".pdb", ".lock")
+$excludedDirs = @(".git", "connectome-web", "target", "connectome_snapshots", "tmp")
+$excludedExts = @(".exe", ".png", ".jpg", ".rlib", ".rmeta", ".pdb", ".lock", ".pdf")
 $scriptName = $MyInvocation.MyCommand.Name
 
 Get-ChildItem -File -Recurse | Where-Object {
@@ -58,7 +58,8 @@ Get-ChildItem -File -Recurse | Where-Object {
         $content = Get-Content $_.FullName -ErrorAction Stop
         Add-Content -Path $outputFile -Value $content
         Write-Host "Agregado: $relPath"
-    } catch {
+    }
+    catch {
         Add-Content -Path $outputFile -Value "[Contenido no leible o codificacion binaria]"
         Write-Host "Agregado (Error/Binario): $relPath"
     }

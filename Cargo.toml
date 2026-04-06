@@ -50,6 +50,108 @@ harness = false
 name = "stress_test"
 harness = false
 
+[[bin]]
+name = "connectome-server"
+path = "src/bin/connectome-server.rs"
+test = false
+
+# ── Integration Tests ─────────────────────────────────────────────
+[[test]]
+name = "basic_node"
+path = "tests/basic_node.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+[[test]]
+name = "server"
+path = "tests/server.rs"
+
+[[test]]
+name = "vector_scale_check"
+path = "tests/vector_scale_check.rs"
+
+[[test]]
+name = "mutations"
+path = "tests/mutations.rs"
+
+[[test]]
+name = "chaos_integrity"
+path = "tests/chaos_integrity.rs"
+
+[[test]]
+name = "parser"
+path = "tests/parser.rs"
+
+[[test]]
+name = "memory_promotion"
+path = "tests/memory_promotion.rs"
+
+[[test]]
+name = "executor"
+path = "tests/executor.rs"
+
+[[test]]
+name = "graph"
+path = "tests/graph.rs"
+
+[[test]]
+name = "storage"
+path = "tests/storage.rs"
+
+[[test]]
+name = "hnsw"
+path = "tests/hnsw.rs"
+
+[[test]]
+name = "gc"
+path = "tests/gc.rs"
+
+[[test]]
+name = "governor"
+path = "tests/governor.rs"
+
+[[test]]
+name = "neural_summarization"
+path = "tests/neural_summarization.rs"
+
+[[test]]
+name = "cognitive_sovereignty"
+path = "tests/cognitive_sovereignty.rs"
+
+[[test]]
+name = "mcp_integration"
+path = "tests/mcp_integration.rs"
+
+[[test]]
+name = "memory_rehydration"
+path = "tests/memory_rehydration.rs"
+
+[[test]]
+name = "thrashing_prevention"
+path = "tests/thrashing_prevention.rs"
+
+[[test]]
+name = "hardware_profiles"
+path = "tests/hardware_profiles.rs"
+
+[[test]]
+name = "structured_api_v2"
+path = "tests/structured_api_v2.rs"
+
+[[test]]
+name = "columnar"
+path = "tests/columnar.rs"
+
+[[test]]
+name = "lisp_logic"
+path = "tests/lisp_logic.rs"
+
+[[test]]
+name = "circadian_cycle"
+path = "tests/circadian_cycle.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
