@@ -6,6 +6,7 @@ use crate::governance::{DevilsAdvocate, TrustArbiter, ResolutionResult};
 use crate::parser::lisp::parse as parse_lisp_expr;
 use crate::parser::parse_statement;
 use crate::eval::LispSandbox;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
@@ -46,26 +47,40 @@ pub struct Executor<'a> {
     certitude: CertitudeMode,
     /// Tracks cumulative I/O cost of this executor session.
     /// Hardware backpressure uses this to throttle expensive agents.
-    io_budget_consumed: f32,
+    io_budget_consumed: AtomicU32,
 }
 
 impl<'a> Executor<'a> {
     pub fn new(storage: &'a StorageEngine) -> Self {
-        Self { storage, certitude: CertitudeMode::Balanced, io_budget_consumed: 0.0 }
+        Self { storage, certitude: CertitudeMode::Balanced, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
     }
 
     pub fn with_certitude(storage: &'a StorageEngine, mode: CertitudeMode) -> Self {
-        Self { storage, certitude: mode, io_budget_consumed: 0.0 }
+        Self { storage, certitude: mode, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
     }
 
     /// Track I/O cost with asymmetric penalization based on CertitudeMode.
-    fn consume_io(&mut self, base_cost: f32) {
-        self.io_budget_consumed += base_cost * self.certitude.io_quota_multiplier();
+    fn consume_io(&self, base_cost: f32) {
+        let penalty = base_cost * self.certitude.io_quota_multiplier();
+        let mut current_bits = self.io_budget_consumed.load(Ordering::Acquire);
+        loop {
+            let current = f32::from_bits(current_bits);
+            let next = current + penalty;
+            match self.io_budget_consumed.compare_exchange_weak(
+                current_bits,
+                next.to_bits(),
+                Ordering::Release,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(b) => current_bits = b,
+            }
+        }
     }
 
     /// Returns the cumulative I/O budget consumed by this executor.
     pub fn io_consumed(&self) -> f32 {
-        self.io_budget_consumed
+        f32::from_bits(self.io_budget_consumed.load(Ordering::Acquire))
     }
 
     /// Inserts a pre-built UnifiedNode directly into storage.
@@ -289,6 +304,9 @@ impl<'a> Executor<'a> {
                 
                 // Real Inference: Translate NLP into Embedded Vectors
                 if let Ok(vector) = llm.generate_embedding(query_vec).await {
+                    // Record basic vector search I/O cost (cost logic is synthetic placeholder)
+                    self.consume_io(10.0);
+
                     let index = self.storage.hnsw.read().unwrap();
                     let neighbors = index.search_nearest(&vector, None, None, 0, 5); // MVP: top_k = 5
                     
@@ -318,6 +336,9 @@ impl<'a> Executor<'a> {
 
         // Pass 2: Materializar los nodos devueltos por el índice y filtrar RBAC
         for id in target_nodes {
+            // Materializing nodes is I/O intensive, track heavily
+            self.consume_io(2.5);
+
             if let Ok(Some(node)) = self.storage.get(id) {
                 // Agented RBAC (Role-Based Access Control) Graph pruning
                 if let Some(required_role) = &plan.enforce_role {
