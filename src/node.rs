@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // ─── Vector Data ───────────────────────────────────────────
 
 /// Vector storage — supports tiered precision (Phase 31: Hybrid Quantization)
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum VectorRepresentations {
     /// L1: Índice Rápido en RAM. Distancia de Hamming (XOR + POPCNT).
     Binary(Box<[u64]>),
@@ -106,7 +106,7 @@ impl VectorRepresentations {
 // ─── Edge ──────────────────────────────────────────────────
 
 /// Labeled directed edge with optional weight
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Edge {
     pub target: u64,
     pub label: String,
@@ -228,7 +228,7 @@ pub trait CognitiveUnit {
 ///
 /// Header (id+bitset+cluster+flags = 32B) is cache-friendly.
 /// Heavy data (vector, edges, relational) lives on the heap.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct UnifiedNode {
     /// Globally unique identifier
     pub id: u64,

@@ -62,40 +62,97 @@ impl SleepWorker {
             let _shrinks_deadline = total > 10.0 && (decayed / total) > 0.7;
             
             let mut uncertainty = storage.uncertainty_buffer.quantum_zones.write();
-            let mut keys_to_purge_quantum = Vec::new();
+            let mut keys_to_collapse = Vec::new();
+            let mut keys_to_purge = Vec::new();
 
             for (&id, q_neuron) in uncertainty.iter_mut() {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
 
-                // Si se venció el deadline o el trust colapsó prematuramente
-                if now > q_neuron.collapse_deadline_ms || q_neuron.payload.trust_score() < 0.2 {
-                    keys_to_purge_quantum.push(id);
+                let mut best_trust = -1.0;
+                for cand in &q_neuron.candidates {
+                    if cand.trust_score() > best_trust {
+                        best_trust = cand.trust_score();
+                    }
+                }
+
+                // Si se venció el deadline colapsamos temporalmente a favor del mejor
+                if now > q_neuron.collapse_deadline_ms {
+                    keys_to_collapse.push(id);
+                } else if best_trust < 0.2 {
+                    keys_to_purge.push(id); // purga total
                 } else {
                     // Decay the trust incrementally so it eventually purges if not salvaged
                     if _shrinks_deadline {
                         q_neuron.collapse_deadline_ms = q_neuron.collapse_deadline_ms.saturating_sub(100);
                     }
-                    q_neuron.payload.trust_score *= 0.9;
+                    for cand in &mut q_neuron.candidates {
+                        cand.trust_score *= 0.9;
+                    }
                 }
             }
 
-            let discarded = keys_to_purge_quantum.len() as u64;
+            let discarded = keys_to_purge.len() as u64;
             if discarded > 0 {
                 storage.uncertainty_buffer.stats.superposition_to_decayed.fetch_add(discarded, Ordering::Relaxed);
             }
 
-            for id in keys_to_purge_quantum {
+            let mut winners_to_insert = Vec::new();
+            let mut losers_to_shadow = Vec::new();
+
+            for id in keys_to_purge {
                 if let Some(purged) = uncertainty.remove(&id) {
                     storage.thalamic_gate.record_rejection(id);
-                    // Amnesia Selectiva de Errores de Alta Importancia
-                    if purged.payload.semantic_valence > 0.8 {
-                        use crate::governance::AuditableTombstone;
-                        let tomb = AuditableTombstone::new(id, "Amnesia Selectiva: Quantum Decay", 0);
+                    for cand in purged.candidates {
+                        if cand.semantic_valence > 0.8 {
+                            losers_to_shadow.push((id, cand.id, "Amnesia Selectiva: Quantum Decay Total".to_string()));
+                        }
+                    }
+                }
+            }
+
+            for id in keys_to_collapse {
+                if let Some(mut q_neuron) = uncertainty.remove(&id) {
+                    storage.uncertainty_buffer.stats.superposition_to_collapsed.fetch_add(1, Ordering::Relaxed);
+                    
+                    let mut best_idx = 0;
+                    let mut best_trust = -1.0;
+                    for (i, cand) in q_neuron.candidates.iter().enumerate() {
+                        if cand.trust_score() > best_trust {
+                            best_trust = cand.trust_score();
+                            best_idx = i;
+                        }
+                    }
+
+                    if !q_neuron.candidates.is_empty() {
+                        let winner = q_neuron.candidates.remove(best_idx);
+                        winners_to_insert.push(winner);
+                        
+                        // Losers
+                        for cand in q_neuron.candidates {
+                            losers_to_shadow.push((id, cand.id, "Colapso Temporal: Candidato Perdedor".to_string()));
+                        }
+                    }
+                }
+            }
+
+            // Drop write lock on uncertainty_buffer to prevent deadlocks during insertion
+            drop(uncertainty);
+
+            // Re-inyectamos a los ganadores del colapso para que sigan el ciclo de vida normal
+            // (almacenamiento STN e indexación cruzada HNSW)
+            for winner in winners_to_insert {
+                let _ = storage.insert(&winner); 
+            }
+
+            // Purga auditables hacia el shadow kernel
+            use crate::governance::AuditableTombstone;
+            if !losers_to_shadow.is_empty() {
+                if let Some(cf_shadow) = storage.db.cf_handle("shadow_kernel") {
+                    for (id, hash, reason) in losers_to_shadow {
+                        let tomb = AuditableTombstone::new(id, reason, hash);
                         let key = id.to_le_bytes();
                         if let Ok(tomb_val) = bincode::serialize(&tomb) {
-                            if let Some(cf_shadow) = storage.db.cf_handle("shadow_kernel") {
-                                let _ = storage.db.put_cf(&cf_shadow, &key, &tomb_val);
-                            }
+                            let _ = storage.db.put_cf(&cf_shadow, &key, &tomb_val);
                         }
                     }
                 }

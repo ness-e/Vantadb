@@ -34,10 +34,11 @@ impl AuditableTombstone {
 // ─── Soberanía Cognitiva (Devil's Advocate) ────────────────
 use crate::node::{UnifiedNode, CognitiveUnit};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ResolutionResult {
     Accept,
-    Reject(String),               // Razón basada en Trust Score
+    Reject(String),               // Razón basada en Trust Score o gatekeep
+    Superposition(crate::governance::uncertainty::QuantumNeuron), // Zona de incertidumbre con múltiples candidatos (Fase 32B)
     Merge { new_trust: f32 },     // Combinar aserciones bajando certeza
 }
 
@@ -61,10 +62,13 @@ impl TrustArbiter for DevilsAdvocate {
             if sim > 0.95 {
                 // Heurística de conflictos base (ej: Campos vacíos o mutaciones sospechosas)
                 if challenger.trust_score() < incumbent.trust_score() {
-                    return ResolutionResult::Reject(format!(
-                        "Disonancia Cognitiva Detectada (Sim: {:.2}). Challenger Trust ({:.2}) es inferior al Incumbent Trust ({:.2}). Se rechaza la mutación.",
-                        sim, challenger.trust_score(), incumbent.trust_score()
-                    ));
+                    return ResolutionResult::Superposition(
+                        crate::governance::uncertainty::QuantumNeuron::new_superposition(
+                            incumbent.clone(),
+                            challenger.clone(),
+                            10000 // 10s default collapse deadline
+                        )
+                    );
                 }
             }
         }

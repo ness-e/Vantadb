@@ -289,6 +289,19 @@ fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
     }))
 }
 
+fn parse_collapse(i: &str) -> IResult<&str, CollapseStatement> {
+    let (i, _) = ws(tag("COLLAPSE"))(i)?;
+    let (i, _) = ws(tag("QuantumZone#"))(i)?;
+    let (i, zone_id) = ws(parse_u64_id)(i)?;
+    let (i, _) = ws(tag("FAVOR"))(i)?;
+    let (i, index) = ws(parse_number)(i)?;
+    
+    Ok((i, CollapseStatement {
+        zone_id,
+        index: index as usize,
+    }))
+}
+
 // ─── Entry Point ───────────────────────────────────────────────
 
 pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
@@ -298,6 +311,7 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
         map(parse_update, Statement::Update),
         map(parse_delete, Statement::Delete),
         map(parse_relate, Statement::Relate),
+        map(parse_collapse, Statement::Collapse),
         map(parse_query, Statement::Query),
     ))(i)
 }

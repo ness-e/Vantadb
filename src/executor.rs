@@ -172,8 +172,19 @@ impl<'a> Executor<'a> {
                             if *incumbent_id != node.id {
                                 if let Some(incumbent) = self.storage.get(*incumbent_id)? {
                                     let advocate = DevilsAdvocate::new();
-                                    if let ResolutionResult::Reject(reason) = advocate.evaluate_conflict(&incumbent, &node) {
-                                        return Err(ConnectomeError::Execution(format!("Sovereignty Rejected: {}", reason)));
+                                    match advocate.evaluate_conflict(&incumbent, &node) {
+                                        ResolutionResult::Reject(reason) => {
+                                            return Err(ConnectomeError::Execution(format!("Sovereignty Rejected: {}", reason)));
+                                        }
+                                        ResolutionResult::Superposition(q_neuron) => {
+                                            self.storage.uncertainty_buffer.insert_quantum(q_neuron);
+                                            return Ok(ExecutionResult::Write { 
+                                                affected_nodes: 1, 
+                                                message: format!("Node {} entered UncertaintyZone (Superposition).", node.id),
+                                                node_id: Some(node.id),
+                                            });
+                                        }
+                                        _ => {}
                                     }
                                 }
                             }
@@ -212,8 +223,19 @@ impl<'a> Executor<'a> {
                             if *incumbent_id != node.id {
                                 if let Some(incumbent) = self.storage.get(*incumbent_id)? {
                                     let advocate = DevilsAdvocate::new();
-                                    if let ResolutionResult::Reject(reason) = advocate.evaluate_conflict(&incumbent, &node) {
-                                        return Err(ConnectomeError::Execution(format!("Sovereignty Rejected (Update): {}", reason)));
+                                    match advocate.evaluate_conflict(&incumbent, &node) {
+                                        ResolutionResult::Reject(reason) => {
+                                            return Err(ConnectomeError::Execution(format!("Sovereignty Rejected (Update): {}", reason)));
+                                        }
+                                        ResolutionResult::Superposition(q_neuron) => {
+                                            self.storage.uncertainty_buffer.insert_quantum(q_neuron);
+                                            return Ok(ExecutionResult::Write { 
+                                                affected_nodes: 1, 
+                                                message: format!("Node {} update entered UncertaintyZone (Superposition).", node.id),
+                                                node_id: Some(node.id),
+                                            });
+                                        }
+                                        _ => {}
                                     }
                                 }
                             }
@@ -291,6 +313,49 @@ impl<'a> Executor<'a> {
                     node_id: Some(msg_id),
                 })
             }
+            Statement::Collapse(collapse) => {
+                let mut uncertainty = self.storage.uncertainty_buffer.quantum_zones.write();
+                if let Some(mut q_neuron) = uncertainty.remove(&collapse.zone_id) {
+                    if collapse.index < q_neuron.candidates.len() {
+                        let winner = q_neuron.candidates.remove(collapse.index);
+                        
+                        // Remaining candidates to shadow
+                        let mut losers_to_shadow = Vec::new();
+                        for cand in q_neuron.candidates {
+                            losers_to_shadow.push((collapse.zone_id, cand.id, "Colapso Manual: Candidato descartado por IQL".to_string()));
+                        }
+                        
+                        self.storage.uncertainty_buffer.stats.superposition_to_collapsed.fetch_add(1, Ordering::Relaxed);
+                        drop(uncertainty);
+                        
+                        self.storage.insert(&winner)?;
+
+                        if !losers_to_shadow.is_empty() {
+                            use crate::governance::AuditableTombstone;
+                            if let Some(cf_shadow) = self.storage.db.cf_handle("shadow_kernel") {
+                                for (id, hash, reason) in losers_to_shadow {
+                                    let tomb = AuditableTombstone::new(id, reason, hash);
+                                    let key = id.to_le_bytes();
+                                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                                        let _ = self.storage.db.put_cf(&cf_shadow, &key, &tomb_val);
+                                    }
+                                }
+                            }
+                        }
+
+                        Ok(ExecutionResult::Write {
+                            affected_nodes: 1,
+                            message: format!("QuantumZone {} collapsed. Candidate {} prevailed.", collapse.zone_id, collapse.index),
+                            node_id: Some(collapse.zone_id),
+                        })
+
+                    } else {
+                        Err(ConnectomeError::Execution(format!("Candidate index {} out of bounds for QuantumZone {}", collapse.index, collapse.zone_id)))
+                    }
+                } else {
+                    Err(ConnectomeError::Execution(format!("QuantumZone {} not found in Penumbra", collapse.zone_id)))
+                }
+            }
         }
     }
 
@@ -329,10 +394,14 @@ impl<'a> Executor<'a> {
                         let mut quantum_matches = Vec::new();
 
                         for (&q_id, quantum_neuron) in quantum_map.iter() {
-                            if let Some(sim) = quantum_neuron.payload.vector.cosine_similarity(&target_vec) {
-                                // Apply a penalty to the quantum match
-                                let penalized_sim = sim * 0.9;
-                                quantum_matches.push((q_id, penalized_sim));
+                            for cand in &quantum_neuron.candidates {
+                                if cand.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+                                    if let Some(sim) = cand.vector.cosine_similarity(&target_vec) {
+                                        // Apply a penalty to the quantum match
+                                        let penalized_sim = sim * 0.9;
+                                        quantum_matches.push((q_id, penalized_sim));
+                                    }
+                                }
                             }
                         }
                         
@@ -354,8 +423,17 @@ impl<'a> Executor<'a> {
             // Fallback: real scan based on FROM entity (Scan operator)
             for op in &plan.operators {
                 if let LogicalOperator::Scan { entity } = op {
-                    // If entity contains '#', it's a specific node ID (e.g., "Usuario#45")
-                    if let Some(id_str) = entity.split('#').nth(1) {
+                    // If entity starts with QuantumZone#, intercept it immediately
+                    if entity.starts_with("QuantumZone#") {
+                        if let Some(id_str) = entity.split('#').nth(1) {
+                            if let Ok(id) = id_str.parse::<u64>() {
+                                let map = self.storage.uncertainty_buffer.quantum_zones.read();
+                                if let Some(q_neuron) = map.get(&id) {
+                                    return Ok(q_neuron.candidates.clone());
+                                }
+                            }
+                        }
+                    } else if let Some(id_str) = entity.split('#').nth(1) {
                         if let Ok(id) = id_str.parse::<u64>() {
                             target_nodes.push(id);
                         }

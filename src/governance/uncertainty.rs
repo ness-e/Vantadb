@@ -15,21 +15,27 @@ pub enum QuantumState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QuantumNeuron {
     pub node_id: u64,
-    pub payload: UnifiedNode,
+    pub candidates: Vec<UnifiedNode>,
     pub state: QuantumState,
     pub injected_at: u64, // Unix ms
     pub collapse_deadline_ms: u64, 
 }
 
 impl QuantumNeuron {
-    pub fn new(payload: UnifiedNode, deadline_offset_ms: u64) -> Self {
+    pub fn new_superposition(incumbent: UnifiedNode, challenger: UnifiedNode, deadline_offset_ms: u64) -> Self {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
         Self {
-            node_id: payload.id,
-            payload,
+            node_id: incumbent.id,
+            candidates: vec![incumbent, challenger],
             state: QuantumState::Superposition,
             injected_at: now,
             collapse_deadline_ms: now + deadline_offset_ms,
+        }
+    }
+
+    pub fn add_candidate(&mut self, candidate: UnifiedNode) {
+        if self.candidates.len() < 3 {
+            self.candidates.push(candidate);
         }
     }
 }
@@ -84,33 +90,35 @@ impl UncertaintyBuffer {
 
     /// Cortocircuito del NMI (Hard-Urgency). 
     /// Realiza un colapso especulativo: Integra el candidato de mayor valencia actual 
-    /// y purga el resto de la Penumbra. Da prioridad a la velocidad por sobre la precisión.
-    pub fn force_collapse_nmi(&self) -> Option<QuantumNeuron> {
+    /// de toda la Penumbra y purga el resto. Da prioridad a la velocidad por sobre la precisión.
+    pub fn force_collapse_nmi(&self) -> Option<UnifiedNode> {
         let mut map = self.quantum_zones.write();
         if map.is_empty() {
             return None;
         }
 
-        let mut best_id = 0;
+        let mut best_candidate: Option<UnifiedNode> = None;
         let mut best_valence = -1.0;
 
-        for (&id, neuron) in map.iter() {
-            if neuron.payload.semantic_valence > best_valence {
-                best_valence = neuron.payload.semantic_valence;
-                best_id = id;
+        for neuron in map.values() {
+            for candidate in &neuron.candidates {
+                if candidate.semantic_valence > best_valence {
+                    best_valence = candidate.semantic_valence;
+                    best_candidate = Some(candidate.clone());
+                }
             }
         }
 
-        let saved = map.remove(&best_id);
-        let discarded = map.len() as u64;
+        let discarded = map.len() as u64; // Approximated discarded superpositions
         
-        self.stats.superposition_to_decayed.fetch_add(discarded, Ordering::Relaxed);
+        // We consider all superpositions discarded except one that we saved a candidate from,
+        // although technically we are returning a Node not a QuantumNeuron.
+        self.stats.superposition_to_decayed.fetch_add(discarded.saturating_sub(1), Ordering::Relaxed);
         map.clear();
         
-        if let Some(mut neuron) = saved {
-            neuron.state = QuantumState::CollapsedAccept;
+        if let Some(winner) = best_candidate {
             self.stats.superposition_to_collapsed.fetch_add(1, Ordering::Relaxed);
-            return Some(neuron);
+            return Some(winner);
         }
         
         None
