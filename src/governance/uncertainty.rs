@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use parking_lot::RwLock;
 use crate::node::UnifiedNode;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum QuantumState {
@@ -33,14 +34,30 @@ impl QuantumNeuron {
     }
 }
 
+pub struct CollapseStats {
+    pub superposition_to_collapsed: AtomicU64,
+    pub superposition_to_decayed: AtomicU64,
+}
+
+impl Default for CollapseStats {
+    fn default() -> Self {
+        Self {
+            superposition_to_collapsed: AtomicU64::new(0),
+            superposition_to_decayed: AtomicU64::new(0),
+        }
+    }
+}
+
 pub struct UncertaintyBuffer {
     pub quantum_zones: RwLock<HashMap<u64, QuantumNeuron>>,
+    pub stats: CollapseStats,
 }
 
 impl UncertaintyBuffer {
     pub fn new() -> Self {
         Self {
             quantum_zones: RwLock::new(HashMap::new()),
+            stats: CollapseStats::default(),
         }
     }
 
@@ -55,5 +72,47 @@ impl UncertaintyBuffer {
 
     pub fn remove_quantum(&self, id: u64) -> Option<QuantumNeuron> {
         self.quantum_zones.write().remove(&id)
+    }
+
+    pub fn record_accept(&self) {
+        self.stats.superposition_to_collapsed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn record_decay(&self) {
+        self.stats.superposition_to_decayed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Cortocircuito del NMI (Hard-Urgency). 
+    /// Realiza un colapso especulativo: Integra el candidato de mayor valencia actual 
+    /// y purga el resto de la Penumbra. Da prioridad a la velocidad por sobre la precisión.
+    pub fn force_collapse_nmi(&self) -> Option<QuantumNeuron> {
+        let mut map = self.quantum_zones.write();
+        if map.is_empty() {
+            return None;
+        }
+
+        let mut best_id = 0;
+        let mut best_valence = -1.0;
+
+        for (&id, neuron) in map.iter() {
+            if neuron.payload.semantic_valence > best_valence {
+                best_valence = neuron.payload.semantic_valence;
+                best_id = id;
+            }
+        }
+
+        let saved = map.remove(&best_id);
+        let discarded = map.len() as u64;
+        
+        self.stats.superposition_to_decayed.fetch_add(discarded, Ordering::Relaxed);
+        map.clear();
+        
+        if let Some(mut neuron) = saved {
+            neuron.state = QuantumState::CollapsedAccept;
+            self.stats.superposition_to_collapsed.fetch_add(1, Ordering::Relaxed);
+            return Some(neuron);
+        }
+        
+        None
     }
 }

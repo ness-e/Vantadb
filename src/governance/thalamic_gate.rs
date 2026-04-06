@@ -1,54 +1,74 @@
-use std::collections::{HashSet, VecDeque};
 use parking_lot::RwLock;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
-/// ThalamicGate limits the reingestion of known rejected/hallucinated nodes.
-/// It operates in strict bounds (max 5,000 IDs) simulating an LRU set
-/// using a HashSet alongside a VecDeque, guaranteeing zero payload dependency
-/// and O(1) checks.
+const DEFAULT_BLOOM_BITS: usize = 100_000; // ~12.5 KB to target FP < 0.01 for 10k items
+const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1E1E1E];
+
+/// ThalamicGate filters the reingestion of known rejected/hallucinated nodes.
+/// Implemented using a Minimalist in-house Bloom Filter (Zero-Dependencies)
+/// based on Rust's DefaultHasher and 3 unique salt seeds for k-hashing.
 pub struct ThalamicGate {
-    max_capacity: usize,
-    rejected_set: RwLock<HashSet<u64>>,
-    eviction_queue: RwLock<VecDeque<u64>>,
+    bit_array: RwLock<Vec<u8>>,
+    bits_count: usize,
 }
 
 impl ThalamicGate {
-    pub fn new(max_capacity: usize) -> Self {
-        Self {
-            max_capacity,
-            rejected_set: RwLock::new(HashSet::with_capacity(max_capacity)),
-            eviction_queue: RwLock::new(VecDeque::with_capacity(max_capacity)),
-        }
-    }
-
-    /// Mark an ID as rejected. If hitting capacity, eviction FIFO kicks in.
-    pub fn record_rejection(&self, node_id: u64) {
-        let mut set = self.rejected_set.write();
+    pub fn new(capacity_hint: usize) -> Self {
+        // Adjust bits dynamically if needed, keeping default at least 100_000
+        // Optimal m = -n*ln(p) / (ln(2)^2). For n=10,000, p=0.01 => m ≈ 95850 bits.
+        let optimal_bits = ((capacity_hint as f64) * 9.585).ceil() as usize;
+        let bits_count = optimal_bits.max(DEFAULT_BLOOM_BITS);
+        let size_bytes = (bits_count + 7) / 8;
         
-        if set.insert(node_id) {
-            let mut q = self.eviction_queue.write();
-            q.push_back(node_id);
-            
-            if q.len() > self.max_capacity {
-                if let Some(oldest) = q.pop_front() {
-                    set.remove(&oldest);
-                }
-            }
+        Self {
+            bit_array: RwLock::new(vec![0; size_bytes]),
+            bits_count,
         }
     }
 
-    /// Fast O(1) check if a node is blocked.
+    /// Evaluates the 3 hash indexes for a given node_id
+    fn calculate_hashes(&self, node_id: u64) -> [usize; 3] {
+        let mut idxs = [0; 3];
+        for (i, &salt) in K_SALTS.iter().enumerate() {
+            let mut hasher = DefaultHasher::new();
+            node_id.hash(&mut hasher);
+            salt.hash(&mut hasher);
+            idxs[i] = (hasher.finish() as usize) % self.bits_count;
+        }
+        idxs
+    }
+
+    /// Mark an ID as rejected with K k-hash insertions
+    pub fn record_rejection(&self, node_id: u64) {
+        let idxs = self.calculate_hashes(node_id);
+        let mut bit_array = self.bit_array.write();
+        
+        for idx in idxs {
+            let byte_idx = idx / 8;
+            let bit_pos = idx % 8;
+            bit_array[byte_idx] |= 1 << bit_pos;
+        }
+    }
+
+    /// Fast probabilistic check if a node is blocked.
     pub fn is_rejected(&self, node_id: u64) -> bool {
-        self.rejected_set.read().contains(&node_id)
-    }
-
-    /// Optional explicit amnesty
-    pub fn grant_amnesty(&self, node_id: u64) {
-        let mut set = self.rejected_set.write();
-        if set.remove(&node_id) {
-            let mut q = self.eviction_queue.write();
-            if let Some(pos) = q.iter().position(|&id| id == node_id) {
-                q.remove(pos);
+        let idxs = self.calculate_hashes(node_id);
+        let bit_array = self.bit_array.read();
+        
+        for idx in idxs {
+            let byte_idx = idx / 8;
+            let bit_pos = idx % 8;
+            if (bit_array[byte_idx] & (1 << bit_pos)) == 0 {
+                return false;
             }
         }
+        true
+    }
+
+    /// Standard Bloom Filter cannot remove items without explicit counting (Counting Bloom Filter).
+    /// Amnesty is generally ignored here, which is an accepted tradeoff for the performance.
+    pub fn grant_amnesty(&self, _node_id: u64) {
+        // No-OP
     }
 }

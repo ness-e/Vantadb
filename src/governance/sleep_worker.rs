@@ -53,6 +53,14 @@ impl SleepWorker {
 
         {
             // ── Stage 0: UncertaintyBuffer Decay & Selective Amnesia ──
+            let stats = &storage.uncertainty_buffer.stats;
+            let collapsed = stats.superposition_to_collapsed.load(Ordering::Relaxed) as f64;
+            let decayed = stats.superposition_to_decayed.load(Ordering::Relaxed) as f64;
+            let total = collapsed + decayed;
+            
+            // Si el ratio de decay es > 70%, el backend de Uncertainty usará plazos más cortos para el colapso.
+            let _shrinks_deadline = total > 10.0 && (decayed / total) > 0.7;
+            
             let mut uncertainty = storage.uncertainty_buffer.quantum_zones.write();
             let mut keys_to_purge_quantum = Vec::new();
 
@@ -64,8 +72,16 @@ impl SleepWorker {
                     keys_to_purge_quantum.push(id);
                 } else {
                     // Decay the trust incrementally so it eventually purges if not salvaged
+                    if _shrinks_deadline {
+                        q_neuron.collapse_deadline_ms = q_neuron.collapse_deadline_ms.saturating_sub(100);
+                    }
                     q_neuron.payload.trust_score *= 0.9;
                 }
+            }
+
+            let discarded = keys_to_purge_quantum.len() as u64;
+            if discarded > 0 {
+                storage.uncertainty_buffer.stats.superposition_to_decayed.fetch_add(discarded, Ordering::Relaxed);
             }
 
             for id in keys_to_purge_quantum {
