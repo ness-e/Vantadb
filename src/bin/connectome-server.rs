@@ -16,10 +16,19 @@ async fn main() {
     // El StorageEngine al ser abierto arrancará el HardwareScout en $O(1)$ y los eprint logs irán a stderr.
     let storage = Arc::new(StorageEngine::open("connectome_data").unwrap());
     
+    // Bootstrap Invalidation Dispatcher (Reactive Event Bus)
+    let mut dispatcher = connectomedb::governance::invalidations::InvalidationDispatcher::new(256);
+    let invalidation_tx = dispatcher.sender();
+    if let Some(rx) = dispatcher.take_receiver() {
+        tokio::spawn(async move {
+            connectomedb::governance::invalidations::invalidation_listener(rx).await;
+        });
+    }
+
     // Iniciar Mantenimiento Circadiano (Background Garbage Collector / Inmune System)
     let sleep_storage_ctx = storage.clone();
     tokio::spawn(async move {
-        connectomedb::governance::sleep_worker::SleepWorker::start(sleep_storage_ctx).await;
+        connectomedb::governance::sleep_worker::SleepWorker::start(sleep_storage_ctx, invalidation_tx).await;
     });
 
     if is_mcp {

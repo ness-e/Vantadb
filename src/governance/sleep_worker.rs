@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
+use tokio::sync::mpsc;
 use crate::storage::StorageEngine;
 use crate::node::{CognitiveUnit, UnifiedNode, NeuronType, NodeFlags, FieldValue};
+use crate::governance::invalidations::{InvalidationDispatcher, InvalidationEvent};
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH, Instant};
 use rocksdb::CompactOptions;
@@ -19,7 +21,7 @@ const MIN_GROUP_WEIGHT_FOR_SUMMARY: u32 = 3;
 pub struct SleepWorker;
 
 impl SleepWorker {
-    pub async fn start(storage: Arc<StorageEngine>) {
+    pub async fn start(storage: Arc<StorageEngine>, invalidation_tx: mpsc::Sender<InvalidationEvent>) {
         let sleep_duration = Duration::from_secs(10);
         let inactivity_threshold_ms = 5000;
 
@@ -28,7 +30,7 @@ impl SleepWorker {
             if storage.emergency_rem_trigger.load(Ordering::Acquire) {
                 println!("🚨 [Circadian] TRIGGER DE EMERGENCIA: Cortex RAM al límite. Iniciando Fase REM Agresiva (OOM Guard).");
                 storage.emergency_rem_trigger.store(false, Ordering::Release);
-                Self::execute_rem_phase(&storage).await;
+                Self::execute_rem_phase(&storage, &invalidation_tx).await;
             }
 
             sleep(sleep_duration).await;
@@ -37,17 +39,19 @@ impl SleepWorker {
             let last_activity = storage.last_query_timestamp.load(Ordering::Acquire);
 
             if now - last_activity > inactivity_threshold_ms {
-                Self::execute_rem_phase(&storage).await;
+                Self::execute_rem_phase(&storage, &invalidation_tx).await;
             }
         }
     }
 
-    async fn execute_rem_phase(storage: &Arc<StorageEngine>) {
+    async fn execute_rem_phase(storage: &Arc<StorageEngine>, invalidation_tx: &mpsc::Sender<InvalidationEvent>) {
         println!("🌙 [Circadian] Iniciando Fase REM (Mantenimiento de Memoria)...");
 
         let mut to_consolidate = Vec::new();
-        let mut to_purge = Vec::new();
+        let mut to_purge: Vec<(u64, bool)> = Vec::new(); // (id, is_hallucination)
         let mut summarization_candidates: Vec<UnifiedNode> = Vec::new();
+
+
 
         let total_nodes;
 
@@ -59,6 +63,14 @@ impl SleepWorker {
             let mut current_shielded = 0;
 
             let mut keys_to_remove = Vec::new();
+
+            // Setup Profile-based Backpressure
+            let caps = crate::hardware::HardwareCapabilities::global();
+            let max_consolidations = match caps.profile {
+                crate::hardware::HardwareProfile::Enterprise => 5000,
+                crate::hardware::HardwareProfile::Performance => 500,
+                crate::hardware::HardwareProfile::Survival => 50,
+            };
 
             for (&id, node) in cortex.iter_mut() {
                 let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
@@ -81,13 +93,21 @@ impl SleepWorker {
                     continue;
                 }
 
+                // Hallucination Check - Immediate Nullification
+                if node.flags.is_set(NodeFlags::HALLUCINATION) {
+                    println!("🧨 [Circadian] Alucinación detectada en el nodo {}. Iniciando purga reactiva inmediata.", id);
+                    keys_to_remove.push(id);
+                    to_purge.push((id, true));
+                    continue;
+                }
+
                 // Stage 1: Olvido Bayesiano
                 node.hits = (node.hits as f32 * 0.5) as u32;
 
                 // Stage 2: Evaluaciones de Supervivencia
                 if node.trust_score() < 0.2 {
                     keys_to_remove.push(id);
-                    to_purge.push(id);
+                    to_purge.push((id, false));
                 } else if node.hits < 10 && !node.is_pinned() && (now - node.last_accessed > 60_000) {
                     keys_to_remove.push(id);
 
@@ -96,7 +116,17 @@ impl SleepWorker {
                         summarization_candidates.push(node.clone());
                     }
 
-                    to_consolidate.push(node.clone());
+                    // Apply Hardware Backpressure to Disk I/O
+                    if to_consolidate.len() < max_consolidations {
+                        to_consolidate.push(node.clone());
+                    } else {
+                        // Defer to next cycle due to IO saturation 
+                        // Note: we pushed the key to keys_to_remove, but we didn't add it to consolidate
+                        // it will be evicted from RAM, which is correct for Survival, it essentially acts as a cache miss on defer
+                        // wait, actually, if it's deferred from consolidation, it SHOULD stay in RAM if we want to save it!
+                        // Let's remove it from keys_to_remove so it stays in Cortex!
+                        keys_to_remove.pop();
+                    }
                 }
             }
 
@@ -115,8 +145,18 @@ impl SleepWorker {
         }
 
         let mut deleted_count = 0usize;
-        for id in to_purge {
-            let _ = storage.delete(id, "Olvido Bayesiano (Trust < 0.2)");
+        for (id, is_hallucination) in &to_purge {
+            if *is_hallucination {
+                // Emit reactive invalidation event for hallucinated nodes
+                InvalidationDispatcher::emit_hallucination_purged(
+                    invalidation_tx,
+                    *id,
+                    "Flagged HALLUCINATION during REM phase".to_string(),
+                ).await;
+                let _ = storage.delete(*id, "Purga Reactiva: HALLUCINATION flag");
+            } else {
+                let _ = storage.delete(*id, "Olvido Bayesiano (Trust < 0.2)");
+            }
             deleted_count += 1;
         }
 
