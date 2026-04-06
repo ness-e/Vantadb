@@ -1,5 +1,7 @@
 pub mod sleep_worker;
 pub mod invalidations;
+pub mod thalamic_gate;
+pub mod uncertainty;
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};

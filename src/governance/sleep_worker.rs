@@ -51,7 +51,40 @@ impl SleepWorker {
         let mut to_purge: Vec<(u64, bool)> = Vec::new(); // (id, is_hallucination)
         let mut summarization_candidates: Vec<UnifiedNode> = Vec::new();
 
+        {
+            // ── Stage 0: UncertaintyBuffer Decay & Selective Amnesia ──
+            let mut uncertainty = storage.uncertainty_buffer.quantum_zones.write();
+            let mut keys_to_purge_quantum = Vec::new();
 
+            for (&id, q_neuron) in uncertainty.iter_mut() {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+
+                // Si se venció el deadline o el trust colapsó prematuramente
+                if now > q_neuron.collapse_deadline_ms || q_neuron.payload.trust_score() < 0.2 {
+                    keys_to_purge_quantum.push(id);
+                } else {
+                    // Decay the trust incrementally so it eventually purges if not salvaged
+                    q_neuron.payload.trust_score *= 0.9;
+                }
+            }
+
+            for id in keys_to_purge_quantum {
+                if let Some(purged) = uncertainty.remove(&id) {
+                    storage.thalamic_gate.record_rejection(id);
+                    // Amnesia Selectiva de Errores de Alta Importancia
+                    if purged.payload.semantic_valence > 0.8 {
+                        use crate::governance::AuditableTombstone;
+                        let tomb = AuditableTombstone::new(id, "Amnesia Selectiva: Quantum Decay", 0);
+                        let key = id.to_le_bytes();
+                        if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                            if let Some(cf_shadow) = storage.db.cf_handle("shadow_kernel") {
+                                let _ = storage.db.put_cf(&cf_shadow, &key, &tomb_val);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         let total_nodes;
 

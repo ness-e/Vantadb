@@ -201,7 +201,7 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
         }
         "search_semantic" => {
             let vec_arr = args["vector"].as_array().ok_or_else(|| json!({"code": -32602, "message": "Missing 'vector' array"}))?;
-            let mut vector = Vec::new();
+            let mut vector: Vec<f32> = Vec::with_capacity(vec_arr.len());
             for v in vec_arr { vector.push(v.as_f64().unwrap_or(0.0) as f32); }
             let k = args["k"].as_i64().unwrap_or(5) as usize;
             

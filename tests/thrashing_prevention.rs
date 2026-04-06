@@ -21,7 +21,8 @@ async fn test_thrashing_prevention_grace_period() {
     // Iniciar SleepWorker
     let worker_storage = storage.clone();
     tokio::spawn(async move {
-        SleepWorker::start(worker_storage).await;
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        SleepWorker::start(worker_storage, tx).await;
     });
 
     // Esperar 12 segundos (Suficiente para activar un ciclo REM de 10s base)

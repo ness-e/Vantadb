@@ -17,3 +17,14 @@ Thumbs.db
 
 #Pagina web
 /connectome-web/
+
+# Test Databases
+/tests_graph_db/
+/tests_server_db/
+
+# Assets
+docs/assets/*.exe
+
+
+# Local profiles
+.connectome_profile

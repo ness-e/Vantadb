@@ -31,7 +31,7 @@ fn test_consolidation_updates_hnsw_index() {
     // Verify HNSW knows about it
     {
         let index = storage.hnsw.read().unwrap();
-        let results = index.search_nearest(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0, 1);
+        let results = index.search_nearest(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], None, None, 0, 1);
         assert!(!results.is_empty(), "Node should be in HNSW after insert");
         assert_eq!(results[0].0, 42);
     }
@@ -42,7 +42,7 @@ fn test_consolidation_updates_hnsw_index() {
     // The node should still be findable in HNSW after consolidation
     {
         let index = storage.hnsw.read().unwrap();
-        let results = index.search_nearest(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0, 1);
+        let results = index.search_nearest(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], None, None, 0, 1);
         assert!(!results.is_empty(), "Node should STILL be in HNSW after consolidation (gap fix)");
         assert_eq!(results[0].0, 42);
     }

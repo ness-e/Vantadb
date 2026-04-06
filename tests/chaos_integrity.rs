@@ -43,7 +43,7 @@ async fn test_ghost_node_and_tombstone_axioms() {
         weight: None,
     });
 
-    let result_ghost = executor.execute_statement(relate_ghost).await;
+    let result_ghost: Result<connectomedb::executor::ExecutionResult, ConnectomeError> = executor.execute_statement(relate_ghost).await;
     assert!(result_ghost.is_err(), "Axioma 1 falló al atrapar un Ghost Node!");
     if let Err(ConnectomeError::Execution(msg)) = result_ghost {
         assert!(msg.contains("Axioma Topológico violado"), "Mensaje incorrecto: {}", msg);
@@ -64,7 +64,7 @@ async fn test_ghost_node_and_tombstone_axioms() {
         weight: None,
     });
 
-    let result_tombstone = executor.execute_statement(relate_tombstone).await;
+    let result_tombstone: Result<connectomedb::executor::ExecutionResult, ConnectomeError> = executor.execute_statement(relate_tombstone).await;
     assert!(result_tombstone.is_err(), "Axioma 1 falló al atrapar una Lápida!");
     if let Err(ConnectomeError::Execution(msg)) = result_tombstone {
         assert!(msg.contains("reside en el Shadow Archive"), "Mensaje de difunto incorrecto: {}", msg);

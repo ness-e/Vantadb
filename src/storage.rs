@@ -14,6 +14,8 @@ pub struct StorageEngine {
     pub db: DB, // Expuesto pub temporalmente si se necesita compactación desde sleep_worker
     pub hnsw: RwLock<CPIndex>,
     pub cortex_ram: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    pub thalamic_gate: crate::governance::thalamic_gate::ThalamicGate,
+    pub uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer,
     pub last_query_timestamp: AtomicU64,
     pub emergency_rem_trigger: std::sync::atomic::AtomicBool,
 }
@@ -92,6 +94,8 @@ impl StorageEngine {
             db,
             hnsw: RwLock::new(CPIndex::new()),
             cortex_ram: RwLock::new(std::collections::HashMap::new()),
+            thalamic_gate: crate::governance::thalamic_gate::ThalamicGate::new(5000),
+            uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer::new(),
             last_query_timestamp: AtomicU64::new(
                 SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
             ),
@@ -105,6 +109,10 @@ impl StorageEngine {
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
+        if self.thalamic_gate.is_rejected(node.id) {
+            return Err(ConnectomeError::Execution(format!("Node {} is blocked by ThalamicGate (recently rejected)", node.id)));
+        }
+
         self.touch_activity();
 
         // Creamos un clon ejecutable para actualizar metadatos de actividad antes de persistir

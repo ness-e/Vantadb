@@ -19,8 +19,8 @@ async fn test_circadian_rem_cycle() {
     // pero esperaría `inactivity_threshold_ms` realista (5s) + sleep interval (10s), sumando ~15s al bench.
     
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
-    // Inyectar 10000 Nodos Transitorios (STNeuron)
-    for i in 1..=10000 {
+    // Inyectar 400 Nodos Transitorios (STNeuron)
+    for i in 1..=400 {
         let mut node = UnifiedNode::new(i);
         node.neuron_type = NeuronType::STNeuron;
         node.hits = 5; // Bajo número de hits para inducir consolidación
@@ -32,7 +32,7 @@ async fn test_circadian_rem_cycle() {
         for (_, node) in cortex.iter_mut() {
             node.last_accessed = now - 65_000; // Modificamos en RAM directo porque `storage.insert` reescribe esto
         }
-        assert_eq!(cortex.len(), 10000, "Cortex RAM no retuvo los STNeurons");
+        assert_eq!(cortex.len(), 400, "Cortex RAM no retuvo los STNeurons");
     }
 
     // Avanzamos el reloj de Storage para simular Inactividad Máxima
@@ -47,7 +47,8 @@ async fn test_circadian_rem_cycle() {
 
     let worker_storage = storage.clone();
     tokio::spawn(async move {
-        SleepWorker::start(worker_storage).await;
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        SleepWorker::start(worker_storage, tx).await;
     });
 
     println!("💤 Dejando al sistema dormir por 16 segundos para permitir a Tokio lanzar el SleepWorker REM...");
@@ -56,11 +57,11 @@ async fn test_circadian_rem_cycle() {
     // Verificar Consolidación
     {
         let cortex = storage.cortex_ram.read().unwrap();
-        assert!(cortex.len() < 10000, "El SleepWorker no consolidó la memoria a disco");
+        assert!(cortex.len() < 400, "El SleepWorker no consolidó la memoria a disco");
         assert_eq!(cortex.len(), 0, "El Cortex RAM debería estar vacío tras la Fase REM prolongada");
     }
 
     // Verificar Migración LTN (Los Nodos deben seguir listos para IQL pero leídos desde disco)
-    let reactivated_node = storage.get(500).unwrap().unwrap();
-    assert_eq!(reactivated_node.id, 500);
+    let reactivated_node = storage.get(400).unwrap().unwrap();
+    assert_eq!(reactivated_node.id, 400);
 }

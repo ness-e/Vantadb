@@ -35,7 +35,7 @@ async fn test_hnsw_scale_performance_logarithmic() {
     
     let results = {
         let index = storage.hnsw.read().unwrap();
-        index.search_nearest(&query_vec, 0, 5)
+        index.search_nearest(&query_vec, None, None, 0, 5)
     };
     
     let duration = start.elapsed();

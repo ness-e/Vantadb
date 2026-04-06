@@ -18,6 +18,12 @@ pub enum ExecutionResult {
     StaleContext(u64), // Phase 30: Señal de que un contexto requiere rehidratación (TrustScore crítico)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SearchPathMode {
+    Standard,
+    Uncertain,
+}
+
 /// Certitude Mode governs query fidelity vs latency tradeoff.
 /// Asymmetric I/O quota: STRICT consumes 3x, BALANCED 1.5x, FAST 1x.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -45,6 +51,7 @@ impl CertitudeMode {
 pub struct Executor<'a> {
     storage: &'a StorageEngine,
     certitude: CertitudeMode,
+    path_mode: SearchPathMode,
     /// Tracks cumulative I/O cost of this executor session.
     /// Hardware backpressure uses this to throttle expensive agents.
     io_budget_consumed: AtomicU32,
@@ -52,11 +59,16 @@ pub struct Executor<'a> {
 
 impl<'a> Executor<'a> {
     pub fn new(storage: &'a StorageEngine) -> Self {
-        Self { storage, certitude: CertitudeMode::Balanced, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
+        Self { storage, certitude: CertitudeMode::Balanced, path_mode: SearchPathMode::Standard, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
     }
 
     pub fn with_certitude(storage: &'a StorageEngine, mode: CertitudeMode) -> Self {
-        Self { storage, certitude: mode, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
+        Self { storage, certitude: mode, path_mode: SearchPathMode::Standard, io_budget_consumed: AtomicU32::new(0.0_f32.to_bits()) }
+    }
+
+    pub fn with_path_mode(mut self, path: SearchPathMode) -> Self {
+        self.path_mode = path;
+        self
     }
 
     /// Track I/O cost with asymmetric penalization based on CertitudeMode.
@@ -308,7 +320,27 @@ impl<'a> Executor<'a> {
                     self.consume_io(10.0);
 
                     let index = self.storage.hnsw.read().unwrap();
-                    let neighbors = index.search_nearest(&vector, None, None, 0, 5); // MVP: top_k = 5
+                    let mut neighbors = index.search_nearest(&vector, None, None, 0, 5); // MVP: top_k = 5
+                    
+                    if self.path_mode == SearchPathMode::Uncertain {
+                        // Scan the UncertaintyBuffer via brute force
+                        let quantum_map = self.storage.uncertainty_buffer.quantum_zones.read();
+                        let target_vec = VectorRepresentations::Full(vector.clone());
+                        let mut quantum_matches = Vec::new();
+
+                        for (&q_id, quantum_neuron) in quantum_map.iter() {
+                            if let Some(sim) = quantum_neuron.payload.vector.cosine_similarity(&target_vec) {
+                                // Apply a penalty to the quantum match
+                                let penalized_sim = sim * 0.9;
+                                quantum_matches.push((q_id, penalized_sim));
+                            }
+                        }
+                        
+                        // Merge and sort
+                        neighbors.extend(quantum_matches);
+                        neighbors.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                        neighbors.truncate(5); // Keep top 5
+                    }
                     
                     for (id, _sim) in neighbors {
                         target_nodes.push(id);
