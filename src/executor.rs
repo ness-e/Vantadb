@@ -17,13 +17,55 @@ pub enum ExecutionResult {
     StaleContext(u64), // Phase 30: Señal de que un contexto requiere rehidratación (TrustScore crítico)
 }
 
+/// Certitude Mode governs query fidelity vs latency tradeoff.
+/// Asymmetric I/O quota: STRICT consumes 3x, BALANCED 1.5x, FAST 1x.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CertitudeMode {
+    /// L1 only (Hamming). Lowest latency, lowest fidelity.
+    Fast,
+    /// L1 + L2 re-ranking (PolarQuant). Balanced.
+    Balanced,
+    /// L1 + L2 + L3 FP32 verification. Highest fidelity, highest I/O cost.
+    Strict,
+}
+
+impl CertitudeMode {
+    /// Returns the I/O quota multiplier for asymmetric penalization.
+    /// Prevents inefficient agents from saturating disk bandwidth.
+    pub fn io_quota_multiplier(&self) -> f32 {
+        match self {
+            CertitudeMode::Fast => 1.0,
+            CertitudeMode::Balanced => 1.5,
+            CertitudeMode::Strict => 3.0,
+        }
+    }
+}
+
 pub struct Executor<'a> {
     storage: &'a StorageEngine,
+    certitude: CertitudeMode,
+    /// Tracks cumulative I/O cost of this executor session.
+    /// Hardware backpressure uses this to throttle expensive agents.
+    io_budget_consumed: f32,
 }
 
 impl<'a> Executor<'a> {
     pub fn new(storage: &'a StorageEngine) -> Self {
-        Self { storage }
+        Self { storage, certitude: CertitudeMode::Balanced, io_budget_consumed: 0.0 }
+    }
+
+    pub fn with_certitude(storage: &'a StorageEngine, mode: CertitudeMode) -> Self {
+        Self { storage, certitude: mode, io_budget_consumed: 0.0 }
+    }
+
+    /// Track I/O cost with asymmetric penalization based on CertitudeMode.
+    fn consume_io(&mut self, base_cost: f32) {
+        self.io_budget_consumed += base_cost * self.certitude.io_quota_multiplier();
+    }
+
+    /// Returns the cumulative I/O budget consumed by this executor.
+    pub fn io_consumed(&self) -> f32 {
+        self.io_budget_consumed
     }
 
     /// Inserts a pre-built UnifiedNode directly into storage.

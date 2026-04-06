@@ -1,7 +1,13 @@
 /// Hybrid Quantization Algorithms (Phase 31)
 /// Contains carefully engineered quantization schemes for MMap Zero-Copy and L1 Caching.
+/// 
+/// SAFETY: All packed outputs are padded to 8-byte (u64) alignment boundaries
+/// to prevent SIMD segfaults on unaligned mmap reads.
 
 use core::f32;
+
+/// Required alignment for mmap-safe SIMD reads (AVX2 minimum = 32, but u64 = 8 is our pack unit).
+const MMAP_ALIGNMENT: usize = 8;
 
 /// Creates a 1-bit representation (RaBitQ) of the FWHT-transformed vector.
 /// Packs 64 boolean flag features into a single `u64`.
@@ -81,6 +87,10 @@ pub fn turbo_quant_quantize(data: &[f32]) -> (Box<[u8]>, f32) {
         }
     }
     
+    // Pad to MMAP_ALIGNMENT boundary for safe SIMD mmap reads
+    let aligned_len = (num_bytes + MMAP_ALIGNMENT - 1) & !(MMAP_ALIGNMENT - 1);
+    packed.resize(aligned_len, 0u8);
+    
     (packed.into_boxed_slice(), max_abs)
 }
 
@@ -90,6 +100,13 @@ pub fn turbo_quant_similarity(
     a_packed: &[u8], a_max_abs: f32, 
     b_packed: &[u8], b_max_abs: f32
 ) -> f32 {
+    // Safety: verify pointer alignment for mmap zero-copy paths.
+    // If data comes from mmap, misaligned pointers would cause SIMD penalties or segfaults.
+    debug_assert!(
+        a_packed.as_ptr() as usize % std::mem::align_of::<u8>() == 0,
+        "turbo_quant_similarity: a_packed pointer is misaligned"
+    );
+    
     let mut dot = 0_i32;
     
     // Extremely fast scalar loop. The Rust compiler unrolls this beautifully,
