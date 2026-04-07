@@ -48,7 +48,7 @@ impl SleepWorker {
         println!("🌙 [Circadian] Iniciando Fase REM (Mantenimiento de Memoria)...");
 
         let mut to_consolidate = Vec::new();
-        let mut to_purge: Vec<(u64, bool)> = Vec::new(); // (id, is_hallucination)
+        let mut to_purge: Vec<(u64, bool, Option<String>)> = Vec::new(); // (id, is_hallucination, slashed_role)
         let mut summarization_candidates: Vec<UnifiedNode> = Vec::new();
 
         {
@@ -203,7 +203,11 @@ impl SleepWorker {
                 if node.flags.is_set(NodeFlags::HALLUCINATION) {
                     println!("🧨 [Circadian] Alucinación detectada en el nodo {}. Iniciando purga reactiva inmediata.", id);
                     keys_to_remove.push(id);
-                    to_purge.push((id, true));
+                    // Phase 36: Extract owner_role for epistemic slashing
+                    let slashed_role = node.relational.get("_owner_role")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    to_purge.push((id, true, slashed_role));
                     continue;
                 }
 
@@ -213,7 +217,7 @@ impl SleepWorker {
                 // Stage 2: Evaluaciones de Supervivencia
                 if node.trust_score() < 0.2 {
                     keys_to_remove.push(id);
-                    to_purge.push((id, false));
+                    to_purge.push((id, false, None));
                 } else if node.hits < 10 && !node.is_pinned() && (now - node.last_accessed > 60_000) {
                     keys_to_remove.push(id);
 
@@ -251,8 +255,21 @@ impl SleepWorker {
         }
 
         let mut deleted_count = 0usize;
-        for (id, is_hallucination) in &to_purge {
+        for (id, is_hallucination, slashed_role) in &to_purge {
             if *is_hallucination {
+                // ── Phase 36: Epistemic Slashing ──
+                // If we identified the owner_role, slash it permanently
+                if let Some(role) = slashed_role {
+                    // 1. Slash in DevilsAdvocate OriginCollisionTracker
+                    {
+                        let mut tracker = storage.advocate.collision_tracker.write();
+                        tracker.slash_origin(role);
+                    }
+                    // 2. Permanent ban in ThalamicGate Bloom Filter (L1 Hard-Filter)
+                    storage.thalamic_gate.record_role_ban(role);
+                    println!("🔥 [Circadian] Epistemic Apoptosis: agent '{}' slashed → TrustScore=0.0, L1 banned", role);
+                }
+
                 // Emit reactive invalidation event for hallucinated nodes
                 InvalidationDispatcher::emit_hallucination_purged(
                     invalidation_tx,

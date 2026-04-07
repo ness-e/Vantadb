@@ -107,7 +107,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         "tools": [
             {
                 "name": "query_lisp",
-                "description": "Ejecuta código NeuLISP. Permite leer estructuras e insertar/mutar STNeurons aportando entropía semántica.",
+                "description": "Ejecuta código NeuLISP. Permite leer estructuras e insertar/mutar Nodes aportando entropía semántica.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {

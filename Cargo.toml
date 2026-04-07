@@ -32,6 +32,7 @@ pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
 wide = "1.2.0"
 cpufeatures = "0.2"
 sysinfo = "0.30"
+memmap2 = "0.9"
 
 [features]
 python_sdk = ["pyo3"]
@@ -44,6 +45,10 @@ http = "1"
 
 [[bench]]
 name = "hybrid_queries"
+harness = false
+
+[[bench]]
+name = "high_density"
 harness = false
 
 [[bench]]
@@ -152,7 +157,21 @@ path = "tests/lisp_logic.rs"
 name = "circadian_cycle"
 path = "tests/circadian_cycle.rs"
 
+[[test]]
+name = "mmap_index"
+path = "tests/mmap_index.rs"
+
+[[test]]
+name = "immunology"
+path = "tests/immunology.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
 opt-level = 3
+
+[workspace]
+members = [
+    ".",
+    "nexusdb-python"
+]

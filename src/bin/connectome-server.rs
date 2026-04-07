@@ -37,8 +37,11 @@ async fn main() {
         let state = Arc::new(ServerState { storage: storage.clone() });
         let router = app(state);
 
-        let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
-        println!("ConnectomeDB successfully bound to 127.0.0.1:8080");
+        let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+        let addr = format!("{}:{}", host, port);
+        let listener = TcpListener::bind(&addr).await.unwrap();
+        println!("ConnectomeDB successfully bound to {}", addr);
 
         axum::serve(listener, router).await.unwrap();
     }

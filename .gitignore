@@ -21,10 +21,12 @@ Thumbs.db
 # Test Databases
 /tests_graph_db/
 /tests_server_db/
-
+nexusdb-python/
 # Assets
 docs/assets/*.exe
 
 
 # Local profiles
 .connectome_profile
+tests_graph_db/
+high_density_bench_db/

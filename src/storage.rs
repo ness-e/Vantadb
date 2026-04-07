@@ -1,9 +1,10 @@
 use rocksdb::{Options, DB, WriteBatch, FlushOptions};
 use rocksdb::checkpoint::Checkpoint;
 use std::env;
+use std::path::PathBuf;
 use crate::error::{ConnectomeError, Result};
 use crate::node::UnifiedNode;
-use crate::index::CPIndex;
+use crate::index::{CPIndex, IndexBackend};
 use crate::governance::AuditableTombstone;
 use std::sync::RwLock;
 
@@ -16,8 +17,12 @@ pub struct StorageEngine {
     pub cortex_ram: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
     pub thalamic_gate: crate::governance::thalamic_gate::ThalamicGate,
     pub uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer,
+    /// Phase 36: Stateful Devil's Advocate with OriginCollisionTracker
+    pub advocate: crate::governance::DevilsAdvocate,
     pub last_query_timestamp: AtomicU64,
     pub emergency_rem_trigger: std::sync::atomic::AtomicBool,
+    /// Path to the data directory for HNSW persistence
+    pub data_dir: PathBuf,
 }
 
 impl StorageEngine {
@@ -41,19 +46,23 @@ impl StorageEngine {
         let mut cold_bopts = rocksdb::BlockBasedOptions::default();
         cold_bopts.set_bloom_filter(10.0, false);
 
-        if caps.total_memory < 4 * 1024 * 1024 * 1024 { // Menos de 4GB (Survival Profile)
-            opts.set_write_buffer_size(32 * 1024 * 1024); // 32MB
-            opts.set_max_write_buffer_number(2);
-            let cache = rocksdb::Cache::new_lru_cache(128 * 1024 * 1024);
-            bopts.set_block_cache(&cache);
-            cold_bopts.set_block_cache(&cache);
-        } else { // Enterprise o Performance 
-            opts.set_write_buffer_size(128 * 1024 * 1024); // 128MB
-            opts.set_max_write_buffer_number(4);
-            let cache = rocksdb::Cache::new_lru_cache(2 * 1024 * 1024 * 1024);
-            bopts.set_block_cache(&cache);
-            cold_bopts.set_block_cache(&cache);
-        }
+        // OOM Guard (Modo Survival): Capar LRU Cache y WriteBuffer al ~60% de la capacidad detectada
+        let rocksdb_budget = (caps.total_memory as f64 * 0.60) as usize;
+        let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% of budget para block cache
+        let write_buffer_total = rocksdb_budget - cache_size;     // 25% para memtables
+        
+        let write_buffer_size = (write_buffer_total / 2).max(8 * 1024 * 1024).min(128 * 1024 * 1024);
+        
+        opts.set_write_buffer_size(write_buffer_size);
+        opts.set_max_write_buffer_number(2);
+
+        let cache = rocksdb::Cache::new_lru_cache(cache_size);
+        bopts.set_block_cache(&cache);
+        cold_bopts.set_block_cache(&cache);
+        
+        eprintln!("🧠 [ROCKSDB] FFI Memory Guard: RAM Budget={}MB | Cache={}MB | MemTable={}MB", 
+            rocksdb_budget / 1024 / 1024, cache_size / 1024 / 1024, write_buffer_size / 1024 / 1024);
+
         opts.set_block_based_table_factory(&bopts);
         
         if caps.profile == crate::hardware::HardwareProfile::Survival || caps.total_memory < 16 * 1024 * 1024 * 1024 {
@@ -89,17 +98,47 @@ impl StorageEngine {
         ];
 
         let db = DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
-        
+
+        // ── Phase 35: Hardware-Adaptive HNSW Backend ──────────────────
+        let data_dir = PathBuf::from(path).join("data");
+        let _ = std::fs::create_dir_all(&data_dir);
+        let index_path = data_dir.join("neural_index.bin");
+
+        let use_mmap = caps.profile == crate::hardware::HardwareProfile::Survival
+            || caps.total_memory < 16 * 1024 * 1024 * 1024
+            || std::env::var("CONNECTOME_FORCE_MMAP").is_ok();
+
+        let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
+            // Cold-start: reuse persisted index
+            let mut idx = loaded;
+            if use_mmap {
+                idx.backend = IndexBackend::new_mmap(index_path.clone());
+                eprintln!("🛡️ [HNSW] Survival Mode: MMap backend activated");
+            }
+            idx
+        } else {
+            // Fresh start or corrupt file
+            if use_mmap {
+                eprintln!("🛡️ [HNSW] Survival Mode: MMap backend activated (fresh)");
+                CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
+            } else {
+                eprintln!("⚡ [HNSW] Performance/Enterprise Mode: InMemory backend");
+                CPIndex::new()
+            }
+        };
+
         Ok(Self { 
             db,
-            hnsw: RwLock::new(CPIndex::new()),
+            hnsw: RwLock::new(hnsw),
             cortex_ram: RwLock::new(std::collections::HashMap::new()),
             thalamic_gate: crate::governance::thalamic_gate::ThalamicGate::new(5000),
             uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer::new(),
+            advocate: crate::governance::DevilsAdvocate::new(),
             last_query_timestamp: AtomicU64::new(
                 SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
             ),
             emergency_rem_trigger: std::sync::atomic::AtomicBool::new(false),
+            data_dir,
         })
     }
 
@@ -335,7 +374,30 @@ impl StorageEngine {
         let mut flush_opt = FlushOptions::default();
         flush_opt.set_wait(true);
         self.db.flush_opt(&flush_opt).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+
+        // Phase 35: Persist HNSW to neural_index.bin on flush
+        self.persist_hnsw_index();
+
         Ok(())
+    }
+
+    /// Persist the HNSW index to disk (neural_index.bin).
+    /// Used by flush() and trigger_panic_state() for durability.
+    fn persist_hnsw_index(&self) {
+        let index_path = self.data_dir.join("neural_index.bin");
+        let mut index = self.hnsw.write().unwrap();
+
+        // If MMap backend, use mmap sync path
+        if index.backend.is_mmap() {
+            if let Err(e) = index.sync_to_mmap() {
+                eprintln!("⚠️ [HNSW] Failed to sync MMap index: {}", e);
+            }
+        } else {
+            // InMemory: serialize to file for cold-start recovery
+            if let Err(e) = index.persist_to_file(&index_path) {
+                eprintln!("⚠️ [HNSW] Failed to persist index: {}", e);
+            }
+        }
     }
 
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
@@ -418,6 +480,12 @@ impl StorageEngine {
         } else {
             println!("Buffers successfully flushed to disk. Graph state secured.");
         }
+
+        // Phase 35: Emergency HNSW persistence before exit
+        println!("Persisting HNSW neural index...");
+        self.persist_hnsw_index();
+        println!("Neural index secured.");
+
         println!("System halted to prevent database corruption.");
         std::process::exit(1);
     }

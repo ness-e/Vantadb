@@ -2,7 +2,7 @@ use crate::error::{Result, ConnectomeError};
 use crate::query::{LogicalPlan, LogicalOperator, Statement};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::storage::StorageEngine;
-use crate::governance::{DevilsAdvocate, TrustArbiter, ResolutionResult};
+use crate::governance::{TrustArbiter, ResolutionResult};
 use crate::parser::lisp::parse as parse_lisp_expr;
 use crate::parser::parse_statement;
 use crate::eval::LispSandbox;
@@ -173,7 +173,16 @@ impl<'a> Executor<'a> {
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
 
-                // Soberanía Cognitiva: Devil's Advocate
+                // ── Phase 36: L1 Hard-Filter ─ Reject slashed agents immediately ──
+                if let Some(crate::node::FieldValue::String(role)) = node.relational.get("_owner_role") {
+                    if self.storage.thalamic_gate.is_role_banned(role) {
+                        return Err(ConnectomeError::Execution(
+                            format!("Sovereignty Hard-Filter: agent '{}' has TrustScore 0.0 (slashed)", role)
+                        ));
+                    }
+                }
+
+                // Soberanía Cognitiva: Devil's Advocate (Phase 36: stateful, shared tracker)
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
                     if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
@@ -185,8 +194,7 @@ impl<'a> Executor<'a> {
                         if let Some((incumbent_id, _)) = nearest.first() {
                             if *incumbent_id != node.id {
                                 if let Some(incumbent) = self.storage.get(*incumbent_id)? {
-                                    let advocate = DevilsAdvocate::new();
-                                    match advocate.evaluate_conflict(&incumbent, &node) {
+                                    match self.storage.advocate.evaluate_conflict(&incumbent, &node) {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(ConnectomeError::Execution(format!("Sovereignty Rejected: {}", reason)));
                                         }
@@ -225,7 +233,16 @@ impl<'a> Executor<'a> {
                     node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
-                // Soberanía Cognitiva: Devil's Advocate evalúa a la mutación en curso
+                // ── Phase 36: L1 Hard-Filter ─ Reject slashed agents on UPDATE ──
+                if let Some(crate::node::FieldValue::String(role)) = node.relational.get("_owner_role") {
+                    if self.storage.thalamic_gate.is_role_banned(role) {
+                        return Err(ConnectomeError::Execution(
+                            format!("Sovereignty Hard-Filter (Update): agent '{}' has TrustScore 0.0 (slashed)", role)
+                        ));
+                    }
+                }
+
+                // Soberanía Cognitiva: Devil's Advocate evalúa a la mutación en curso (Phase 36: stateful)
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
                     if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
@@ -236,8 +253,7 @@ impl<'a> Executor<'a> {
                         if let Some((incumbent_id, _)) = nearest.first() {
                             if *incumbent_id != node.id {
                                 if let Some(incumbent) = self.storage.get(*incumbent_id)? {
-                                    let advocate = DevilsAdvocate::new();
-                                    match advocate.evaluate_conflict(&incumbent, &node) {
+                                    match self.storage.advocate.evaluate_conflict(&incumbent, &node) {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(ConnectomeError::Execution(format!("Sovereignty Rejected (Update): {}", reason)));
                                         }

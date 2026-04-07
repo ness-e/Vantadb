@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/ness-e/ConnectomeDB/main/connectome-web/public/favicon.ico" width="80" alt="ConnectomeDB Logo">
-  <h1>ConnectomeDB</h1>
-  <p><strong>El Núcleo de Memoria Cognitiva para Agentes Autónomos.</strong></p>
-  <p>Vectores, Grafos y Reglas Lógicas en un motor bio-inspirado escrito en Rust. Memoria que aprende, olvida y razona.</p>
+  <img src="https://raw.githubusercontent.com/ness-e/ConnectomeDB/main/connectome-web/public/favicon.ico" width="80" alt="NexusDB Logo">
+  <h1>NexusDB</h1>
+  <p><strong>The vector-graph database that thinks.</strong></p>
+  <p>Memoria a Largo Plazo extrema para Agentes IA. Vectores, Grafos y Reglas Lógicas en un motor bio-inspirado escrito en Rust.</p>
 
   <p>
     <a href="https://connectomedb.dev"><img src="https://img.shields.io/badge/Website-connectomedb.dev-00d4ff?style=flat-square" alt="Website"></a>
@@ -23,36 +23,56 @@ Para construir un agente autónomo actualmente, necesitas pegar múltiples bases
 
 **El resultado:** Escrituras parciales, latencia multiplicada (round trips de red) y 5 credenciales diferentes. Tu agente razona bien, pero opera sobre infraestructura fragmentada.
 
-## 🧠 La Solución: ConnectomeDB
+## 🧠 La Solución: NexusDB
 
-**ConnectomeDB** implementa el `UnifiedNode`: una estructura de almacenamiento escrita en Rust (RocksDB debajo) que empaqueta embeddings vectoriales (`HNSW`), relaciones dirigidas explícitas (`Vec<Edge>`) y metadatos relacionales indexados en un **mismo registro**. 
+**NexusDB** revoluciona la memoria de Inteligencia Artificial mediante el `UnifiedNode`: una estructura de almacenamiento escrita en Rust (sobre RocksDB) que empaqueta embeddings vectoriales (`HNSW`), relaciones dirigidas explícitas (`Vec<Edge>`) y metadatos relacionales en un **mismo registro local**. 
 
-Lee, razona y escribe. En una sola transacción.
+Diseñada para ser incrustada directamente en tu proceso (vía SDK Python nativo) o consumida externamente vía HTTP/MCP, NexusDB lee, razona y escribe en un mismo bloque de memoria. Sin latencias de red, sin fricción operacional.
 
 ---
 
 ## ⚡ 60-Second Quickstart
 
-Despliega el motor completo en menos de un minuto a través de Docker:
+Despliega el motor completo en minutos y dota de Memoria In-Process a tu agente:
+
+### Vía Python SDK (SQLite-like Native Binding)
+```bash
+pip install nexusdb-py
+```
+```python
+from nexusdb_py import NexusDB
+
+# In-process memory (0 Network Latency)
+db = NexusDB("agent_memory", max_memory=1024*1024*1024)
+db.insert(1, "The user prefers strictly technical answers", [0.2, -0.5, 0.9])
+print(db.query('FROM Node WHERE content ~ "technical" LIMIT 1'))
+```
+
+### Instalación en 1 comando con Docker (Modo Survival Sensible)
+El contenedor oficial de NexusDB es inteligente: detecta los límites impuestos por Docker (Cgroups) y avisa al motor para que ajuste los backends internos.
 
 ```bash
-# Arranca el servidor ConnectomeDB (puerto por defecto 8080)
-docker run -p 8080:8080 ness-e/connectomedb:latest
+# Arranca el servidor NexusDB limitándolo a 512MB de RAM
+# El entorno detectará la presión de memoria y activará "Survival Mode" (MMap Hybrid Backend) sin crashear.
+docker run -d \
+  --name nexus \
+  -m 512m --cpus 1 \
+  -p 8080:8080 \
+  nexusdb:latest
 ```
 
 Entra a la Consola IQL (Intelligent Query Language):
 ```bash
-docker exec -it <container_id> connectomedb-cli
+docker exec -it nexus nexusdb-cli
 ```
-*También disponible la instalación vía `cargo install connectomedb`.*
 
 ---
 
-## 🔍 IQL: Consulta los 3 modelos a la vez
+## 🔍 IQL: El lenguaje de la I.A.
 
-**Intelligent Query Language (IQL)** es el lenguaje de ConnectomeDB. Te permite cruzar el espacio semántico, saltar por el grafo y aplicar filtros ACID al mismo tiempo.
+**Intelligent Query Language (IQL)** es el lenguaje de NexusDB. Cruza el espacio semántico, salta por el grafo y aplica filtros ACID.
 
-### RAG Híbrido Real
+### RAG Híbrido Real en un Request
 ```sql
 -- Busca semánticamente, filtra por relación de grafo y propiedades estructuradas
 
@@ -85,7 +105,7 @@ COMMIT
 
 Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
-| Operación | ConnectomeDB | Qdrant | Neo4j | pgvector |
+| Operación | NexusDB | Qdrant | Neo4j | pgvector |
 |---|---|---|---|---|
 | **Vector KNN (100k, 384d)** | `3.8ms` | 5.2ms | *N/A* | 12ms |
 | **Graph BFS (depth=3)** | `1.2ms` | *N/A* | 4.5ms | *N/A* |
@@ -108,7 +128,7 @@ Pruebas corridas en laptop (16GB RAM) en cold start. Sin Cloud. Sin GPU.
 
 ## 🤝 Comunidad y Soporte
 
-ConnectomeDB es open source (Apache 2.0) y construido para el ecosistema emergente de IA local.
+NexusDB es open source (Apache 2.0) y construido incansablemente para el ecosistema emergente de IA autónoma.
 
 - 📚 [Documentación Oficial](https://connectomedb.dev/docs)
 - 💬 [Discord de la Comunidad](https://discord.gg/connectomedb)

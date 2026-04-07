@@ -1,0 +1,6 @@
+target/
+.git/
+connectome_snapshots/
+data/
+*.db
+build_logs/

@@ -12,9 +12,10 @@ if (Test-Path $outputFile) {
     Write-Host "Reanudando... Se encontraron $($alreadyProcessed.Count) archivos ya presentes en todo.md"
 }
 
-$excludedDirs = @(".git", "connectome-web", "target", "connectome_snapshots", "tmp")
+$excludedDirs = @(".git", "connectome-web", "target", "connectome_snapshots", "tmp",'nexusdb-python')
 $excludedExts = @(".exe", ".png", ".jpg", ".rlib", ".rmeta", ".pdb", ".lock", ".pdf")
 $scriptName = $MyInvocation.MyCommand.Name
+
 
 Get-ChildItem -File -Recurse | Where-Object {
     $relPath = $_.FullName.Substring((Get-Location).Path.Length).TrimStart('\')

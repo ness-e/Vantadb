@@ -48,7 +48,10 @@ impl HardwareScout {
         let mut sys = System::new_all();
         sys.refresh_all();
         
-        let total_memory = sys.total_memory();
+        let total_memory = std::env::var("CONNECTOMEDB_MEMORY_LIMIT")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or_else(|| sys.total_memory());
         let logical_cores = sys.cpus().len();
         
         // Calculate stable environment hash

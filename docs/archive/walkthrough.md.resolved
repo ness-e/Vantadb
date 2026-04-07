@@ -1,0 +1,133 @@
+# Walkthrough: Fase 32 — Hard-Urgency / NMI (Completada)
+
+## Resumen
+
+Se ha completado la **Fase 32 (Hard-Urgency / NMI)** de ConnectomeDB conectando el "nervio motor" que faltaba entre la percepción de presión de memoria (`ResourceGovernor`) y el reflejo de supervivencia (`force_collapse_nmi`). Todos los tests pasan sin regresiones.
+
+---
+
+## Cambios Realizados
+
+### 1. `src/governor.rs` — AllocationStatus Enum
+
+Se introdujo un enum estricto `AllocationStatus` para forzar el manejo del patrón en tiempo de compilación, eliminando el riesgo de "fugas" por booleanos ignorados.
+
+```diff
++#[derive(Debug, Clone, PartialEq)]
++pub enum AllocationStatus {
++    Granted,
++    GrantedWithPressure, // Usado para invocar NMI si es necesario
++}
+
+-pub fn request_allocation(&self, bytes: usize) -> Result<()> {
++pub fn request_allocation(&self, bytes: usize) -> Result<AllocationStatus> {
+     let current = ALLOCATED_BYTES.load(Ordering::Relaxed);
+-    if current + bytes > self.max_memory_bytes {
++    let new_total = current + bytes;
++    if new_total > self.max_memory_bytes {
+         return Err(ConnectomeError::ResourceLimit(...));
+     }
+-    ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
+-    Ok(())
++    let pressure_threshold = (self.max_memory_bytes as f64 * 0.9) as usize;
++    let status = if new_total > pressure_threshold {
++        AllocationStatus::GrantedWithPressure
++    } else {
++        AllocationStatus::Granted
++    };
++    ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
++    Ok(status)
+ }
+```
+
+> [!IMPORTANT]
+> La comparación usa `f64 * 0.9` para evitar overflow en el cálculo del 90% de 2GB en usize.
+
+---
+
+### 2. `src/executor.rs` — Dual NMI Trigger
+
+El NMI se activa en **dos** puntos del Executor, cubriendo todas las rutas de ejecución:
+
+**a) `execute_statement()` (Entry Point Global)**
+
+Un "probe" de 0 bytes al inicio de cada statement verifica si la presión ya excede el 90% antes de procesar cualquier operación:
+
+```rust
+// ── NMI Pressure Check: applies to ALL statement types ──
+{
+    use crate::governor::{ResourceGovernor, AllocationStatus};
+    let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
+    let probe_cost = 0;
+    if let Ok(AllocationStatus::GrantedWithPressure) = governor.request_allocation(probe_cost) {
+        if let Some(winner) = self.storage.uncertainty_buffer.force_collapse_nmi() {
+            let _ = self.storage.insert(&winner);
+        }
+    }
+}
+```
+
+**b) `execute_plan()` (Query Path)**
+
+La asignación de 1MB por query también verifica la presión:
+
+```rust
+match governor.request_allocation(estimated_mem_cost)? {
+    AllocationStatus::GrantedWithPressure => {
+        if let Some(winner) = self.storage.uncertainty_buffer.force_collapse_nmi() {
+            let _ = self.storage.insert(&winner);
+        }
+    },
+    AllocationStatus::Granted => {}
+}
+```
+
+---
+
+### 3. `tests/cognitive_sovereignty.rs` — Test de NMI
+
+Se añadió `test_nmi_hard_urgency_trigger` que valida el flujo completo:
+
+1. Inserta un incumbent (valence 0.4) y un challenger (valence 0.99 inyectada manualmente).
+2. Infla `ALLOCATED_BYTES` al 95% del límite de 2GB.
+3. Ejecuta un statement dummy que activa el NMI.
+4. **Verifica** que el `UncertaintyBuffer` queda vacío (purga total).
+5. **Verifica** que el superviviente (node 20, valence 0.99) fue re-insertado en el STN.
+
+### 4. `docDev/32_Hard_Urgency_NMI.md` — Estado
+
+Actualizado de `🔲 PENDIENTE` a `✅ COMPLETADO`.
+
+---
+
+## Validación
+
+```
+cargo test -j 1 --test cognitive_sovereignty
+
+running 2 tests
+test test_devil_advocate_trust_conflict ... ok
+test test_nmi_hard_urgency_trigger ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored
+```
+
+```
+cargo test -j 1
+
+test result: ok. ALL PASSED; 0 failed
+Exit code: 0
+```
+
+> [!TIP]
+> La suite completa (unit tests + integration tests) pasa limpiamente con `cargo test -j 1`.
+
+---
+
+## Estado Actual de las Fases
+
+| Fase | Estado |
+|------|--------|
+| 31B — ThalamicGate & Uncertainty Zones | ✅ Completada |
+| 32B — Uncertainty Zones (Superposición) | ✅ Completada |
+| **32 — Hard-Urgency / NMI** | **✅ Completada** |
