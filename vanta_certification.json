@@ -78,3 +78,4 @@
 {"block_name":"LOGIC LAYER (DQL PARSER): DML: Multi-Statement Core Parse","duration_secs":0.0010321,"ram_usage_mb":8.0,"current_ram_mb":24020.0,"timestamp":"2026-04-10T17:56:03.622600600-04:00"}
 {"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.1787663,"ram_usage_mb":1704.0,"current_ram_mb":31832.0,"timestamp":"2026-04-10T17:56:05.557330400-04:00"}
 {"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.1403997,"ram_usage_mb":1708.0,"current_ram_mb":27364.0,"timestamp":"2026-04-10T17:56:06.836468900-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":586.5856524,"ram_usage_mb":1372.0,"current_ram_mb":25756.0,"timestamp":"2026-04-10T18:05:54.611654300-04:00"}

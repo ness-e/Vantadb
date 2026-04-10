@@ -1,0 +1,18 @@
+[package]
+name = "vantadb_py"
+version = "0.1.0"
+edition = "2021"
+description = "VantaDB Python SDK: In-process vector-graph database for AI agents"
+license = "Apache-2.0"
+
+[lib]
+name = "vantadb_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
+tokio = { version = "1", features = ["full"] }
+serde_json = "1.0"
+
+# In-process reference to the core engine (zero network overhead)
+vantadb = { path = "../" }

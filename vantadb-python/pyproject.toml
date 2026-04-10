@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "vantadb-py"
+version = "0.1.0"
+description = "VantaDB: The multimodal database engine. In-process Python bindings."
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "VantaDB Team"}
+]
+keywords = ["database", "vector", "graph", "ai", "embeddings"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/ness-e/ConnectomeDB"
+Repository = "https://github.com/ness-e/ConnectomeDB"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
