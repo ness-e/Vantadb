@@ -1,19 +1,19 @@
 version: '3.8'
 
 services:
-  connectomedb:
+  vantadb:
     build: 
       context: .
       dockerfile: Dockerfile
-    container_name: connectomedb-server
+    container_name: vanta-server
     ports:
       - "8080:8080"
     environment:
       - RUST_LOG=info
-      - CONNECTOMEDB_PORT=8080
+      - VANTADB_PORT=8080
       - OLLAMA_HOST=http://ollama-llm:11434
     volumes:
-      - connectomedb_data:/data
+      - vantadb_data:/data
     networks:
       - agent-network
     depends_on:
@@ -41,7 +41,7 @@ services:
     # The user should run: docker exec -it ollama-ai-companion ollama pull llama3 (or gemma/nomic-embed-text)
     
 volumes:
-  connectomedb_data:
+  vantadb_data:
   ollama_models:
 
 networks:

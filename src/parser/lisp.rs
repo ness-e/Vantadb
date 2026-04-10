@@ -2,9 +2,9 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},
     character::complete::{alpha1, alphanumeric1, char, multispace0},
-    number::complete::float,
     combinator::{map, recognize},
     multi::{many0, many1},
+    number::complete::float,
     sequence::{delimited, preceded, tuple},
     IResult,
 };
@@ -28,10 +28,9 @@ fn parse_keyword(i: &str) -> IResult<&str, LispExpr> {
 }
 
 fn parse_variable(i: &str) -> IResult<&str, LispExpr> {
-    map(
-        preceded(char('?'), alpha1),
-        |s: &str| LispExpr::Variable(s.to_string()),
-    )(i)
+    map(preceded(char('?'), alpha1), |s: &str| {
+        LispExpr::Variable(s.to_string())
+    })(i)
 }
 
 fn parse_string(i: &str) -> IResult<&str, LispExpr> {
@@ -47,7 +46,7 @@ fn parse_atom(i: &str) -> IResult<&str, LispExpr> {
 }
 
 fn parse_number(i: &str) -> IResult<&str, LispExpr> {
-    map(float, |n| LispExpr::Number(n))(i)
+    map(float, LispExpr::Number)(i)
 }
 
 fn parse_expr(i: &str) -> IResult<&str, LispExpr> {
@@ -70,16 +69,13 @@ fn parse_list(i: &str) -> IResult<&str, LispExpr> {
     let parse_inside = many0(parse_expr);
     map(
         delimited(char('('), parse_inside, char(')')),
-        |exprs| LispExpr::List(exprs),
+        LispExpr::List,
     )(i)
 }
 
 fn parse_map(i: &str) -> IResult<&str, LispExpr> {
     let parse_pairs = many0(tuple((parse_expr, parse_expr)));
-    map(
-        delimited(char('{'), parse_pairs, char('}')),
-        |pairs| LispExpr::Map(pairs),
-    )(i)
+    map(delimited(char('{'), parse_pairs, char('}')), LispExpr::Map)(i)
 }
 
 pub fn parse(input: &str) -> Result<LispExpr, String> {

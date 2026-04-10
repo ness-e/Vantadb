@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
 
-use crate::error::{ConnectomeError, Result};
+use crate::error::{Result, VantaError};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::wal::{WalReader, WalRecord, WalWriter};
 
@@ -124,7 +124,7 @@ impl InMemoryEngine {
 
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
-            return Err(ConnectomeError::DuplicateNode(id));
+            return Err(VantaError::DuplicateNode(id));
         }
         nodes.insert(id, node);
         Ok(id)
@@ -150,7 +150,7 @@ impl InMemoryEngine {
         }
         let mut nodes = self.nodes.write();
         if !nodes.contains_key(&id) {
-            return Err(ConnectomeError::NodeNotFound(id));
+            return Err(VantaError::NodeNotFound(id));
         }
         nodes.insert(id, node);
         Ok(())
@@ -163,7 +163,7 @@ impl InMemoryEngine {
         }
         let mut nodes = self.nodes.write();
         if nodes.remove(&id).is_none() {
-            return Err(ConnectomeError::NodeNotFound(id));
+            return Err(VantaError::NodeNotFound(id));
         }
         Ok(())
     }
@@ -195,7 +195,7 @@ impl InMemoryEngine {
             .filter(|n| {
                 n.is_alive()
                     && !n.vector.is_none()
-                    && bitset_filter.map_or(true, |m| n.matches_mask(m))
+                    && bitset_filter.is_none_or(|m| n.matches_mask(m))
             })
             .filter_map(|n| {
                 n.vector
@@ -236,7 +236,7 @@ impl InMemoryEngine {
     ) -> Result<Vec<(u64, u32)>> {
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
-            return Err(ConnectomeError::NodeNotFound(start));
+            return Err(VantaError::NodeNotFound(start));
         }
 
         let mut visited = HashMap::new();
@@ -347,11 +347,7 @@ impl InMemoryEngine {
 
     /// Total number of alive nodes
     pub fn node_count(&self) -> usize {
-        self.nodes
-            .read()
-            .values()
-            .filter(|n| n.is_alive())
-            .count()
+        self.nodes.read().values().filter(|n| n.is_alive()).count()
     }
 
     /// Get engine statistics

@@ -1,44 +1,36 @@
-//! # ConnectomeDB — Neural-Inspired Multimodel Database for Local AI
+//! # VantaDB — Embedded Multimodal Database Engine
 //!
 //! Unified engine for **Vector** (embeddings), **Graph** (edges),
 //! and **Relational** (typed fields) data in a single storage layer.
-//!
-//! ConnectomeDB maps connections between data the way neurons connect
-//! in a brain — unifying three paradigms in one local-first engine.
-//!
-//! ## Nomenclature (Biological Aliases)
-//! - **Neuron** = `UnifiedNode` (the fundamental data unit)
-//! - **Synapse** = `Edge` (weighted connection between neurons)
-//! - **Cortex** = `LogicalPlan` (the query decision engine)
 
-pub mod error;
-pub mod vector;
-pub mod node;
-pub mod wal;
-pub mod engine;
-pub mod query;
-pub mod parser;
-pub mod eval;
-pub mod storage;
-pub mod index;
-pub mod governor;
-pub mod integrations;
-pub mod executor;
-pub mod graph;
-pub mod server;
-#[cfg(feature = "python_sdk")]
-pub mod python;
+pub mod api;
 pub mod columnar;
-pub mod metrics;
+pub mod console;
+pub mod engine;
+pub mod error;
+pub mod eval;
+pub mod executor;
 pub mod gc;
 pub mod governance;
-pub mod llm;
+pub mod governor;
+pub mod graph;
 pub mod hardware;
-pub mod api;
+pub mod index;
+pub mod integrations;
+pub mod llm;
+pub mod metrics;
+pub mod node;
+pub mod parser;
+#[cfg(feature = "python_sdk")]
+pub mod python;
+pub mod query;
+pub mod server;
+pub mod storage;
+pub mod vector;
+pub mod wal;
 
 // Re-exports for ergonomic API
-pub use error::{ConnectomeError, Result};
-pub use node::{UnifiedNode, VectorRepresentations, Edge, FieldValue, NodeFlags, RelFields};
-pub use node::{Neuron, Synapse}; // Biological aliases
-pub use engine::{InMemoryEngine, EngineStats, QueryResult, SourceType};
-pub use wal::{WalWriter, WalReader, WalRecord};
+pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
+pub use error::{Result, VantaError};
+pub use node::{Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
+pub use wal::{WalReader, WalRecord, WalWriter};

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{ConnectomeError, Result};
+use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
 
 // ─── WAL Record ────────────────────────────────────────────
@@ -47,7 +47,7 @@ impl WalWriter {
     /// Append a record to the WAL
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         let payload = bincode::serialize(record)
-            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         let len = payload.len() as u32;
         let crc = crc32(&payload);
 
@@ -117,14 +117,14 @@ impl WalReader {
         let computed_crc = crc32(&payload);
 
         if stored_crc != computed_crc {
-            return Err(ConnectomeError::WalError(format!(
+            return Err(VantaError::WalError(format!(
                 "CRC mismatch at record {}: stored={:#x}, computed={:#x}",
                 self.records_read, stored_crc, computed_crc
             )));
         }
 
         let record: WalRecord = bincode::deserialize(&payload)
-            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.records_read += 1;
         Ok(Some(record))
     }

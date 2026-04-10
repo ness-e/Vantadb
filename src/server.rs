@@ -1,10 +1,11 @@
+use crate::storage::StorageEngine;
 use axum::{
+    extract::State,
     routing::{get, post},
-    Router, Json, extract::State,
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::storage::StorageEngine;
 
 #[derive(Serialize, Deserialize)]
 pub struct QueryRequest {
@@ -27,7 +28,7 @@ pub struct NodeDTO {
     pub semantic_cluster: u32,
     pub relational: std::collections::BTreeMap<String, crate::node::FieldValue>,
     pub hits: u32,
-    pub trust_score: f32,
+    pub confidence_score: f32,
 }
 
 impl From<&crate::node::UnifiedNode> for NodeDTO {
@@ -37,7 +38,7 @@ impl From<&crate::node::UnifiedNode> for NodeDTO {
             semantic_cluster: n.semantic_cluster,
             relational: n.relational.clone(),
             hits: n.hits,
-            trust_score: n.trust_score,
+            confidence_score: n.confidence_score,
         }
     }
 }
@@ -66,7 +67,7 @@ async fn execute_query(
     State(state): State<Arc<ServerState>>,
     Json(payload): Json<QueryRequest>,
 ) -> Json<QueryResponse> {
-    use crate::executor::{Executor, ExecutionResult};
+    use crate::executor::{ExecutionResult, Executor};
 
     let executor = Executor::new(&state.storage);
     match executor.execute_hybrid(&payload.query).await {
@@ -79,29 +80,30 @@ async fn execute_query(
                 nodes: Some(dtos),
             })
         }
-        Ok(ExecutionResult::Write { affected_nodes, message, node_id }) => {
-            Json(QueryResponse {
-                success: true,
-                data: format!("Mutated {} nodes: {}", affected_nodes, message),
-                node_id,
-                nodes: None,
-            })
-        }
-        Ok(ExecutionResult::StaleContext(summary_id)) => {
-            Json(QueryResponse {
-                success: true,
-                data: format!("STALE_CONTEXT: TrustScore critical. Rehydration available for summary {}", summary_id),
-                node_id: Some(summary_id),
-                nodes: None,
-            })
-        }
-        Err(e) => {
-            Json(QueryResponse {
-                success: false,
-                data: format!("Execution Error: {}", e),
-                node_id: None,
-                nodes: None,
-            })
-        }
+        Ok(ExecutionResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        }) => Json(QueryResponse {
+            success: true,
+            data: format!("Mutated {} nodes: {}", affected_nodes, message),
+            node_id,
+            nodes: None,
+        }),
+        Ok(ExecutionResult::StaleContext(summary_id)) => Json(QueryResponse {
+            success: true,
+            data: format!(
+                "STALE_CONTEXT: Confidence Score critical. Rehydration available for summary {}",
+                summary_id
+            ),
+            node_id: Some(summary_id),
+            nodes: None,
+        }),
+        Err(e) => Json(QueryResponse {
+            success: false,
+            data: format!("Execution Error: {}", e),
+            node_id: None,
+            nodes: None,
+        }),
     }
 }

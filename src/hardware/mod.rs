@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::fs;
+use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 use sysinfo::System;
-use serde::{Serialize, Deserialize};
-use std::fs;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use console::{style, Emoji};
 
 /// Global Hardware Profile loaded once at startup.
 static CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
@@ -18,7 +19,7 @@ pub enum InstructionSet {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HardwareProfile {
-    Enterprise, // Heavy hardware: AVX-512, high RAM
+    Enterprise,  // Heavy hardware: AVX-512, high RAM
     Performance, // Standard server: AVX2/Neon, standard RAM
     Survival,    // Constrained devices: Low RAM or Scalar Fallback
 }
@@ -29,13 +30,13 @@ pub struct HardwareCapabilities {
     pub profile: HardwareProfile,
     pub logical_cores: usize,
     pub total_memory: u64, // Total RAM in bytes
-    pub vitality_score: u32,
+    pub resource_score: u32,
     pub env_hash: u64, // Hash of the static environment for invalidation
 }
 
 impl HardwareCapabilities {
     pub fn global() -> &'static Self {
-        CAPS.get_or_init(|| HardwareScout::detect())
+        CAPS.get_or_init(HardwareScout::detect)
     }
 }
 
@@ -47,13 +48,13 @@ impl HardwareScout {
     pub fn detect() -> HardwareCapabilities {
         let mut sys = System::new_all();
         sys.refresh_all();
-        
-        let total_memory = std::env::var("CONNECTOMEDB_MEMORY_LIMIT")
+
+        let total_memory = std::env::var("VANTADB_MEMORY_LIMIT")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or_else(|| sys.total_memory());
         let logical_cores = sys.cpus().len();
-        
+
         // Calculate stable environment hash
         let mut hasher = DefaultHasher::new();
         total_memory.hash(&mut hasher);
@@ -68,7 +69,7 @@ impl HardwareScout {
             if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data) {
                 if cached_caps.env_hash == env_hash {
                     // Cache Hit: Environment unchanged! Perfect cold-start speedup.
-                    Self::log_chameleon_changement(&cached_caps, true);
+                    Self::log_adaptive_status(&cached_caps, true);
                     return cached_caps;
                 } else {
                     eprintln!("[HARDWARE] ⚠️ Environment signature changed. Re-benchmarking...");
@@ -78,25 +79,25 @@ impl HardwareScout {
 
         let instructions = Self::detect_instructions();
         let profile = Self::determine_profile(total_memory, instructions);
-        
-        let vitality_score = Self::calculate_vitality(total_memory, logical_cores, instructions);
+
+        let resource_score = Self::calculate_resource_score(total_memory, logical_cores, instructions);
 
         let caps = HardwareCapabilities {
             instructions,
             profile,
             logical_cores,
             total_memory,
-            vitality_score,
+            resource_score,
             env_hash,
         };
 
-        Self::log_chameleon_changement(&caps, false);
-        
+        Self::log_adaptive_status(&caps, false);
+
         // Save new profile
         if let Ok(json) = serde_json::to_string_pretty(&caps) {
             let _ = fs::write(Self::PROFILE_PATH, json);
         }
-        
+
         caps
     }
 
@@ -110,7 +111,7 @@ impl HardwareScout {
                 return InstructionSet::Avx2;
             }
         }
-        
+
         #[cfg(target_arch = "aarch64")]
         {
             if std::arch::is_aarch64_feature_detected!("neon") {
@@ -123,7 +124,7 @@ impl HardwareScout {
 
     fn determine_profile(memory: u64, instructions: InstructionSet) -> HardwareProfile {
         let memory_gb = memory / (1024 * 1024 * 1024);
-        
+
         if memory_gb >= 16 && instructions == InstructionSet::Avx512 {
             HardwareProfile::Enterprise
         } else if memory_gb >= 4 && instructions != InstructionSet::Fallback {
@@ -133,7 +134,7 @@ impl HardwareScout {
         }
     }
 
-    fn calculate_vitality(memory: u64, cores: usize, instructions: InstructionSet) -> u32 {
+    fn calculate_resource_score(memory: u64, cores: usize, instructions: InstructionSet) -> u32 {
         let mem_score = (memory / (1024 * 1024 * 1024)) as u32;
         let core_score = cores as u32;
         let instr_score = match instructions {
@@ -145,33 +146,59 @@ impl HardwareScout {
         (mem_score * 2) + core_score + instr_score
     }
 
-    fn log_chameleon_changement(caps: &HardwareCapabilities, cached: bool) {
+    fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
         let instr_str = match caps.instructions {
-            InstructionSet::Avx512 => "AVX-512",
-            InstructionSet::Avx2 => "AVX2",
-            InstructionSet::Neon => "NEON",
-            InstructionSet::Fallback => "SCALAR FALLBACK",
+            InstructionSet::Avx512 => style("AVX-512").cyan().bold(),
+            InstructionSet::Avx2 => style("AVX2").cyan().bold(),
+            InstructionSet::Neon => style("NEON").cyan().bold(),
+            InstructionSet::Fallback => style("SCALAR FALLBACK").red().dim(),
         };
 
-        let profile_str = match caps.profile {
-            HardwareProfile::Enterprise => "ENTERPRISE",
-            HardwareProfile::Performance => "PERFORMANCE",
-            HardwareProfile::Survival => "SURVIVAL",
+        let (_profile_str, profile_color) = match caps.profile {
+            HardwareProfile::Enterprise => ("ENTERPRISE", style("ENTERPRISE").green().bold()),
+            HardwareProfile::Performance => ("PERFORMANCE", style("PERFORMANCE").yellow().bold()),
+            HardwareProfile::Survival => ("SURVIVAL", style("SURVIVAL").red().bold()),
         };
 
         let ram_gb = caps.total_memory / (1024 * 1024 * 1024);
-        // Cortex RAM cap is 25% of total memory
-        let cortex_cap_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
-        
-        let source_str = if cached { "CACHED" } else { "DETECTED" };
+        let cache_cap_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
 
+        let source_str = if cached {
+            style("CACHED").dim()
+        } else {
+            style("DETECTED").bold().underlined()
+        };
+
+        let lightning = Emoji("⚡ ", "!");
+        let shield = Emoji("🛡️  ", "!!");
+
+        eprintln!("\n{}", style("╭──────────────────────────────────────────────────────────────────────────────╮").dim());
         eprintln!(
-            "\n[HARDWARE] 🦎 MODO CAMALEÓN: [{}] {} | RAM: {}GB (Cortex Cap: {}GB) | NÚCLEOS: {} | VITALITY: {}",
-            instr_str, source_str, ram_gb, cortex_cap_gb, caps.logical_cores, caps.vitality_score
+            "{} {} {} [ {} ] {}",
+            style("│").dim(),
+            lightning,
+            style("ADAPTIVE RESOURCE MODE:").bold(),
+            instr_str,
+            style("│").dim()
         );
         eprintln!(
-            "[HARDWARE] 🛡️ PERFIL ACTIVADO: [{}]",
-            profile_str
+            "{}    {} {} | {} Core(s) | Score: {} {}",
+            style("│").dim(),
+            source_str,
+            style(format!("RAM: {}GB (Cache: {}GB)", ram_gb, cache_cap_gb)).dim(),
+            caps.logical_cores,
+            style(caps.resource_score).magenta(),
+            style("│").dim()
         );
+        eprintln!(
+            "{} {} {} [ {} ] {:>32} {}",
+            style("│").dim(),
+            shield,
+            style("PROFILER STATUS:").bold(),
+            profile_color,
+            "",
+            style("│").dim()
+        );
+        eprintln!("{}\n", style("╰──────────────────────────────────────────────────────────────────────────────╯").dim());
     }
 }

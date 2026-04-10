@@ -1,9 +1,9 @@
+use crate::executor::{ExecutionResult, Executor};
+use crate::storage::StorageEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
-use crate::storage::StorageEngine;
-use crate::executor::{Executor, ExecutionResult};
 
 #[derive(Deserialize)]
 struct RpcRequest {
@@ -38,8 +38,10 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             Ok(l) => l,
             Err(_) => break,
         };
-        
-        if line.trim().is_empty() { continue; }
+
+        if line.trim().is_empty() {
+            continue;
+        }
 
         let req: RpcRequest = match serde_json::from_str(&line) {
             Ok(r) => r,
@@ -61,7 +63,9 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             }
         };
 
-        if req.jsonrpc != "2.0" { continue; }
+        if req.jsonrpc != "2.0" {
+            continue;
+        }
 
         let res = match req.method.as_str() {
             "initialize" => handle_initialize(),
@@ -107,11 +111,11 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         "tools": [
             {
                 "name": "query_lisp",
-                "description": "Ejecuta código NeuLISP. Permite leer estructuras e insertar/mutar Nodes aportando entropía semántica.",
+                "description": "Ejecuta código VantaLISP. Permite leer estructuras e insertar/mutar Nodes aportando contexto semántico.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "query": { "type": "string", "description": "Programa o sentencia en NeuLISP" }
+                        "query": { "type": "string", "description": "Programa o sentencia en VantaLISP" }
                     },
                     "required": ["query"]
                 }
@@ -130,7 +134,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             },
             {
                 "name": "get_node_neighbors",
-                "description": "Inspecciona vecinos o linaje arqueológico de un nodo (Onírico o Shadow).",
+                "description": "Inspecciona vecinos o linaje de un nodo (Volatile o Archived).",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -141,7 +145,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
             },
             {
                 "name": "inject_context",
-                "description": "Inyecta estado o contexto externo conectándolo a un hilo específico para consolidación posterior (Neural Summarization).",
+                "description": "Inyecta estado o contexto externo conectándolo a un hilo específico para consolidación posterior (Vector Compaction).",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -164,8 +168,14 @@ pub fn handle_tools_list() -> Result<Value, Value> {
     }))
 }
 
-pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, storage: &StorageEngine) -> Result<Value, Value> {
-    let p = params.as_ref().ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
+pub async fn handle_tools_call(
+    params: &Option<Value>,
+    executor: &Executor<'_>,
+    storage: &StorageEngine,
+) -> Result<Value, Value> {
+    let p = params
+        .as_ref()
+        .ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
     let name = p["name"].as_str().unwrap_or("");
     let args = &p["arguments"];
 
@@ -177,12 +187,17 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
                     let content = serde_json::to_string(&nodes).unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
                 }
-                Ok(ExecutionResult::Write { affected_nodes, message, node_id }) => {
+                Ok(ExecutionResult::Write {
+                    affected_nodes,
+                    message,
+                    node_id,
+                }) => {
                     let content = serde_json::to_string(&json!({
                         "affected_nodes": affected_nodes,
                         "message": message,
                         "node_id": node_id
-                    })).unwrap_or_default();
+                    }))
+                    .unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
                 }
                 Ok(ExecutionResult::StaleContext(summary_id)) => {
@@ -190,36 +205,43 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
                         "stale_context": true,
                         "rehydration_available": true,
                         "summary_id": summary_id,
-                        "message": "Arqueología Semántica sugerida (TrustScore Crítico)."
-                    })).unwrap_or_default();
+                        "message": "Recuperación Histórica sugerida (Confidence Score Crítico)."
+                    }))
+                    .unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
                 }
-                Err(e) => {
-                    Ok(json!({"isError": true, "content": [{"type": "text", "text": format!("LISP Runtime Error: {}", e)}]}))
-                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("LISP Runtime Error: {}", e)}]}),
+                ),
             }
         }
         "search_semantic" => {
-            let vec_arr = args["vector"].as_array().ok_or_else(|| json!({"code": -32602, "message": "Missing 'vector' array"}))?;
+            let vec_arr = args["vector"]
+                .as_array()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'vector' array"}))?;
             let mut vector: Vec<f32> = Vec::with_capacity(vec_arr.len());
-            for v in vec_arr { vector.push(v.as_f64().unwrap_or(0.0) as f32); }
+            for v in vec_arr {
+                vector.push(v.as_f64().unwrap_or(0.0) as f32);
+            }
             let k = args["k"].as_i64().unwrap_or(5) as usize;
-            
+
             let mut results = Vec::new();
-            if let Ok(index) = storage.hnsw.read() {
-                let neighbors = index.search_nearest(&vector, None, None, 0, k);
-                for (id, distance) in neighbors {
-                    if let Ok(Some(node)) = storage.get(id) {
-                        results.push(json!({"id": id, "distance": distance, "node": node}));
-                    }
+            let index = storage.hnsw.read();
+            let vs = storage.vector_store.read();
+            let neighbors = index.search_nearest(&vector, None, None, 0, k, Some(&vs));
+            for (id, distance) in neighbors {
+                if let Ok(Some(node)) = storage.get(id) {
+                    results.push(json!({"id": id, "distance": distance, "node": node}));
                 }
             }
             let content = serde_json::to_string(&results).unwrap_or_default();
             Ok(json!({"content": [{"type": "text", "text": content}]}))
         }
         "get_node_neighbors" => {
-            let node_id = args["node_id"].as_u64().ok_or_else(|| json!({"code": -32602, "message": "Missing 'node_id"}))?;
-            
+            let node_id = args["node_id"]
+                .as_u64()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'node_id"}))?;
+
             if let Ok(Some(node)) = storage.get(node_id) {
                 let mut neighbors = Vec::new();
                 for edge in &node.edges {
@@ -227,41 +249,60 @@ pub async fn handle_tools_call(params: &Option<Value>, executor: &Executor<'_>, 
                         neighbors.push(json!({
                             "rel": edge.label,
                             "target_id": edge.target,
-                            "target_trust": target_node.trust_score,
-                            "target_valence": target_node.semantic_valence
+                            "target_confidence": target_node.confidence_score,
+                            "target_priority": target_node.importance
                         }));
                     }
                 }
-                let content = serde_json::to_string(&json!({"node": node, "neighbors": neighbors})).unwrap_or_default();
+                let content = serde_json::to_string(&json!({"node": node, "neighbors": neighbors}))
+                    .unwrap_or_default();
                 Ok(json!({"content": [{"type": "text", "text": content}]}))
             } else {
-                Ok(json!({"isError": true, "content": [{"type": "text", "text": "Node not found"}]}))
+                Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": "Node not found"}]}),
+                )
             }
         }
         "inject_context" => {
-            let content = args["content"].as_str().ok_or_else(|| json!({"code": -32602, "message": "Missing 'content'"}))?;
-            let thread_id = args["thread_id"].as_u64().ok_or_else(|| json!({"code": -32602, "message": "Missing 'thread_id'"}))?;
-            
-            let query = format!("INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}", content, thread_id);
+            let content = args["content"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'content'"}))?;
+            let thread_id = args["thread_id"]
+                .as_u64()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'thread_id'"}))?;
+
+            let query = format!(
+                "INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}",
+                content, thread_id
+            );
             match executor.execute_hybrid(&query).await {
-                Ok(ExecutionResult::Write { affected_nodes, message, .. }) => {
+                Ok(ExecutionResult::Write {
+                    affected_nodes,
+                    message,
+                    ..
+                }) => {
                     let out = serde_json::to_string(&json!({
                         "affected_nodes": affected_nodes,
                         "message": message,
                         "status": "Context Anchored"
-                    })).unwrap_or_default();
+                    }))
+                    .unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": out}]}))
                 }
-                Ok(_) => Ok(json!({"isError": true, "content": [{"type": "text", "text": "Unexpected read result for insert"}]})),
-                Err(e) => Ok(json!({"isError": true, "content": [{"type": "text", "text": format!("Execution Error: {}", e)}]}))
+                Ok(_) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": "Unexpected read result for insert"}]}),
+                ),
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("Execution Error: {}", e)}]}),
+                ),
             }
         }
         "read_axioms" => {
             let axioms = json!([
-                {"id": 1, "name": "Axioma Topológico", "description": "No se permiten referencias (edges) a nodos huérfanos o en el Shadow Archive."},
-                {"id": 2, "name": "Axioma de Confianza", "description": "DevilsAdvocate: Se rechazan mutaciones vectoriales divergentes con alto TrustScore histórico."},
-                {"id": 3, "name": "Axioma Inmortal", "description": "SleepWorker: Nodos marcados como PINNED evaden degradación por Olvido Bayesiano."},
-                {"id": 4, "name": "Presupuesto de Amígdala", "description": "SleepWorker: Reservado el 5% de memoria para nodos con valencia semántica >= 0.8."}
+                {"id": 1, "name": "Axioma Topológico", "description": "No se permiten referencias (edges) a nodos huérfanos o en el Tombstone storage."},
+                {"id": 2, "name": "Confidence Constraint", "description": "Se rechazan mutaciones vectoriales divergentes con alto Confidence Score histórico."},
+                {"id": 3, "name": "Axioma Inmortal", "description": "Maintenance: Nodos marcados como PINNED evaden degradación por Data Decay."},
+                {"id": 4, "name": "Resource Allocation", "description": "Maintenance: Reservado el 5% de memoria para nodos con prioridad semántica >= 0.8."}
             ]);
             let content = serde_json::to_string(&axioms).unwrap_or_default();
             Ok(json!({"content": [{"type": "text", "text": content}]}))

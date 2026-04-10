@@ -21,7 +21,7 @@ Thumbs.db
 # Test Databases
 /tests_graph_db/
 /tests_server_db/
-nexusdb-python/
+vantadb-python/
 # Assets
 docs/assets/*.exe
 

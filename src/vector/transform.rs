@@ -2,7 +2,7 @@ use crate::hardware::{HardwareCapabilities, InstructionSet};
 use wide::f32x8;
 
 /// Fast Walsh-Hadamard Transform (FWHT)
-/// 
+///
 /// Distributes the variance of the vector components across all dimensions,
 /// which is critical to minimizing error before 1-bit and 3-bit quantization.
 /// Mutates the input slice in place. Requires `data.len()` to be a power of 2.
@@ -33,7 +33,7 @@ pub fn fwht_scalar(data: &mut [f32]) {
         }
         h *= 2;
     }
-    
+
     // Normalize to preserve magnitude
     let scale = 1.0 / (n as f32).sqrt();
     for x in data.iter_mut() {
@@ -68,25 +68,24 @@ pub fn fwht_simd(data: &mut [f32]) {
                 if j + 8 <= i + h {
                     let x_slice = &data[j..j + 8];
                     let y_slice = &data[j + h..j + h + 8];
-                    
+
                     let x = f32x8::new([
-                        x_slice[0], x_slice[1], x_slice[2], x_slice[3],
-                        x_slice[4], x_slice[5], x_slice[6], x_slice[7],
+                        x_slice[0], x_slice[1], x_slice[2], x_slice[3], x_slice[4], x_slice[5],
+                        x_slice[6], x_slice[7],
                     ]);
                     let y = f32x8::new([
-                        y_slice[0], y_slice[1], y_slice[2], y_slice[3],
-                        y_slice[4], y_slice[5], y_slice[6], y_slice[7],
+                        y_slice[0], y_slice[1], y_slice[2], y_slice[3], y_slice[4], y_slice[5],
+                        y_slice[6], y_slice[7],
                     ]);
-                    
+
                     let new_x = x + y;
                     let new_y = x - y;
-                    
+
                     let arr_x: [f32; 8] = new_x.into();
                     let arr_y: [f32; 8] = new_y.into();
 
-                    data[j..j+8].copy_from_slice(&arr_x);
-                    data[j+h..j+h+8].copy_from_slice(&arr_y);
-                    
+                    data[j..j + 8].copy_from_slice(&arr_x);
+                    data[j + h..j + h + 8].copy_from_slice(&arr_y);
                 } else {
                     // Scalar fallback for remainder
                     for k in j..i + h {
@@ -107,8 +106,7 @@ pub fn fwht_simd(data: &mut [f32]) {
     let mut chunks = data.chunks_exact_mut(8);
     for chunk in &mut chunks {
         let x = f32x8::new([
-            chunk[0], chunk[1], chunk[2], chunk[3],
-            chunk[4], chunk[5], chunk[6], chunk[7],
+            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
         ]);
         let v = x * scale_v;
         let arr: [f32; 8] = v.into();
@@ -132,16 +130,18 @@ mod tests {
             assert!((a - b).abs() < 1e-5);
         }
     }
-    
+
     #[test]
     fn test_fwht_simd_vs_scalar() {
         let mut d1 = vec![0.5f32; 1024];
-        for i in 0..1024 { d1[i] = (i as f32).sin(); }
+        for i in 0..1024 {
+            d1[i] = (i as f32).sin();
+        }
         let mut d2 = d1.clone();
-        
+
         fwht_scalar(&mut d1);
         fwht_simd(&mut d2);
-        
+
         for (a, b) in d1.iter().zip(d2.iter()) {
             assert!((a - b).abs() < 1e-4);
         }

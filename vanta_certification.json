@@ -1,0 +1,80 @@
+{"block_name":"Robustness: BLOCK 5 — EDGE CASES","duration_secs":0.0795972,"ram_usage_mb":58976.0,"current_ram_mb":102748.0,"timestamp":"2026-04-10T16:54:37.142628700-04:00"}
+{"block_name":"Storage: BLOCK 4 — PERSISTENCE ROUND-TRIP","duration_secs":46.931819,"ram_usage_mb":142080.0,"current_ram_mb":185848.0,"timestamp":"2026-04-10T16:55:23.994972100-04:00"}
+{"block_name":"Latency: BLOCK 7 — LATENCY PERCENTILES","duration_secs":172.9985688,"ram_usage_mb":237780.0,"current_ram_mb":281548.0,"timestamp":"2026-04-10T16:57:30.066743-04:00"}
+{"block_name":"Integrity: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":180.9333998,"ram_usage_mb":215072.0,"current_ram_mb":258840.0,"timestamp":"2026-04-10T16:57:38.002307900-04:00"}
+{"block_name":"Resources: BLOCK 3 — MEMORY MEASUREMENT","duration_secs":463.1590386,"ram_usage_mb":225312.0,"current_ram_mb":269080.0,"timestamp":"2026-04-10T17:02:20.229175600-04:00"}
+{"block_name":"Certification: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":676.3598085,"ram_usage_mb":109012.0,"current_ram_mb":152780.0,"timestamp":"2026-04-10T17:05:53.438893700-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: Thermal & OOM Thresholds","duration_secs":0.1814577,"ram_usage_mb":2820.0,"current_ram_mb":24180.0,"timestamp":"2026-04-10T17:11:11.836840300-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: System Capability Audit","duration_secs":0.0013934,"ram_usage_mb":2884.0,"current_ram_mb":24244.0,"timestamp":"2026-04-10T17:11:11.849868700-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: ALGORITHMIC FALLBACK","duration_secs":0.0007396,"ram_usage_mb":2884.0,"current_ram_mb":24244.0,"timestamp":"2026-04-10T17:11:11.858400700-04:00"}
+{"block_name":"RECALL CERTIFICATION: Recall@10 Calibration","duration_secs":5.2105836,"ram_usage_mb":1720.0,"current_ram_mb":23344.0,"timestamp":"2026-04-10T17:11:44.011430700-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 1K Vectors","duration_secs":0.8081373,"ram_usage_mb":1908.0,"current_ram_mb":23004.0,"timestamp":"2026-04-10T17:11:45.345920900-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 10K Vectors","duration_secs":29.2687483,"ram_usage_mb":1928.0,"current_ram_mb":23024.0,"timestamp":"2026-04-10T17:12:14.617500400-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 50K Vectors","duration_secs":595.1241918,"ram_usage_mb":2440.0,"current_ram_mb":23536.0,"timestamp":"2026-04-10T17:22:09.754572800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Determinism: Same Query -> Same Result","duration_secs":7.6869089,"ram_usage_mb":2588.0,"current_ram_mb":23684.0,"timestamp":"2026-04-10T17:22:17.444070600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Recall vs ef_search Degradation Curve","duration_secs":25.1664826,"ram_usage_mb":3400.0,"current_ram_mb":24496.0,"timestamp":"2026-04-10T17:22:42.612778600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Duplicate Vectors","duration_secs":0.1038526,"ram_usage_mb":2820.0,"current_ram_mb":23916.0,"timestamp":"2026-04-10T17:22:42.719160300-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Zero Vector Resilience","duration_secs":0.0001972,"ram_usage_mb":2828.0,"current_ram_mb":23924.0,"timestamp":"2026-04-10T17:22:42.721111-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Single Node Index","duration_secs":0.0000106,"ram_usage_mb":2828.0,"current_ram_mb":23924.0,"timestamp":"2026-04-10T17:22:42.722859100-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Empty Index","duration_secs":2.9e-6,"ram_usage_mb":2832.0,"current_ram_mb":23928.0,"timestamp":"2026-04-10T17:22:42.724824800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Stress: High Dimensionality (768D)","duration_secs":2.2944963,"ram_usage_mb":3000.0,"current_ram_mb":24096.0,"timestamp":"2026-04-10T17:22:45.021163900-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Top-1 Accuracy Correctness","duration_secs":7.806891,"ram_usage_mb":3300.0,"current_ram_mb":24396.0,"timestamp":"2026-04-10T17:22:52.830421900-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Recall@K Sweep (1 to 50)","duration_secs":20.1290057,"ram_usage_mb":3568.0,"current_ram_mb":24664.0,"timestamp":"2026-04-10T17:23:12.961511800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Memory proportionality","duration_secs":7.4237222,"ram_usage_mb":3796.0,"current_ram_mb":24892.0,"timestamp":"2026-04-10T17:23:20.387077600-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":655.1360029,"ram_usage_mb":2328.0,"current_ram_mb":23616.0,"timestamp":"2026-04-10T17:34:20.335953200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.0002244,"ram_usage_mb":112.0,"current_ram_mb":22516.0,"timestamp":"2026-04-10T17:43:35.171932300-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":0.0000199,"ram_usage_mb":176.0,"current_ram_mb":22580.0,"timestamp":"2026-04-10T17:43:35.174811800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0000441,"ram_usage_mb":200.0,"current_ram_mb":22604.0,"timestamp":"2026-04-10T17:43:35.177615800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":0.0000194,"ram_usage_mb":208.0,"current_ram_mb":22612.0,"timestamp":"2026-04-10T17:43:35.179956200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000808,"ram_usage_mb":224.0,"current_ram_mb":22628.0,"timestamp":"2026-04-10T17:43:35.182262400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0003734,"ram_usage_mb":460.0,"current_ram_mb":22864.0,"timestamp":"2026-04-10T17:43:35.185436600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.0724238,"ram_usage_mb":2520.0,"current_ram_mb":24924.0,"timestamp":"2026-04-10T17:43:35.261097-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.0000306,"ram_usage_mb":2528.0,"current_ram_mb":24932.0,"timestamp":"2026-04-10T17:43:35.263146600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.0000495,"ram_usage_mb":2552.0,"current_ram_mb":24956.0,"timestamp":"2026-04-10T17:43:35.264897300-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.0139681,"ram_usage_mb":2228.0,"current_ram_mb":24632.0,"timestamp":"2026-04-10T17:43:35.280465900-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.0000396,"ram_usage_mb":2244.0,"current_ram_mb":24648.0,"timestamp":"2026-04-10T17:43:35.282791200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0064464,"ram_usage_mb":2228.0,"current_ram_mb":24632.0,"timestamp":"2026-04-10T17:43:35.292083400-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Ghost Node Prevention","duration_secs":0.1170261,"ram_usage_mb":9376.0,"current_ram_mb":31420.0,"timestamp":"2026-04-10T17:43:36.212137-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Tombstone Resilience","duration_secs":0.0495831,"ram_usage_mb":9448.0,"current_ram_mb":31492.0,"timestamp":"2026-04-10T17:43:36.264321500-04:00"}
+{"block_name":"LOGIC LAYER (COLUMNAR ENGINE): Arrow: UnifiedNode to RecordBatch Conversion","duration_secs":0.000276,"ram_usage_mb":116.0,"current_ram_mb":21844.0,"timestamp":"2026-04-10T17:43:36.801009200-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Math: Cosine Similarity Projection","duration_secs":0.0615598,"ram_usage_mb":456.0,"current_ram_mb":22628.0,"timestamp":"2026-04-10T17:43:37.395018-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Search: Bitset + Nearest Neighbor Projection","duration_secs":0.000243,"ram_usage_mb":572.0,"current_ram_mb":22744.0,"timestamp":"2026-04-10T17:43:37.397425300-04:00"}
+{"block_name":"STORAGE LAYER (GARBAGE COLLECTION): Sweep Logic: TTL Expiry & Physical Purge","duration_secs":0.1223987,"ram_usage_mb":2908.0,"current_ram_mb":24796.0,"timestamp":"2026-04-10T17:43:38.166531800-04:00"}
+{"block_name":"LOGIC LAYER (RESOURCE GOVERNOR): OOM: Strategic Allocation & Safeguards","duration_secs":0.0005085,"ram_usage_mb":36.0,"current_ram_mb":19792.0,"timestamp":"2026-04-10T17:43:38.620186100-04:00"}
+{"block_name":"CORE ENGINE (GRAPH TRAVERSAL): BFS Traversal Matrix","duration_secs":0.1210614,"ram_usage_mb":2868.0,"current_ram_mb":25212.0,"timestamp":"2026-04-10T17:43:39.381709700-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: Thermal & OOM Thresholds","duration_secs":0.120021,"ram_usage_mb":3140.0,"current_ram_mb":24884.0,"timestamp":"2026-04-10T17:43:40.150547400-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: System Capability Audit","duration_secs":0.0022428,"ram_usage_mb":3208.0,"current_ram_mb":24952.0,"timestamp":"2026-04-10T17:43:40.155302600-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: ALGORITHMIC FALLBACK","duration_secs":0.0003934,"ram_usage_mb":3208.0,"current_ram_mb":24952.0,"timestamp":"2026-04-10T17:43:40.158831400-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): Vector Math: Cosine Similarity Axioms","duration_secs":0.0630814,"ram_usage_mb":0.0,"current_ram_mb":22068.0,"timestamp":"2026-04-10T17:43:40.767897-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): HNSW: Greedy Search Integrity","duration_secs":0.0006486,"ram_usage_mb":0.0,"current_ram_mb":22176.0,"timestamp":"2026-04-10T17:43:40.771228400-04:00"}
+{"block_name":"RECALL CERTIFICATION: Recall@10 Calibration","duration_secs":5.7443728,"ram_usage_mb":4044.0,"current_ram_mb":25900.0,"timestamp":"2026-04-10T17:43:47.247634200-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 1K Vectors","duration_secs":0.8001933,"ram_usage_mb":4036.0,"current_ram_mb":25036.0,"timestamp":"2026-04-10T17:43:48.574619200-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 10K Vectors","duration_secs":29.6363411,"ram_usage_mb":4892.0,"current_ram_mb":25892.0,"timestamp":"2026-04-10T17:44:18.215116-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 50K Vectors","duration_secs":602.9936979,"ram_usage_mb":5252.0,"current_ram_mb":26252.0,"timestamp":"2026-04-10T17:54:21.221395800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Determinism: Same Query -> Same Result","duration_secs":10.3221209,"ram_usage_mb":5884.0,"current_ram_mb":26884.0,"timestamp":"2026-04-10T17:54:31.546698900-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Recall vs ef_search Degradation Curve","duration_secs":31.879287,"ram_usage_mb":5508.0,"current_ram_mb":26508.0,"timestamp":"2026-04-10T17:55:03.428397600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Duplicate Vectors","duration_secs":0.1187954,"ram_usage_mb":5520.0,"current_ram_mb":26520.0,"timestamp":"2026-04-10T17:55:03.549723100-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Zero Vector Resilience","duration_secs":0.0003276,"ram_usage_mb":5520.0,"current_ram_mb":26520.0,"timestamp":"2026-04-10T17:55:03.552806800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Single Node Index","duration_secs":0.0000115,"ram_usage_mb":5520.0,"current_ram_mb":26520.0,"timestamp":"2026-04-10T17:55:03.555006-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Empty Index","duration_secs":2.3e-6,"ram_usage_mb":5520.0,"current_ram_mb":26520.0,"timestamp":"2026-04-10T17:55:03.557108400-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Stress: High Dimensionality (768D)","duration_secs":3.4155714,"ram_usage_mb":5132.0,"current_ram_mb":26132.0,"timestamp":"2026-04-10T17:55:06.974472600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Top-1 Accuracy Correctness","duration_secs":13.2677447,"ram_usage_mb":5996.0,"current_ram_mb":26996.0,"timestamp":"2026-04-10T17:55:20.244816600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Recall@K Sweep (1 to 50)","duration_secs":25.4024881,"ram_usage_mb":5212.0,"current_ram_mb":26212.0,"timestamp":"2026-04-10T17:55:45.649503200-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Memory proportionality","duration_secs":12.7043538,"ram_usage_mb":5532.0,"current_ram_mb":26532.0,"timestamp":"2026-04-10T17:55:58.359035-04:00"}
+{"block_name":"LOGIC LAYER (HANDLERS & MCP): Search: LangChain Handler Proximity","duration_secs":0.0003662,"ram_usage_mb":60.0,"current_ram_mb":19612.0,"timestamp":"2026-04-10T17:55:58.915924900-04:00"}
+{"block_name":"LOGIC LAYER (HANDLERS & MCP): Proxy: Ollama Context-Aware Generation","duration_secs":0.0004212,"ram_usage_mb":120.0,"current_ram_mb":19672.0,"timestamp":"2026-04-10T17:55:58.920020600-04:00"}
+{"block_name":"API LAYER (MCP PROTOCOL): Protocol: Handshake & Identity (2024-11-05)","duration_secs":0.0005389,"ram_usage_mb":156.0,"current_ram_mb":23400.0,"timestamp":"2026-04-10T17:55:59.772819900-04:00"}
+{"block_name":"API LAYER (MCP PROTOCOL): Protocol: Tool Execution & State Mutability","duration_secs":0.1355092,"ram_usage_mb":9048.0,"current_ram_mb":32292.0,"timestamp":"2026-04-10T17:55:59.912617900-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Serialization: Byte Roundtrip Integrity","duration_secs":0.0695188,"ram_usage_mb":0.0,"current_ram_mb":22344.0,"timestamp":"2026-04-10T17:56:00.588341400-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Persistence: Cold-Start Performance","duration_secs":0.0256939,"ram_usage_mb":144.0,"current_ram_mb":22528.0,"timestamp":"2026-04-10T17:56:00.616446900-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): MMap Survival: Backend Sync & Reload","duration_secs":0.0187812,"ram_usage_mb":156.0,"current_ram_mb":22540.0,"timestamp":"2026-04-10T17:56:00.638380600-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Error Handling: Corrupt/Nonexistent Fallback","duration_secs":0.0096975,"ram_usage_mb":176.0,"current_ram_mb":22560.0,"timestamp":"2026-04-10T17:56:00.652082200-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Abstraction: Memory vs MMap Equivalence","duration_secs":0.0016683,"ram_usage_mb":188.0,"current_ram_mb":22572.0,"timestamp":"2026-04-10T17:56:00.658165500-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: INSERT -> GET Cycle","duration_secs":0.1906504,"ram_usage_mb":7656.0,"current_ram_mb":30384.0,"timestamp":"2026-04-10T17:56:01.780630100-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":0.0853614,"ram_usage_mb":8620.0,"current_ram_mb":31348.0,"timestamp":"2026-04-10T17:56:01.877520200-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":0.0862878,"ram_usage_mb":8688.0,"current_ram_mb":31416.0,"timestamp":"2026-04-10T17:56:01.977062700-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.1332395,"ram_usage_mb":8688.0,"current_ram_mb":31416.0,"timestamp":"2026-04-10T17:56:02.117835200-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DQL: Complex FROM -> FETCH Pipeline","duration_secs":0.0006209,"ram_usage_mb":0.0,"current_ram_mb":24012.0,"timestamp":"2026-04-10T17:56:03.617658200-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DML: Multi-Statement Core Parse","duration_secs":0.0010321,"ram_usage_mb":8.0,"current_ram_mb":24020.0,"timestamp":"2026-04-10T17:56:03.622600600-04:00"}
+{"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.1787663,"ram_usage_mb":1704.0,"current_ram_mb":31832.0,"timestamp":"2026-04-10T17:56:05.557330400-04:00"}
+{"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.1403997,"ram_usage_mb":1708.0,"current_ram_mb":27364.0,"timestamp":"2026-04-10T17:56:06.836468900-04:00"}
