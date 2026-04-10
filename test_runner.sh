@@ -15,8 +15,8 @@ source /venv/bin/activate
 echo "=== Installing Python Test Dependencies ==="
 pip install maturin pytest
 
-echo "=== Building NexusDB Python SDK ==="
-cd /app/nexusdb-python
+echo "=== Building VantaDB Python SDK ==="
+cd /app/vantadb-python
 # Compile the Rust code into a Python native module (.so)
 # We use backtraces to diagnose any unexpected Python crashes
 RUST_BACKTRACE=1 maturin develop --release

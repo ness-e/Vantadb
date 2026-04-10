@@ -23,7 +23,7 @@ VantaDB unifies previously distinct data representations into a single coherent 
 
 | Engine | Mechanism | Details |
 |--------|-----------|---------|
-| **Vector Engine** | Native HNSW (Hierarchical Navigable Small World) | Production-grade `M`, `ef_construction`, `ef_search` configurability. Supports f32 vectors standard for embeddings. Current build guarantees robust Recall@10 > 95%. |
+| **Vector Engine** | Native HNSW (Hierarchical Navigable Small World) | Production-grade `M`, `ef_construction`, `ef_search` configurability. Supports f32 vectors standard for embeddings. Validated via internal stress protocol (10K–100K vectors, 128D). See BENCHMARKS.md |
 | **Graph Engine** | Adjacency Lists | Standard directed edges with optional float weights for O(1) adjacency traversals. Contextual filtering applied within the vector path. |
 | **Relational Storage** | BTreeMap Schemaless filtering | In-memory relational constraints (Strings, Ints, Bools) allowing fast metadata pre-filtering and post-filtering heuristics. |
 | **Storage Engine** | MMap-Backed / RAM bounds | Adheres to requested `memory_limit_bytes`. Uses `mmap` backing capabilities to ensure minimal host RAM footprint on cold starts. |

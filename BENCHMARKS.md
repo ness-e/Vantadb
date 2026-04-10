@@ -1,21 +1,29 @@
 # VantaDB Benchmarks
 
-We enforce strict internal recall checks on our algorithms to remain intellectually honest about our performance capabilities. Current tests target HNSW validation utilizing brute-force validation arrays.
+## HNSW Stress Protocol Results (Certified)
 
-## HNSW Validation Metrics
+| Scale | Recall@10 | Lat p50 | Lat p95 | Build Time | RAM |
+|-------|-----------|---------|---------|------------|-----|
+| 10K   | 0.9520    | 2.65ms  | 3.24ms  | 46.66s     | 10.2 MB |
+| 50K   | 0.9100    | 6.89ms  | 8.80ms  | 626.24s    | 51.1 MB |
+| 100K  | 0.8860    | 9.28ms  | 10.51ms | 1447.17s   | 101.9 MB |
 
-*   **Test Suite:** `tests/hnsw_recall.rs`
-*   **Dimensions:** 64-dimensional float arrays.
-*   **Vector Sample Size:** 5,000 vectors.
-*   **Index configuration:** `m=24`, `ef_construction=200`, `ef_search=100`.
+### Methodology
 
-### Current State Matrix
+**Configuration:**
+- Graph limits: `M=32`, `M_max0=64`
+- Dimensionality: `128D` (dense vectors)
+- Distance Metrics: `Cosine Similarity`
+- Index Randomization: Seeded RNG (Deterministic Graph Topology)
 
-| Engine Build | Algorithm | Recall@10 | Avg Query Latency | QPS Limit |
-|--------------|-----------|-----------|--------------------|-----------|
-| VantaDB v0.1 | HNSW | `96.80%` | ~2,392 µs | 410+ QPS |
+**Hardware Profile:**
+- CPU: 12-core Logical
+- Instruction Sets: AVX2 + FMA
+- Host Memory: 31GB RAM
+- Environment: Windows x64 Native
 
-*Note: The hardware testing environment utilized a 12-core execution framework with SIMD capabilities.*
-
-## Future Benchmark Architectures
-As we stabilize our codebase, we intend to publish objective comparison suites against established local persistence vector layers (e.g., SQLite `vec`). We prioritize honest, easily reproducible Python notebook methodologies that external engineers can replicate easily on consumer hardware.
+**Reproducibility Command:**
+To run this exact benchmark and verify the metrics locally:
+```bash
+cargo test --test stress_protocol -- --nocapture
+```

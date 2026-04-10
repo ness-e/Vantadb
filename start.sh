@@ -31,4 +31,4 @@ else
     echo "🛡️  [DOCKER] No Memory Limit detected. HardwareScout will use Host RAM."
 fi
 
-exec "/usr/local/bin/connectome-server" "$@"
+exec "/usr/local/bin/vanta-server" "$@"

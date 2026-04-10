@@ -1,11 +1,11 @@
 name: Feature Request
-description: Suggest an idea, new IQL syntax, or enhancement for ConnectomeDB.
+description: Suggest an idea, new IQL syntax, or enhancement for VantaDB.
 title: "[FEATURE] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
-      value: "Thank you for suggesting an improvement for ConnectomeDB! Please remember that our core philosophy is **simplicity and local AI performance**. Heavily bloated features might be better suited as external plugins."
+      value: "Thank you for suggesting an improvement for VantaDB! Please remember that our core philosophy is **simplicity and local AI performance**. Heavily bloated features might be better suited as external plugins."
 
   - type: textarea
     id: problem
