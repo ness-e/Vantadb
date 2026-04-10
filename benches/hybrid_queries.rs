@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-// Note: Requires complete Integration of StorageEngine + CPIndex, 
-// using mocks here to demonstrate the benchmarking framework structure 
+// Note: Requires complete Integration of StorageEngine + CPIndex,
+// using mocks here to demonstrate the benchmarking framework structure
 // that runs with `cargo bench`.
 
 fn bench_cp_index_filter(c: &mut Criterion) {
@@ -23,10 +23,14 @@ fn bench_unified_node_deserialization(c: &mut Criterion) {
     c.bench_function("zero-copy bincode deserialize", |b| {
         b.iter(|| {
             // Zero-copy decode simulation
-            let _val = black_box(&mock_bytes[0..56]); 
+            let _val = black_box(&mock_bytes[0..56]);
         })
     });
 }
 
-criterion_group!(benches, bench_cp_index_filter, bench_unified_node_deserialization);
+criterion_group!(
+    benches,
+    bench_cp_index_filter,
+    bench_unified_node_deserialization
+);
 criterion_main!(benches);

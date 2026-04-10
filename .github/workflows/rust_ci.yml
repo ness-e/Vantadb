@@ -1,4 +1,4 @@
-name: ConnectomeDB CI
+name: VantaDB CI
 
 on:
   push:
@@ -60,6 +60,12 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+    - name: Format Check
+      run: cargo fmt --check
+
+    - name: Clippy Lints
+      run: cargo clippy -- -D warnings
 
     - name: Compile and check (Debug mode)
       run: cargo test --no-run

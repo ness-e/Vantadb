@@ -1,17 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 // ─── Vector Data ───────────────────────────────────────────
 
-/// Vector storage — supports tiered precision (Phase 31: Hybrid Quantization)
+/// Vector storage — supports tiered precision (Hybrid Quantization)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum VectorRepresentations {
-    /// L1: Índice Rápido en RAM. Distancia de Hamming (XOR + POPCNT).
+    /// L1: Fast binary index in RAM. Hamming distance (XOR + POPCNT).
     Binary(Box<[u64]>),
-    /// L2: Re-ranking y Validación inicial. Mapeado a memoria desde disco (3-bit).
+    /// L2: Re-ranking and initial validation. Memory-mapped from disk (3-bit).
     Turbo(Box<[u8]>),
-    /// L3: Arqueología Semántica y Resolución de Pánico. Precisión absoluta.
+    /// L3: Full precision float32.
     Full(Vec<f32>),
     /// No vector attached
     None,
@@ -22,7 +23,7 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => v.len(),
             VectorRepresentations::Binary(data) => data.len() * 64, // rough dim
-            VectorRepresentations::Turbo(data) => data.len() * 2, // depends on PolarQuant packing
+            VectorRepresentations::Turbo(data) => data.len() * 2,   // depends on packing
             VectorRepresentations::None => 0,
         }
     }
@@ -39,7 +40,7 @@ impl VectorRepresentations {
         }
     }
 
-    /// Computes cosine similarity (F32) or delegates to Hamming/PolarQuant logic later
+    /// Computes cosine similarity (F32) or delegates to quantized logic
     pub fn cosine_similarity(&self, other: &VectorRepresentations) -> Option<f32> {
         use crate::hardware::{HardwareCapabilities, InstructionSet};
 
@@ -61,8 +62,12 @@ impl VectorRepresentations {
                     norm_b += vb * vb;
                 }
                 let denom = norm_a.sqrt() * norm_b.sqrt();
-                if denom < f32::EPSILON { None } else { Some(dot / denom) }
-            },
+                if denom < f32::EPSILON {
+                    None
+                } else {
+                    Some(dot / denom)
+                }
+            }
             _ => {
                 let mut dot_v = wide::f32x8::ZERO;
                 let mut norm_a_v = wide::f32x8::ZERO;
@@ -72,8 +77,14 @@ impl VectorRepresentations {
                 let rem_a = chunks_a.remainder();
                 let rem_b = chunks_b.remainder();
                 for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
-                    let va = wide::f32x8::from([a_chunk[0], a_chunk[1], a_chunk[2], a_chunk[3], a_chunk[4], a_chunk[5], a_chunk[6], a_chunk[7]]);
-                    let vb = wide::f32x8::from([b_chunk[0], b_chunk[1], b_chunk[2], b_chunk[3], b_chunk[4], b_chunk[5], b_chunk[6], b_chunk[7]]);
+                    let va = wide::f32x8::from([
+                        a_chunk[0], a_chunk[1], a_chunk[2], a_chunk[3], a_chunk[4], a_chunk[5],
+                        a_chunk[6], a_chunk[7],
+                    ]);
+                    let vb = wide::f32x8::from([
+                        b_chunk[0], b_chunk[1], b_chunk[2], b_chunk[3], b_chunk[4], b_chunk[5],
+                        b_chunk[6], b_chunk[7],
+                    ]);
                     dot_v += va * vb;
                     norm_a_v += va * va;
                     norm_b_v += vb * vb;
@@ -87,7 +98,11 @@ impl VectorRepresentations {
                     norm_b += rem_b[i] * rem_b[i];
                 }
                 let denom = norm_a.sqrt() * norm_b.sqrt();
-                if denom < f32::EPSILON { None } else { Some(dot / denom) }
+                if denom < f32::EPSILON {
+                    None
+                } else {
+                    Some(dot / denom)
+                }
             }
         }
     }
@@ -165,13 +180,24 @@ impl FieldValue {
 }
 
 /// Relational fields: ordered key-value map
-/// Fase 2: migrate to Arrow RecordBatch for columnar access
 pub type RelFields = BTreeMap<String, FieldValue>;
 
 // ─── Node Flags ────────────────────────────────────────────
 
-/// Bitfield metadata flags for node state
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[repr(transparent)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    IntoBytes,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+)]
 pub struct NodeFlags(pub u32);
 
 impl NodeFlags {
@@ -182,8 +208,8 @@ impl NodeFlags {
     pub const HAS_VECTOR: u32 = 1 << 4;
     pub const HAS_EDGES: u32 = 1 << 5;
     pub const PINNED: u32 = 1 << 6;
-    pub const REHYDRATED: u32 = 1 << 7;
-    pub const HALLUCINATION: u32 = 1 << 8; // Phase 31: Previous invalid state
+    pub const RECOVERED: u32 = 1 << 7;
+    pub const INVALIDATED: u32 = 1 << 8;
 
     pub fn new() -> Self {
         Self(Self::ACTIVE)
@@ -205,16 +231,21 @@ impl NodeFlags {
     }
 }
 
-// ─── Cognitive Architecture ────────────────────────────────
+// ─── Node Tier ─────────────────────────────────────────────
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum NeuronType {
-    STNeuron, // Fast volatile memory
-    LTNeuron, // Long-term persistent graph memory
+/// Determines storage tier behavior
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub enum NodeTier {
+    /// Fast volatile memory (RAM cache)
+    Hot,
+    /// Long-term persistent storage (disk)
+    #[default]
+    Cold,
 }
 
-pub trait CognitiveUnit {
-    fn trust_score(&self) -> f32;
+/// Trait for tracking access patterns
+pub trait AccessTracker {
+    fn confidence_score(&self) -> f32;
     fn hits(&self) -> u32;
     fn last_accessed(&self) -> u64; // Unix ms
     fn pin(&mut self);
@@ -222,7 +253,61 @@ pub trait CognitiveUnit {
     fn is_pinned(&self) -> bool;
 }
 
-// ─── UnifiedNode ───────────────────────────────────────────
+// ─── DiskNodeHeader (Zero-Copy) ────────────────────────────
+
+/// Fixed-size header for zero-copy memory mapping.
+/// Aligned to 64 bytes for optimal SIMD access and cache line boundary.
+/// Uses raw u32 for flags/tier to avoid enums in #[repr(C)].
+#[repr(C, align(64))]
+#[derive(Clone, Copy, Debug, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout)]
+pub struct DiskNodeHeader {
+    /// Globally unique identifier (Offset 0)
+    pub id: u64,
+    /// Offset 8
+    pub confidence_score: f32,
+    /// Offset 12
+    pub importance: f32,
+    /// 128-bit fast filter (Offset 16)
+    pub bitset: u128,
+    /// Offset to vector data in the MMap file (Offset 32)
+    pub vector_offset: u64,
+    /// Number of elements in the vector (Offset 40)
+    pub vector_len: u32,
+    /// Number of outgoing edges (Offset 44)
+    pub edge_count: u16,
+    /// Explicit padding to align relational_len (Offset 46)
+    pub _pad1: [u8; 2],
+    /// Length of the relational metadata block (Offset 48)
+    pub relational_len: u32,
+    /// Storage tier: Hot (0) or Cold (1) (Offset 52)
+    pub tier: u8,
+    /// Explicit gap padding for u32 field 'flags' alignment (Offset 53)
+    pub _pad2: [u8; 3],
+    /// Status flags (Offset 56)
+    pub flags: u32,
+    /// Explicit padding to reach exactly 64 bytes (Offset 60)
+    pub _padding: [u8; 4],
+}
+
+impl DiskNodeHeader {
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            confidence_score: 0.5,
+            importance: 0.1,
+            bitset: 0,
+            vector_offset: 0,
+            vector_len: 0,
+            edge_count: 0,
+            _pad1: [0; 2],
+            relational_len: 0,
+            tier: 0,
+            _pad2: [0; 3],
+            flags: 0,
+            _padding: [0; 4],
+        }
+    }
+}
 
 /// Core multimodel node: vector + graph + relational unified.
 ///
@@ -239,33 +324,45 @@ pub struct UnifiedNode {
     /// Status flags
     pub flags: NodeFlags,
     pub vector: VectorRepresentations,
-    /// Epoch semantic lineage version (Phase 31)
+    /// Lineage version
     pub epoch: u32,
     /// Outgoing graph edges
     pub edges: Vec<Edge>,
     /// Relational key-value fields
     pub relational: RelFields,
-    /// Fast volatile vs long-term persistent behavior
-    pub neuron_type: NeuronType,
+    /// Storage tier: Hot (RAM) or Cold (disk)
+    pub tier: NodeTier,
     /// Access frequency heuristic
     pub hits: u32,
     /// Recency heuristic (Unix MS)
     pub last_accessed: u64,
-    /// Static Bayesian logic confidence
-    pub trust_score: f32,
-    /// Biological Amygdala limit: emotional/semantic importance (0.0 - 1.0)
-    pub semantic_valence: f32,
+    /// Confidence score (0.0 - 1.0)
+    pub confidence_score: f32,
+    /// Importance score (0.0 - 1.0)
+    pub importance: f32,
     /// Forward-compatible schema metadata without breaking Bincode
     pub ext_metadata: HashMap<String, Vec<u8>>,
 }
 
-impl CognitiveUnit for UnifiedNode {
-    fn trust_score(&self) -> f32 { self.trust_score }
-    fn hits(&self) -> u32 { self.hits }
-    fn last_accessed(&self) -> u64 { self.last_accessed }
-    fn pin(&mut self) { self.flags.set(NodeFlags::PINNED); }
-    fn unpin(&mut self) { self.flags.clear(NodeFlags::PINNED); }
-    fn is_pinned(&self) -> bool { self.flags.is_set(NodeFlags::PINNED) }
+impl AccessTracker for UnifiedNode {
+    fn confidence_score(&self) -> f32 {
+        self.confidence_score
+    }
+    fn hits(&self) -> u32 {
+        self.hits
+    }
+    fn last_accessed(&self) -> u64 {
+        self.last_accessed
+    }
+    fn pin(&mut self) {
+        self.flags.set(NodeFlags::PINNED);
+    }
+    fn unpin(&mut self) {
+        self.flags.clear(NodeFlags::PINNED);
+    }
+    fn is_pinned(&self) -> bool {
+        self.flags.is_set(NodeFlags::PINNED)
+    }
 }
 
 impl UnifiedNode {
@@ -280,14 +377,14 @@ impl UnifiedNode {
             epoch: 0,
             edges: Vec::new(),
             relational: BTreeMap::new(),
-            neuron_type: NeuronType::LTNeuron,
+            tier: NodeTier::Cold,
             hits: 0,
             last_accessed: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
-            trust_score: 0.5,
-            semantic_valence: 0.0,
+            confidence_score: 0.5,
+            importance: 0.1,
             ext_metadata: HashMap::new(),
         }
     }
@@ -381,8 +478,8 @@ mod tests {
     #[test]
     fn test_bitset_operations() {
         let mut node = UnifiedNode::new(1);
-        node.set_bit(5); // country bit
-        node.set_bit(16); // active bit
+        node.set_bit(5);
+        node.set_bit(16);
 
         assert!(node.has_bit(5));
         assert!(node.has_bit(16));
@@ -392,8 +489,6 @@ mod tests {
         assert!(node.matches_mask(mask));
         assert!(!node.matches_mask(mask | (1 << 7)));
     }
-
-    // Removed outdated cosine_similarity tests since they moved to quantization / index modules.
 
     #[test]
     fn test_tombstone() {
@@ -406,30 +501,14 @@ mod tests {
     #[test]
     fn test_relational_fields() {
         let mut node = UnifiedNode::new(1);
-        node.set_field("pais", FieldValue::String("VZLA".into()));
-        node.set_field("activo", FieldValue::Bool(true));
+        node.set_field("country", FieldValue::String("US".into()));
+        node.set_field("active", FieldValue::Bool(true));
 
         assert_eq!(
-            node.get_field("pais"),
-            Some(&FieldValue::String("VZLA".into()))
+            node.get_field("country"),
+            Some(&FieldValue::String("US".into()))
         );
-        assert_eq!(node.get_field("activo"), Some(&FieldValue::Bool(true)));
+        assert_eq!(node.get_field("active"), Some(&FieldValue::Bool(true)));
         assert_eq!(node.get_field("missing"), None);
     }
 }
-
-// ── ConnectomeDB Biological Nomenclature (Type Aliases) ──────────
-//
-// These aliases allow users to choose between traditional database terms
-// and the biologically-inspired ConnectomeDB vocabulary.
-// Both names compile identically — the struct definitions remain unchanged.
-
-/// A **Neuron** is the fundamental cognitive unit of ConnectomeDB.
-/// Technically identical to `UnifiedNode` — the unified multimodel data structure
-/// containing relational fields, graph edges, and vector embeddings.
-pub type Neuron = UnifiedNode;
-
-/// A **Synapse** is a weighted, directed connection between two Neurons.
-/// Technically identical to `Edge`. The name `Edge` is retained as the primary
-/// identifier for compatibility with the Rust graph ecosystem.
-pub type Synapse = Edge;

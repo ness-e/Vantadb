@@ -1,492 +1,766 @@
-use rocksdb::{Options, DB, WriteBatch, FlushOptions};
-use rocksdb::checkpoint::Checkpoint;
-use std::env;
-use std::path::PathBuf;
-use crate::error::{ConnectomeError, Result};
-use crate::node::UnifiedNode;
+use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
-use crate::governance::AuditableTombstone;
-use std::sync::RwLock;
-
+use crate::node::{DiskNodeHeader, UnifiedNode};
+use memmap2::{MmapMut, MmapOptions};
+use parking_lot::RwLock;
+use rocksdb::checkpoint::Checkpoint;
+use rocksdb::{FlushOptions, Options, WriteBatch, DB};
+use std::env;
+use std::fs::{File, OpenOptions};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{info, warn};
+use zerocopy::{FromBytes, IntoBytes};
+
+// ─── Internal Metadata Persistence ──────────────────────────
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct NodeMetadata {
+    relational: crate::node::RelFields,
+    edges: Vec<crate::node::Edge>,
+}
+
+// ─── VantaFile: Zero-Copy MMap Wrapper ──────────────────────
+
+/// Magic bytes written at position 0 of the vector store file.
+/// Allows format validation on open and prevents loading arbitrary binary files.
+pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
+
+/// Format version for the VantaFile binary layout.
+/// Increment when the DiskNodeHeader layout or write_cursor position changes.
+pub const VANTA_FILE_VERSION: u32 = 1;
+
+pub struct VantaFile {
+    pub file: File,
+    pub mmap: MmapMut,
+    pub path: PathBuf,
+    pub size: u64,
+    pub write_cursor: u64,
+}
+
+// VantaFile must be Send + Sync for multi-threaded Python usage (FastAPI/Gunicorn).
+// Safety: Access to VantaFile is governed by a RwLock in the StorageEngine,
+// ensuring that mutation (write_header, save_cursor) and shared reads (read_header)
+// never occur simultaneously across threads.
+unsafe impl Send for VantaFile {}
+unsafe impl Sync for VantaFile {}
+
+impl VantaFile {
+    pub fn open(path: PathBuf, initial_size: u64) -> Result<Self> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&path)
+            .map_err(VantaError::IoError)?;
+
+        let mut current_size = file.metadata().map_err(VantaError::IoError)?.len();
+        if current_size < 8 {
+            current_size = initial_size.max(8);
+            file.set_len(current_size)
+                .map_err(VantaError::IoError)?;
+        }
+
+        let mmap = unsafe {
+            MmapOptions::new()
+                .map_mut(&file)
+                .map_err(VantaError::IoError)?
+        };
+
+        // El primer u64 del mmap es nuestro write_cursor persistente
+        let write_cursor = u64::from_le_bytes(mmap[0..8].try_into().unwrap());
+        let write_cursor = if write_cursor < 64 || write_cursor > current_size {
+            64
+        } else {
+            // Ensure any existing cursor is aligned to 64
+            (write_cursor + 63) & !63
+        };
+
+        Ok(Self {
+            file,
+            mmap,
+            path,
+            size: current_size,
+            write_cursor,
+        })
+    }
+
+    /// Guarda el cursor actual en el archivo para persistencia entre reinicios
+    pub fn save_cursor(&mut self) {
+        self.mmap[0..8].copy_from_slice(&self.write_cursor.to_le_bytes());
+    }
+
+    /// Read a DiskNodeHeader from a specific offset without cloning (Zero-Copy)
+    pub fn read_header(&self, offset: u64) -> Option<&DiskNodeHeader> {
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+        if offset + header_size > self.size || offset % 64 != 0 {
+            return None;
+        }
+
+        let slice = &self.mmap[offset as usize..(offset + header_size) as usize];
+        DiskNodeHeader::ref_from_bytes(slice).ok()
+    }
+
+    /// Write a DiskNodeHeader to a specific offset
+    pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+        
+        // Alignment Check: Must be 64-byte aligned for Zero-Copy casting
+        if offset % 64 != 0 {
+            return Err(VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("VantaFile: Misaligned header write at {} (must be 64B aligned)", offset),
+            )));
+        }
+
+        if offset + header_size > self.size {
+            return Err(VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "VantaFile: Offset out of bounds",
+            )));
+        }
+
+        let dest = &mut self.mmap[offset as usize..(offset + header_size) as usize];
+        dest.copy_from_slice(header.as_bytes());
+        Ok(())
+    }
+
+    /// Sincroniza los cambios con el disco
+    pub fn flush(&self) -> Result<()> {
+        self.mmap.flush().map_err(VantaError::IoError)
+    }
+
+    /// Implementación de Warm-up Strategy (Phase 3.4)
+    /// Protege capas superiores del HNSW con pre-fetching para evitar page faults iniciales.
+    pub fn warmup_top_layers(&self, size: usize) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            unsafe {
+                libc::madvise(
+                    self.mmap.as_ptr() as *mut libc::c_void,
+                    size.min(self.mmap.len()),
+                    libc::MADV_WILLNEED,
+                );
+            }
+        }
+        #[cfg(windows)]
+        {
+            // En Windows, leer secuencialmente es suficiente para que el OS pre-cachee.
+            let mut _sum = 0u8;
+            for i in (0..size.min(self.mmap.len())).step_by(4096) {
+                _sum ^= self.mmap[i];
+            }
+        }
+    }
+}
+
+/// Configuration for `StorageEngine` initialization.
+#[derive(Debug, Clone, Default)]
+pub struct EngineConfig {
+    pub memory_limit: Option<u64>,
+    pub force_mmap: bool,
+    pub read_only: bool,
+}
 
 pub struct StorageEngine {
-    pub db: DB, // Expuesto pub temporalmente si se necesita compactación desde sleep_worker
+    pub db: DB, 
     pub hnsw: RwLock<CPIndex>,
-    pub cortex_ram: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
-    pub thalamic_gate: crate::governance::thalamic_gate::ThalamicGate,
-    pub uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer,
-    /// Phase 36: Stateful Devil's Advocate with OriginCollisionTracker
-    pub advocate: crate::governance::DevilsAdvocate,
+    pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
+    pub consistency_buffer: crate::governance::consistency::ConsistencyBuffer,
+    pub conflict_resolver: crate::governance::conflict_resolver::ConflictResolver,
     pub last_query_timestamp: AtomicU64,
-    pub emergency_rem_trigger: std::sync::atomic::AtomicBool,
-    /// Path to the data directory for HNSW persistence
+    pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
+    /// Path to the data directory
     pub data_dir: PathBuf,
+    /// Vector Store 
+    pub vector_store: RwLock<VantaFile>,
+    /// Write-Ahead Log for durability
+    pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
 }
 
 impl StorageEngine {
+    /// Open with default configuration (backward-compatible).
+    /// All existing call sites continue to work without modification.
     pub fn open(path: &str) -> Result<Self> {
+        Self::open_with_config(path, None)
+    }
+
+    /// Open with explicit configuration for memory budgets and mode overrides.
+    /// Used by the Python SDK to inject per-instance memory limits.
+    pub fn open_with_config(path: &str, config: Option<EngineConfig>) -> Result<Self> {
+        let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
 
+        // Memory limit resolution priority:
+        // 1. Explicit config.memory_limit (from Python SDK constructor)
+        // 2. VANTADB_MEMORY_LIMIT env var (from Docker/CI)
+        // 3. Hardware detection (from HardwareCapabilities)
+        let effective_memory = config
+            .memory_limit
+            .or_else(|| {
+                std::env::var("VANTADB_MEMORY_LIMIT")
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+            })
+            .unwrap_or(caps.total_memory);
+
         let mut opts = Options::default();
-        opts.create_if_missing(true);
+        opts.create_if_missing(!config.read_only);
         opts.create_missing_column_families(true);
         opts.set_max_background_jobs(4);
         opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        
-        // Modo Camaleón: Ajuste dinámico de RocksDB basado en RAM total
+
+        // Adaptive Mode: Dynamic RocksDB tuning based on effective RAM
         let mut bopts = rocksdb::BlockBasedOptions::default();
         bopts.set_bloom_filter(10.0, false);
-        // RAM Booster: Forzar retención de índices y bloom filters de L0 permanentemente
+        // Performance Booster: Force retention of L0 indexes and bloom filters permanently
         bopts.set_cache_index_and_filter_blocks(true);
         bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
 
-        // Standard Bopts para lóbulos fríos (sin pinning L0)
+        // Standard Bopts for cold layers (no L0 pinning)
         let mut cold_bopts = rocksdb::BlockBasedOptions::default();
         cold_bopts.set_bloom_filter(10.0, false);
 
-        // OOM Guard (Modo Survival): Capar LRU Cache y WriteBuffer al ~60% de la capacidad detectada
-        let rocksdb_budget = (caps.total_memory as f64 * 0.60) as usize;
-        let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% of budget para block cache
-        let write_buffer_total = rocksdb_budget - cache_size;     // 25% para memtables
-        
-        let write_buffer_size = (write_buffer_total / 2).max(8 * 1024 * 1024).min(128 * 1024 * 1024);
-        
+        // OOM Guard: Cap LRU Cache and WriteBuffer to ~60% of effective capacity
+        let rocksdb_budget = (effective_memory as f64 * 0.60) as usize;
+        let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
+        let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
+
+        let write_buffer_size = (write_buffer_total / 2)
+            .max(8 * 1024 * 1024)
+            .min(128 * 1024 * 1024);
+
         opts.set_write_buffer_size(write_buffer_size);
         opts.set_max_write_buffer_number(2);
 
         let cache = rocksdb::Cache::new_lru_cache(cache_size);
         bopts.set_block_cache(&cache);
         cold_bopts.set_block_cache(&cache);
-        
-        eprintln!("🧠 [ROCKSDB] FFI Memory Guard: RAM Budget={}MB | Cache={}MB | MemTable={}MB", 
-            rocksdb_budget / 1024 / 1024, cache_size / 1024 / 1024, write_buffer_size / 1024 / 1024);
+
+        info!(
+            rocksdb_budget_mb = rocksdb_budget / 1024 / 1024,
+            cache_mb = cache_size / 1024 / 1024,
+            memtable_mb = write_buffer_size / 1024 / 1024,
+            "RocksDB memory configured"
+        );
 
         opts.set_block_based_table_factory(&bopts);
-        
-        if caps.profile == crate::hardware::HardwareProfile::Survival || caps.total_memory < 16 * 1024 * 1024 * 1024 {
+
+        if caps.profile == crate::hardware::HardwareProfile::Survival
+            || effective_memory < 16 * 1024 * 1024 * 1024
+        {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
-            // Redirigir el log de Hardware a stderr explícitamente para cumplimiento MCP
-            eprintln!("🚨 [HARDWARE] RAM < 16GB. Forzando MMap Access (Survival Mode).");
+            warn!(effective_memory_gb = effective_memory / 1024 / 1024 / 1024, "RAM < 16GB — MMap access forced (Survival Mode)");
         }
 
-        // Lóbulos Calientes (LZ4 veloz) y Pines de Memoria
+        // Fast layers (LZ4)
         let mut default_opts = opts.clone();
         default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        default_opts.set_block_based_table_factory(&bopts); // Pinned Bloom
-        
-        // shadow_kernel: Lz4 pero sin pinning agresivo
+        default_opts.set_block_based_table_factory(&bopts);
+
+        // tombstone_storage: Unpinned bloom for efficiency
         let mut shadow_opts = rocksdb::Options::default();
         shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        shadow_opts.set_block_based_table_factory(&cold_bopts); // Unpinned Bloom
-        
-        let mut mem_opts = rocksdb::Options::default();
-        mem_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        mem_opts.set_block_based_table_factory(&bopts); // Pinned Bloom
-        
-        // Tombstones
+        shadow_opts.set_block_based_table_factory(&cold_bopts);
+
+        let mut archive_opts = rocksdb::Options::default();
+        archive_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+        archive_opts.set_block_based_table_factory(&bopts);
+
         let mut tombstone_opts = default_opts.clone();
-        tombstone_opts.set_block_based_table_factory(&cold_bopts); // Unpinned Bloom
+        tombstone_opts.set_block_based_table_factory(&cold_bopts);
 
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
-            rocksdb::ColumnFamilyDescriptor::new("shadow_kernel", shadow_opts),
-            rocksdb::ColumnFamilyDescriptor::new("deep_memory", mem_opts),
+            rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
+            rocksdb::ColumnFamilyDescriptor::new("compressed_archive", archive_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
         ];
 
-        let db = DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        let db = DB::open_cf_descriptors(&opts, path, cf_descriptors)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
-        // ── Phase 35: Hardware-Adaptive HNSW Backend ──────────────────
         let data_dir = PathBuf::from(path).join("data");
         let _ = std::fs::create_dir_all(&data_dir);
-        let index_path = data_dir.join("neural_index.bin");
+        let index_path = data_dir.join("vector_index.bin");
 
-        let use_mmap = caps.profile == crate::hardware::HardwareProfile::Survival
-            || caps.total_memory < 16 * 1024 * 1024 * 1024
-            || std::env::var("CONNECTOME_FORCE_MMAP").is_ok();
+        let use_mmap = config.force_mmap
+            || caps.profile == crate::hardware::HardwareProfile::Survival
+            || effective_memory < 16 * 1024 * 1024 * 1024
+            || std::env::var("VANTA_FORCE_MMAP").is_ok();
 
         let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
-            // Cold-start: reuse persisted index
             let mut idx = loaded;
             if use_mmap {
                 idx.backend = IndexBackend::new_mmap(index_path.clone());
-                eprintln!("🛡️ [HNSW] Survival Mode: MMap backend activated");
+                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (cold-start)");
             }
             idx
         } else {
-            // Fresh start or corrupt file
             if use_mmap {
-                eprintln!("🛡️ [HNSW] Survival Mode: MMap backend activated (fresh)");
+                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (fresh)");
                 CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
             } else {
-                eprintln!("⚡ [HNSW] Performance/Enterprise Mode: InMemory backend");
+                info!(backend = "in-memory", "HNSW Performance Mode: InMemory backend");
                 CPIndex::new()
             }
         };
 
-        Ok(Self { 
+        let vector_store_path = data_dir.join("vector_store.vanta");
+        let vector_store = VantaFile::open(vector_store_path, 1024 * 1024 * 64)?;
+
+        let wal_path = data_dir.join("vanta.wal");
+        let wal_writer = crate::wal::WalWriter::open(&wal_path)?;
+
+        let admission_filter = crate::governance::admission_filter::AdmissionFilter::new(100_000);
+        let consistency_buffer = crate::governance::consistency::ConsistencyBuffer::new();
+        let conflict_resolver = crate::governance::conflict_resolver::ConflictResolver::new();
+
+        Ok(Self {
             db,
             hnsw: RwLock::new(hnsw),
-            cortex_ram: RwLock::new(std::collections::HashMap::new()),
-            thalamic_gate: crate::governance::thalamic_gate::ThalamicGate::new(5000),
-            uncertainty_buffer: crate::governance::uncertainty::UncertaintyBuffer::new(),
-            advocate: crate::governance::DevilsAdvocate::new(),
-            last_query_timestamp: AtomicU64::new(
-                SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
-            ),
-            emergency_rem_trigger: std::sync::atomic::AtomicBool::new(false),
+            volatile_cache: RwLock::new(std::collections::HashMap::new()),
+            admission_filter,
+            consistency_buffer,
+            conflict_resolver,
+            last_query_timestamp: AtomicU64::new(0),
+            emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
+            vector_store: RwLock::new(vector_store),
+            wal: std::sync::Arc::new(parking_lot::Mutex::new(Some(wal_writer))),
         })
     }
 
     pub fn touch_activity(&self) {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
         self.last_query_timestamp.store(now, Ordering::Release);
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
-        if self.thalamic_gate.is_rejected(node.id) {
-            return Err(ConnectomeError::Execution(format!("Node {} is blocked by ThalamicGate (recently rejected)", node.id)));
+        if self.admission_filter.is_blocked(node.id) {
+            return Err(VantaError::Execution(format!(
+                "Node {} is blocked by AdmissionFilter (recently rejected)",
+                node.id
+            )));
         }
 
         self.touch_activity();
 
-        // Creamos un clon ejecutable para actualizar metadatos de actividad antes de persistir
         let mut active_node = node.clone();
-        active_node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        active_node.last_accessed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
 
-        // 1. Durabilidad: Inserción directa (Write-Through)
-        let key = active_node.id.to_le_bytes();
-        let val = bincode::serialize(&active_node).map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-        self.db.put(&key, &val).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
-
-        // 2. L1 Cache / STN Storage
-        if active_node.neuron_type == crate::node::NeuronType::STNeuron {
-            let mut cache = self.cortex_ram.write().unwrap();
-            cache.insert(active_node.id, active_node.clone());
-
-            // OOM Guard (Modo Camaleón): Regla del 25%
-            let caps = crate::hardware::HardwareCapabilities::global();
-            let cortex_cap_bytes = caps.total_memory / 4;
-            // Aproximación: 1536 bytes promedio por nodo STN + overhead BTreeMap/Hash
-            let approx_node_size = 1536; 
-            let max_stn_nodes = (cortex_cap_bytes / approx_node_size) as usize;
-
-            if cache.len() > max_stn_nodes {
-                self.emergency_rem_trigger.store(true, Ordering::Release);
-            }
+        if let Some(ref mut wal_writer) = *self.wal.lock() {
+            wal_writer.append(&crate::wal::WalRecord::Insert(active_node.clone()))?;
         }
 
-        // 3. In-Memory Index Tracking (HNSW)
-        if active_node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-            if let crate::node::VectorRepresentations::Full(vec) = &active_node.vector {
-                let mut index = self.hnsw.write().unwrap();
-                index.add(active_node.id, 0, crate::node::VectorRepresentations::Full(vec.clone())); // MVP mask 0
+        let storage_offset = {
+            let mut vstore = self.vector_store.write();
+            let offset = vstore.write_cursor;
+
+            let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+            let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
+                v.len()
+            } else {
+                0
+            };
+            let vec_size = (vec_len * 4) as u64;
+            let total_needed = offset + header_size + vec_size;
+
+            if total_needed > vstore.size {
+                let new_size = vstore.size * 2;
+                vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
+                vstore.mmap = unsafe {
+                    MmapOptions::new()
+                        .map_mut(&vstore.file)
+                        .map_err(VantaError::IoError)?
+                };
+                vstore.size = new_size;
+            }
+
+            let mut header = DiskNodeHeader::new(active_node.id);
+            header.vector_offset = offset + header_size;
+            header.vector_len = vec_len as u32;
+            header.flags = active_node.flags.0;
+            header.bitset = active_node.bitset;
+            header.confidence_score = active_node.confidence_score;
+            header.importance = active_node.importance;
+            header.tier = match active_node.tier {
+                crate::node::NodeTier::Hot => 1u8,
+                crate::node::NodeTier::Cold => 0u8,
+            };
+            header.edge_count = active_node.edges.len() as u16;
+
+            vstore.write_header(offset, &header)?;
+
+            if let crate::node::VectorRepresentations::Full(ref vec) = active_node.vector {
+                let vec_bytes = vec.as_bytes();
+                vstore.mmap
+                    [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
+                    .copy_from_slice(vec_bytes);
+            }
+
+            vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
+            vstore.save_cursor();
+            offset
+        };
+
+        let key = active_node.id.to_le_bytes();
+        let metadata = NodeMetadata {
+            relational: active_node.relational.clone(),
+            edges: active_node.edges.clone(),
+        };
+        let metadata_val = bincode::serialize(&metadata)
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        self.db
+            .put(key, &metadata_val)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        {
+            let mut hnsw = self.hnsw.write();
+            hnsw.add(
+                active_node.id,
+                active_node.bitset,
+                active_node.vector.clone(),
+                storage_offset,
+            );
+        }
+
+        if active_node.tier == crate::node::NodeTier::Hot {
+            let mut cache = self.volatile_cache.write();
+            cache.insert(active_node.id, active_node.clone());
+
+            let caps = crate::hardware::HardwareCapabilities::global();
+            let cache_cap_bytes = caps.total_memory / 4;
+            let approx_node_size = 1536;
+            let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
+
+            if cache.len() > max_nodes {
+                self.emergency_maintenance_trigger.store(true, Ordering::Release);
             }
         }
 
         Ok(())
     }
 
-    /// Refresh the in-memory HNSW index for a node that was mutated outside of insert().
-    /// Called by SleepWorker after consolidation to prevent index-disk divergence.
-    pub fn refresh_index(&self, node: &UnifiedNode) {
+    pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) {
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                let mut index = self.hnsw.write().unwrap();
-                index.add(node.id, node.bitset, crate::node::VectorRepresentations::Full(vec.clone()));
+                let mut index = self.hnsw.write();
+                index.add(
+                    node.id,
+                    node.bitset,
+                    crate::node::VectorRepresentations::Full(vec.clone()),
+                    storage_offset,
+                );
             }
         }
     }
 
-    /// Consolidate a node from STN (RAM) to LTN (disk) while keeping the HNSW index in sync.
-    /// Used by the SleepWorker during REM phase to avoid the raw db.put() gap.
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
         let mut persisted = node.clone();
-        persisted.neuron_type = crate::node::NeuronType::LTNeuron;
+        persisted.tier = crate::node::NodeTier::Cold;
 
         let key = persisted.id.to_le_bytes();
         let val = bincode::serialize(&persisted)
-            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-        self.db.put(&key, &val)
-            .map_err(|e| ConnectomeError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-            ))?;
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        self.db
+            .put(key, &val)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
-        // Keep the HNSW index synchronized
-        self.refresh_index(&persisted);
+        self.refresh_index(&persisted, 0);
 
-        // Evict from cortex_ram: the node is now an LTNeuron on disk,
-        // so it should no longer live in the STN cache.
         {
-            let mut cache = self.cortex_ram.write().unwrap();
+            let mut cache = self.volatile_cache.write();
             cache.remove(&node.id);
         }
 
         Ok(())
     }
 
-    /// Insert a node directly into a named Column Family (e.g. "deep_memory").
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
-        let cf = self.db.cf_handle(cf_name)
-            .ok_or_else(|| ConnectomeError::Execution(
-                format!("Column Family '{}' not found", cf_name)
-            ))?;
+        let cf = self.db.cf_handle(cf_name).ok_or_else(|| {
+            VantaError::Execution(format!("Column Family '{}' not found", cf_name))
+        })?;
         let key = node.id.to_le_bytes();
-        let val = bincode::serialize(node)
-            .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-        self.db.put_cf(&cf, &key, &val)
-            .map_err(|e| ConnectomeError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-            ))?;
+        let val =
+            bincode::serialize(node).map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        self.db
+            .put_cf(&cf, key, &val)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
-        // Also update the HNSW index so the summary is searchable
-        self.refresh_index(node);
+        self.refresh_index(node, 0);
         Ok(())
     }
 
     pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
         self.touch_activity();
 
-        // 1. Buscar en L1 Cache (cortex_ram)
         {
-            let mut cache = self.cortex_ram.write().unwrap();
+            let mut cache = self.volatile_cache.write();
             if let Some(node) = cache.get_mut(&id) {
-                // Verificar si es una lápida en RAM (Invalidation check)
-                if node.flags.is_tombstone() {
+                if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                     return Ok(None);
                 }
-                // Actualizar Heurísticas Base
                 node.hits += 1;
-                node.last_accessed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
-                return Ok(Some(node.clone()));
-            }
-        }
-
-        // 2. Si es Miss de RAM, Buscar en LTN (RocksDB)
-        let key = id.to_le_bytes();
-        match self.db.get_pinned(&key) {
-            Ok(Some(slice)) => {
-                let mut node: UnifiedNode = bincode::deserialize(&slice)
-                    .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-
-                // Incrementar hits y recencia ANTES de evaluar el umbral.
-                node.hits = node.hits.saturating_add(1);
                 node.last_accessed = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_millis() as u64;
-
-                // Persistir el contador actualizado. Sin esto cada get() ve el valor
-                // serializado original y el umbral de promoción nunca se alcanza.
-                let updated_val = bincode::serialize(&node)
-                    .map_err(|e| ConnectomeError::SerializationError(e.to_string()))?;
-                self.db.put(&key, &updated_val)
-                    .map_err(|e| ConnectomeError::IoError(
-                        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-                    ))?;
-
-                // --- Dynamic Memory Promotion (Fase 20.5) ---
-                // Al alcanzar el umbral de popularidad, el nodo asciende de LTN a STN.
-                if node.hits >= 50 {
-                    node.neuron_type = crate::node::NeuronType::STNeuron;
-                    let mut cache = self.cortex_ram.write().unwrap();
-                    cache.insert(node.id, node.clone());
-                }
-
-                Ok(Some(node))
+                return Ok(Some(node.clone()));
             }
-            Ok(None) => Ok(None),
-            Err(e) => Err(ConnectomeError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-            )),
         }
+
+        let key = id.to_le_bytes();
+        let metadata_res = match self.db.get(key) {
+            Ok(Some(res)) => res,
+            Ok(None) => return Ok(None),
+            Err(e) => return Err(VantaError::IoError(std::io::Error::other(e.to_string()))),
+        };
+
+        let metadata: NodeMetadata = bincode::deserialize(&metadata_res)
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+
+        let hnsw = self.hnsw.read();
+        let index_node = match hnsw.nodes.get(&id) {
+            Some(n) => n,
+            None => return Ok(None),
+        };
+        let storage_offset = index_node.storage_offset;
+
+        let vstore = self.vector_store.read();
+        let header = match vstore.read_header(storage_offset) {
+            Some(h) => h,
+            None => return Ok(None),
+        };
+
+        if (header.flags & 0x8) != 0 {
+            return Ok(None);
+        }
+
+        let vec_start = header.vector_offset as usize;
+        let vec_end = vec_start + (header.vector_len as usize * 4);
+        if vec_end > vstore.size as usize {
+            return Ok(None); 
+        }
+
+        let vec_bytes = &vstore.mmap[vec_start..vec_end];
+        let f32_vec: &[f32] = unsafe {
+            std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
+        };
+
+        let mut node = UnifiedNode::new(id);
+        node.bitset = header.bitset;
+        node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
+        node.relational = metadata.relational;
+        node.edges = metadata.edges;
+        node.confidence_score = header.confidence_score;
+        node.importance = header.importance;
+        node.tier = if header.tier == 1 {
+            crate::node::NodeTier::Hot
+        } else {
+            crate::node::NodeTier::Cold
+        };
+        node.flags = crate::node::NodeFlags(header.flags);
+
+        Ok(Some(node))
     }
 
-    pub fn delete(&self, id: u64, reason: &str) -> Result<()> {
-        if let Some(node) = self.get(id)? {
-            let key = id.to_le_bytes();
-            let val = bincode::serialize(&node).unwrap();
-
-            use std::hash::{Hash, Hasher};
-            use std::collections::hash_map::DefaultHasher;
-            let mut hasher = DefaultHasher::new();
-            val.hash(&mut hasher);
-            let hash = hasher.finish();
-
-            let tomb = AuditableTombstone::new(id, reason, hash);
-            let tomb_val = bincode::serialize(&tomb).unwrap();
-
-            // 1. Invalidation: Marcar como Tombstone en RAM (Evita lecturas zombies)
-            {
-                let mut cache = self.cortex_ram.write().unwrap();
-                let mut tomb_node = node.clone();
-                tomb_node.flags.set(crate::node::NodeFlags::TOMBSTONE);
-                cache.insert(id, tomb_node);
-            }
-
-            let mut batch = WriteBatch::default();
-            
-            let cf_default = self.db.cf_handle("default").unwrap();
-            let cf_shadow = self.db.cf_handle("shadow_kernel").unwrap();
-            let cf_tomb = self.db.cf_handle("tombstones").unwrap();
-
-            batch.put_cf(&cf_shadow, &key, &val);
-            batch.put_cf(&cf_tomb, &key, &tomb_val);
-            batch.delete_cf(&cf_default, &key);
-
-            self.db.write(batch).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
-            Ok(())
-        } else {
-            Ok(())
+    pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
+        if let Some(ref mut wal_writer) = *self.wal.lock() {
+            wal_writer.append(&crate::wal::WalRecord::Delete { id })?;
         }
+
+        let hnsw = self.hnsw.write();
+        if let Some(index_node) = hnsw.nodes.get(&id) {
+            let offset = index_node.storage_offset;
+
+            let mut vstore = self.vector_store.write();
+            if let Some(mut header) = vstore.read_header(offset).cloned() {
+                header.flags |= 0x8;
+                vstore.write_header(offset, &header)?;
+            }
+        }
+
+        self.volatile_cache.write().remove(&id);
+
+        let key = id.to_le_bytes();
+        self.db
+            .delete(key)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        Ok(())
     }
 
     pub fn purge_permanent(&self, id: u64) -> Result<()> {
         let key = id.to_le_bytes();
         let mut batch = WriteBatch::default();
         let cf_default = self.db.cf_handle("default").unwrap();
-        let cf_shadow = self.db.cf_handle("shadow_kernel").unwrap();
+        let cf_tomb_storage = self.db.cf_handle("tombstone_storage").unwrap();
         let cf_tomb = self.db.cf_handle("tombstones").unwrap();
 
-        batch.delete_cf(&cf_default, &key);
-        batch.delete_cf(&cf_shadow, &key);
-        batch.delete_cf(&cf_tomb, &key);
-        
-        self.db.write(batch).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        batch.delete_cf(&cf_default, key);
+        batch.delete_cf(&cf_tomb_storage, key);
+        batch.delete_cf(&cf_tomb, key);
+
+        self.db
+            .write(batch)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
         Ok(())
     }
 
-    pub fn is_tombstoned(&self, id: u64) -> Result<bool> {
+    pub fn is_deleted(&self, id: u64) -> Result<bool> {
         let key = id.to_le_bytes();
         let cf_tomb = self.db.cf_handle("tombstones").unwrap();
-        match self.db.get_cf(&cf_tomb, &key) {
+        match self.db.get_cf(&cf_tomb, key) {
             Ok(Some(_)) => Ok(true),
             Ok(None) => Ok(false),
-            Err(e) => Err(ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))),
+            Err(e) => Err(VantaError::IoError(std::io::Error::other(e.to_string()))),
         }
+    }
+
+    pub fn trigger_compaction(&self) -> Result<()> {
+        let vstore = self.vector_store.write();
+        let hnsw = self.hnsw.read();
+
+        let tombstone_count = hnsw
+            .nodes
+            .values()
+            .filter(|n| {
+                if let Some(h) = vstore.read_header(n.storage_offset) {
+                    (h.flags & 0x8) != 0 
+                } else {
+                    false
+                }
+            })
+            .count();
+
+        let total_nodes = hnsw.nodes.len();
+        if total_nodes > 0 && (tombstone_count as f32 / total_nodes as f32) > 0.20 {
+            warn!(tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32, "Fragmentation >20% — offline compaction triggered");
+        }
+
+        Ok(())
     }
 
     pub fn flush(&self) -> Result<()> {
         let mut flush_opt = FlushOptions::default();
         flush_opt.set_wait(true);
-        self.db.flush_opt(&flush_opt).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))?;
+        self.db
+            .flush_opt(&flush_opt)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
-        // Phase 35: Persist HNSW to neural_index.bin on flush
-        self.persist_hnsw_index();
+        self.save_vector_index();
 
         Ok(())
     }
 
-    /// Persist the HNSW index to disk (neural_index.bin).
-    /// Used by flush() and trigger_panic_state() for durability.
-    fn persist_hnsw_index(&self) {
-        let index_path = self.data_dir.join("neural_index.bin");
-        let mut index = self.hnsw.write().unwrap();
+    fn save_vector_index(&self) {
+        let index_path = self.data_dir.join("vector_index.bin");
+        let mut index = self.hnsw.write();
 
-        // If MMap backend, use mmap sync path
         if index.backend.is_mmap() {
             if let Err(e) = index.sync_to_mmap() {
-                eprintln!("⚠️ [HNSW] Failed to sync MMap index: {}", e);
+                warn!(err = %e, "Failed to sync MMap vector index");
             }
         } else {
-            // InMemory: serialize to file for cold-start recovery
             if let Err(e) = index.persist_to_file(&index_path) {
-                eprintln!("⚠️ [HNSW] Failed to persist index: {}", e);
+                warn!(err = %e, "Failed to persist vector index to file");
             }
         }
     }
 
+
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
-        let cp = Checkpoint::new(&self.db).map_err(|e| ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, format!("Error creando inicialización de Checkpoint: {}", e))))?;
-        
-        let mut save_path = std::path::PathBuf::from("./connectome_snapshots");
-        if let Ok(override_dir) = env::var("CONNECTOME_BACKUP_DIR") {
+        let cp = Checkpoint::new(&self.db).map_err(|e| {
+            VantaError::IoError(std::io::Error::other(format!(
+                "Error creating Checkpoint initializer: {}",
+                e
+            )))
+        })?;
+
+        let mut save_path = std::path::PathBuf::from("./vantadb_snapshots");
+        if let Ok(override_dir) = env::var("VANTA_BACKUP_DIR") {
             save_path = std::path::PathBuf::from(override_dir);
         }
         save_path.push(timestamp_name);
-        
-        // Crear directorio padre si no existe (RocksDB requiere que el padre exista pero el destino no)
+
         if let Some(parent) = save_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
 
         cp.create_checkpoint(&save_path).map_err(|e| {
-            ConnectomeError::IoError(std::io::Error::new(std::io::ErrorKind::Other, format!("Error escribiendo Life Insurance Checkpoint: {}", e)))
+            VantaError::IoError(std::io::Error::other(format!(
+                "Error writing Life Insurance Checkpoint: {}",
+                e
+            )))
         })?;
-        
+
         Ok(())
     }
 
-    /// Rehidrata nodos inactivos y olvidados mediante Arqueología Semántica.
-    /// Utiliza get_pinned para transferencia zero-copy directo desde el Shadow Kernel.
-    pub fn rehydrate(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
-        let cf = self.db.cf_handle("shadow_kernel")
-            .ok_or_else(|| ConnectomeError::Execution(
-                "Column Family 'shadow_kernel' not found".to_string()
-            ))?;
-            
-        let mut rehydrated = Vec::new();
-        // Escaneo de llaves en shadow_kernel
+    pub fn recover_archived_nodes(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
+        let cf = self.db.cf_handle("tombstone_storage").ok_or_else(|| {
+            VantaError::Execution("Tombstone storage not found".to_string())
+        })?;
+
+        let mut recovered = Vec::new();
         for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
-            let (k, _) = item.map_err(|e| ConnectomeError::IoError(
-                std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-            ))?;
-            
-            // Requerimiento de Precisión: usar get_pinned
+            let (k, _) =
+                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
             if let Ok(Some(slice)) = self.db.get_pinned_cf(&cf, &k) {
                 if let Ok(mut node) = bincode::deserialize::<crate::node::UnifiedNode>(&slice) {
-                    // Verificar pertinencia: existir en shadow_kernel ya implica archivado.
-                    // (delete() almacena el nodo original SIN flag TOMBSTONE en este CF)
-                    if node.edges.iter().any(|e| e.target == summary_id && e.label == "belonged_to") {
-                        // Resucitación Efímera
+                    if node
+                        .edges
+                        .iter()
+                        .any(|e| e.target == summary_id && e.label == "belonged_to")
+                    {
                         node.flags.set(crate::node::NodeFlags::ACTIVE);
-                        node.flags.set(crate::node::NodeFlags::REHYDRATED);
-                        node.neuron_type = crate::node::NeuronType::STNeuron;
-                        
-                        // Sincronización Inmediata Vectorial
-                        self.refresh_index(&node);
-                        
-                        // Carga en Cortex
+                        node.flags.set(crate::node::NodeFlags::RECOVERED);
+                        node.tier = crate::node::NodeTier::Hot;
+
+                        self.refresh_index(&node, 0);
+
                         {
-                            let mut cache = self.cortex_ram.write().unwrap();
+                            let mut cache = self.volatile_cache.write();
                             cache.insert(node.id, node.clone());
                         }
-                        rehydrated.push(node);
+                        recovered.push(node);
                     }
                 }
             }
         }
-        Ok(rehydrated)
+        Ok(recovered)
     }
 
-    /// Dispara un estado de pánico del sistema controlado para proteger el grafo.
-    /// Frena la ejecución, sincroniza logs a disco, emite el rastro y termina el proceso.
-    pub fn trigger_panic_state(&self, reason: &str, stmt: Option<&str>) -> ! {
+    pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
-        println!("🔥 CONNECTOMEDB KERNEL PANIC: Security Axiom Violated 🔥");
+        println!("🔥 CONNECTOMEDB SYSTEM EMERGENCY: Security Constraint Violated 🔥");
         println!("=======================================================");
         println!("Reason: {}", reason);
         if let Some(s) = stmt {
             println!("Offending Transaction: {}", s);
         }
-        
-        println!("Attempting controlled WAL flush...");
+
+        println!("Attempting controlled flush...");
         if let Err(e) = self.flush() {
-            eprintln!("CRITICAL ERROR: Failed to flush OS buffers during panic: {}", e);
+            eprintln!(
+                "CRITICAL ERROR: Failed to flush buffers during shutdown: {}",
+                e
+            );
         } else {
-            println!("Buffers successfully flushed to disk. Graph state secured.");
+            println!("Buffers flushed successfully.");
         }
-
-        // Phase 35: Emergency HNSW persistence before exit
-        println!("Persisting HNSW neural index...");
-        self.persist_hnsw_index();
-        println!("Neural index secured.");
-
-        println!("System halted to prevent database corruption.");
         std::process::exit(1);
     }
 }

@@ -1,24 +1,28 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use connectomedb::storage::StorageEngine;
-use connectomedb::node::UnifiedNode;
-use tempfile::tempdir;
-use std::sync::Arc;
-use tokio::runtime::Runtime;
 use std::env;
+use std::sync::Arc;
+use tempfile::tempdir;
+use tokio::runtime::Runtime;
+use vantadb::node::UnifiedNode;
+use vantadb::storage::StorageEngine;
 
 fn run_stress_test(c: &mut Criterion) {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
-    
-    // Abrir motor con BlockCache (2GB) y Bloom Filter (10 bit/key) 
+
+    // Abrir motor con BlockCache (2GB) y Bloom Filter (10 bit/key)
     let storage = Arc::new(StorageEngine::open(db_path).unwrap());
     let rt = Runtime::new().unwrap();
 
     let is_ultra = env::var("STRESS_LEVEL").unwrap_or_default() == "ULTRA";
     let num_nodes = if is_ultra { 1_000_000 } else { 100_000 };
 
-    println!("💉 Inyectando {} nodos... (Stress Level: {})", num_nodes, if is_ultra { "ULTRA" } else { "NORMAL" });
-    
+    println!(
+        "💉 Inyectando {} nodos... (Stress Level: {})",
+        num_nodes,
+        if is_ultra { "ULTRA" } else { "NORMAL" }
+    );
+
     // Inyección Preparatoria
     for i in 1..=num_nodes {
         let node = UnifiedNode::new(i);
@@ -28,7 +32,7 @@ fn run_stress_test(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("The Memory Abyss");
     group.sample_size(10);
-    
+
     group.bench_function("Point Lookup Valido", |b| {
         b.to_async(&rt).iter(|| async {
             // Nodo que seguro existe, forzando fetch real

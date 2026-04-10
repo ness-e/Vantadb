@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# NexusDB Intelligent Entrypoint
+# VantaDB Intelligent Entrypoint
 # Detects Docker CGroup Memory Limits and injects them to HardwareScout
 
 MEMORY_LIMIT=""
@@ -25,10 +25,10 @@ if [ -n "$MEMORY_LIMIT" ]; then
     # Subtract 10% for OS / buffer safety margin
     # Using awk for large number arithmetic natively
     SAFE_LIMIT=$(awk -v mem="$MEMORY_LIMIT" 'BEGIN { printf "%.0f", mem * 0.9 }')
-    export CONNECTOMEDB_MEMORY_LIMIT=$SAFE_LIMIT
+    export VANTADB_MEMORY_LIMIT=$SAFE_LIMIT
     echo "🛡️  [DOCKER] Memory Limit detected: $MEMORY_LIMIT bytes. Setting Safe Cap: $SAFE_LIMIT bytes."
 else
     echo "🛡️  [DOCKER] No Memory Limit detected. HardwareScout will use Host RAM."
 fi
 
-exec "/usr/local/bin/connectome-server" "$@"
+exec "/usr/local/bin/vanta-server" "$@"

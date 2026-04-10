@@ -1,12 +1,12 @@
 use thiserror::Error;
 
-/// Core error type for all ConnectomeDB operations
+/// Core error type for all VantaDB operations
 #[derive(Error, Debug)]
-pub enum ConnectomeError {
-    #[error("Neuron not found: {0}")]
+pub enum VantaError {
+    #[error("Node not found: {0}")]
     NodeNotFound(u64),
 
-    #[error("Duplicate neuron ID: {0}")]
+    #[error("Duplicate node ID: {0}")]
     DuplicateNode(u64),
 
     #[error("Vector dimension mismatch: expected {expected}, got {got}")]
@@ -32,4 +32,4 @@ pub enum ConnectomeError {
 }
 
 /// Crate-wide Result alias
-pub type Result<T> = std::result::Result<T, ConnectomeError>;
+pub type Result<T> = std::result::Result<T, VantaError>;

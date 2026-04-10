@@ -11,16 +11,10 @@ pub enum InvalidationEvent {
         new_epoch: u32,
         reason: String,
     },
-    /// A node was flagged as HALLUCINATION and purged from the graph.
-    HallucinationPurged {
-        node_id: u64,
-        reason: String,
-    },
+    /// A node was flagged as INVALIDATED and purged from the graph.
+    InvalidatedPurged { node_id: u64, reason: String },
     /// Hardware profile changed, forcing a full re-benchmark.
-    EnvironmentDrift {
-        old_hash: u64,
-        new_hash: u64,
-    },
+    EnvironmentDrift { old_hash: u64, new_hash: u64 },
 }
 
 /// Dispatcher that manages an async MPSC channel for invalidation events.
@@ -68,19 +62,22 @@ impl InvalidationDispatcher {
             reason,
         };
         if let Err(e) = sender.send(event).await {
-            eprintln!("⚠️ [Invalidation] Failed to emit PREMISE_INVALIDATED: {}", e);
+            eprintln!(
+                "⚠️ [Invalidation] Failed to emit PREMISE_INVALIDATED: {}",
+                e
+            );
         }
     }
 
-    /// Emit a HALLUCINATION_PURGED event.
-    pub async fn emit_hallucination_purged(
+    /// Emit a INVALIDATED_PURGED event.
+    pub async fn emit_invalidated_purged(
         sender: &mpsc::Sender<InvalidationEvent>,
         node_id: u64,
         reason: String,
     ) {
-        let event = InvalidationEvent::HallucinationPurged { node_id, reason };
+        let event = InvalidationEvent::InvalidatedPurged { node_id, reason };
         if let Err(e) = sender.send(event).await {
-            eprintln!("⚠️ [Invalidation] Failed to emit HALLUCINATION_PURGED: {}", e);
+            eprintln!("⚠️ [Invalidation] Failed to emit INVALIDATED_PURGED: {}", e);
         }
     }
 }
@@ -90,15 +87,20 @@ impl InvalidationDispatcher {
 pub async fn invalidation_listener(mut receiver: mpsc::Receiver<InvalidationEvent>) {
     while let Some(event) = receiver.recv().await {
         match &event {
-            InvalidationEvent::PremiseInvalidated { node_id, old_epoch, new_epoch, reason } => {
+            InvalidationEvent::PremiseInvalidated {
+                node_id,
+                old_epoch,
+                new_epoch,
+                reason,
+            } => {
                 eprintln!(
                     "🔴 [INVALIDATION] PREMISE_INVALIDATED: Node {} | Epoch {} → {} | Reason: {}",
                     node_id, old_epoch, new_epoch, reason
                 );
             }
-            InvalidationEvent::HallucinationPurged { node_id, reason } => {
+            InvalidationEvent::InvalidatedPurged { node_id, reason } => {
                 eprintln!(
-                    "🧨 [INVALIDATION] HALLUCINATION_PURGED: Node {} | Reason: {}",
+                    "🧨 [INVALIDATION] INVALIDATED_PURGED: Node {} | Reason: {}",
                     node_id, reason
                 );
             }

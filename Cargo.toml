@@ -1,28 +1,30 @@
 [package]
-name = "connectomedb"
-version = "0.5.0"
+name = "vantadb"
+version = "0.1.0"
 edition = "2021"
-description = "ConnectomeDB: A neural-inspired multimodel database for local AI agents. Maps vectors-graphs-tables like neurons in a brain."
+description = "VantaDB: An embedded multimodal database engine — vectors, graphs, and relational metadata unified in Rust."
 license = "Apache-2.0"
 readme = "README.MD"
-keywords = ["database", "vector", "graph", "ai", "connectome"]
+keywords = ["database", "vector", "graph", "embedded", "rust"]
 categories = ["database-implementations"]
 
 [dependencies]
-# ── Fase 1: Core ──
+# ── Core ──
 serde = { version = "1", features = ["derive"] }
+chrono = "0.4"
 bincode = "1.3"
 thiserror = "1"
 parking_lot = "0.12"
+zerocopy = { version = "0.8", features = ["derive"] }
 
-# ── Fase 2: Parser + Storage ──
+# ── Parser + Storage ──
 rand = "0.8"
 nom = "7"
 num-traits = "0.2"
 arrow = { version = "53", features = ["ipc"] }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 
-# ── Fase 3: Async + Integrations + Server ──
+# ── Async + Integrations + Server ──
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 reqwest = { version = "0.12", features = ["json"] }
 axum = "0.7"
@@ -34,14 +36,23 @@ cpufeatures = "0.2"
 sysinfo = "0.30"
 memmap2 = "0.9"
 
+# ── Console UX ──
+indicatif = "0.17"
+console = "0.15"
+rayon = "1.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
 [features]
 python_sdk = ["pyo3"]
+experimental = []
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
 http = "1"
+futures = "0.3"
 
 [[bench]]
 name = "hybrid_queries"
@@ -56,114 +67,95 @@ name = "stress_test"
 harness = false
 
 [[bin]]
-name = "connectome-server"
-path = "src/bin/connectome-server.rs"
+name = "vanta-server"
+path = "src/bin/vanta-server.rs"
 test = false
 
 # ── Integration Tests ─────────────────────────────────────────────
 [[test]]
 name = "basic_node"
-path = "tests/basic_node.rs"
+path = "tests/core/basic_node.rs"
 
 [[test]]
 name = "integration"
-path = "tests/integration.rs"
+path = "tests/logic/integration.rs"
 
 [[test]]
 name = "server"
-path = "tests/server.rs"
+path = "tests/api/server.rs"
 
 [[test]]
 name = "vector_scale_check"
-path = "tests/vector_scale_check.rs"
+path = "tests/core/vector_scale_check.rs"
 
 [[test]]
 name = "mutations"
-path = "tests/mutations.rs"
+path = "tests/storage/mutations.rs"
 
 [[test]]
 name = "chaos_integrity"
-path = "tests/chaos_integrity.rs"
+path = "tests/storage/chaos_integrity.rs"
 
 [[test]]
 name = "parser"
-path = "tests/parser.rs"
-
-[[test]]
-name = "memory_promotion"
-path = "tests/memory_promotion.rs"
+path = "tests/logic/parser.rs"
 
 [[test]]
 name = "executor"
-path = "tests/executor.rs"
+path = "tests/logic/executor.rs"
 
 [[test]]
 name = "graph"
-path = "tests/graph.rs"
+path = "tests/core/graph.rs"
 
 [[test]]
 name = "storage"
-path = "tests/storage.rs"
+path = "tests/storage/storage.rs"
 
 [[test]]
 name = "hnsw"
-path = "tests/hnsw.rs"
+path = "tests/core/hnsw.rs"
 
 [[test]]
 name = "gc"
-path = "tests/gc.rs"
+path = "tests/storage/gc.rs"
 
 [[test]]
 name = "governor"
-path = "tests/governor.rs"
-
-[[test]]
-name = "neural_summarization"
-path = "tests/neural_summarization.rs"
-
-[[test]]
-name = "cognitive_sovereignty"
-path = "tests/cognitive_sovereignty.rs"
+path = "tests/logic/governor.rs"
 
 [[test]]
 name = "mcp_integration"
-path = "tests/mcp_integration.rs"
-
-[[test]]
-name = "memory_rehydration"
-path = "tests/memory_rehydration.rs"
-
-[[test]]
-name = "thrashing_prevention"
-path = "tests/thrashing_prevention.rs"
+path = "tests/api/mcp_integration.rs"
 
 [[test]]
 name = "hardware_profiles"
-path = "tests/hardware_profiles.rs"
+path = "tests/certification/hardware_profiles.rs"
 
 [[test]]
 name = "structured_api_v2"
-path = "tests/structured_api_v2.rs"
+path = "tests/api/structured_api_v2.rs"
 
 [[test]]
 name = "columnar"
-path = "tests/columnar.rs"
-
-[[test]]
-name = "lisp_logic"
-path = "tests/lisp_logic.rs"
-
-[[test]]
-name = "circadian_cycle"
-path = "tests/circadian_cycle.rs"
+path = "tests/logic/columnar.rs"
 
 [[test]]
 name = "mmap_index"
-path = "tests/mmap_index.rs"
+path = "tests/storage/mmap_index.rs"
 
 [[test]]
-name = "immunology"
-path = "tests/immunology.rs"
+name = "stress_protocol"
+path = "tests/certification/stress_protocol.rs"
+
+[[test]]
+name = "hnsw_validation"
+path = "tests/certification/hnsw_validation.rs"
+
+[[test]]
+name = "hnsw_recall_certification"
+path = "tests/certification/hnsw_recall.rs"
+
 
 [profile.release]
 lto = "thin"
@@ -173,5 +165,9 @@ opt-level = 3
 [workspace]
 members = [
     ".",
-    "nexusdb-python"
+    "vantadb-python"
 ]
+
+[profile.test]
+debug = 0
+opt-level = 3

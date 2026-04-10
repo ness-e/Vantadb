@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help us improve ConnectomeDB.
+description: Create a report to help us improve VantaDB.
 title: "[BUG] "
 labels: ["bug", "triage"]
 body:
@@ -10,8 +10,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: ConnectomeDB Version
-      description: "What version of ConnectomeDB are you using? (e.g. `connectomedb-cli --version`)"
+      label: VantaDB Version
+      description: "What version of VantaDB are you using? (e.g. `vantadb-cli --version`)"
       placeholder: "e.g. 1.0.0"
     validations:
       required: true
@@ -44,7 +44,7 @@ body:
       label: Steps to Reproduce
       description: "How can we reproduce the problem? (Provide the specific IQL query if applicable)"
       value: |
-        1. Run `connectomedb-server`
+        1. Run `vantadb-server`
         2. Execute query `FROM...`
         3. See error
     validations:

@@ -1,7 +1,7 @@
+use crate::error::{Result, VantaError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
-use crate::error::{ConnectomeError, Result};
 
 #[derive(Serialize)]
 struct OllamaEmbeddingRequest<'a> {
@@ -28,13 +28,13 @@ impl Default for LlmClient {
 
 impl LlmClient {
     pub fn new() -> Self {
-        let base_url = env::var("CONNECTOME_LLM_URL")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
-        
+        let base_url =
+            env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
+
         // El predeterminado de ollama para embeddings vectoriales es nomic-embed-text o all-minilm
-        let default_model = env::var("CONNECTOME_LLM_MODEL")
-            .unwrap_or_else(|_| "all-minilm".to_string());
-            
+        let default_model =
+            env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
+
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
@@ -48,55 +48,72 @@ impl LlmClient {
     /// Comunica al LLM para traducir un texto nativo a un vector HNSW compatible.
     pub async fn generate_embedding(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/api/embeddings", self.base_url);
-        
+
         let req_body = OllamaEmbeddingRequest {
             model: &self.default_model,
             input: text,
         };
 
-        let response = self.client.post(&url)
+        let response = self
+            .client
+            .post(&url)
             .json(&req_body)
             .send()
             .await
-            .map_err(|e| ConnectomeError::Execution(format!("Network error communicating with Inference Bridge: {}", e)))?;
+            .map_err(|e| {
+                VantaError::Execution(format!(
+                    "Network error communicating with Inference Bridge: {}",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(ConnectomeError::Execution(format!(
-                "Inference Bridge returned error status: {}", status
+            return Err(VantaError::Execution(format!(
+                "Inference Bridge returned error status: {}",
+                status
             )));
         }
 
-        let result: OllamaEmbeddingResponse = response.json().await
-            .map_err(|e| ConnectomeError::Execution(format!("Invalid response format from Inference Bridge: {}", e)))?;
+        let result: OllamaEmbeddingResponse = response.json().await.map_err(|e| {
+            VantaError::Execution(format!(
+                "Invalid response format from Inference Bridge: {}",
+                e
+            ))
+        })?;
 
         Ok(result.embedding)
     }
 
-    /// Invoke the LLM to generate a cognitive summary of a group of dying neurons.
-    /// The prompt includes semantic_valence and keywords so the summary preserves
-    /// the "hot spots" of the memory rather than being a generic recap.
+    /// Invoke the LLM to generate a semantic summary of a group of archived nodes.
+    /// The prompt includes importance and keywords so the summary preserves
+    /// the priority data rather than being a generic recap.
     pub async fn summarize_context(&self, nodes: &[&crate::node::UnifiedNode]) -> Result<String> {
-
         // Build structured context: each node contributes its content + importance metadata
         let mut context_blocks = Vec::new();
         for (i, node) in nodes.iter().enumerate() {
-            let content = node.relational.get("content")
+            let content = node
+                .relational
+                .get("content")
                 .and_then(|v| v.as_str())
                 .unwrap_or("[no content]");
 
-            let keywords = node.relational.get("keywords")
+            let keywords = node
+                .relational
+                .get("keywords")
                 .and_then(|v| v.as_str())
                 .unwrap_or("none");
 
-            let node_type = node.relational.get("type")
+            let node_type = node
+                .relational
+                .get("type")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
 
             context_blocks.push(format!(
-                "--- Memory Fragment #{} ---\nType: {}\nContent: {}\nSemantic Valence: {:.2}\nTrust Score: {:.2}\nKeywords: {}\nAccess Count: {}",
+                "--- Node Fragment #{} ---\nType: {}\nContent: {}\nSemantic Priority: {:.2}\nConfidence Score: {:.2}\nKeywords: {}\nAccess Count: {}",
                 i + 1, node_type, content,
-                node.semantic_valence, node.trust_score,
+                node.importance, node.confidence_score,
                 keywords, node.hits
             ));
         }
@@ -104,25 +121,26 @@ impl LlmClient {
         let full_context = context_blocks.join("\n\n");
 
         if full_context.trim().is_empty() {
-            return Err(ConnectomeError::Execution(
-                "No summarizable content found in node group".to_string()
+            return Err(VantaError::Execution(
+                "No summarizable content found in node group".to_string(),
             ));
         }
 
-        let system_prompt = "You are ConnectomeDB's Neural Compression Engine. \
-            Your task is to distill a group of related memory fragments into a single, \
+        let system_prompt = "You are VantaDB's Semantic Compression Engine. \
+            Your task is to distill a group of related data fragments into a single, \
             dense summary that preserves the most semantically important information. \
-            Pay special attention to fragments with high Semantic Valence — these are \
-            emotionally or contextually critical and their essence MUST be preserved. \
+            Pay special attention to fragments with high Semantic Priority — these are \
+            contextually critical and their essence MUST be preserved. \
             Output ONLY the summary text, no preamble or formatting.";
 
         let user_prompt = format!(
-            "Compress the following {} memory fragments into a single coherent summary:\n\n{}",
-            nodes.len(), full_context
+            "Compress the following {} nodes into a single coherent summary:\n\n{}",
+            nodes.len(),
+            full_context
         );
 
-        let summarize_model = env::var("CONNECTOME_LLM_SUMMARIZE_MODEL")
-            .unwrap_or_else(|_| "llama3".to_string());
+        let summarize_model =
+            env::var("VANTA_LLM_SUMMARIZE_MODEL").unwrap_or_else(|_| "llama3".to_string());
 
         let url = format!("{}/api/generate", self.base_url);
 
@@ -133,25 +151,30 @@ impl LlmClient {
             stream: false,
         };
 
-        let response = self.client.post(&url)
+        let response = self
+            .client
+            .post(&url)
             .json(&req_body)
             .send()
             .await
-            .map_err(|e| ConnectomeError::Execution(
-                format!("Network error during Neural Summarization: {}", e)
-            ))?;
+            .map_err(|e| {
+                VantaError::Execution(format!("Network error during Semantic Summarization: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(ConnectomeError::Execution(
-                format!("Inference Bridge returned error status during summarization: {}", status)
-            ));
+            return Err(VantaError::Execution(format!(
+                "Inference Bridge returned error status during summarization: {}",
+                status
+            )));
         }
 
-        let result: OllamaGenerateResponse = response.json().await
-            .map_err(|e| ConnectomeError::Execution(
-                format!("Invalid response format from Inference Bridge (summarize): {}", e)
-            ))?;
+        let result: OllamaGenerateResponse = response.json().await.map_err(|e| {
+            VantaError::Execution(format!(
+                "Invalid response format from Inference Bridge (summarize): {}",
+                e
+            ))
+        })?;
 
         Ok(result.response)
     }

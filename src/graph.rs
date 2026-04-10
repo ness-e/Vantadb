@@ -1,6 +1,6 @@
-use std::collections::{HashSet, VecDeque};
 use crate::error::Result;
 use crate::storage::StorageEngine;
+use std::collections::{HashSet, VecDeque};
 
 pub struct GraphTraverser<'a> {
     storage: &'a StorageEngine,
@@ -11,7 +11,7 @@ impl<'a> GraphTraverser<'a> {
         Self { storage }
     }
 
-    /// Evaluates a Breadth-First-Search starting from a designated set of root IDs, 
+    /// Evaluates a Breadth-First-Search starting from a designated set of root IDs,
     /// up to a maximum depth, returning the discovered distinct Node IDs.
     pub fn bfs_traverse(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let mut visited = HashSet::new();

@@ -1,4 +1,4 @@
-name: Release ConnectomeDB
+name: Release VantaDB
 
 on:
   push:
@@ -19,14 +19,14 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: connectomedb
-            asset_name: connectomedb-linux-amd64
+            artifact_name: vanta-server
+            asset_name: vanta-server-linux-amd64
           - os: macos-latest
-            artifact_name: connectomedb
-            asset_name: connectomedb-macos-amd64
+            artifact_name: vanta-server
+            asset_name: vanta-server-macos-amd64
           - os: windows-latest
-            artifact_name: connectomedb.exe
-            asset_name: connectomedb-windows-amd64.exe
+            artifact_name: vanta-server.exe
+            asset_name: vanta-server-windows-amd64.exe
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -99,8 +99,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/connectomedb:${{ steps.meta.outputs.VERSION }}
-            ghcr.io/${{ github.repository_owner }}/connectomedb:latest
+            ghcr.io/${{ github.repository_owner }}/vantadb:${{ steps.meta.outputs.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/vantadb:latest

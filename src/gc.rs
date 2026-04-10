@@ -1,6 +1,6 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::BTreeMap;
 use crate::storage::StorageEngine;
+use std::collections::BTreeMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct GcWorker<'a> {
     storage: &'a StorageEngine,
@@ -18,7 +18,7 @@ impl<'a> GcWorker<'a> {
 
     /// Registers a node to be automatically expired and cleared at `expiry_secs`
     pub fn register_ttl(&mut self, id: u64, expiry_secs: u64) {
-        self.index_ttl.entry(expiry_secs).or_insert_with(Vec::new).push(id);
+        self.index_ttl.entry(expiry_secs).or_default().push(id);
     }
 
     /// Triggers a sweep that clears old items. In production this runs in a `tokio::spawn` loop.
@@ -30,7 +30,7 @@ impl<'a> GcWorker<'a> {
 
         // Split the BTreeMap, taking all nodes where expiration <= now
         let mut expired_count = 0;
-        
+
         let mut keys_to_remove = Vec::new();
         for (expiry, ids) in self.index_ttl.iter() {
             if *expiry <= now {

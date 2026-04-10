@@ -9,7 +9,7 @@ pub enum Statement {
     Delete(DeleteStatement),
     Relate(RelateStatement),
     InsertMessage(InsertMessageStatement), // Conversational Primitive
-    Collapse(CollapseStatement), // Phase 32B: Uncertainty Zones
+    Collapse(CollapseStatement),           // Phase 32B: Consistency Records
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,13 +100,34 @@ pub struct RankBy {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalOperator {
-    Scan { entity: String },
-    Traverse { min_depth: u32, max_depth: u32, edge_label: String },
-    FilterRelational { field: String, op: RelOp, value: FieldValue },
-    VectorSearch { field: String, query_vec: String, min_score: f32 },
-    Project { fields: Vec<String> },
-    Sort { field: String, desc: bool },
-    Limit { top_k: usize },
+    Scan {
+        entity: String,
+    },
+    Traverse {
+        min_depth: u32,
+        max_depth: u32,
+        edge_label: String,
+    },
+    FilterRelational {
+        field: String,
+        op: RelOp,
+        value: FieldValue,
+    },
+    VectorSearch {
+        field: String,
+        query_vec: String,
+        min_score: f32,
+    },
+    Project {
+        fields: Vec<String>,
+    },
+    Sort {
+        field: String,
+        desc: bool,
+    },
+    Limit {
+        top_k: usize,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -121,16 +142,26 @@ impl Query {
     pub fn into_logical_plan(self) -> LogicalPlan {
         let mut ops = Vec::new();
 
-        ops.push(LogicalOperator::Scan { entity: self.from_entity });
+        ops.push(LogicalOperator::Scan {
+            entity: self.from_entity,
+        });
 
         if let Some(mut conds) = self.where_clause {
             for cond in conds.drain(..) {
                 match cond {
                     Condition::Relational(f, op, v) => {
-                        ops.push(LogicalOperator::FilterRelational { field: f, op, value: v });
+                        ops.push(LogicalOperator::FilterRelational {
+                            field: f,
+                            op,
+                            value: v,
+                        });
                     }
                     Condition::VectorSim(f, text, min) => {
-                        ops.push(LogicalOperator::VectorSearch { field: f, query_vec: text, min_score: min });
+                        ops.push(LogicalOperator::VectorSearch {
+                            field: f,
+                            query_vec: text,
+                            min_score: min,
+                        });
                     }
                 }
             }
@@ -145,7 +176,10 @@ impl Query {
         }
 
         if let Some(rank) = self.rank_by {
-            ops.push(LogicalOperator::Sort { field: rank.field, desc: rank.desc });
+            ops.push(LogicalOperator::Sort {
+                field: rank.field,
+                desc: rank.desc,
+            });
         }
 
         if let Some(fetch) = self.fetch {
@@ -160,9 +194,9 @@ impl Query {
     }
 }
 
-// ── ConnectomeDB Biological Nomenclature (Type Alias) ────────────
+// ── VantaDB Biological Nomenclature (Type Alias) ────────────
 
-/// The **Cortex** is ConnectomeDB's query decision engine.
+/// The **QueryPlanner** is VantaDB's query decision engine.
 /// Technically identical to `LogicalPlan` — it decides what to scan,
 /// how to filter, and which traversal strategy to execute.
-pub type Cortex = LogicalPlan;
+pub type QueryPlanner = LogicalPlan;

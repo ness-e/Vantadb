@@ -1,17 +1,17 @@
-use std::sync::Arc;
-use arrow::array::{UInt64Array, Float32Array};
-use arrow::datatypes::{DataType, Field, Schema};
-use arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::node::UnifiedNode;
+use arrow::array::{Float32Array, UInt64Array};
+use arrow::datatypes::{DataType, Field, Schema};
+use arrow::record_batch::RecordBatch;
+use std::sync::Arc;
 
 /// Converts a collection of UnifiedNodes into an Apache Arrow RecordBatch.
-/// This enables zero-copy SIMD analytical scans directly inside the executor or 
+/// This enables zero-copy SIMD analytical scans directly inside the executor or
 /// zero-cost transmission to a Python client (Pandas/Polars).
 pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
     let mut ids = Vec::with_capacity(nodes.len());
     let mut vec_coords = Vec::new(); // Naive flattened vector logic for MVP
-    
+
     for node in nodes {
         ids.push(node.id);
         // Only push first vector dimension to prove columnar packing capabilities
@@ -34,10 +34,8 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
         Field::new("vector_d0", DataType::Float32, true),
     ]));
 
-    let batch = RecordBatch::try_new(
-        schema,
-        vec![Arc::new(id_array), Arc::new(coords_array)],
-    ).map_err(|e| crate::error::ConnectomeError::Execution(e.to_string()))?;
+    let batch = RecordBatch::try_new(schema, vec![Arc::new(id_array), Arc::new(coords_array)])
+        .map_err(|e| crate::error::VantaError::Execution(e.to_string()))?;
 
     Ok(batch)
 }
