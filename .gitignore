@@ -15,18 +15,27 @@
 .DS_Store
 Thumbs.db
 
-#Pagina web
+# Pagina web
 /connectome-web/
 
 # Test Databases
 /tests_graph_db/
 /tests_server_db/
-vantadb-python/
+/high_density_bench_db/
+/benches_db/
+
+# Python Bindings Artifacts
+vantadb-python/target/
+vantadb-python/venv/
+vantadb-python/.venv/
+vantadb-python/__pycache__/
+*.pyc
+*.so
+.pytest_cache/
+
 # Assets
 docs/assets/*.exe
 
-
 # Local profiles
-.connectome_profile
-tests_graph_db/
-high_density_bench_db/
+.vanta_profile
+.env
