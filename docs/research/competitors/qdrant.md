@@ -1,6 +1,6 @@
-# **Análisis de Ingeniería Inversa y Arquitectura de Sistemas de Qdrant para el Desarrollo de ConnectomeDB**
+# **Análisis de Ingeniería Inversa y Arquitectura de Sistemas de Qdrant para el Desarrollo de VantaDB**
 
-El diseño de sistemas de bases de datos cognitivas, como el proyecto ConnectomeDB, exige una comprensión profunda de las estructuras de datos de alto rendimiento, la gestión de memoria de bajo nivel y la orquestación de concurrencia en lenguajes de programación de sistemas como Rust.1 Qdrant representa un estado del arte en la convergencia de la búsqueda vectorial y el filtrado de metadatos, alejándose de las implementaciones tradicionales tipo "wrapper" para construir un motor nativo optimizado desde los primeros principios.3 Este informe detalla los mecanismos internos de Qdrant, analizando su motor de almacenamiento Gridstore, su implementación de grafos HNSW filtrables y su sofisticado modelo de gestión de segmentos.
+El diseño de sistemas de bases de datos cognitivas, como el proyecto VantaDB, exige una comprensión profunda de las estructuras de datos de alto rendimiento, la gestión de memoria de bajo nivel y la orquestación de concurrencia en lenguajes de programación de sistemas como Rust.1 Qdrant representa un estado del arte en la convergencia de la búsqueda vectorial y el filtrado de metadatos, alejándose de las implementaciones tradicionales tipo "wrapper" para construir un motor nativo optimizado desde los primeros principios.3 Este informe detalla los mecanismos internos de Qdrant, analizando su motor de almacenamiento Gridstore, su implementación de grafos HNSW filtrables y su sofisticado modelo de gestión de segmentos.
 
 ## **Arquitectura de Almacenamiento Segmentada y el Motor Gridstore**
 
@@ -18,7 +18,7 @@ La arquitectura de Gridstore se desglosa en tres capas funcionales que garantiza
 | Capa de Máscara | Control de ocupación de bloques. | Uso de bitmasks para rastrear la disponibilidad de cada bloque, permitiendo eliminaciones lógicas rápidas. 5 |
 | Capa de Gaps | Gestión de la fragmentación. | Índice de nivel superior que identifica rangos de bloques libres para optimizar la asignación de nuevas inserciones. 5 |
 
-El diseño de Gridstore permite que la recuperación de un valor basado en su ID interno sea una operación de complejidad ![][image1]. Dado que los IDs internos son enteros secuenciales, el sistema utiliza un array de punteros (Tracker) donde la posición del ID corresponde directamente a la ubicación del puntero que referencia el inicio del dato en el grid de bloques.5 Este enfoque elimina la necesidad de recorrer estructuras de árbol para búsquedas por clave, una ventaja significativa para los procesos de re-puntuación (rescoring) y recuperación de metadatos en ConnectomeDB.
+El diseño de Gridstore permite que la recuperación de un valor basado en su ID interno sea una operación de complejidad ![][image1]. Dado que los IDs internos son enteros secuenciales, el sistema utiliza un array de punteros (Tracker) donde la posición del ID corresponde directamente a la ubicación del puntero que referencia el inicio del dato en el grid de bloques.5 Este enfoque elimina la necesidad de recorrer estructuras de árbol para búsquedas por clave, una ventaja significativa para los procesos de re-puntuación (rescoring) y recuperación de metadatos en VantaDB.
 
 ### **Gestión de Segmentos y Estrategias de Optimización**
 
@@ -32,7 +32,7 @@ Existen tres tipos principales de optimizadores que mantienen la salud del siste
 
 ## **Implementación de Grafos HNSW y Navegación Topológica**
 
-El núcleo de la búsqueda de similitud en Qdrant es el algoritmo Hierarchical Navigable Small World (HNSW), que permite realizar búsquedas de vecinos más cercanos aproximados (ANN) con una escalabilidad sublineal.7 Para ConnectomeDB, entender cómo Qdrant extiende este grafo para soportar filtros es esencial.
+El núcleo de la búsqueda de similitud en Qdrant es el algoritmo Hierarchical Navigable Small World (HNSW), que permite realizar búsquedas de vecinos más cercanos aproximados (ANN) con una escalabilidad sublineal.7 Para VantaDB, entender cómo Qdrant extiende este grafo para soportar filtros es esencial.
 
 ### **Dinámica del Grafo Jerárquico**
 
@@ -93,7 +93,7 @@ Los resultados de benchmarks demuestran la eficacia de esta técnica:
 
 Análisis basado en el dataset deep-image-96 con dos campos de metadatos filtrados.10
 
-Esta capacidad es de vital importancia para ConnectomeDB, donde las consultas lógicas inspiradas en LISP podrían generar filtros altamente complejos y selectivos sobre la estructura del grafo cognitivo.
+Esta capacidad es de vital importancia para VantaDB, donde las consultas lógicas inspiradas en LISP podrían generar filtros altamente complejos y selectivos sobre la estructura del grafo cognitivo.
 
 ## **Concurrencia y Sistemas en Rust: El Modelo de Qdrant**
 
@@ -156,14 +156,14 @@ Para garantizar la durabilidad ante fallos de alimentación, cada operación se 
 
 Un hallazgo crítico en la ingeniería inversa de Qdrant es su dependencia de semánticas POSIX estrictas. Se han identificado fallos graves de integridad de datos cuando se ejecutan contenedores Qdrant sobre sistemas de archivos no compatibles, como montajes directos desde Windows (NTFS) a través de WSL o sistemas FUSE.32 El uso de mmap sobre estos sistemas de archivos puede provocar pánicos en el motor Gridstore debido a fallos en la persistencia de las páginas de memoria mapeadas.33
 
-## **Conclusiones Técnicas para el Desarrollo de ConnectomeDB**
+## **Conclusiones Técnicas para el Desarrollo de VantaDB**
 
-El análisis técnico de Qdrant proporciona un plano detallado para ConnectomeDB. Las lecciones clave incluyen:
+El análisis técnico de Qdrant proporciona un plano detallado para VantaDB. Las lecciones clave incluyen:
 
-1. **Prevalencia de la Inmutabilidad:** La separación de datos en segmentos inmutables permite optimizar los grafos HNSW de forma agresiva, una técnica que ConnectomeDB debería adoptar para manejar estados de memoria cognitiva estables versus dinámicos.  
+1. **Prevalencia de la Inmutabilidad:** La separación de datos en segmentos inmutables permite optimizar los grafos HNSW de forma agresiva, una técnica que VantaDB debería adoptar para manejar estados de memoria cognitiva estables versus dinámicos.  
 2. **Cuantización como Cómputo:** La cuantización no es solo para ahorrar espacio, sino para transformar cálculos de punto flotante costosos en operaciones de bits ultrarrápidas.  
 3. **Filtrado en una Sola Etapa:** La integración de filtros lógicos dentro del recorrido del grafo (ACORN) es superior a cualquier estrategia de pre o post-filtrado para mantener el recall en consultas complejas.  
-4. **Soberanía de Rust:** El uso de crates para concurrencia lock-free y el aprovechamiento de mmap demuestran que ConnectomeDB debe priorizar la gestión de memoria de bajo nivel para alcanzar un rendimiento de grado de producción.
+4. **Soberanía de Rust:** El uso de crates para concurrencia lock-free y el aprovechamiento de mmap demuestran que VantaDB debe priorizar la gestión de memoria de bajo nivel para alcanzar un rendimiento de grado de producción.
 
 Este análisis confirma que Qdrant es un motor de búsqueda de alto rendimiento diseñado para la era de la inteligencia artificial, cuya arquitectura modular y enfoque en la eficiencia de hardware lo convierten en la referencia técnica más relevante para el desarrollo de bases de datos inspiradas en la neurobiología. 1
 

@@ -13,6 +13,6 @@ BENCH_BIN=$(ls -t target/release/deps/high_density-* | grep -v '\.d' | grep -v '
 echo "Benchmark compiled successfully: $BENCH_BIN"
 
 echo "Executing benchmark in strict 512m environment..."
-export CONNECTOMEDB_MEMORY_LIMIT=536870912
+export VANTADB_MEMORY_LIMIT=536870912
 $BENCH_BIN
 echo "Benchmark completed successfully within 512m memory limit!"

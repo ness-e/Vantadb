@@ -156,6 +156,13 @@ path = "tests/certification/hnsw_validation.rs"
 name = "hnsw_recall_certification"
 path = "tests/certification/hnsw_recall.rs"
 
+[[test]]
+name = "sift_validation"
+path = "tests/certification/sift_validation.rs"
+
+[[test]]
+name = "competitive_bench"
+path = "tests/certification/competitive_bench.rs"
 
 [profile.release]
 lto = "thin"

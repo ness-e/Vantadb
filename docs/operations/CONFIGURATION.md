@@ -1,12 +1,12 @@
 # Operations & Configuration Manual
 
-For DevOps, SREs, and Systems Engineers operating NexusDB in production via Docker or direct PyO3 instantiation.
+For DevOps, SREs, and Systems Engineers operating Vantadb in production via Docker or direct PyO3 instantiation.
 
-NexusDB behaves similarly to SQLite: configuration parameters are primarily defined at runtime initialization but can also fall back to OS environment variables.
+Vantadb behaves similarly to SQLite: configuration parameters are primarily defined at runtime initialization but can also fall back to OS environment variables.
 
 ## 1. Constructor Initialization Params (Python SDK)
 
-When orchestrating NexusDB directly inside your application code:
+When orchestrating Vantadb directly inside your application code:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -15,9 +15,9 @@ When orchestrating NexusDB directly inside your application code:
 | `memory_limit_bytes` | `int` | `1024_000_000` (1GB) | The absolute Cgroups ceiling constraint. Triggers the internal MMap swap (Survival Mode) when approaching runtime RAM panic limits. |
 
 ```python
-import nexusdb
+import Vantadb
 
-db = nexusdb.NexusDB(
+db = Vantadb.Vantadb(
     path="/mnt/volume/db",
     read_only=False,
     memory_limit_bytes=512_000_000 # 512MB Hard limit
@@ -26,16 +26,16 @@ db = nexusdb.NexusDB(
 
 ## 2. Server Runtime (Environment Variables)
 
-When deploying NexusDB as a standalone HTTP/Axum microservice using the official Docker container, pass the following ENV variables:
+When deploying Vantadb as a standalone HTTP/Axum microservice using the official Docker container, pass the following ENV variables:
 
 | Variable | Description | Default Target |
 |----------|-------------|----------------|
-| `NEXUSDB_HOST` | Bind address for the Rust HTTP layer. | `0.0.0.0` |
-| `NEXUSDB_PORT` | Exposure TCP port. | `8080` |
-| `NEXUSDB_STORAGE_PATH` | Equivalency to the `path` param. | `/data` |
-| `NEXUSDB_THREADS` | Tokyo async worker count (defaults to Host vCPUs). | `auto` |
+| `Vantadb_HOST` | Bind address for the Rust HTTP layer. | `0.0.0.0` |
+| `Vantadb_PORT` | Exposure TCP port. | `8080` |
+| `Vantadb_STORAGE_PATH` | Equivalency to the `path` param. | `/data` |
+| `Vantadb_THREADS` | Tokyo async worker count (defaults to Host vCPUs). | `auto` |
 | `RUST_LOG` | Telemetry verbosity (`info`, `debug`, `trace`, `error`). | `info` |
 
 ## 3. Hardware Optimizations & SIMD
 
-NexusDB natively compiles using `target-cpu=native`. This guarantees that your compiled binary leverages hardware-specific **SIMD / AVX-512** instruction sets present natively on your underlying x86/ARM motherboard when computing massive array multiplications during Vector Distance operations. No explicit ENV flags are required for optimization.
+Vantadb natively compiles using `target-cpu=native`. This guarantees that your compiled binary leverages hardware-specific **SIMD / AVX-512** instruction sets present natively on your underlying x86/ARM motherboard when computing massive array multiplications during Vector Distance operations. No explicit ENV flags are required for optimization.

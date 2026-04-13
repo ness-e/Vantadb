@@ -1,6 +1,6 @@
-# **Análisis de Ingeniería Inversa de TigerGraph: Arquitectura Nativa Paralela y Fundamentos para ConnectomeDB**
+# **Análisis de Ingeniería Inversa de TigerGraph: Arquitectura Nativa Paralela y Fundamentos para VantaDB**
 
-El panorama de la computación de grafos ha sido transformado por la aparición de sistemas que no solo almacenan relaciones, sino que las ejecutan como unidades de procesamiento. TigerGraph se define como una plataforma de grafos nativa y paralela (Native Parallel Graph, NPG), diseñada para abordar analíticas a escala web en tiempo real mediante una arquitectura que co-localiza el almacenamiento y el cómputo.1 Para el desarrollo de ConnectomeDB, un sistema inspirado en la neurobiología y escrito en Rust, TigerGraph ofrece un caso de estudio crítico sobre cómo la implementación en C++ y el diseño orientado a mensajes pueden alcanzar un rendimiento de millones de travesías por segundo.1 Esta investigación desglosa los componentes internos de TigerGraph, desde la estructura física de sus datos hasta las sutilezas de su gestión de memoria y búsqueda vectorial.
+El panorama de la computación de grafos ha sido transformado por la aparición de sistemas que no solo almacenan relaciones, sino que las ejecutan como unidades de procesamiento. TigerGraph se define como una plataforma de grafos nativa y paralela (Native Parallel Graph, NPG), diseñada para abordar analíticas a escala web en tiempo real mediante una arquitectura que co-localiza el almacenamiento y el cómputo.1 Para el desarrollo de VantaDB, un sistema inspirado en la neurobiología y escrito en Rust, TigerGraph ofrece un caso de estudio crítico sobre cómo la implementación en C++ y el diseño orientado a mensajes pueden alcanzar un rendimiento de millones de travesías por segundo.1 Esta investigación desglosa los componentes internos de TigerGraph, desde la estructura física de sus datos hasta las sutilezas de su gestión de memoria y búsqueda vectorial.
 
 ## **Anatomía de la "Neurona": Estructura de Datos y el Motor GSE**
 
@@ -111,51 +111,51 @@ Las aplicaciones empresariales suelen interactuar con TigerGraph a través de en
 
 TigerGraph ofrece un cargador de datos flexible capaz de ingerir datos tabulares o semiestructurados en tiempo real.1 Los trabajos de carga (Loading Jobs) son declarativos y permiten mapear columnas de archivos (como CSV, JSON o Avro) directamente a atributos de vértices y aristas.22 El sistema soporta fuentes de datos modernas como Amazon S3, Google Cloud Storage, Kafka y data warehouses como Snowflake y BigQuery.22
 
-## **Inspiración para ConnectomeDB: Features para Extraer**
+## **Inspiración para VantaDB: Features para Extraer**
 
-Como arquitecto de ConnectomeDB, el análisis de TigerGraph proporciona lecciones valiosas sobre qué características son esenciales para un motor de grafos de alto rendimiento escrito en Rust.
+Como arquitecto de VantaDB, el análisis de TigerGraph proporciona lecciones valiosas sobre qué características son esenciales para un motor de grafos de alto rendimiento escrito en Rust.
 
 ### **1\. El Concepto de "Neurona Computacional"**
 
-La idea de tratar cada vértice como una unidad de procesamiento es fundamental para ConnectomeDB. En Rust, esto puede implementarse de manera eficiente utilizando el modelo de actores o sistemas de paso de mensajes extremadamente ligeros (como los proporcionados por el ecosistema de tokio o actix). La clave es permitir que el estado del vértice sea local y que la computación se distribuya de forma natural sobre la estructura del grafo.
+La idea de tratar cada vértice como una unidad de procesamiento es fundamental para VantaDB. En Rust, esto puede implementarse de manera eficiente utilizando el modelo de actores o sistemas de paso de mensajes extremadamente ligeros (como los proporcionados por el ecosistema de tokio o actix). La clave es permitir que el estado del vértice sea local y que la computación se distribuya de forma natural sobre la estructura del grafo.
 
 ### **2\. Acumuladores Seguros en Rust**
 
-La implementación de acumuladores en TigerGraph requiere el uso de mutex pesados en C++.10 En ConnectomeDB, se puede aprovechar el sistema de tipos de Rust y las operaciones atómicas (std::sync::atomic) para crear acumuladores con mucho menos overhead de sincronización. Las "variables mutables protegidas por mutex" de TigerGraph pueden evolucionar a estructuras de datos Concurrentes Libres de Bloqueos (Lock-Free), lo que escalaría mucho mejor en procesadores multi-núcleo modernos.
+La implementación de acumuladores en TigerGraph requiere el uso de mutex pesados en C++.10 En VantaDB, se puede aprovechar el sistema de tipos de Rust y las operaciones atómicas (std::sync::atomic) para crear acumuladores con mucho menos overhead de sincronización. Las "variables mutables protegidas por mutex" de TigerGraph pueden evolucionar a estructuras de datos Concurrentes Libres de Bloqueos (Lock-Free), lo que escalaría mucho mejor en procesadores multi-núcleo modernos.
 
 ### **3\. Compilación JIT de Consultas**
 
-La compilación de GSQL a C++ es poderosa pero lenta en términos de despliegue.14 Para ConnectomeDB, el uso de lógica LISP permite una ventaja estratégica. Se podría implementar un compilador Just-In-Time (JIT) utilizando LLVM o Cranelift para transformar las expresiones LISP y las travesías de grafos directamente en código máquina nativo en tiempo de ejecución, logrando la velocidad de TigerGraph con una flexibilidad mucho mayor.
+La compilación de GSQL a C++ es poderosa pero lenta en términos de despliegue.14 Para VantaDB, el uso de lógica LISP permite una ventaja estratégica. Se podría implementar un compilador Just-In-Time (JIT) utilizando LLVM o Cranelift para transformar las expresiones LISP y las travesías de grafos directamente en código máquina nativo en tiempo de ejecución, logrando la velocidad de TigerGraph con una flexibilidad mucho mayor.
 
 ### **4\. Zero-Copy y Formatos de Datos Eficientes**
 
-TigerGraph sufre con la construcción de grandes respuestas JSON.26 ConnectomeDB debería adoptar el principio de "Zero-Copy" desde el diseño, utilizando formatos como Apache Arrow para el intercambio de datos entre el motor de base de datos y los clientes.27 Esto reduciría drásticamente el uso de CPU y la latencia de red al evitar la serialización y deserialización constante de datos.
+TigerGraph sufre con la construcción de grandes respuestas JSON.26 VantaDB debería adoptar el principio de "Zero-Copy" desde el diseño, utilizando formatos como Apache Arrow para el intercambio de datos entre el motor de base de datos y los clientes.27 Esto reduciría drásticamente el uso de CPU y la latencia de red al evitar la serialización y deserialización constante de datos.
 
 ### **5\. Integración Nativa de HNSW**
 
-En lugar de ver los vectores como atributos adicionales, ConnectomeDB puede tratarlos como ciudadanos de primera clase. La integración del algoritmo HNSW directamente en el motor de almacenamiento (GSE) permitiría que las búsquedas vectoriales y las travesías estructurales compartan las mismas optimizaciones de caché y localidad de datos.
+En lugar de ver los vectores como atributos adicionales, VantaDB puede tratarlos como ciudadanos de primera clase. La integración del algoritmo HNSW directamente en el motor de almacenamiento (GSE) permitiría que las búsquedas vectoriales y las travesías estructurales compartan las mismas optimizaciones de caché y localidad de datos.
 
-## **Puntos Débiles: La Oportunidad de Mercado para ConnectomeDB**
+## **Puntos Débiles: La Oportunidad de Mercado para VantaDB**
 
-A pesar de su liderazgo tecnológico, TigerGraph presenta vulnerabilidades arquitectónicas y operativas que ConnectomeDB puede capitalizar.
+A pesar de su liderazgo tecnológico, TigerGraph presenta vulnerabilidades arquitectónicas y operativas que VantaDB puede capitalizar.
 
 ### **1\. El Costo de la Serialización JSON**
 
 Un cuello de botella documentado en TigerGraph es la generación de respuestas JSON masivas. Cuando el tamaño de la respuesta es grande, el sistema puede pasar más tiempo componiendo el JSON que recorriendo el grafo, lo que lleva a un uso ineficiente de la CPU.26
 
-* **Oportunidad**: ConnectomeDB puede diferenciarse ofreciendo interfaces binarias nativas (como gRPC o Arrow Flight) que eliminan por completo la necesidad de formateo de texto pesado.
+* **Oportunidad**: VantaDB puede diferenciarse ofreciendo interfaces binarias nativas (como gRPC o Arrow Flight) que eliminan por completo la necesidad de formateo de texto pesado.
 
 ### **2\. Rigidez del Esquema y Gestión de Memoria**
 
 TigerGraph requiere un esquema predefinido y sufre de problemas de memoria si hay demasiados tipos de vértices o si los IDs de las cadenas son muy largos.12 Además, la gestión de memoria en C++ es propensa a fragmentación y requiere ajustes manuales complejos de parámetros como SysAlertFreePct.21
 
-* **Oportunidad**: Al ser escrito en Rust, ConnectomeDB ofrece una gestión de memoria mucho más segura y predecible sin los riesgos de seguridad asociados a C++. La flexibilidad de LISP permitiría un esquema más dinámico y adaptable, vital para aplicaciones de IA cognitiva que necesitan evolucionar su conocimiento.
+* **Oportunidad**: Al ser escrito en Rust, VantaDB ofrece una gestión de memoria mucho más segura y predecible sin los riesgos de seguridad asociados a C++. La flexibilidad de LISP permitiría un esquema más dinámico y adaptable, vital para aplicaciones de IA cognitiva que necesitan evolucionar su conocimiento.
 
 ### **3\. Latencia en la Actualización de Índices Vectoriales**
 
 El índice HNSW en TigerGraph puede presentar retrasos (lag) respecto a las actualizaciones de datos debido al tiempo que consumen los cálculos de similitud.17
 
-* **Oportunidad**: ConnectomeDB puede implementar técnicas de indexación vectorial más granulares y concurrentes que minimicen este lag, asegurando que los resultados de la búsqueda vectorial reflejen los datos más recientes casi en tiempo real.
+* **Oportunidad**: VantaDB puede implementar técnicas de indexación vectorial más granulares y concurrentes que minimicen este lag, asegurando que los resultados de la búsqueda vectorial reflejen los datos más recientes casi en tiempo real.
 
 ### **4\. Limitaciones en la Lógica de Filtrado Híbrido**
 
@@ -163,11 +163,11 @@ Aunque TigerGraph soporta búsqueda híbrida, la implementación de pre-filtrado
 
 * **Oportunidad**: Un motor basado en LISP permitiría un optimizador de consultas mucho más potente que pueda decidir automáticamente la mejor estrategia de filtrado (pre vs post) basada en estadísticas en tiempo real, simplificando enormemente el desarrollo de aplicaciones RAG complejas.
 
-## **Síntesis Técnica: De TigerGraph a ConnectomeDB**
+## **Síntesis Técnica: De TigerGraph a VantaDB**
 
 La investigación sobre TigerGraph revela que el éxito en el mundo de los Big Graphs depende de la capacidad de paralelizar el cómputo al nivel más bajo posible y de reducir la fricción entre el almacenamiento y el procesamiento.2 La arquitectura Native Parallel Graph es el estándar de oro actual, pero su implementación sobre tecnologías heredadas como C++ y protocolos como REST/JSON deja espacio para la innovación.
 
-Para ConnectomeDB, el camino a seguir implica:
+Para VantaDB, el camino a seguir implica:
 
 * Adoptar la **adyacencia libre de índices** y el **almacenamiento nativo** como base innegociable.4  
 * Mejorar el modelo de **acumuladores** mediante las garantías de concurrencia de Rust.10  
@@ -175,7 +175,7 @@ Para ConnectomeDB, el camino a seguir implica:
 * Integrar la **búsqueda vectorial HNSW** de forma profunda y distribuida.17  
 * Optimizar el transporte de datos mediante **Zero-Copy y formatos binarios**.26
 
-Al atacar los puntos donde TigerGraph muestra debilidad—específicamente la eficiencia de la serialización, la seguridad de la memoria y la flexibilidad del lenguaje de consulta—ConnectomeDB puede posicionarse no solo como una alternativa de alto rendimiento, sino como la evolución necesaria hacia una base de datos verdaderamente cognitiva y preparada para la era de la IA generativa y el razonamiento complejo sobre redes de conocimiento masivas.
+Al atacar los puntos donde TigerGraph muestra debilidad—específicamente la eficiencia de la serialización, la seguridad de la memoria y la flexibilidad del lenguaje de consulta—VantaDB puede posicionarse no solo como una alternativa de alto rendimiento, sino como la evolución necesaria hacia una base de datos verdaderamente cognitiva y preparada para la era de la IA generativa y el razonamiento complejo sobre redes de conocimiento masivas.
 
 #### **Fuentes citadas**
 

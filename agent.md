@@ -29,4 +29,4 @@ VantaDB is a Rust-based, embedded, zero-copy multimodel database engine.
 ## 4. Stability
 
 - Always compile and run `cargo check` / `cargo test` when proposing changes.
-- Ensure that modifications to core index algorithms do not break the tests in `tests/hnsw_recall.rs`. Target recall > 90% is non-negotiable.
+- Ensure that modifications to core index algorithms do not break the tests in `tests/certification/stress_protocol.rs`. Target recall > 90% is non-negotiable.

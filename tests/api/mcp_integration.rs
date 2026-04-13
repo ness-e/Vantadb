@@ -18,7 +18,7 @@ async fn mcp_protocol_certification() {
     harness.execute("Protocol: Handshake & Identity (2024-11-05)", || {
         let init_res = handle_initialize().expect("Initialization failed");
         assert_eq!(init_res["protocolVersion"], "2024-11-05");
-        assert_eq!(init_res["serverInfo"]["name"], "connectomedb");
+        assert_eq!(init_res["serverInfo"]["name"], "vantadb");
         
         let list_res = handle_tools_list().expect("Tools listing failed");
         let tools = list_res["tools"].as_array().expect("Tools must be an array");

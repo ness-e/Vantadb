@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: VantaDB Version
-      description: "What version of VantaDB are you using? (e.g. `vantadb-cli --version`)"
+      description: "What version of VantaDB are you using? (e.g. `vanta-server --version`)"
       placeholder: "e.g. 1.0.0"
     validations:
       required: true
@@ -44,7 +44,7 @@ body:
       label: Steps to Reproduce
       description: "How can we reproduce the problem? (Provide the specific IQL query if applicable)"
       value: |
-        1. Run `vantadb-server`
+        1. Run `vanta-server`
         2. Execute query `FROM...`
         3. See error
     validations:
