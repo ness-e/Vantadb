@@ -10,7 +10,7 @@
 
 - **Check Build**: `cargo check`
 - **Run fast tests**: `cargo test`
-- **Run benchmark/recall**: `cargo test --test hnsw_recall --release -- --nocapture`
+- **Run benchmark/recall**: `cargo test --test stress_protocol --release -- --nocapture`
 
 ## Project Structure
 

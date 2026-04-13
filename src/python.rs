@@ -61,7 +61,7 @@ impl ClientEngine {
 /// The python module definition.
 /// Compiled utilizing `maturin develop --features python_sdk`.
 #[pymodule]
-fn connectomedb(_py: Python, m: &PyModule) -> PyResult<()> {
+fn vantadb(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ClientEngine>()?;
     Ok(())
 }

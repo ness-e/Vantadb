@@ -22,7 +22,8 @@ $excludedDirs = @(
     "tests_server_db",
     "tests_graph_db",
     "tests_vector_db",
-    "tests_python_api"
+    "tests_python_api",
+    "datasets"
 )
 
 # Extensiones de archivos a excluir (binarios, imagenes, artefactos de compilacion)

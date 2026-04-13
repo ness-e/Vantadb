@@ -745,7 +745,7 @@ impl StorageEngine {
 
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
-        println!("🔥 CONNECTOMEDB SYSTEM EMERGENCY: Security Constraint Violated 🔥");
+        println!("🔥 VANTADB SYSTEM EMERGENCY: Security Constraint Violated 🔥");
         println!("=======================================================");
         println!("Reason: {}", reason);
         if let Some(s) = stmt {
