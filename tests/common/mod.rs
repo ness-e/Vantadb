@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::time::Instant;
 use sysinfo::System;
 use console::{style, Emoji};
@@ -5,6 +7,8 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Serialize, Deserialize};
 use std::fs::{OpenOptions};
 use std::io::Write;
+
+pub mod sift_loader;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TestMetric {
