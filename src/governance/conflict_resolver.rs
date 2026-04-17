@@ -1,7 +1,7 @@
+use crate::governance::ResolutionResult;
+use crate::node::{AccessTracker, UnifiedNode};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use crate::node::{AccessTracker, UnifiedNode};
-use crate::governance::ResolutionResult;
 
 // ─── Conflict Resolver (Legacy: Devil's Advocate) ─────────────────────────────
 

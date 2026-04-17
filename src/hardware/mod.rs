@@ -1,10 +1,10 @@
+use console::{style, Emoji};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 use sysinfo::System;
-use console::{style, Emoji};
 
 /// Global Hardware Profile loaded once at startup.
 static CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
@@ -80,7 +80,8 @@ impl HardwareScout {
         let instructions = Self::detect_instructions();
         let profile = Self::determine_profile(total_memory, instructions);
 
-        let resource_score = Self::calculate_resource_score(total_memory, logical_cores, instructions);
+        let resource_score =
+            Self::calculate_resource_score(total_memory, logical_cores, instructions);
 
         let caps = HardwareCapabilities {
             instructions,
@@ -172,7 +173,13 @@ impl HardwareScout {
         let lightning = Emoji("⚡ ", "!");
         let shield = Emoji("🛡️  ", "!!");
 
-        eprintln!("\n{}", style("╭──────────────────────────────────────────────────────────────────────────────╮").dim());
+        eprintln!(
+            "\n{}",
+            style(
+                "╭──────────────────────────────────────────────────────────────────────────────╮"
+            )
+            .dim()
+        );
         eprintln!(
             "{} {} {} [ {} ] {}",
             style("│").dim(),
@@ -199,6 +206,12 @@ impl HardwareScout {
             "",
             style("│").dim()
         );
-        eprintln!("{}\n", style("╰──────────────────────────────────────────────────────────────────────────────╯").dim());
+        eprintln!(
+            "{}\n",
+            style(
+                "╰──────────────────────────────────────────────────────────────────────────────╯"
+            )
+            .dim()
+        );
     }
 }

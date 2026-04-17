@@ -373,7 +373,7 @@ impl CPIndex {
         let sorted = candidates.clone().into_sorted_vec();
         // into_sorted_vec returns ascending order based on NodeSimMin's Ord
         // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
-        
+
         let mut selected: Vec<u64> = Vec::with_capacity(m);
         let mut discarded: Vec<u64> = Vec::new();
 
@@ -396,9 +396,8 @@ impl CPIndex {
             let mut is_diverse = true;
             for &sel_id in &selected {
                 if let Some(sel_node) = self.nodes.get(&sel_id) {
-                    let sim_cand_sel = calculate_similarity(
-                        cand_slice, None, None, &sel_node.vec_data
-                    );
+                    let sim_cand_sel =
+                        calculate_similarity(cand_slice, None, None, &sel_node.vec_data);
                     if sim_cand_sel > sim_q_cand {
                         is_diverse = false;
                         break;
@@ -435,12 +434,15 @@ impl CPIndex {
         // Phase 1.3: Duplicate detection — silently updating an existing node can
         // corrupt the graph's bidirectional links. Log a warning and return early.
         if self.nodes.contains_key(&id) {
-            warn!(node_id = id, "CPIndex::add called with duplicate ID — skipping to prevent graph corruption");
+            warn!(
+                node_id = id,
+                "CPIndex::add called with duplicate ID — skipping to prevent graph corruption"
+            );
             return;
         }
 
         if vec_data.is_none() {
-            // Can't index graph nodes without vectors into HNSW layers, 
+            // Can't index graph nodes without vectors into HNSW layers,
             // but we must still register them in the nodes map to track their storage_offset.
             self.nodes.insert(
                 id,
@@ -517,7 +519,7 @@ impl CPIndex {
             for item in w.iter() {
                 visited_ext.insert(item.1);
             }
-            
+
             // Only extend if it does not blow up the search scope pathologically
             if extended_w.len() <= ef_cons {
                 for item in w.iter() {
@@ -527,7 +529,12 @@ impl CPIndex {
                                 if !visited_ext.contains(&adj_id) {
                                     visited_ext.insert(adj_id);
                                     if let Some(adj_node) = self.nodes.get(&adj_id) {
-                                        let sim = calculate_similarity(&query_f32, None, None, &adj_node.vec_data);
+                                        let sim = calculate_similarity(
+                                            &query_f32,
+                                            None,
+                                            None,
+                                            &adj_node.vec_data,
+                                        );
                                         extended_w.push(NodeSimMin(sim, adj_id));
                                     }
                                 }
@@ -1021,10 +1028,14 @@ impl CPIndex {
     /// Compute a snapshot of index health metrics.
     pub fn stats(&self) -> IndexStats {
         let node_count = self.nodes.len();
-        let orphan_count = self.nodes.values()
+        let orphan_count = self
+            .nodes
+            .values()
             .filter(|n| n.neighbors.is_empty() || n.neighbors[0].is_empty())
             .count();
-        let total_l0_connections: usize = self.nodes.values()
+        let total_l0_connections: usize = self
+            .nodes
+            .values()
             .map(|n| n.neighbors.first().map(|l| l.len()).unwrap_or(0))
             .sum();
         let avg_connections_l0 = if node_count > 0 {
@@ -1061,7 +1072,8 @@ impl CPIndex {
             // Check: layer count should be ≥ 1
             if node.neighbors.is_empty() {
                 violations.push(format!(
-                    "Node {} has empty neighbors array (expected ≥1 layer)", id
+                    "Node {} has empty neighbors array (expected ≥1 layer)",
+                    id
                 ));
                 continue;
             }
@@ -1072,7 +1084,8 @@ impl CPIndex {
                     // Self-loop check
                     if neighbor_id == *id {
                         violations.push(format!(
-                            "Node {} has a self-loop at layer {}", id, layer_idx
+                            "Node {} has a self-loop at layer {}",
+                            id, layer_idx
                         ));
                         continue;
                     }
@@ -1090,9 +1103,7 @@ impl CPIndex {
         // Check entry point validity
         if let Some(ep) = self.entry_point {
             if !self.nodes.contains_key(&ep) {
-                violations.push(format!(
-                    "Entry point {} does not exist in the node map", ep
-                ));
+                violations.push(format!("Entry point {} does not exist in the node map", ep));
             }
         }
 

@@ -9,16 +9,16 @@
 //!
 //! Requires: datasets/sift/{sift_base.fvecs, sift_query.fvecs, sift_groundtruth.ivecs}
 
+use console::style;
 use std::path::Path;
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
-use console::style;
 
 #[path = "../common/mod.rs"]
 mod common;
 
 use common::sift_loader::{read_fvecs, read_ivecs};
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -48,11 +48,7 @@ fn calculate_recall(
 }
 
 /// Measure per-query latency percentiles (p50, p95, p99) in microseconds.
-fn measure_latency(
-    index: &CPIndex,
-    queries: &[Vec<f32>],
-    k: usize,
-) -> (f64, f64, f64, f64) {
+fn measure_latency(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64, f64) {
     let mut latencies_us: Vec<f64> = queries
         .iter()
         .map(|q| {
@@ -268,7 +264,10 @@ fn sift1m_competitive_benchmark() {
         style("╰──────────┴──────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
     );
 
-    println!("\n  {} Dataset: SIFT1M (128D, L2 ground truth)", style("ℹ").blue());
+    println!(
+        "\n  {} Dataset: SIFT1M (128D, L2 ground truth)",
+        style("ℹ").blue()
+    );
     println!(
         "  {} VantaDB uses cosine similarity — recall gap vs L2 GT is expected.",
         style("ℹ").blue()

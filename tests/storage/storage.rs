@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
@@ -16,7 +16,7 @@ fn storage_engine_certification() {
     harness.execute("Integration: Persistent Node IO", || {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
-        
+
         TerminalReporter::sub_step("Opening StorageEngine (RocksDB backend)...");
         let storage = StorageEngine::open(db_path).expect("Failed to open RocksDB");
 
@@ -24,9 +24,12 @@ fn storage_engine_certification() {
         storage.insert(&node).unwrap();
         TerminalReporter::sub_step("Node 42 committed to persistent storage.");
 
-        let retrieved = storage.get(42).unwrap().expect("Node not found after insertion");
+        let retrieved = storage
+            .get(42)
+            .unwrap()
+            .expect("Node not found after insertion");
         assert_eq!(retrieved.id, 42);
-        
+
         TerminalReporter::success("RocksDB roundtrip successful.");
     });
 }

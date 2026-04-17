@@ -158,7 +158,10 @@ impl LlmClient {
             .send()
             .await
             .map_err(|e| {
-                VantaError::Execution(format!("Network error during Semantic Summarization: {}", e))
+                VantaError::Execution(format!(
+                    "Network error during Semantic Summarization: {}",
+                    e
+                ))
             })?;
 
         if !response.status().is_success() {

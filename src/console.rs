@@ -25,19 +25,28 @@ pub fn print_banner() {
 
     eprintln!();
     eprintln!("  {}", style(&b).color256(166));
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("║").color256(166),
-        style("  ⚡  V A N T A D B   v0.1.0  ⚡  ").bold().color256(166),
-        style("║").color256(166),
-    );
-    eprintln!("  {}  {}  {}",
-        style("║").color256(166),
-        style("  Embedded Multimodal Database Engine     ").dim().white(),
+        style("  ⚡  V A N T A D B   v0.1.0  ⚡  ")
+            .bold()
+            .color256(166),
         style("║").color256(166),
     );
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("║").color256(166),
-        style("  Vector · Graph · Relational in one core ").dim().white(),
+        style("  Embedded Multimodal Database Engine     ")
+            .dim()
+            .white(),
+        style("║").color256(166),
+    );
+    eprintln!(
+        "  {}  {}  {}",
+        style("║").color256(166),
+        style("  Vector · Graph · Relational in one core ")
+            .dim()
+            .white(),
         style("║").color256(166),
     );
     eprintln!("  {}", style(&b).color256(166));
@@ -51,8 +60,7 @@ pub fn print_banner() {
 pub fn init_logging() {
     use tracing_subscriber::{fmt, EnvFilter};
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt::Subscriber::builder()
         .with_env_filter(filter)
@@ -70,20 +78,20 @@ pub fn init_logging() {
 /// `[✔] <label>  (<detail>)`  — success indicator
 pub fn ok(label: &str, detail: Option<&str>) {
     let check = style("[✔]").green().bold();
-    let lbl   = style(label).white().bold();
+    let lbl = style(label).white().bold();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", check, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", check, lbl),
+        None => eprintln!("  {}  {}", check, lbl),
     }
 }
 
 /// `[→] <label>  (<detail>)` — progress / in-flight indicator
 pub fn progress(label: &str, detail: Option<&str>) {
     let arrow = style("[→]").cyan().bold();
-    let lbl   = style(label).white();
+    let lbl = style(label).white();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", arrow, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", arrow, lbl),
+        None => eprintln!("  {}  {}", arrow, lbl),
     }
 }
 
@@ -93,7 +101,7 @@ pub fn warn(label: &str, detail: Option<&str>) {
     let lbl = style(label).yellow();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", ico, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", ico, lbl),
+        None => eprintln!("  {}  {}", ico, lbl),
     }
 }
 
@@ -103,7 +111,7 @@ pub fn error(label: &str, detail: Option<&str>) {
     let lbl = style(label).red().bold();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", ico, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", ico, lbl),
+        None => eprintln!("  {}  {}", ico, lbl),
     }
 }
 
@@ -113,7 +121,8 @@ pub fn error(label: &str, detail: Option<&str>) {
 pub fn section(title: &str) {
     let line = style("─").color256(166).to_string().repeat(48);
     eprintln!();
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("┤").color256(166),
         style(title).color256(166).bold(),
         style("├").color256(166),
@@ -138,32 +147,40 @@ pub fn print_startup_summary(
     data_dir: &str,
 ) {
     section("System Configuration");
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Hardware:").dim(),
         style(profile).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Instructions:").dim(),
         style(instructions).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Total Memory:").dim(),
         style(format!("{} MB", total_memory_mb)).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("RocksDB Budget:").dim(),
-        style(format!("{} MB", rocksdb_budget_mb)).color256(166).bold(),
+        style(format!("{} MB", rocksdb_budget_mb))
+            .color256(166)
+            .bold(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("HNSW Backend:").dim(),
         style(backend_mode).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Data Dir:").dim(),
         style(data_dir).dim().white(),
@@ -177,12 +194,14 @@ pub fn print_startup_summary(
 /// Print the final "server ready" line
 pub fn print_ready(addr: &str) {
     eprintln!();
-    eprintln!("  {}  {} {}",
+    eprintln!(
+        "  {}  {} {}",
         style("[→]").color256(166).bold(),
         style("Listening on").white(),
         style(addr).color256(166).bold().underlined(),
     );
-    eprintln!("  {}  {}",
+    eprintln!(
+        "  {}  {}",
         style("   ").dim(),
         style("VantaDB is ready for connections.").dim(),
     );
@@ -231,15 +250,15 @@ pub fn format_bytes(bytes: u64) -> String {
         b if b >= GB => format!("{:.1} GB", b as f64 / GB as f64),
         b if b >= MB => format!("{:.1} MB", b as f64 / MB as f64),
         b if b >= KB => format!("{:.1} KB", b as f64 / KB as f64),
-        b            => format!("{} B",  b),
+        b => format!("{} B", b),
     }
 }
 
 /// Format milliseconds as human-readable duration (µs / ms / s)
 pub fn format_duration_ms(ms: u128) -> String {
     match ms {
-        t if t < 1     => format!("{}µs", t * 1000),
+        t if t < 1 => format!("{}µs", t * 1000),
         t if t < 1_000 => format!("{}ms", t),
-        t              => format!("{:.2}s", t as f64 / 1000.0),
+        t => format!("{:.2}s", t as f64 / 1000.0),
     }
 }

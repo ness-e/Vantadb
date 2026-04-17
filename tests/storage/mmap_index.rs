@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::TempDir;
 use vantadb::index::{CPIndex, IndexBackend, VectorRepresentations};
 
@@ -31,7 +31,11 @@ fn mmap_neural_index_certification() {
 
         let restored = CPIndex::deserialize_from_bytes(&bytes).expect("Deserialization failed");
         assert_eq!(restored.nodes.len(), 50);
-        TerminalReporter::success(&format!("Serialization roundtrip: {} nodes, {} bytes", restored.nodes.len(), bytes.len()));
+        TerminalReporter::success(&format!(
+            "Serialization roundtrip: {} nodes, {} bytes",
+            restored.nodes.len(),
+            bytes.len()
+        ));
     });
 
     harness.execute("Persistence: Cold-Start Performance", || {
@@ -48,7 +52,7 @@ fn mmap_neural_index_certification() {
         let norm: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nq: Vec<f32> = query.iter().map(|x| x / norm).collect();
         let results = loaded.search_nearest(&nq, None, None, 0, 5, None);
-        
+
         assert_eq!(results[0].0, 1);
         TerminalReporter::success("Cold-start persistence and search verified.");
     });
@@ -90,11 +94,13 @@ fn mmap_neural_index_certification() {
         let mut inmem_index = CPIndex::new();
         let mut mmap_index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path));
 
-        let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64).map(|i| {
-            let raw = vec![i as f32, (i+1) as f32, (i+2) as f32, (i+3) as f32];
-            let n: f32 = raw.iter().map(|x| x*x).sum::<f32>().sqrt();
-            (i, raw.iter().map(|x| x/n).collect())
-        }).collect();
+        let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64)
+            .map(|i| {
+                let raw = vec![i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
+                let n: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
+                (i, raw.iter().map(|x| x / n).collect())
+            })
+            .collect();
 
         for (id, v) in &vectors {
             inmem_index.add(*id, 0, VectorRepresentations::Full(v.clone()), 0);
@@ -104,7 +110,7 @@ fn mmap_neural_index_certification() {
         let q = vec![0.5f32, 0.5, 0.5, 0.5];
         let res_inmem = inmem_index.search_nearest(&q, None, None, 0, 5, None);
         let res_mmap = mmap_index.search_nearest(&q, None, None, 0, 5, None);
-        
+
         assert_eq!(res_inmem.len(), res_mmap.len());
         TerminalReporter::success("Memory and MMap backend equivalence confirmed.");
     });

@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::integrations::*;
 
 #[tokio::test]

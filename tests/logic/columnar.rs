@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::columnar::nodes_to_record_batch;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
 
@@ -24,7 +24,7 @@ fn columnar_engine_certification() {
 
         assert_eq!(batch.num_columns(), 2);
         assert_eq!(batch.num_rows(), 2);
-        
+
         TerminalReporter::success("Apache Arrow record batch generated successfully.");
     });
 }

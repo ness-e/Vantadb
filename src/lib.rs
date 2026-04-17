@@ -4,6 +4,8 @@
 //! and **Relational** (typed fields) data in a single storage layer.
 
 pub mod api;
+pub(crate) mod backend;
+pub(crate) mod backends;
 pub mod columnar;
 pub mod console;
 pub mod engine;
@@ -33,4 +35,5 @@ pub mod wal;
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
 pub use node::{Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
+pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};

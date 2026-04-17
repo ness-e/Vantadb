@@ -7,9 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum RecordState {
-    PendingConflict,   // Pending contextual resolution
-    ResolvedAccept,    // Allowed to migrate to persistent storage
-    ResolvedReject,    // Heading to AdmissionFilter + Purge
+    PendingConflict, // Pending contextual resolution
+    ResolvedAccept,  // Allowed to migrate to persistent storage
+    ResolvedReject,  // Heading to AdmissionFilter + Purge
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,7 +126,7 @@ impl ConsistencyBuffer {
             }
         }
 
-        let discarded = map.len() as u64; 
+        let discarded = map.len() as u64;
 
         self.stats
             .pending_to_decayed

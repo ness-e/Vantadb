@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::{ExecutionResult, Executor};
@@ -21,18 +21,35 @@ async fn structured_api_v2_certification() {
             let executor = Executor::new(&storage);
 
             TerminalReporter::sub_step("Inserting nodes S1 and S2 via hybrid syntax...");
-            executor.execute_hybrid("(INSERT :node {:label \"S1\"})").await.unwrap();
-            executor.execute_hybrid("(INSERT :node {:label \"S2\"})").await.unwrap();
+            executor
+                .execute_hybrid("(INSERT :node {:label \"S1\"})")
+                .await
+                .unwrap();
+            executor
+                .execute_hybrid("(INSERT :node {:label \"S2\"})")
+                .await
+                .unwrap();
 
             let (s1_id, s2_id);
             {
                 let cache = storage.volatile_cache.read();
-                s1_id = *cache.iter().find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S1")).unwrap().0;
-                s2_id = *cache.iter().find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S2")).unwrap().0;
+                s1_id = *cache
+                    .iter()
+                    .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S1"))
+                    .unwrap()
+                    .0;
+                s2_id = *cache
+                    .iter()
+                    .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S2"))
+                    .unwrap()
+                    .0;
             }
 
             TerminalReporter::sub_step(&format!("Establishing relation {} -> {}...", s1_id, s2_id));
-            let relate_query = format!("RELATE NODE#{} --\"test_rel\"--> NODE#{} WEIGHT 0.8", s1_id, s2_id);
+            let relate_query = format!(
+                "RELATE NODE#{} --\"test_rel\"--> NODE#{} WEIGHT 0.8",
+                s1_id, s2_id
+            );
             let res = executor.execute_hybrid(&relate_query).await.unwrap();
 
             if let ExecutionResult::Write { node_id, .. } = res {
@@ -48,8 +65,11 @@ async fn structured_api_v2_certification() {
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
 
-            executor.execute_hybrid("(INSERT :node {:type \"Thread\" :id 999})").await.unwrap();
-            
+            executor
+                .execute_hybrid("(INSERT :node {:type \"Thread\" :id 999})")
+                .await
+                .unwrap();
+
             TerminalReporter::sub_step("Dispatching message to THREAD#999...");
             let msg_query = "INSERT MESSAGE USER \"Hola Mundo\" TO THREAD#999";
             let msg_res = executor.execute_hybrid(msg_query).await.unwrap();

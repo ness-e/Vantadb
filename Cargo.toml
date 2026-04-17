@@ -164,6 +164,10 @@ path = "tests/certification/sift_validation.rs"
 name = "competitive_bench"
 path = "tests/certification/competitive_bench.rs"
 
+[[test]]
+name = "backend_tests"
+path = "tests/storage/backend_tests.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

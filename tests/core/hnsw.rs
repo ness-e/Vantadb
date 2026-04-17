@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
 
 #[test]
@@ -12,7 +12,9 @@ fn hnsw_core_logic_certification() {
     let mut harness = VantaHarness::new("CORE ENGINE (HNSW LOGIC)");
 
     harness.execute("Vector Math: Cosine Similarity Axioms", || {
-        TerminalReporter::sub_step("Verifying Identical (1.0), Orthogonal (0.0), and Opposite (-1.0) vectors...");
+        TerminalReporter::sub_step(
+            "Verifying Identical (1.0), Orthogonal (0.0), and Opposite (-1.0) vectors...",
+        );
         let a = VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
         let b = VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
         let sim = a.cosine_similarity(&b).unwrap();
@@ -25,7 +27,7 @@ fn hnsw_core_logic_certification() {
         let d = VectorRepresentations::Full(vec![-1.0, 0.0, 0.0]);
         let sim_opposite = a.cosine_similarity(&d).unwrap();
         assert!((sim_opposite - (-1.0)).abs() < f32::EPSILON);
-        
+
         TerminalReporter::success("Algebraic consistency confirmed.");
     });
 
@@ -43,7 +45,7 @@ fn hnsw_core_logic_certification() {
         assert_eq!(results.len(), 2);
         let top_match = results[0].0;
         assert!(top_match == 3 || top_match == 4);
-        
+
         TerminalReporter::success("Greedy search converged on expected neighbors.");
     });
 }

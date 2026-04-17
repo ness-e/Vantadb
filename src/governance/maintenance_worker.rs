@@ -1,7 +1,7 @@
+use crate::backend::BackendPartition;
 use crate::governance::invalidations::{InvalidationDispatcher, InvalidationEvent};
 use crate::node::{AccessTracker, FieldValue, NodeFlags, NodeTier, UnifiedNode};
 use crate::storage::StorageEngine;
-use rocksdb::CompactOptions;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 /// Maximum duration the maintenance cycle may spend on data compression.
-const MAX_COMPRESSION_DURATION_MS: u128 = 8_000; 
+const MAX_COMPRESSION_DURATION_MS: u128 = 8_000;
 
 /// Minimum combined hit-weight for a group to deserve compression.
 const MIN_GROUP_WEIGHT_FOR_COMPRESSION: u32 = 3;
@@ -27,7 +27,10 @@ impl MaintenanceWorker {
         let inactivity_threshold_ms = 5000;
 
         loop {
-            if storage.emergency_maintenance_trigger.load(Ordering::Acquire) {
+            if storage
+                .emergency_maintenance_trigger
+                .load(Ordering::Acquire)
+            {
                 println!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
                 storage
                     .emergency_maintenance_trigger
@@ -167,13 +170,15 @@ impl MaintenanceWorker {
 
             use crate::governance::AuditableTombstone;
             if !losers_to_log.is_empty() {
-                if let Some(cf_shadow) = storage.db.cf_handle("tombstone_storage") {
-                    for (id, hash, reason) in losers_to_log {
-                        let tomb = AuditableTombstone::new(id, reason, hash);
-                        let key = id.to_le_bytes();
-                        if let Ok(tomb_val) = bincode::serialize(&tomb) {
-                            let _ = storage.db.put_cf(&cf_shadow, key, &tomb_val);
-                        }
+                for (id, hash, reason) in losers_to_log {
+                    let tomb = AuditableTombstone::new(id, reason, hash);
+                    let key = id.to_le_bytes();
+                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                        let _ = storage.put_to_partition(
+                            BackendPartition::TombstoneStorage,
+                            &key,
+                            &tomb_val,
+                        );
                     }
                 }
             }
@@ -208,9 +213,7 @@ impl MaintenanceWorker {
                     continue;
                 }
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
-                    println!(
-                        "🔌 [Maintenance] Cycle interrupted (I/O activity detected)."
-                    );
+                    println!("🔌 [Maintenance] Cycle interrupted (I/O activity detected).");
                     break;
                 }
 
@@ -220,7 +223,10 @@ impl MaintenanceWorker {
                 }
 
                 if node.flags.is_set(NodeFlags::INVALIDATED) {
-                    println!("🧨 [Maintenance] Invalidated node detected: {}. Purging immediately.", id);
+                    println!(
+                        "🧨 [Maintenance] Invalidated node detected: {}. Purging immediately.",
+                        id
+                    );
                     keys_to_remove.push(id);
                     let slashed_role: Option<String> = node
                         .relational
@@ -259,7 +265,10 @@ impl MaintenanceWorker {
 
         for node in &to_consolidate {
             if let Err(e) = storage.consolidate_node(node) {
-                eprintln!("⚠️ [Maintenance] Error consolidating node {}: {}", node.id, e);
+                eprintln!(
+                    "⚠️ [Maintenance] Error consolidating node {}: {}",
+                    node.id, e
+                );
             }
         }
 
@@ -269,9 +278,9 @@ impl MaintenanceWorker {
                 if let Some(role) = slashed_role {
                     {
                         let mut tracker = storage.conflict_resolver.collision_tracker.write();
-                        tracker.slash_origin(&role);
+                        tracker.slash_origin(role);
                     }
-                    storage.admission_filter.block_role(&role);
+                    storage.admission_filter.block_role(role);
                     println!("🔥 [Maintenance] Origin Slashing: agent '{}' blocked → ConfidenceScore=0.0", role);
                 }
 
@@ -294,11 +303,7 @@ impl MaintenanceWorker {
 
         if deleted_count > 10_000 {
             println!("🧹 [Maintenance] Triggering disk compaction due to high tombstone volume.");
-            let mut c_opts = CompactOptions::default();
-            c_opts.set_exclusive_manual_compaction(false);
-            storage
-                .db
-                .compact_range_opt(None::<&[u8]>, None::<&[u8]>, &c_opts);
+            storage.request_compaction();
         }
 
         println!(
@@ -307,10 +312,7 @@ impl MaintenanceWorker {
         );
     }
 
-    async fn execute_data_compression(
-        storage: &Arc<StorageEngine>,
-        candidates: &[UnifiedNode],
-    ) {
+    async fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
         let mut thread_groups: HashMap<u64, Vec<&UnifiedNode>> = HashMap::new();
 
         for node in candidates {
@@ -327,32 +329,37 @@ impl MaintenanceWorker {
 
         for (thread_id, group) in &thread_groups {
             if deadline.elapsed().as_millis() > MAX_COMPRESSION_DURATION_MS {
-                println!("⏳ [Maintenance] Compression time budget reached. Deferring remaining groups.");
+                println!(
+                    "⏳ [Maintenance] Compression time budget reached. Deferring remaining groups."
+                );
                 break;
             }
 
             if group.len() < 2 {
-                continue; 
+                continue;
             }
             let group_hit_sum: u32 = group.iter().map(|n| n.hits).sum();
             if group_hit_sum < MIN_GROUP_WEIGHT_FOR_COMPRESSION {
-                continue; 
+                continue;
             }
 
             let node_refs: Vec<&UnifiedNode> = group.to_vec();
             let summary_text = match llm.summarize_context(&node_refs).await {
                 Ok(text) => text,
                 Err(e) => {
-                    eprintln!("⚠️ [Maintenance] LLM compression failed for thread {}: {}. Skipping.", thread_id, e);
-                    continue; 
+                    eprintln!(
+                        "⚠️ [Maintenance] LLM compression failed for thread {}: {}. Skipping.",
+                        thread_id, e
+                    );
+                    continue;
                 }
             };
 
             let summary_id = rand::random::<u64>();
             let mut summary_node = UnifiedNode::new(summary_id);
             summary_node.tier = NodeTier::Cold;
-            summary_node.flags.set(NodeFlags::PINNED); 
-            summary_node.importance = 0.9; 
+            summary_node.flags.set(NodeFlags::PINNED);
+            summary_node.importance = 0.9;
             summary_node.confidence_score =
                 group.iter().map(|n| n.confidence_score).sum::<f32>() / group.len() as f32;
             summary_node.set_field("type", FieldValue::String("Summary".to_string()));
@@ -377,7 +384,7 @@ impl MaintenanceWorker {
 
             if let Err(e) = storage.insert_to_cf(&summary_node, "compressed_archive") {
                 eprintln!("⚠️ [Maintenance] Failed to persist summary node: {}. Aborting group compression.", e);
-                continue; 
+                continue;
             }
 
             for original in group {

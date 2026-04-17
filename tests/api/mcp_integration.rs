@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use serde_json::json;
 use vantadb::api::mcp::{handle_initialize, handle_tools_call, handle_tools_list};
 use vantadb::executor::Executor;
@@ -19,11 +19,13 @@ async fn mcp_protocol_certification() {
         let init_res = handle_initialize().expect("Initialization failed");
         assert_eq!(init_res["protocolVersion"], "2024-11-05");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
-        
+
         let list_res = handle_tools_list().expect("Tools listing failed");
-        let tools = list_res["tools"].as_array().expect("Tools must be an array");
+        let tools = list_res["tools"]
+            .as_array()
+            .expect("Tools must be an array");
         assert!(tools.iter().any(|t| t["name"] == "query_lisp"));
-        
+
         TerminalReporter::success("MCP handshake and tools definition verified.");
     });
 
@@ -43,7 +45,9 @@ async fn mcp_protocol_certification() {
                 "arguments": { "node_id": 100 }
             }));
 
-            let tool_res = handle_tools_call(&params, &executor, &storage).await.expect("Tool call failed");
+            let tool_res = handle_tools_call(&params, &executor, &storage)
+                .await
+                .expect("Tool call failed");
             let text = tool_res["content"][0]["text"].as_str().unwrap();
             assert!(text.contains("\"confidence_score\":0.99"));
 
@@ -52,8 +56,13 @@ async fn mcp_protocol_certification() {
                 "name": "query_lisp",
                 "arguments": { "query": "(INSERT :node {:label \"MCP_TEST\"})" }
             }));
-            let lisp_res = handle_tools_call(&lisp_params, &executor, &storage).await.expect("Lisp execution failed");
-            assert!(lisp_res["content"][0]["text"].as_str().unwrap().contains("affected_nodes"));
+            let lisp_res = handle_tools_call(&lisp_params, &executor, &storage)
+                .await
+                .expect("Lisp execution failed");
+            assert!(lisp_res["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("affected_nodes"));
 
             TerminalReporter::success("MCP tool dispatcher correctly routed and executed calls.");
         });

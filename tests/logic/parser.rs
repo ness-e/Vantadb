@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::node::FieldValue;
 use vantadb::parser::*;
 use vantadb::query::*;
@@ -23,7 +23,9 @@ fn dql_parser_certification() {
             WITH TEMPERATURE 0.5
         "#;
 
-        TerminalReporter::sub_step("Parsing complex DQL query with graph traversal and semantic filter...");
+        TerminalReporter::sub_step(
+            "Parsing complex DQL query with graph traversal and semantic filter...",
+        );
         let (_, parsed) = parse_query(q).expect("DQL Parser failed");
 
         assert_eq!(parsed.from_entity, "Usuario#usr45");
@@ -44,7 +46,8 @@ fn dql_parser_certification() {
 
     harness.execute("DML: Multi-Statement Core Parse", || {
         TerminalReporter::sub_step("Testing INSERT with positional vector...");
-        let q_ins = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
+        let q_ins =
+            r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
         let (_, stmt_ins) = parse_statement(q_ins).expect("Insert parse failed");
         if let Statement::Insert(ins) = stmt_ins {
             assert_eq!(ins.node_id, 101);

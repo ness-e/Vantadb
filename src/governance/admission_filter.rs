@@ -2,7 +2,7 @@ use parking_lot::RwLock;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-const DEFAULT_BLOOM_BITS: usize = 100_000; 
+const DEFAULT_BLOOM_BITS: usize = 100_000;
 const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1E1E1E];
 
 /// AdmissionFilter prevents the ingestion of previously rejected records

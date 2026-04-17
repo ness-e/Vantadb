@@ -1,14 +1,15 @@
+use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backends::in_memory::InMemoryBackend;
+use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use memmap2::{MmapMut, MmapOptions};
 use parking_lot::RwLock;
-use rocksdb::checkpoint::Checkpoint;
-use rocksdb::{FlushOptions, Options, WriteBatch, DB};
-use std::env;
 use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use zerocopy::{FromBytes, IntoBytes};
@@ -52,14 +53,14 @@ impl VantaFile {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&path)
             .map_err(VantaError::IoError)?;
 
         let mut current_size = file.metadata().map_err(VantaError::IoError)?.len();
         if current_size < 8 {
             current_size = initial_size.max(8);
-            file.set_len(current_size)
-                .map_err(VantaError::IoError)?;
+            file.set_len(current_size).map_err(VantaError::IoError)?;
         }
 
         let mmap = unsafe {
@@ -94,7 +95,7 @@ impl VantaFile {
     /// Read a DiskNodeHeader from a specific offset without cloning (Zero-Copy)
     pub fn read_header(&self, offset: u64) -> Option<&DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        if offset + header_size > self.size || offset % 64 != 0 {
+        if offset + header_size > self.size || !offset.is_multiple_of(64) {
             return None;
         }
 
@@ -105,12 +106,15 @@ impl VantaFile {
     /// Write a DiskNodeHeader to a specific offset
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        
+
         // Alignment Check: Must be 64-byte aligned for Zero-Copy casting
-        if offset % 64 != 0 {
+        if !offset.is_multiple_of(64) {
             return Err(VantaError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("VantaFile: Misaligned header write at {} (must be 64B aligned)", offset),
+                format!(
+                    "VantaFile: Misaligned header write at {} (must be 64B aligned)",
+                    offset
+                ),
             )));
         }
 
@@ -156,16 +160,33 @@ impl VantaFile {
     }
 }
 
+// ─── Backend Kind ──────────────────────────────────────────
+
+/// Selects which KV backend `StorageEngine` uses.
+///
+/// `InMemory` replaces only the KV layer (RocksDB). VantaFile and WAL
+/// are still initialized on disk at the provided path. See module docs
+/// in `backends::in_memory` for details.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum BackendKind {
+    #[default]
+    RocksDb,
+    InMemory,
+}
+
 /// Configuration for `StorageEngine` initialization.
 #[derive(Debug, Clone, Default)]
 pub struct EngineConfig {
     pub memory_limit: Option<u64>,
     pub force_mmap: bool,
     pub read_only: bool,
+    /// Which KV backend to use. Defaults to `RocksDb`.
+    pub backend_kind: BackendKind,
 }
 
 pub struct StorageEngine {
-    pub db: DB, 
+    /// Abstract KV backend. No RocksDB types leak through this field.
+    pub(crate) backend: Arc<dyn StorageBackend>,
     pub hnsw: RwLock<CPIndex>,
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
     pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
@@ -175,7 +196,7 @@ pub struct StorageEngine {
     pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
     /// Path to the data directory
     pub data_dir: PathBuf,
-    /// Vector Store 
+    /// Vector Store
     pub vector_store: RwLock<VantaFile>,
     /// Write-Ahead Log for durability
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
@@ -194,10 +215,6 @@ impl StorageEngine {
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
 
-        // Memory limit resolution priority:
-        // 1. Explicit config.memory_limit (from Python SDK constructor)
-        // 2. VANTADB_MEMORY_LIMIT env var (from Docker/CI)
-        // 3. Hardware detection (from HardwareCapabilities)
         let effective_memory = config
             .memory_limit
             .or_else(|| {
@@ -207,82 +224,11 @@ impl StorageEngine {
             })
             .unwrap_or(caps.total_memory);
 
-        let mut opts = Options::default();
-        opts.create_if_missing(!config.read_only);
-        opts.create_missing_column_families(true);
-        opts.set_max_background_jobs(4);
-        opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-
-        // Adaptive Mode: Dynamic RocksDB tuning based on effective RAM
-        let mut bopts = rocksdb::BlockBasedOptions::default();
-        bopts.set_bloom_filter(10.0, false);
-        // Performance Booster: Force retention of L0 indexes and bloom filters permanently
-        bopts.set_cache_index_and_filter_blocks(true);
-        bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-
-        // Standard Bopts for cold layers (no L0 pinning)
-        let mut cold_bopts = rocksdb::BlockBasedOptions::default();
-        cold_bopts.set_bloom_filter(10.0, false);
-
-        // OOM Guard: Cap LRU Cache and WriteBuffer to ~60% of effective capacity
-        let rocksdb_budget = (effective_memory as f64 * 0.60) as usize;
-        let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
-        let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
-
-        let write_buffer_size = (write_buffer_total / 2)
-            .max(8 * 1024 * 1024)
-            .min(128 * 1024 * 1024);
-
-        opts.set_write_buffer_size(write_buffer_size);
-        opts.set_max_write_buffer_number(2);
-
-        let cache = rocksdb::Cache::new_lru_cache(cache_size);
-        bopts.set_block_cache(&cache);
-        cold_bopts.set_block_cache(&cache);
-
-        info!(
-            rocksdb_budget_mb = rocksdb_budget / 1024 / 1024,
-            cache_mb = cache_size / 1024 / 1024,
-            memtable_mb = write_buffer_size / 1024 / 1024,
-            "RocksDB memory configured"
-        );
-
-        opts.set_block_based_table_factory(&bopts);
-
-        if caps.profile == crate::hardware::HardwareProfile::Survival
-            || effective_memory < 16 * 1024 * 1024 * 1024
-        {
-            opts.set_allow_mmap_reads(true);
-            opts.set_allow_mmap_writes(true);
-            warn!(effective_memory_gb = effective_memory / 1024 / 1024 / 1024, "RAM < 16GB — MMap access forced (Survival Mode)");
-        }
-
-        // Fast layers (LZ4)
-        let mut default_opts = opts.clone();
-        default_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        default_opts.set_block_based_table_factory(&bopts);
-
-        // tombstone_storage: Unpinned bloom for efficiency
-        let mut shadow_opts = rocksdb::Options::default();
-        shadow_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        shadow_opts.set_block_based_table_factory(&cold_bopts);
-
-        let mut archive_opts = rocksdb::Options::default();
-        archive_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-        archive_opts.set_block_based_table_factory(&bopts);
-
-        let mut tombstone_opts = default_opts.clone();
-        tombstone_opts.set_block_based_table_factory(&cold_bopts);
-
-        let cf_descriptors = vec![
-            rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
-            rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
-            rocksdb::ColumnFamilyDescriptor::new("compressed_archive", archive_opts),
-            rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
-        ];
-
-        let db = DB::open_cf_descriptors(&opts, path, cf_descriptors)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        // ── KV Backend initialization ──
+        let backend: Arc<dyn StorageBackend> = match config.backend_kind {
+            BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),
+            BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
+        };
 
         let data_dir = PathBuf::from(path).join("data");
         let _ = std::fs::create_dir_all(&data_dir);
@@ -297,15 +243,24 @@ impl StorageEngine {
             let mut idx = loaded;
             if use_mmap {
                 idx.backend = IndexBackend::new_mmap(index_path.clone());
-                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (cold-start)");
+                info!(
+                    backend = "mmap",
+                    "HNSW Survival Mode: MMap backend activated (cold-start)"
+                );
             }
             idx
         } else {
             if use_mmap {
-                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (fresh)");
+                info!(
+                    backend = "mmap",
+                    "HNSW Survival Mode: MMap backend activated (fresh)"
+                );
                 CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
             } else {
-                info!(backend = "in-memory", "HNSW Performance Mode: InMemory backend");
+                info!(
+                    backend = "in-memory",
+                    "HNSW Performance Mode: InMemory backend"
+                );
                 CPIndex::new()
             }
         };
@@ -321,7 +276,7 @@ impl StorageEngine {
         let conflict_resolver = crate::governance::conflict_resolver::ConflictResolver::new();
 
         Ok(Self {
-            db,
+            backend,
             hnsw: RwLock::new(hnsw),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
             admission_filter,
@@ -368,11 +323,12 @@ impl StorageEngine {
             let offset = vstore.write_cursor;
 
             let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-            let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
-                v.len()
-            } else {
-                0
-            };
+            let vec_len =
+                if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
+                    v.len()
+                } else {
+                    0
+                };
             let vec_size = (vec_len * 4) as u64;
             let total_needed = offset + header_size + vec_size;
 
@@ -421,9 +377,8 @@ impl StorageEngine {
         };
         let metadata_val = bincode::serialize(&metadata)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.db
-            .put(key, &metadata_val)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        self.backend
+            .put(BackendPartition::Default, &key, &metadata_val)?;
 
         {
             let mut hnsw = self.hnsw.write();
@@ -445,7 +400,8 @@ impl StorageEngine {
             let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
 
             if cache.len() > max_nodes {
-                self.emergency_maintenance_trigger.store(true, Ordering::Release);
+                self.emergency_maintenance_trigger
+                    .store(true, Ordering::Release);
             }
         }
 
@@ -473,9 +429,7 @@ impl StorageEngine {
         let key = persisted.id.to_le_bytes();
         let val = bincode::serialize(&persisted)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.db
-            .put(key, &val)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        self.backend.put(BackendPartition::Default, &key, &val)?;
 
         self.refresh_index(&persisted, 0);
 
@@ -488,15 +442,11 @@ impl StorageEngine {
     }
 
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
-        let cf = self.db.cf_handle(cf_name).ok_or_else(|| {
-            VantaError::Execution(format!("Column Family '{}' not found", cf_name))
-        })?;
+        let partition = Self::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
         let val =
             bincode::serialize(node).map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.db
-            .put_cf(&cf, key, &val)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        self.backend.put(partition, &key, &val)?;
 
         self.refresh_index(node, 0);
         Ok(())
@@ -521,10 +471,9 @@ impl StorageEngine {
         }
 
         let key = id.to_le_bytes();
-        let metadata_res = match self.db.get(key) {
-            Ok(Some(res)) => res,
-            Ok(None) => return Ok(None),
-            Err(e) => return Err(VantaError::IoError(std::io::Error::other(e.to_string()))),
+        let metadata_res = match self.backend.get(BackendPartition::Default, &key)? {
+            Some(res) => res,
+            None => return Ok(None),
         };
 
         let metadata: NodeMetadata = bincode::deserialize(&metadata_res)
@@ -550,7 +499,7 @@ impl StorageEngine {
         let vec_start = header.vector_offset as usize;
         let vec_end = vec_start + (header.vector_len as usize * 4);
         if vec_end > vstore.size as usize {
-            return Ok(None); 
+            return Ok(None);
         }
 
         let vec_bytes = &vstore.mmap[vec_start..vec_end];
@@ -594,37 +543,34 @@ impl StorageEngine {
         self.volatile_cache.write().remove(&id);
 
         let key = id.to_le_bytes();
-        self.db
-            .delete(key)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        self.backend.delete(BackendPartition::Default, &key)?;
 
         Ok(())
     }
 
     pub fn purge_permanent(&self, id: u64) -> Result<()> {
         let key = id.to_le_bytes();
-        let mut batch = WriteBatch::default();
-        let cf_default = self.db.cf_handle("default").unwrap();
-        let cf_tomb_storage = self.db.cf_handle("tombstone_storage").unwrap();
-        let cf_tomb = self.db.cf_handle("tombstones").unwrap();
-
-        batch.delete_cf(&cf_default, key);
-        batch.delete_cf(&cf_tomb_storage, key);
-        batch.delete_cf(&cf_tomb, key);
-
-        self.db
-            .write(batch)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
-        Ok(())
+        self.backend.write_batch(vec![
+            BackendWriteOp::Delete {
+                partition: BackendPartition::Default,
+                key: key.to_vec(),
+            },
+            BackendWriteOp::Delete {
+                partition: BackendPartition::TombstoneStorage,
+                key: key.to_vec(),
+            },
+            BackendWriteOp::Delete {
+                partition: BackendPartition::Tombstones,
+                key: key.to_vec(),
+            },
+        ])
     }
 
     pub fn is_deleted(&self, id: u64) -> Result<bool> {
         let key = id.to_le_bytes();
-        let cf_tomb = self.db.cf_handle("tombstones").unwrap();
-        match self.db.get_cf(&cf_tomb, key) {
-            Ok(Some(_)) => Ok(true),
-            Ok(None) => Ok(false),
-            Err(e) => Err(VantaError::IoError(std::io::Error::other(e.to_string()))),
+        match self.backend.get(BackendPartition::Tombstones, &key)? {
+            Some(_) => Ok(true),
+            None => Ok(false),
         }
     }
 
@@ -637,7 +583,7 @@ impl StorageEngine {
             .values()
             .filter(|n| {
                 if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & 0x8) != 0 
+                    (h.flags & 0x8) != 0
                 } else {
                     false
                 }
@@ -646,21 +592,18 @@ impl StorageEngine {
 
         let total_nodes = hnsw.nodes.len();
         if total_nodes > 0 && (tombstone_count as f32 / total_nodes as f32) > 0.20 {
-            warn!(tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32, "Fragmentation >20% — offline compaction triggered");
+            warn!(
+                tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32,
+                "Fragmentation >20% — offline compaction triggered"
+            );
         }
 
         Ok(())
     }
 
     pub fn flush(&self) -> Result<()> {
-        let mut flush_opt = FlushOptions::default();
-        flush_opt.set_wait(true);
-        self.db
-            .flush_opt(&flush_opt)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
-
+        self.backend.flush()?;
         self.save_vector_index();
-
         Ok(())
     }
 
@@ -679,68 +622,85 @@ impl StorageEngine {
         }
     }
 
-
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
-        let cp = Checkpoint::new(&self.db).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
-                "Error creating Checkpoint initializer: {}",
-                e
-            )))
-        })?;
-
         let mut save_path = std::path::PathBuf::from("./vantadb_snapshots");
-        if let Ok(override_dir) = env::var("VANTA_BACKUP_DIR") {
+        if let Ok(override_dir) = std::env::var("VANTA_BACKUP_DIR") {
             save_path = std::path::PathBuf::from(override_dir);
         }
         save_path.push(timestamp_name);
 
-        if let Some(parent) = save_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-
-        cp.create_checkpoint(&save_path).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
-                "Error writing Life Insurance Checkpoint: {}",
-                e
-            )))
-        })?;
-
-        Ok(())
+        self.backend.checkpoint(&save_path)
     }
 
     pub fn recover_archived_nodes(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
-        let cf = self.db.cf_handle("tombstone_storage").ok_or_else(|| {
-            VantaError::Execution("Tombstone storage not found".to_string())
-        })?;
+        let entries = self.backend.scan(BackendPartition::TombstoneStorage)?;
 
         let mut recovered = Vec::new();
-        for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
-            let (k, _) =
-                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        for (_k, v) in &entries {
+            if let Ok(mut node) = bincode::deserialize::<crate::node::UnifiedNode>(v) {
+                if node
+                    .edges
+                    .iter()
+                    .any(|e| e.target == summary_id && e.label == "belonged_to")
+                {
+                    node.flags.set(crate::node::NodeFlags::ACTIVE);
+                    node.flags.set(crate::node::NodeFlags::RECOVERED);
+                    node.tier = crate::node::NodeTier::Hot;
 
-            if let Ok(Some(slice)) = self.db.get_pinned_cf(&cf, &k) {
-                if let Ok(mut node) = bincode::deserialize::<crate::node::UnifiedNode>(&slice) {
-                    if node
-                        .edges
-                        .iter()
-                        .any(|e| e.target == summary_id && e.label == "belonged_to")
+                    self.refresh_index(&node, 0);
+
                     {
-                        node.flags.set(crate::node::NodeFlags::ACTIVE);
-                        node.flags.set(crate::node::NodeFlags::RECOVERED);
-                        node.tier = crate::node::NodeTier::Hot;
-
-                        self.refresh_index(&node, 0);
-
-                        {
-                            let mut cache = self.volatile_cache.write();
-                            cache.insert(node.id, node.clone());
-                        }
-                        recovered.push(node);
+                        let mut cache = self.volatile_cache.write();
+                        cache.insert(node.id, node.clone());
                     }
+                    recovered.push(node);
                 }
             }
         }
         Ok(recovered)
+    }
+
+    // ─── Delegation methods for external modules ────────────────
+    //
+    // These replace direct `storage.db.{cf_handle, put_cf, ...}` access
+    // from executor.rs and maintenance_worker.rs.
+
+    /// Write a value to a specific backend partition.
+    ///
+    /// Used by Executor (Collapse) and MaintenanceWorker to write
+    /// auditable tombstones to `TombstoneStorage`.
+    pub(crate) fn put_to_partition(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<()> {
+        self.backend.put(partition, key, value)
+    }
+
+    /// Request backend compaction.
+    ///
+    /// Used by MaintenanceWorker after high tombstone volume.
+    /// No-op for backends that don't support compaction.
+    pub(crate) fn request_compaction(&self) {
+        self.backend.compact();
+    }
+
+    // ─── Internal helpers ───────────────────────────────────────
+
+    /// Translate a string-based CF name to a `BackendPartition`.
+    /// Temporary compatibility bridge for `insert_to_cf`.
+    fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> {
+        match cf_name {
+            "default" => Ok(BackendPartition::Default),
+            "tombstone_storage" => Ok(BackendPartition::TombstoneStorage),
+            "compressed_archive" => Ok(BackendPartition::CompressedArchive),
+            "tombstones" => Ok(BackendPartition::Tombstones),
+            other => Err(VantaError::Execution(format!(
+                "Unknown column family: '{}'",
+                other
+            ))),
+        }
     }
 
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {

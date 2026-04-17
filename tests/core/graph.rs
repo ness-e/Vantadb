@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::graph::GraphTraverser;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
@@ -45,7 +45,7 @@ fn graph_traversal_certification() {
         let res_d2 = traverser.bfs_traverse(&[1], 2).unwrap();
         assert_eq!(res_d2.len(), 4);
         assert!(res_d2.contains(&3));
-        
+
         TerminalReporter::success("BFS Traversal Axioms satisfied.");
     });
 }

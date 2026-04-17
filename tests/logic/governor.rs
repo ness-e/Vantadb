@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::atomic::Ordering;
 use vantadb::governor::{ResourceGovernor, ALLOCATED_BYTES};
 
@@ -26,7 +26,7 @@ fn engine_governor_certification() {
         TerminalReporter::sub_step("Releasing memory and verifying neutrality...");
         governor.free_allocation(512 * 1024);
         assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 0);
-        
+
         TerminalReporter::success("OOM protection and state-tracking verified.");
     });
 }

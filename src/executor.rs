@@ -1,6 +1,6 @@
 use crate::error::{Result, VantaError};
 use crate::eval::LispSandbox;
-use crate::governance::{ResolutionResult, ConfidenceArbiter};
+use crate::governance::{ConfidenceArbiter, ResolutionResult};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::lisp::parse as parse_lisp_expr;
 use crate::parser::parse_statement;
@@ -131,16 +131,13 @@ impl<'a> Executor<'a> {
         {
             use crate::governor::{AllocationStatus, ResourceGovernor};
             let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
-            let probe_cost = 0; 
+            let probe_cost = 0;
             if let Ok(AllocationStatus::GrantedWithPressure) =
                 governor.request_allocation(probe_cost)
             {
                 println!("🚨 [ResourceGovernor] High memory pressure (>90%) detected. Triggering emergency flush.");
                 if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!(
-                        "    └─ Priority record preserved: {}",
-                        winner.id
-                    );
+                    println!("    └─ Priority record preserved: {}", winner.id);
                     let _ = self.storage.insert(&winner);
                 }
             }
@@ -215,7 +212,10 @@ impl<'a> Executor<'a> {
                         if let Some((existing_id, _)) = nearest.first() {
                             if *existing_id != node.id {
                                 if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self.storage.conflict_resolver.evaluate_conflict(&existing, &node)
+                                    match self
+                                        .storage
+                                        .conflict_resolver
+                                        .evaluate_conflict(&existing, &node)
                                     {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(VantaError::Execution(format!(
@@ -224,11 +224,9 @@ impl<'a> Executor<'a> {
                                             )));
                                         }
                                         ResolutionResult::Superposition(record) => {
-                                            self.storage
-                                                .consistency_buffer
-                                                .insert_record(record);
-                                            return Ok(ExecutionResult::Write { 
-                                                affected_nodes: 1, 
+                                            self.storage.consistency_buffer.insert_record(record);
+                                            return Ok(ExecutionResult::Write {
+                                                affected_nodes: 1,
                                                 message: format!("Node {} moved to ConsistencyBuffer (Pending Resolution).", node.id),
                                                 node_id: Some(node.id),
                                             });
@@ -288,7 +286,10 @@ impl<'a> Executor<'a> {
                         if let Some((existing_id, _)) = nearest.first() {
                             if *existing_id != node.id {
                                 if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self.storage.conflict_resolver.evaluate_conflict(&existing, &node)
+                                    match self
+                                        .storage
+                                        .conflict_resolver
+                                        .evaluate_conflict(&existing, &node)
                                     {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(VantaError::Execution(format!(
@@ -297,11 +298,9 @@ impl<'a> Executor<'a> {
                                             )));
                                         }
                                         ResolutionResult::Superposition(record) => {
-                                            self.storage
-                                                .consistency_buffer
-                                                .insert_record(record);
-                                            return Ok(ExecutionResult::Write { 
-                                                affected_nodes: 1, 
+                                            self.storage.consistency_buffer.insert_record(record);
+                                            return Ok(ExecutionResult::Write {
+                                                affected_nodes: 1,
                                                 message: format!("Node {} update entered ConsistencyBuffer (Pending Resolution).", node.id),
                                                 node_id: Some(node.id),
                                             });
@@ -342,11 +341,7 @@ impl<'a> Executor<'a> {
 
                 // Axiom: Topological Consistency
                 if self.storage.get(relate.target_id)?.is_none() {
-                    if self
-                        .storage
-                        .is_deleted(relate.target_id)
-                        .unwrap_or(false)
-                    {
+                    if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
                         return Err(VantaError::Execution(format!(
                             "Reference to deleted node: ID {} resides in the Tombstone storage",
                             relate.target_id
@@ -429,7 +424,8 @@ impl<'a> Executor<'a> {
                             losers_to_archive.push((
                                 collapse.zone_id,
                                 cand.id,
-                                "Manual Resolution: Candidate discarded by administrator".to_string(),
+                                "Manual Resolution: Candidate discarded by administrator"
+                                    .to_string(),
                             ));
                         }
 
@@ -443,14 +439,17 @@ impl<'a> Executor<'a> {
                         self.storage.insert(&winner)?;
 
                         if !losers_to_archive.is_empty() {
+                            use crate::backend::BackendPartition;
                             use crate::governance::AuditableTombstone;
-                            if let Some(cf_shadow) = self.storage.db.cf_handle("tombstone_storage") {
-                                for (id, hash, reason) in losers_to_archive {
-                                    let tomb = AuditableTombstone::new(id, reason, hash);
-                                    let key = id.to_le_bytes();
-                                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
-                                        let _ = self.storage.db.put_cf(&cf_shadow, key, &tomb_val);
-                                    }
+                            for (id, hash, reason) in losers_to_archive {
+                                let tomb = AuditableTombstone::new(id, reason, hash);
+                                let key = id.to_le_bytes();
+                                if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                                    let _ = self.storage.put_to_partition(
+                                        BackendPartition::TombstoneStorage,
+                                        &key,
+                                        &tomb_val,
+                                    );
                                 }
                             }
                         }
@@ -491,10 +490,7 @@ impl<'a> Executor<'a> {
             crate::governor::AllocationStatus::GrantedWithPressure => {
                 println!("🚨 [ResourceGovernor] High memory pressure detected. Triggering emergency flush.");
                 if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!(
-                        "    └─ Priority record preserved: {}",
-                        winner.id
-                    );
+                    println!("    └─ Priority record preserved: {}", winner.id);
                     let _ = self.storage.insert(&winner);
                 }
             }

@@ -1,13 +1,7 @@
-{"block_name":"SIFT1M_Competitive: Load SIFT Base (1M × 128D)","duration_secs":1.1589291,"ram_usage_mb":544924.0,"current_ram_mb":565788.0,"timestamp":"2026-04-13T09:53:42.212586300-04:00"}
-{"block_name":"SIFT1M_Competitive: Load SIFT Queries (10K × 128D)","duration_secs":0.0220832,"ram_usage_mb":550204.0,"current_ram_mb":571068.0,"timestamp":"2026-04-13T09:53:42.235834600-04:00"}
-{"block_name":"SIFT1M_Competitive: Load Ground Truth","duration_secs":0.0179344,"ram_usage_mb":558320.0,"current_ram_mb":579184.0,"timestamp":"2026-04-13T09:53:42.254289500-04:00"}
-{"block_name":"SIFT1M_Competitive: SIFT 10K — Balanced","duration_secs":8.2368419,"ram_usage_mb":570728.0,"current_ram_mb":591592.0,"timestamp":"2026-04-13T09:53:50.491502100-04:00"}
-{"block_name":"SIFT1M_Competitive: SIFT 10K — High Recall","duration_secs":18.7671557,"ram_usage_mb":576736.0,"current_ram_mb":597600.0,"timestamp":"2026-04-13T09:54:19.032167300-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":560.7008194,"ram_usage_mb":2916.0,"current_ram_mb":22696.0,"timestamp":"2026-04-13T09:57:56.720100900-04:00"}
-{"block_name":"SIFT1M_Competitive: SIFT 100K — Balanced","duration_secs":201.1732964,"ram_usage_mb":656284.0,"current_ram_mb":677148.0,"timestamp":"2026-04-13T09:58:01.637411400-04:00"}
-{"block_name":"SIFT1M_Competitive: SIFT 100K — High Recall","duration_secs":632.6821802,"ram_usage_mb":705680.0,"current_ram_mb":726544.0,"timestamp":"2026-04-13T10:09:00.728647100-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 2 — SCALING (10K → 50K → 100K)","duration_secs":2212.624556,"ram_usage_mb":4848.0,"current_ram_mb":24628.0,"timestamp":"2026-04-13T10:34:49.347607200-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 3 — MEMORY MEASUREMENT","duration_secs":404.2255991,"ram_usage_mb":5964.0,"current_ram_mb":25744.0,"timestamp":"2026-04-13T10:41:33.577362700-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 4 — PERSISTENCE ROUND-TRIP","duration_secs":39.5995862,"ram_usage_mb":6484.0,"current_ram_mb":26264.0,"timestamp":"2026-04-13T10:42:13.179004700-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 5 — EDGE CASES","duration_secs":0.0010276,"ram_usage_mb":6488.0,"current_ram_mb":26268.0,"timestamp":"2026-04-13T10:42:13.181785100-04:00"}
-{"block_name":"VANTA STRESS PROTOCOL: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":513.6092889,"ram_usage_mb":6180.0,"current_ram_mb":25960.0,"timestamp":"2026-04-13T10:50:46.792988-04:00"}
+{"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.132343,"ram_usage_mb":6808.0,"current_ram_mb":27816.0,"timestamp":"2026-04-17T19:31:57.292284500-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: INSERT -> GET Cycle","duration_secs":0.0973446,"ram_usage_mb":8824.0,"current_ram_mb":31444.0,"timestamp":"2026-04-17T19:32:14.191729-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":0.0510765,"ram_usage_mb":8884.0,"current_ram_mb":31504.0,"timestamp":"2026-04-17T19:32:14.243287700-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":0.0484976,"ram_usage_mb":9000.0,"current_ram_mb":31620.0,"timestamp":"2026-04-17T19:32:14.292311200-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.0495781,"ram_usage_mb":9068.0,"current_ram_mb":31688.0,"timestamp":"2026-04-17T19:32:14.342487500-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Ghost Node Prevention","duration_secs":0.1021759,"ram_usage_mb":8932.0,"current_ram_mb":31576.0,"timestamp":"2026-04-17T19:33:30.027110100-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Tombstone Resilience","duration_secs":0.0480534,"ram_usage_mb":8940.0,"current_ram_mb":31584.0,"timestamp":"2026-04-17T19:33:30.075641600-04:00"}

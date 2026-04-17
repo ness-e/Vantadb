@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
-use std::time::Instant;
-use sysinfo::System;
 use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
-use serde::{Serialize, Deserialize};
-use std::fs::{OpenOptions};
+use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::time::Instant;
+use sysinfo::System;
 
 pub mod sift_loader;
 
@@ -34,11 +34,11 @@ impl VantaHarness {
         let mut sys = System::new_all();
         sys.refresh_all();
         let pid = sysinfo::get_current_pid().expect("Failed to get PID");
-        
+
         // Initial snapshot
         sys.refresh_process(pid);
         let start_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
-        
+
         Self {
             sys,
             pid,
@@ -48,20 +48,25 @@ impl VantaHarness {
         }
     }
 
-    pub fn execute<F, R>(&mut self, block_name: &str, f: F) -> R 
-    where F: FnOnce() -> R 
+    pub fn execute<F, R>(&mut self, block_name: &str, f: F) -> R
+    where
+        F: FnOnce() -> R,
     {
         TerminalReporter::block_header(block_name);
-        
+
         let t0 = Instant::now();
         let result = f();
         let duration = t0.elapsed();
-        
+
         // Measurements
         self.sys.refresh_process(self.pid);
         let end_mem = self.sys.process(self.pid).map(|p| p.memory()).unwrap_or(0);
-        let mem_usage_kb = if end_mem > self.start_mem { end_mem - self.start_mem } else { 0 };
-        
+        let mem_usage_kb = if end_mem > self.start_mem {
+            end_mem - self.start_mem
+        } else {
+            0
+        };
+
         let metric = TestMetric {
             block_name: format!("{}: {}", self.test_name, block_name),
             duration_secs: duration.as_secs_f64(),
@@ -72,15 +77,20 @@ impl VantaHarness {
 
         // Standard Report
         println!("\n  {}", style("CERTIFICATION METRICS").bold().underlined());
-        println!("  {} Time:      {:.2}s", style("⏱️").cyan(), metric.duration_secs);
-        println!("  {} RAM Usage: {:.2} MB (Current: {:.2} MB)", 
-            style("🧠").magenta(), 
+        println!(
+            "  {} Time:      {:.2}s",
+            style("⏱️").cyan(),
+            metric.duration_secs
+        );
+        println!(
+            "  {} RAM Usage: {:.2} MB (Current: {:.2} MB)",
+            style("🧠").magenta(),
             metric.ram_usage_mb,
             metric.current_ram_mb
         );
-        
+
         self.log_metric(metric);
-        
+
         result
     }
 
@@ -90,7 +100,8 @@ impl VantaHarness {
             if let Ok(mut file) = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(Self::REPORT_FILE) {
+                .open(Self::REPORT_FILE)
+            {
                 let _ = writeln!(file, "{}", json);
             }
         }

@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
 
 #[test]
@@ -30,13 +30,13 @@ fn engine_executor_certification() {
         idx.add(2, 0b11, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
         // Fails mask
         idx.add(3, 0b00, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        
+
         let res = idx.search_nearest(&[1.0, 0.0], None, None, 0b10, 2, None);
-        
+
         assert_eq!(res.len(), 2, "Failed to ignore bitset-filtered nodes");
         assert_eq!(res[0].0, 1, "Incorrect result ranking");
         assert_eq!(res[1].0, 2);
-        
+
         TerminalReporter::success("Bitset filter and NN ranking integrated correctly.");
     });
 }

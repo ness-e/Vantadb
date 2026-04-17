@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::error::VantaError;
@@ -24,24 +24,41 @@ async fn chaos_integrity_certification() {
             let executor = Executor::new(&storage);
 
             TerminalReporter::sub_step("Setting up valid base nodes (1, 2)...");
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 1, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 2, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 1,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 2,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Attempting RELATE to non-existent Ghost Node 999...");
             let relate_ghost = Statement::Relate(RelateStatement {
-                source_id: 1, target_id: 999, label: "likes".to_string(), weight: None,
+                source_id: 1,
+                target_id: 999,
+                label: "likes".to_string(),
+                weight: None,
             });
             let result_ghost = executor.execute_statement(relate_ghost).await;
-            
+
             assert!(result_ghost.is_err());
             if let Err(VantaError::Execution(msg)) = result_ghost {
                 assert!(msg.contains("Topological Axiom violated"));
-            } else { panic!("Expected Topological Axiom error"); }
-            
+            } else {
+                panic!("Expected Topological Axiom error");
+            }
+
             TerminalReporter::success("Ghost node relation correctly blocked.");
         });
     });
@@ -52,22 +69,42 @@ async fn chaos_integrity_certification() {
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
 
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 1, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 2, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 1,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 2,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Deleting Node 2 (creating tombstone)...");
-            executor.execute_statement(Statement::Delete(vantadb::query::DeleteStatement { node_id: 2 })).await.unwrap();
+            executor
+                .execute_statement(Statement::Delete(vantadb::query::DeleteStatement {
+                    node_id: 2,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Attempting RELATE to deleted Node 2...");
             let relate_tombstone = Statement::Relate(RelateStatement {
-                source_id: 1, target_id: 2, label: "likes".to_string(), weight: None,
+                source_id: 1,
+                target_id: 2,
+                label: "likes".to_string(),
+                weight: None,
             });
             let result_tombstone = executor.execute_statement(relate_tombstone).await;
-            
+
             assert!(result_tombstone.is_err());
             TerminalReporter::success("Relation to tombstone correctly blocked.");
         });

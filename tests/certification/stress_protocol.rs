@@ -8,12 +8,12 @@
 //! Run with: cargo test --test stress_protocol -- --nocapture
 //! Sequential execution is enforced to maintain console output integrity.
 
+use console::style;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rayon::prelude::*;
 use std::time::Instant;
 use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
-use console::{style};
-use rayon::prelude::*;
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -83,11 +83,7 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
     idx
 }
 
-fn measure_latency_percentiles(
-    index: &CPIndex,
-    queries: &[Vec<f32>],
-    k: usize,
-) -> (f64, f64, f64) {
+fn measure_latency_percentiles(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64) {
     let mut latencies: Vec<f64> = queries
         .iter()
         .map(|q| {
@@ -132,12 +128,26 @@ fn stress_protocol_certification() {
 
     // BLOCK 1: Recall
     harness.execute("BLOCK 1 — GROUND TRUTH RECALL (50K/128D)", || {
-        let n = 50_000; let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let n = 50_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         TerminalReporter::sub_step("Generating synthetic datasets...");
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = gen_vectors(n_queries, dims, seed + 9999);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 500, ef_search: 300, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 500,
+            ef_search: 300,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let index = build_index(&dataset, config);
         let recall = compute_recall(&index, &queries, &dataset, k);
         let status_msg = format!("Recall@{}: {:.4} (Required >= 0.95)", k, recall);
@@ -147,19 +157,39 @@ fn stress_protocol_certification() {
 
     // BLOCK 2: Scaling
     harness.execute("BLOCK 2 — SCALING (10K → 50K → 100K)", || {
-        let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         let scales = [10_000, 50_000, 100_000];
         let mut results = Vec::new();
         for &n in &scales {
             TerminalReporter::sub_step(&format!("Processing scale: {} vectors", n));
             let config = HnswConfig {
-                m: 32, m_max0: 64,
-                ef_construction: if n <= 10_000 { 200 } else if n <= 50_000 { 400 } else { 500 },
-                ef_search: if n <= 10_000 { 100 } else if n <= 50_000 { 200 } else { 300 },
+                m: 32,
+                m_max0: 64,
+                ef_construction: if n <= 10_000 {
+                    200
+                } else if n <= 50_000 {
+                    400
+                } else {
+                    500
+                },
+                ef_search: if n <= 10_000 {
+                    100
+                } else if n <= 50_000 {
+                    200
+                } else {
+                    300
+                },
                 ml: 1.0 / (32_f64).ln(),
             };
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let queries = gen_vectors(n_queries, dims, seed + 9999);
             let t0 = Instant::now();
             let index = build_index(&dataset, config);
@@ -169,57 +199,157 @@ fn stress_protocol_certification() {
             let mem_mb = estimate_memory_bytes(&index) as f64 / (1024.0 * 1024.0);
             results.push((n, recall, p50, p95, build_s, mem_mb));
         }
-        
-        println!("\n  {}", style("SCALING PERFORMANCE SUMMARY").bold().underlined());
-        println!("  {}", style("╭───────────┬────────────┬──────────────┬──────────────┬───────────┬──────────╮").dim());
-        println!("  {} {} {} {} {} {} {} {} {} {} {} {} {}", style("│").dim(), style("  Dataset  ").bold().white(), style("│").dim(), style(" Recall@10  ").bold().white(), style("│").dim(), style("  Lat p50(µs) ").bold().white(), style("│").dim(), style("  Lat p95(µs) ").bold().white(), style("│").dim(), style(" Build(s)  ").bold().white(), style("│").dim(), style(" RAM(MB)  ").bold().white(), style("│").dim());
-        println!("  {}", style("├───────────┼────────────┼──────────────┼──────────────┼───────────┼──────────┤").dim());
-        for (n, rec, p50, p95, b_s, mem) in &results {
-            let recall_style = if *rec >= 0.95 { style(format!("{:.4}", rec)).green().bold() } else if *rec >= 0.90 { style(format!("{:.4}", rec)).yellow().bold() } else { style(format!("{:.4}", rec)).red().bold() };
-            println!("  {} {:>9} {}   {}   {}  {:>10.1} {}  {:>10.1} {}  {:>7.2} {}  {:>6.1} {}", style("│").dim(), format!("{}K", n / 1000), style("│").dim(), recall_style, style("│").dim(), p50, style("│").dim(), p95, style("│").dim(), b_s, style("│").dim(), mem, style("│").dim());
-        }
-        println!("  {}", style("╰───────────┴────────────┴──────────────┴──────────────┴───────────┴──────────╯").dim());
 
-        assert!(results[0].1 >= 0.95); assert!(results[1].1 >= 0.90); assert!(results[2].1 >= 0.85);
+        println!(
+            "\n  {}",
+            style("SCALING PERFORMANCE SUMMARY").bold().underlined()
+        );
+        println!(
+            "  {}",
+            style(
+                "╭───────────┬────────────┬──────────────┬──────────────┬───────────┬──────────╮"
+            )
+            .dim()
+        );
+        println!(
+            "  {} {} {} {} {} {} {} {} {} {} {} {} {}",
+            style("│").dim(),
+            style("  Dataset  ").bold().white(),
+            style("│").dim(),
+            style(" Recall@10  ").bold().white(),
+            style("│").dim(),
+            style("  Lat p50(µs) ").bold().white(),
+            style("│").dim(),
+            style("  Lat p95(µs) ").bold().white(),
+            style("│").dim(),
+            style(" Build(s)  ").bold().white(),
+            style("│").dim(),
+            style(" RAM(MB)  ").bold().white(),
+            style("│").dim()
+        );
+        println!(
+            "  {}",
+            style(
+                "├───────────┼────────────┼──────────────┼──────────────┼───────────┼──────────┤"
+            )
+            .dim()
+        );
+        for (n, rec, p50, p95, b_s, mem) in &results {
+            let recall_style = if *rec >= 0.95 {
+                style(format!("{:.4}", rec)).green().bold()
+            } else if *rec >= 0.90 {
+                style(format!("{:.4}", rec)).yellow().bold()
+            } else {
+                style(format!("{:.4}", rec)).red().bold()
+            };
+            println!(
+                "  {} {:>9} {}   {}   {}  {:>10.1} {}  {:>10.1} {}  {:>7.2} {}  {:>6.1} {}",
+                style("│").dim(),
+                format!("{}K", n / 1000),
+                style("│").dim(),
+                recall_style,
+                style("│").dim(),
+                p50,
+                style("│").dim(),
+                p95,
+                style("│").dim(),
+                b_s,
+                style("│").dim(),
+                mem,
+                style("│").dim()
+            );
+        }
+        println!(
+            "  {}",
+            style(
+                "╰───────────┴────────────┴──────────────┴──────────────┴───────────┴──────────╯"
+            )
+            .dim()
+        );
+
+        assert!(results[0].1 >= 0.95);
+        assert!(results[1].1 >= 0.90);
+        assert!(results[2].1 >= 0.85);
         let recall_drop = results[0].1 - results[2].1;
-        assert!(recall_drop < 0.15, "Catastrophic degradation: {:.4}", recall_drop);
+        assert!(
+            recall_drop < 0.15,
+            "Catastrophic degradation: {:.4}",
+            recall_drop
+        );
         assert!(results[2].2 < 50_000.0, "100K p50 too slow");
         TerminalReporter::success("BLOCK 2 PASSED.");
     });
 
     // BLOCK 3: Memory
     harness.execute("BLOCK 3 — MEMORY MEASUREMENT", || {
-        let dims = 128; let seed = 2024;
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 200, ef_search: 100, ml: 1.0 / (32_f64).ln() };
+        let dims = 128;
+        let seed = 2024;
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let sizes = [1_000, 5_000, 10_000, 50_000];
         let mut memories = Vec::new();
         for &n in &sizes {
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let index = build_index(&dataset, config.clone());
             let m_bytes = estimate_memory_bytes(&index);
-            let m_mb = m_bytes as f64 / (1024.*1024.);
-            TerminalReporter::info(&format!("{:>6} vectors → {:>6.2} MB ({:.0} bytes/vector)", n, m_mb, m_bytes as f64 / n as f64));
+            let m_mb = m_bytes as f64 / (1024. * 1024.);
+            TerminalReporter::info(&format!(
+                "{:>6} vectors → {:>6.2} MB ({:.0} bytes/vector)",
+                n,
+                m_mb,
+                m_bytes as f64 / n as f64
+            ));
             memories.push(m_mb);
         }
         let ratio = memories[3] / memories[1]; // 50K / 5K
-        assert!(ratio >= 5.0 && ratio <= 15.0, "Growth ratio {:.2}x not proportional", ratio);
+        assert!(
+            ratio >= 5.0 && ratio <= 15.0,
+            "Growth ratio {:.2}x not proportional",
+            ratio
+        );
         TerminalReporter::success("BLOCK 3 PASSED.");
     });
 
     // BLOCK 4: Persistence
     harness.execute("BLOCK 4 — PERSISTENCE ROUND-TRIP", || {
-        let n = 10_000; let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let n = 10_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = gen_vectors(n_queries, dims, seed + 9999);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 200, ef_search: 100, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let original = build_index(&dataset, config);
         let recall_before = compute_recall(&original, &queries, &dataset, k);
         let tmp = tempfile::NamedTempFile::new().unwrap();
         original.persist_to_file(tmp.path()).unwrap();
         let file_size = std::fs::metadata(tmp.path()).unwrap().len();
-        TerminalReporter::info(&format!("File size: {:.2} MB", file_size as f64 / (1024.*1024.)));
+        TerminalReporter::info(&format!(
+            "File size: {:.2} MB",
+            file_size as f64 / (1024. * 1024.)
+        ));
         let loaded = CPIndex::load_from_file(tmp.path()).unwrap();
         assert_eq!(loaded.nodes.len(), n);
         let recall_after = compute_recall(&loaded, &queries, &dataset, k);
@@ -230,26 +360,40 @@ fn stress_protocol_certification() {
 
     // BLOCK 5: Edge Cases (5a-5g)
     harness.execute("BLOCK 5 — EDGE CASES", || {
-        let k = 5; let d = 64;
+        let k = 5;
+        let d = 64;
         TerminalReporter::sub_step("5a: Empty index...");
         let empty = CPIndex::new();
-        assert!(empty.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).is_empty());
-        
+        assert!(empty
+            .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+            .is_empty());
+
         TerminalReporter::sub_step("5b: Single node...");
         let mut single = CPIndex::new();
         single.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
-        assert_eq!(single.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).len(), 1);
+        assert_eq!(
+            single
+                .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+                .len(),
+            1
+        );
 
         TerminalReporter::sub_step("5c: Two nodes...");
         let mut two = CPIndex::new();
         two.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         two.add(2, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
-        assert_eq!(two.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).len(), 2);
+        assert_eq!(
+            two.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+                .len(),
+            2
+        );
 
         TerminalReporter::sub_step("5d: Zero vector...");
         let mut zvec = CPIndex::new();
         zvec.add(1, u128::MAX, VectorRepresentations::Full(vec![0.0; d]), 0);
-        assert!(!zvec.search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None).is_empty());
+        assert!(!zvec
+            .search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
+            .is_empty());
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
         let mut dup = CPIndex::new();
@@ -271,30 +415,64 @@ fn stress_protocol_certification() {
 
     // BLOCK 6: Consistency
     harness.execute("BLOCK 6 — GRAPH CONSISTENCY", || {
-        let n = 50_000; let dims = 128; let seed = 2024;
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 400, ef_search: 200, ml: 1.0 / (32_f64).ln() };
+        let n = 50_000;
+        let dims = 128;
+        let seed = 2024;
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 400,
+            ef_search: 200,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let index = build_index(&dataset, config);
         index.validate_index().unwrap();
         let stats = index.stats();
-        TerminalReporter::info(&format!("Nodes: {} | Orphans: {} | Avg L0 Conn: {:.1}", stats.node_count, stats.orphan_count, stats.avg_connections_l0));
+        TerminalReporter::info(&format!(
+            "Nodes: {} | Orphans: {} | Avg L0 Conn: {:.1}",
+            stats.node_count, stats.orphan_count, stats.avg_connections_l0
+        ));
         assert!(stats.orphan_count <= 1);
         TerminalReporter::success("BLOCK 6 PASSED.");
     });
 
     // BLOCK 7: Latency
     harness.execute("BLOCK 7 — LATENCY PERCENTILES", || {
-        let n1=10000; let n2=50000; let dims=128; let seed=2024;
+        let n1 = 10000;
+        let n2 = 50000;
+        let dims = 128;
+        let seed = 2024;
         let mut results = Vec::new();
         for &n in &[n1, n2] {
-            let config = HnswConfig { m: 32, m_max0: 64, ef_construction: if n <= 10000 {200} else {400}, ef_search: if n <= 10000 {100} else {200}, ml: 1.0 / (32_f64).ln() };
+            let config = HnswConfig {
+                m: 32,
+                m_max0: 64,
+                ef_construction: if n <= 10000 { 200 } else { 400 },
+                ef_search: if n <= 10000 { 100 } else { 200 },
+                ml: 1.0 / (32_f64).ln(),
+            };
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let queries = gen_vectors(200, dims, seed + 9999);
             let index = build_index(&dataset, config);
             let (p50, p95, p99) = measure_latency_percentiles(&index, &queries, 10);
-            TerminalReporter::info(&format!("{}K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs", n/1000, p50, p95, p99));
+            TerminalReporter::info(&format!(
+                "{}K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs",
+                n / 1000,
+                p50,
+                p95,
+                p99
+            ));
             results.push(p50);
         }
         let s_factor = results[1] / results[0];

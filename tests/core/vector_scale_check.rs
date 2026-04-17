@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::node::{NodeTier, UnifiedNode};
@@ -23,7 +23,7 @@ async fn vector_scale_performance_certification() {
             TerminalReporter::sub_step("Populating HNSW graph with 1,000 orthogonal vectors...");
             for i in 0..1000 {
                 let mut vec = vec![0.0; 128];
-                vec[i % 128] = 1.0; 
+                vec[i % 128] = 1.0;
 
                 let mut node = UnifiedNode::new(i as u64);
                 node.tier = NodeTier::Hot;
@@ -35,15 +35,20 @@ async fn vector_scale_performance_certification() {
             let mut query_vec = vec![0.0; 128];
             query_vec[10] = 1.0;
 
-            TerminalReporter::sub_step("Executing greedy beam search over 128-dimensional space...");
+            TerminalReporter::sub_step(
+                "Executing greedy beam search over 128-dimensional space...",
+            );
             let results = {
                 let index = storage.hnsw.read();
                 index.search_nearest(&query_vec, None, None, 0, 5, None)
             };
 
             assert!(!results.is_empty());
-            assert_eq!(results[0].0, 10, "Heuristic search failed to find identical neighbor");
-            
+            assert_eq!(
+                results[0].0, 10,
+                "Heuristic search failed to find identical neighbor"
+            );
+
             TerminalReporter::success("Topological search precision verified at scale.");
         });
     });

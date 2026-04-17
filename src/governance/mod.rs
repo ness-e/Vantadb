@@ -1,10 +1,10 @@
+pub mod admission_filter;
+pub mod conflict_resolver;
+pub mod consistency;
 pub mod invalidations;
 pub mod maintenance_worker;
-pub mod admission_filter;
-pub mod consistency;
-pub mod conflict_resolver;
 
-pub use conflict_resolver::{ConflictResolver, ConfidenceArbiter};
+pub use conflict_resolver::{ConfidenceArbiter, ConflictResolver};
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};

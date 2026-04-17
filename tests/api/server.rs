@@ -4,11 +4,11 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tower::ServiceExt;
 use vantadb::server::{app, ServerState};

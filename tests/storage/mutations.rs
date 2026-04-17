@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
 use vantadb::executor::{ExecutionResult, Executor};
 use vantadb::parser::parse_statement;
@@ -64,11 +64,20 @@ async fn dml_mutations_certification() {
 
             let q_i1 = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros" }"#;
             let q_i2 = r#"INSERT NODE#5 TYPE Tarea { nombre: "VantaDB" }"#;
-            executor.execute_statement(parse_statement(q_i1).unwrap().1).await.unwrap();
-            executor.execute_statement(parse_statement(q_i2).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(q_i1).unwrap().1)
+                .await
+                .unwrap();
+            executor
+                .execute_statement(parse_statement(q_i2).unwrap().1)
+                .await
+                .unwrap();
 
             let q_relate = r#"RELATE NODE#101 --"creo"--> NODE#5 WEIGHT 1.0"#;
-            executor.execute_statement(parse_statement(q_relate).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(q_relate).unwrap().1)
+                .await
+                .unwrap();
 
             let node = storage.get(101).unwrap().unwrap();
             assert_eq!(node.edges.len(), 1);
@@ -83,8 +92,14 @@ async fn dml_mutations_certification() {
             let storage = StorageEngine::open(dir.path().to_str().unwrap()).unwrap();
             let executor = Executor::new(&storage);
 
-            executor.execute_statement(parse_statement(r#"INSERT NODE#101 TYPE X {}"#).unwrap().1).await.unwrap();
-            executor.execute_statement(parse_statement(r#"DELETE NODE#101"#).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(r#"INSERT NODE#101 TYPE X {}"#).unwrap().1)
+                .await
+                .unwrap();
+            executor
+                .execute_statement(parse_statement(r#"DELETE NODE#101"#).unwrap().1)
+                .await
+                .unwrap();
 
             assert!(storage.get(101).unwrap().is_none());
             TerminalReporter::success("Node excision complete.");

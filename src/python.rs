@@ -28,14 +28,13 @@ impl ClientEngine {
             let executor = crate::executor::Executor::new(&self._storage);
             match executor.execute_hybrid(query).await {
                 Ok(crate::executor::ExecutionResult::Read(nodes)) => {
-                    let results = nodes.into_iter()
+                    let results = nodes
+                        .into_iter()
                         .map(|n| format!("ID: {} | Relational: {:?}", n.id, n.relational))
                         .collect();
                     Ok(results)
                 }
-                Ok(crate::executor::ExecutionResult::Write { message, .. }) => {
-                    Ok(vec![message])
-                }
+                Ok(crate::executor::ExecutionResult::Write { message, .. }) => Ok(vec![message]),
                 Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
                     Ok(vec![format!("STALE_CONTEXT: {}", id)])
                 }

@@ -6,10 +6,10 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
+use console::style;
 use std::sync::Arc;
 use vantadb::storage::StorageEngine;
-use console::{style};
 
 fn temp_storage() -> Arc<StorageEngine> {
     let dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -35,14 +35,35 @@ async fn hardware_certification_full() {
     harness.execute("System Capability Audit", || {
         let caps = vantadb::hardware::HardwareCapabilities::global();
         TerminalReporter::sub_step("Reading system topology...");
-        assert!(caps.total_memory > 0, "System memory must be greater than 0");
-        assert!(caps.logical_cores > 0, "Logical cores must be greater than 0");
-        assert!(caps.resource_score >= 1, "Resource score must be calculated");
+        assert!(
+            caps.total_memory > 0,
+            "System memory must be greater than 0"
+        );
+        assert!(
+            caps.logical_cores > 0,
+            "Logical cores must be greater than 0"
+        );
+        assert!(
+            caps.resource_score >= 1,
+            "Resource score must be calculated"
+        );
 
         println!("\n  {}", style("DETECTED PROFILE").bold().underlined());
-        println!("  {} Core Count:   {}", style("🧵").cyan(), caps.logical_cores);
-        println!("  {} Total Memory: {:.2} GB", style("🧠").magenta(), caps.total_memory as f64 / (1024.0 * 1024.0 * 1024.0));
-        println!("  {} SIMD Support: {:?}", style("⚡").yellow(), caps.instructions);
+        println!(
+            "  {} Core Count:   {}",
+            style("🧵").cyan(),
+            caps.logical_cores
+        );
+        println!(
+            "  {} Total Memory: {:.2} GB",
+            style("🧠").magenta(),
+            caps.total_memory as f64 / (1024.0 * 1024.0 * 1024.0)
+        );
+        println!(
+            "  {} SIMD Support: {:?}",
+            style("⚡").yellow(),
+            caps.instructions
+        );
         println!("  {} Profile Tier: {:?}", style("🏆").green(), caps.profile);
 
         TerminalReporter::success("System hardware profile correctly identified.");
