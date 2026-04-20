@@ -8,10 +8,10 @@ Ruta: .connectome_profile
 {
   "instructions": "Avx2",
   "profile": "Performance",
-  "logical_cores": 12,
-  "total_memory": 34120724480,
-  "resource_score": 79,
-  "env_hash": 816557632526749010
+  "logical_cores": 4,
+  "total_memory": 8489287680,
+  "resource_score": 23,
+  "env_hash": 9987678657533827080
 }
 
 ================================================================
@@ -212,6 +212,7 @@ nom = "7"
 num-traits = "0.2"
 arrow = { version = "53", features = ["ipc"] }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
+fjall = "3.1"
 
 # ── Async + Integrations + Server ──
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
@@ -1789,6 +1790,7 @@ impl BackendPartition {
 
 /// A single write operation within an atomic batch.
 pub(crate) enum BackendWriteOp {
+    #[allow(dead_code)]
     Put {
         partition: BackendPartition,
         key: Vec<u8>,
@@ -1925,19 +1927,28 @@ pub fn print_banner() {
 
     eprintln!();
     eprintln!("  {}", style(&b).color256(166));
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("║").color256(166),
-        style("  ⚡  V A N T A D B   v0.1.0  ⚡  ").bold().color256(166),
-        style("║").color256(166),
-    );
-    eprintln!("  {}  {}  {}",
-        style("║").color256(166),
-        style("  Embedded Multimodal Database Engine     ").dim().white(),
+        style("  ⚡  V A N T A D B   v0.1.0  ⚡  ")
+            .bold()
+            .color256(166),
         style("║").color256(166),
     );
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("║").color256(166),
-        style("  Vector · Graph · Relational in one core ").dim().white(),
+        style("  Embedded Multimodal Database Engine     ")
+            .dim()
+            .white(),
+        style("║").color256(166),
+    );
+    eprintln!(
+        "  {}  {}  {}",
+        style("║").color256(166),
+        style("  Vector · Graph · Relational in one core ")
+            .dim()
+            .white(),
         style("║").color256(166),
     );
     eprintln!("  {}", style(&b).color256(166));
@@ -1951,8 +1962,7 @@ pub fn print_banner() {
 pub fn init_logging() {
     use tracing_subscriber::{fmt, EnvFilter};
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt::Subscriber::builder()
         .with_env_filter(filter)
@@ -1970,20 +1980,20 @@ pub fn init_logging() {
 /// `[✔] <label>  (<detail>)`  — success indicator
 pub fn ok(label: &str, detail: Option<&str>) {
     let check = style("[✔]").green().bold();
-    let lbl   = style(label).white().bold();
+    let lbl = style(label).white().bold();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", check, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", check, lbl),
+        None => eprintln!("  {}  {}", check, lbl),
     }
 }
 
 /// `[→] <label>  (<detail>)` — progress / in-flight indicator
 pub fn progress(label: &str, detail: Option<&str>) {
     let arrow = style("[→]").cyan().bold();
-    let lbl   = style(label).white();
+    let lbl = style(label).white();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", arrow, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", arrow, lbl),
+        None => eprintln!("  {}  {}", arrow, lbl),
     }
 }
 
@@ -1993,7 +2003,7 @@ pub fn warn(label: &str, detail: Option<&str>) {
     let lbl = style(label).yellow();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", ico, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", ico, lbl),
+        None => eprintln!("  {}  {}", ico, lbl),
     }
 }
 
@@ -2003,7 +2013,7 @@ pub fn error(label: &str, detail: Option<&str>) {
     let lbl = style(label).red().bold();
     match detail {
         Some(d) => eprintln!("  {}  {:<36} {}", ico, lbl, style(d).dim()),
-        None    => eprintln!("  {}  {}", ico, lbl),
+        None => eprintln!("  {}  {}", ico, lbl),
     }
 }
 
@@ -2013,7 +2023,8 @@ pub fn error(label: &str, detail: Option<&str>) {
 pub fn section(title: &str) {
     let line = style("─").color256(166).to_string().repeat(48);
     eprintln!();
-    eprintln!("  {}  {}  {}",
+    eprintln!(
+        "  {}  {}  {}",
         style("┤").color256(166),
         style(title).color256(166).bold(),
         style("├").color256(166),
@@ -2038,32 +2049,40 @@ pub fn print_startup_summary(
     data_dir: &str,
 ) {
     section("System Configuration");
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Hardware:").dim(),
         style(profile).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Instructions:").dim(),
         style(instructions).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Total Memory:").dim(),
         style(format!("{} MB", total_memory_mb)).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("RocksDB Budget:").dim(),
-        style(format!("{} MB", rocksdb_budget_mb)).color256(166).bold(),
+        style(format!("{} MB", rocksdb_budget_mb))
+            .color256(166)
+            .bold(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("HNSW Backend:").dim(),
         style(backend_mode).bold().white(),
     );
-    eprintln!("  {}  {:<20} {}",
+    eprintln!(
+        "  {}  {:<20} {}",
         style("│").color256(166).dim(),
         style("Data Dir:").dim(),
         style(data_dir).dim().white(),
@@ -2077,12 +2096,14 @@ pub fn print_startup_summary(
 /// Print the final "server ready" line
 pub fn print_ready(addr: &str) {
     eprintln!();
-    eprintln!("  {}  {} {}",
+    eprintln!(
+        "  {}  {} {}",
         style("[→]").color256(166).bold(),
         style("Listening on").white(),
         style(addr).color256(166).bold().underlined(),
     );
-    eprintln!("  {}  {}",
+    eprintln!(
+        "  {}  {}",
         style("   ").dim(),
         style("VantaDB is ready for connections.").dim(),
     );
@@ -2131,16 +2152,16 @@ pub fn format_bytes(bytes: u64) -> String {
         b if b >= GB => format!("{:.1} GB", b as f64 / GB as f64),
         b if b >= MB => format!("{:.1} MB", b as f64 / MB as f64),
         b if b >= KB => format!("{:.1} KB", b as f64 / KB as f64),
-        b            => format!("{} B",  b),
+        b => format!("{} B", b),
     }
 }
 
 /// Format milliseconds as human-readable duration (µs / ms / s)
 pub fn format_duration_ms(ms: u128) -> String {
     match ms {
-        t if t < 1     => format!("{}µs", t * 1000),
+        t if t < 1 => format!("{}µs", t * 1000),
         t if t < 1_000 => format!("{}ms", t),
-        t              => format!("{:.2}s", t as f64 / 1000.0),
+        t => format!("{:.2}s", t as f64 / 1000.0),
     }
 }
 
@@ -2578,7 +2599,7 @@ Ruta: src\executor.rs
 
 use crate::error::{Result, VantaError};
 use crate::eval::LispSandbox;
-use crate::governance::{ResolutionResult, ConfidenceArbiter};
+use crate::governance::{ConfidenceArbiter, ResolutionResult};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::lisp::parse as parse_lisp_expr;
 use crate::parser::parse_statement;
@@ -2709,16 +2730,13 @@ impl<'a> Executor<'a> {
         {
             use crate::governor::{AllocationStatus, ResourceGovernor};
             let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
-            let probe_cost = 0; 
+            let probe_cost = 0;
             if let Ok(AllocationStatus::GrantedWithPressure) =
                 governor.request_allocation(probe_cost)
             {
                 println!("🚨 [ResourceGovernor] High memory pressure (>90%) detected. Triggering emergency flush.");
                 if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!(
-                        "    └─ Priority record preserved: {}",
-                        winner.id
-                    );
+                    println!("    └─ Priority record preserved: {}", winner.id);
                     let _ = self.storage.insert(&winner);
                 }
             }
@@ -2793,7 +2811,10 @@ impl<'a> Executor<'a> {
                         if let Some((existing_id, _)) = nearest.first() {
                             if *existing_id != node.id {
                                 if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self.storage.conflict_resolver.evaluate_conflict(&existing, &node)
+                                    match self
+                                        .storage
+                                        .conflict_resolver
+                                        .evaluate_conflict(&existing, &node)
                                     {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(VantaError::Execution(format!(
@@ -2802,11 +2823,9 @@ impl<'a> Executor<'a> {
                                             )));
                                         }
                                         ResolutionResult::Superposition(record) => {
-                                            self.storage
-                                                .consistency_buffer
-                                                .insert_record(record);
-                                            return Ok(ExecutionResult::Write { 
-                                                affected_nodes: 1, 
+                                            self.storage.consistency_buffer.insert_record(record);
+                                            return Ok(ExecutionResult::Write {
+                                                affected_nodes: 1,
                                                 message: format!("Node {} moved to ConsistencyBuffer (Pending Resolution).", node.id),
                                                 node_id: Some(node.id),
                                             });
@@ -2866,7 +2885,10 @@ impl<'a> Executor<'a> {
                         if let Some((existing_id, _)) = nearest.first() {
                             if *existing_id != node.id {
                                 if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self.storage.conflict_resolver.evaluate_conflict(&existing, &node)
+                                    match self
+                                        .storage
+                                        .conflict_resolver
+                                        .evaluate_conflict(&existing, &node)
                                     {
                                         ResolutionResult::Reject(reason) => {
                                             return Err(VantaError::Execution(format!(
@@ -2875,11 +2897,9 @@ impl<'a> Executor<'a> {
                                             )));
                                         }
                                         ResolutionResult::Superposition(record) => {
-                                            self.storage
-                                                .consistency_buffer
-                                                .insert_record(record);
-                                            return Ok(ExecutionResult::Write { 
-                                                affected_nodes: 1, 
+                                            self.storage.consistency_buffer.insert_record(record);
+                                            return Ok(ExecutionResult::Write {
+                                                affected_nodes: 1,
                                                 message: format!("Node {} update entered ConsistencyBuffer (Pending Resolution).", node.id),
                                                 node_id: Some(node.id),
                                             });
@@ -2920,11 +2940,7 @@ impl<'a> Executor<'a> {
 
                 // Axiom: Topological Consistency
                 if self.storage.get(relate.target_id)?.is_none() {
-                    if self
-                        .storage
-                        .is_deleted(relate.target_id)
-                        .unwrap_or(false)
-                    {
+                    if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
                         return Err(VantaError::Execution(format!(
                             "Reference to deleted node: ID {} resides in the Tombstone storage",
                             relate.target_id
@@ -3007,7 +3023,8 @@ impl<'a> Executor<'a> {
                             losers_to_archive.push((
                                 collapse.zone_id,
                                 cand.id,
-                                "Manual Resolution: Candidate discarded by administrator".to_string(),
+                                "Manual Resolution: Candidate discarded by administrator"
+                                    .to_string(),
                             ));
                         }
 
@@ -3072,10 +3089,7 @@ impl<'a> Executor<'a> {
             crate::governor::AllocationStatus::GrantedWithPressure => {
                 println!("🚨 [ResourceGovernor] High memory pressure detected. Triggering emergency flush.");
                 if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!(
-                        "    └─ Priority record preserved: {}",
-                        winner.id
-                    );
+                    println!("    └─ Priority record preserved: {}", winner.id);
                     let _ = self.storage.insert(&winner);
                 }
             }
@@ -3766,7 +3780,7 @@ impl CPIndex {
         let sorted = candidates.clone().into_sorted_vec();
         // into_sorted_vec returns ascending order based on NodeSimMin's Ord
         // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
-        
+
         let mut selected: Vec<u64> = Vec::with_capacity(m);
         let mut discarded: Vec<u64> = Vec::new();
 
@@ -3789,9 +3803,8 @@ impl CPIndex {
             let mut is_diverse = true;
             for &sel_id in &selected {
                 if let Some(sel_node) = self.nodes.get(&sel_id) {
-                    let sim_cand_sel = calculate_similarity(
-                        cand_slice, None, None, &sel_node.vec_data
-                    );
+                    let sim_cand_sel =
+                        calculate_similarity(cand_slice, None, None, &sel_node.vec_data);
                     if sim_cand_sel > sim_q_cand {
                         is_diverse = false;
                         break;
@@ -3828,12 +3841,15 @@ impl CPIndex {
         // Phase 1.3: Duplicate detection — silently updating an existing node can
         // corrupt the graph's bidirectional links. Log a warning and return early.
         if self.nodes.contains_key(&id) {
-            warn!(node_id = id, "CPIndex::add called with duplicate ID — skipping to prevent graph corruption");
+            warn!(
+                node_id = id,
+                "CPIndex::add called with duplicate ID — skipping to prevent graph corruption"
+            );
             return;
         }
 
         if vec_data.is_none() {
-            // Can't index graph nodes without vectors into HNSW layers, 
+            // Can't index graph nodes without vectors into HNSW layers,
             // but we must still register them in the nodes map to track their storage_offset.
             self.nodes.insert(
                 id,
@@ -3910,7 +3926,7 @@ impl CPIndex {
             for item in w.iter() {
                 visited_ext.insert(item.1);
             }
-            
+
             // Only extend if it does not blow up the search scope pathologically
             if extended_w.len() <= ef_cons {
                 for item in w.iter() {
@@ -3920,7 +3936,12 @@ impl CPIndex {
                                 if !visited_ext.contains(&adj_id) {
                                     visited_ext.insert(adj_id);
                                     if let Some(adj_node) = self.nodes.get(&adj_id) {
-                                        let sim = calculate_similarity(&query_f32, None, None, &adj_node.vec_data);
+                                        let sim = calculate_similarity(
+                                            &query_f32,
+                                            None,
+                                            None,
+                                            &adj_node.vec_data,
+                                        );
                                         extended_w.push(NodeSimMin(sim, adj_id));
                                     }
                                 }
@@ -4414,10 +4435,14 @@ impl CPIndex {
     /// Compute a snapshot of index health metrics.
     pub fn stats(&self) -> IndexStats {
         let node_count = self.nodes.len();
-        let orphan_count = self.nodes.values()
+        let orphan_count = self
+            .nodes
+            .values()
             .filter(|n| n.neighbors.is_empty() || n.neighbors[0].is_empty())
             .count();
-        let total_l0_connections: usize = self.nodes.values()
+        let total_l0_connections: usize = self
+            .nodes
+            .values()
             .map(|n| n.neighbors.first().map(|l| l.len()).unwrap_or(0))
             .sum();
         let avg_connections_l0 = if node_count > 0 {
@@ -4454,7 +4479,8 @@ impl CPIndex {
             // Check: layer count should be ≥ 1
             if node.neighbors.is_empty() {
                 violations.push(format!(
-                    "Node {} has empty neighbors array (expected ≥1 layer)", id
+                    "Node {} has empty neighbors array (expected ≥1 layer)",
+                    id
                 ));
                 continue;
             }
@@ -4465,7 +4491,8 @@ impl CPIndex {
                     // Self-loop check
                     if neighbor_id == *id {
                         violations.push(format!(
-                            "Node {} has a self-loop at layer {}", id, layer_idx
+                            "Node {} has a self-loop at layer {}",
+                            id, layer_idx
                         ));
                         continue;
                     }
@@ -4483,9 +4510,7 @@ impl CPIndex {
         // Check entry point validity
         if let Some(ep) = self.entry_point {
             if !self.nodes.contains_key(&ep) {
-                violations.push(format!(
-                    "Entry point {} does not exist in the node map", ep
-                ));
+                violations.push(format!("Entry point {} does not exist in the node map", ep));
             }
         }
 
@@ -4600,7 +4625,6 @@ pub use error::{Result, VantaError};
 pub use node::{Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};
-
 
 
 ================================================================
@@ -4768,7 +4792,10 @@ impl LlmClient {
             .send()
             .await
             .map_err(|e| {
-                VantaError::Execution(format!("Network error during Semantic Summarization: {}", e))
+                VantaError::Execution(format!(
+                    "Network error during Semantic Summarization: {}",
+                    e
+                ))
             })?;
 
         if !response.status().is_success() {
@@ -5409,14 +5436,13 @@ impl ClientEngine {
             let executor = crate::executor::Executor::new(&self._storage);
             match executor.execute_hybrid(query).await {
                 Ok(crate::executor::ExecutionResult::Read(nodes)) => {
-                    let results = nodes.into_iter()
+                    let results = nodes
+                        .into_iter()
                         .map(|n| format!("ID: {} | Relational: {:?}", n.id, n.relational))
                         .collect();
                     Ok(results)
                 }
-                Ok(crate::executor::ExecutionResult::Write { message, .. }) => {
-                    Ok(vec![message])
-                }
+                Ok(crate::executor::ExecutionResult::Write { message, .. }) => Ok(vec![message]),
                 Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
                     Ok(vec![format!("STALE_CONTEXT: {}", id)])
                 }
@@ -5779,6 +5805,7 @@ Ruta: src\storage.rs
 ================================================================
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backends::fjall_backend::FjallBackend;
 use crate::backends::in_memory::InMemoryBackend;
 use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
@@ -5833,14 +5860,14 @@ impl VantaFile {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&path)
             .map_err(VantaError::IoError)?;
 
         let mut current_size = file.metadata().map_err(VantaError::IoError)?.len();
         if current_size < 8 {
             current_size = initial_size.max(8);
-            file.set_len(current_size)
-                .map_err(VantaError::IoError)?;
+            file.set_len(current_size).map_err(VantaError::IoError)?;
         }
 
         let mmap = unsafe {
@@ -5875,7 +5902,7 @@ impl VantaFile {
     /// Read a DiskNodeHeader from a specific offset without cloning (Zero-Copy)
     pub fn read_header(&self, offset: u64) -> Option<&DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        if offset + header_size > self.size || offset % 64 != 0 {
+        if offset + header_size > self.size || !offset.is_multiple_of(64) {
             return None;
         }
 
@@ -5886,12 +5913,15 @@ impl VantaFile {
     /// Write a DiskNodeHeader to a specific offset
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        
+
         // Alignment Check: Must be 64-byte aligned for Zero-Copy casting
-        if offset % 64 != 0 {
+        if !offset.is_multiple_of(64) {
             return Err(VantaError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("VantaFile: Misaligned header write at {} (must be 64B aligned)", offset),
+                format!(
+                    "VantaFile: Misaligned header write at {} (must be 64B aligned)",
+                    offset
+                ),
             )));
         }
 
@@ -5948,6 +5978,7 @@ impl VantaFile {
 pub enum BackendKind {
     #[default]
     RocksDb,
+    Fjall,
     InMemory,
 }
 
@@ -5973,7 +6004,7 @@ pub struct StorageEngine {
     pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
     /// Path to the data directory
     pub data_dir: PathBuf,
-    /// Vector Store 
+    /// Vector Store
     pub vector_store: RwLock<VantaFile>,
     /// Write-Ahead Log for durability
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
@@ -6004,6 +6035,7 @@ impl StorageEngine {
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),
+            BackendKind::Fjall => Arc::new(FjallBackend::open(path)?),
             BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
         };
 
@@ -6020,15 +6052,24 @@ impl StorageEngine {
             let mut idx = loaded;
             if use_mmap {
                 idx.backend = IndexBackend::new_mmap(index_path.clone());
-                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (cold-start)");
+                info!(
+                    backend = "mmap",
+                    "HNSW Survival Mode: MMap backend activated (cold-start)"
+                );
             }
             idx
         } else {
             if use_mmap {
-                info!(backend = "mmap", "HNSW Survival Mode: MMap backend activated (fresh)");
+                info!(
+                    backend = "mmap",
+                    "HNSW Survival Mode: MMap backend activated (fresh)"
+                );
                 CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
             } else {
-                info!(backend = "in-memory", "HNSW Performance Mode: InMemory backend");
+                info!(
+                    backend = "in-memory",
+                    "HNSW Performance Mode: InMemory backend"
+                );
                 CPIndex::new()
             }
         };
@@ -6091,11 +6132,12 @@ impl StorageEngine {
             let offset = vstore.write_cursor;
 
             let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-            let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
-                v.len()
-            } else {
-                0
-            };
+            let vec_len =
+                if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
+                    v.len()
+                } else {
+                    0
+                };
             let vec_size = (vec_len * 4) as u64;
             let total_needed = offset + header_size + vec_size;
 
@@ -6144,7 +6186,8 @@ impl StorageEngine {
         };
         let metadata_val = bincode::serialize(&metadata)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.backend.put(BackendPartition::Default, &key, &metadata_val)?;
+        self.backend
+            .put(BackendPartition::Default, &key, &metadata_val)?;
 
         {
             let mut hnsw = self.hnsw.write();
@@ -6166,7 +6209,8 @@ impl StorageEngine {
             let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
 
             if cache.len() > max_nodes {
-                self.emergency_maintenance_trigger.store(true, Ordering::Release);
+                self.emergency_maintenance_trigger
+                    .store(true, Ordering::Release);
             }
         }
 
@@ -6264,7 +6308,7 @@ impl StorageEngine {
         let vec_start = header.vector_offset as usize;
         let vec_end = vec_start + (header.vector_len as usize * 4);
         if vec_end > vstore.size as usize {
-            return Ok(None); 
+            return Ok(None);
         }
 
         let vec_bytes = &vstore.mmap[vec_start..vec_end];
@@ -6348,7 +6392,7 @@ impl StorageEngine {
             .values()
             .filter(|n| {
                 if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & 0x8) != 0 
+                    (h.flags & 0x8) != 0
                 } else {
                     false
                 }
@@ -6357,7 +6401,10 @@ impl StorageEngine {
 
         let total_nodes = hnsw.nodes.len();
         if total_nodes > 0 && (tombstone_count as f32 / total_nodes as f32) > 0.20 {
-            warn!(tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32, "Fragmentation >20% — offline compaction triggered");
+            warn!(
+                tombstone_pct = (tombstone_count as f32 / total_nodes as f32 * 100.0) as u32,
+                "Fragmentation >20% — offline compaction triggered"
+            );
         }
 
         Ok(())
@@ -7026,6 +7073,193 @@ pub mod mcp;
 
 
 ================================================================
+Nombre: fjall_backend.rs
+Ruta: src\backends\fjall_backend.rs
+================================================================
+
+//! Fjall-backed implementation of `StorageBackend`.
+//!
+//! This adapter maps the `StorageBackend` trait onto `fjall` v3.1.x.
+//!
+//! ## Fjall API model (v3.1.4)
+//!
+//! - **`fjall::Database`**: Top-level container. Owns the journal and all
+//!   keyspaces. One per engine path. Equivalent to a RocksDB `DB` instance.
+//! - **`fjall::Keyspace`**: A named LSM-tree within the Database. Each
+//!   `BackendPartition` maps 1:1 to a Keyspace using the same string names
+//!   as the RocksDB column families.
+//! - **`fjall::OwnedWriteBatch`** (aliased as `WriteBatch`): Atomic batch
+//!   that can span multiple Keyspaces. Equivalent to RocksDB `WriteBatch`.
+//! - **`fjall::PersistMode`**: Controls durability on `Database::persist()`.
+//!   `SyncAll` = fsync(data + metadata), strongest guarantee.
+//!
+//! ## Limitations vs RocksDB
+//!
+//! - **No checkpoint**: Fjall does not expose a point-in-time snapshot-to-disk
+//!   API. `checkpoint()` returns an explicit error.
+//! - **No manual compaction**: Fjall manages compaction internally via its
+//!   LSM background threads. `compact()` is a no-op.
+
+use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::error::{Result, VantaError};
+use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
+use std::path::Path;
+use tracing::info;
+
+/// Fjall adapter implementing `StorageBackend`.
+///
+/// Owns a `fjall::Database` and four `Keyspace` handles corresponding to
+/// the `BackendPartition` variants. Created through `FjallBackend::open`.
+pub(crate) struct FjallBackend {
+    db: Database,
+    default: Keyspace,
+    tombstone_storage: Keyspace,
+    compressed_archive: Keyspace,
+    tombstones: Keyspace,
+}
+
+impl FjallBackend {
+    /// Open a Fjall database at `path`.
+    ///
+    /// Creates the database directory if it does not exist.
+    /// Opens (or creates) one keyspace per `BackendPartition` using the
+    /// same names as the RocksDB column families for semantic continuity.
+    pub(crate) fn open(path: &str) -> Result<Self> {
+        let db = Database::builder(path)
+            .open()
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let default = db
+            .keyspace("default", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let tombstone_storage = db
+            .keyspace("tombstone_storage", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let compressed_archive = db
+            .keyspace("compressed_archive", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let tombstones = db
+            .keyspace("tombstones", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        info!("Fjall database opened at '{}'", path);
+
+        Ok(Self {
+            db,
+            default,
+            tombstone_storage,
+            compressed_archive,
+            tombstones,
+        })
+    }
+
+    /// Resolve a `BackendPartition` to the corresponding `Keyspace` handle.
+    fn keyspace(&self, partition: BackendPartition) -> &Keyspace {
+        match partition {
+            BackendPartition::Default => &self.default,
+            BackendPartition::TombstoneStorage => &self.tombstone_storage,
+            BackendPartition::CompressedArchive => &self.compressed_archive,
+            BackendPartition::Tombstones => &self.tombstones,
+        }
+    }
+}
+
+impl StorageBackend for FjallBackend {
+    fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
+        self.keyspace(partition)
+            .insert(key, value)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+    }
+
+    fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        self.keyspace(partition)
+            .get(key)
+            .map(|opt| opt.map(|slice| slice.to_vec()))
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+    }
+
+    fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
+        self.keyspace(partition)
+            .remove(key)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+    }
+
+    fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        // OwnedWriteBatch (type-aliased as WriteBatch) provides native atomic
+        // writes across multiple Keyspaces within the same Database.
+        // All operations are committed atomically via the shared journal.
+        let mut batch = self.db.batch();
+        for op in ops {
+            match op {
+                BackendWriteOp::Put {
+                    partition,
+                    key,
+                    value,
+                } => {
+                    batch.insert(self.keyspace(partition), key, value);
+                }
+                BackendWriteOp::Delete { partition, key } => {
+                    batch.remove(self.keyspace(partition), key);
+                }
+            }
+        }
+        batch
+            .commit()
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+    }
+
+    fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let ks = self.keyspace(partition);
+        let mut result = Vec::new();
+        for item in ks.iter() {
+            let kv = item.into_inner().map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            result.push((kv.0.to_vec(), kv.1.to_vec()));
+        }
+        Ok(result)
+    }
+
+    /// Flush pending writes to durable storage.
+    ///
+    /// Uses `PersistMode::SyncAll` which calls `fsync` on both data and
+    /// metadata, providing the strongest durability guarantee Fjall offers.
+    ///
+    /// Per Fjall docs: "Persisting only affects durability, NOT consistency.
+    /// Even without flushing data is crash-safe." The journal architecture
+    /// provides crash consistency regardless; this call ensures data survives
+    /// power loss.
+    fn flush(&self) -> Result<()> {
+        self.db
+            .persist(PersistMode::SyncAll)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+    }
+
+    /// Checkpoint is not supported by Fjall.
+    ///
+    /// Fjall does not expose a point-in-time consistent snapshot-to-disk API
+    /// equivalent to RocksDB's `Checkpoint::create_checkpoint`. Returning an
+    /// honest error rather than simulating with unsafe file copies.
+    fn checkpoint(&self, _path: &Path) -> Result<()> {
+        Err(VantaError::Execution(
+            "Checkpoint not supported by FjallBackend: Fjall does not expose a \
+             point-in-time snapshot-to-disk API equivalent to RocksDB checkpoints"
+                .to_string(),
+        ))
+    }
+
+    /// No-op: Fjall manages LSM compaction automatically via internal
+    /// background threads. No manual compaction trigger is needed or
+    /// exposed for this use case.
+    fn compact(&self) {
+        // Fjall's LSM engine (lsm-tree crate) runs automatic background
+        // compaction. There is no public manual compaction API to call here.
+    }
+}
+
+
+================================================================
 Nombre: in_memory.rs
 Ruta: src\backends\in_memory.rs
 ================================================================
@@ -7054,6 +7288,7 @@ use std::path::Path;
 ///
 /// Thread-safe via `RwLock`. All data is lost when the backend is dropped.
 pub(crate) struct InMemoryBackend {
+    #[allow(clippy::type_complexity)]
     partitions: RwLock<HashMap<BackendPartition, BTreeMap<Vec<u8>, Vec<u8>>>>,
 }
 
@@ -7120,12 +7355,7 @@ impl StorageBackend for InMemoryBackend {
         let parts = self.partitions.read();
         Ok(parts
             .get(&partition)
-            .map(|btree| {
-                btree
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
-            })
+            .map(|btree| btree.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default())
     }
 
@@ -7176,9 +7406,7 @@ mod tests {
             .is_none());
 
         // Delete
-        backend
-            .delete(BackendPartition::Default, b"key1")
-            .unwrap();
+        backend.delete(BackendPartition::Default, b"key1").unwrap();
         assert!(backend
             .get(BackendPartition::Default, b"key1")
             .unwrap()
@@ -7244,6 +7472,7 @@ Ruta: src\backends\mod.rs
 
 //! Concrete `StorageBackend` implementations.
 
+pub(crate) mod fjall_backend;
 pub(crate) mod in_memory;
 pub(crate) mod rocksdb_backend;
 
@@ -7319,9 +7548,7 @@ impl RocksDbBackend {
         let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
         let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
 
-        let write_buffer_size = (write_buffer_total / 2)
-            .max(8 * 1024 * 1024)
-            .min(128 * 1024 * 1024);
+        let write_buffer_size = (write_buffer_total / 2).clamp(8 * 1024 * 1024, 128 * 1024 * 1024);
 
         opts.set_write_buffer_size(write_buffer_size);
         opts.set_max_write_buffer_number(2);
@@ -7383,10 +7610,7 @@ impl RocksDbBackend {
     /// Helper: resolve a `BackendPartition` to its RocksDB column family handle.
     fn cf_handle(&self, partition: BackendPartition) -> Result<&rocksdb::ColumnFamily> {
         self.db.cf_handle(partition.cf_name()).ok_or_else(|| {
-            VantaError::Execution(format!(
-                "Column family '{}' not found",
-                partition.cf_name()
-            ))
+            VantaError::Execution(format!("Column family '{}' not found", partition.cf_name()))
         })
     }
 }
@@ -7910,7 +8134,7 @@ use parking_lot::RwLock;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-const DEFAULT_BLOOM_BITS: usize = 100_000; 
+const DEFAULT_BLOOM_BITS: usize = 100_000;
 const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1E1E1E];
 
 /// AdmissionFilter prevents the ingestion of previously rejected records
@@ -8002,10 +8226,10 @@ Nombre: conflict_resolver.rs
 Ruta: src\governance\conflict_resolver.rs
 ================================================================
 
+use crate::governance::ResolutionResult;
+use crate::node::{AccessTracker, UnifiedNode};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use crate::node::{AccessTracker, UnifiedNode};
-use crate::governance::ResolutionResult;
 
 // ─── Conflict Resolver (Legacy: Devil's Advocate) ─────────────────────────────
 
@@ -8165,9 +8389,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum RecordState {
-    PendingConflict,   // Pending contextual resolution
-    ResolvedAccept,    // Allowed to migrate to persistent storage
-    ResolvedReject,    // Heading to AdmissionFilter + Purge
+    PendingConflict, // Pending contextual resolution
+    ResolvedAccept,  // Allowed to migrate to persistent storage
+    ResolvedReject,  // Heading to AdmissionFilter + Purge
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -8284,7 +8508,7 @@ impl ConsistencyBuffer {
             }
         }
 
-        let discarded = map.len() as u64; 
+        let discarded = map.len() as u64;
 
         self.stats
             .pending_to_decayed
@@ -8444,7 +8668,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 /// Maximum duration the maintenance cycle may spend on data compression.
-const MAX_COMPRESSION_DURATION_MS: u128 = 8_000; 
+const MAX_COMPRESSION_DURATION_MS: u128 = 8_000;
 
 /// Minimum combined hit-weight for a group to deserve compression.
 const MIN_GROUP_WEIGHT_FOR_COMPRESSION: u32 = 3;
@@ -8460,7 +8684,10 @@ impl MaintenanceWorker {
         let inactivity_threshold_ms = 5000;
 
         loop {
-            if storage.emergency_maintenance_trigger.load(Ordering::Acquire) {
+            if storage
+                .emergency_maintenance_trigger
+                .load(Ordering::Acquire)
+            {
                 println!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
                 storage
                     .emergency_maintenance_trigger
@@ -8643,9 +8870,7 @@ impl MaintenanceWorker {
                     continue;
                 }
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
-                    println!(
-                        "🔌 [Maintenance] Cycle interrupted (I/O activity detected)."
-                    );
+                    println!("🔌 [Maintenance] Cycle interrupted (I/O activity detected).");
                     break;
                 }
 
@@ -8655,7 +8880,10 @@ impl MaintenanceWorker {
                 }
 
                 if node.flags.is_set(NodeFlags::INVALIDATED) {
-                    println!("🧨 [Maintenance] Invalidated node detected: {}. Purging immediately.", id);
+                    println!(
+                        "🧨 [Maintenance] Invalidated node detected: {}. Purging immediately.",
+                        id
+                    );
                     keys_to_remove.push(id);
                     let slashed_role: Option<String> = node
                         .relational
@@ -8694,7 +8922,10 @@ impl MaintenanceWorker {
 
         for node in &to_consolidate {
             if let Err(e) = storage.consolidate_node(node) {
-                eprintln!("⚠️ [Maintenance] Error consolidating node {}: {}", node.id, e);
+                eprintln!(
+                    "⚠️ [Maintenance] Error consolidating node {}: {}",
+                    node.id, e
+                );
             }
         }
 
@@ -8704,9 +8935,9 @@ impl MaintenanceWorker {
                 if let Some(role) = slashed_role {
                     {
                         let mut tracker = storage.conflict_resolver.collision_tracker.write();
-                        tracker.slash_origin(&role);
+                        tracker.slash_origin(role);
                     }
-                    storage.admission_filter.block_role(&role);
+                    storage.admission_filter.block_role(role);
                     println!("🔥 [Maintenance] Origin Slashing: agent '{}' blocked → ConfidenceScore=0.0", role);
                 }
 
@@ -8738,10 +8969,7 @@ impl MaintenanceWorker {
         );
     }
 
-    async fn execute_data_compression(
-        storage: &Arc<StorageEngine>,
-        candidates: &[UnifiedNode],
-    ) {
+    async fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
         let mut thread_groups: HashMap<u64, Vec<&UnifiedNode>> = HashMap::new();
 
         for node in candidates {
@@ -8758,32 +8986,37 @@ impl MaintenanceWorker {
 
         for (thread_id, group) in &thread_groups {
             if deadline.elapsed().as_millis() > MAX_COMPRESSION_DURATION_MS {
-                println!("⏳ [Maintenance] Compression time budget reached. Deferring remaining groups.");
+                println!(
+                    "⏳ [Maintenance] Compression time budget reached. Deferring remaining groups."
+                );
                 break;
             }
 
             if group.len() < 2 {
-                continue; 
+                continue;
             }
             let group_hit_sum: u32 = group.iter().map(|n| n.hits).sum();
             if group_hit_sum < MIN_GROUP_WEIGHT_FOR_COMPRESSION {
-                continue; 
+                continue;
             }
 
             let node_refs: Vec<&UnifiedNode> = group.to_vec();
             let summary_text = match llm.summarize_context(&node_refs).await {
                 Ok(text) => text,
                 Err(e) => {
-                    eprintln!("⚠️ [Maintenance] LLM compression failed for thread {}: {}. Skipping.", thread_id, e);
-                    continue; 
+                    eprintln!(
+                        "⚠️ [Maintenance] LLM compression failed for thread {}: {}. Skipping.",
+                        thread_id, e
+                    );
+                    continue;
                 }
             };
 
             let summary_id = rand::random::<u64>();
             let mut summary_node = UnifiedNode::new(summary_id);
             summary_node.tier = NodeTier::Cold;
-            summary_node.flags.set(NodeFlags::PINNED); 
-            summary_node.importance = 0.9; 
+            summary_node.flags.set(NodeFlags::PINNED);
+            summary_node.importance = 0.9;
             summary_node.confidence_score =
                 group.iter().map(|n| n.confidence_score).sum::<f32>() / group.len() as f32;
             summary_node.set_field("type", FieldValue::String("Summary".to_string()));
@@ -8808,7 +9041,7 @@ impl MaintenanceWorker {
 
             if let Err(e) = storage.insert_to_cf(&summary_node, "compressed_archive") {
                 eprintln!("⚠️ [Maintenance] Failed to persist summary node: {}. Aborting group compression.", e);
-                continue; 
+                continue;
             }
 
             for original in group {
@@ -8840,13 +9073,13 @@ Nombre: mod.rs
 Ruta: src\governance\mod.rs
 ================================================================
 
+pub mod admission_filter;
+pub mod conflict_resolver;
+pub mod consistency;
 pub mod invalidations;
 pub mod maintenance_worker;
-pub mod admission_filter;
-pub mod consistency;
-pub mod conflict_resolver;
 
-pub use conflict_resolver::{ConflictResolver, ConfidenceArbiter};
+pub use conflict_resolver::{ConfidenceArbiter, ConflictResolver};
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -8890,13 +9123,13 @@ Nombre: mod.rs
 Ruta: src\hardware\mod.rs
 ================================================================
 
+use console::{style, Emoji};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 use sysinfo::System;
-use console::{style, Emoji};
 
 /// Global Hardware Profile loaded once at startup.
 static CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
@@ -8972,7 +9205,8 @@ impl HardwareScout {
         let instructions = Self::detect_instructions();
         let profile = Self::determine_profile(total_memory, instructions);
 
-        let resource_score = Self::calculate_resource_score(total_memory, logical_cores, instructions);
+        let resource_score =
+            Self::calculate_resource_score(total_memory, logical_cores, instructions);
 
         let caps = HardwareCapabilities {
             instructions,
@@ -9064,7 +9298,13 @@ impl HardwareScout {
         let lightning = Emoji("⚡ ", "!");
         let shield = Emoji("🛡️  ", "!!");
 
-        eprintln!("\n{}", style("╭──────────────────────────────────────────────────────────────────────────────╮").dim());
+        eprintln!(
+            "\n{}",
+            style(
+                "╭──────────────────────────────────────────────────────────────────────────────╮"
+            )
+            .dim()
+        );
         eprintln!(
             "{} {} {} [ {} ] {}",
             style("│").dim(),
@@ -9091,7 +9331,13 @@ impl HardwareScout {
             "",
             style("│").dim()
         );
-        eprintln!("{}\n", style("╰──────────────────────────────────────────────────────────────────────────────╯").dim());
+        eprintln!(
+            "{}\n",
+            style(
+                "╰──────────────────────────────────────────────────────────────────────────────╯"
+            )
+            .dim()
+        );
     }
 }
 
@@ -9845,7 +10091,7 @@ Ruta: tests\api\mcp_integration.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use serde_json::json;
 use vantadb::api::mcp::{handle_initialize, handle_tools_call, handle_tools_list};
 use vantadb::executor::Executor;
@@ -9860,11 +10106,13 @@ async fn mcp_protocol_certification() {
         let init_res = handle_initialize().expect("Initialization failed");
         assert_eq!(init_res["protocolVersion"], "2024-11-05");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
-        
+
         let list_res = handle_tools_list().expect("Tools listing failed");
-        let tools = list_res["tools"].as_array().expect("Tools must be an array");
+        let tools = list_res["tools"]
+            .as_array()
+            .expect("Tools must be an array");
         assert!(tools.iter().any(|t| t["name"] == "query_lisp"));
-        
+
         TerminalReporter::success("MCP handshake and tools definition verified.");
     });
 
@@ -9884,7 +10132,9 @@ async fn mcp_protocol_certification() {
                 "arguments": { "node_id": 100 }
             }));
 
-            let tool_res = handle_tools_call(&params, &executor, &storage).await.expect("Tool call failed");
+            let tool_res = handle_tools_call(&params, &executor, &storage)
+                .await
+                .expect("Tool call failed");
             let text = tool_res["content"][0]["text"].as_str().unwrap();
             assert!(text.contains("\"confidence_score\":0.99"));
 
@@ -9893,8 +10143,13 @@ async fn mcp_protocol_certification() {
                 "name": "query_lisp",
                 "arguments": { "query": "(INSERT :node {:label \"MCP_TEST\"})" }
             }));
-            let lisp_res = handle_tools_call(&lisp_params, &executor, &storage).await.expect("Lisp execution failed");
-            assert!(lisp_res["content"][0]["text"].as_str().unwrap().contains("affected_nodes"));
+            let lisp_res = handle_tools_call(&lisp_params, &executor, &storage)
+                .await
+                .expect("Lisp execution failed");
+            assert!(lisp_res["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("affected_nodes"));
 
             TerminalReporter::success("MCP tool dispatcher correctly routed and executed calls.");
         });
@@ -9938,11 +10193,11 @@ Ruta: tests\api\server.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tower::ServiceExt;
 use vantadb::server::{app, ServerState};
@@ -9988,7 +10243,7 @@ Ruta: tests\api\structured_api_v2.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::{ExecutionResult, Executor};
@@ -10005,18 +10260,35 @@ async fn structured_api_v2_certification() {
             let executor = Executor::new(&storage);
 
             TerminalReporter::sub_step("Inserting nodes S1 and S2 via hybrid syntax...");
-            executor.execute_hybrid("(INSERT :node {:label \"S1\"})").await.unwrap();
-            executor.execute_hybrid("(INSERT :node {:label \"S2\"})").await.unwrap();
+            executor
+                .execute_hybrid("(INSERT :node {:label \"S1\"})")
+                .await
+                .unwrap();
+            executor
+                .execute_hybrid("(INSERT :node {:label \"S2\"})")
+                .await
+                .unwrap();
 
             let (s1_id, s2_id);
             {
                 let cache = storage.volatile_cache.read();
-                s1_id = *cache.iter().find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S1")).unwrap().0;
-                s2_id = *cache.iter().find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S2")).unwrap().0;
+                s1_id = *cache
+                    .iter()
+                    .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S1"))
+                    .unwrap()
+                    .0;
+                s2_id = *cache
+                    .iter()
+                    .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S2"))
+                    .unwrap()
+                    .0;
             }
 
             TerminalReporter::sub_step(&format!("Establishing relation {} -> {}...", s1_id, s2_id));
-            let relate_query = format!("RELATE NODE#{} --\"test_rel\"--> NODE#{} WEIGHT 0.8", s1_id, s2_id);
+            let relate_query = format!(
+                "RELATE NODE#{} --\"test_rel\"--> NODE#{} WEIGHT 0.8",
+                s1_id, s2_id
+            );
             let res = executor.execute_hybrid(&relate_query).await.unwrap();
 
             if let ExecutionResult::Write { node_id, .. } = res {
@@ -10032,8 +10304,11 @@ async fn structured_api_v2_certification() {
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
 
-            executor.execute_hybrid("(INSERT :node {:type \"Thread\" :id 999})").await.unwrap();
-            
+            executor
+                .execute_hybrid("(INSERT :node {:type \"Thread\" :id 999})")
+                .await
+                .unwrap();
+
             TerminalReporter::sub_step("Dispatching message to THREAD#999...");
             let msg_query = "INSERT MESSAGE USER \"Hola Mundo\" TO THREAD#999";
             let msg_res = executor.execute_hybrid(msg_query).await.unwrap();
@@ -10063,16 +10338,16 @@ Ruta: tests\certification\competitive_bench.rs
 //!
 //! Requires: datasets/sift/{sift_base.fvecs, sift_query.fvecs, sift_groundtruth.ivecs}
 
+use console::style;
 use std::path::Path;
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
-use console::style;
 
 #[path = "../common/mod.rs"]
 mod common;
 
 use common::sift_loader::{read_fvecs, read_ivecs};
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -10102,11 +10377,7 @@ fn calculate_recall(
 }
 
 /// Measure per-query latency percentiles (p50, p95, p99) in microseconds.
-fn measure_latency(
-    index: &CPIndex,
-    queries: &[Vec<f32>],
-    k: usize,
-) -> (f64, f64, f64, f64) {
+fn measure_latency(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64, f64) {
     let mut latencies_us: Vec<f64> = queries
         .iter()
         .map(|q| {
@@ -10322,7 +10593,10 @@ fn sift1m_competitive_benchmark() {
         style("╰──────────┴──────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
     );
 
-    println!("\n  {} Dataset: SIFT1M (128D, L2 ground truth)", style("ℹ").blue());
+    println!(
+        "\n  {} Dataset: SIFT1M (128D, L2 ground truth)",
+        style("ℹ").blue()
+    );
     println!(
         "  {} VantaDB uses cosine similarity — recall gap vs L2 GT is expected.",
         style("ℹ").blue()
@@ -10356,10 +10630,10 @@ Ruta: tests\certification\hardware_profiles.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
+use console::style;
 use std::sync::Arc;
 use vantadb::storage::StorageEngine;
-use console::{style};
 
 fn temp_storage() -> Arc<StorageEngine> {
     let dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -10385,14 +10659,35 @@ async fn hardware_certification_full() {
     harness.execute("System Capability Audit", || {
         let caps = vantadb::hardware::HardwareCapabilities::global();
         TerminalReporter::sub_step("Reading system topology...");
-        assert!(caps.total_memory > 0, "System memory must be greater than 0");
-        assert!(caps.logical_cores > 0, "Logical cores must be greater than 0");
-        assert!(caps.resource_score >= 1, "Resource score must be calculated");
+        assert!(
+            caps.total_memory > 0,
+            "System memory must be greater than 0"
+        );
+        assert!(
+            caps.logical_cores > 0,
+            "Logical cores must be greater than 0"
+        );
+        assert!(
+            caps.resource_score >= 1,
+            "Resource score must be calculated"
+        );
 
         println!("\n  {}", style("DETECTED PROFILE").bold().underlined());
-        println!("  {} Core Count:   {}", style("🧵").cyan(), caps.logical_cores);
-        println!("  {} Total Memory: {:.2} GB", style("🧠").magenta(), caps.total_memory as f64 / (1024.0 * 1024.0 * 1024.0));
-        println!("  {} SIMD Support: {:?}", style("⚡").yellow(), caps.instructions);
+        println!(
+            "  {} Core Count:   {}",
+            style("🧵").cyan(),
+            caps.logical_cores
+        );
+        println!(
+            "  {} Total Memory: {:.2} GB",
+            style("🧠").magenta(),
+            caps.total_memory as f64 / (1024.0 * 1024.0 * 1024.0)
+        );
+        println!(
+            "  {} SIMD Support: {:?}",
+            style("⚡").yellow(),
+            caps.instructions
+        );
         println!("  {} Profile Tier: {:?}", style("🏆").green(), caps.profile);
 
         TerminalReporter::success("System hardware profile correctly identified.");
@@ -10430,20 +10725,26 @@ Ruta: tests\certification\hnsw_recall.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
-use rand::{Rng, thread_rng};
+use common::{TerminalReporter, VantaHarness};
+use console::style;
+use rand::{thread_rng, Rng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
-use console::{style};
 
 fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
     let mut rng = thread_rng();
     let mut vectors = Vec::with_capacity(count);
     for _ in 0..count {
         let mut vec = Vec::with_capacity(dims);
-        for _ in 0..dims { vec.push(rng.gen_range(-1.0..1.0)); }
+        for _ in 0..dims {
+            vec.push(rng.gen_range(-1.0..1.0));
+        }
         let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
-        if norm > 0.0 { for v in &mut vec { *v /= norm; } }
+        if norm > 0.0 {
+            for v in &mut vec {
+                *v /= norm;
+            }
+        }
         vectors.push(vec);
     }
     vectors
@@ -10467,13 +10768,29 @@ fn recall_certification_runner() {
     let mut harness = VantaHarness::new("RECALL CERTIFICATION");
 
     harness.execute("Recall@10 Calibration", || {
-        let node_count = 5000; let query_count = 100; let dims = 64; let top_k = 10;
-        TerminalReporter::sub_step(&format!("Generating dataset (N={}, D={})...", node_count, dims));
+        let node_count = 5000;
+        let query_count = 100;
+        let dims = 64;
+        let top_k = 10;
+        TerminalReporter::sub_step(&format!(
+            "Generating dataset (N={}, D={})...",
+            node_count, dims
+        ));
         let raw_vectors = generate_random_vectors(node_count, dims);
         let query_vectors = generate_random_vectors(query_count, dims);
-        let dataset: Vec<(u64, Vec<f32>)> = raw_vectors.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = raw_vectors
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
 
-        let config = HnswConfig { m: 24, m_max0: 48, ef_construction: 200, ef_search: 100, ml: 1.0 / (24_f64).ln() };
+        let config = HnswConfig {
+            m: 24,
+            m_max0: 48,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (24_f64).ln(),
+        };
         let mut index = CPIndex::new_with_config(config);
 
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
@@ -10492,7 +10809,10 @@ fn recall_certification_runner() {
             let hnsw_results = index.search_nearest(query, None, None, u128::MAX, top_k, None);
             latencies_us.push(t_start.elapsed().as_micros() as u64);
             let hnsw_neighbor_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
-            let intersection = true_neighbors.iter().filter(|&id| hnsw_neighbor_ids.contains(id)).count();
+            let intersection = true_neighbors
+                .iter()
+                .filter(|&id| hnsw_neighbor_ids.contains(id))
+                .count();
             total_recall += intersection as f64 / top_k as f64;
             pb_query.inc(1);
         }
@@ -10508,7 +10828,11 @@ fn recall_certification_runner() {
         println!("  {} Recall:   {:.4}", style("📊").cyan(), mean_recall);
         println!("  {} Avg Lat:  {:.2} µs", style("🔹").blue(), avg_us);
         println!("  {} p95 Lat:  {} µs", style("🔸").yellow(), p95);
-        println!("  {} QPS:      {:.0}", style("⚡").green(), 1_000_000.0 / avg_us);
+        println!(
+            "  {} QPS:      {:.0}",
+            style("⚡").green(),
+            1_000_000.0 / avg_us
+        );
 
         assert!(mean_recall >= 0.90, "Recall too low: {:.4}", mean_recall);
         TerminalReporter::success("Recall and Latency standards satisfied.");
@@ -10532,12 +10856,12 @@ Ruta: tests\certification\hnsw_validation.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations, cosine_sim_f32};
-use console::{style};
+use console::style;
+use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -10548,16 +10872,23 @@ fn generate_vectors_seeded(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>
     let mut vectors = Vec::with_capacity(count);
     for _ in 0..count {
         let mut vec = Vec::with_capacity(dims);
-        for _ in 0..dims { vec.push(rng.gen_range(-1.0..1.0)); }
+        for _ in 0..dims {
+            vec.push(rng.gen_range(-1.0..1.0));
+        }
         let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
-        if norm > 0.0 { for v in &mut vec { *v /= norm; } }
+        if norm > 0.0 {
+            for v in &mut vec {
+                *v /= norm;
+            }
+        }
         vectors.push(vec);
     }
     vectors
 }
 
 fn brute_force_knn(query: &[f32], dataset: &[(u64, Vec<f32>)], k: usize) -> Vec<u64> {
-    let mut sims: Vec<(u64, f32)> = dataset.iter()
+    let mut sims: Vec<(u64, f32)> = dataset
+        .iter()
         .map(|(id, vec)| (*id, cosine_sim_f32(query, vec)))
         .collect();
     sims.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -10576,12 +10907,22 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig, block_msg: &str)
     index
 }
 
-fn compute_recall(index: &CPIndex, queries: &[Vec<f32>], dataset: &[(u64, Vec<f32>)], k: usize, block_msg: &str) -> f64 {
+fn compute_recall(
+    index: &CPIndex,
+    queries: &[Vec<f32>],
+    dataset: &[(u64, Vec<f32>)],
+    k: usize,
+    block_msg: &str,
+) -> f64 {
     let pb = TerminalReporter::create_progress(queries.len() as u64, block_msg);
     let mut total_recall = 0.0;
     for query in queries {
         let truth = brute_force_knn(query, dataset, k);
-        let hnsw_ids: Vec<u64> = index.search_nearest(query, None, None, u128::MAX, k, None).into_iter().map(|(id, _)| id).collect();
+        let hnsw_ids: Vec<u64> = index
+            .search_nearest(query, None, None, u128::MAX, k, None)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
         let hits = truth.iter().filter(|id| hnsw_ids.contains(id)).count();
         total_recall += hits as f64 / k as f64;
         pb.inc(1);
@@ -10603,11 +10944,25 @@ fn hnsw_hard_validation_certification() {
     // ─────────────────────────────────────────────────────────────────
 
     harness.execute("Scale Check: 1K Vectors", || {
-        let n = 1_000; let dims = 128; let k = 10; let n_queries = 200; let seed = 42;
+        let n = 1_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 200;
+        let seed = 42;
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 200, ef_search: 100, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
         TerminalReporter::info(&format!("Recall@10: {:.4} (Required >= 0.95)", recall));
@@ -10615,11 +10970,25 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Scale Check: 10K Vectors", || {
-        let n = 10_000; let dims = 128; let k = 10; let n_queries = 200; let seed = 42;
+        let n = 10_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 200;
+        let seed = 42;
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 400, ef_search: 200, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 400,
+            ef_search: 200,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
         TerminalReporter::info(&format!("Recall@10: {:.4} (Required >= 0.90)", recall));
@@ -10627,11 +10996,25 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Scale Check: 50K Vectors", || {
-        let n = 50_000; let dims = 128; let k = 10; let n_queries = 100; let seed = 42;
+        let n = 50_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 42;
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 500, ef_search: 350, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 500,
+            ef_search: 350,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
         TerminalReporter::info(&format!("Recall@10: {:.4} (Required >= 0.85)", recall));
@@ -10643,9 +11026,16 @@ fn hnsw_hard_validation_certification() {
     // ─────────────────────────────────────────────────────────────────
 
     harness.execute("Determinism: Same Query -> Same Result", || {
-        let n = 5_000; let dims = 64; let k = 10; let seed = 99;
+        let n = 5_000;
+        let dims = 64;
+        let k = 10;
+        let seed = 99;
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(20, dims, seed + 500);
         let index = build_index(&dataset, HnswConfig::default(), "Building");
         for query in &queries {
@@ -10661,9 +11051,14 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Recall vs ef_search Degradation Curve", || {
-        let n = 10_000; let seed = 77;
+        let n = 10_000;
+        let seed = 77;
         let vecs = generate_vectors_seeded(n, 64, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(100, 64, seed + 500);
         let mut index = build_index(&dataset, HnswConfig::default(), "Building");
         let ef_values = [10, 20, 50, 100, 200];
@@ -10683,13 +11078,18 @@ fn hnsw_hard_validation_certification() {
     // ─────────────────────────────────────────────────────────────────
 
     harness.execute("Edge Case: Duplicate Vectors", || {
-        let dims = 32; let k = 5;
+        let dims = 32;
+        let k = 5;
         let iv = vec![1.0; dims];
         let mut index = CPIndex::new();
-        for i in 0..100 { index.add(i, u128::MAX, VectorRepresentations::Full(iv.clone()), 0); }
+        for i in 0..100 {
+            index.add(i, u128::MAX, VectorRepresentations::Full(iv.clone()), 0);
+        }
         let results = index.search_nearest(&iv, None, None, u128::MAX, k, None);
         assert_eq!(results.len(), k);
-        for (_, sim) in &results { assert!((sim - 1.0).abs() < 0.01); }
+        for (_, sim) in &results {
+            assert!((sim - 1.0).abs() < 0.01);
+        }
         TerminalReporter::success("100 identical vectors handled correctly.");
     });
 
@@ -10706,7 +11106,8 @@ fn hnsw_hard_validation_certification() {
         let mut index = CPIndex::new();
         index.add(42, u128::MAX, VectorRepresentations::Full(vec![1.0; 16]), 0);
         let res = index.search_nearest(&vec![1.0; 16], None, None, u128::MAX, 10, None);
-        assert_eq!(res.len(), 1); assert_eq!(res[0].0, 42);
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].0, 42);
     });
 
     harness.execute("Edge Case: Empty Index", || {
@@ -10715,9 +11116,17 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Stress: High Dimensionality (768D)", || {
-        let n = 1_000; let dims = 768; let k = 10; let n_queries = 50; let seed = 55;
+        let n = 1_000;
+        let dims = 768;
+        let k = 10;
+        let n_queries = 50;
+        let seed = 55;
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(n_queries, dims, seed + 500);
         let index = build_index(&dataset, HnswConfig::default(), "Building 768D");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching 768D");
@@ -10730,16 +11139,23 @@ fn hnsw_hard_validation_certification() {
     // ─────────────────────────────────────────────────────────────────
 
     harness.execute("Validation: Top-1 Accuracy Correctness", || {
-        let n = 5_000; let seed = 33;
+        let n = 5_000;
+        let seed = 33;
         let vecs = generate_vectors_seeded(n, 64, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(200, 64, seed + 500);
         let index = build_index(&dataset, HnswConfig::default(), "Building");
         let mut hits = 0;
         for q in &queries {
             let truth = brute_force_knn(q, &dataset, 1);
             let res = index.search_nearest(q, None, None, u128::MAX, 1, None);
-            if !res.is_empty() && res[0].0 == truth[0] { hits += 1; }
+            if !res.is_empty() && res[0].0 == truth[0] {
+                hits += 1;
+            }
         }
         let acc = hits as f64 / queries.len() as f64;
         TerminalReporter::info(&format!("Top-1 Precision: {:.4}", acc));
@@ -10747,9 +11163,14 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Validation: Recall@K Sweep (1 to 50)", || {
-        let n = 10_000; let seed = 88;
+        let n = 10_000;
+        let seed = 88;
         let vecs = generate_vectors_seeded(n, 64, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = generate_vectors_seeded(100, 64, seed + 500);
         let index = build_index(&dataset, HnswConfig::default(), "Building");
         for &k in &[1, 5, 10, 20, 50] {
@@ -10760,19 +11181,39 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Validation: Memory proportionality", || {
-        let dims = 64; let seed = 44;
-        let ds1 = generate_vectors_seeded(1000, dims, seed).into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect::<Vec<_>>();
+        let dims = 64;
+        let seed = 44;
+        let ds1 = generate_vectors_seeded(1000, dims, seed)
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect::<Vec<_>>();
         let idx1 = build_index(&ds1, HnswConfig::default(), "Building 1K");
-        let ds5 = generate_vectors_seeded(5000, dims, seed).into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect::<Vec<_>>();
+        let ds5 = generate_vectors_seeded(5000, dims, seed)
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect::<Vec<_>>();
         let idx5 = build_index(&ds5, HnswConfig::default(), "Building 5K");
-        let links1: usize = idx1.nodes.values().map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>()).sum();
-        let links5: usize = idx5.nodes.values().map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>()).sum();
+        let links1: usize = idx1
+            .nodes
+            .values()
+            .map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>())
+            .sum();
+        let links5: usize = idx5
+            .nodes
+            .values()
+            .map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>())
+            .sum();
         let ratio = links5 as f64 / links1 as f64;
         TerminalReporter::info(&format!("Memory Growth Factor (5x N): {:.2}x links", ratio));
         assert!(ratio >= 3.0 && ratio <= 8.0);
     });
 
-    println!("\n{}", style("VANTA HNSW HARD VALIDATION COMPLETE").green().bold());
+    println!(
+        "\n{}",
+        style("VANTA HNSW HARD VALIDATION COMPLETE").green().bold()
+    );
 }
 
 
@@ -10780,7 +11221,6 @@ fn hnsw_hard_validation_certification() {
 Nombre: sift_validation.rs
 Ruta: tests\certification\sift_validation.rs
 ================================================================
-
 
 use std::path::Path;
 
@@ -10803,22 +11243,30 @@ fn validate_sift_dataset_integrity() {
 
     println!("Loading SIFT1M base vectors...");
     let base = read_fvecs(base_path).expect("Failed to read base.fvecs");
-    
+
     println!("Loading SIFT1M query vectors...");
     let query = read_fvecs(query_path).expect("Failed to read query.fvecs");
-    
+
     println!("Loading SIFT1M ground truth...");
     let groundtruth = read_ivecs(groundtruth_path).expect("Failed to read groundtruth.ivecs");
 
     // Phase 2.1 Validation Logic from Roadmap
     assert_eq!(base.len(), 1_000_000, "Base must have 1M vectors");
     assert_eq!(base[0].len(), 128, "Base vectors must be 128D");
-    
+
     assert_eq!(query.len(), 10_000, "Query must have 10K vectors");
     assert_eq!(query[0].len(), 128, "Query vectors must be 128D");
-    
-    assert_eq!(groundtruth.len(), 10_000, "Groundtruth must have 10K entries");
-    assert_eq!(groundtruth[0].len(), 100, "Groundtruth usually provides top 100 nearest neighbors");
+
+    assert_eq!(
+        groundtruth.len(),
+        10_000,
+        "Groundtruth must have 10K entries"
+    );
+    assert_eq!(
+        groundtruth[0].len(),
+        100,
+        "Groundtruth usually provides top 100 nearest neighbors"
+    );
 
     println!("SIFT1M Dataset Integrity: PASSED ✅");
 }
@@ -10839,12 +11287,12 @@ Ruta: tests\certification\stress_protocol.rs
 //! Run with: cargo test --test stress_protocol -- --nocapture
 //! Sequential execution is enforced to maintain console output integrity.
 
+use console::style;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rayon::prelude::*;
 use std::time::Instant;
 use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
-use console::{style};
-use rayon::prelude::*;
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -10914,11 +11362,7 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
     idx
 }
 
-fn measure_latency_percentiles(
-    index: &CPIndex,
-    queries: &[Vec<f32>],
-    k: usize,
-) -> (f64, f64, f64) {
+fn measure_latency_percentiles(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64) {
     let mut latencies: Vec<f64> = queries
         .iter()
         .map(|q| {
@@ -10963,12 +11407,26 @@ fn stress_protocol_certification() {
 
     // BLOCK 1: Recall
     harness.execute("BLOCK 1 — GROUND TRUTH RECALL (50K/128D)", || {
-        let n = 50_000; let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let n = 50_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         TerminalReporter::sub_step("Generating synthetic datasets...");
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = gen_vectors(n_queries, dims, seed + 9999);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 500, ef_search: 300, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 500,
+            ef_search: 300,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let index = build_index(&dataset, config);
         let recall = compute_recall(&index, &queries, &dataset, k);
         let status_msg = format!("Recall@{}: {:.4} (Required >= 0.95)", k, recall);
@@ -10978,19 +11436,39 @@ fn stress_protocol_certification() {
 
     // BLOCK 2: Scaling
     harness.execute("BLOCK 2 — SCALING (10K → 50K → 100K)", || {
-        let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         let scales = [10_000, 50_000, 100_000];
         let mut results = Vec::new();
         for &n in &scales {
             TerminalReporter::sub_step(&format!("Processing scale: {} vectors", n));
             let config = HnswConfig {
-                m: 32, m_max0: 64,
-                ef_construction: if n <= 10_000 { 200 } else if n <= 50_000 { 400 } else { 500 },
-                ef_search: if n <= 10_000 { 100 } else if n <= 50_000 { 200 } else { 300 },
+                m: 32,
+                m_max0: 64,
+                ef_construction: if n <= 10_000 {
+                    200
+                } else if n <= 50_000 {
+                    400
+                } else {
+                    500
+                },
+                ef_search: if n <= 10_000 {
+                    100
+                } else if n <= 50_000 {
+                    200
+                } else {
+                    300
+                },
                 ml: 1.0 / (32_f64).ln(),
             };
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let queries = gen_vectors(n_queries, dims, seed + 9999);
             let t0 = Instant::now();
             let index = build_index(&dataset, config);
@@ -11000,57 +11478,157 @@ fn stress_protocol_certification() {
             let mem_mb = estimate_memory_bytes(&index) as f64 / (1024.0 * 1024.0);
             results.push((n, recall, p50, p95, build_s, mem_mb));
         }
-        
-        println!("\n  {}", style("SCALING PERFORMANCE SUMMARY").bold().underlined());
-        println!("  {}", style("╭───────────┬────────────┬──────────────┬──────────────┬───────────┬──────────╮").dim());
-        println!("  {} {} {} {} {} {} {} {} {} {} {} {} {}", style("│").dim(), style("  Dataset  ").bold().white(), style("│").dim(), style(" Recall@10  ").bold().white(), style("│").dim(), style("  Lat p50(µs) ").bold().white(), style("│").dim(), style("  Lat p95(µs) ").bold().white(), style("│").dim(), style(" Build(s)  ").bold().white(), style("│").dim(), style(" RAM(MB)  ").bold().white(), style("│").dim());
-        println!("  {}", style("├───────────┼────────────┼──────────────┼──────────────┼───────────┼──────────┤").dim());
-        for (n, rec, p50, p95, b_s, mem) in &results {
-            let recall_style = if *rec >= 0.95 { style(format!("{:.4}", rec)).green().bold() } else if *rec >= 0.90 { style(format!("{:.4}", rec)).yellow().bold() } else { style(format!("{:.4}", rec)).red().bold() };
-            println!("  {} {:>9} {}   {}   {}  {:>10.1} {}  {:>10.1} {}  {:>7.2} {}  {:>6.1} {}", style("│").dim(), format!("{}K", n / 1000), style("│").dim(), recall_style, style("│").dim(), p50, style("│").dim(), p95, style("│").dim(), b_s, style("│").dim(), mem, style("│").dim());
-        }
-        println!("  {}", style("╰───────────┴────────────┴──────────────┴──────────────┴───────────┴──────────╯").dim());
 
-        assert!(results[0].1 >= 0.95); assert!(results[1].1 >= 0.90); assert!(results[2].1 >= 0.85);
+        println!(
+            "\n  {}",
+            style("SCALING PERFORMANCE SUMMARY").bold().underlined()
+        );
+        println!(
+            "  {}",
+            style(
+                "╭───────────┬────────────┬──────────────┬──────────────┬───────────┬──────────╮"
+            )
+            .dim()
+        );
+        println!(
+            "  {} {} {} {} {} {} {} {} {} {} {} {} {}",
+            style("│").dim(),
+            style("  Dataset  ").bold().white(),
+            style("│").dim(),
+            style(" Recall@10  ").bold().white(),
+            style("│").dim(),
+            style("  Lat p50(µs) ").bold().white(),
+            style("│").dim(),
+            style("  Lat p95(µs) ").bold().white(),
+            style("│").dim(),
+            style(" Build(s)  ").bold().white(),
+            style("│").dim(),
+            style(" RAM(MB)  ").bold().white(),
+            style("│").dim()
+        );
+        println!(
+            "  {}",
+            style(
+                "├───────────┼────────────┼──────────────┼──────────────┼───────────┼──────────┤"
+            )
+            .dim()
+        );
+        for (n, rec, p50, p95, b_s, mem) in &results {
+            let recall_style = if *rec >= 0.95 {
+                style(format!("{:.4}", rec)).green().bold()
+            } else if *rec >= 0.90 {
+                style(format!("{:.4}", rec)).yellow().bold()
+            } else {
+                style(format!("{:.4}", rec)).red().bold()
+            };
+            println!(
+                "  {} {:>9} {}   {}   {}  {:>10.1} {}  {:>10.1} {}  {:>7.2} {}  {:>6.1} {}",
+                style("│").dim(),
+                format!("{}K", n / 1000),
+                style("│").dim(),
+                recall_style,
+                style("│").dim(),
+                p50,
+                style("│").dim(),
+                p95,
+                style("│").dim(),
+                b_s,
+                style("│").dim(),
+                mem,
+                style("│").dim()
+            );
+        }
+        println!(
+            "  {}",
+            style(
+                "╰───────────┴────────────┴──────────────┴──────────────┴───────────┴──────────╯"
+            )
+            .dim()
+        );
+
+        assert!(results[0].1 >= 0.95);
+        assert!(results[1].1 >= 0.90);
+        assert!(results[2].1 >= 0.85);
         let recall_drop = results[0].1 - results[2].1;
-        assert!(recall_drop < 0.15, "Catastrophic degradation: {:.4}", recall_drop);
+        assert!(
+            recall_drop < 0.15,
+            "Catastrophic degradation: {:.4}",
+            recall_drop
+        );
         assert!(results[2].2 < 50_000.0, "100K p50 too slow");
         TerminalReporter::success("BLOCK 2 PASSED.");
     });
 
     // BLOCK 3: Memory
     harness.execute("BLOCK 3 — MEMORY MEASUREMENT", || {
-        let dims = 128; let seed = 2024;
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 200, ef_search: 100, ml: 1.0 / (32_f64).ln() };
+        let dims = 128;
+        let seed = 2024;
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let sizes = [1_000, 5_000, 10_000, 50_000];
         let mut memories = Vec::new();
         for &n in &sizes {
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let index = build_index(&dataset, config.clone());
             let m_bytes = estimate_memory_bytes(&index);
-            let m_mb = m_bytes as f64 / (1024.*1024.);
-            TerminalReporter::info(&format!("{:>6} vectors → {:>6.2} MB ({:.0} bytes/vector)", n, m_mb, m_bytes as f64 / n as f64));
+            let m_mb = m_bytes as f64 / (1024. * 1024.);
+            TerminalReporter::info(&format!(
+                "{:>6} vectors → {:>6.2} MB ({:.0} bytes/vector)",
+                n,
+                m_mb,
+                m_bytes as f64 / n as f64
+            ));
             memories.push(m_mb);
         }
         let ratio = memories[3] / memories[1]; // 50K / 5K
-        assert!(ratio >= 5.0 && ratio <= 15.0, "Growth ratio {:.2}x not proportional", ratio);
+        assert!(
+            ratio >= 5.0 && ratio <= 15.0,
+            "Growth ratio {:.2}x not proportional",
+            ratio
+        );
         TerminalReporter::success("BLOCK 3 PASSED.");
     });
 
     // BLOCK 4: Persistence
     harness.execute("BLOCK 4 — PERSISTENCE ROUND-TRIP", || {
-        let n = 10_000; let dims = 128; let k = 10; let n_queries = 100; let seed = 2024;
+        let n = 10_000;
+        let dims = 128;
+        let k = 10;
+        let n_queries = 100;
+        let seed = 2024;
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let queries = gen_vectors(n_queries, dims, seed + 9999);
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 200, ef_search: 100, ml: 1.0 / (32_f64).ln() };
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let original = build_index(&dataset, config);
         let recall_before = compute_recall(&original, &queries, &dataset, k);
         let tmp = tempfile::NamedTempFile::new().unwrap();
         original.persist_to_file(tmp.path()).unwrap();
         let file_size = std::fs::metadata(tmp.path()).unwrap().len();
-        TerminalReporter::info(&format!("File size: {:.2} MB", file_size as f64 / (1024.*1024.)));
+        TerminalReporter::info(&format!(
+            "File size: {:.2} MB",
+            file_size as f64 / (1024. * 1024.)
+        ));
         let loaded = CPIndex::load_from_file(tmp.path()).unwrap();
         assert_eq!(loaded.nodes.len(), n);
         let recall_after = compute_recall(&loaded, &queries, &dataset, k);
@@ -11061,26 +11639,40 @@ fn stress_protocol_certification() {
 
     // BLOCK 5: Edge Cases (5a-5g)
     harness.execute("BLOCK 5 — EDGE CASES", || {
-        let k = 5; let d = 64;
+        let k = 5;
+        let d = 64;
         TerminalReporter::sub_step("5a: Empty index...");
         let empty = CPIndex::new();
-        assert!(empty.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).is_empty());
-        
+        assert!(empty
+            .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+            .is_empty());
+
         TerminalReporter::sub_step("5b: Single node...");
         let mut single = CPIndex::new();
         single.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
-        assert_eq!(single.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).len(), 1);
+        assert_eq!(
+            single
+                .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+                .len(),
+            1
+        );
 
         TerminalReporter::sub_step("5c: Two nodes...");
         let mut two = CPIndex::new();
         two.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         two.add(2, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
-        assert_eq!(two.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None).len(), 2);
+        assert_eq!(
+            two.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+                .len(),
+            2
+        );
 
         TerminalReporter::sub_step("5d: Zero vector...");
         let mut zvec = CPIndex::new();
         zvec.add(1, u128::MAX, VectorRepresentations::Full(vec![0.0; d]), 0);
-        assert!(!zvec.search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None).is_empty());
+        assert!(!zvec
+            .search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
+            .is_empty());
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
         let mut dup = CPIndex::new();
@@ -11102,30 +11694,64 @@ fn stress_protocol_certification() {
 
     // BLOCK 6: Consistency
     harness.execute("BLOCK 6 — GRAPH CONSISTENCY", || {
-        let n = 50_000; let dims = 128; let seed = 2024;
-        let config = HnswConfig { m: 32, m_max0: 64, ef_construction: 400, ef_search: 200, ml: 1.0 / (32_f64).ln() };
+        let n = 50_000;
+        let dims = 128;
+        let seed = 2024;
+        let config = HnswConfig {
+            m: 32,
+            m_max0: 64,
+            ef_construction: 400,
+            ef_search: 200,
+            ml: 1.0 / (32_f64).ln(),
+        };
         let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+        let dataset: Vec<(u64, Vec<f32>)> = vecs
+            .into_iter()
+            .enumerate()
+            .map(|(i, v)| (i as u64, v))
+            .collect();
         let index = build_index(&dataset, config);
         index.validate_index().unwrap();
         let stats = index.stats();
-        TerminalReporter::info(&format!("Nodes: {} | Orphans: {} | Avg L0 Conn: {:.1}", stats.node_count, stats.orphan_count, stats.avg_connections_l0));
+        TerminalReporter::info(&format!(
+            "Nodes: {} | Orphans: {} | Avg L0 Conn: {:.1}",
+            stats.node_count, stats.orphan_count, stats.avg_connections_l0
+        ));
         assert!(stats.orphan_count <= 1);
         TerminalReporter::success("BLOCK 6 PASSED.");
     });
 
     // BLOCK 7: Latency
     harness.execute("BLOCK 7 — LATENCY PERCENTILES", || {
-        let n1=10000; let n2=50000; let dims=128; let seed=2024;
+        let n1 = 10000;
+        let n2 = 50000;
+        let dims = 128;
+        let seed = 2024;
         let mut results = Vec::new();
         for &n in &[n1, n2] {
-            let config = HnswConfig { m: 32, m_max0: 64, ef_construction: if n <= 10000 {200} else {400}, ef_search: if n <= 10000 {100} else {200}, ml: 1.0 / (32_f64).ln() };
+            let config = HnswConfig {
+                m: 32,
+                m_max0: 64,
+                ef_construction: if n <= 10000 { 200 } else { 400 },
+                ef_search: if n <= 10000 { 100 } else { 200 },
+                ml: 1.0 / (32_f64).ln(),
+            };
             let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs.into_iter().enumerate().map(|(i, v)| (i as u64, v)).collect();
+            let dataset: Vec<(u64, Vec<f32>)> = vecs
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i as u64, v))
+                .collect();
             let queries = gen_vectors(200, dims, seed + 9999);
             let index = build_index(&dataset, config);
             let (p50, p95, p99) = measure_latency_percentiles(&index, &queries, 10);
-            TerminalReporter::info(&format!("{}K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs", n/1000, p50, p95, p99));
+            TerminalReporter::info(&format!(
+                "{}K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs",
+                n / 1000,
+                p50,
+                p95,
+                p99
+            ));
             results.push(p50);
         }
         let s_factor = results[1] / results[0];
@@ -11146,13 +11772,13 @@ Ruta: tests\common\mod.rs
 
 #![allow(dead_code)]
 
-use std::time::Instant;
-use sysinfo::System;
 use console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
-use serde::{Serialize, Deserialize};
-use std::fs::{OpenOptions};
+use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::time::Instant;
+use sysinfo::System;
 
 pub mod sift_loader;
 
@@ -11180,11 +11806,11 @@ impl VantaHarness {
         let mut sys = System::new_all();
         sys.refresh_all();
         let pid = sysinfo::get_current_pid().expect("Failed to get PID");
-        
+
         // Initial snapshot
         sys.refresh_process(pid);
         let start_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
-        
+
         Self {
             sys,
             pid,
@@ -11194,20 +11820,25 @@ impl VantaHarness {
         }
     }
 
-    pub fn execute<F, R>(&mut self, block_name: &str, f: F) -> R 
-    where F: FnOnce() -> R 
+    pub fn execute<F, R>(&mut self, block_name: &str, f: F) -> R
+    where
+        F: FnOnce() -> R,
     {
         TerminalReporter::block_header(block_name);
-        
+
         let t0 = Instant::now();
         let result = f();
         let duration = t0.elapsed();
-        
+
         // Measurements
         self.sys.refresh_process(self.pid);
         let end_mem = self.sys.process(self.pid).map(|p| p.memory()).unwrap_or(0);
-        let mem_usage_kb = if end_mem > self.start_mem { end_mem - self.start_mem } else { 0 };
-        
+        let mem_usage_kb = if end_mem > self.start_mem {
+            end_mem - self.start_mem
+        } else {
+            0
+        };
+
         let metric = TestMetric {
             block_name: format!("{}: {}", self.test_name, block_name),
             duration_secs: duration.as_secs_f64(),
@@ -11218,15 +11849,20 @@ impl VantaHarness {
 
         // Standard Report
         println!("\n  {}", style("CERTIFICATION METRICS").bold().underlined());
-        println!("  {} Time:      {:.2}s", style("⏱️").cyan(), metric.duration_secs);
-        println!("  {} RAM Usage: {:.2} MB (Current: {:.2} MB)", 
-            style("🧠").magenta(), 
+        println!(
+            "  {} Time:      {:.2}s",
+            style("⏱️").cyan(),
+            metric.duration_secs
+        );
+        println!(
+            "  {} RAM Usage: {:.2} MB (Current: {:.2} MB)",
+            style("🧠").magenta(),
             metric.ram_usage_mb,
             metric.current_ram_mb
         );
-        
+
         self.log_metric(metric);
-        
+
         result
     }
 
@@ -11236,7 +11872,8 @@ impl VantaHarness {
             if let Ok(mut file) = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(Self::REPORT_FILE) {
+                .open(Self::REPORT_FILE)
+            {
                 let _ = writeln!(file, "{}", json);
             }
         }
@@ -11298,7 +11935,7 @@ Ruta: tests\common\sift_loader.rs
 #![allow(dead_code)]
 
 use std::fs::File;
-use std::io::{Read, BufReader};
+use std::io::{BufReader, Read};
 use std::path::Path;
 
 /// Parses an `.fvecs` file into a `Vec<Vec<f32>>`.
@@ -11390,9 +12027,9 @@ Ruta: tests\core\basic_node.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
-use vantadb::{FieldValue, InMemoryEngine, UnifiedNode};
+use common::{TerminalReporter, VantaHarness};
 use std::time::Instant;
+use vantadb::{FieldValue, InMemoryEngine, UnifiedNode};
 
 #[test]
 fn core_engine_certification() {
@@ -11452,8 +12089,12 @@ fn core_engine_certification() {
         let engine = InMemoryEngine::new();
         for i in 1..=100 {
             let mut node = UnifiedNode::new(i);
-            if i % 2 == 0 { node.set_bit(5); } // VZLA
-            if i % 3 == 0 { node.set_bit(16); } // active
+            if i % 2 == 0 {
+                node.set_bit(5);
+            } // VZLA
+            if i % 3 == 0 {
+                node.set_bit(16);
+            } // active
             engine.insert(node).unwrap();
         }
         let vzla = engine.scan_bitset(1u128 << 5);
@@ -11465,9 +12106,15 @@ fn core_engine_certification() {
 
     harness.execute("Vector: Exact Top-K Search", || {
         let engine = InMemoryEngine::new();
-        engine.insert(UnifiedNode::with_vector(1, vec![1.0, 0.0, 0.0])).unwrap();
-        engine.insert(UnifiedNode::with_vector(2, vec![0.9, 0.1, 0.0])).unwrap();
-        engine.insert(UnifiedNode::with_vector(3, vec![0.0, 1.0, 0.0])).unwrap();
+        engine
+            .insert(UnifiedNode::with_vector(1, vec![1.0, 0.0, 0.0]))
+            .unwrap();
+        engine
+            .insert(UnifiedNode::with_vector(2, vec![0.9, 0.1, 0.0]))
+            .unwrap();
+        engine
+            .insert(UnifiedNode::with_vector(3, vec![0.0, 1.0, 0.0]))
+            .unwrap();
 
         let result = engine.vector_search(&[1.0, 0.0, 0.0], 2, 0.5, None);
         assert_eq!(result.nodes.len(), 2);
@@ -11477,13 +12124,18 @@ fn core_engine_certification() {
 
     harness.execute("Graph: Relation Traversal & Hops", || {
         let engine = InMemoryEngine::new();
-        let mut n1 = UnifiedNode::new(1); n1.add_edge(2, "amigo");
-        let mut n2 = UnifiedNode::new(2); n2.add_edge(3, "amigo");
-        let mut n3 = UnifiedNode::new(3); n3.add_edge(4, "amigo");
+        let mut n1 = UnifiedNode::new(1);
+        n1.add_edge(2, "amigo");
+        let mut n2 = UnifiedNode::new(2);
+        n2.add_edge(3, "amigo");
+        let mut n3 = UnifiedNode::new(3);
+        n3.add_edge(4, "amigo");
         let n4 = UnifiedNode::new(4);
 
-        engine.insert(n1).unwrap(); engine.insert(n2).unwrap();
-        engine.insert(n3).unwrap(); engine.insert(n4).unwrap();
+        engine.insert(n1).unwrap();
+        engine.insert(n2).unwrap();
+        engine.insert(n3).unwrap();
+        engine.insert(n4).unwrap();
 
         let result = engine.traverse(1, "amigo", 1, 2).unwrap();
         assert_eq!(result.len(), 2);
@@ -11496,15 +12148,22 @@ fn core_engine_certification() {
         for i in 1..=10 {
             let mut node = UnifiedNode::with_vector(i, vec![i as f32, 0.0, 0.0]);
             node.set_field("pais", FieldValue::String("VZLA".into()));
-            if i % 2 == 0 { node.set_bit(5); }
+            if i % 2 == 0 {
+                node.set_bit(5);
+            }
             engine.insert(node).unwrap();
         }
         let result = engine.hybrid_search(
-            &[10.0, 0.0, 0.0], 3, 0.5, Some(1u128 << 5),
+            &[10.0, 0.0, 0.0],
+            3,
+            0.5,
+            Some(1u128 << 5),
             &[("pais".to_string(), FieldValue::String("VZLA".into()))],
         );
         assert_eq!(result.nodes.len(), 3);
-        for node in &result.nodes { assert_eq!(node.id % 2, 0); }
+        for node in &result.nodes {
+            assert_eq!(node.id % 2, 0);
+        }
     });
 
     harness.execute("WAL: Persistence & Recovery", || {
@@ -11520,15 +12179,21 @@ fn core_engine_certification() {
         {
             let engine = InMemoryEngine::with_wal(&wal_path).unwrap();
             let node = engine.get(42).unwrap();
-            assert_eq!(node.get_field("name"), Some(&FieldValue::String("test".into())));
+            assert_eq!(
+                node.get_field("name"),
+                Some(&FieldValue::String("test".into()))
+            );
         }
         let _ = std::fs::remove_file(&wal_path);
     });
 
     harness.execute("System: Basic Engine Stats", || {
         let engine = InMemoryEngine::new();
-        engine.insert(UnifiedNode::with_vector(1, vec![1.0, 2.0, 3.0])).unwrap();
-        let mut n2 = UnifiedNode::new(2); n2.add_edge(1, "knows");
+        engine
+            .insert(UnifiedNode::with_vector(1, vec![1.0, 2.0, 3.0]))
+            .unwrap();
+        let mut n2 = UnifiedNode::new(2);
+        n2.add_edge(1, "knows");
         engine.insert(n2).unwrap();
         let stats = engine.stats();
         assert_eq!(stats.node_count, 2);
@@ -11545,7 +12210,11 @@ fn core_engine_certification() {
         let elapsed = start.elapsed();
         assert_eq!(engine.node_count(), 10_000);
         assert!(elapsed.as_millis() < 500);
-        TerminalReporter::success(&format!("BENCH: 10k inserts in {:?} ({:.1} μs/insert)", elapsed, elapsed.as_micros() as f64 / 10_000.0));
+        TerminalReporter::success(&format!(
+            "BENCH: 10k inserts in {:?} ({:.1} μs/insert)",
+            elapsed,
+            elapsed.as_micros() as f64 / 10_000.0
+        ));
     });
 }
 
@@ -11561,7 +12230,7 @@ Ruta: tests\core\graph.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::graph::GraphTraverser;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
@@ -11602,7 +12271,7 @@ fn graph_traversal_certification() {
         let res_d2 = traverser.bfs_traverse(&[1], 2).unwrap();
         assert_eq!(res_d2.len(), 4);
         assert!(res_d2.contains(&3));
-        
+
         TerminalReporter::success("BFS Traversal Axioms satisfied.");
     });
 }
@@ -11619,7 +12288,7 @@ Ruta: tests\core\hnsw.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
 
 #[test]
@@ -11627,7 +12296,9 @@ fn hnsw_core_logic_certification() {
     let mut harness = VantaHarness::new("CORE ENGINE (HNSW LOGIC)");
 
     harness.execute("Vector Math: Cosine Similarity Axioms", || {
-        TerminalReporter::sub_step("Verifying Identical (1.0), Orthogonal (0.0), and Opposite (-1.0) vectors...");
+        TerminalReporter::sub_step(
+            "Verifying Identical (1.0), Orthogonal (0.0), and Opposite (-1.0) vectors...",
+        );
         let a = VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
         let b = VectorRepresentations::Full(vec![1.0, 0.0, 0.0]);
         let sim = a.cosine_similarity(&b).unwrap();
@@ -11640,7 +12311,7 @@ fn hnsw_core_logic_certification() {
         let d = VectorRepresentations::Full(vec![-1.0, 0.0, 0.0]);
         let sim_opposite = a.cosine_similarity(&d).unwrap();
         assert!((sim_opposite - (-1.0)).abs() < f32::EPSILON);
-        
+
         TerminalReporter::success("Algebraic consistency confirmed.");
     });
 
@@ -11658,7 +12329,7 @@ fn hnsw_core_logic_certification() {
         assert_eq!(results.len(), 2);
         let top_match = results[0].0;
         assert!(top_match == 3 || top_match == 4);
-        
+
         TerminalReporter::success("Greedy search converged on expected neighbors.");
     });
 }
@@ -11675,7 +12346,7 @@ Ruta: tests\core\vector_scale_check.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::node::{NodeTier, UnifiedNode};
@@ -11694,7 +12365,7 @@ async fn vector_scale_performance_certification() {
             TerminalReporter::sub_step("Populating HNSW graph with 1,000 orthogonal vectors...");
             for i in 0..1000 {
                 let mut vec = vec![0.0; 128];
-                vec[i % 128] = 1.0; 
+                vec[i % 128] = 1.0;
 
                 let mut node = UnifiedNode::new(i as u64);
                 node.tier = NodeTier::Hot;
@@ -11706,15 +12377,20 @@ async fn vector_scale_performance_certification() {
             let mut query_vec = vec![0.0; 128];
             query_vec[10] = 1.0;
 
-            TerminalReporter::sub_step("Executing greedy beam search over 128-dimensional space...");
+            TerminalReporter::sub_step(
+                "Executing greedy beam search over 128-dimensional space...",
+            );
             let results = {
                 let index = storage.hnsw.read();
                 index.search_nearest(&query_vec, None, None, 0, 5, None)
             };
 
             assert!(!results.is_empty());
-            assert_eq!(results[0].0, 10, "Heuristic search failed to find identical neighbor");
-            
+            assert_eq!(
+                results[0].0, 10,
+                "Heuristic search failed to find identical neighbor"
+            );
+
             TerminalReporter::success("Topological search precision verified at scale.");
         });
     });
@@ -11732,7 +12408,7 @@ Ruta: tests\logic\columnar.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::columnar::nodes_to_record_batch;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
 
@@ -11752,7 +12428,7 @@ fn columnar_engine_certification() {
 
         assert_eq!(batch.num_columns(), 2);
         assert_eq!(batch.num_rows(), 2);
-        
+
         TerminalReporter::success("Apache Arrow record batch generated successfully.");
     });
 }
@@ -11769,7 +12445,7 @@ Ruta: tests\logic\executor.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
 
 #[test]
@@ -11795,13 +12471,13 @@ fn engine_executor_certification() {
         idx.add(2, 0b11, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
         // Fails mask
         idx.add(3, 0b00, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        
+
         let res = idx.search_nearest(&[1.0, 0.0], None, None, 0b10, 2, None);
-        
+
         assert_eq!(res.len(), 2, "Failed to ignore bitset-filtered nodes");
         assert_eq!(res[0].0, 1, "Incorrect result ranking");
         assert_eq!(res[1].0, 2);
-        
+
         TerminalReporter::success("Bitset filter and NN ranking integrated correctly.");
     });
 }
@@ -11818,7 +12494,7 @@ Ruta: tests\logic\governor.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::atomic::Ordering;
 use vantadb::governor::{ResourceGovernor, ALLOCATED_BYTES};
 
@@ -11840,7 +12516,7 @@ fn engine_governor_certification() {
         TerminalReporter::sub_step("Releasing memory and verifying neutrality...");
         governor.free_allocation(512 * 1024);
         assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 0);
-        
+
         TerminalReporter::success("OOM protection and state-tracking verified.");
     });
 }
@@ -11857,7 +12533,7 @@ Ruta: tests\logic\integration.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::integrations::*;
 
 #[tokio::test]
@@ -11908,7 +12584,7 @@ Ruta: tests\logic\parser.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use vantadb::node::FieldValue;
 use vantadb::parser::*;
 use vantadb::query::*;
@@ -11927,7 +12603,9 @@ fn dql_parser_certification() {
             WITH TEMPERATURE 0.5
         "#;
 
-        TerminalReporter::sub_step("Parsing complex DQL query with graph traversal and semantic filter...");
+        TerminalReporter::sub_step(
+            "Parsing complex DQL query with graph traversal and semantic filter...",
+        );
         let (_, parsed) = parse_query(q).expect("DQL Parser failed");
 
         assert_eq!(parsed.from_entity, "Usuario#usr45");
@@ -11948,7 +12626,8 @@ fn dql_parser_certification() {
 
     harness.execute("DML: Multi-Statement Core Parse", || {
         TerminalReporter::sub_step("Testing INSERT with positional vector...");
-        let q_ins = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
+        let q_ins =
+            r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
         let (_, stmt_ins) = parse_statement(q_ins).expect("Insert parse failed");
         if let Statement::Insert(ins) = stmt_ins {
             assert_eq!(ins.node_id, 101);
@@ -11989,8 +12668,8 @@ Ruta: tests\storage\backend_tests.rs
 
 //! Backend abstraction integration test suite.
 //!
-//! Validates `StorageEngine` with both `RocksDbBackend` and `InMemoryBackend`
-//! through the public API.
+//! Validates `StorageEngine` with `RocksDbBackend`, `InMemoryBackend`, and
+//! `FjallBackend` through the public API.
 //!
 //! Direct `StorageBackend` trait tests live inside the crate as unit tests
 //! (see `src/backends/in_memory.rs`) because the trait is `pub(crate)`.
@@ -12072,6 +12751,158 @@ fn test_purge_permanent_via_backend() {
     TerminalReporter::success("purge_permanent via backend abstraction verified.");
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ─── FjallBackend Tests ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+/// Helper: create a StorageEngine backed by Fjall in a tempdir.
+fn open_fjall_engine() -> (StorageEngine, tempfile::TempDir) {
+    let dir = tempdir().unwrap();
+    let config = EngineConfig {
+        backend_kind: BackendKind::Fjall,
+        ..Default::default()
+    };
+    let engine =
+        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
+    (engine, dir)
+}
+
+// ─── 1. Basic CRUD ──────────────────────────────────────────
+
+#[test]
+fn test_fjall_backend_basic_crud() {
+    let (engine, _dir) = open_fjall_engine();
+
+    // Insert
+    let node = UnifiedNode::new(1);
+    engine.insert(&node).unwrap();
+
+    // Get
+    let retrieved = engine.get(1).unwrap().expect("Node 1 should exist");
+    assert_eq!(retrieved.id, 1);
+
+    // Delete
+    engine.delete(1, "test deletion").unwrap();
+    assert!(
+        engine.get(1).unwrap().is_none(),
+        "Node 1 should be gone after delete"
+    );
+
+    TerminalReporter::success("FjallBackend basic CRUD verified.");
+}
+
+// ─── 2. Batch Multi-Partition ───────────────────────────────
+
+#[test]
+fn test_fjall_backend_batch_multi_partition() {
+    let (engine, _dir) = open_fjall_engine();
+
+    // Insert a node — this writes to the Default partition
+    let node = UnifiedNode::new(200);
+    engine.insert(&node).unwrap();
+    assert!(engine.get(200).unwrap().is_some());
+
+    // purge_permanent issues a write_batch across Default, TombstoneStorage,
+    // CompressedArchive, and Tombstones partitions atomically.
+    engine.purge_permanent(200).unwrap();
+
+    // After purge, node should be gone from all partitions.
+    assert!(
+        engine.get(200).unwrap().is_none(),
+        "Node 200 should be purged from all partitions"
+    );
+
+    TerminalReporter::success("FjallBackend batch multi-partition verified.");
+}
+
+// ─── 3. Full Engine Roundtrip ───────────────────────────────
+
+#[test]
+fn test_storage_engine_with_fjall_backend_insert_get_delete() {
+    let (engine, _dir) = open_fjall_engine();
+
+    // Insert with vector data
+    let mut node = UnifiedNode::new(500);
+    node.vector = vantadb::VectorRepresentations::Full(vec![0.1, 0.2, 0.3, 0.4]);
+    node.flags.set(vantadb::NodeFlags::HAS_VECTOR);
+    engine.insert(&node).unwrap();
+
+    // Retrieve and validate
+    let retrieved = engine.get(500).unwrap().expect("Node 500 should exist");
+    assert_eq!(retrieved.id, 500);
+
+    // Delete and confirm
+    engine.delete(500, "engine roundtrip cleanup").unwrap();
+    assert!(engine.get(500).unwrap().is_none());
+
+    TerminalReporter::success("StorageEngine + FjallBackend full roundtrip verified.");
+}
+
+// ─── 4. Flush Durability ────────────────────────────────────
+
+#[test]
+fn test_storage_engine_fjall_backend_flush() {
+    let (engine, _dir) = open_fjall_engine();
+
+    // Insert data
+    let node = UnifiedNode::new(600);
+    engine.insert(&node).unwrap();
+
+    // flush() must succeed — not an empty stub
+    engine.flush().expect("FjallBackend flush() must not fail");
+
+    // Data must survive the flush
+    let retrieved = engine
+        .get(600)
+        .unwrap()
+        .expect("Node 600 should survive flush");
+    assert_eq!(retrieved.id, 600);
+
+    TerminalReporter::success("FjallBackend flush (PersistMode::SyncAll) verified.");
+}
+
+// ─── 5. Checkpoint Not Supported ────────────────────────────
+
+#[test]
+fn test_fjall_backend_checkpoint_not_supported() {
+    let (engine, dir) = open_fjall_engine();
+
+    let checkpoint_path = dir.path().join("checkpoint_test");
+    let result = engine.create_life_insurance(checkpoint_path.to_str().unwrap());
+
+    assert!(
+        result.is_err(),
+        "FjallBackend checkpoint must return an error, not fake success"
+    );
+
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("not supported") || err_msg.contains("Checkpoint"),
+        "Error message should be explicit about checkpoint not being supported, got: {}",
+        err_msg
+    );
+
+    TerminalReporter::success("FjallBackend checkpoint honestly reports not-supported.");
+}
+
+// ─── 6. Partition Initialization ────────────────────────────
+
+#[test]
+fn test_fjall_backend_opens_all_partitions() {
+    // Verify that the engine opens cleanly with Fjall — all 4 keyspaces
+    // (default, tombstone_storage, compressed_archive, tombstones) are
+    // created without error.
+    let (engine, _dir) = open_fjall_engine();
+
+    // If we got here, all keyspaces were created.
+    // Insert and delete to exercise at least the default partition roundtrip.
+    let node = UnifiedNode::new(700);
+    engine.insert(&node).unwrap();
+    assert!(engine.get(700).unwrap().is_some());
+
+    TerminalReporter::success("FjallBackend all partitions initialize cleanly.");
+}
+
 
 ================================================================
 Nombre: chaos_integrity.rs
@@ -12084,7 +12915,7 @@ Ruta: tests\storage\chaos_integrity.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::error::VantaError;
@@ -12104,24 +12935,41 @@ async fn chaos_integrity_certification() {
             let executor = Executor::new(&storage);
 
             TerminalReporter::sub_step("Setting up valid base nodes (1, 2)...");
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 1, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 2, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 1,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 2,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Attempting RELATE to non-existent Ghost Node 999...");
             let relate_ghost = Statement::Relate(RelateStatement {
-                source_id: 1, target_id: 999, label: "likes".to_string(), weight: None,
+                source_id: 1,
+                target_id: 999,
+                label: "likes".to_string(),
+                weight: None,
             });
             let result_ghost = executor.execute_statement(relate_ghost).await;
-            
+
             assert!(result_ghost.is_err());
             if let Err(VantaError::Execution(msg)) = result_ghost {
                 assert!(msg.contains("Topological Axiom violated"));
-            } else { panic!("Expected Topological Axiom error"); }
-            
+            } else {
+                panic!("Expected Topological Axiom error");
+            }
+
             TerminalReporter::success("Ghost node relation correctly blocked.");
         });
     });
@@ -12132,22 +12980,42 @@ async fn chaos_integrity_certification() {
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
 
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 1, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
-            executor.execute_statement(Statement::Insert(InsertStatement {
-                node_id: 2, node_type: "Test".to_string(), fields: std::collections::BTreeMap::new(), vector: None,
-            })).await.unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 1,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
+            executor
+                .execute_statement(Statement::Insert(InsertStatement {
+                    node_id: 2,
+                    node_type: "Test".to_string(),
+                    fields: std::collections::BTreeMap::new(),
+                    vector: None,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Deleting Node 2 (creating tombstone)...");
-            executor.execute_statement(Statement::Delete(vantadb::query::DeleteStatement { node_id: 2 })).await.unwrap();
+            executor
+                .execute_statement(Statement::Delete(vantadb::query::DeleteStatement {
+                    node_id: 2,
+                }))
+                .await
+                .unwrap();
 
             TerminalReporter::sub_step("Attempting RELATE to deleted Node 2...");
             let relate_tombstone = Statement::Relate(RelateStatement {
-                source_id: 1, target_id: 2, label: "likes".to_string(), weight: None,
+                source_id: 1,
+                target_id: 2,
+                label: "likes".to_string(),
+                weight: None,
             });
             let result_tombstone = executor.execute_statement(relate_tombstone).await;
-            
+
             assert!(result_tombstone.is_err());
             TerminalReporter::success("Relation to tombstone correctly blocked.");
         });
@@ -12166,7 +13034,7 @@ Ruta: tests\storage\gc.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
 use vantadb::gc::GcWorker;
@@ -12182,26 +13050,40 @@ fn storage_gc_certification() {
         let db_path = dir.path().to_str().unwrap();
         let storage = StorageEngine::open(db_path).unwrap();
 
-        TerminalReporter::sub_step("Initializing nodes with TTL (Node 1=Expired, Node 2=Active)...");
+        TerminalReporter::sub_step(
+            "Initializing nodes with TTL (Node 1=Expired, Node 2=Active)...",
+        );
         let node1 = UnifiedNode::new(1);
         let node2 = UnifiedNode::new(2);
         storage.insert(&node1).unwrap();
         storage.insert(&node2).unwrap();
 
         let mut worker = GcWorker::new(&storage);
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        worker.register_ttl(1, now - 10);  // Past
+        worker.register_ttl(1, now - 10); // Past
         worker.register_ttl(2, now + 100); // Future
 
         TerminalReporter::sub_step("Executing sweep cycle...");
         let purged = worker.sweep();
 
         assert_eq!(purged, 1, "GC failed to purge expired node");
-        assert!(storage.get(1).unwrap().is_none(), "Node 1 should be physically deleted");
-        assert!(storage.get(2).unwrap().is_some(), "Node 2 should be preserved");
-        
-        TerminalReporter::success(&format!("Sweep cycle successful. Purged {} expired nodes.", purged));
+        assert!(
+            storage.get(1).unwrap().is_none(),
+            "Node 1 should be physically deleted"
+        );
+        assert!(
+            storage.get(2).unwrap().is_some(),
+            "Node 2 should be preserved"
+        );
+
+        TerminalReporter::success(&format!(
+            "Sweep cycle successful. Purged {} expired nodes.",
+            purged
+        ));
     });
 }
 
@@ -12217,7 +13099,7 @@ Ruta: tests\storage\mmap_index.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::TempDir;
 use vantadb::index::{CPIndex, IndexBackend, VectorRepresentations};
 
@@ -12244,7 +13126,11 @@ fn mmap_neural_index_certification() {
 
         let restored = CPIndex::deserialize_from_bytes(&bytes).expect("Deserialization failed");
         assert_eq!(restored.nodes.len(), 50);
-        TerminalReporter::success(&format!("Serialization roundtrip: {} nodes, {} bytes", restored.nodes.len(), bytes.len()));
+        TerminalReporter::success(&format!(
+            "Serialization roundtrip: {} nodes, {} bytes",
+            restored.nodes.len(),
+            bytes.len()
+        ));
     });
 
     harness.execute("Persistence: Cold-Start Performance", || {
@@ -12261,7 +13147,7 @@ fn mmap_neural_index_certification() {
         let norm: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nq: Vec<f32> = query.iter().map(|x| x / norm).collect();
         let results = loaded.search_nearest(&nq, None, None, 0, 5, None);
-        
+
         assert_eq!(results[0].0, 1);
         TerminalReporter::success("Cold-start persistence and search verified.");
     });
@@ -12303,11 +13189,13 @@ fn mmap_neural_index_certification() {
         let mut inmem_index = CPIndex::new();
         let mut mmap_index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path));
 
-        let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64).map(|i| {
-            let raw = vec![i as f32, (i+1) as f32, (i+2) as f32, (i+3) as f32];
-            let n: f32 = raw.iter().map(|x| x*x).sum::<f32>().sqrt();
-            (i, raw.iter().map(|x| x/n).collect())
-        }).collect();
+        let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64)
+            .map(|i| {
+                let raw = vec![i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
+                let n: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
+                (i, raw.iter().map(|x| x / n).collect())
+            })
+            .collect();
 
         for (id, v) in &vectors {
             inmem_index.add(*id, 0, VectorRepresentations::Full(v.clone()), 0);
@@ -12317,7 +13205,7 @@ fn mmap_neural_index_certification() {
         let q = vec![0.5f32, 0.5, 0.5, 0.5];
         let res_inmem = inmem_index.search_nearest(&q, None, None, 0, 5, None);
         let res_mmap = mmap_index.search_nearest(&q, None, None, 0, 5, None);
-        
+
         assert_eq!(res_inmem.len(), res_mmap.len());
         TerminalReporter::success("Memory and MMap backend equivalence confirmed.");
     });
@@ -12335,7 +13223,7 @@ Ruta: tests\storage\mutations.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
 use vantadb::executor::{ExecutionResult, Executor};
 use vantadb::parser::parse_statement;
@@ -12395,11 +13283,20 @@ async fn dml_mutations_certification() {
 
             let q_i1 = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros" }"#;
             let q_i2 = r#"INSERT NODE#5 TYPE Tarea { nombre: "VantaDB" }"#;
-            executor.execute_statement(parse_statement(q_i1).unwrap().1).await.unwrap();
-            executor.execute_statement(parse_statement(q_i2).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(q_i1).unwrap().1)
+                .await
+                .unwrap();
+            executor
+                .execute_statement(parse_statement(q_i2).unwrap().1)
+                .await
+                .unwrap();
 
             let q_relate = r#"RELATE NODE#101 --"creo"--> NODE#5 WEIGHT 1.0"#;
-            executor.execute_statement(parse_statement(q_relate).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(q_relate).unwrap().1)
+                .await
+                .unwrap();
 
             let node = storage.get(101).unwrap().unwrap();
             assert_eq!(node.edges.len(), 1);
@@ -12414,8 +13311,14 @@ async fn dml_mutations_certification() {
             let storage = StorageEngine::open(dir.path().to_str().unwrap()).unwrap();
             let executor = Executor::new(&storage);
 
-            executor.execute_statement(parse_statement(r#"INSERT NODE#101 TYPE X {}"#).unwrap().1).await.unwrap();
-            executor.execute_statement(parse_statement(r#"DELETE NODE#101"#).unwrap().1).await.unwrap();
+            executor
+                .execute_statement(parse_statement(r#"INSERT NODE#101 TYPE X {}"#).unwrap().1)
+                .await
+                .unwrap();
+            executor
+                .execute_statement(parse_statement(r#"DELETE NODE#101"#).unwrap().1)
+                .await
+                .unwrap();
 
             assert!(storage.get(101).unwrap().is_none());
             TerminalReporter::success("Node excision complete.");
@@ -12435,7 +13338,7 @@ Ruta: tests\storage\storage.rs
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{VantaHarness, TerminalReporter};
+use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
@@ -12447,7 +13350,7 @@ fn storage_engine_certification() {
     harness.execute("Integration: Persistent Node IO", || {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
-        
+
         TerminalReporter::sub_step("Opening StorageEngine (RocksDB backend)...");
         let storage = StorageEngine::open(db_path).expect("Failed to open RocksDB");
 
@@ -12455,9 +13358,12 @@ fn storage_engine_certification() {
         storage.insert(&node).unwrap();
         TerminalReporter::sub_step("Node 42 committed to persistent storage.");
 
-        let retrieved = storage.get(42).unwrap().expect("Node not found after insertion");
+        let retrieved = storage
+            .get(42)
+            .unwrap()
+            .expect("Node not found after insertion");
         assert_eq!(retrieved.id, 42);
-        
+
         TerminalReporter::success("RocksDB roundtrip successful.");
     });
 }

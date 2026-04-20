@@ -5,3 +5,10 @@
 {"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.0495781,"ram_usage_mb":9068.0,"current_ram_mb":31688.0,"timestamp":"2026-04-17T19:32:14.342487500-04:00"}
 {"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Ghost Node Prevention","duration_secs":0.1021759,"ram_usage_mb":8932.0,"current_ram_mb":31576.0,"timestamp":"2026-04-17T19:33:30.027110100-04:00"}
 {"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Tombstone Resilience","duration_secs":0.0480534,"ram_usage_mb":8940.0,"current_ram_mb":31584.0,"timestamp":"2026-04-17T19:33:30.075641600-04:00"}
+{"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":1.8311829,"ram_usage_mb":892.0,"current_ram_mb":22380.0,"timestamp":"2026-04-20T01:51:25.476579400-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Ghost Node Prevention","duration_secs":1.8694258000000001,"ram_usage_mb":892.0,"current_ram_mb":26132.0,"timestamp":"2026-04-20T01:51:25.514880100-04:00"}
+{"block_name":"STORAGE LAYER (CHAOS INTEGRITY): Topological Axioms: Tombstone Resilience","duration_secs":1.6589101,"ram_usage_mb":1068.0,"current_ram_mb":26308.0,"timestamp":"2026-04-20T01:51:27.193265300-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: INSERT -> GET Cycle","duration_secs":5.4852527,"ram_usage_mb":2788.0,"current_ram_mb":18724.0,"timestamp":"2026-04-20T01:51:29.887608500-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":1.1538473,"ram_usage_mb":2924.0,"current_ram_mb":18860.0,"timestamp":"2026-04-20T01:51:31.212607700-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":1.2474300999999999,"ram_usage_mb":2980.0,"current_ram_mb":18916.0,"timestamp":"2026-04-20T01:51:32.460553300-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":1.0057985,"ram_usage_mb":3040.0,"current_ram_mb":18976.0,"timestamp":"2026-04-20T01:51:33.467153600-04:00"}

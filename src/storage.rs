@@ -1,4 +1,5 @@
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backends::fjall_backend::FjallBackend;
 use crate::backends::in_memory::InMemoryBackend;
 use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
@@ -171,6 +172,7 @@ impl VantaFile {
 pub enum BackendKind {
     #[default]
     RocksDb,
+    Fjall,
     InMemory,
 }
 
@@ -227,6 +229,7 @@ impl StorageEngine {
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),
+            BackendKind::Fjall => Arc::new(FjallBackend::open(path)?),
             BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
         };
 
