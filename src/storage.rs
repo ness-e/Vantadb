@@ -138,25 +138,12 @@ impl VantaFile {
 
     /// Implementación de Warm-up Strategy (Phase 3.4)
     /// Protege capas superiores del HNSW con pre-fetching para evitar page faults iniciales.
+    /// Usa lectura secuencial de páginas para forzar el cacheo del OS de forma portable.
     pub fn warmup_top_layers(&self, size: usize) {
-        #[cfg(unix)]
-        {
-            use std::os::unix::io::AsRawFd;
-            unsafe {
-                libc::madvise(
-                    self.mmap.as_ptr() as *mut libc::c_void,
-                    size.min(self.mmap.len()),
-                    libc::MADV_WILLNEED,
-                );
-            }
-        }
-        #[cfg(windows)]
-        {
-            // En Windows, leer secuencialmente es suficiente para que el OS pre-cachee.
-            let mut _sum = 0u8;
-            for i in (0..size.min(self.mmap.len())).step_by(4096) {
-                _sum ^= self.mmap[i];
-            }
+        let len = size.min(self.mmap.len());
+        let mut _sum = 0u8;
+        for i in (0..len).step_by(4096) {
+            _sum ^= self.mmap[i];
         }
     }
 }
