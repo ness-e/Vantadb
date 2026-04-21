@@ -23,7 +23,7 @@ vantadb-python/.venv/
 vantadb-python/__pycache__/
 *.py[cod]
 .pytest_cache/
-datasets/ 
+
 # Local profiles and secrets
 .vanta_profile
 .env
@@ -31,7 +31,6 @@ datasets/
 
 # Datasets / local assets
 datasets/
-datasets/sift/
 
 # IDE / OS / Agent artifacts
 .vscode/
