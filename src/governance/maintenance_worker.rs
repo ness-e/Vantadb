@@ -199,7 +199,7 @@ impl MaintenanceWorker {
             let max_consolidations = match caps.profile {
                 crate::hardware::HardwareProfile::Enterprise => 5000,
                 crate::hardware::HardwareProfile::Performance => 500,
-                crate::hardware::HardwareProfile::Survival => 50,
+                crate::hardware::HardwareProfile::LowResource => 50,
             };
 
             for (&id, node) in cache.iter_mut() {
@@ -302,8 +302,18 @@ impl MaintenanceWorker {
         }
 
         if deleted_count > 10_000 {
-            println!("🧹 [Maintenance] Triggering disk compaction due to high tombstone volume.");
-            storage.request_compaction();
+            if storage.supports_manual_compaction() {
+                println!(
+                    "🧹 [Maintenance] Triggering disk compaction due to high tombstone volume."
+                );
+                storage.request_compaction();
+            } else {
+                println!(
+                    "🧹 [Maintenance] High tombstone volume detected ({}). Manual compaction skipped as the active backend ({:?}) self-manages it.",
+                    deleted_count,
+                    storage.backend_kind()
+                );
+            }
         }
 
         println!(

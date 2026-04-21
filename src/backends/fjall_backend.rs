@@ -179,4 +179,12 @@ impl StorageBackend for FjallBackend {
         // Fjall's LSM engine (lsm-tree crate) runs automatic background
         // compaction. There is no public manual compaction API to call here.
     }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::Fjall,
+        }
+    }
 }

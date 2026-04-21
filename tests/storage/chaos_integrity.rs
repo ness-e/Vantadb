@@ -4,7 +4,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
-use common::{TerminalReporter, VantaHarness};
+use common::{TerminalReporter, VantaSession};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::error::VantaError;
@@ -14,99 +14,117 @@ use vantadb::storage::StorageEngine;
 
 #[tokio::test]
 async fn chaos_integrity_certification() {
-    let mut harness = VantaHarness::new("STORAGE LAYER (CHAOS INTEGRITY)");
+    TerminalReporter::suite_banner("TOPOLOGICAL INTEGRITY & CHAOS AXIOMS", 2);
 
-    harness.execute("Topological Axioms: Ghost Node Prevention", || {
-        futures::executor::block_on(async {
-            let dir = tempdir().unwrap();
-            let db_path = dir.path().to_str().unwrap();
-            let storage = Arc::new(StorageEngine::open(db_path).unwrap());
-            let executor = Executor::new(&storage);
+    // ─── AXIOM 1: Ghost Node Prevention ──────────────────────────
 
-            TerminalReporter::sub_step("Setting up valid base nodes (1, 2)...");
-            executor
-                .execute_statement(Statement::Insert(InsertStatement {
-                    node_id: 1,
-                    node_type: "Test".to_string(),
-                    fields: std::collections::BTreeMap::new(),
-                    vector: None,
-                }))
-                .await
-                .unwrap();
-            executor
-                .execute_statement(Statement::Insert(InsertStatement {
-                    node_id: 2,
-                    node_type: "Test".to_string(),
-                    fields: std::collections::BTreeMap::new(),
-                    vector: None,
-                }))
-                .await
-                .unwrap();
+    let mut s1 = VantaSession::begin("Ghost Node Prevention");
+    s1.step("Initializing storage and executor");
 
-            TerminalReporter::sub_step("Attempting RELATE to non-existent Ghost Node 999...");
-            let relate_ghost = Statement::Relate(RelateStatement {
-                source_id: 1,
-                target_id: 999,
-                label: "likes".to_string(),
-                weight: None,
-            });
-            let result_ghost = executor.execute_statement(relate_ghost).await;
+    let dir1 = tempdir().unwrap();
+    let db_path1 = dir1.path().to_str().unwrap();
+    let storage1 = Arc::new(StorageEngine::open(db_path1).unwrap());
+    let executor1 = Executor::new(&storage1);
 
-            assert!(result_ghost.is_err());
-            if let Err(VantaError::Execution(msg)) = result_ghost {
-                assert!(msg.contains("Topological Axiom violated"));
-            } else {
-                panic!("Expected Topological Axiom error");
-            }
+    s1.step("Seeding valid base nodes (1, 2)");
+    executor1
+        .execute_statement(Statement::Insert(InsertStatement {
+            node_id: 1,
+            node_type: "Test".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }))
+        .await
+        .unwrap();
 
-            TerminalReporter::success("Ghost node relation correctly blocked.");
-        });
+    executor1
+        .execute_statement(Statement::Insert(InsertStatement {
+            node_id: 2,
+            node_type: "Test".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }))
+        .await
+        .unwrap();
+
+    s1.step("Attempting illegal relation to non-existent ID 999");
+    let relate_ghost = Statement::Relate(RelateStatement {
+        source_id: 1,
+        target_id: 999,
+        label: "likes".to_string(),
+        weight: None,
     });
+    let result_ghost = executor1.execute_statement(relate_ghost).await;
 
-    harness.execute("Topological Axioms: Tombstone Resilience", || {
-        futures::executor::block_on(async {
-            let dir = tempdir().unwrap();
-            let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
-            let executor = Executor::new(&storage);
+    assert!(
+        result_ghost.is_err(),
+        "Axiom Failure: Relation to ghost node was not blocked"
+    );
+    if let Err(VantaError::Execution(msg)) = result_ghost {
+        assert!(
+            msg.contains("Topological Axiom violated"),
+            "Wrong error message for ghost node"
+        );
+    } else {
+        panic!("Expected Execution error for Topological Axiom");
+    }
 
-            executor
-                .execute_statement(Statement::Insert(InsertStatement {
-                    node_id: 1,
-                    node_type: "Test".to_string(),
-                    fields: std::collections::BTreeMap::new(),
-                    vector: None,
-                }))
-                .await
-                .unwrap();
-            executor
-                .execute_statement(Statement::Insert(InsertStatement {
-                    node_id: 2,
-                    node_type: "Test".to_string(),
-                    fields: std::collections::BTreeMap::new(),
-                    vector: None,
-                }))
-                .await
-                .unwrap();
+    s1.success("Ghost node protection verified.");
+    s1.finish(true);
 
-            TerminalReporter::sub_step("Deleting Node 2 (creating tombstone)...");
-            executor
-                .execute_statement(Statement::Delete(vantadb::query::DeleteStatement {
-                    node_id: 2,
-                }))
-                .await
-                .unwrap();
+    // ─── AXIOM 2: Tombstone Resilience ───────────────────────────
 
-            TerminalReporter::sub_step("Attempting RELATE to deleted Node 2...");
-            let relate_tombstone = Statement::Relate(RelateStatement {
-                source_id: 1,
-                target_id: 2,
-                label: "likes".to_string(),
-                weight: None,
-            });
-            let result_tombstone = executor.execute_statement(relate_tombstone).await;
+    let mut s2 = VantaSession::begin("Tombstone Resilience");
+    s2.step("Initializing storage context");
 
-            assert!(result_tombstone.is_err());
-            TerminalReporter::success("Relation to tombstone correctly blocked.");
-        });
+    let dir2 = tempdir().unwrap();
+    let storage2 = Arc::new(StorageEngine::open(dir2.path().to_str().unwrap()).unwrap());
+    let executor2 = Executor::new(&storage2);
+
+    s2.step("Seeding and then deleting target node (ID 2)");
+    executor2
+        .execute_statement(Statement::Insert(InsertStatement {
+            node_id: 1,
+            node_type: "Test".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }))
+        .await
+        .unwrap();
+
+    executor2
+        .execute_statement(Statement::Insert(InsertStatement {
+            node_id: 2,
+            node_type: "Test".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }))
+        .await
+        .unwrap();
+
+    executor2
+        .execute_statement(Statement::Delete(vantadb::query::DeleteStatement {
+            node_id: 2,
+        }))
+        .await
+        .unwrap();
+
+    s2.step("Attempting relation to deleted (Tombstoned) node");
+    let relate_tombstone = Statement::Relate(RelateStatement {
+        source_id: 1,
+        target_id: 2,
+        label: "likes".to_string(),
+        weight: None,
     });
+    let result_tombstone = executor2.execute_statement(relate_tombstone).await;
+
+    assert!(
+        result_tombstone.is_err(),
+        "Axiom Failure: Relation to tombstone was not blocked"
+    );
+    s2.success("Tombstone integrity verified.");
+    s2.finish(true);
+
+    // Final Report for this suite
+    TerminalReporter::print_certification_summary();
 }

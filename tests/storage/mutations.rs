@@ -12,6 +12,7 @@ use vantadb::storage::StorageEngine;
 
 #[tokio::test]
 async fn dml_mutations_certification() {
+    TerminalReporter::suite_banner("DML PIPELINE & MUTATIONS CERTIFICATION", 4);
     let mut harness = VantaHarness::new("STORAGE LAYER (DML MUTATIONS)");
 
     harness.execute("Pipeline: INSERT -> GET Cycle", || {

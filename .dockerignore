@@ -1,6 +1,14 @@
 target/
 .git/
-connectome_snapshots/
+vanta_snapshots/
 data/
+vanta_data/
 *.db
 build_logs/
+datasets/
+.vanta_profile
+.env
+vantadb-python/venv/
+vantadb-python/.venv/
+vantadb-python/__pycache__/
+.pytest_cache/

@@ -125,7 +125,7 @@ mod tests {
     fn test_fwht_scalar() {
         let mut data = vec![1.0, 0.0, 1.0, 0.0];
         fwht_scalar(&mut data);
-        let expected = vec![1.0, 1.0, 0.0, 0.0];
+        let expected = [1.0, 1.0, 0.0, 0.0];
         for (a, b) in data.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-5);
         }
@@ -134,8 +134,8 @@ mod tests {
     #[test]
     fn test_fwht_simd_vs_scalar() {
         let mut d1 = vec![0.5f32; 1024];
-        for i in 0..1024 {
-            d1[i] = (i as f32).sin();
+        for (i, item) in d1.iter_mut().enumerate() {
+            *item = (i as f32).sin();
         }
         let mut d2 = d1.clone();
 

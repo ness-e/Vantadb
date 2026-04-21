@@ -1,8 +1,0 @@
-{
-  "instructions": "Avx2",
-  "profile": "Performance",
-  "logical_cores": 4,
-  "total_memory": 8489287680,
-  "resource_score": 23,
-  "env_hash": 9987678657533827080
-}

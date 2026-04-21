@@ -1,6 +1,6 @@
 use parking_lot::RwLock;
-use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use twox_hash::XxHash64;
 
 const DEFAULT_BLOOM_BITS: usize = 100_000;
 const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1E1E1E];
@@ -27,7 +27,7 @@ impl AdmissionFilter {
     fn calculate_hashes_u64(&self, key: u64) -> [usize; 3] {
         let mut idxs = [0; 3];
         for (i, &salt) in K_SALTS.iter().enumerate() {
-            let mut hasher = DefaultHasher::new();
+            let mut hasher = XxHash64::with_seed(0);
             key.hash(&mut hasher);
             salt.hash(&mut hasher);
             idxs[i] = (hasher.finish() as usize) % self.bits_count;
@@ -38,7 +38,7 @@ impl AdmissionFilter {
     fn calculate_hashes_str(&self, key: &str) -> [usize; 3] {
         let mut idxs = [0; 3];
         for (i, &salt) in K_SALTS.iter().enumerate() {
-            let mut hasher = DefaultHasher::new();
+            let mut hasher = XxHash64::with_seed(0);
             key.hash(&mut hasher);
             salt.hash(&mut hasher);
             idxs[i] = (hasher.finish() as usize) % self.bits_count;

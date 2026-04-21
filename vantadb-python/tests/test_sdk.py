@@ -8,7 +8,7 @@ import shutil
 import pytest
 
 # The module name matches [lib] name in Cargo.toml
-import nexusdb_py as nexus
+import vantadb_py as vanta
 
 
 TEST_DB_PATH = "./test_sdk_db"
@@ -31,20 +31,20 @@ def _unique_path():
     return f"{TEST_DB_PATH}_{uuid.uuid4().hex[:8]}"
 
 
-class TestNexusDBLifecycle:
+class TestVantaDBLifecycle:
     """Core CRUD lifecycle tests."""
 
     def test_open_and_repr(self):
-        """Vantadb instance should open and display hardware profile."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        """VantaDB instance should open and display hardware profile."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         r = repr(db)
-        assert "Vantadb(" in r
+        assert "VantaDB(" in r
         assert "profile=" in r
 
     def test_insert_and_get(self):
         """Insert a node and retrieve it by ID."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(42, "Hello Vantadb", [0.1] * 384)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.insert(42, "Hello VantaDB", [0.1] * 384)
 
         node = db.get(42)
         assert node is not None
@@ -55,7 +55,7 @@ class TestNexusDBLifecycle:
 
     def test_insert_with_extra_fields(self):
         """Insert with additional relational fields from a Python dict."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.insert(
             1,
             "Test node",
@@ -75,12 +75,12 @@ class TestNexusDBLifecycle:
 
     def test_get_nonexistent(self):
         """Getting a non-existent node returns None."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         assert db.get(999999) is None
 
     def test_delete_tombstone(self):
         """Deleting a node should make it unretrievable."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.insert(10, "To be deleted", [0.2] * 128)
         assert db.get(10) is not None
 
@@ -89,7 +89,7 @@ class TestNexusDBLifecycle:
 
     def test_flush(self):
         """Flush should persist data to disk without errors."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.insert(1, "Persistent data", [0.3] * 128)
         db.flush()  # Should not raise
 
@@ -99,7 +99,7 @@ class TestVectorSearch:
 
     def test_search_returns_results(self):
         """Search should find inserted vectors."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
 
         # Insert some vectors
         for i in range(10):
@@ -118,7 +118,7 @@ class TestHardwareIntrospection:
 
     def test_hardware_profile(self):
         """Hardware profile should return valid keys."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         hw = db.hardware_profile()
 
         assert "profile" in hw
@@ -134,7 +134,7 @@ class TestEdgeManagement:
 
     def test_add_edge(self):
         """Adding an edge between two nodes."""
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.insert(1, "Source", [])
         db.insert(2, "Target", [])
 
@@ -153,8 +153,8 @@ class TestMemoryBoundary:
 
     def test_explicit_memory_limit(self):
         """DB should respect explicit memory limit via constructor."""
-        # 64MB — this should activate Survival Mode
-        db = nexus.Vantadb(_unique_path(), memory_limit_bytes=64 * 1024 * 1024)
+        # 64MB — this should activate resource governance
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=64 * 1024 * 1024)
 
         hw = db.hardware_profile()
         # The engine should have initialized without crashing

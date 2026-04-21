@@ -704,6 +704,7 @@ impl CPIndex {
         for node in self.nodes.values() {
             buf.extend_from_slice(&node.id.to_le_bytes());
             buf.extend_from_slice(&node.bitset.to_le_bytes());
+            buf.extend_from_slice(&node.storage_offset.to_le_bytes());
 
             match &node.vec_data {
                 VectorRepresentations::Full(f) => {
@@ -813,6 +814,15 @@ impl CPIndex {
             let bitset = u128::from_le_bytes(data[pos..pos + 16].try_into().unwrap());
             pos += 16;
 
+            if pos + 8 > data.len() {
+                return Err(Error::new(
+                    ErrorKind::UnexpectedEof,
+                    "Truncated storage offset",
+                ));
+            }
+            let storage_offset = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
+            pos += 8;
+
             if pos + 1 > data.len() {
                 return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated vec type"));
             }
@@ -913,7 +923,7 @@ impl CPIndex {
                     bitset,
                     vec_data,
                     neighbors,
-                    storage_offset: 0, // New nodes start in RAM, offset set on persist
+                    storage_offset,
                 },
             );
         }

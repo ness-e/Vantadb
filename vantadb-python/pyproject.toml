@@ -23,8 +23,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ness-e/ConnectomeDB"
-Repository = "https://github.com/ness-e/ConnectomeDB"
+Homepage = "https://github.com/ness-e/VantaDB"
+Repository = "https://github.com/ness-e/VantaDB"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

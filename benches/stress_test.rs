@@ -33,19 +33,22 @@ fn run_stress_test(c: &mut Criterion) {
     let mut group = c.benchmark_group("The Memory Abyss");
     group.sample_size(10);
 
-    group.bench_function("Point Lookup Valido", |b| {
+    group.bench_function("Point Lookup Valido", |b: &mut criterion::Bencher| {
         b.to_async(&rt).iter(|| async {
             // Nodo que seguro existe, forzando fetch real
             let _ = black_box(storage.get(500).unwrap());
         });
     });
 
-    group.bench_function("Point Lookup Spurious (Bloom Filter Reject)", |b| {
-        b.to_async(&rt).iter(|| async {
-            // Nodo que seguro NO existe. El Bloom Filter rechaza el I/O disk fetch al instante.
-            let _ = black_box(storage.get(num_nodes + 9999).unwrap());
-        });
-    });
+    group.bench_function(
+        "Point Lookup Spurious (Bloom Filter Reject)",
+        |b: &mut criterion::Bencher| {
+            b.to_async(&rt).iter(|| async {
+                // Nodo que seguro NO existe. El Bloom Filter rechaza el I/O disk fetch al instante.
+                let _ = black_box(storage.get(num_nodes + 9999).unwrap());
+            });
+        },
+    );
 
     group.finish();
 }

@@ -1,4 +1,4 @@
-//! MMap Neural Index & Survival Mode Modernized Test Suite
+//! MMap Neural Index & Resource Governance Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
 #[path = "../common/mod.rs"]
@@ -12,7 +12,7 @@ use vantadb::index::{CPIndex, IndexBackend, VectorRepresentations};
 fn build_test_index(node_count: u64) -> CPIndex {
     let mut index = CPIndex::new();
     for i in 1..=node_count {
-        let raw = vec![i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
+        let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
         let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
         let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
         index.add(i, 0, VectorRepresentations::Full(normalized), 0);
@@ -22,6 +22,7 @@ fn build_test_index(node_count: u64) -> CPIndex {
 
 #[test]
 fn mmap_neural_index_certification() {
+    TerminalReporter::suite_banner("MMAP NEURAL INDEX STORAGE CERTIFICATION", 5);
     let mut harness = VantaHarness::new("STORAGE LAYER (MMAP NEURAL INDEX)");
 
     harness.execute("Serialization: Byte Roundtrip Integrity", || {
@@ -48,7 +49,7 @@ fn mmap_neural_index_certification() {
         let loaded = CPIndex::load_from_file(&index_path).expect("Cold-start load failed");
         assert_eq!(loaded.nodes.len(), 100);
 
-        let query = vec![1.0f32, 2.0, 3.0, 4.0];
+        let query = [1.0f32, 2.0, 3.0, 4.0];
         let norm: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nq: Vec<f32> = query.iter().map(|x| x / norm).collect();
         let results = loaded.search_nearest(&nq, None, None, 0, 5, None);
@@ -57,13 +58,13 @@ fn mmap_neural_index_certification() {
         TerminalReporter::success("Cold-start persistence and search verified.");
     });
 
-    harness.execute("MMap Survival: Backend Sync & Reload", || {
+    harness.execute("MMap Governance: Backend Sync & Reload", || {
         let tmp = TempDir::new().expect("Failed to create temp dir");
         let mmap_path = tmp.path().join("neural_index_mmap.bin");
 
         let mut index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path.clone()));
         for i in 1..=30u64 {
-            let raw = vec![i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
+            let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
             let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
             let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
             index.add(i, 0, VectorRepresentations::Full(normalized), 0);
@@ -74,7 +75,7 @@ fn mmap_neural_index_certification() {
 
         let reloaded = CPIndex::load_from_file(&mmap_path).expect("Load from MMap failed");
         assert_eq!(reloaded.nodes.len(), 30);
-        TerminalReporter::success("MMap survival backend functional.");
+        TerminalReporter::success("MMap governance backend functional.");
     });
 
     harness.execute("Error Handling: Corrupt/Nonexistent Fallback", || {
@@ -96,7 +97,7 @@ fn mmap_neural_index_certification() {
 
         let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64)
             .map(|i| {
-                let raw = vec![i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
+                let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
                 let n: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
                 (i, raw.iter().map(|x| x / n).collect())
             })

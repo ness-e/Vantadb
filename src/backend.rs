@@ -67,6 +67,25 @@ pub(crate) enum BackendWriteOp {
     },
 }
 
+// ─── Backend Capabilities ───────────────────────────────────
+
+/// Indicates which KV backend is being used.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum BackendKind {
+    RocksDb,
+    #[default]
+    Fjall,
+    InMemory,
+}
+
+/// Introspection of a backend's supported features.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackendCapabilities {
+    pub supports_checkpoint: bool,
+    pub supports_manual_compaction: bool,
+    pub kind: BackendKind,
+}
+
 // ─── Backend Trait ──────────────────────────────────────────
 
 /// Abstraction over the persistent KV store used by `StorageEngine`.
@@ -109,4 +128,7 @@ pub(crate) trait StorageBackend: Send + Sync {
     fn compact(&self) {
         // no-op by default
     }
+
+    /// Introspect the capabilities of this backend instance.
+    fn capabilities(&self) -> BackendCapabilities;
 }

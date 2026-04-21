@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_wal_roundtrip() {
-        let dir = std::env::temp_dir().join("connectome_test_wal_rt");
+        let dir = std::env::temp_dir().join("vanta_test_wal_rt");
         let _ = std::fs::remove_file(&dir);
 
         {
@@ -196,8 +196,8 @@ mod tests {
 
     #[test]
     fn test_crc32_deterministic() {
-        let data = b"connectome wal test";
+        let data = b"vanta wal test";
         assert_eq!(crc32(data), crc32(data));
-        assert_ne!(crc32(data), crc32(b"connectome wal tesx"));
+        assert_ne!(crc32(data), crc32(b"vanta wal tesx"));
     }
 }

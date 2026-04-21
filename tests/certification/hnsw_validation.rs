@@ -90,6 +90,7 @@ fn compute_recall(
 
 #[test]
 fn hnsw_hard_validation_certification() {
+    TerminalReporter::suite_banner("HNSW ALGORITHMIC HARD VALIDATION", 5);
     let mut harness = VantaHarness::new("HNSW HARD VALIDATION");
 
     // ─────────────────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ fn hnsw_hard_validation_certification() {
         let mut index = CPIndex::new();
         index.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; 32]), 0);
         index.add(2, u128::MAX, VectorRepresentations::Full(vec![0.0; 32]), 0);
-        let res = index.search_nearest(&vec![1.0; 32], None, None, u128::MAX, 3, None);
+        let res = index.search_nearest(&[1.0; 32], None, None, u128::MAX, 3, None);
         assert!(!res.is_empty());
         TerminalReporter::success("Zero vector in index did not cause panics.");
     });
@@ -258,13 +259,13 @@ fn hnsw_hard_validation_certification() {
     harness.execute("Edge Case: Single Node Index", || {
         let mut index = CPIndex::new();
         index.add(42, u128::MAX, VectorRepresentations::Full(vec![1.0; 16]), 0);
-        let res = index.search_nearest(&vec![1.0; 16], None, None, u128::MAX, 10, None);
+        let res = index.search_nearest(&[1.0; 16], None, None, u128::MAX, 10, None);
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].0, 42);
     });
 
     harness.execute("Edge Case: Empty Index", || {
-        let res = CPIndex::new().search_nearest(&vec![1.0; 16], None, None, u128::MAX, 10, None);
+        let res = CPIndex::new().search_nearest(&[1.0; 16], None, None, u128::MAX, 10, None);
         assert!(res.is_empty());
     });
 
@@ -360,7 +361,7 @@ fn hnsw_hard_validation_certification() {
             .sum();
         let ratio = links5 as f64 / links1 as f64;
         TerminalReporter::info(&format!("Memory Growth Factor (5x N): {:.2}x links", ratio));
-        assert!(ratio >= 3.0 && ratio <= 8.0);
+        assert!((3.0..=8.0).contains(&ratio));
     });
 
     println!(

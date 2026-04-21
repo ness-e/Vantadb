@@ -105,6 +105,14 @@ impl StorageBackend for InMemoryBackend {
     }
 
     // compact() inherits the default no-op from the trait.
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::InMemory,
+        }
+    }
 }
 
 // ─── Unit Tests ─────────────────────────────────────────────

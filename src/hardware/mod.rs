@@ -21,7 +21,7 @@ pub enum InstructionSet {
 pub enum HardwareProfile {
     Enterprise,  // Heavy hardware: AVX-512, high RAM
     Performance, // Standard server: AVX2/Neon, standard RAM
-    Survival,    // Constrained devices: Low RAM or Scalar Fallback
+    LowResource, // Constrained devices: Low RAM or Scalar Fallback
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,16 +43,13 @@ impl HardwareCapabilities {
 pub struct HardwareScout;
 
 impl HardwareScout {
-    const PROFILE_PATH: &'static str = ".connectome_profile";
+    const PROFILE_PATH: &'static str = ".vanta_profile";
 
     pub fn detect() -> HardwareCapabilities {
         let mut sys = System::new_all();
         sys.refresh_all();
 
-        let total_memory = std::env::var("VANTADB_MEMORY_LIMIT")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or_else(|| sys.total_memory());
+        let total_memory = sys.total_memory();
         let logical_cores = sys.cpus().len();
 
         // Calculate stable environment hash
@@ -131,7 +128,7 @@ impl HardwareScout {
         } else if memory_gb >= 4 && instructions != InstructionSet::Fallback {
             HardwareProfile::Performance
         } else {
-            HardwareProfile::Survival
+            HardwareProfile::LowResource
         }
     }
 
@@ -158,7 +155,7 @@ impl HardwareScout {
         let (_profile_str, profile_color) = match caps.profile {
             HardwareProfile::Enterprise => ("ENTERPRISE", style("ENTERPRISE").green().bold()),
             HardwareProfile::Performance => ("PERFORMANCE", style("PERFORMANCE").yellow().bold()),
-            HardwareProfile::Survival => ("SURVIVAL", style("SURVIVAL").red().bold()),
+            HardwareProfile::LowResource => ("LOW_RESOURCE", style("LOW_RESOURCE").red().bold()),
         };
 
         let ram_gb = caps.total_memory / (1024 * 1024 * 1024);

@@ -24,9 +24,10 @@ use common::*;
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn gen_vectors(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
-    let mut rng = StdRng::seed_from_u64(seed);
     (0..count)
-        .map(|_| {
+        .into_par_iter() // Parallel generation
+        .map(|i| {
+            let mut rng = StdRng::seed_from_u64(seed + i as u64); // Distinct seed per vector
             let mut v: Vec<f32> = (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect();
             let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
             if norm > f32::EPSILON {
@@ -42,8 +43,16 @@ fn brute_force_knn(query: &[f32], dataset: &[(u64, Vec<f32>)], k: usize) -> Vec<
         .par_iter()
         .map(|(id, vec)| (*id, cosine_sim_f32(query, vec)))
         .collect();
+
+    // OPTIMIZATION: Only find top K instead of sorting everything
+    if scored.len() > k {
+        scored.select_nth_unstable_by(k - 1, |a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        scored.truncate(k);
+    }
+
     scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    scored.truncate(k);
     scored.into_iter().map(|(id, _)| id).collect()
 }
 
@@ -124,6 +133,7 @@ fn estimate_memory_bytes(index: &CPIndex) -> usize {
 
 #[test]
 fn stress_protocol_certification() {
+    TerminalReporter::suite_banner("VANTA HNSW STRESS & PERFORMANCE PROTOCOL", 7);
     let mut harness = VantaHarness::new("VANTA STRESS PROTOCOL");
 
     // BLOCK 1: Recall
@@ -142,11 +152,11 @@ fn stress_protocol_certification() {
             .collect();
         let queries = gen_vectors(n_queries, dims, seed + 9999);
         let config = HnswConfig {
-            m: 32,
-            m_max0: 64,
-            ef_construction: 500,
-            ef_search: 300,
-            ml: 1.0 / (32_f64).ln(),
+            m: 16, // Optimized for faster certification
+            m_max0: 32,
+            ef_construction: 200,
+            ef_search: 100,
+            ml: 1.0 / (16_f64).ln(),
         };
         let index = build_index(&dataset, config);
         let recall = compute_recall(&index, &queries, &dataset, k);
@@ -313,7 +323,7 @@ fn stress_protocol_certification() {
         }
         let ratio = memories[3] / memories[1]; // 50K / 5K
         assert!(
-            ratio >= 5.0 && ratio <= 15.0,
+            (5.0..=15.0).contains(&ratio),
             "Growth ratio {:.2}x not proportional",
             ratio
         );

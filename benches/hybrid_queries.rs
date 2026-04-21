@@ -19,7 +19,7 @@ fn bench_cp_index_filter(c: &mut Criterion) {
 }
 
 fn bench_unified_node_deserialization(c: &mut Criterion) {
-    let mock_bytes = vec![0u8; 128]; // Simulación del block cache (128 bytes)
+    let mock_bytes = [0u8; 128]; // Simulación del block cache (128 bytes)
     c.bench_function("zero-copy bincode deserialize", |b| {
         b.iter(|| {
             // Zero-copy decode simulation

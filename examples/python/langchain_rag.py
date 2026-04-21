@@ -4,27 +4,26 @@ import uuid
 # In a real environment, you would use standard LangChain modules:
 # from langchain.llms import Ollama
 # from langchain.embeddings import SentenceTransformerEmbeddings
-print("[Setup] Loading Vantadb & Emulated LangChain Modules...")
-
+print("[Setup] Loading VantaDB & Emulated LangChain Modules...")
 import vantadb
 
 # ---------------------------------------------------------
-# 1. INITIALIZE NEXUSDB (In-Process, Zero-Network)
+# 1. INITIALIZE VantaDB (In-Process, Zero-Network)
 # ---------------------------------------------------------
 # Like SQLite, it lives in your python heap.
-# We set a strict 128MB limit for this script to demo the Survival Mode constraints.
-db = vantadb.Vantadb(
-    path="./local_nexus_brain", read_only=False, memory_limit_bytes=128_000_000
+# We set a strict 128MB limit for this script to demo resource governance.
+db = vantadb.VantaDB(
+    path="./local_vanta_data", read_only=False, memory_limit_bytes=128_000_000
 )
 
 # ---------------------------------------------------------
 # 2. DOCUMENT INGESTION (Ollama Embeddings Pipeline)
 # ---------------------------------------------------------
 raw_documents = [
-    "Vantadb is a deeply embedded database written in Rust.",
+    "VantaDB is a deeply embedded database written in Rust.",
     "Using multiple databases (Vector, Graph, Relational) creates a glue-code nightmare.",
     "By compiling the database via PyO3, Python apps can query vectors with Zero-Copy overhead.",
-    "Survival mode automatically shifts HNSW heaps to Disk (MMAP) when RAM is low.",
+    "Resource governance automatically shifts HNSW heaps to Disk (MMAP) when RAM is low.",
 ]
 
 

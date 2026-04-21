@@ -67,10 +67,9 @@ print(results)
 
 To read the specific mechanisms behind VantaDB, locate the core technical tracking files in the `docs/` directory:
 
-1. **[Architecture (Zero-Copy & Memory Layout)](docs/architecture.md)**: Explore the `UnifiedNode` struct, the PyO3 interfaces, and the `index.rs` algorithms.
-2. **[Governance & Consistency](docs/decisions.md)**: Details on architectural trade-offs, cache invalidation, and data compaction processes.
-
-*(Note: Legacy documentation is held in `docs/old/` purely for archival relevance. We rely on strict Rust tests `tests/` to track definitive technical reality).*
+1. **[Architecture (Zero-Copy & Memory Layout)](docs/architecture/ARCHITECTURE.md)**: Explore the `UnifiedNode` struct, the PyO3 interfaces, and the LSM persistence logic.
+2. **[Operations & Configuration](docs/operations/CONFIGURATION.md)**: Details on runtime parameters, environment variables, and memory limits.
+3. **[Backup & Snapshot Policy](docs/operations/BACKUP_POLICY.md)**: Operational guidelines for data protection across different storage backends (Fjall vs RocksDB).
 
 ## 📄 License
 

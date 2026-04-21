@@ -168,13 +168,7 @@ impl VantaFile {
 /// `InMemory` replaces only the KV layer (RocksDB). VantaFile and WAL
 /// are still initialized on disk at the provided path. See module docs
 /// in `backends::in_memory` for details.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub enum BackendKind {
-    #[default]
-    RocksDb,
-    Fjall,
-    InMemory,
-}
+pub use crate::backend::BackendKind;
 
 /// Configuration for `StorageEngine` initialization.
 #[derive(Debug, Clone, Default)]
@@ -182,7 +176,7 @@ pub struct EngineConfig {
     pub memory_limit: Option<u64>,
     pub force_mmap: bool,
     pub read_only: bool,
-    /// Which KV backend to use. Defaults to `RocksDb`.
+    /// Which KV backend to use. Defaults to `Fjall`.
     pub backend_kind: BackendKind,
 }
 
@@ -217,14 +211,7 @@ impl StorageEngine {
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
 
-        let effective_memory = config
-            .memory_limit
-            .or_else(|| {
-                std::env::var("VANTADB_MEMORY_LIMIT")
-                    .ok()
-                    .and_then(|v| v.parse::<u64>().ok())
-            })
-            .unwrap_or(caps.total_memory);
+        let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
 
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
@@ -238,9 +225,8 @@ impl StorageEngine {
         let index_path = data_dir.join("vector_index.bin");
 
         let use_mmap = config.force_mmap
-            || caps.profile == crate::hardware::HardwareProfile::Survival
-            || effective_memory < 16 * 1024 * 1024 * 1024
-            || std::env::var("VANTA_FORCE_MMAP").is_ok();
+            || caps.profile == crate::hardware::HardwareProfile::LowResource
+            || effective_memory < 16 * 1024 * 1024 * 1024;
 
         let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
             let mut idx = loaded;
@@ -248,7 +234,7 @@ impl StorageEngine {
                 idx.backend = IndexBackend::new_mmap(index_path.clone());
                 info!(
                     backend = "mmap",
-                    "HNSW Survival Mode: MMap backend activated (cold-start)"
+                    "HNSW Resource Governance: MMap backend activated (cold-start)"
                 );
             }
             idx
@@ -256,7 +242,7 @@ impl StorageEngine {
             if use_mmap {
                 info!(
                     backend = "mmap",
-                    "HNSW Survival Mode: MMap backend activated (fresh)"
+                    "HNSW Resource Governance: MMap backend activated (fresh)"
                 );
                 CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
             } else {
@@ -301,6 +287,57 @@ impl StorageEngine {
         self.last_query_timestamp.store(now, Ordering::Release);
     }
 
+    fn append_to_vstore(&self, node: &UnifiedNode) -> Result<u64> {
+        let mut vstore = self.vector_store.write();
+        let offset = vstore.write_cursor;
+
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+        let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = node.vector {
+            v.len()
+        } else {
+            0
+        };
+        let vec_size = (vec_len * 4) as u64;
+        let total_needed = offset + header_size + vec_size;
+
+        if total_needed > vstore.size {
+            let new_size = vstore.size * 2;
+            vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
+            vstore.mmap = unsafe {
+                MmapOptions::new()
+                    .map_mut(&vstore.file)
+                    .map_err(VantaError::IoError)?
+            };
+            vstore.size = new_size;
+        }
+
+        let mut header = DiskNodeHeader::new(node.id);
+        header.vector_offset = offset + header_size;
+        header.vector_len = vec_len as u32;
+        header.flags = node.flags.0;
+        header.bitset = node.bitset;
+        header.confidence_score = node.confidence_score;
+        header.importance = node.importance;
+        header.tier = match node.tier {
+            crate::node::NodeTier::Hot => 1u8,
+            crate::node::NodeTier::Cold => 0u8,
+        };
+        header.edge_count = node.edges.len() as u16;
+
+        vstore.write_header(offset, &header)?;
+
+        if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
+            let vec_bytes = vec.as_bytes();
+            vstore.mmap
+                [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
+                .copy_from_slice(vec_bytes);
+        }
+
+        vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
+        vstore.save_cursor();
+        Ok(offset)
+    }
+
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         if self.admission_filter.is_blocked(node.id) {
             return Err(VantaError::Execution(format!(
@@ -321,57 +358,7 @@ impl StorageEngine {
             wal_writer.append(&crate::wal::WalRecord::Insert(active_node.clone()))?;
         }
 
-        let storage_offset = {
-            let mut vstore = self.vector_store.write();
-            let offset = vstore.write_cursor;
-
-            let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-            let vec_len =
-                if let crate::node::VectorRepresentations::Full(ref v) = active_node.vector {
-                    v.len()
-                } else {
-                    0
-                };
-            let vec_size = (vec_len * 4) as u64;
-            let total_needed = offset + header_size + vec_size;
-
-            if total_needed > vstore.size {
-                let new_size = vstore.size * 2;
-                vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
-                vstore.mmap = unsafe {
-                    MmapOptions::new()
-                        .map_mut(&vstore.file)
-                        .map_err(VantaError::IoError)?
-                };
-                vstore.size = new_size;
-            }
-
-            let mut header = DiskNodeHeader::new(active_node.id);
-            header.vector_offset = offset + header_size;
-            header.vector_len = vec_len as u32;
-            header.flags = active_node.flags.0;
-            header.bitset = active_node.bitset;
-            header.confidence_score = active_node.confidence_score;
-            header.importance = active_node.importance;
-            header.tier = match active_node.tier {
-                crate::node::NodeTier::Hot => 1u8,
-                crate::node::NodeTier::Cold => 0u8,
-            };
-            header.edge_count = active_node.edges.len() as u16;
-
-            vstore.write_header(offset, &header)?;
-
-            if let crate::node::VectorRepresentations::Full(ref vec) = active_node.vector {
-                let vec_bytes = vec.as_bytes();
-                vstore.mmap
-                    [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
-                    .copy_from_slice(vec_bytes);
-            }
-
-            vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
-            vstore.save_cursor();
-            offset
-        };
+        let storage_offset = self.append_to_vstore(&active_node)?;
 
         let key = active_node.id.to_le_bytes();
         let metadata = NodeMetadata {
@@ -434,7 +421,15 @@ impl StorageEngine {
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend.put(BackendPartition::Default, &key, &val)?;
 
-        self.refresh_index(&persisted, 0);
+        // Consolidate doesn't change the vector store offset if already present
+        let offset = {
+            let hnsw = self.hnsw.read();
+            hnsw.nodes
+                .get(&node.id)
+                .map(|n| n.storage_offset)
+                .unwrap_or(0)
+        };
+        self.refresh_index(&persisted, offset);
 
         {
             let mut cache = self.volatile_cache.write();
@@ -451,7 +446,8 @@ impl StorageEngine {
             bincode::serialize(node).map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend.put(partition, &key, &val)?;
 
-        self.refresh_index(node, 0);
+        let storage_offset = self.append_to_vstore(node)?;
+        self.refresh_index(node, storage_offset);
         Ok(())
     }
 
@@ -626,6 +622,15 @@ impl StorageEngine {
     }
 
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
+        if !self.supports_checkpoint() {
+            return Err(VantaError::Execution(format!(
+                "Checkpoint (live snapshot) is not supported by the {:?} backend. \
+                Live backups are not available natively. Please use filesystem-level snapshots (e.g., EBS, ZFS, LVM) \
+                or perform a cold backup by safely shutting down the database process and copying the data directory.",
+                self.backend_kind()
+            )));
+        }
+
         let mut save_path = std::path::PathBuf::from("./vantadb_snapshots");
         if let Ok(override_dir) = std::env::var("VANTA_BACKUP_DIR") {
             save_path = std::path::PathBuf::from(override_dir);
@@ -685,8 +690,32 @@ impl StorageEngine {
     ///
     /// Used by MaintenanceWorker after high tombstone volume.
     /// No-op for backends that don't support compaction.
-    pub(crate) fn request_compaction(&self) {
+    pub fn request_compaction(&self) {
+        if !self.supports_manual_compaction() {
+            tracing::info!(
+                "Maintenance requested manual disk compaction, but it was skipped. \
+                The active backend ({:?}) manages compaction automatically. This is expected behavior.",
+                self.backend_kind()
+            );
+            return;
+        }
         self.backend.compact();
+    }
+
+    pub fn backend_capabilities(&self) -> crate::backend::BackendCapabilities {
+        self.backend.capabilities()
+    }
+
+    pub fn backend_kind(&self) -> crate::backend::BackendKind {
+        self.backend.capabilities().kind
+    }
+
+    pub fn supports_checkpoint(&self) -> bool {
+        self.backend.capabilities().supports_checkpoint
+    }
+
+    pub fn supports_manual_compaction(&self) -> bool {
+        self.backend.capabilities().supports_manual_compaction
     }
 
     // ─── Internal helpers ───────────────────────────────────────

@@ -1,6 +1,6 @@
 # Inference Query Language (IQL) Specification
 
-Vantadb abandons the complexity of standard SQL JOINs and Graph query languages (like Cypher) by combining traversing arrays and geometric similarities into a unified functional grammar. We call this the **Inference Query Language (IQL)**.
+VantaDB abandons the complexity of standard SQL JOINs and Graph query languages (like Cypher) by combining traversing arrays and geometric similarities into a unified functional grammar. We call this the **Inference Query Language (IQL)**.
 
 ## 1. Core Grammar & Philosophy
 
@@ -20,7 +20,7 @@ LIMIT 5
 ### Deconstructing the Operands
 
 * `VECTOR search ~ [n]`: The tilde (`~`) operator triggers native HNSW Cosine Similarity traversal using the provided dimensional slice. Mapped to physical space instantly.
-* `WHERE`: Standard BTreeMap filtering. The engine evaluates equality (`==`), comparators (`<, >, >=`), and booleans. If pre-filtering is faster (via cardinality limits), Vantadb applies it *before* the HNSW execution.
+* `WHERE`: Standard BTreeMap filtering. The engine evaluates equality (`==`), comparators (`<, >, >=`), and booleans. If pre-filtering is faster (via cardinality limits), VantaDB applies it *before* the HNSW execution.
 * `WITH DEPTH`: Graph traversal initiator. Dictates the max recursion of adjacency list jumps from candidate nodes.
 * `LIMIT`: The HNSW `top_k` threshold.
 
@@ -70,6 +70,6 @@ results = db.search(
 
 ## 3. Weight Management & Operability
 
-Every edge connecting two nodes inside Vantadb operates natively with an intrinsic `weight` (f32).
+Every edge connecting two nodes inside VantaDB operates natively with an intrinsic `weight` (f32).
 
-When chaining graph searches with vector searches, if an edge weight degrades drastically (e.g., `weight < 0.2`), Vantadb's executor interprets it as an asynchronous disconnection and will halt traversal early, effectively self-pruning noisy pathways in memory.
+When chaining graph searches with vector searches, if an edge weight degrades drastically (e.g., `weight < 0.2`), VantaDB's executor interprets it as an asynchronous disconnection and will halt traversal early, effectively self-pruning noisy pathways in memory.

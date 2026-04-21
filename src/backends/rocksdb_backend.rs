@@ -31,16 +31,8 @@ impl RocksDbBackend {
 
         // Memory limit resolution priority:
         // 1. Explicit config.memory_limit (from Python SDK constructor)
-        // 2. VANTADB_MEMORY_LIMIT env var (from Docker/CI)
-        // 3. Hardware detection (from HardwareCapabilities)
-        let effective_memory = config
-            .memory_limit
-            .or_else(|| {
-                std::env::var("VANTADB_MEMORY_LIMIT")
-                    .ok()
-                    .and_then(|v| v.parse::<u64>().ok())
-            })
-            .unwrap_or(caps.total_memory);
+        // 2. Hardware detection (from HardwareCapabilities)
+        let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
 
         let mut opts = Options::default();
         opts.create_if_missing(!config.read_only);
@@ -82,14 +74,14 @@ impl RocksDbBackend {
 
         opts.set_block_based_table_factory(&bopts);
 
-        if caps.profile == crate::hardware::HardwareProfile::Survival
+        if caps.profile == crate::hardware::HardwareProfile::LowResource
             || effective_memory < 16 * 1024 * 1024 * 1024
         {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
             warn!(
                 effective_memory_gb = effective_memory / 1024 / 1024 / 1024,
-                "RAM < 16GB — MMap access forced (Survival Mode)"
+                "RAM < 16GB — MMap access forced (Resource Governance)"
             );
         }
 
@@ -246,5 +238,13 @@ impl StorageBackend for RocksDbBackend {
         c_opts.set_exclusive_manual_compaction(false);
         self.db
             .compact_range_opt(None::<&[u8]>, None::<&[u8]>, &c_opts);
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: true,
+            supports_manual_compaction: true,
+            kind: crate::backend::BackendKind::RocksDb,
+        }
     }
 }

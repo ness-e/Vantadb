@@ -30,7 +30,7 @@ fn high_density_benchmark(c: &mut Criterion) {
     println!(
         "Mode: {}",
         if is_ci {
-            "CI (Survival)"
+            "CI (Resource Governance)"
         } else {
             "Release (1M)"
         }
@@ -68,7 +68,7 @@ fn high_density_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("high_density_search");
     group.sample_size(50); // Less samples due to intensity
 
-    group.bench_function("knn_search_768d", |b| {
+    group.bench_function("knn_search_768d", |b: &mut criterion::Bencher| {
         b.iter_batched(
             || generate_random_vector(dim),
             |query_vec| {
@@ -76,8 +76,7 @@ fn high_density_benchmark(c: &mut Criterion) {
                     let results = storage
                         .hnsw
                         .read()
-                        .unwrap()
-                        .search_nearest(&query_vec, None, None, 0, 10);
+                        .search_nearest(&query_vec, None, None, 0, 10, None);
                     // Force materialization to prevent optimization drop
                     assert!(results.len() <= 10);
                 });
@@ -91,7 +90,7 @@ fn high_density_benchmark(c: &mut Criterion) {
     let mut spam_group = c.benchmark_group("logarithmic_spam_friction");
     spam_group.sample_size(10); // Very intensive, 10 samples
 
-    spam_group.bench_function("50k_spam_mutations", |b| {
+    spam_group.bench_function("50k_spam_mutations", |b: &mut criterion::Bencher| {
         b.iter_batched(
             || {
                 let mut dummy_nodes = Vec::with_capacity(50_000);
