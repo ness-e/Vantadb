@@ -39,5 +39,4 @@ datasets/sift/
 .DS_Store
 Thumbs.db
 .agents/
-.github/
 .cargo/

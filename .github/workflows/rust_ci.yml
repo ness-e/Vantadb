@@ -1,0 +1,77 @@
+name: VantaDB CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.github/workflows/rust_ci.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.github/workflows/rust_ci.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+    - uses: actions/checkout@v4
+
+    - name: Add swap space (prevent OOM linker crash)
+      run: |
+        sudo swapoff /swapfile || true
+        sudo rm -f /swapfile
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install system dependencies (RocksDB + Clang)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+    - name: Format Check
+      run: cargo fmt --check
+
+    - name: Clippy Lints
+      run: cargo clippy -- -D warnings
+
+    - name: Compile and check (Debug mode)
+      run: cargo test --no-run
+
+    - name: Run tests (limited threads to reduce memory pressure)
+      run: cargo test -- --test-threads=2
+
+    - name: Run benchmarks (verification only)
+      run: cargo bench --no-run
