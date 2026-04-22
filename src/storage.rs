@@ -223,7 +223,7 @@ impl StorageEngine {
             || caps.profile == crate::hardware::HardwareProfile::LowResource
             || effective_memory < 16 * 1024 * 1024 * 1024;
 
-        let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
+        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
             let mut idx = loaded;
             if use_mmap {
                 idx.backend = IndexBackend::new_mmap(index_path.clone());
@@ -250,9 +250,49 @@ impl StorageEngine {
         };
 
         let vector_store_path = data_dir.join("vector_store.vanta");
-        let vector_store = VantaFile::open(vector_store_path, 1024 * 1024 * 64)?;
+        let mut vector_store = VantaFile::open(vector_store_path, 1024 * 1024 * 64)?;
 
+        // ── WAL Replay: recover un-flushed mutations ──────────────
         let wal_path = data_dir.join("vanta.wal");
+        if wal_path.exists() {
+            let mut wal_reader = crate::wal::WalReader::open(&wal_path)?;
+            let mut replayed = 0u64;
+            while let Some(record) = wal_reader.next_record()? {
+                match record {
+                    crate::wal::WalRecord::Insert(node) => {
+                        if hnsw.nodes.contains_key(&node.id) {
+                            continue;
+                        }
+                        let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
+                        hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
+                        replayed += 1;
+                    }
+                    crate::wal::WalRecord::Update { id, node } => {
+                        if hnsw.nodes.contains_key(&id) {
+                            continue;
+                        }
+                        let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
+                        hnsw.add(id, node.bitset, node.vector.clone(), offset);
+                        replayed += 1;
+                    }
+                    crate::wal::WalRecord::Delete { id } => {
+                        if let Some(index_node) = hnsw.nodes.get(&id) {
+                            let offset = index_node.storage_offset;
+                            if let Some(h) = vector_store.read_header(offset).cloned() {
+                                let mut tombstoned = h;
+                                tombstoned.flags |= 0x8;
+                                vector_store.write_header(offset, &tombstoned)?;
+                            }
+                        }
+                    }
+                    crate::wal::WalRecord::Checkpoint { .. } => {}
+                }
+            }
+            if replayed > 0 {
+                info!(replayed, "WAL replay: recovered un-flushed mutations");
+            }
+        }
+
         let wal_writer = crate::wal::WalWriter::open(&wal_path)?;
 
         let admission_filter = crate::governance::admission_filter::AdmissionFilter::new(100_000);
@@ -329,6 +369,56 @@ impl StorageEngine {
         }
 
         vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
+        vstore.save_cursor();
+        Ok(offset)
+    }
+
+    /// Write a node to VantaFile during WAL replay (before engine is fully constructed).
+    fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
+        let offset = vstore.write_cursor;
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+        let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = node.vector {
+            v.len()
+        } else {
+            0
+        };
+        let vec_size = (vec_len * 4) as u64;
+        let total_needed = offset + header_size + vec_size;
+
+        if total_needed > vstore.size {
+            let new_size = (vstore.size * 2).max(total_needed + 4096);
+            vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
+            vstore.mmap = unsafe {
+                MmapOptions::new()
+                    .map_mut(&vstore.file)
+                    .map_err(VantaError::IoError)?
+            };
+            vstore.size = new_size;
+        }
+
+        let mut header = DiskNodeHeader::new(node.id);
+        header.vector_offset = offset + header_size;
+        header.vector_len = vec_len as u32;
+        header.flags = node.flags.0;
+        header.bitset = node.bitset;
+        header.confidence_score = node.confidence_score;
+        header.importance = node.importance;
+        header.tier = match node.tier {
+            crate::node::NodeTier::Hot => 1u8,
+            crate::node::NodeTier::Cold => 0u8,
+        };
+        header.edge_count = node.edges.len() as u16;
+
+        vstore.write_header(offset, &header)?;
+
+        if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
+            let vec_bytes = vec.as_bytes();
+            vstore.mmap
+                [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
+                .copy_from_slice(vec_bytes);
+        }
+
+        vstore.write_cursor = (total_needed + 63) & !63;
         vstore.save_cursor();
         Ok(offset)
     }

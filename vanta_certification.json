@@ -349,3 +349,23 @@
 {"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":0.1224079,"ram_usage_mb":2072.0,"current_ram_mb":24852.0,"timestamp":"2026-04-21T17:29:18.102921100-04:00"}
 {"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":0.1195262,"ram_usage_mb":2096.0,"current_ram_mb":24876.0,"timestamp":"2026-04-21T17:29:18.222851700-04:00"}
 {"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.1103997,"ram_usage_mb":2108.0,"current_ram_mb":24888.0,"timestamp":"2026-04-21T17:29:18.333758400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.0000338,"ram_usage_mb":84.0,"current_ram_mb":22484.0,"timestamp":"2026-04-21T19:31:26.351508800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":6.1e-6,"ram_usage_mb":116.0,"current_ram_mb":22516.0,"timestamp":"2026-04-21T19:31:26.353001800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0000124,"ram_usage_mb":140.0,"current_ram_mb":22540.0,"timestamp":"2026-04-21T19:31:26.353489300-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":5.6e-6,"ram_usage_mb":140.0,"current_ram_mb":22540.0,"timestamp":"2026-04-21T19:31:26.354038-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000174,"ram_usage_mb":144.0,"current_ram_mb":22544.0,"timestamp":"2026-04-21T19:31:26.354582500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0000478,"ram_usage_mb":156.0,"current_ram_mb":22556.0,"timestamp":"2026-04-21T19:31:26.355140400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.0644265,"ram_usage_mb":804.0,"current_ram_mb":23204.0,"timestamp":"2026-04-21T19:31:26.419941400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.0000341,"ram_usage_mb":812.0,"current_ram_mb":23212.0,"timestamp":"2026-04-21T19:31:26.420405200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.0000222,"ram_usage_mb":812.0,"current_ram_mb":23212.0,"timestamp":"2026-04-21T19:31:26.420898800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.012875,"ram_usage_mb":420.0,"current_ram_mb":22820.0,"timestamp":"2026-04-21T19:31:26.434135800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.0000234,"ram_usage_mb":440.0,"current_ram_mb":22840.0,"timestamp":"2026-04-21T19:31:26.434743100-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0044223,"ram_usage_mb":436.0,"current_ram_mb":22836.0,"timestamp":"2026-04-21T19:31:26.439546100-04:00"}
+{"block_name":"LOGIC LAYER (COLUMNAR ENGINE): Arrow: UnifiedNode to RecordBatch Conversion","duration_secs":0.0000601,"ram_usage_mb":124.0,"current_ram_mb":21852.0,"timestamp":"2026-04-21T19:31:28.459537400-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Base (1M × 128D)","duration_secs":0.9474601,"ram_usage_mb":543928.0,"current_ram_mb":566556.0,"timestamp":"2026-04-21T19:31:30.015623800-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Queries (10K × 128D)","duration_secs":0.0104036,"ram_usage_mb":549620.0,"current_ram_mb":572248.0,"timestamp":"2026-04-21T19:31:30.026866100-04:00"}
+{"block_name":"SIFT1M_Competitive: Load Ground Truth","duration_secs":0.009299,"ram_usage_mb":558004.0,"current_ram_mb":580632.0,"timestamp":"2026-04-21T19:31:30.036724600-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 10K — Balanced","duration_secs":12.0295743,"ram_usage_mb":571412.0,"current_ram_mb":594040.0,"timestamp":"2026-04-21T19:31:42.066984300-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 10K — High Recall","duration_secs":22.48801,"ram_usage_mb":577668.0,"current_ram_mb":600296.0,"timestamp":"2026-04-21T19:32:15.575971100-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 100K — Balanced","duration_secs":253.6100526,"ram_usage_mb":657688.0,"current_ram_mb":680316.0,"timestamp":"2026-04-21T19:36:58.688041900-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 100K — High Recall","duration_secs":831.189195,"ram_usage_mb":707464.0,"current_ram_mb":730092.0,"timestamp":"2026-04-21T19:51:14.673984800-04:00"}
