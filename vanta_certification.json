@@ -369,3 +369,66 @@
 {"block_name":"SIFT1M_Competitive: SIFT 10K — High Recall","duration_secs":22.48801,"ram_usage_mb":577668.0,"current_ram_mb":600296.0,"timestamp":"2026-04-21T19:32:15.575971100-04:00"}
 {"block_name":"SIFT1M_Competitive: SIFT 100K — Balanced","duration_secs":253.6100526,"ram_usage_mb":657688.0,"current_ram_mb":680316.0,"timestamp":"2026-04-21T19:36:58.688041900-04:00"}
 {"block_name":"SIFT1M_Competitive: SIFT 100K — High Recall","duration_secs":831.189195,"ram_usage_mb":707464.0,"current_ram_mb":730092.0,"timestamp":"2026-04-21T19:51:14.673984800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.0000409,"ram_usage_mb":88.0,"current_ram_mb":21416.0,"timestamp":"2026-04-22T14:03:58.765541700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":0.0000108,"ram_usage_mb":132.0,"current_ram_mb":21460.0,"timestamp":"2026-04-22T14:03:58.766493200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0000136,"ram_usage_mb":156.0,"current_ram_mb":21484.0,"timestamp":"2026-04-22T14:03:58.766735200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":4.2e-6,"ram_usage_mb":160.0,"current_ram_mb":21488.0,"timestamp":"2026-04-22T14:03:58.766990600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000114,"ram_usage_mb":172.0,"current_ram_mb":21500.0,"timestamp":"2026-04-22T14:03:58.767177800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0001278,"ram_usage_mb":412.0,"current_ram_mb":21740.0,"timestamp":"2026-04-22T14:03:58.767887-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.0566049,"ram_usage_mb":1260.0,"current_ram_mb":22588.0,"timestamp":"2026-04-22T14:03:58.824872200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.0000183,"ram_usage_mb":1276.0,"current_ram_mb":22604.0,"timestamp":"2026-04-22T14:03:58.825259600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.000033,"ram_usage_mb":1284.0,"current_ram_mb":22612.0,"timestamp":"2026-04-22T14:03:58.825817500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.0118139,"ram_usage_mb":1044.0,"current_ram_mb":22372.0,"timestamp":"2026-04-22T14:03:58.838083500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.0000219,"ram_usage_mb":1056.0,"current_ram_mb":22384.0,"timestamp":"2026-04-22T14:03:58.838787900-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0047074,"ram_usage_mb":1060.0,"current_ram_mb":22388.0,"timestamp":"2026-04-22T14:03:58.844003800-04:00"}
+{"block_name":"LOGIC LAYER (COLUMNAR ENGINE): Arrow: UnifiedNode to RecordBatch Conversion","duration_secs":0.0000615,"ram_usage_mb":120.0,"current_ram_mb":21304.0,"timestamp":"2026-04-22T14:04:00.673534300-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Base (1M × 128D)","duration_secs":1.1057654,"ram_usage_mb":544052.0,"current_ram_mb":566144.0,"timestamp":"2026-04-22T14:04:02.359881200-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Queries (10K × 128D)","duration_secs":0.0192202,"ram_usage_mb":549540.0,"current_ram_mb":571632.0,"timestamp":"2026-04-22T14:04:02.379809-04:00"}
+{"block_name":"SIFT1M_Competitive: Load Ground Truth","duration_secs":0.0178466,"ram_usage_mb":557876.0,"current_ram_mb":579968.0,"timestamp":"2026-04-22T14:04:02.397968500-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 10K — Balanced","duration_secs":8.4785779,"ram_usage_mb":570560.0,"current_ram_mb":592652.0,"timestamp":"2026-04-22T14:04:10.876826400-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 10K — High Recall","duration_secs":23.9566895,"ram_usage_mb":575940.0,"current_ram_mb":598032.0,"timestamp":"2026-04-22T14:04:43.840180300-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 100K — Balanced","duration_secs":488.5998933,"ram_usage_mb":657064.0,"current_ram_mb":679156.0,"timestamp":"2026-04-22T14:13:28.148781400-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 100K — High Recall","duration_secs":795.0994238,"ram_usage_mb":707040.0,"current_ram_mb":729132.0,"timestamp":"2026-04-22T14:27:29.727039-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Math: Cosine Similarity Projection","duration_secs":0.0646893,"ram_usage_mb":2124.0,"current_ram_mb":24208.0,"timestamp":"2026-04-22T14:28:55.102966300-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Search: Bitset + Nearest Neighbor Projection","duration_secs":0.0000499,"ram_usage_mb":2348.0,"current_ram_mb":24432.0,"timestamp":"2026-04-22T14:28:55.105797-04:00"}
+{"block_name":"STORAGE LAYER (GARBAGE COLLECTION): Sweep Logic: TTL Expiry & Physical Purge","duration_secs":0.1841105,"ram_usage_mb":7540.0,"current_ram_mb":28864.0,"timestamp":"2026-04-22T14:28:56.276711300-04:00"}
+{"block_name":"LOGIC LAYER (RESOURCE GOVERNOR): OOM: Strategic Allocation & Safeguards","duration_secs":5.2e-6,"ram_usage_mb":0.0,"current_ram_mb":20292.0,"timestamp":"2026-04-22T14:28:56.986516700-04:00"}
+{"block_name":"CORE ENGINE (GRAPH TRAVERSAL): BFS Traversal Matrix","duration_secs":0.1775199,"ram_usage_mb":7308.0,"current_ram_mb":28656.0,"timestamp":"2026-04-22T14:28:58.106761900-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: Thermal & OOM Thresholds","duration_secs":0.1633126,"ram_usage_mb":7736.0,"current_ram_mb":29444.0,"timestamp":"2026-04-22T14:28:59.152865800-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: System Capability Audit","duration_secs":0.000011,"ram_usage_mb":7744.0,"current_ram_mb":29452.0,"timestamp":"2026-04-22T14:28:59.154190100-04:00"}
+{"block_name":"HARDWARE CERTIFICATION: ALGORITHMIC FALLBACK","duration_secs":6.3e-6,"ram_usage_mb":7744.0,"current_ram_mb":29452.0,"timestamp":"2026-04-22T14:28:59.154708300-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): Vector Math: Cosine Similarity Axioms","duration_secs":0.0575021,"ram_usage_mb":3268.0,"current_ram_mb":24552.0,"timestamp":"2026-04-22T14:28:59.948228600-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): HNSW: Greedy Search Integrity","duration_secs":0.0000345,"ram_usage_mb":3288.0,"current_ram_mb":24572.0,"timestamp":"2026-04-22T14:28:59.949458600-04:00"}
+{"block_name":"RECALL CERTIFICATION: Recall@10 Calibration","duration_secs":7.671473,"ram_usage_mb":3916.0,"current_ram_mb":25992.0,"timestamp":"2026-04-22T14:29:08.385535100-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 1K Vectors","duration_secs":0.98797,"ram_usage_mb":3528.0,"current_ram_mb":25832.0,"timestamp":"2026-04-22T14:29:10.157437700-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 10K Vectors","duration_secs":58.5931382,"ram_usage_mb":3652.0,"current_ram_mb":25956.0,"timestamp":"2026-04-22T14:30:08.752015100-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 50K Vectors","duration_secs":895.3846329,"ram_usage_mb":4136.0,"current_ram_mb":26440.0,"timestamp":"2026-04-22T14:45:04.137823800-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Determinism: Same Query -> Same Result","duration_secs":12.1905791,"ram_usage_mb":4224.0,"current_ram_mb":26528.0,"timestamp":"2026-04-22T14:45:16.329167900-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Recall vs ef_search Degradation Curve","duration_secs":35.6476756,"ram_usage_mb":4404.0,"current_ram_mb":26708.0,"timestamp":"2026-04-22T14:45:51.977416500-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Duplicate Vectors","duration_secs":0.1444512,"ram_usage_mb":4440.0,"current_ram_mb":26744.0,"timestamp":"2026-04-22T14:45:52.122645100-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Zero Vector Resilience","duration_secs":0.0000806,"ram_usage_mb":4440.0,"current_ram_mb":26744.0,"timestamp":"2026-04-22T14:45:52.123632600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Single Node Index","duration_secs":0.0000104,"ram_usage_mb":4440.0,"current_ram_mb":26744.0,"timestamp":"2026-04-22T14:45:52.124271700-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Edge Case: Empty Index","duration_secs":1.6e-6,"ram_usage_mb":4440.0,"current_ram_mb":26744.0,"timestamp":"2026-04-22T14:45:52.125059500-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Stress: High Dimensionality (768D)","duration_secs":3.0174186,"ram_usage_mb":4552.0,"current_ram_mb":26856.0,"timestamp":"2026-04-22T14:45:55.143422200-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Top-1 Accuracy Correctness","duration_secs":13.9557903,"ram_usage_mb":5528.0,"current_ram_mb":27832.0,"timestamp":"2026-04-22T14:46:09.099893600-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Recall@K Sweep (1 to 50)","duration_secs":36.925451,"ram_usage_mb":5148.0,"current_ram_mb":27452.0,"timestamp":"2026-04-22T14:46:46.025947-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Validation: Memory proportionality","duration_secs":13.1253557,"ram_usage_mb":5384.0,"current_ram_mb":27688.0,"timestamp":"2026-04-22T14:46:59.152301-04:00"}
+{"block_name":"LOGIC LAYER (HANDLERS & MCP): Search: LangChain Handler Proximity","duration_secs":0.0000131,"ram_usage_mb":48.0,"current_ram_mb":22584.0,"timestamp":"2026-04-22T14:47:00.791086600-04:00"}
+{"block_name":"LOGIC LAYER (HANDLERS & MCP): Proxy: Ollama Context-Aware Generation","duration_secs":9.7e-6,"ram_usage_mb":92.0,"current_ram_mb":22628.0,"timestamp":"2026-04-22T14:47:00.793386500-04:00"}
+{"block_name":"API LAYER (MCP PROTOCOL): Protocol: Handshake & Identity (2024-11-05)","duration_secs":0.0000728,"ram_usage_mb":144.0,"current_ram_mb":23276.0,"timestamp":"2026-04-22T14:47:01.947708800-04:00"}
+{"block_name":"API LAYER (MCP PROTOCOL): Protocol: Tool Execution & State Mutability","duration_secs":0.1858962,"ram_usage_mb":10284.0,"current_ram_mb":33416.0,"timestamp":"2026-04-22T14:47:02.134682200-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Serialization: Byte Roundtrip Integrity","duration_secs":0.07456,"ram_usage_mb":336.0,"current_ram_mb":25108.0,"timestamp":"2026-04-22T14:47:03.072093400-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Persistence: Cold-Start Performance","duration_secs":0.0332672,"ram_usage_mb":428.0,"current_ram_mb":25200.0,"timestamp":"2026-04-22T14:47:03.107093300-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): MMap Governance: Backend Sync & Reload","duration_secs":0.0229546,"ram_usage_mb":428.0,"current_ram_mb":25200.0,"timestamp":"2026-04-22T14:47:03.130766100-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Error Handling: Corrupt/Nonexistent Fallback","duration_secs":0.0105694,"ram_usage_mb":428.0,"current_ram_mb":25200.0,"timestamp":"2026-04-22T14:47:03.141839300-04:00"}
+{"block_name":"STORAGE LAYER (MMAP NEURAL INDEX): Abstraction: Memory vs MMap Equivalence","duration_secs":0.0009803,"ram_usage_mb":432.0,"current_ram_mb":25204.0,"timestamp":"2026-04-22T14:47:03.143394600-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: INSERT -> GET Cycle","duration_secs":0.1688954,"ram_usage_mb":10928.0,"current_ram_mb":33552.0,"timestamp":"2026-04-22T14:47:04.351697600-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":0.1109121,"ram_usage_mb":10936.0,"current_ram_mb":33560.0,"timestamp":"2026-04-22T14:47:04.464081-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":0.119234,"ram_usage_mb":10936.0,"current_ram_mb":33560.0,"timestamp":"2026-04-22T14:47:04.583867800-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.1359523,"ram_usage_mb":10940.0,"current_ram_mb":33564.0,"timestamp":"2026-04-22T14:47:04.720604100-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DQL: Complex FROM -> FETCH Pipeline","duration_secs":0.0000339,"ram_usage_mb":0.0,"current_ram_mb":24756.0,"timestamp":"2026-04-22T14:47:05.786520500-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DML: Multi-Statement Core Parse","duration_secs":0.000039,"ram_usage_mb":8.0,"current_ram_mb":24764.0,"timestamp":"2026-04-22T14:47:05.788438800-04:00"}
+{"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.16125,"ram_usage_mb":10412.0,"current_ram_mb":33616.0,"timestamp":"2026-04-22T14:47:08.362829700-04:00"}
+{"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.171227,"ram_usage_mb":6696.0,"current_ram_mb":28792.0,"timestamp":"2026-04-22T14:47:10.296200300-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":253.018767,"ram_usage_mb":3388.0,"current_ram_mb":24512.0,"timestamp":"2026-04-22T17:20:18.803281600-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":272.29973,"ram_usage_mb":2460.0,"current_ram_mb":24412.0,"timestamp":"2026-04-22T17:20:42.804397300-04:00"}

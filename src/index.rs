@@ -431,13 +431,10 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
     ) {
-        // Phase 1.3: Duplicate detection — silently updating an existing node can
-        // corrupt the graph's bidirectional links. Log a warning and return early.
         if let Some(node) = self.nodes.get_mut(&id) {
-            node.storage_offset = storage_offset;
             node.bitset = bitset;
-            // Note: We don't update graph links here to avoid corruption,
-            // but updating the offset ensures we point to the latest version.
+            node.vec_data = vec_data;
+            node.storage_offset = storage_offset;
             return;
         }
 
@@ -461,25 +458,27 @@ impl CPIndex {
         let ef_cons = self.config.ef_construction;
 
         // If index is empty
+        let node = HnswNode {
+            id,
+            bitset,
+            vec_data: vec_data.clone(),
+            neighbors: vec![Vec::new(); level + 1],
+            storage_offset,
+        };
+
+        // If index is empty
         let ep = match self.entry_point {
             None => {
                 self.entry_point = Some(id);
                 self.max_layer = level;
-                let neighbors = vec![Vec::new(); level + 1];
-                self.nodes.insert(
-                    id,
-                    HnswNode {
-                        id,
-                        bitset,
-                        vec_data,
-                        neighbors,
-                        storage_offset,
-                    },
-                );
+                self.nodes.insert(id, node);
                 return;
             }
             Some(entry) => entry,
         };
+
+        // Insert placeholder node to allow similarity calculations during pruning
+        self.nodes.insert(id, node);
 
         // Query vector as F32 for building the index properly
         let query_f32 = match vec_data.to_f32() {
@@ -499,7 +498,6 @@ impl CPIndex {
             }
         }
 
-        let mut new_neighbors = vec![Vec::new(); level + 1];
 
         // Phase 2: From node's layer down to 0, find neighbors and connect
         let start_layer = std::cmp::min(level, top_layer);
@@ -550,8 +548,12 @@ impl CPIndex {
             } else {
                 self.config.m
             };
-            let selected_neighbors = self.select_neighbors(&mut extended_w, self.config.m);
-            new_neighbors[layer] = selected_neighbors.clone();
+            let selected_neighbors = self.select_neighbors(&mut extended_w, m_max);
+            
+            // Update our own neighbors for this layer
+            if let Some(n) = self.nodes.get_mut(&id) {
+                n.neighbors[layer] = selected_neighbors.clone();
+            }
 
             // Entry points for next layer = full search results from this layer
             // (select_neighbors clones w internally, so w is still intact here)
@@ -605,18 +607,6 @@ impl CPIndex {
             }
         }
 
-        // Apply new node explicitly
-        self.nodes.insert(
-            id,
-            HnswNode {
-                id,
-                bitset,
-                vec_data,
-                neighbors: new_neighbors,
-                storage_offset,
-            },
-        );
-
         // Update entry point if we created a new highest layer
         if level > self.max_layer {
             self.max_layer = level;
@@ -664,7 +654,6 @@ impl CPIndex {
             vector_store,
         );
 
-        // Extract top-k
         let mut result = w.into_sorted_vec();
 
         // into_sorted_vec returns highest similarity (best) first!
