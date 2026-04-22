@@ -171,6 +171,98 @@ fn test_vector_index_cold_recovery() {
     session.finish(true);
 }
 
+// ─── TEST: WAL Replay Idempotence ───────────────────────────────
+
+#[test]
+fn test_wal_replay_idempotence() {
+    let mut session = VantaSession::begin("WAL Replay Idempotence");
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    session.step("Phase 1: Insert without flush");
+    {
+        let engine = open_fjall(db_path);
+        for i in 1..=50 {
+            engine.insert(&UnifiedNode::new(i)).unwrap();
+        }
+    }
+
+    session.step("Phase 2: First reopen (should recover 50 nodes)");
+    {
+        let engine = open_fjall(db_path);
+        let mut count = 0;
+        for i in 1..=100 {
+            if engine.get(i).unwrap().is_some() {
+                count += 1;
+            }
+        }
+        assert_eq!(count, 50, "First reopen should recover exactly 50 nodes");
+    }
+
+    session.step("Phase 3: Second reopen (verifying no duplication or corruption)");
+    {
+        let engine = open_fjall(db_path);
+        let mut count = 0;
+        for i in 1..=100 {
+            if engine.get(i).unwrap().is_some() {
+                count += 1;
+            }
+        }
+        assert_eq!(count, 50, "Second reopen must still have exactly 50 nodes");
+    }
+
+    session.success("WAL replay is strictly idempotent.");
+    session.finish(true);
+}
+
+// ─── TEST: WAL Replay Mixed Mutations ─────────────────────────────
+
+#[test]
+fn test_wal_replay_mixed_mutations() {
+    let mut session = VantaSession::begin("WAL Replay Mixed Mutations");
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    session.step("Phase 1: Insert, Update, and Delete without flush");
+    {
+        let engine = open_fjall(db_path);
+        // Insert nodes 1, 2, 3
+        engine.insert(&UnifiedNode::new(1)).unwrap();
+        engine.insert(&UnifiedNode::new(2)).unwrap();
+        engine.insert(&UnifiedNode::new(3)).unwrap();
+
+        // Delete node 2
+        engine.delete(2, "test delete").unwrap();
+
+        // Update node 3
+        let mut updated_node3 = UnifiedNode::new(3);
+        updated_node3.importance = 99.0; // Mark a visible change
+                                         // En VantaDB usamos insert() para update (upsert semántico en este contexto de test de memoria)
+        engine.insert(&updated_node3).unwrap();
+    }
+
+    session.step("Phase 2: Reopen and verify exact state");
+    {
+        let engine = open_fjall(db_path);
+
+        // Node 1 should exist
+        assert!(engine.get(1).unwrap().is_some(), "Node 1 should exist");
+
+        // Node 2 should be deleted
+        assert!(engine.get(2).unwrap().is_none(), "Node 2 should be deleted");
+
+        // Node 3 should exist with updated importance
+        let node3 = engine.get(3).unwrap().expect("Node 3 should exist");
+        assert_eq!(
+            node3.importance, 99.0,
+            "Node 3 should have updated importance"
+        );
+    }
+
+    session.success("WAL handles mixed mutations correctly during replay.");
+    session.finish(true);
+}
+
 // ─── SUMMARY ──────────────────────────────────────────────────
 
 #[test]

@@ -252,6 +252,51 @@ impl StorageEngine {
         let vector_store_path = data_dir.join("vector_store.vanta");
         let mut vector_store = VantaFile::open(vector_store_path, 1024 * 1024 * 64)?;
 
+        // ── Index Reconstruction: rebuild HNSW if index file is missing ──────
+        if hnsw.nodes.is_empty() {
+            let mut cursor = 64u64;
+            let mut rebuilt_count = 0;
+            let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+
+            while cursor + header_size <= vector_store.write_cursor {
+                if let Some(header) = vector_store.read_header(cursor) {
+                    if header.id != 0 && (header.flags & 0x8) == 0 {
+                        // Node is valid and not tombstoned
+                        let vec_data = if header.vector_len > 0 {
+                            let start = header.vector_offset as usize;
+                            let end = start + (header.vector_len as usize * 4);
+                            if end <= vector_store.size as usize {
+                                let slice = &vector_store.mmap[start..end];
+                                // Safety: data is in-bounds and aligned as per VantaFile contract
+                                let vec: &[f32] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        slice.as_ptr() as *const f32,
+                                        header.vector_len as usize,
+                                    )
+                                };
+                                crate::node::VectorRepresentations::Full(vec.to_vec())
+                            } else {
+                                crate::node::VectorRepresentations::None
+                            }
+                        } else {
+                            crate::node::VectorRepresentations::None
+                        };
+
+                        hnsw.add(header.id, header.bitset, vec_data, cursor);
+                        rebuilt_count += 1;
+                    }
+                    // Advance cursor to next possible header
+                    let vec_size = (header.vector_len as u64 * 4 + 63) & !63;
+                    cursor += header_size + vec_size;
+                } else {
+                    cursor += 64; // Skip to next 64B boundary
+                }
+            }
+            if rebuilt_count > 0 {
+                info!(rebuilt_count, "Index reconstructed from VantaFile");
+            }
+        }
+
         // ── WAL Replay: recover un-flushed mutations ──────────────
         let wal_path = data_dir.join("vanta.wal");
         if wal_path.exists() {
@@ -260,17 +305,11 @@ impl StorageEngine {
             while let Some(record) = wal_reader.next_record()? {
                 match record {
                     crate::wal::WalRecord::Insert(node) => {
-                        if hnsw.nodes.contains_key(&node.id) {
-                            continue;
-                        }
                         let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
                         hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
                         replayed += 1;
                     }
                     crate::wal::WalRecord::Update { id, node } => {
-                        if hnsw.nodes.contains_key(&id) {
-                            continue;
-                        }
                         let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
                         hnsw.add(id, node.bitset, node.vector.clone(), offset);
                         replayed += 1;

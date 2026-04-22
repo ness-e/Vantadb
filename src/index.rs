@@ -433,11 +433,11 @@ impl CPIndex {
     ) {
         // Phase 1.3: Duplicate detection — silently updating an existing node can
         // corrupt the graph's bidirectional links. Log a warning and return early.
-        if self.nodes.contains_key(&id) {
-            warn!(
-                node_id = id,
-                "CPIndex::add called with duplicate ID — skipping to prevent graph corruption"
-            );
+        if let Some(node) = self.nodes.get_mut(&id) {
+            node.storage_offset = storage_offset;
+            node.bitset = bitset;
+            // Note: We don't update graph links here to avoid corruption,
+            // but updating the offset ensures we point to the latest version.
             return;
         }
 
