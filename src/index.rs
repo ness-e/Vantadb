@@ -498,7 +498,6 @@ impl CPIndex {
             }
         }
 
-
         // Phase 2: From node's layer down to 0, find neighbors and connect
         let start_layer = std::cmp::min(level, top_layer);
         for layer in (0..=start_layer).rev() {
@@ -549,7 +548,7 @@ impl CPIndex {
                 self.config.m
             };
             let selected_neighbors = self.select_neighbors(&mut extended_w, m_max);
-            
+
             // Update our own neighbors for this layer
             if let Some(n) = self.nodes.get_mut(&id) {
                 n.neighbors[layer] = selected_neighbors.clone();
