@@ -458,3 +458,8 @@
 {"block_name":"LLM INTEGRATION (OLLAMA): Integration: Message-to-Thread Dispatch","duration_secs":2.5657595,"ram_usage_mb":4664.0,"current_ram_mb":26804.0,"timestamp":"2026-04-24T17:09:43.635455600-04:00"}
 {"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1804544,"ram_usage_mb":1796.0,"current_ram_mb":24264.0,"timestamp":"2026-04-24T17:09:53.216684700-04:00"}
 {"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1674275,"ram_usage_mb":2808.0,"current_ram_mb":24032.0,"timestamp":"2026-04-24T17:09:54.137836-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1598339,"ram_usage_mb":3540.0,"current_ram_mb":26448.0,"timestamp":"2026-04-24T18:59:10.243531700-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1608426,"ram_usage_mb":1976.0,"current_ram_mb":24280.0,"timestamp":"2026-04-24T19:14:51.059777300-04:00"}
+{"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.1533367,"ram_usage_mb":2984.0,"current_ram_mb":25220.0,"timestamp":"2026-04-24T19:15:07.753946800-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1755589,"ram_usage_mb":10916.0,"current_ram_mb":33384.0,"timestamp":"2026-04-24T19:25:29.829474900-04:00"}
+{"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.161392,"ram_usage_mb":3356.0,"current_ram_mb":25436.0,"timestamp":"2026-04-24T19:25:39.518216500-04:00"}

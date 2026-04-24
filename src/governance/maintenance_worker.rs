@@ -31,7 +31,7 @@ impl MaintenanceWorker {
                 .emergency_maintenance_trigger
                 .load(Ordering::Acquire)
             {
-                println!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
+                tracing::warn!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
                 storage
                     .emergency_maintenance_trigger
                     .store(false, Ordering::Release);
@@ -56,7 +56,7 @@ impl MaintenanceWorker {
         storage: &Arc<StorageEngine>,
         invalidation_tx: &mpsc::Sender<InvalidationEvent>,
     ) {
-        println!("🌙 [Maintenance] Starting maintenance cycle (Memory cleanup)...");
+        tracing::trace!("🌙 [Maintenance] Starting maintenance cycle (Memory cleanup)...");
 
         let mut to_consolidate = Vec::new();
         let mut to_purge: Vec<(u64, bool, Option<String>)> = Vec::new(); // (id, is_invalidated, slashed_role)
@@ -213,7 +213,7 @@ impl MaintenanceWorker {
                     continue;
                 }
                 if now - storage.last_query_timestamp.load(Ordering::Acquire) < 5000 {
-                    println!("🔌 [Maintenance] Cycle interrupted (I/O activity detected).");
+                    tracing::trace!("🔌 [Maintenance] Cycle interrupted (I/O activity detected).");
                     break;
                 }
 
@@ -223,7 +223,7 @@ impl MaintenanceWorker {
                 }
 
                 if node.flags.is_set(NodeFlags::INVALIDATED) {
-                    println!(
+                    tracing::info!(
                         "🧨 [Maintenance] Invalidated node detected: {}. Purging immediately.",
                         id
                     );
@@ -265,9 +265,10 @@ impl MaintenanceWorker {
 
         for node in &to_consolidate {
             if let Err(e) = storage.consolidate_node(node) {
-                eprintln!(
+                tracing::error!(
                     "⚠️ [Maintenance] Error consolidating node {}: {}",
-                    node.id, e
+                    node.id,
+                    e
                 );
             }
         }
@@ -281,7 +282,7 @@ impl MaintenanceWorker {
                         tracker.slash_origin(role);
                     }
                     storage.admission_filter.block_role(role);
-                    println!("🔥 [Maintenance] Origin Slashing: agent '{}' blocked → ConfidenceScore=0.0", role);
+                    tracing::warn!("🔥 [Maintenance] Origin Slashing: agent '{}' blocked → ConfidenceScore=0.0", role);
                 }
 
                 InvalidationDispatcher::emit_invalidated_purged(
@@ -303,12 +304,12 @@ impl MaintenanceWorker {
 
         if deleted_count > 10_000 {
             if storage.supports_manual_compaction() {
-                println!(
+                tracing::info!(
                     "🧹 [Maintenance] Triggering disk compaction due to high tombstone volume."
                 );
                 storage.request_compaction();
             } else {
-                println!(
+                tracing::info!(
                     "🧹 [Maintenance] High tombstone volume detected ({}). Manual compaction skipped as the active backend ({:?}) self-manages it.",
                     deleted_count,
                     storage.backend_kind()
@@ -316,10 +317,16 @@ impl MaintenanceWorker {
             }
         }
 
-        println!(
-            "☀️  [Maintenance] Cycle finished. Analyzed: {} nodes.",
-            total_nodes
-        );
+        if total_nodes > 0 || deleted_count > 0 || !compression_candidates.is_empty() {
+            tracing::info!(
+                "☀️  [Maintenance] Cycle finished. Analyzed: {} nodes. Purged: {}. Compressed: {}.",
+                total_nodes,
+                deleted_count,
+                compression_candidates.len()
+            );
+        } else {
+            tracing::trace!("☀️  [Maintenance] Cycle finished. Analyzed: 0 nodes.");
+        }
     }
 
     async fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
@@ -339,7 +346,7 @@ impl MaintenanceWorker {
 
         for (thread_id, group) in &thread_groups {
             if deadline.elapsed().as_millis() > MAX_COMPRESSION_DURATION_MS {
-                println!(
+                tracing::info!(
                     "⏳ [Maintenance] Compression time budget reached. Deferring remaining groups."
                 );
                 break;
@@ -357,9 +364,10 @@ impl MaintenanceWorker {
             let summary_text = match llm.summarize_context(&node_refs).await {
                 Ok(text) => text,
                 Err(e) => {
-                    eprintln!(
+                    tracing::warn!(
                         "⚠️ [Maintenance] LLM compression failed for thread {}: {}. Skipping.",
-                        thread_id, e
+                        thread_id,
+                        e
                     );
                     continue;
                 }
@@ -393,7 +401,7 @@ impl MaintenanceWorker {
             }
 
             if let Err(e) = storage.insert_to_cf(&summary_node, "compressed_archive") {
-                eprintln!("⚠️ [Maintenance] Failed to persist summary node: {}. Aborting group compression.", e);
+                tracing::error!("⚠️ [Maintenance] Failed to persist summary node: {}. Aborting group compression.", e);
                 continue;
             }
 
@@ -405,14 +413,15 @@ impl MaintenanceWorker {
                         summary_id
                     ),
                 ) {
-                    eprintln!(
+                    tracing::error!(
                         "⚠️ [Maintenance] Failed to tombstone node {} during compression: {}",
-                        original.id, e
+                        original.id,
+                        e
                     );
                 }
             }
 
-            println!(
+            tracing::info!(
                 "🧬 [Maintenance] Data Compression: {} nodes from thread {} → Summary Node {} (Cold).",
                 group.len(), thread_id, summary_id
             );

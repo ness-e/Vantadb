@@ -19,7 +19,7 @@ async fn main() {
     }
 
     // ── Open storage engine ─────────────────────────────────────────────────
-    let data_dir = env::var("VANTA_DATA_DIR").unwrap_or_else(|_| "vantadb_data".to_string());
+    let data_dir = env::var("VANTADB_STORAGE_PATH").unwrap_or_else(|_| "vantadb_data".to_string());
     let storage = match StorageEngine::open(&data_dir) {
         Ok(s) => {
             if !is_mcp {
@@ -68,8 +68,12 @@ async fn main() {
         });
         let router = app(state);
 
-        let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+        let host = env::var("VANTADB_HOST")
+            .or_else(|_| env::var("HOST"))
+            .unwrap_or_else(|_| "127.0.0.1".to_string());
+        let port = env::var("VANTADB_PORT")
+            .or_else(|_| env::var("PORT"))
+            .unwrap_or_else(|_| "8080".to_string());
         let addr = format!("{}:{}", host, port);
 
         let listener = match TcpListener::bind(&addr).await {

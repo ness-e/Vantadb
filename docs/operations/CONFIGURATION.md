@@ -30,7 +30,7 @@ When deploying VantaDB as a standalone HTTP/Axum microservice using the official
 
 | Variable | Description | Default Target |
 |----------|-------------|----------------|
-| `VANTADB_HOST` | Bind address for the Rust HTTP layer. | `0.0.0.0` |
+| `VANTADB_HOST` | Bind address for the Rust HTTP layer. | `127.0.0.1` |
 | `VANTADB_PORT` | Exposure TCP port. | `8080` |
 | `VANTADB_STORAGE_PATH` | Equivalency to the `path` param. | `/data` |
 | `VANTADB_THREADS` | Tokyo async worker count (defaults to Host vCPUs). | `auto` |

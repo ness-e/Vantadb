@@ -63,6 +63,33 @@ print(results)
 
 ---
 
+## 💻 Running the Local Server (Windows RC)
+
+For local development or network exposure without Python, you can run the standalone compiled binary.
+
+1. Download the `vanta-server-windows-amd64.exe` from the official GitHub Release.
+2. Open PowerShell or Command Prompt in the download directory and run:
+   ```cmd
+   .\vanta-server-windows-amd64.exe
+   ```
+
+**Defaults:**
+- **Data Directory**: Creates a `vantadb_data` folder in the current execution directory.
+- **Bind Address**: Listens on `127.0.0.1:8080` (safe localhost default).
+
+**Exposing to the Network:**
+If you want to expose the server to your LAN or the internet, override the host via environment variables before running:
+```cmd
+set VANTADB_HOST=0.0.0.0
+.\vanta-server-windows-amd64.exe
+```
+
+> [!WARNING]
+> **Windows SmartScreen Note (RC Edition):** 
+> When launching the binary, Windows SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the Release Candidate binaries are not yet digitally signed (code signing is planned for a future release). Ensure you only execute binaries downloaded from the official GitHub repository.
+
+---
+
 ## 📖 Deep-Dive Engineering Documentation
 
 To read the specific mechanisms behind VantaDB, locate the core technical tracking files in the `docs/` directory:

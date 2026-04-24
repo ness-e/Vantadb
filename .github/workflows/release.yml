@@ -61,11 +61,24 @@ jobs:
         shell: pwsh
         run: Rename-Item -Path "target\release\${{ matrix.artifact_name }}" -NewName "${{ matrix.asset_name }}"
 
+      - name: Generate Checksums
+        shell: bash
+        run: |
+          cd target/release
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            certutil -hashfile ${{ matrix.asset_name }} SHA256 | grep -v "hashfile" | grep -v "CertUtil" | tr -d '\r\n' > ${{ matrix.asset_name }}.sha256
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            shasum -a 256 ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          else
+            sha256sum ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          fi
+
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: target/release/${{ matrix.asset_name }}
+          files: |
+            target/release/${{ matrix.asset_name }}
+            target/release/${{ matrix.asset_name }}.sha256
           draft: true
           generate_release_notes: true
-
