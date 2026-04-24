@@ -1,0 +1,81 @@
+name: VantaDB Heavy Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_sift:
+        description: "Run SIFT-1M validation (requires dataset download)"
+        type: boolean
+        default: false
+      include_competitive:
+        description: "Run competitive benchmarks"
+        type: boolean
+        default: false
+  schedule:
+    # Weekly: Sundays at 03:00 UTC
+    - cron: '0 3 * * 0'
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  certification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+    - uses: actions/checkout@v4
+
+    - name: Add swap space
+      run: |
+        sudo swapoff /swapfile || true
+        sudo rm -f /swapfile
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install system dependencies (RocksDB + Clang)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+    - name: Compile all tests
+      run: cargo test --no-run
+
+    # ── Heavy certification suite ────────────────────────────────────
+    - name: "Certification: stress_protocol"
+      timeout-minutes: 45
+      run: cargo test --test stress_protocol -- --nocapture --test-threads=1
+
+    - name: "Certification: hnsw_validation"
+      timeout-minutes: 30
+      run: cargo test --test hnsw_validation -- --nocapture --test-threads=1
+
+    - name: "Certification: hnsw_recall_certification"
+      timeout-minutes: 20
+      run: cargo test --test hnsw_recall_certification -- --nocapture --test-threads=1
+
+    - name: "Certification: sift_validation (optional)"
+      if: ${{ github.event_name == 'schedule' || inputs.include_sift == true }}
+      timeout-minutes: 30
+      run: cargo test --test sift_validation -- --nocapture --test-threads=1
+
+    - name: "Certification: competitive_bench (optional)"
+      if: ${{ github.event_name == 'schedule' || inputs.include_competitive == true }}
+      timeout-minutes: 30
+      run: cargo test --test competitive_bench -- --nocapture --test-threads=1

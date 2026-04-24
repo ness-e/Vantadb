@@ -170,6 +170,22 @@ path = "tests/certification/competitive_bench.rs"
 name = "backend_tests"
 path = "tests/storage/backend_tests.rs"
 
+[[test]]
+name = "durability_recovery"
+path = "tests/durability_recovery.rs"
+
+[[test]]
+name = "index_reconstruction"
+path = "tests/index_reconstruction.rs"
+
+[[test]]
+name = "schema_evolution"
+path = "tests/schema_evolution.rs"
+
+[[test]]
+name = "concurrency_parity"
+path = "tests/concurrency_parity.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
