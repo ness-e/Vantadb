@@ -432,3 +432,23 @@
 {"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.171227,"ram_usage_mb":6696.0,"current_ram_mb":28792.0,"timestamp":"2026-04-22T14:47:10.296200300-04:00"}
 {"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":253.018767,"ram_usage_mb":3388.0,"current_ram_mb":24512.0,"timestamp":"2026-04-22T17:20:18.803281600-04:00"}
 {"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":272.29973,"ram_usage_mb":2460.0,"current_ram_mb":24412.0,"timestamp":"2026-04-22T17:20:42.804397300-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 2 — SCALING (10K → 50K → 100K)","duration_secs":4159.5550834,"ram_usage_mb":1332.0,"current_ram_mb":23284.0,"timestamp":"2026-04-22T18:30:02.064403300-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 3 — MEMORY MEASUREMENT","duration_secs":776.6281912,"ram_usage_mb":1944.0,"current_ram_mb":23896.0,"timestamp":"2026-04-22T18:42:58.671601400-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 4 — PERSISTENCE ROUND-TRIP","duration_secs":71.8561124,"ram_usage_mb":1424.0,"current_ram_mb":23376.0,"timestamp":"2026-04-22T18:44:10.527396500-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 5 — EDGE CASES","duration_secs":0.0009582,"ram_usage_mb":1424.0,"current_ram_mb":23376.0,"timestamp":"2026-04-22T18:44:10.529463900-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":866.8858138,"ram_usage_mb":3440.0,"current_ram_mb":25392.0,"timestamp":"2026-04-22T18:58:37.397109200-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 7 — LATENCY PERCENTILES","duration_secs":938.23713,"ram_usage_mb":3480.0,"current_ram_mb":25432.0,"timestamp":"2026-04-22T19:14:15.620134900-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":316.2457642,"ram_usage_mb":3160.0,"current_ram_mb":26872.0,"timestamp":"2026-04-23T11:26:59.348365200-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 1 — GROUND TRUTH RECALL (50K/128D)","duration_secs":338.2646702,"ram_usage_mb":2892.0,"current_ram_mb":24724.0,"timestamp":"2026-04-23T11:27:21.405976-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 2 — SCALING (10K → 50K → 100K)","duration_secs":4423.9354047,"ram_usage_mb":364.0,"current_ram_mb":24076.0,"timestamp":"2026-04-23T12:40:43.451229900-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 2 — SCALING (10K → 50K → 100K)","duration_secs":4540.8942868,"ram_usage_mb":524.0,"current_ram_mb":22356.0,"timestamp":"2026-04-23T12:43:02.471599800-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 3 — MEMORY MEASUREMENT","duration_secs":1112.209466,"ram_usage_mb":1272.0,"current_ram_mb":24984.0,"timestamp":"2026-04-23T12:59:15.686541300-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 4 — PERSISTENCE ROUND-TRIP","duration_secs":107.9310424,"ram_usage_mb":344.0,"current_ram_mb":24056.0,"timestamp":"2026-04-23T13:01:03.620933500-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 5 — EDGE CASES","duration_secs":0.0000754,"ram_usage_mb":344.0,"current_ram_mb":24056.0,"timestamp":"2026-04-23T13:01:03.621780900-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 3 — MEMORY MEASUREMENT","duration_secs":1122.1495479,"ram_usage_mb":4164.0,"current_ram_mb":25996.0,"timestamp":"2026-04-23T13:01:44.648557100-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 4 — PERSISTENCE ROUND-TRIP","duration_secs":113.7107904,"ram_usage_mb":2080.0,"current_ram_mb":23912.0,"timestamp":"2026-04-23T13:03:38.363442-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 5 — EDGE CASES","duration_secs":0.001938,"ram_usage_mb":2080.0,"current_ram_mb":23912.0,"timestamp":"2026-04-23T13:03:38.367287-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":1405.0761822,"ram_usage_mb":1016.0,"current_ram_mb":24728.0,"timestamp":"2026-04-23T13:24:28.727664800-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":1492.6897754,"ram_usage_mb":4272.0,"current_ram_mb":26104.0,"timestamp":"2026-04-23T13:28:31.088742500-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 7 — LATENCY PERCENTILES","duration_secs":1741.5599588,"ram_usage_mb":0.0,"current_ram_mb":22652.0,"timestamp":"2026-04-23T13:53:30.325686700-04:00"}
+{"block_name":"VANTA STRESS PROTOCOL: BLOCK 7 — LATENCY PERCENTILES","duration_secs":1825.2785249,"ram_usage_mb":1272.0,"current_ram_mb":23104.0,"timestamp":"2026-04-23T13:58:56.405298-04:00"}
