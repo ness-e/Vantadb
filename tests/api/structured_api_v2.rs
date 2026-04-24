@@ -14,8 +14,8 @@ use vantadb::storage::StorageEngine;
 async fn structured_api_v2_certification() {
     let mut harness = VantaHarness::new("API LAYER (STRUCTURED V2)");
 
-    harness.execute("Integration: Relational ID Capture", || {
-        futures::executor::block_on(async {
+    harness
+        .execute_async("Integration: Relational ID Capture", || async {
             let dir = tempdir().unwrap();
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
@@ -56,11 +56,17 @@ async fn structured_api_v2_certification() {
                 assert_eq!(node_id, Some(s1_id));
             }
             TerminalReporter::success("Relational result-ID alignment verified.");
-        });
-    });
+        })
+        .await;
+}
 
-    harness.execute("Integration: Message-to-Thread Dispatch", || {
-        futures::executor::block_on(async {
+#[tokio::test]
+#[ignore = "Requires external Ollama LLM service running"]
+async fn ollama_integration() {
+    let mut harness = VantaHarness::new("LLM INTEGRATION (OLLAMA)");
+
+    harness
+        .execute_async("Integration: Message-to-Thread Dispatch", || async {
             let dir = tempdir().unwrap();
             let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
             let executor = Executor::new(&storage);
@@ -78,6 +84,6 @@ async fn structured_api_v2_certification() {
                 assert!(node_id.is_some(), "Message ID was not returned");
             }
             TerminalReporter::success("Structured message routing validated.");
-        });
-    });
+        })
+        .await;
 }

@@ -228,6 +228,34 @@ impl VantaHarness {
         result
     }
 
+    /// Async-aware variant of `execute` for use inside `#[tokio::test]`.
+    /// Prevents the `futures::executor::block_on` + tokio reactor deadlock.
+    pub async fn execute_async<F, Fut, R>(&mut self, block_name: &str, f: F) -> R
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = R>,
+    {
+        TerminalReporter::block_header(block_name);
+        let t0 = Instant::now();
+        let result = f().await;
+        let duration = t0.elapsed();
+
+        self.sys.refresh_process(self.pid);
+        let end_mem = self.sys.process(self.pid).map(|p| p.memory()).unwrap_or(0);
+        let mem_usage_kb = end_mem.saturating_sub(self.start_mem);
+
+        let metric = TestMetric {
+            block_name: format!("{}: {}", self.test_name, block_name),
+            duration_secs: duration.as_secs_f64(),
+            ram_usage_mb: mem_usage_kb as f64 / 1024.0,
+            current_ram_mb: end_mem as f64 / 1024.0,
+            timestamp: chrono::Local::now().to_rfc3339(),
+        };
+
+        self.log_metric(metric);
+        result
+    }
+
     fn log_metric(&self, metric: TestMetric) {
         if let Ok(json) = serde_json::to_string(&metric) {
             if let Ok(mut file) = OpenOptions::new()

@@ -38,6 +38,8 @@ impl LlmClient {
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|_| Client::new()),
             base_url,

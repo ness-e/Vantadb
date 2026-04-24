@@ -452,3 +452,9 @@
 {"block_name":"VANTA STRESS PROTOCOL: BLOCK 6 — GRAPH CONSISTENCY","duration_secs":1492.6897754,"ram_usage_mb":4272.0,"current_ram_mb":26104.0,"timestamp":"2026-04-23T13:28:31.088742500-04:00"}
 {"block_name":"VANTA STRESS PROTOCOL: BLOCK 7 — LATENCY PERCENTILES","duration_secs":1741.5599588,"ram_usage_mb":0.0,"current_ram_mb":22652.0,"timestamp":"2026-04-23T13:53:30.325686700-04:00"}
 {"block_name":"VANTA STRESS PROTOCOL: BLOCK 7 — LATENCY PERCENTILES","duration_secs":1825.2785249,"ram_usage_mb":1272.0,"current_ram_mb":23104.0,"timestamp":"2026-04-23T13:58:56.405298-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.2269058,"ram_usage_mb":1984.0,"current_ram_mb":24812.0,"timestamp":"2026-04-24T17:08:46.686373-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.248704,"ram_usage_mb":1408.0,"current_ram_mb":33476.0,"timestamp":"2026-04-24T17:08:46.710039300-04:00"}
+{"block_name":"LLM INTEGRATION (OLLAMA): Integration: Message-to-Thread Dispatch","duration_secs":2.5359108,"ram_usage_mb":4416.0,"current_ram_mb":26396.0,"timestamp":"2026-04-24T17:09:43.598618200-04:00"}
+{"block_name":"LLM INTEGRATION (OLLAMA): Integration: Message-to-Thread Dispatch","duration_secs":2.5657595,"ram_usage_mb":4664.0,"current_ram_mb":26804.0,"timestamp":"2026-04-24T17:09:43.635455600-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1804544,"ram_usage_mb":1796.0,"current_ram_mb":24264.0,"timestamp":"2026-04-24T17:09:53.216684700-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1674275,"ram_usage_mb":2808.0,"current_ram_mb":24032.0,"timestamp":"2026-04-24T17:09:54.137836-04:00"}
