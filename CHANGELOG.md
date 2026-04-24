@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Fixed HNSW recall logic and regressions, ensuring ≥0.95 recall accuracy via certification tests.
 - Restructured `structured_api_v2` to rely strictly on local core engine logic, omitting external networking.
 - Paused Ollama/LLM integration out of the fast MVP gate to stabilize local CI operations.
+- Docker artifacts (`Dockerfile`, `docker-compose.yml`) moved to `examples/docker/` and marked as experimental; they are no longer part of the official MVP release candidate or automatic GHCR publish.
 - Complete semantic overhaul of the codebase purging old biological terminology (removing "neurons", "synapses"). Replaced strictly with mathematical equivalents (`UnifiedNode`, `Edge`).
 - Updated project naming globally from *ConnectomeDB / NexusDB* to **VantaDB**.
 - Simplified the internal index module replacing placeholder graph mappings with formalized spatial structures.

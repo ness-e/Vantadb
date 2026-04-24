@@ -1,6 +1,6 @@
 [package]
 name = "vantadb"
-version = "0.1.0"
+version = "0.1.0-rc1"
 edition = "2021"
 description = "VantaDB: An embedded multimodal database engine — vectors, graphs, and relational metadata unified in Rust."
 license = "Apache-2.0"
