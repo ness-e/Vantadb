@@ -10,12 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Checksums SHA256 in release assets.
 - Basic smoke test (`dev-tools/smoke_test.sh`).
+- Native PowerShell smoke test for Windows (`dev-tools/smoke_test.ps1`).
+- Formalized security policy (`SECURITY.md`) and contributing guidelines (`CONTRIBUTING.md`).
 
 ### Changed
 
 - Default secure bind `127.0.0.1` instead of `0.0.0.0`.
 - Reduced log noise of the MaintenanceWorker for idle cycles.
 - Updated Windows RC documentation for standalone binaries.
+- Fixed storage engine initialization to ensure base directory creation.
 
 ## [v0.1.0-rc1] - MVP Release Candidate
 
