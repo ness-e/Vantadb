@@ -208,6 +208,9 @@ impl StorageEngine {
 
         let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
 
+        // Ensure base directory exists before initializing any backend
+        let _ = std::fs::create_dir_all(path);
+
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),

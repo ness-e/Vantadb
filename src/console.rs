@@ -28,26 +28,26 @@ pub fn print_banner() {
     eprintln!(
         "  {}  {}  {}",
         style("║").color256(166),
-        style("  ⚡  V A N T A D B   v0.1.0  ⚡  ")
+        style("  ⚡  V A N T A D B   v0.1.0-rc2  ⚡        ║")
             .bold()
             .color256(166),
-        style("║").color256(166),
+        style("  ║").color256(166),
     );
     eprintln!(
         "  {}  {}  {}",
-        style("║").color256(166),
+        style("  ║").color256(166),
         style("  Embedded Multimodal Database Engine     ")
             .dim()
             .white(),
-        style("║").color256(166),
+        style("  ║").color256(166),
     );
     eprintln!(
         "  {}  {}  {}",
-        style("║").color256(166),
+        style("  ║").color256(166),
         style("  Vector · Graph · Relational in one core ")
             .dim()
             .white(),
-        style("║").color256(166),
+        style("  ║").color256(166),
     );
     eprintln!("  {}", style(&b).color256(166));
     eprintln!();

@@ -2,8 +2,6 @@
 
 ## Supported Versions
 
-Since VantaDB is currently in its initial `v0.1` stabilization phase, previous architectural snapshots are not managed for backported fixes. Only the current trunk is expected to remain stable.
-
 | Version | Supported          |
 | ------- | ------------------ |
 | 0.1.x   | :white_check_mark: |
@@ -11,4 +9,25 @@ Since VantaDB is currently in its initial `v0.1` stabilization phase, previous a
 
 ## Reporting a Vulnerability
 
-If you discover a memory violation or PyO3 serialization vulnerability that allows execution outside boundary mapping protections, please open an Issue with replication steps or reach out to the core maintainers privately. Do not exploit index panics visibly on untrusted vectors in production pending formal stabilization guarantees.
+If you discover a security vulnerability in VantaDB (including but not limited to memory safety violations, unsafe deserialization, index corruption, or unauthorized access through the HTTP API), please report it responsibly:
+
+1. **Preferred:** Use [GitHub Security Advisories](https://github.com/DevpNess/VantaDB/security/advisories/new) to open a private report directly on this repository.
+2. **Alternative:** Email the maintainer at **devpness@proton.me** with:
+   - A description of the vulnerability
+   - Steps to reproduce
+   - Potential impact assessment
+
+> **Please do not open a public Issue for security vulnerabilities.** We will acknowledge your report within 48 hours and aim to provide a fix or mitigation within 7 days for critical issues.
+
+## Scope
+
+The following are in scope for security reports:
+- Memory safety violations in Rust `unsafe` blocks
+- PyO3 serialization boundary escapes
+- HTTP API authentication or authorization bypasses
+- Storage engine corruption vectors
+- Denial of service through crafted queries
+
+## Disclosure Policy
+
+We follow coordinated disclosure. Once a fix is released, we will credit the reporter (unless anonymity is requested) in the release notes.
