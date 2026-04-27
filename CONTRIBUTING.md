@@ -34,6 +34,7 @@ For full details, see [`docs/operations/CI_POLICY.md`](docs/operations/CI_POLICY
 ## Reporting Issues
 
 Use the provided Issue Templates:
+
 - **Bug Report** — for crashes, incorrect results, or regressions.
 - **Feature Request** — for new capabilities or API changes.
 

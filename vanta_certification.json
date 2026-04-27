@@ -463,3 +463,34 @@
 {"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.1533367,"ram_usage_mb":2984.0,"current_ram_mb":25220.0,"timestamp":"2026-04-24T19:15:07.753946800-04:00"}
 {"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1755589,"ram_usage_mb":10916.0,"current_ram_mb":33384.0,"timestamp":"2026-04-24T19:25:29.829474900-04:00"}
 {"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.161392,"ram_usage_mb":3356.0,"current_ram_mb":25436.0,"timestamp":"2026-04-24T19:25:39.518216500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.000011,"ram_usage_mb":0.0,"current_ram_mb":23424.0,"timestamp":"2026-04-27T11:46:04.603385700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":8.7e-6,"ram_usage_mb":8.0,"current_ram_mb":23432.0,"timestamp":"2026-04-27T11:46:04.605911100-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0001282,"ram_usage_mb":0.0,"current_ram_mb":22608.0,"timestamp":"2026-04-27T11:46:04.606757600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":0.0000756,"ram_usage_mb":0.0,"current_ram_mb":22608.0,"timestamp":"2026-04-27T11:46:04.607662800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000427,"ram_usage_mb":0.0,"current_ram_mb":22620.0,"timestamp":"2026-04-27T11:46:04.608599800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0002433,"ram_usage_mb":0.0,"current_ram_mb":22892.0,"timestamp":"2026-04-27T11:46:04.609794-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.082178,"ram_usage_mb":0.0,"current_ram_mb":23284.0,"timestamp":"2026-04-27T11:46:04.693135200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.000043,"ram_usage_mb":0.0,"current_ram_mb":23308.0,"timestamp":"2026-04-27T11:46:04.693951500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.000053,"ram_usage_mb":0.0,"current_ram_mb":23344.0,"timestamp":"2026-04-27T11:46:04.695910700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.0164796,"ram_usage_mb":0.0,"current_ram_mb":23292.0,"timestamp":"2026-04-27T11:46:04.713413900-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.000046,"ram_usage_mb":0.0,"current_ram_mb":23308.0,"timestamp":"2026-04-27T11:46:04.714947500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0072492,"ram_usage_mb":0.0,"current_ram_mb":23288.0,"timestamp":"2026-04-27T11:46:04.723231900-04:00"}
+{"block_name":"LOGIC LAYER (COLUMNAR ENGINE): Arrow: UnifiedNode to RecordBatch Conversion","duration_secs":0.0000175,"ram_usage_mb":0.0,"current_ram_mb":23168.0,"timestamp":"2026-04-27T11:46:08.220925800-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Base (1M × 128D)","duration_secs":1.4085631,"ram_usage_mb":542148.0,"current_ram_mb":564936.0,"timestamp":"2026-04-27T11:46:10.674651100-04:00"}
+{"block_name":"SIFT1M_Competitive: Load SIFT Queries (10K × 128D)","duration_secs":0.0301456,"ram_usage_mb":547836.0,"current_ram_mb":570624.0,"timestamp":"2026-04-27T11:46:10.705784400-04:00"}
+{"block_name":"SIFT1M_Competitive: Load Ground Truth","duration_secs":0.0248204,"ram_usage_mb":556092.0,"current_ram_mb":578880.0,"timestamp":"2026-04-27T11:46:10.731482-04:00"}
+{"block_name":"SIFT1M_Competitive: SIFT 10K — Balanced","duration_secs":28.1662125,"ram_usage_mb":567796.0,"current_ram_mb":590584.0,"timestamp":"2026-04-27T11:46:38.898793700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.0000389,"ram_usage_mb":88.0,"current_ram_mb":20208.0,"timestamp":"2026-04-27T11:47:10.394143200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":0.0001146,"ram_usage_mb":0.0,"current_ram_mb":19636.0,"timestamp":"2026-04-27T11:47:10.396936500-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0000821,"ram_usage_mb":0.0,"current_ram_mb":19652.0,"timestamp":"2026-04-27T11:47:10.398390-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":0.0000449,"ram_usage_mb":0.0,"current_ram_mb":19660.0,"timestamp":"2026-04-27T11:47:10.400026600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000623,"ram_usage_mb":0.0,"current_ram_mb":19664.0,"timestamp":"2026-04-27T11:47:10.401058200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0001556,"ram_usage_mb":0.0,"current_ram_mb":19676.0,"timestamp":"2026-04-27T11:47:10.401959700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.0468201,"ram_usage_mb":208.0,"current_ram_mb":20328.0,"timestamp":"2026-04-27T11:47:10.449713400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.0000539,"ram_usage_mb":212.0,"current_ram_mb":20332.0,"timestamp":"2026-04-27T11:47:10.450365700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.0000546,"ram_usage_mb":212.0,"current_ram_mb":20332.0,"timestamp":"2026-04-27T11:47:10.450907200-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.0137936,"ram_usage_mb":264.0,"current_ram_mb":20384.0,"timestamp":"2026-04-27T11:47:10.465149-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.0000384,"ram_usage_mb":264.0,"current_ram_mb":20384.0,"timestamp":"2026-04-27T11:47:10.465727800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0049777,"ram_usage_mb":276.0,"current_ram_mb":20396.0,"timestamp":"2026-04-27T11:47:10.471498800-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): Vector Math: Cosine Similarity Axioms","duration_secs":0.0756071,"ram_usage_mb":0.0,"current_ram_mb":23276.0,"timestamp":"2026-04-27T11:47:28.386966200-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): HNSW: Greedy Search Integrity","duration_secs":0.0000768,"ram_usage_mb":0.0,"current_ram_mb":23296.0,"timestamp":"2026-04-27T11:47:28.388764300-04:00"}
