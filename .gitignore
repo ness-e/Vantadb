@@ -6,6 +6,7 @@ release/
 *.rs.bk
 
 # Local database instances and logs
+todo.md
 *.log
 *.db
 *.rdb
