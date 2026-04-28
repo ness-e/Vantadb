@@ -40,7 +40,7 @@ memmap2 = "0.9"
 # ── Console UX ──
 indicatif = "0.17"
 console = "0.15"
-rayon = "1.10"
+rayon = "1.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 twox-hash = "2.1.2"
