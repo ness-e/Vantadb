@@ -4,6 +4,24 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.0] - Initial MVP Release
+
+### Included
+
+- Embedded multimodel engine unifying vector, graph, and relational metadata operations in Rust.
+- Fjall as the default backend, with RocksDB retained as an explicit fallback path.
+- WAL-backed crash recovery for the storage layer.
+- HNSW index reconstruction from VantaFile when the index artifact is missing or damaged.
+- HNSW recall certification coverage for MVP-quality validation.
+- Local server default bind hardened to `127.0.0.1:8080`.
+- SHA256 checksums published alongside release binaries.
+- Split CI strategy: fast deterministic gate plus heavy certification.
+
+### Release Notes
+
+- Python SDK remains source-install only for now; PyPI publication is not part of `v0.1.0`.
+- Docker and Ollama remain deferred or experimental and are not official release channels for this MVP.
+
 ## [v0.1.0-rc2] - DX Hardening
 
 ### Added

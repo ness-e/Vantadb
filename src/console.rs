@@ -28,7 +28,7 @@ pub fn print_banner() {
     eprintln!(
         "  {}  {}  {}",
         style("║").color256(166),
-        style("  ⚡  V A N T A D B   v0.1.0-rc2  ⚡        ║")
+        style("  ⚡  V A N T A D B   v0.1.0  ⚡           ║")
             .bold()
             .color256(166),
         style("  ║").color256(166),

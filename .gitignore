@@ -34,6 +34,8 @@ vantadb-python/__pycache__/
 
 # Datasets / local assets
 datasets/
+vanta-server-rc*.exe
+vanta-server-rc*.exe.sha256
 
 # IDE / OS / Agent artifacts
 .vscode/

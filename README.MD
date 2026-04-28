@@ -3,13 +3,15 @@
   <p><b>Embedded Multimodel Database Engine: Vectors, Graphs, and Relational Metadata</b></p>
   
   [![CI](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml)
-  [![Release](https://img.shields.io/github/v/release/DevpNess/Vantadb?include_prereleases&label=release)](https://github.com/DevpNess/Vantadb/releases)
+  [![Release](https://img.shields.io/github/v/release/DevpNess/Vantadb?label=release)](https://github.com/DevpNess/Vantadb/releases)
   [![License](https://img.shields.io/github/license/DevpNess/Vantadb)](https://github.com/DevpNess/Vantadb/blob/main/LICENSE)
 </div>
 
 <br>
 
 **VantaDB** is a lightweight, fully embedded database engine written in Rust that operates within your Python process. It provides a unified data structure bridging high-dimensional HNSW vector search, local graph adjacency traversals, and relational metadata filtering. By operating entirely in-process, it bypasses network latency and complex serialization logic.
+
+`v0.1.0` is the initial MVP release. Docker and Ollama remain deferred or experimental, and the Python bindings are still install-from-source rather than published on PyPI.
 
 ## 🚀 The In-Process Architecture
 
@@ -65,7 +67,7 @@ print(results)
 
 ---
 
-## 💻 Running the Local Server (Windows RC2)
+## 💻 Running the Local Server (Windows Binary)
 
 For local development or network exposure without Python, you can run the standalone compiled binary.
 
@@ -87,8 +89,8 @@ set VANTADB_HOST=0.0.0.0
 ```
 
 > [!WARNING]
-> **Windows SmartScreen Note (RC Edition):** 
-> When launching the binary, Windows SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the Release Candidate binaries are not yet digitally signed (code signing is planned for a future release). Ensure you only execute binaries downloaded from the official GitHub repository.
+> **Windows SmartScreen Note (Unsigned Binary):** 
+> When launching the binary, Windows SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the current Windows release binaries are not yet digitally signed. Ensure you only execute binaries downloaded from the official GitHub repository.
 
 ---
 
