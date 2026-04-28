@@ -17,19 +17,28 @@ VantaDB uses a **two-tier CI strategy** to balance PR velocity with comprehensiv
 | **Fast Gate** (`rust_ci.yml`) | Every push/PR to `main` | 30 min | fmt, clippy, unit tests, integration tests |
 | **Heavy Certification** (`heavy_certification.yml`) | Manual / scheduled | 60 min | stress_protocol, hnsw_validation, sift_validation, competitive_bench |
 
-> **Important:** Do not add network-dependent tests or large dataset downloads to the Fast Gate. If your contribution includes a heavy benchmark or stress test, target `heavy_certification.yml` instead.
+**Fast Gate rules**
+- Keep it deterministic and offline.
+- Do not add external network calls, remote services, Ollama requirements, dataset downloads, or Docker-only dependencies to this lane.
+- If a check is slow, resource-heavy, or requires special infrastructure, it belongs in heavy certification, not in the Fast Gate.
+
+**Heavy Certification rules**
+- Use this lane for `stress_protocol`, HNSW recall/certification work, SIFT validation, and competitive benchmarks.
+- Do not expand the Fast Gate to cover long-running certification jobs just to validate a specialist change.
 
 For full details, see [`docs/operations/CI_POLICY.md`](docs/operations/CI_POLICY.md).
 
 ## Submitting Pull Requests
 
 1. Fork the repository and formulate your changes.
-2. Ensure you have run:
+2. Run the minimum local validation expected by the Fast Gate:
    - `cargo fmt --check`
    - `cargo clippy -- -D warnings`
-   - `cargo test --release`
-3. Include an objective breakdown of metric changes if optimizing algorithmic paths.
-4. Target the `main` branch. Branch protection requires status checks to pass before merge.
+   - `cargo test --test structured_api_v2 -- --test-threads=1 --nocapture`
+   - `cargo test --test server -- --test-threads=1 --nocapture`
+3. If your change touches heavier paths, document why and validate them through the appropriate manual or scheduled certification workflow instead of extending the Fast Gate.
+4. Include an objective breakdown of metric changes if optimizing algorithmic paths.
+5. Target the `main` branch. Branch protection requires the Fast Gate checks to pass before merge.
 
 ## Reporting Issues
 

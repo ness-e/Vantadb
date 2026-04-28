@@ -494,3 +494,32 @@
 {"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0049777,"ram_usage_mb":276.0,"current_ram_mb":20396.0,"timestamp":"2026-04-27T11:47:10.471498800-04:00"}
 {"block_name":"CORE ENGINE (HNSW LOGIC): Vector Math: Cosine Similarity Axioms","duration_secs":0.0756071,"ram_usage_mb":0.0,"current_ram_mb":23276.0,"timestamp":"2026-04-27T11:47:28.386966200-04:00"}
 {"block_name":"CORE ENGINE (HNSW LOGIC): HNSW: Greedy Search Integrity","duration_secs":0.0000768,"ram_usage_mb":0.0,"current_ram_mb":23296.0,"timestamp":"2026-04-27T11:47:28.388764300-04:00"}
+{"block_name":"HNSW HARD VALIDATION: Scale Check: 1K Vectors","duration_secs":3.1232316,"ram_usage_mb":4340.0,"current_ram_mb":25340.0,"timestamp":"2026-04-27T11:56:44.452675900-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Insert & Get","duration_secs":0.0000463,"ram_usage_mb":92.0,"current_ram_mb":20912.0,"timestamp":"2026-04-27T11:59:14.631647100-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Auto-ID Generation","duration_secs":0.0000932,"ram_usage_mb":0.0,"current_ram_mb":20336.0,"timestamp":"2026-04-27T11:59:14.633298400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Duplicate ID Protection","duration_secs":0.0000509,"ram_usage_mb":0.0,"current_ram_mb":20352.0,"timestamp":"2026-04-27T11:59:14.634556-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Delete logic","duration_secs":0.0000539,"ram_usage_mb":0.0,"current_ram_mb":20360.0,"timestamp":"2026-04-27T11:59:14.635715800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Node CRUD: Field Update logic","duration_secs":0.0000621,"ram_usage_mb":0.0,"current_ram_mb":20364.0,"timestamp":"2026-04-27T11:59:14.636699600-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Bitset: Multidimensional Scan","duration_secs":0.0002564,"ram_usage_mb":0.0,"current_ram_mb":20376.0,"timestamp":"2026-04-27T11:59:14.638248400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Vector: Exact Top-K Search","duration_secs":0.0810135,"ram_usage_mb":124.0,"current_ram_mb":20944.0,"timestamp":"2026-04-27T11:59:14.720158700-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Graph: Relation Traversal & Hops","duration_secs":0.0000497,"ram_usage_mb":152.0,"current_ram_mb":20972.0,"timestamp":"2026-04-27T11:59:14.721027800-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Hybrid Search: Bitset + Vector + Fields","duration_secs":0.0001134,"ram_usage_mb":188.0,"current_ram_mb":21008.0,"timestamp":"2026-04-27T11:59:14.721908300-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): WAL: Persistence & Recovery","duration_secs":0.0190039,"ram_usage_mb":180.0,"current_ram_mb":21000.0,"timestamp":"2026-04-27T11:59:14.742244400-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): System: Basic Engine Stats","duration_secs":0.000048,"ram_usage_mb":196.0,"current_ram_mb":21016.0,"timestamp":"2026-04-27T11:59:14.743503-04:00"}
+{"block_name":"CORE ENGINE (CRUD & SEARCH): Benchmark: 10K Node Throughput","duration_secs":0.0108117,"ram_usage_mb":192.0,"current_ram_mb":21012.0,"timestamp":"2026-04-27T11:59:14.755108400-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): Vector Math: Cosine Similarity Axioms","duration_secs":0.0649262,"ram_usage_mb":920.0,"current_ram_mb":20860.0,"timestamp":"2026-04-27T11:59:15.707189100-04:00"}
+{"block_name":"CORE ENGINE (HNSW LOGIC): HNSW: Greedy Search Integrity","duration_secs":0.0001992,"ram_usage_mb":996.0,"current_ram_mb":20936.0,"timestamp":"2026-04-27T11:59:15.708776600-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: INSERT -> GET Cycle","duration_secs":0.2612789,"ram_usage_mb":996.0,"current_ram_mb":32400.0,"timestamp":"2026-04-27T11:59:17.542465400-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: UPDATE & Atomicity","duration_secs":0.1681257,"ram_usage_mb":1148.0,"current_ram_mb":32552.0,"timestamp":"2026-04-27T11:59:17.712448400-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: RELATE & Topology Integrity","duration_secs":0.1834273,"ram_usage_mb":1152.0,"current_ram_mb":32556.0,"timestamp":"2026-04-27T11:59:17.896993400-04:00"}
+{"block_name":"STORAGE LAYER (DML MUTATIONS): Pipeline: Physical DELETE logic","duration_secs":0.1824049,"ram_usage_mb":1280.0,"current_ram_mb":32684.0,"timestamp":"2026-04-27T11:59:18.080433600-04:00"}
+{"block_name":"STORAGE LAYER (ROCKSDB ADAPTER): Integration: Persistent Node IO","duration_secs":0.232793,"ram_usage_mb":1456.0,"current_ram_mb":28404.0,"timestamp":"2026-04-27T11:59:19.649509300-04:00"}
+{"block_name":"CORE ENGINE (VECTOR SCALE): Scale: 1K Node Graph Navigation","duration_secs":10.873452,"ram_usage_mb":260.0,"current_ram_mb":28656.0,"timestamp":"2026-04-27T11:59:31.702372400-04:00"}
+{"block_name":"CORE ENGINE (GRAPH TRAVERSAL): BFS Traversal Matrix","duration_secs":0.2319737,"ram_usage_mb":116.0,"current_ram_mb":28252.0,"timestamp":"2026-04-27T11:59:47.191811800-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Math: Cosine Similarity Projection","duration_secs":0.074035,"ram_usage_mb":776.0,"current_ram_mb":23956.0,"timestamp":"2026-04-27T12:00:22.265405500-04:00"}
+{"block_name":"LOGIC LAYER (QUERY EXECUTOR): Search: Bitset + Nearest Neighbor Projection","duration_secs":0.0000648,"ram_usage_mb":796.0,"current_ram_mb":23976.0,"timestamp":"2026-04-27T12:00:22.268467400-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DQL: Complex FROM -> FETCH Pipeline","duration_secs":0.0000267,"ram_usage_mb":0.0,"current_ram_mb":23248.0,"timestamp":"2026-04-27T12:00:23.402077600-04:00"}
+{"block_name":"LOGIC LAYER (DQL PARSER): DML: Multi-Statement Core Parse","duration_secs":0.0000456,"ram_usage_mb":8.0,"current_ram_mb":23256.0,"timestamp":"2026-04-27T12:00:23.403946900-04:00"}
+{"block_name":"LOGIC LAYER (COLUMNAR ENGINE): Arrow: UnifiedNode to RecordBatch Conversion","duration_secs":0.0000447,"ram_usage_mb":112.0,"current_ram_mb":20688.0,"timestamp":"2026-04-27T12:00:35.626782500-04:00"}
+{"block_name":"API LAYER (STRUCTURED V2): Integration: Relational ID Capture","duration_secs":0.1815143,"ram_usage_mb":10396.0,"current_ram_mb":33320.0,"timestamp":"2026-04-28T12:12:49.625196100-04:00"}
+{"block_name":"API LAYER (SERVER & HEALTH): Health: Endpoint Availability & Router State","duration_secs":0.1789331,"ram_usage_mb":8996.0,"current_ram_mb":33320.0,"timestamp":"2026-04-28T12:13:03.421028700-04:00"}

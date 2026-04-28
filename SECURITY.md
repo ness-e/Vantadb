@@ -9,15 +9,15 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in VantaDB (including but not limited to memory safety violations, unsafe deserialization, index corruption, or unauthorized access through the HTTP API), please report it responsibly:
+VantaDB does not currently publish a dedicated security mailbox.
 
-1. **Preferred:** Use [GitHub Security Advisories](https://github.com/DevpNess/VantaDB/security/advisories/new) to open a private report directly on this repository.
-2. **Alternative:** Email the maintainer at **devpness@proton.me** with:
-   - A description of the vulnerability
-   - Steps to reproduce
-   - Potential impact assessment
+If you discover a security vulnerability in VantaDB (including but not limited to memory safety violations, unsafe deserialization, index corruption, or unauthorized access through the HTTP API), report it through one of these channels:
 
-> **Please do not open a public Issue for security vulnerabilities.** We will acknowledge your report within 48 hours and aim to provide a fix or mitigation within 7 days for critical issues.
+1. **Preferred private channel:** If private reporting is enabled on this repository, use [GitHub Security Advisories](https://github.com/DevpNess/Vantadb/security/advisories/new).
+2. **Non-sensitive reports:** Open a GitHub Issue and apply or request the `security` label.
+3. **If private reporting is unavailable:** Open a minimal public issue asking for a private coordination path, but do not include exploit details, secrets, or weaponized proof-of-concept material.
+
+> Do not disclose sensitive vulnerability details in a public issue. Use the private advisory flow when available, and reserve labeled public issues for low-risk or already-public hardening items.
 
 ## Scope
 

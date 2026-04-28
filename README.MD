@@ -2,9 +2,9 @@
   <h1>VantaDB</h1>
   <p><b>Embedded Multimodel Database Engine: Vectors, Graphs, and Relational Metadata</b></p>
   
-  [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-  [![Rust](https://img.shields.io/badge/Made_with-Rust-orange.svg)](https://www.rust-lang.org/)
-  [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
+  [![CI](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml)
+  [![Release](https://img.shields.io/github/v/release/DevpNess/Vantadb?include_prereleases&label=release)](https://github.com/DevpNess/Vantadb/releases)
+  [![License](https://img.shields.io/github/license/DevpNess/Vantadb)](https://github.com/DevpNess/Vantadb/blob/main/LICENSE)
 </div>
 
 <br>
@@ -34,8 +34,10 @@ VantaDB unifies previously distinct data representations into a single coherent 
 
 No separate database clusters or Docker orchestrations are required for execution.
 
+PyPI publication for the Python bindings is not live yet. For now, install from source from this repository with a stable Rust toolchain available:
+
 ```bash
-pip install vantadb-python
+pip install -e ./vantadb-python
 ```
 
 ```python
@@ -63,11 +65,11 @@ print(results)
 
 ---
 
-## 💻 Running the Local Server (Windows RC)
+## 💻 Running the Local Server (Windows RC2)
 
 For local development or network exposure without Python, you can run the standalone compiled binary.
 
-1. Download the `vanta-server-windows-amd64.exe` from the official GitHub Release.
+1. Download the `vanta-server-windows-amd64.exe` from the official [GitHub Releases](https://github.com/DevpNess/Vantadb/releases).
 2. Open PowerShell or Command Prompt in the download directory and run:
    ```cmd
    .\vanta-server-windows-amd64.exe

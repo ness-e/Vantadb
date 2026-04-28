@@ -61,16 +61,22 @@ jobs:
         shell: pwsh
         run: Rename-Item -Path "target\release\${{ matrix.artifact_name }}" -NewName "${{ matrix.asset_name }}"
 
-      - name: Generate Checksums
+      - name: Generate Checksums (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 "target\release\${{ matrix.asset_name }}").Hash.ToLower()
+          Set-Content -Path "target\release\${{ matrix.asset_name }}.sha256" -NoNewline -Value $hash
+
+      - name: Generate Checksums (Unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           cd target/release
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            certutil -hashfile ${{ matrix.asset_name }} SHA256 | grep -v "hashfile" | grep -v "CertUtil" | tr -d '\r\n' > ${{ matrix.asset_name }}.sha256
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            shasum -a 256 ${{ matrix.asset_name }} | awk '{print $1}' > ${{ matrix.asset_name }}.sha256
           else
-            sha256sum ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+            sha256sum ${{ matrix.asset_name }} | awk '{print $1}' > ${{ matrix.asset_name }}.sha256
           fi
 
       - name: Release
