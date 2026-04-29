@@ -36,7 +36,7 @@ pub fn print_banner() {
     eprintln!(
         "  {}  {}  {}",
         style("  ║").color256(166),
-        style("  Embedded Multimodal Database Engine     ")
+        style("  Embedded Persistent Memory Engine       ")
             .dim()
             .white(),
         style("  ║").color256(166),
@@ -44,7 +44,7 @@ pub fn print_banner() {
     eprintln!(
         "  {}  {}  {}",
         style("  ║").color256(166),
-        style("  Vector · Graph · Relational in one core ")
+        style("  Vector Retrieval · Structured Fields    ")
             .dim()
             .white(),
         style("  ║").color256(166),

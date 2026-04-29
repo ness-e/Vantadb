@@ -1,9 +1,10 @@
 //! ═══════════════════════════════════════════════════════════════════════════
-//! COMPETITIVE BENCHMARK — VantaDB vs SIFT1M Ground Truth
+//! NON-COMPARABLE BENCHMARK — VantaDB vs SIFT1M Ground Truth
 //! ═══════════════════════════════════════════════════════════════════════════
 //!
-//! Phase 2.1/2.2: Real-world dataset benchmark using the standard SIFT1M
-//! dataset (128D, 1M vectors) with pre-computed ground truth.
+//! Stress-oriented dataset benchmark using SIFT1M ground truth.
+//! This is intentionally not treated as a competitive parity benchmark while
+//! the engine remains cosine-only and SIFT1M ground truth remains L2-based.
 //!
 //! Run with: cargo test --test competitive_bench --release -- --nocapture
 //!
@@ -201,7 +202,7 @@ fn sift1m_competitive_benchmark() {
 
     // ── Print Report ─────────────────────────────────────────────────────
     println!("\n");
-    TerminalReporter::block_header("SIFT1M COMPETITIVE BENCHMARK RESULTS");
+    TerminalReporter::block_header("SIFT1M NON-COMPARABLE BENCHMARK RESULTS");
 
     println!(
         "  {}",
@@ -273,7 +274,7 @@ fn sift1m_competitive_benchmark() {
         style("ℹ").blue()
     );
     println!(
-        "  {} For competitive parity: Recall >= FAISS_recall - 5%",
+        "  {} Treat this output as stress/recovery evidence, not competitive parity.",
         style("ℹ").blue()
     );
 
@@ -284,5 +285,5 @@ fn sift1m_competitive_benchmark() {
         assert!(r.qps > 0.0, "Zero QPS indicates search is hanging");
     }
 
-    TerminalReporter::success("SIFT1M Competitive Benchmark Complete.");
+    TerminalReporter::success("SIFT1M stress benchmark completed without parity claims.");
 }

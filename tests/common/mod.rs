@@ -22,16 +22,42 @@ struct TestSummary {
     name: String,
     success: bool,
     duration: std::time::Duration,
-    mem_delta_mb: f64,
+    process_memory_delta_mb: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TestMetric {
+    pub schema_version: u32,
     pub block_name: String,
     pub duration_secs: f64,
-    pub ram_usage_mb: f64,
-    pub current_ram_mb: f64,
+    pub process_memory_delta_mb: f64,
+    pub process_memory_current_mb: f64,
+    pub process_virtual_memory_delta_mb: f64,
+    pub process_virtual_memory_current_mb: f64,
+    pub memory_source: String,
+    pub memory_confidence: String,
     pub timestamp: String,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct ProcessMemorySample {
+    used_bytes: u64,
+    virtual_bytes: u64,
+}
+
+fn bytes_to_mb(bytes: u64) -> f64 {
+    bytes as f64 / (1024.0 * 1024.0)
+}
+
+fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySample {
+    sys.refresh_process(pid);
+    match sys.process(pid) {
+        Some(process) => ProcessMemorySample {
+            used_bytes: process.memory(),
+            virtual_bytes: process.virtual_memory(),
+        },
+        None => ProcessMemorySample::default(),
+    }
 }
 
 // ─── Internal Helpers ────────────────────────────────────────
@@ -133,7 +159,7 @@ impl TerminalReporter {
         );
         println!(
             "│ {:<32} │ {:<10} │ {:<10} │ {:<10} │",
-            "Component / Test Case", "Status", "Time", "RAM Δ"
+            "Component / Test Case", "Status", "Time", "Proc MB Δ"
         );
         println!(
             "├{}┼────────────┼────────────┼────────────┤",
@@ -151,7 +177,7 @@ impl TerminalReporter {
             };
             println!(
                 "│ {:<32} │ {:^20} │ {:>10.2?} │ {:>7.1} MB │",
-                res.name, status, res.duration, res.mem_delta_mb
+                res.name, status, res.duration, res.process_memory_delta_mb
             );
             total_time += res.duration;
             if res.success {
@@ -180,25 +206,25 @@ pub struct VantaHarness {
     sys: System,
     pid: sysinfo::Pid,
     _start_time: Instant,
-    start_mem: u64,
+    start_memory: ProcessMemorySample,
     test_name: String,
 }
 
 impl VantaHarness {
     const REPORT_FILE: &'static str = "vanta_certification.json";
+    const REPORT_FILE_ENV: &'static str = "VANTA_CERT_REPORT";
 
     pub fn new(test_name: &str) -> Self {
         let mut sys = System::new_all();
         sys.refresh_all();
         let pid = sysinfo::get_current_pid().expect("Failed to get PID");
-        sys.refresh_process(pid);
-        let start_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
+        let start_memory = sample_process_memory(&mut sys, pid);
 
         Self {
             sys,
             pid,
             _start_time: Instant::now(),
-            start_mem,
+            start_memory,
             test_name: test_name.to_string(),
         }
     }
@@ -212,15 +238,26 @@ impl VantaHarness {
         let result = f();
         let duration = t0.elapsed();
 
-        self.sys.refresh_process(self.pid);
-        let end_mem = self.sys.process(self.pid).map(|p| p.memory()).unwrap_or(0);
-        let mem_usage_kb = end_mem.saturating_sub(self.start_mem);
+        let end_memory = sample_process_memory(&mut self.sys, self.pid);
 
         let metric = TestMetric {
+            schema_version: 1,
             block_name: format!("{}: {}", self.test_name, block_name),
             duration_secs: duration.as_secs_f64(),
-            ram_usage_mb: mem_usage_kb as f64 / 1024.0,
-            current_ram_mb: end_mem as f64 / 1024.0,
+            process_memory_delta_mb: bytes_to_mb(
+                end_memory
+                    .used_bytes
+                    .saturating_sub(self.start_memory.used_bytes),
+            ),
+            process_memory_current_mb: bytes_to_mb(end_memory.used_bytes),
+            process_virtual_memory_delta_mb: bytes_to_mb(
+                end_memory
+                    .virtual_bytes
+                    .saturating_sub(self.start_memory.virtual_bytes),
+            ),
+            process_virtual_memory_current_mb: bytes_to_mb(end_memory.virtual_bytes),
+            memory_source: "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string(),
+            memory_confidence: "process_only".to_string(),
             timestamp: chrono::Local::now().to_rfc3339(),
         };
 
@@ -240,15 +277,26 @@ impl VantaHarness {
         let result = f().await;
         let duration = t0.elapsed();
 
-        self.sys.refresh_process(self.pid);
-        let end_mem = self.sys.process(self.pid).map(|p| p.memory()).unwrap_or(0);
-        let mem_usage_kb = end_mem.saturating_sub(self.start_mem);
+        let end_memory = sample_process_memory(&mut self.sys, self.pid);
 
         let metric = TestMetric {
+            schema_version: 1,
             block_name: format!("{}: {}", self.test_name, block_name),
             duration_secs: duration.as_secs_f64(),
-            ram_usage_mb: mem_usage_kb as f64 / 1024.0,
-            current_ram_mb: end_mem as f64 / 1024.0,
+            process_memory_delta_mb: bytes_to_mb(
+                end_memory
+                    .used_bytes
+                    .saturating_sub(self.start_memory.used_bytes),
+            ),
+            process_memory_current_mb: bytes_to_mb(end_memory.used_bytes),
+            process_virtual_memory_delta_mb: bytes_to_mb(
+                end_memory
+                    .virtual_bytes
+                    .saturating_sub(self.start_memory.virtual_bytes),
+            ),
+            process_virtual_memory_current_mb: bytes_to_mb(end_memory.virtual_bytes),
+            memory_source: "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string(),
+            memory_confidence: "process_only".to_string(),
             timestamp: chrono::Local::now().to_rfc3339(),
         };
 
@@ -257,11 +305,13 @@ impl VantaHarness {
     }
 
     fn log_metric(&self, metric: TestMetric) {
+        let report_file =
+            std::env::var(Self::REPORT_FILE_ENV).unwrap_or_else(|_| Self::REPORT_FILE.to_string());
         if let Ok(json) = serde_json::to_string(&metric) {
             if let Ok(mut file) = OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(Self::REPORT_FILE)
+                .open(report_file)
             {
                 let _ = writeln!(file, "{}", json);
             }
@@ -275,7 +325,7 @@ pub struct VantaSession {
     name: String,
     steps: Vec<String>,
     start_time: Instant,
-    start_mem: u64,
+    start_memory: ProcessMemorySample,
 }
 
 impl VantaSession {
@@ -286,14 +336,13 @@ impl VantaSession {
         let mut sys = System::new_all();
         sys.refresh_all();
         let pid = sysinfo::get_current_pid().unwrap();
-        sys.refresh_process(pid);
-        let start_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
+        let start_memory = sample_process_memory(&mut sys, pid);
 
         Self {
             name: name.to_string(),
             steps: Vec::new(),
             start_time: Instant::now(),
-            start_mem,
+            start_memory,
         }
     }
 
@@ -314,9 +363,12 @@ impl VantaSession {
         let duration = self.start_time.elapsed();
         let mut sys = System::new_all();
         let pid = sysinfo::get_current_pid().unwrap();
-        sys.refresh_process(pid);
-        let end_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
-        let mem_delta = (end_mem as f64 - self.start_mem as f64) / 1024.0;
+        let end_memory = sample_process_memory(&mut sys, pid);
+        let mem_delta = bytes_to_mb(
+            end_memory
+                .used_bytes
+                .saturating_sub(self.start_memory.used_bytes),
+        );
 
         let mut output = String::new();
         let bar = "━".repeat(50);
@@ -349,7 +401,7 @@ impl VantaSession {
             name: self.name,
             success,
             duration,
-            mem_delta_mb: mem_delta,
+            process_memory_delta_mb: mem_delta,
         });
     }
 }

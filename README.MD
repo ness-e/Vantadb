@@ -1,6 +1,6 @@
 <div align="center">
   <h1>VantaDB</h1>
-  <p><b>Embedded Multimodel Database Engine: Vectors, Graphs, and Relational Metadata</b></p>
+  <p><b>Embedded persistent memory and vector retrieval engine for local-first AI applications</b></p>
   
   [![CI](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/DevpNess/Vantadb/actions/workflows/rust_ci.yml)
   [![Release](https://img.shields.io/github/v/release/DevpNess/Vantadb?label=release)](https://github.com/DevpNess/Vantadb/releases)
@@ -9,67 +9,93 @@
 
 <br>
 
-**VantaDB** is a lightweight, fully embedded database engine written in Rust that operates within your Python process. It provides a unified data structure bridging high-dimensional HNSW vector search, local graph adjacency traversals, and relational metadata filtering. By operating entirely in-process, it bypasses network latency and complex serialization logic.
+**VantaDB** is an embedded Rust engine for durable local memory. Today it focuses on persistent storage, HNSW vector retrieval, structured metadata, and crash recovery without requiring a separate database service.
 
-`v0.1.0` is the initial MVP release. Docker and Ollama remain deferred or experimental, and the Python bindings are still install-from-source rather than published on PyPI.
+`v0.1.0` is the current MVP cut. Docker and Ollama remain deferred or experimental, the Python package is still install-from-source, and lexical BM25/RRF hybrid search is not part of the current shipped surface. The repo now includes the `memory-mvp-core` surface: namespace-scoped memory CRUD/search, manual ANN rebuild, JSONL export/import, and embedded CLI flows.
 
-## 🚀 The In-Process Architecture
+## Current Product Boundary
 
-Running as a compiled C-ABI extension accessed directly via **PyO3**, VantaDB is fundamentally different from standalone vector database servers (e.g., Qdrant, Pinecone, pgvector). When you execute a hybrid query in Python, the engine performs native CPU operations directly on the shared memory space. This completely removes TCP/HTTP overhead, gRPC serialization delays, and context-switching bottlenecks.
+VantaDB should currently be understood as:
 
----
+- embedded-first and local-first
+- durable memory with WAL-backed recovery
+- cosine-based HNSW vector retrieval
+- structured fields stored alongside vectors
+- optional local server wrapper around the same core
 
-## ⚡ Technical Capabilities
+VantaDB should **not** currently be understood as:
 
-VantaDB unifies previously distinct data representations into a single coherent structure `UnifiedNode`.
+- a universal multimodel database
+- full hybrid text + vector search with BM25/RRF
+- a cloud or enterprise platform
+- a PyPI-ready distributed product
+
+## Technical Capabilities
+
+The current repo supports the following production-facing capabilities:
 
 | Engine | Mechanism | Details |
 |--------|-----------|---------|
-| **Vector Engine** | Native HNSW (Hierarchical Navigable Small World) | Production-grade `M`, `ef_construction`, `ef_search` configurability. Supports f32 vectors standard for embeddings. Validated via internal stress protocol (10K–100K vectors, 128D). See BENCHMARKS.md |
-| **Graph Engine** | Adjacency Lists | Standard directed edges with optional float weights for O(1) adjacency traversals. Contextual filtering applied within the vector path. |
-| **Relational Storage** | BTreeMap Schemaless filtering | In-memory relational constraints (Strings, Ints, Bools) allowing fast metadata pre-filtering and post-filtering heuristics. |
-| **Storage Engine** | MMap-Backed / RAM bounds | Adheres to requested `memory_limit_bytes`. Uses `mmap` backing capabilities to ensure minimal host RAM footprint on cold starts. |
+| **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall is the default KV backend, RocksDB remains an explicit fallback, and index reconstruction is supported when the ANN artifact is missing. |
+| **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Internal validation covers 10K–100K synthetic datasets. |
+| **Persistent Memory API** | `namespace + key` records | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs behind the SDK boundary. |
+| **Structured Data** | Derived namespace/payload indexes | Metadata is stored with each record and equality filters use persisted derived indexes that can be rebuilt from canonical records. |
+| **Graph Edges** | Local adjacency lists | Directed edges with optional weights are stored in the same node model for local traversals and related lookups. |
+| **Embedded SDK Surface** | Stable Rust boundary + PyO3 binding | The Python binding is now routed through `src/sdk.rs` instead of accessing storage and executor internals directly. |
+| **Operational Flows** | Rebuild + JSONL | ANN rebuild and memory export/import are available through Rust SDK, Python SDK, and `vanta-cli`. |
 
----
+## Install From Source
 
-## 🛠 Quickstart
-
-No separate database clusters or Docker orchestrations are required for execution.
-
-PyPI publication for the Python bindings is not live yet. For now, install from source from this repository with a stable Rust toolchain available:
+No separate cluster or external service is required.
 
 ```bash
 pip install -e ./vantadb-python
 ```
 
 ```python
-import vantadb
+import vantadb_py as vantadb
 
-# Boot the engine in-process pointing to a local directory for persistence
-db = vantadb.VantaDB(path="./vanta_data", memory_limit_bytes=512_000_000)
+db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
 
-doc_id = db.insert({
-    "content": "In-process execution minimizes latency",
-    "vector": [0.12, 0.88, 0.54], # Example embeddings (768d/1536d)
-    "category": "architecture",
-    "version": 1
-})
-
-# Hybrid Search: Vector Similitude + Relational Constraint
-results = db.search(
-    vector=[0.11, 0.89, 0.55], 
-    top_k=5, 
-    filter_expr="category == 'architecture' AND version >= 1"
+record = db.put(
+    "agent/main",
+    "memory-1",
+    "In-process execution minimizes latency",
+    metadata={"category": "architecture", "version": 1},
+    vector=[0.12, 0.88, 0.54],
 )
 
-print(results)
+stored = db.get_memory("agent/main", "memory-1")
+hits = db.search_memory("agent/main", [0.11, 0.89, 0.55], top_k=5)
+caps = db.hardware_profile()
+db.flush()
+db.close()
+
+print(record)
+print(stored)
+print(hits)
+print(caps)
 ```
 
----
+Embedded CLI smoke:
 
-## 💻 Running the Local Server (Windows Binary)
+```bash
+cargo run --bin vanta-cli -- put --db ./vanta_data --namespace agent/main --key memory-1 --payload "hello"
+cargo run --bin vanta-cli -- list --db ./vanta_data --namespace agent/main
+cargo run --bin vanta-cli -- export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
+cargo run --bin vanta-cli -- rebuild-index --db ./vanta_data
+```
 
-For local development or network exposure without Python, you can run the standalone compiled binary.
+## Search Semantics Today
+
+- The shipped ANN path is **cosine similarity only**.
+- Namespace-scoped `list/search` use derived namespace and scalar metadata indexes, with canonical records remaining the source of truth.
+- BM25, RRF, and true text+vector hybrid ranking are planned next-cycle work and are not claims for `v0.1.0`.
+- SIFT1M remains useful as a stress/recovery scenario, not as a competitive benchmark while the engine stays cosine-only.
+
+## Optional Server Mode
+
+For local development or network exposure without Python, you can run the standalone binary. This wraps the embedded core; it is not the primary product identity for this release.
 
 1. Download the `vanta-server-windows-amd64.exe` from the official [GitHub Releases](https://github.com/DevpNess/Vantadb/releases).
 2. Open PowerShell or Command Prompt in the download directory and run:
@@ -92,15 +118,16 @@ set VANTADB_HOST=0.0.0.0
 > **Windows SmartScreen Note (Unsigned Binary):** 
 > When launching the binary, Windows SmartScreen may show an "Unrecognized Publisher" warning. This is expected because the current Windows release binaries are not yet digitally signed. Ensure you only execute binaries downloaded from the official GitHub repository.
 
----
+## Documentation
 
-## 📖 Deep-Dive Engineering Documentation
+The following documents track the current repo truth:
 
-To read the specific mechanisms behind VantaDB, locate the core technical tracking files in the `docs/` directory:
-
-1. **[Architecture (Zero-Copy & Memory Layout)](docs/architecture/ARCHITECTURE.md)**: Explore the `UnifiedNode` struct, the PyO3 interfaces, and the LSM persistence logic.
-2. **[Operations & Configuration](docs/operations/CONFIGURATION.md)**: Details on runtime parameters, environment variables, and memory limits.
-3. **[Backup & Snapshot Policy](docs/operations/BACKUP_POLICY.md)**: Operational guidelines for data protection across different storage backends (Fjall vs RocksDB).
+1. **[Architecture](docs/architecture/ARCHITECTURE.md)**: Current embedded core, durability, retrieval, and SDK boundary.
+2. **[Operations & Configuration](docs/operations/CONFIGURATION.md)**: Runtime parameters and server wrapper configuration.
+3. **[Memory Telemetry Contract](docs/operations/MEMORY_TELEMETRY.md)**: What process-memory metrics mean and what they do not mean.
+4. **[Python SDK Status](docs/operations/PYTHON_SDK.md)**: Stable boundary, current binding surface, and deferred distribution work.
+5. **[Reliability Gate](docs/operations/RELIABILITY_GATE.md)**: Allowed claims, trusted metrics, and the next cycle cut.
+6. **[Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md)**: Implemented memory surface, derived state, validation evidence, and explicit limits.
 
 ## 📄 License
 

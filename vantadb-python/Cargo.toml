@@ -2,7 +2,7 @@
 name = "vantadb_py"
 version = "0.1.0"
 edition = "2021"
-description = "VantaDB Python SDK: In-process vector-graph database for AI agents"
+description = "VantaDB Python SDK: source-installed embedded persistent memory bindings"
 license = "Apache-2.0"
 
 [lib]

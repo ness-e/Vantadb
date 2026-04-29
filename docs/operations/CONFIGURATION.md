@@ -1,41 +1,69 @@
 # Operations & Configuration Manual
 
-For DevOps, SREs, and Systems Engineers operating VantaDB in production via Docker or direct PyO3 instantiation.
+This document tracks the current runtime knobs for the embedded core and the optional local server wrapper.
 
-VantaDB behaves similarly to SQLite: configuration parameters are primarily defined at runtime initialization but can also fall back to OS environment variables.
+## 1. Python / Embedded Constructor
 
-## 1. Constructor Initialization Params (Python SDK)
-
-When orchestrating VantaDB directly inside your application code:
+Current source-install usage goes through `vantadb_py`:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `path` | `str` | `"./vanta_data"` | The local filesystem directory for Fjall (default) or RocksDB SSD physical persistence. |
-| `read_only` | `bool` | `False` | Locks the FFI thread in Read-Only concurrency mode. Ideal for Uvicorn/Gunicorn multi-process read orchestration. |
-| `memory_limit_bytes` | `int` | `1024_000_000` (1GB) | The absolute Cgroups ceiling constraint. Triggers the internal MMap swap (Resource Governance) when approaching runtime RAM panic limits. |
+| `db_path` | `str` | required | Filesystem path for the embedded data directory. |
+| `read_only` | `bool` | `False` | Opens the engine in read-only mode. |
+| `memory_limit_bytes` | `int \| None` | `None` | Runtime budget hint used by backend and mmap selection logic. It is not currently a documented hard RSS ceiling. |
 
 ```python
-import vantadb
+import vantadb_py as vantadb
 
 db = vantadb.VantaDB(
-    path="/mnt/volume/db",
+    "./vanta_data",
     read_only=False,
-    memory_limit_bytes=512_000_000 # 512MB Hard limit
+    memory_limit_bytes=512_000_000,
 )
 ```
 
-## 2. Server Runtime (Environment Variables)
+## 2. Embedded Runtime Notes
 
-When deploying VantaDB as a standalone HTTP/Axum microservice using the official Docker container, pass the following ENV variables:
+- Fjall is the default storage backend.
+- RocksDB remains an explicit fallback path in the core.
+- Vector search is cosine-based HNSW.
+- Memory records use `namespace + key` identity with scalar metadata and optional vectors.
+- Derived namespace/payload indexes are persisted and rebuilt from canonical records.
+- Source-install is the supported Python distribution path for this release.
 
-| Variable | Description | Default Target |
-|----------|-------------|----------------|
-| `VANTADB_HOST` | Bind address for the Rust HTTP layer. | `127.0.0.1` |
-| `VANTADB_PORT` | Exposure TCP port. | `8080` |
-| `VANTADB_STORAGE_PATH` | Equivalency to the `path` param. | `/data` |
-| `VANTADB_THREADS` | Tokyo async worker count (defaults to Host vCPUs). | `auto` |
-| `RUST_LOG` | Telemetry verbosity (`info`, `debug`, `trace`, `error`). | `info` |
+## 3. Embedded CLI
 
-## 3. Hardware Optimizations & SIMD
+The CLI uses the embedded core directly and does not require the optional HTTP server.
 
-VantaDB natively compiles using `target-cpu=native`. This guarantees that your compiled binary leverages hardware-specific **SIMD / AVX-512** instruction sets present natively on your underlying x86/ARM motherboard when computing massive array multiplications during Vector Distance operations. No explicit ENV flags are required for optimization.
+```bash
+vanta-cli put --db ./vanta_data --namespace agent/main --key memory-1 --payload "hello"
+vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
+vanta-cli list --db ./vanta_data --namespace agent/main
+vanta-cli rebuild-index --db ./vanta_data
+vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jsonl
+vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
+```
+
+## 4. Server Wrapper Environment Variables
+
+If you run the optional local HTTP wrapper:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VANTADB_HOST` | Bind address for the HTTP wrapper. | `127.0.0.1` |
+| `VANTADB_PORT` | TCP port for the HTTP wrapper. | `8080` |
+| `VANTADB_STORAGE_PATH` | Data directory path used by the embedded core. | `./vantadb_data` or server-specific default |
+| `VANTADB_THREADS` | Tokio worker count override. | `auto` |
+| `RUST_LOG` | Logging verbosity. | `info` |
+
+## 5. Memory Telemetry Caveat
+
+Current telemetry must be interpreted carefully:
+
+- process memory and logical index memory are tracked separately
+- process-scoped metrics do not equal mmap residency or page cache
+- memory claims should use the contract in [MEMORY_TELEMETRY.md](MEMORY_TELEMETRY.md)
+
+## 6. SIMD and Build Behavior
+
+VantaDB still uses the runtime hardware profile to choose fast paths where available, but public claims should stay tied to validated behavior rather than to a specific SIMD tier alone.

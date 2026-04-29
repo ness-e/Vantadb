@@ -4,6 +4,28 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Persistent memory MVP surface with canonical SDK records, first-class namespaces, and `put/get/delete/list/search`.
+- Manual ANN rebuild API through Rust SDK, Python SDK, and `vanta-cli rebuild-index`.
+- JSONL memory export/import through Rust SDK, Python SDK, and `vanta-cli export/import`.
+- Derived namespace and payload indexes for namespace lists and scalar metadata equality filters.
+- `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
+
+### Changed
+
+- Repositioned the repo narrative around embedded persistent memory, cosine HNSW retrieval, and structured fields.
+- Documented a process-scoped memory telemetry contract and added a controlled validation harness.
+- Stabilized the embedded SDK boundary as the supported path for the Python binding.
+- Expanded the embedded CLI from `put/get/list` to include rebuild and JSONL movement flows.
+
+### Deferred
+
+- BM25/RRF and true lexical hybrid ranking.
+- PyPI, wheels, signing, and external distribution hardening.
+
 ## [v0.1.0] - Initial MVP Release
 
 ### Included

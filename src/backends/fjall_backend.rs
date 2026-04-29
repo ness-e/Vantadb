@@ -37,6 +37,8 @@ pub(crate) struct FjallBackend {
     tombstone_storage: Keyspace,
     compressed_archive: Keyspace,
     tombstones: Keyspace,
+    namespace_index: Keyspace,
+    payload_index: Keyspace,
 }
 
 impl FjallBackend {
@@ -66,6 +68,14 @@ impl FjallBackend {
             .keyspace("tombstones", KeyspaceCreateOptions::default)
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
+        let namespace_index = db
+            .keyspace("namespace_index", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let payload_index = db
+            .keyspace("payload_index", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
         info!("Fjall database opened at '{}'", path);
 
         Ok(Self {
@@ -74,6 +84,8 @@ impl FjallBackend {
             tombstone_storage,
             compressed_archive,
             tombstones,
+            namespace_index,
+            payload_index,
         })
     }
 
@@ -84,6 +96,8 @@ impl FjallBackend {
             BackendPartition::TombstoneStorage => &self.tombstone_storage,
             BackendPartition::CompressedArchive => &self.compressed_archive,
             BackendPartition::Tombstones => &self.tombstones,
+            BackendPartition::NamespaceIndex => &self.namespace_index,
+            BackendPartition::PayloadIndex => &self.payload_index,
         }
     }
 }

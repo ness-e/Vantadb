@@ -120,7 +120,7 @@ fn core_engine_certification() {
         assert_eq!(result_full.len(), 3);
     });
 
-    harness.execute("Hybrid Search: Bitset + Vector + Fields", || {
+    harness.execute("Vector Retrieval: Bitset + Vector + Fields", || {
         let engine = InMemoryEngine::new();
         for i in 1..=10 {
             let mut node = UnifiedNode::with_vector(i, vec![i as f32, 0.0, 0.0]);

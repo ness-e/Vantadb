@@ -34,6 +34,8 @@ impl InMemoryBackend {
         map.insert(BackendPartition::TombstoneStorage, BTreeMap::new());
         map.insert(BackendPartition::CompressedArchive, BTreeMap::new());
         map.insert(BackendPartition::Tombstones, BTreeMap::new());
+        map.insert(BackendPartition::NamespaceIndex, BTreeMap::new());
+        map.insert(BackendPartition::PayloadIndex, BTreeMap::new());
         Self {
             partitions: RwLock::new(map),
         }

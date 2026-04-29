@@ -1,4 +1,4 @@
-//! MMap Neural Index & Resource Governance Modernized Test Suite
+//! MMap Vector Index & Resource Governance Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
 #[path = "../common/mod.rs"]
@@ -21,9 +21,9 @@ fn build_test_index(node_count: u64) -> CPIndex {
 }
 
 #[test]
-fn mmap_neural_index_certification() {
-    TerminalReporter::suite_banner("MMAP NEURAL INDEX STORAGE CERTIFICATION", 5);
-    let mut harness = VantaHarness::new("STORAGE LAYER (MMAP NEURAL INDEX)");
+fn mmap_vector_index_certification() {
+    TerminalReporter::suite_banner("MMAP VECTOR INDEX STORAGE CERTIFICATION", 5);
+    let mut harness = VantaHarness::new("STORAGE LAYER (MMAP VECTOR INDEX)");
 
     harness.execute("Serialization: Byte Roundtrip Integrity", || {
         let index = build_test_index(50);
@@ -41,7 +41,7 @@ fn mmap_neural_index_certification() {
 
     harness.execute("Persistence: Cold-Start Performance", || {
         let tmp = TempDir::new().expect("Failed to create temp dir");
-        let index_path = tmp.path().join("neural_index.bin");
+        let index_path = tmp.path().join("vector_index.bin");
 
         let index = build_test_index(100);
         index.persist_to_file(&index_path).expect("Persist failed");
@@ -60,7 +60,7 @@ fn mmap_neural_index_certification() {
 
     harness.execute("MMap Governance: Backend Sync & Reload", || {
         let tmp = TempDir::new().expect("Failed to create temp dir");
-        let mmap_path = tmp.path().join("neural_index_mmap.bin");
+        let mmap_path = tmp.path().join("vector_index_mmap.bin");
 
         let mut index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path.clone()));
         for i in 1..=30u64 {

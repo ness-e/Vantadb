@@ -16,7 +16,7 @@ pub struct SearchResponse {
     pub latency_ms: u64,
 }
 
-/// Simulated Axum handler for Hybrid Search
+/// Simulated Axum handler for vector retrieval with structured filters
 pub async fn search_handler(_payload: SearchRequest) -> SearchResponse {
     // Converts hybrid text query to logical plan here
     SearchResponse {

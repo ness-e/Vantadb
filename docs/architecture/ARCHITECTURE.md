@@ -1,65 +1,108 @@
-# VantaDB Internal Architecture (Sensitives & Internals)
+# VantaDB Internal Architecture
 
-This document provides a deep structural overview of VantaDB's Rust internals, targeting Senior Systems Engineers, Database Architects, and HackerNews peers who wish to understand *how* it operates at a hardware and memory-management level.
+This document reflects the current repo truth for `v0.1.x`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
-## 1. Memory Layout: The `UnifiedNode`
+## 1. Product Boundary
 
-Traditional applications stitch together multiple memory spaces across different DB limits dynamically allocating JSONs or blobs. VantaDB collapses this into the `UnifiedNode` struct.
+VantaDB is currently an **embedded persistent memory engine** with:
 
-Every inserted record lives in Rust memory structurally defined as:
+- a local Rust core
+- a stable embedded SDK boundary in `src/sdk.rs`
+- an optional server wrapper around the same core
 
-```rust
-pub struct UnifiedNode {
-    pub id: String,                              // Hash or UUID
-    pub vector: Box<[f32]>,                      // Contiguous heap slice ensuring SIMD cache-locality
-    pub edges: Vec<Edge>,                        // Adjacency list for O(1) graph traversals
-    pub relational_data: BTreeMap<String, Value> // Deterministic schemaless metadata mapping
-}
-```
+The current release should not be read as a universal multimodel platform, an enterprise control plane, or a full text+vector hybrid engine. Graph edges and structured metadata are part of the internal record model, but the primary product boundary today is persistent memory plus vector retrieval.
 
-**Why this layout?**
-By combining the high-dimensional Vector (dense slice), the Graph edges (Adjacency Lists), and Relational metadata (BTreeMap) into a single struct contiguous in memory, VantaDB guarantees that when the HNSW algorithm isolates top candidates based on vector distance, the CPU already has the graph edges and the relational fields in the L3 Cache. There is no Secondary Index lookup required.
+## 2. Record Model
 
-## 2. The Zero-Copy Pipeline (PyO3)
+The internal core data model is `UnifiedNode` in `src/node.rs`. Each node can hold:
 
-To solve the orchestration bottleneck, VantaDB runs strictly in-process.
+- a unique `u64` identifier
+- a vector payload
+- typed relational fields
+- local graph edges
+- access and confidence metadata
+- flags and tiering state
 
-When you pass a dictionary in Python:
+This model allows the engine to keep vector, metadata, and edge information in a single logical record. It does **not** imply that every feature is equally productized in the current SDK surface.
 
-1. **PyDict to Struct (Rust):** PyO3 bridges the Python GIL directly to the Rust engine heap. Data is unpacked once.
-2. **Execution:** Rust handles the querying lock-free. The Python GIL is released exclusively during `compute(search)`.
-3. **Struct to PyRef:** Instead of serializing returning data into a massive JSON payload over TCP (like network DBs do), Rust yields memory pointers back to Python objects natively.
+The product-level memory model is separate and lives in `src/sdk.rs`:
 
-```mermaid
-sequenceDiagram
-    participant App as Python App (Host)
-    participant SDK as VantaDB PyO3 FFI
-    participant Core as Rust Engine (Threads)
-    participant SSD as Storage Backend (WAL)
+- `VantaMemoryInput`
+- `VantaMemoryRecord`
+- `VantaMemoryMetadata`
+- `VantaMemoryListOptions`
+- `VantaMemorySearchRequest`
 
-    App->>SDK: search(vector, filter="category=='tech'")
-    SDK->>SDK: Release Python GIL
-    SDK->>Core: Pass reference & execute
-    Core->>Core: HNSW Traversal + IQL Syntax Tree Filtering (Parallel)
-    Core-->>SDK: Return top_k IDs & Pointers
-    SDK->>SDK: Re-acquire GIL
-    SDK-->>App: Zero-Copy Python List returned
-```
+Memory identity is deterministic over `namespace + "\0" + key`. `UnifiedNode` remains internal storage representation, not the public product API.
 
-## 3. Resource Governance (Memory Constraints & Virtual Swapping)
+## 3. Storage and Durability
 
-Memory is the major enemy of vector search. VantaDB utilizes an internal background thread pool ("MaintenanceWorker") to perform active memory governance.
+Durability is built around three layers:
 
-When VantaDB is initialized, it is injected with `memory_limit_bytes` (e.g., 512MB).
+1. **`StorageBackend` trait**: abstracts the KV layer.
+2. **Fjall / RocksDB backends**: Fjall is the default; RocksDB remains an explicit fallback path.
+3. **WAL + VantaFile + HNSW artifact**: node mutations are journaled, canonical vector payloads are stored in VantaFile, and the ANN index can be rebuilt if the derived artifact is missing.
 
-* **Active Monitoring (Cgroups Detection):** The DB continuously queries the OS (and container Cgroups if running in Docker) to survey actual memory pressure.
-* **Virtual Swap (MMap):** If RAM usage exceeds 85% of the threshold, the system triggers an automated swap to disk. Instead of allowing the kernel to hit an OOM (Out-of-Memory) panic and crash the DB, VantaDB dynamically flushes non-critical HNSW subgraph tiers and historical raw metadata chunks onto SSD.
-* **Virtual Memory Fallback:** It immediately swaps references to `memmap2`, taking a slight latency penalty to guarantee absolute system stability.
+Current repo guarantees that matter:
 
-## 4. Persistence Layer (LSM Engine Integration)
+- WAL replay exists for crash recovery
+- HNSW reconstruction from VantaFile exists
+- manual ANN rebuild is available through the SDK and CLI
+- namespace/payload indexes are derived state and can be rebuilt from canonical records
+- JSONL export/import is available for namespace-scoped or full memory movement
+- the server path is not the source of truth; it wraps the embedded core
 
-To prevent data loss in a strictly in-process architecture:
+## 4. Retrieval Model Today
 
-1. **Write-Ahead Logging (WAL):** Every mutation to the `UnifiedNode` logic is synchronously streamed to an underlying embedded storage backend (defaulting to Fjall).
-2. **Startup Rehydration:** On crash or restart, the DB reads the persistent SSTables and rapidly rebuilds the HNSW spatial tiers in RAM.
-3. **Compaction & Cleanup:** The background GC selectively drops Tombstoned vectors and truncates the physical logs during low-traffic moments, ensuring minimal disk blooming.
+The current ANN path is:
+
+- HNSW
+- cosine similarity
+- namespace-scoped vector retrieval
+- equality filters over scalar metadata through derived payload indexes
+
+What is **not** implemented as a shipped claim today:
+
+- BM25
+- RRF
+- lexical-first hybrid ranking
+- adaptive planner selection between text/vector paths
+
+Any mention of “hybrid search” in the current repo should therefore be read as **vector retrieval plus structured filters**, not as BM25 + vector fusion.
+
+## 5. Embedded SDK Boundary
+
+The stable embedded boundary now lives in `src/sdk.rs`. It exists to keep external consumers away from:
+
+- `StorageEngine`
+- `Executor`
+- direct HNSW lock access
+- internal hardware and storage plumbing
+
+The Python binding routes through this boundary and currently exposes:
+
+- open
+- legacy node insert/get/delete
+- memory `put/get/delete/list/search`
+- manual `rebuild_index`
+- memory `export_namespace/export_all/import_file`
+- vector search
+- query
+- add edge
+- flush/close
+- capabilities
+
+Distribution hardening such as PyPI, wheels, signing, and installers is intentionally deferred until this boundary and the observability contract are stable.
+
+## 6. Memory and Telemetry
+
+`memory_limit_bytes` currently acts as a runtime budget hint for backend and mmap choices. It should **not** be read as a proven hard RSS ceiling.
+
+Process-level telemetry is now treated as:
+
+- process-scoped
+- explicit about source and units
+- separate from logical HNSW memory estimates
+- separate from mmap residency and OS page cache
+
+See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the current metric schema and validation harness.
