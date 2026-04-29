@@ -102,11 +102,19 @@ impl RocksDbBackend {
         let mut tombstone_opts = default_opts.clone();
         tombstone_opts.set_block_based_table_factory(&cold_bopts);
 
+        let mut namespace_index_opts = default_opts.clone();
+        namespace_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut payload_index_opts = default_opts.clone();
+        payload_index_opts.set_block_based_table_factory(&bopts);
+
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
             rocksdb::ColumnFamilyDescriptor::new("compressed_archive", archive_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
+            rocksdb::ColumnFamilyDescriptor::new("namespace_index", namespace_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
         ];
 
         let db = DB::open_cf_descriptors(&opts, path, cf_descriptors)

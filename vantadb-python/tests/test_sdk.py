@@ -49,7 +49,7 @@ class TestVantaDBLifecycle:
         node = db.get(42)
         assert node is not None
         assert node["id"] == 42
-        assert node["fields"]["content"] == "Hello Vantadb"
+        assert node["fields"]["content"] == "Hello VantaDB"
         assert node["vector_dims"] == 384
         assert node["is_alive"] is True
 
@@ -93,6 +93,19 @@ class TestVantaDBLifecycle:
         db.insert(1, "Persistent data", [0.3] * 128)
         db.flush()  # Should not raise
 
+    def test_close_and_reopen(self):
+        """Close should flush the embedded handle and allow reopen."""
+        path = _unique_path()
+        db = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        db.insert(7, "Reopen me", [0.4] * 16)
+        db.flush()
+        db.close()
+
+        reopened = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        node = reopened.get(7)
+        assert node is not None
+        assert node["fields"]["content"] == "Reopen me"
+
 
 class TestVectorSearch:
     """K-NN vector search tests."""
@@ -113,20 +126,123 @@ class TestVectorSearch:
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results)
 
 
-class TestHardwareIntrospection:
-    """Hardware profile introspection tests."""
+class TestPersistentMemoryApi:
+    """Namespace-scoped persistent memory API tests."""
 
-    def test_hardware_profile(self):
-        """Hardware profile should return valid keys."""
+    def test_put_get_list_search_memory(self):
+        """Memory records should be namespace-scoped and searchable."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+
+        record = db.put(
+            "agent/main",
+            "task-1",
+            "ship the memory API",
+            metadata={"category": "task", "done": False},
+            vector=[1.0, 0.0, 0.0],
+        )
+
+        assert record["namespace"] == "agent/main"
+        assert record["key"] == "task-1"
+        assert record["payload"] == "ship the memory API"
+        assert record["version"] == 1
+        assert record["metadata"]["category"] == "task"
+
+        fetched = db.get_memory("agent/main", "task-1")
+        assert fetched is not None
+        assert fetched["node_id"] == record["node_id"]
+
+        page = db.list_memory("agent/main", filters={"category": "task"})
+        assert len(page["records"]) == 1
+        assert page["records"][0]["key"] == "task-1"
+
+        hits = db.search_memory(
+            "agent/main",
+            [1.0, 0.0, 0.0],
+            filters={"category": "task"},
+            top_k=3,
+        )
+        assert len(hits) == 1
+        assert hits[0]["record"]["key"] == "task-1"
+
+    def test_memory_close_and_reopen(self):
+        """Memory records should survive flush/close/reopen."""
+        path = _unique_path()
+        db = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "persist", "persistent payload")
+        db.flush()
+        db.close()
+
+        reopened = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        record = reopened.get_memory("agent/main", "persist")
+        assert record is not None
+        assert record["payload"] == "persistent payload"
+
+    def test_delete_memory(self):
+        """Deleting a memory record should make it unretrievable."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "delete-me", "temporary")
+        assert db.delete_memory("agent/main", "delete-me") is True
+        assert db.get_memory("agent/main", "delete-me") is None
+
+    def test_rebuild_export_import_memory(self, tmp_path):
+        """Python memory API should expose rebuild and JSONL movement."""
+        source_path = str(tmp_path / "source")
+        target_path = str(tmp_path / "target")
+        export_path = str(tmp_path / "agent-main.jsonl")
+
+        db = vanta.VantaDB(source_path, memory_limit_bytes=128 * 1024 * 1024)
+        db.put(
+            "agent/main",
+            "export-me",
+            "portable memory",
+            metadata={"category": "note"},
+            vector=[1.0, 0.0, 0.0],
+        )
+        db.flush()
+
+        rebuild = db.rebuild_index()
+        assert rebuild["success"] is True
+        assert rebuild["scanned_nodes"] >= 1
+
+        exported = db.export_namespace(export_path, "agent/main")
+        assert exported["records_exported"] == 1
+        assert os.path.exists(export_path)
+
+        target = vanta.VantaDB(target_path, memory_limit_bytes=128 * 1024 * 1024)
+        imported = target.import_file(export_path)
+        assert imported["inserted"] == 1
+        assert imported["errors"] == 0
+
+        fetched = target.get_memory("agent/main", "export-me")
+        assert fetched is not None
+        assert fetched["payload"] == "portable memory"
+
+        all_export_path = str(tmp_path / "all.jsonl")
+        all_export = target.export_all(all_export_path)
+        assert all_export["records_exported"] == 1
+
+
+class TestHardwareIntrospection:
+    """Stable capability surface tests."""
+
+    def test_capabilities(self):
+        """Capabilities should return the stable SDK-facing keys."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        caps = db.capabilities()
+
+        assert "profile" in caps
+        assert "read_only" in caps
+        assert "persistence" in caps
+        assert "vector_search" in caps
+        assert "iql_queries" in caps
+        assert caps["persistence"] is True
+
+    def test_hardware_profile_alias(self):
+        """hardware_profile remains as a backward-compatible alias."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         hw = db.hardware_profile()
-
         assert "profile" in hw
-        assert "instructions" in hw
-        assert "logical_cores" in hw
-        assert "total_memory" in hw
-        assert "vitality_score" in hw
-        assert hw["logical_cores"] > 0
+        assert "vector_search" in hw
 
 
 class TestEdgeManagement:

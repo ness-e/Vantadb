@@ -11,7 +11,7 @@ use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use zerocopy::{FromBytes, IntoBytes};
 
@@ -175,6 +175,17 @@ pub struct EngineConfig {
     pub backend_kind: BackendKind,
 }
 
+/// Report returned by explicit ANN index rebuild operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexRebuildReport {
+    pub scanned_nodes: u64,
+    pub indexed_vectors: u64,
+    pub skipped_tombstones: u64,
+    pub duration_ms: u64,
+    pub index_path: PathBuf,
+    pub success: bool,
+}
+
 pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
@@ -257,46 +268,16 @@ impl StorageEngine {
 
         // ── Index Reconstruction: rebuild HNSW if index file is missing ──────
         if hnsw.nodes.is_empty() {
-            let mut cursor = 64u64;
-            let mut rebuilt_count = 0;
-            let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-
-            while cursor + header_size <= vector_store.write_cursor {
-                if let Some(header) = vector_store.read_header(cursor) {
-                    if header.id != 0 && (header.flags & 0x8) == 0 {
-                        // Node is valid and not tombstoned
-                        let vec_data = if header.vector_len > 0 {
-                            let start = header.vector_offset as usize;
-                            let end = start + (header.vector_len as usize * 4);
-                            if end <= vector_store.size as usize {
-                                let slice = &vector_store.mmap[start..end];
-                                // Safety: data is in-bounds and aligned as per VantaFile contract
-                                let vec: &[f32] = unsafe {
-                                    std::slice::from_raw_parts(
-                                        slice.as_ptr() as *const f32,
-                                        header.vector_len as usize,
-                                    )
-                                };
-                                crate::node::VectorRepresentations::Full(vec.to_vec())
-                            } else {
-                                crate::node::VectorRepresentations::None
-                            }
-                        } else {
-                            crate::node::VectorRepresentations::None
-                        };
-
-                        hnsw.add(header.id, header.bitset, vec_data, cursor);
-                        rebuilt_count += 1;
-                    }
-                    // Advance cursor to next possible header
-                    let vec_size = (header.vector_len as u64 * 4 + 63) & !63;
-                    cursor += header_size + vec_size;
-                } else {
-                    cursor += 64; // Skip to next 64B boundary
-                }
-            }
-            if rebuilt_count > 0 {
-                info!(rebuilt_count, "Index reconstructed from VantaFile");
+            let report =
+                Self::rebuild_hnsw_from_vstore(&mut hnsw, &vector_store, index_path.clone())?;
+            if report.scanned_nodes > 0 {
+                info!(
+                    scanned_nodes = report.scanned_nodes,
+                    indexed_vectors = report.indexed_vectors,
+                    skipped_tombstones = report.skipped_tombstones,
+                    duration_ms = report.duration_ms,
+                    "Index reconstructed from VantaFile"
+                );
             }
         }
 
@@ -463,6 +444,98 @@ impl StorageEngine {
         vstore.write_cursor = (total_needed + 63) & !63;
         vstore.save_cursor();
         Ok(offset)
+    }
+
+    fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
+        let config = existing.config.clone();
+        if existing.backend.is_mmap() {
+            let mut index = CPIndex::with_backend(IndexBackend::new_mmap(index_path));
+            index.config = config;
+            index
+        } else {
+            CPIndex::new_with_config(config)
+        }
+    }
+
+    fn rebuild_hnsw_from_vstore(
+        hnsw: &mut CPIndex,
+        vstore: &VantaFile,
+        index_path: PathBuf,
+    ) -> Result<IndexRebuildReport> {
+        let started = Instant::now();
+        let mut cursor = 64u64;
+        let mut scanned_nodes = 0u64;
+        let mut indexed_vectors = 0u64;
+        let mut skipped_tombstones = 0u64;
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+
+        while cursor + header_size <= vstore.write_cursor {
+            if let Some(header) = vstore.read_header(cursor) {
+                if header.id != 0 {
+                    scanned_nodes += 1;
+                    if (header.flags & 0x8) != 0 {
+                        skipped_tombstones += 1;
+                    } else {
+                        let vec_data = if header.vector_len > 0 {
+                            let start = header.vector_offset as usize;
+                            let end = start + (header.vector_len as usize * 4);
+                            if end <= vstore.size as usize {
+                                let slice = &vstore.mmap[start..end];
+                                let vec: &[f32] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        slice.as_ptr() as *const f32,
+                                        header.vector_len as usize,
+                                    )
+                                };
+                                indexed_vectors += 1;
+                                crate::node::VectorRepresentations::Full(vec.to_vec())
+                            } else {
+                                crate::node::VectorRepresentations::None
+                            }
+                        } else {
+                            crate::node::VectorRepresentations::None
+                        };
+
+                        hnsw.add(header.id, header.bitset, vec_data, cursor);
+                    }
+                }
+
+                let vec_size = (header.vector_len as u64 * 4 + 63) & !63;
+                cursor += header_size + vec_size;
+            } else {
+                cursor += 64;
+            }
+        }
+
+        Ok(IndexRebuildReport {
+            scanned_nodes,
+            indexed_vectors,
+            skipped_tombstones,
+            duration_ms: started.elapsed().as_millis() as u64,
+            index_path,
+            success: true,
+        })
+    }
+
+    pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
+        let index_path = self.data_dir.join("vector_index.bin");
+        let mut rebuilt = {
+            let hnsw = self.hnsw.read();
+            Self::fresh_index_like(&hnsw, index_path.clone())
+        };
+
+        let report = {
+            let vstore = self.vector_store.read();
+            Self::rebuild_hnsw_from_vstore(&mut rebuilt, &vstore, index_path)?
+        };
+
+        {
+            let mut hnsw = self.hnsw.write();
+            *hnsw = rebuilt;
+        }
+        self.save_vector_index();
+
+        Ok(report)
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
@@ -795,6 +868,31 @@ impl StorageEngine {
         Ok(recovered)
     }
 
+    /// Return all currently readable nodes from the primary backend partition.
+    ///
+    /// This is intentionally not a hot path. It supports early product APIs
+    /// such as namespace listing before secondary indexes exist.
+    pub(crate) fn scan_nodes(&self) -> Result<Vec<UnifiedNode>> {
+        let entries = self.backend.scan(BackendPartition::Default)?;
+        let mut nodes = Vec::new();
+
+        for (key, _value) in entries {
+            if key.len() != std::mem::size_of::<u64>() {
+                continue;
+            }
+
+            let mut id_bytes = [0u8; 8];
+            id_bytes.copy_from_slice(&key);
+            let id = u64::from_le_bytes(id_bytes);
+
+            if let Some(node) = self.get(id)? {
+                nodes.push(node);
+            }
+        }
+
+        Ok(nodes)
+    }
+
     // ─── Delegation methods for external modules ────────────────
     //
     // These replace direct `storage.db.{cf_handle, put_cf, ...}` access
@@ -811,6 +909,17 @@ impl StorageEngine {
         value: &[u8],
     ) -> Result<()> {
         self.backend.put(partition, key, value)
+    }
+
+    pub(crate) fn write_backend_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        self.backend.write_batch(ops)
+    }
+
+    pub(crate) fn scan_partition(
+        &self,
+        partition: BackendPartition,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.scan(partition)
     }
 
     /// Request backend compaction.
@@ -855,6 +964,8 @@ impl StorageEngine {
             "tombstone_storage" => Ok(BackendPartition::TombstoneStorage),
             "compressed_archive" => Ok(BackendPartition::CompressedArchive),
             "tombstones" => Ok(BackendPartition::Tombstones),
+            "namespace_index" => Ok(BackendPartition::NamespaceIndex),
+            "payload_index" => Ok(BackendPartition::PayloadIndex),
             other => Err(VantaError::Execution(format!(
                 "Unknown column family: '{}'",
                 other

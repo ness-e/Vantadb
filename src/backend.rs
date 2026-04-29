@@ -36,6 +36,10 @@ pub(crate) enum BackendPartition {
     CompressedArchive,
     /// Lightweight tombstone markers for `is_deleted` checks.
     Tombstones,
+    /// Derived namespace/key index for persistent memory APIs.
+    NamespaceIndex,
+    /// Derived metadata equality index for persistent memory filters.
+    PayloadIndex,
 }
 
 impl BackendPartition {
@@ -47,6 +51,8 @@ impl BackendPartition {
             BackendPartition::TombstoneStorage => "tombstone_storage",
             BackendPartition::CompressedArchive => "compressed_archive",
             BackendPartition::Tombstones => "tombstones",
+            BackendPartition::NamespaceIndex => "namespace_index",
+            BackendPartition::PayloadIndex => "payload_index",
         }
     }
 }

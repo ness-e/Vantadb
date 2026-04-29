@@ -4,7 +4,7 @@ target/
 debug/
 release/
 *.rs.bk
-
+**/test_sdk*/
 # Local database instances and logs
 todo.md
 *.log

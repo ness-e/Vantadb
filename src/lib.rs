@@ -1,7 +1,7 @@
-//! # VantaDB — Embedded Multimodal Database Engine
+//! # VantaDB — Embedded Persistent Memory Engine
 //!
-//! Unified engine for **Vector** (embeddings), **Graph** (edges),
-//! and **Relational** (typed fields) data in a single storage layer.
+//! Embedded core for durable local memory, vector retrieval,
+//! and structured fields.
 
 pub mod api;
 pub(crate) mod backend;
@@ -26,6 +26,7 @@ pub mod parser;
 #[cfg(feature = "python_sdk")]
 pub mod python;
 pub mod query;
+pub mod sdk;
 pub mod server;
 pub mod storage;
 pub mod vector;
@@ -35,5 +36,12 @@ pub mod wal;
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
 pub use node::{Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
+pub use sdk::{
+    VantaCapabilities, VantaEdgeRecord, VantaEmbedded, VantaExportReport, VantaFields,
+    VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
+    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOpenOptions, VantaQueryResult,
+    VantaRuntimeProfile, VantaSearchHit, VantaStorageTier, VantaValue,
+};
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};

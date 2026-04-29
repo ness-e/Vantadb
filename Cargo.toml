@@ -2,7 +2,7 @@
 name = "vantadb"
 version = "0.1.0"
 edition = "2021"
-description = "VantaDB: An embedded multimodal database engine — vectors, graphs, and relational metadata unified in Rust."
+description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
 license = "Apache-2.0"
 readme = "README.MD"
 keywords = ["database", "vector", "graph", "embedded", "rust"]
@@ -71,6 +71,11 @@ harness = false
 [[bin]]
 name = "vanta-server"
 path = "src/bin/vanta-server.rs"
+test = false
+
+[[bin]]
+name = "vanta-cli"
+path = "src/bin/vanta-cli.rs"
 test = false
 
 # ── Integration Tests ─────────────────────────────────────────────
@@ -185,6 +190,30 @@ path = "tests/schema_evolution.rs"
 [[test]]
 name = "concurrency_parity"
 path = "tests/concurrency_parity.rs"
+
+[[test]]
+name = "python_sdk_boundary"
+path = "tests/api/python.rs"
+
+[[test]]
+name = "memory_telemetry"
+path = "tests/memory_telemetry.rs"
+
+[[test]]
+name = "memory_api"
+path = "tests/memory_api.rs"
+
+[[test]]
+name = "memory_export_import"
+path = "tests/memory_export_import.rs"
+
+[[test]]
+name = "derived_indexes"
+path = "tests/derived_indexes.rs"
+
+[[test]]
+name = "memory_brutality"
+path = "tests/memory_brutality.rs"
 
 [profile.release]
 lto = "thin"

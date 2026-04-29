@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "vantadb-py"
 version = "0.1.0"
-description = "VantaDB: The multimodal database engine. In-process Python bindings."
+description = "VantaDB: source-installed embedded persistent memory bindings."
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
