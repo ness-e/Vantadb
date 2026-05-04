@@ -12,8 +12,10 @@ todo.md
 *.rdb
 /data/
 /vanta_data/
+/vantadb_data/
 /rocksdb_data/
 /vanta_snapshots/
+vanta_certification.json
 build_logs/
 high_density_bench_db/
 benches_db/
