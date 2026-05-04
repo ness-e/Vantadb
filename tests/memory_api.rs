@@ -145,6 +145,40 @@ fn memory_api_filters() {
     assert_eq!(text_hits.len(), 1);
     assert_eq!(text_hits[0].record.key, "second");
 
+    db.put(VantaMemoryInput::new(
+        "agent/main",
+        "phrase",
+        "first second exact phrase",
+    ))
+    .expect("put phrase");
+    let phrase_hits = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("\"first second\"".to_string()),
+            top_k: 5,
+        })
+        .expect("phrase search");
+    assert_eq!(phrase_hits.len(), 1);
+    assert_eq!(phrase_hits[0].record.key, "phrase");
+
+    let explain = db
+        .debug_memory_search_explain_for_tests(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("\"first second\"".to_string()),
+            top_k: 5,
+        })
+        .expect("debug explain");
+    assert_eq!(explain.route, "text-only");
+    assert_eq!(
+        explain.hits[0].matched_phrases,
+        vec!["first second".to_string()]
+    );
+    assert!(explain.hits[0].snippet.is_some());
+
     let hybrid_hits = db
         .search(VantaMemorySearchRequest {
             namespace: "agent/main".to_string(),
@@ -154,7 +188,7 @@ fn memory_api_filters() {
             top_k: 5,
         })
         .expect("hybrid search");
-    assert_eq!(hybrid_hits.len(), 2);
+    assert!(hybrid_hits.len() >= 2);
     assert_eq!(hybrid_hits[0].record.key, "first");
     assert!(hybrid_hits.iter().any(|hit| hit.record.key == "second"));
 
