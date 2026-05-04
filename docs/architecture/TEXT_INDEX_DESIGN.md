@@ -85,6 +85,10 @@ RRF fuses by logical identity `namespace + key`; candidates that appear in only
 one ranking still participate. Final ordering is fused score descending, then
 stable `key`/`node_id` tie breakers. Raw BM25 and cosine scores are not blended.
 
+Debug builds expose an internal certification helper for tests that reports the
+planned route, hybrid budget, text/vector candidate counts, fused candidate
+count, and top logical identities. This helper is not a stable SDK API.
+
 ## Consistency And Observability
 
 The state marker tracks schema/tokenizer/key format plus counts for canonical

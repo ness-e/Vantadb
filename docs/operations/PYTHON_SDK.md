@@ -53,6 +53,9 @@ RRF. `operational_metrics()` is diagnostic telemetry for startup, WAL replay,
 rebuild, lexical queries, hybrid queries, planner routes, export, and import
 behavior; it is not a public efficiency claim.
 
+Hybrid planner/RRF debug inspection remains Rust debug-build test support. It
+is not exposed as a stable Python SDK method.
+
 ## Remaining Release Debt
 - PyPI stays blocked until multiplatform wheels exist for Linux, macOS, and Windows.
 - `vantadb-python` still uses a local path dependency on the core crate for in-repo builds.

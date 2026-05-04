@@ -20,10 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - BM25 text-only memory search over the persistent text index, including TF postings, DF/doc-length/namespace corpus stats, metadata filters, deterministic ordering, and read-only compatibility errors for stale schemas.
 - Hybrid Retrieval v1 for memory search, using a minimal planner and RRF fusion over BM25 text rankings and vector rankings.
 - Operational metrics for hybrid query latency, fused hybrid candidates, and planner route counts.
+- Debug-build hybrid planner/RRF certification helper for route, budget, candidate counts, fused candidates, and top logical identities.
 - Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
-- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, hybrid RRF behavior, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
+- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, hybrid RRF behavior, deterministic hybrid corpus coverage, debug planner reporting, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
 
 ### Changed
 

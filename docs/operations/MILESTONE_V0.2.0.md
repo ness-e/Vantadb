@@ -7,7 +7,7 @@ Cerrar el gap entre el núcleo técnico que ya existe y la forma en que el repos
 
 ### 1. Repo truth
 - [x] Reposicionar el proyecto como embedded persistent memory + vector retrieval + structured fields.
-- [x] Eliminar claims prematuros sobre multimodelo universal y hybrid textual real.
+- [x] Eliminar claims prematuros sobre multimodelo universal y hybrid textual competitivo.
 - [x] Convertir SIFT1M en benchmark de stress/recovery, no de competitividad.
 
 ### 2. Memory telemetry contract
@@ -40,7 +40,7 @@ El bloque posterior ya quedó implementado en repo:
 
 - Modelo canónico de memoria persistente en el SDK, separado de `UnifiedNode`.
 - Namespaces first-class con identidad lógica `namespace + key`.
-- API mínima `put/get/delete/list/search` con BM25 para `text_query` texto-only y rechazo explícito de hybrid hasta RRF/planner.
+- API mínima `put/get/delete/list/search` con vector-only, BM25 texto-only y Hybrid Retrieval v1 con RRF/planner mínimo.
 - Python SDK con flujo de memoria y compatibilidad con APIs legacy.
 - CLI embebida para `put/get/list`.
 - Rebuild ANN manual desde VantaFile/storage canónico.

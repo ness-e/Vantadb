@@ -17,6 +17,7 @@ This note closes the current repo-alignment cycle.
 - BM25 lexical retrieval for text-only memory `text_query`
 - Hybrid Retrieval v1 for memory search using simple planner + RRF over BM25 and vector rankings
 - Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, hybrid queries, planner routes, export, import, and import errors
+- Debug-only planner/RRF certification for route, budget, candidate counts, and fused identities
 - Stale/corrupt derived-index state repair on open
 - Stale/corrupt text-index state repair on writable open
 - Source-install Python binding through a stable embedded boundary
@@ -67,6 +68,7 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - Text-index state is validated on writable open and repaired from canonical records when missing, corrupt, incompatible, or count-stale.
 - Text-only `text_query` executes BM25 lexical retrieval with metadata filters and deterministic ordering.
 - Hybrid `text_query + query_vector` executes both rankings and fuses them with RRF under a minimal planner.
+- Hybrid certification uses a small deterministic test corpus; it is not a marketing benchmark.
 - Operational metrics are exposed through Rust/Python SDK.
 - The CLI is embedded-first for `put/get/list/rebuild-index/export/import` and no longer requires a local server for the first useful memory flow.
 - Public text-only `text_query` and simple hybrid text+vector retrieval are enabled.
