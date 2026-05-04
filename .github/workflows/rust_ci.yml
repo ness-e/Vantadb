@@ -62,88 +62,18 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libclang-dev clang librocksdb-dev
 
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@nextest
+
     - name: Format Check
       run: cargo fmt --check
 
     - name: Clippy Lints
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --all-targets --all-features -- -D warnings
 
-    # ── Compile only fast-gate targets (skip heavy certification) ─────
-    - name: Compile fast gate targets
-      run: |
-        cargo test --lib --bins --no-run
-        cargo test \
-          --test backend_tests \
-          --test storage \
-          --test mutations \
-          --test chaos_integrity \
-          --test gc \
-          --test mmap_index \
-          --test basic_node \
-          --test graph \
-          --test hnsw \
-          --test vector_scale_check \
-          --test parser \
-          --test executor \
-          --test governor \
-          --test integration \
-          --test columnar \
-          --test durability_recovery \
-          --test index_reconstruction \
-          --test schema_evolution \
-          --test concurrency_parity \
-          --test server \
-          --test mcp_integration \
-          --test hardware_profiles \
-          --test structured_api_v2 \
-          --no-run
-
-    # ── Fast Gate: Unit + Lib tests ──────────────────────────────────
-    - name: Unit & lib tests
-      run: cargo test --lib --bins
-
-    # ── Fast Gate: Integration tests (explicit list) ─────────────────
-    - name: Integration tests — storage layer
-      run: |
-        cargo test --test backend_tests -- --test-threads=2
-        cargo test --test storage -- --test-threads=2
-        cargo test --test mutations -- --test-threads=2
-        cargo test --test chaos_integrity -- --test-threads=2
-        cargo test --test gc -- --test-threads=2
-        cargo test --test mmap_index -- --test-threads=2
-
-    - name: Integration tests — core engine
-      run: |
-        cargo test --test basic_node -- --test-threads=2
-        cargo test --test graph -- --test-threads=2
-        cargo test --test hnsw -- --test-threads=2
-        cargo test --test vector_scale_check -- --test-threads=2
-
-    - name: Integration tests — query logic
-      run: |
-        cargo test --test parser -- --test-threads=2
-        cargo test --test executor -- --test-threads=2
-        cargo test --test governor -- --test-threads=2
-        cargo test --test integration -- --test-threads=2
-        cargo test --test columnar -- --test-threads=2
-
-    - name: Integration tests — durability & recovery
-      run: |
-        cargo test --test durability_recovery -- --test-threads=2
-        cargo test --test index_reconstruction -- --test-threads=2
-        cargo test --test schema_evolution -- --test-threads=2
-        cargo test --test concurrency_parity -- --test-threads=2
-
-    - name: Integration tests — API & protocol
-      run: |
-        cargo test --test server -- --test-threads=2
-        cargo test --test mcp_integration -- --test-threads=2
-        cargo test --test hardware_profiles -- --test-threads=2
-
-    # ── structured_api_v2: contract test with strict timeout ─────────
-    - name: "API contract: structured_api_v2 (5 min hard limit)"
-      timeout-minutes: 5
-      run: cargo test --test structured_api_v2 -- --test-threads=2
+    # ── Fast Gate: Unified execution via nextest ─────────────────────
+    - name: Run fast gate tests (Audit profile)
+      run: cargo nextest run --profile audit --workspace
 
     # ── Bench compilation check (no execution) ───────────────────────
     - name: Run benchmarks (verification only)
