@@ -8,7 +8,7 @@ use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
 use crate::error::{Result, VantaError};
 use crate::storage::EngineConfig;
 use rocksdb::checkpoint::Checkpoint;
-use rocksdb::{FlushOptions, Options, WriteBatch, DB};
+use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
 use tracing::{info, warn};
 
@@ -108,6 +108,12 @@ impl RocksDbBackend {
         let mut payload_index_opts = default_opts.clone();
         payload_index_opts.set_block_based_table_factory(&bopts);
 
+        let mut text_index_opts = default_opts.clone();
+        text_index_opts.set_block_based_table_factory(&bopts);
+
+        let mut internal_metadata_opts = default_opts.clone();
+        internal_metadata_opts.set_block_based_table_factory(&cold_bopts);
+
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
@@ -115,6 +121,8 @@ impl RocksDbBackend {
             rocksdb::ColumnFamilyDescriptor::new("tombstones", tombstone_opts),
             rocksdb::ColumnFamilyDescriptor::new("namespace_index", namespace_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("text_index", text_index_opts),
+            rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
         ];
 
         let db = DB::open_cf_descriptors(&opts, path, cf_descriptors)
@@ -208,6 +216,27 @@ impl StorageBackend for RocksDbBackend {
         for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
             let (k, v) =
                 item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            result.push((k.to_vec(), v.to_vec()));
+        }
+        Ok(result)
+    }
+
+    fn scan_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let cf = self.cf_handle(partition)?;
+        let mut result = Vec::new();
+        for item in self
+            .db
+            .iterator_cf(&cf, IteratorMode::From(prefix, Direction::Forward))
+        {
+            let (k, v) =
+                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            if !k.starts_with(prefix) {
+                break;
+            }
             result.push((k.to_vec(), v.to_vec()));
         }
         Ok(result)

@@ -25,12 +25,17 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - Python SDK: `put/get_memory/delete_memory/list_memory/search_memory/rebuild_index/export_namespace/export_all/import_file`.
 - CLI: embedded `put/get/list/rebuild-index/export/import`.
 - Search remains vector + structured filters only. `text_query` still returns a clear BM25/RRF deferred error.
+- Text-index postings for payload are persisted internally and maintained as a derived index.
 
 ## Known limits still accepted
 
-- Derived indexes are persisted and reconstructible, but prefix scans currently materialize the index partition through the backend abstraction.
-- WAL replay metrics exist in recovery behavior tests, but structured startup/WAL timing telemetry is still a follow-up hardening item.
+- Derived indexes are persisted, reconstructible, and queried through backend prefix scans.
+- Text-index postings are persisted, reconstructible, and validated through state/count markers.
+- Startup, WAL replay, ANN rebuild, derived rebuild, text-index rebuild/repair, export, import, and import errors have structured operational metrics.
+- Derived-index state is validated on open and repaired from canonical records when stale or corrupt.
+- Text-index state is validated on writable open and repaired from canonical records when stale or corrupt.
 - Export/import is JSONL v1 and intentionally simple; it is not a migration framework or backup format with checksums.
+- Text-index persistence is not wired into public search.
 - The server wrapper is not the primary product boundary.
 
 ## Deferred tasks
@@ -39,4 +44,4 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - Euclidean/SIFT competitive benchmark validation.
 - PyPI/wheels/signing.
 - Server wrapper decision.
-- Prefix-iterator optimization for derived indexes if larger datasets make materialized index scans too expensive.
+- BM25 scoring, RRF fusion, and planner-backed hybrid ranking.

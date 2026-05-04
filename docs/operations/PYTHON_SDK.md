@@ -12,7 +12,8 @@
 - Vector search, node CRUD, edge insertion, query execution, flush, close, and capabilities all route through that boundary.
 - Persistent memory APIs also route through the same boundary:
   `put`, `get_memory`, `delete_memory`, `list_memory`, `search_memory`,
-  `rebuild_index`, `export_namespace`, `export_all`, and `import_file`.
+  `rebuild_index`, `export_namespace`, `export_all`, `import_file`, and
+  `operational_metrics`.
 
 ## Memory Flow
 
@@ -32,12 +33,14 @@ record = db.get_memory("agent/main", "memory-1")
 page = db.list_memory("agent/main", filters={"kind": "note"})
 hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=5)
 report = db.rebuild_index()
+metrics = db.operational_metrics()
 db.export_namespace("./agent-main.jsonl", "agent/main")
 db.flush()
 db.close()
 ```
 
 `search_memory(..., text_query="...")` is intentionally rejected until BM25/RRF exists.
+`operational_metrics()` is diagnostic telemetry for startup, WAL replay, rebuild, export, and import behavior; it is not a public efficiency claim.
 
 ## Remaining Release Debt
 - PyPI stays blocked until multiplatform wheels exist for Linux, macOS, and Windows.

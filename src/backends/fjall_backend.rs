@@ -39,6 +39,8 @@ pub(crate) struct FjallBackend {
     tombstones: Keyspace,
     namespace_index: Keyspace,
     payload_index: Keyspace,
+    text_index: Keyspace,
+    internal_metadata: Keyspace,
 }
 
 impl FjallBackend {
@@ -76,6 +78,14 @@ impl FjallBackend {
             .keyspace("payload_index", KeyspaceCreateOptions::default)
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
 
+        let text_index = db
+            .keyspace("text_index", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
+        let internal_metadata = db
+            .keyspace("internal_metadata", KeyspaceCreateOptions::default)
+            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+
         info!("Fjall database opened at '{}'", path);
 
         Ok(Self {
@@ -86,6 +96,8 @@ impl FjallBackend {
             tombstones,
             namespace_index,
             payload_index,
+            text_index,
+            internal_metadata,
         })
     }
 
@@ -98,6 +110,8 @@ impl FjallBackend {
             BackendPartition::Tombstones => &self.tombstones,
             BackendPartition::NamespaceIndex => &self.namespace_index,
             BackendPartition::PayloadIndex => &self.payload_index,
+            BackendPartition::TextIndex => &self.text_index,
+            BackendPartition::InternalMetadata => &self.internal_metadata,
         }
     }
 }
@@ -153,6 +167,25 @@ impl StorageBackend for FjallBackend {
             let kv = item
                 .into_inner()
                 .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            result.push((kv.0.to_vec(), kv.1.to_vec()));
+        }
+        Ok(result)
+    }
+
+    fn scan_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let ks = self.keyspace(partition);
+        let mut result = Vec::new();
+        for item in ks.range(prefix..) {
+            let kv = item
+                .into_inner()
+                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            if !kv.0.starts_with(prefix) {
+                break;
+            }
             result.push((kv.0.to_vec(), kv.1.to_vec()));
         }
         Ok(result)

@@ -215,6 +215,22 @@ path = "tests/derived_indexes.rs"
 name = "memory_brutality"
 path = "tests/memory_brutality.rs"
 
+[[test]]
+name = "derived_index_prefix_scan"
+path = "tests/derived_index_prefix_scan.rs"
+
+[[test]]
+name = "derived_index_recovery"
+path = "tests/derived_index_recovery.rs"
+
+[[test]]
+name = "operational_metrics"
+path = "tests/operational_metrics.rs"
+
+[[test]]
+name = "text_index_recovery"
+path = "tests/text_index_recovery.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

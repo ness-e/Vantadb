@@ -7,7 +7,8 @@ use vantadb::sdk::{
     VantaCapabilities, VantaEmbedded, VantaExportReport, VantaImportReport,
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
     VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord,
-    VantaOpenOptions, VantaQueryResult, VantaRuntimeProfile, VantaStorageTier, VantaValue,
+    VantaOpenOptions, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
+    VantaStorageTier, VantaValue,
 };
 
 fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
@@ -181,6 +182,7 @@ fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyR
     dict.set_item("indexed_vectors", report.indexed_vectors)?;
     dict.set_item("skipped_tombstones", report.skipped_tombstones)?;
     dict.set_item("duration_ms", report.duration_ms)?;
+    dict.set_item("derived_rebuild_ms", report.derived_rebuild_ms)?;
     dict.set_item("index_path", &report.index_path)?;
     dict.set_item("success", report.success)?;
     Ok(dict.into())
@@ -202,6 +204,34 @@ fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<P
     dict.set_item("skipped", report.skipped)?;
     dict.set_item("errors", report.errors)?;
     dict.set_item("duration_ms", report.duration_ms)?;
+    Ok(dict.into())
+}
+
+fn operational_metrics_to_pydict(
+    py: Python,
+    metrics: &VantaOperationalMetrics,
+) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("startup_ms", metrics.startup_ms)?;
+    dict.set_item("wal_replay_ms", metrics.wal_replay_ms)?;
+    dict.set_item("wal_records_replayed", metrics.wal_records_replayed)?;
+    dict.set_item("ann_rebuild_ms", metrics.ann_rebuild_ms)?;
+    dict.set_item(
+        "ann_rebuild_scanned_nodes",
+        metrics.ann_rebuild_scanned_nodes,
+    )?;
+    dict.set_item("derived_rebuild_ms", metrics.derived_rebuild_ms)?;
+    dict.set_item("text_index_rebuild_ms", metrics.text_index_rebuild_ms)?;
+    dict.set_item("text_postings_written", metrics.text_postings_written)?;
+    dict.set_item("text_index_repairs", metrics.text_index_repairs)?;
+    dict.set_item("records_exported", metrics.records_exported)?;
+    dict.set_item("records_imported", metrics.records_imported)?;
+    dict.set_item("import_errors", metrics.import_errors)?;
+    dict.set_item("derived_prefix_scans", metrics.derived_prefix_scans)?;
+    dict.set_item(
+        "derived_full_scan_fallbacks",
+        metrics.derived_full_scan_fallbacks,
+    )?;
     Ok(dict.into())
 }
 
@@ -429,6 +459,12 @@ impl VantaDB {
             .import_file(path)
             .map_err(|e| PyRuntimeError::new_err(format!("Import file error: {:?}", e)))?;
         import_report_to_pydict(py, &report)
+    }
+
+    /// Return operational metrics for startup, replay, rebuild, export, and import.
+    fn operational_metrics(&self, py: Python) -> PyResult<PyObject> {
+        let metrics = self.engine.operational_metrics();
+        operational_metrics_to_pydict(py, &metrics)
     }
 
     /// Retrieve a node by ID. Returns a dict or None.

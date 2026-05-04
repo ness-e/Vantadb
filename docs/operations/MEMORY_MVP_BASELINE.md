@@ -30,6 +30,7 @@ Date: 2026-04-29
 ## Validation Evidence
 
 - `cargo test --test memory_api --test memory_export_import --test derived_indexes`
+- `cargo test --test derived_index_prefix_scan --test derived_index_recovery --test operational_metrics`
 - `cargo test --test memory_brutality -- --nocapture`
 - `python -m pytest vantadb-python/tests/test_sdk.py -v`
 - CLI smoke: `put`, `list`, `export`, `import`, `get`, `rebuild-index`
@@ -39,6 +40,8 @@ The brutality suite covers recovery without explicit flush, manual rebuild after
 ## Explicit Limits
 
 - Search remains cosine vector + structured filters. BM25/RRF is not implemented.
-- Derived index scans currently materialize the index partition through the backend abstraction; prefix iterators are a later optimization.
+- Derived index lookups use backend prefix scans for namespace and scalar metadata filters.
 - JSONL export/import is an operational interchange format, not a full backup system with checksums or transactional snapshots.
+- Operational metrics cover startup, WAL replay, ANN rebuild, derived-index rebuild, export, import, and import errors.
+- Derived-index state is validated on open and rebuilt from canonical records when missing, corrupt, or stale.
 - PyPI, wheels, signing, server mode hardening, and enterprise features remain outside this baseline.

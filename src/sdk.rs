@@ -24,6 +24,9 @@ const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
 const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
 const FIELD_VERSION: &str = "__vanta_version";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
+const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
+const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
+const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
 
 /// Stable open options for embedded SDK consumers.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -152,6 +155,7 @@ pub struct VantaIndexRebuildReport {
     pub indexed_vectors: u64,
     pub skipped_tombstones: u64,
     pub duration_ms: u64,
+    pub derived_rebuild_ms: u64,
     pub index_path: String,
     pub success: bool,
 }
@@ -173,6 +177,59 @@ pub struct VantaImportReport {
     pub skipped: u64,
     pub errors: u64,
     pub duration_ms: u64,
+}
+
+/// Stable snapshot of operational metrics used for validation and diagnostics.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VantaOperationalMetrics {
+    pub startup_ms: u64,
+    pub wal_replay_ms: u64,
+    pub wal_records_replayed: u64,
+    pub ann_rebuild_ms: u64,
+    pub ann_rebuild_scanned_nodes: u64,
+    pub derived_rebuild_ms: u64,
+    pub text_index_rebuild_ms: u64,
+    pub text_postings_written: u64,
+    pub text_index_repairs: u64,
+    pub records_exported: u64,
+    pub records_imported: u64,
+    pub import_errors: u64,
+    pub derived_prefix_scans: u64,
+    pub derived_full_scan_fallbacks: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct DerivedIndexState {
+    schema_version: u32,
+    rebuilt_at_ms: u64,
+    record_count: u64,
+    namespace_entries: u64,
+    payload_entries: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DerivedIndexRebuildReport {
+    record_count: u64,
+    namespace_entries: u64,
+    payload_entries: u64,
+    duration_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct TextIndexState {
+    schema_version: u32,
+    tokenizer: String,
+    key_format: String,
+    rebuilt_at_ms: u64,
+    record_count: u64,
+    posting_entries: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TextIndexRebuildReport {
+    record_count: u64,
+    posting_entries: u64,
+    duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -555,13 +612,111 @@ impl VantaEmbedded {
             options,
         };
         if !embedded.options.read_only {
-            embedded.rebuild_derived_indexes()?;
+            embedded.ensure_derived_indexes_current()?;
+            embedded.ensure_text_index_current()?;
         }
         Ok(embedded)
     }
 
     fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
         self.engine.read().clone().ok_or(VantaError::NotInitialized)
+    }
+
+    fn load_derived_index_state(engine: &StorageEngine) -> Result<Option<DerivedIndexState>> {
+        let Some(bytes) = engine
+            .get_from_partition(BackendPartition::InternalMetadata, DERIVED_INDEX_STATE_KEY)?
+        else {
+            return Ok(None);
+        };
+        bincode::deserialize(&bytes).map(Some).map_err(|err| {
+            VantaError::SerializationError(format!("derived index state decode error: {err}"))
+        })
+    }
+
+    fn write_derived_index_state(engine: &StorageEngine, state: &DerivedIndexState) -> Result<()> {
+        let bytes = bincode::serialize(state)
+            .map_err(|err| VantaError::SerializationError(err.to_string()))?;
+        engine.put_to_partition(
+            BackendPartition::InternalMetadata,
+            DERIVED_INDEX_STATE_KEY,
+            &bytes,
+        )
+    }
+
+    fn load_text_index_state(engine: &StorageEngine) -> Result<Option<TextIndexState>> {
+        let Some(bytes) =
+            engine.get_from_partition(BackendPartition::InternalMetadata, TEXT_INDEX_STATE_KEY)?
+        else {
+            return Ok(None);
+        };
+        bincode::deserialize(&bytes).map(Some).map_err(|err| {
+            VantaError::SerializationError(format!("text index state decode error: {err}"))
+        })
+    }
+
+    fn write_text_index_state(engine: &StorageEngine, state: &TextIndexState) -> Result<()> {
+        let bytes = bincode::serialize(state)
+            .map_err(|err| VantaError::SerializationError(err.to_string()))?;
+        engine.put_to_partition(
+            BackendPartition::InternalMetadata,
+            TEXT_INDEX_STATE_KEY,
+            &bytes,
+        )
+    }
+
+    fn fresh_text_index_state(record_count: u64, posting_entries: u64) -> TextIndexState {
+        let spec = crate::text_index::TextIndexSpec::default();
+        TextIndexState {
+            schema_version: spec.schema_version,
+            tokenizer: spec.tokenizer.to_string(),
+            key_format: spec.key_format.to_string(),
+            rebuilt_at_ms: now_ms(),
+            record_count,
+            posting_entries,
+        }
+    }
+
+    fn text_index_state_matches_spec(state: &TextIndexState) -> bool {
+        let spec = crate::text_index::TextIndexSpec::default();
+        state.schema_version == spec.schema_version
+            && state.tokenizer == spec.tokenizer
+            && state.key_format == spec.key_format
+    }
+
+    fn count_memory_records(engine: &StorageEngine) -> Result<u64> {
+        let mut count = 0u64;
+        for node in engine.scan_nodes()? {
+            if memory_record_from_node(node).is_some() {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+
+    fn expected_text_index_counts(engine: &StorageEngine) -> Result<(u64, u64)> {
+        let mut record_count = 0u64;
+        let mut posting_entries = 0u64;
+
+        for node in engine.scan_nodes()? {
+            if let Some(record) = memory_record_from_node(node) {
+                record_count += 1;
+                posting_entries += crate::text_index::posting_count(&record.payload);
+            }
+        }
+
+        Ok((record_count, posting_entries))
+    }
+
+    fn current_text_index_count(engine: &StorageEngine) -> Result<u64> {
+        Ok(engine.scan_partition(BackendPartition::TextIndex)?.len() as u64)
+    }
+
+    fn current_derived_index_counts(engine: &StorageEngine) -> Result<(u64, u64)> {
+        let namespace_entries = engine
+            .scan_partition(BackendPartition::NamespaceIndex)?
+            .len() as u64;
+        let payload_entries = engine.scan_partition(BackendPartition::PayloadIndex)?.len() as u64;
+        Ok((namespace_entries, payload_entries))
     }
 
     fn derived_put_ops(record: &VantaMemoryRecord) -> Vec<BackendWriteOp> {
@@ -609,19 +764,199 @@ impl VantaEmbedded {
         let mut ops = Vec::new();
         if let Some(previous) = previous {
             ops.extend(Self::derived_delete_ops(previous));
+            ops.extend(crate::text_index::posting_delete_ops(
+                &previous.namespace,
+                &previous.key,
+                &previous.payload,
+            ));
         }
+        let text_postings_written = current
+            .map(|record| crate::text_index::posting_count(&record.payload))
+            .unwrap_or(0);
         if let Some(current) = current {
             ops.extend(Self::derived_put_ops(current));
+            ops.extend(crate::text_index::posting_put_ops(
+                &current.namespace,
+                &current.key,
+                &current.payload,
+                current.node_id,
+            ));
         }
         if ops.is_empty() {
             return Ok(());
         }
-        engine.write_backend_batch(ops)
+        engine.write_backend_batch(ops)?;
+        Self::adjust_derived_index_state_after_replace(engine, previous, current)?;
+        Self::adjust_text_index_state_after_replace(engine, previous, current)?;
+        crate::metrics::record_text_postings_written(text_postings_written);
+        Ok(())
     }
 
-    fn rebuild_derived_indexes(&self) -> Result<()> {
+    fn adjust_derived_index_state_after_replace(
+        engine: &StorageEngine,
+        previous: Option<&VantaMemoryRecord>,
+        current: Option<&VantaMemoryRecord>,
+    ) -> Result<()> {
+        let Some(mut state) = Self::load_derived_index_state(engine)? else {
+            return Ok(());
+        };
+        if state.schema_version != DERIVED_INDEX_SCHEMA_VERSION {
+            return Ok(());
+        }
+
+        match (previous, current) {
+            (None, Some(current)) => {
+                state.record_count = state.record_count.saturating_add(1);
+                state.namespace_entries = state.namespace_entries.saturating_add(1);
+                state.payload_entries = state
+                    .payload_entries
+                    .saturating_add(current.metadata.len() as u64);
+            }
+            (Some(previous), None) => {
+                state.record_count = state.record_count.saturating_sub(1);
+                state.namespace_entries = state.namespace_entries.saturating_sub(1);
+                state.payload_entries = state
+                    .payload_entries
+                    .saturating_sub(previous.metadata.len() as u64);
+            }
+            (Some(previous), Some(current)) => {
+                state.payload_entries = state
+                    .payload_entries
+                    .saturating_sub(previous.metadata.len() as u64)
+                    .saturating_add(current.metadata.len() as u64);
+            }
+            (None, None) => {}
+        }
+
+        Self::write_derived_index_state(engine, &state)
+    }
+
+    fn adjust_text_index_state_after_replace(
+        engine: &StorageEngine,
+        previous: Option<&VantaMemoryRecord>,
+        current: Option<&VantaMemoryRecord>,
+    ) -> Result<()> {
+        let Some(mut state) = Self::load_text_index_state(engine)? else {
+            return Ok(());
+        };
+        if !Self::text_index_state_matches_spec(&state) {
+            return Ok(());
+        }
+
+        match (previous, current) {
+            (None, Some(current)) => {
+                state.record_count = state.record_count.saturating_add(1);
+                state.posting_entries = state
+                    .posting_entries
+                    .saturating_add(crate::text_index::posting_count(&current.payload));
+            }
+            (Some(previous), None) => {
+                state.record_count = state.record_count.saturating_sub(1);
+                state.posting_entries = state
+                    .posting_entries
+                    .saturating_sub(crate::text_index::posting_count(&previous.payload));
+            }
+            (Some(previous), Some(current)) => {
+                state.posting_entries = state
+                    .posting_entries
+                    .saturating_sub(crate::text_index::posting_count(&previous.payload))
+                    .saturating_add(crate::text_index::posting_count(&current.payload));
+            }
+            (None, None) => {}
+        }
+
+        Self::write_text_index_state(engine, &state)
+    }
+
+    fn ensure_derived_indexes_current(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let state = match Self::load_derived_index_state(&engine) {
+            Ok(state) => state,
+            Err(_) => {
+                self.rebuild_derived_indexes_with_report()?;
+                return Ok(());
+            }
+        };
+
+        let canonical_records = Self::count_memory_records(&engine)?;
+        let (namespace_entries, payload_entries) = Self::current_derived_index_counts(&engine)?;
+
+        let has_state = state.is_some();
+        let needs_rebuild = match &state {
+            Some(state) => {
+                state.schema_version != DERIVED_INDEX_SCHEMA_VERSION
+                    || state.record_count != canonical_records
+                    || state.namespace_entries != namespace_entries
+                    || state.payload_entries != payload_entries
+                    || namespace_entries < canonical_records
+            }
+            None => canonical_records > 0 || namespace_entries > 0 || payload_entries > 0,
+        };
+
+        if needs_rebuild {
+            self.rebuild_derived_indexes_with_report()?;
+        } else if !has_state {
+            Self::write_derived_index_state(
+                &engine,
+                &DerivedIndexState {
+                    schema_version: DERIVED_INDEX_SCHEMA_VERSION,
+                    rebuilt_at_ms: now_ms(),
+                    record_count: canonical_records,
+                    namespace_entries,
+                    payload_entries,
+                },
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn ensure_text_index_current(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let state = match Self::load_text_index_state(&engine) {
+            Ok(state) => state,
+            Err(_) => {
+                crate::metrics::record_text_index_repair();
+                self.rebuild_text_index_with_report()?;
+                return Ok(());
+            }
+        };
+
+        let (canonical_records, expected_postings) = Self::expected_text_index_counts(&engine)?;
+        let current_postings = Self::current_text_index_count(&engine)?;
+
+        let has_state = state.is_some();
+        let needs_rebuild = match &state {
+            Some(state) => {
+                !Self::text_index_state_matches_spec(state)
+                    || state.record_count != canonical_records
+                    || state.posting_entries != current_postings
+                    || state.posting_entries != expected_postings
+                    || current_postings != expected_postings
+            }
+            None => canonical_records > 0 || current_postings > 0,
+        };
+
+        if needs_rebuild {
+            crate::metrics::record_text_index_repair();
+            self.rebuild_text_index_with_report()?;
+        } else if !has_state {
+            Self::write_text_index_state(
+                &engine,
+                &Self::fresh_text_index_state(canonical_records, expected_postings),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn rebuild_derived_indexes_with_report(&self) -> Result<DerivedIndexRebuildReport> {
+        let started = Instant::now();
         let engine = self.engine_handle()?;
         let mut ops = Vec::new();
+        let mut record_count = 0u64;
+        let mut namespace_entries = 0u64;
+        let mut payload_entries = 0u64;
 
         for (key, _value) in engine.scan_partition(BackendPartition::NamespaceIndex)? {
             ops.push(BackendWriteOp::Delete {
@@ -637,14 +972,90 @@ impl VantaEmbedded {
         }
         for node in engine.scan_nodes()? {
             if let Some(record) = memory_record_from_node(node) {
+                record_count += 1;
+                namespace_entries += 1;
+                payload_entries += record.metadata.len() as u64;
                 ops.extend(Self::derived_put_ops(&record));
             }
         }
 
-        if ops.is_empty() {
-            return Ok(());
+        if !ops.is_empty() {
+            engine.write_backend_batch(ops)?;
         }
-        engine.write_backend_batch(ops)
+
+        Self::write_derived_index_state(
+            &engine,
+            &DerivedIndexState {
+                schema_version: DERIVED_INDEX_SCHEMA_VERSION,
+                rebuilt_at_ms: now_ms(),
+                record_count,
+                namespace_entries,
+                payload_entries,
+            },
+        )?;
+
+        let report = DerivedIndexRebuildReport {
+            record_count,
+            namespace_entries,
+            payload_entries,
+            duration_ms: started.elapsed().as_millis() as u64,
+        };
+        crate::metrics::record_derived_rebuild(report.duration_ms);
+        Ok(report)
+    }
+
+    fn rebuild_derived_indexes(&self) -> Result<()> {
+        self.rebuild_derived_indexes_with_report().map(|_| ())
+    }
+
+    fn rebuild_text_index_with_report(&self) -> Result<TextIndexRebuildReport> {
+        let started = Instant::now();
+        let engine = self.engine_handle()?;
+        let mut ops = Vec::new();
+        let mut record_count = 0u64;
+        let mut posting_entries = 0u64;
+
+        for (key, _value) in engine.scan_partition(BackendPartition::TextIndex)? {
+            ops.push(BackendWriteOp::Delete {
+                partition: BackendPartition::TextIndex,
+                key,
+            });
+        }
+
+        for node in engine.scan_nodes()? {
+            if let Some(record) = memory_record_from_node(node) {
+                record_count += 1;
+                let posting_ops = crate::text_index::posting_put_ops(
+                    &record.namespace,
+                    &record.key,
+                    &record.payload,
+                    record.node_id,
+                );
+                posting_entries += posting_ops.len() as u64;
+                ops.extend(posting_ops);
+            }
+        }
+
+        if !ops.is_empty() {
+            engine.write_backend_batch(ops)?;
+        }
+
+        Self::write_text_index_state(
+            &engine,
+            &Self::fresh_text_index_state(record_count, posting_entries),
+        )?;
+
+        let report = TextIndexRebuildReport {
+            record_count,
+            posting_entries,
+            duration_ms: started.elapsed().as_millis() as u64,
+        };
+        crate::metrics::record_text_index_rebuild(report.duration_ms, report.posting_entries);
+        Ok(report)
+    }
+
+    fn rebuild_text_index(&self) -> Result<()> {
+        self.rebuild_text_index_with_report().map(|_| ())
     }
 
     fn indexed_ids_by_namespace(
@@ -653,15 +1064,14 @@ impl VantaEmbedded {
         namespace: &str,
     ) -> Result<(Vec<u64>, bool)> {
         let prefix = namespace_index_prefix(namespace);
-        let entries = engine.scan_partition(BackendPartition::NamespaceIndex)?;
+        let entries = engine.scan_partition_prefix(BackendPartition::NamespaceIndex, &prefix)?;
         let mut ids = Vec::new();
-        let has_index_entries = !entries.is_empty();
+        let has_index_entries = Self::load_derived_index_state(engine)?.is_some();
+        crate::metrics::record_derived_prefix_scan();
 
-        for (key, value) in entries {
-            if key.starts_with(&prefix) {
-                if let Some(node_id) = decode_node_id(&value) {
-                    ids.push(node_id);
-                }
+        for (_key, value) in entries {
+            if let Some(node_id) = decode_node_id(&value) {
+                ids.push(node_id);
             }
         }
 
@@ -676,15 +1086,14 @@ impl VantaEmbedded {
         value: &VantaValue,
     ) -> Result<(Vec<u64>, bool)> {
         let prefix = payload_index_prefix(namespace, field, value);
-        let entries = engine.scan_partition(BackendPartition::PayloadIndex)?;
+        let entries = engine.scan_partition_prefix(BackendPartition::PayloadIndex, &prefix)?;
         let mut ids = Vec::new();
-        let has_index_entries = !entries.is_empty();
+        let has_index_entries = Self::load_derived_index_state(engine)?.is_some();
+        crate::metrics::record_derived_prefix_scan();
 
-        for (key, value) in entries {
-            if key.starts_with(&prefix) {
-                if let Some(node_id) = decode_node_id(&value) {
-                    ids.push(node_id);
-                }
+        for (_key, value) in entries {
+            if let Some(node_id) = decode_node_id(&value) {
+                ids.push(node_id);
             }
         }
 
@@ -722,6 +1131,7 @@ impl VantaEmbedded {
         }
 
         if records.is_empty() && !has_index_entries {
+            crate::metrics::record_derived_full_scan_fallback();
             for node in engine.scan_nodes()? {
                 if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
@@ -977,8 +1387,11 @@ impl VantaEmbedded {
 
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
         let report = self.engine_handle()?.rebuild_vector_index()?;
-        self.rebuild_derived_indexes()?;
-        Ok(report.into())
+        let derived = self.rebuild_derived_indexes_with_report()?;
+        self.rebuild_text_index_with_report()?;
+        let mut report: VantaIndexRebuildReport = report.into();
+        report.derived_rebuild_ms = derived.duration_ms;
+        Ok(report)
     }
 
     pub fn export_namespace(
@@ -1024,6 +1437,7 @@ impl VantaEmbedded {
             writer.write_all(b"\n").map_err(VantaError::IoError)?;
         }
         writer.flush().map_err(VantaError::IoError)?;
+        crate::metrics::record_export(records_exported);
 
         Ok(VantaExportReport {
             records_exported,
@@ -1053,7 +1467,9 @@ impl VantaEmbedded {
         }
 
         self.rebuild_derived_indexes()?;
+        self.rebuild_text_index()?;
         report.duration_ms = started.elapsed().as_millis() as u64;
+        crate::metrics::record_import(report.inserted + report.updated, report.errors);
         Ok(report)
     }
 
@@ -1084,8 +1500,84 @@ impl VantaEmbedded {
         let mut report = self.import_records(records)?;
         report.skipped += skipped;
         report.errors += errors;
+        if errors > 0 {
+            crate::metrics::record_import(0, errors);
+        }
         report.duration_ms = started.elapsed().as_millis() as u64;
         Ok(report)
+    }
+
+    pub fn operational_metrics(&self) -> VantaOperationalMetrics {
+        crate::metrics::operational_metrics_snapshot().into()
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_corrupt_derived_index_state_for_tests(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        engine.put_to_partition(
+            BackendPartition::InternalMetadata,
+            DERIVED_INDEX_STATE_KEY,
+            b"corrupt-derived-index-state",
+        )
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_clear_derived_indexes_for_tests(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let mut ops = Vec::new();
+        for (key, _value) in engine.scan_partition(BackendPartition::NamespaceIndex)? {
+            ops.push(BackendWriteOp::Delete {
+                partition: BackendPartition::NamespaceIndex,
+                key,
+            });
+        }
+        for (key, _value) in engine.scan_partition(BackendPartition::PayloadIndex)? {
+            ops.push(BackendWriteOp::Delete {
+                partition: BackendPartition::PayloadIndex,
+                key,
+            });
+        }
+        engine.write_backend_batch(ops)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_corrupt_text_index_state_for_tests(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        engine.put_to_partition(
+            BackendPartition::InternalMetadata,
+            TEXT_INDEX_STATE_KEY,
+            b"corrupt-text-index-state",
+        )
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_clear_text_index_for_tests(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let mut ops = Vec::new();
+        for (key, _value) in engine.scan_partition(BackendPartition::TextIndex)? {
+            ops.push(BackendWriteOp::Delete {
+                partition: BackendPartition::TextIndex,
+                key,
+            });
+        }
+        engine.write_backend_batch(ops)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_text_index_posting_keys_for_tests(&self) -> Result<Vec<Vec<u8>>> {
+        let engine = self.engine_handle()?;
+        let mut keys: Vec<Vec<u8>> = engine
+            .scan_partition(BackendPartition::TextIndex)?
+            .into_iter()
+            .map(|(key, _value)| key)
+            .collect();
+        keys.sort();
+        Ok(keys)
     }
 
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {
@@ -1170,8 +1662,30 @@ impl From<IndexRebuildReport> for VantaIndexRebuildReport {
             indexed_vectors: report.indexed_vectors,
             skipped_tombstones: report.skipped_tombstones,
             duration_ms: report.duration_ms,
+            derived_rebuild_ms: 0,
             index_path: report.index_path.to_string_lossy().into_owned(),
             success: report.success,
+        }
+    }
+}
+
+impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetrics {
+    fn from(metrics: crate::metrics::OperationalMetricsSnapshot) -> Self {
+        Self {
+            startup_ms: metrics.startup_ms,
+            wal_replay_ms: metrics.wal_replay_ms,
+            wal_records_replayed: metrics.wal_records_replayed,
+            ann_rebuild_ms: metrics.ann_rebuild_ms,
+            ann_rebuild_scanned_nodes: metrics.ann_rebuild_scanned_nodes,
+            derived_rebuild_ms: metrics.derived_rebuild_ms,
+            text_index_rebuild_ms: metrics.text_index_rebuild_ms,
+            text_postings_written: metrics.text_postings_written,
+            text_index_repairs: metrics.text_index_repairs,
+            records_exported: metrics.records_exported,
+            records_imported: metrics.records_imported,
+            import_errors: metrics.import_errors,
+            derived_prefix_scans: metrics.derived_prefix_scans,
+            derived_full_scan_fallbacks: metrics.derived_full_scan_fallbacks,
         }
     }
 }

@@ -40,6 +40,10 @@ pub(crate) enum BackendPartition {
     NamespaceIndex,
     /// Derived metadata equality index for persistent memory filters.
     PayloadIndex,
+    /// Derived inverted index for persistent memory payload tokens.
+    TextIndex,
+    /// Internal metadata used for derived-state health markers.
+    InternalMetadata,
 }
 
 impl BackendPartition {
@@ -53,6 +57,8 @@ impl BackendPartition {
             BackendPartition::Tombstones => "tombstones",
             BackendPartition::NamespaceIndex => "namespace_index",
             BackendPartition::PayloadIndex => "payload_index",
+            BackendPartition::TextIndex => "text_index",
+            BackendPartition::InternalMetadata => "internal_metadata",
         }
     }
 }
@@ -119,6 +125,16 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// Returns a materialized `Vec` to avoid iterator lifetime issues
     /// behind `dyn Trait`. Not intended for hot-path use.
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+
+    /// Return key-value pairs whose keys start with `prefix`.
+    ///
+    /// This is intended for derived indexes and should avoid materializing
+    /// unrelated entries from the same partition.
+    fn scan_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
 
     /// Flush all pending writes to durable storage.
     fn flush(&self) -> Result<()>;

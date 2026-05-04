@@ -44,7 +44,19 @@ vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jso
 vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
 ```
 
-## 4. Server Wrapper Environment Variables
+## 4. Operational Metrics
+
+The embedded SDK exposes diagnostic metrics for:
+
+- startup duration
+- WAL replay duration and records replayed
+- ANN and derived-index rebuild duration
+- exported/imported record counts
+- import errors
+
+These metrics are for engineering decisions and reliability gates. They should not be presented as memory-footprint or competitive benchmark claims.
+
+## 5. Server Wrapper Environment Variables
 
 If you run the optional local HTTP wrapper:
 
@@ -56,7 +68,7 @@ If you run the optional local HTTP wrapper:
 | `VANTADB_THREADS` | Tokio worker count override. | `auto` |
 | `RUST_LOG` | Logging verbosity. | `info` |
 
-## 5. Memory Telemetry Caveat
+## 6. Memory Telemetry Caveat
 
 Current telemetry must be interpreted carefully:
 
@@ -64,6 +76,6 @@ Current telemetry must be interpreted carefully:
 - process-scoped metrics do not equal mmap residency or page cache
 - memory claims should use the contract in [MEMORY_TELEMETRY.md](MEMORY_TELEMETRY.md)
 
-## 6. SIMD and Build Behavior
+## 7. SIMD and Build Behavior
 
 VantaDB still uses the runtime hardware profile to choose fast paths where available, but public claims should stay tied to validated behavior rather than to a specific SIMD tier alone.

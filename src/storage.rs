@@ -214,6 +214,7 @@ impl StorageEngine {
     /// Open with explicit configuration for memory budgets and mode overrides.
     /// Used by the Python SDK to inject per-instance memory limits.
     pub fn open_with_config(path: &str, config: Option<EngineConfig>) -> Result<Self> {
+        let startup_started = Instant::now();
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
 
@@ -270,6 +271,7 @@ impl StorageEngine {
         if hnsw.nodes.is_empty() {
             let report =
                 Self::rebuild_hnsw_from_vstore(&mut hnsw, &vector_store, index_path.clone())?;
+            crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
             if report.scanned_nodes > 0 {
                 info!(
                     scanned_nodes = report.scanned_nodes,
@@ -283,20 +285,21 @@ impl StorageEngine {
 
         // ── WAL Replay: recover un-flushed mutations ──────────────
         let wal_path = data_dir.join("vanta.wal");
+        let mut wal_replay_ms = 0u64;
+        let mut wal_records_replayed = 0u64;
         if wal_path.exists() {
+            let wal_replay_started = Instant::now();
             let mut wal_reader = crate::wal::WalReader::open(&wal_path)?;
-            let mut replayed = 0u64;
             while let Some(record) = wal_reader.next_record()? {
+                wal_records_replayed += 1;
                 match record {
                     crate::wal::WalRecord::Insert(node) => {
                         let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
                         hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
-                        replayed += 1;
                     }
                     crate::wal::WalRecord::Update { id, node } => {
                         let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
                         hnsw.add(id, node.bitset, node.vector.clone(), offset);
-                        replayed += 1;
                     }
                     crate::wal::WalRecord::Delete { id } => {
                         if let Some(index_node) = hnsw.nodes.get(&id) {
@@ -311,8 +314,13 @@ impl StorageEngine {
                     crate::wal::WalRecord::Checkpoint { .. } => {}
                 }
             }
-            if replayed > 0 {
-                info!(replayed, "WAL replay: recovered un-flushed mutations");
+            wal_replay_ms = wal_replay_started.elapsed().as_millis() as u64;
+            if wal_records_replayed > 0 {
+                info!(
+                    replayed = wal_records_replayed,
+                    duration_ms = wal_replay_ms,
+                    "WAL replay: recovered un-flushed mutations"
+                );
             }
         }
 
@@ -321,6 +329,12 @@ impl StorageEngine {
         let admission_filter = crate::governance::admission_filter::AdmissionFilter::new(100_000);
         let consistency_buffer = crate::governance::consistency::ConsistencyBuffer::new();
         let conflict_resolver = crate::governance::conflict_resolver::ConflictResolver::new();
+
+        crate::metrics::record_startup(
+            startup_started.elapsed().as_millis() as u64,
+            wal_replay_ms,
+            wal_records_replayed,
+        );
 
         Ok(Self {
             backend,
@@ -534,6 +548,7 @@ impl StorageEngine {
             *hnsw = rebuilt;
         }
         self.save_vector_index();
+        crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
 
         Ok(report)
     }
@@ -922,6 +937,22 @@ impl StorageEngine {
         self.backend.scan(partition)
     }
 
+    pub(crate) fn scan_partition_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.scan_prefix(partition, prefix)
+    }
+
+    pub(crate) fn get_from_partition(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>> {
+        self.backend.get(partition, key)
+    }
+
     /// Request backend compaction.
     ///
     /// Used by MaintenanceWorker after high tombstone volume.
@@ -966,6 +997,8 @@ impl StorageEngine {
             "tombstones" => Ok(BackendPartition::Tombstones),
             "namespace_index" => Ok(BackendPartition::NamespaceIndex),
             "payload_index" => Ok(BackendPartition::PayloadIndex),
+            "text_index" => Ok(BackendPartition::TextIndex),
+            "internal_metadata" => Ok(BackendPartition::InternalMetadata),
             other => Err(VantaError::Execution(format!(
                 "Unknown column family: '{}'",
                 other
