@@ -67,11 +67,12 @@ Este checklist define el corte inmediato del repositorio después del release t�
 ## 9. Siguiente corte técnico
 
 - [x] Convertir el scaffold textual en índice invertido persistente reconstruible.
-- [ ] Definir BM25 y RRF sobre el índice textual, sin claims competitivos todavía.
+- [x] Definir BM25 texto-only sobre el índice textual, sin claims competitivos todavía.
+- [ ] Definir RRF/planner sobre rankings lexicales y vectoriales.
 - [ ] Evaluar Euclidean/SIFT solo como habilitador de benchmark serio.
 
 ## 10. Cierre operativo antes de BM25
 
 - [x] Restituir tracker fuente de verdad en `seguimiento de proyecto.csv`.
 - [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
-- [x] Mantener `text_query` deshabilitado hasta BM25/RRF.
+- [x] Habilitar `text_query` texto-only y mantener hybrid diferido hasta RRF/planner.

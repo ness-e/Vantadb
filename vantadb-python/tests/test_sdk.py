@@ -164,6 +164,23 @@ class TestPersistentMemoryApi:
         assert len(hits) == 1
         assert hits[0]["record"]["key"] == "task-1"
 
+        text_hits = db.search_memory(
+            "agent/main",
+            [],
+            text_query="memory API",
+            top_k=3,
+        )
+        assert len(text_hits) == 1
+        assert text_hits[0]["record"]["key"] == "task-1"
+
+        with pytest.raises(RuntimeError):
+            db.search_memory(
+                "agent/main",
+                [1.0, 0.0, 0.0],
+                text_query="memory API",
+                top_k=3,
+            )
+
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
         path = _unique_path()
@@ -238,6 +255,11 @@ class TestPersistentMemoryApi:
         assert "text_index_rebuild_ms" in after
         assert "text_postings_written" in after
         assert "text_index_repairs" in after
+        assert "text_lexical_queries" in after
+        assert "text_lexical_query_ms" in after
+        assert "text_candidates_scored" in after
+        assert "text_consistency_audits" in after
+        assert "text_consistency_audit_failures" in after
         assert "records_exported" in after
         assert after["ann_rebuild_scanned_nodes"] >= rebuild["scanned_nodes"]
         assert after["records_exported"] >= before["records_exported"] + 1

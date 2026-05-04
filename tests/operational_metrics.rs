@@ -1,7 +1,7 @@
 //! Operational metrics certification for replay, rebuild, export, and import.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput};
+use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
 #[test]
 fn metrics_track_rebuild_export_import_and_replay() {
@@ -27,6 +27,22 @@ fn metrics_track_rebuild_export_import_and_replay() {
     let after_rebuild = reopened.operational_metrics();
     assert!(after_rebuild.ann_rebuild_scanned_nodes >= rebuild.scanned_nodes);
     assert!(after_rebuild.text_postings_written >= 1);
+    assert_eq!(after_rebuild.text_consistency_audit_failures, 0);
+
+    let before_text = reopened.operational_metrics();
+    let text_hits = reopened
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("payload".to_string()),
+            top_k: 5,
+        })
+        .expect("text search");
+    assert_eq!(text_hits.len(), 1);
+    let after_text = reopened.operational_metrics();
+    assert!(after_text.text_lexical_queries >= before_text.text_lexical_queries + 1);
+    assert!(after_text.text_candidates_scored >= before_text.text_candidates_scored + 1);
 
     let before_export = reopened.operational_metrics();
     let export = reopened.export_all(&export_path).expect("export");

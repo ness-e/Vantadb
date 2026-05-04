@@ -17,9 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Derived-index state validation and repair on open.
 - Minimal text-index tokenizer/key-shape scaffold before BM25/RRF.
 - Persistent inverted text index for memory payload postings, with rebuild, repair-on-open, import rebuild, and operational metrics.
+- BM25 text-only memory search over the persistent text index, including TF postings, DF/doc-length/namespace corpus stats, metadata filters, deterministic ordering, and read-only compatibility errors for stale schemas.
+- Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
-- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, and import/export reconstruction.
+- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
 
 ### Changed
 
@@ -27,11 +29,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Documented a process-scoped memory telemetry contract and added a controlled validation harness.
 - Stabilized the embedded SDK boundary as the supported path for the Python binding.
 - Expanded the embedded CLI from `put/get/list` to include rebuild and JSONL movement flows.
-- Kept public `text_query` disabled until BM25/RRF and planner behavior exist.
+- Enabled public text-only `text_query` with BM25 while keeping hybrid `text_query + query_vector` disabled until RRF/planner behavior exists.
 
 ### Deferred
 
-- BM25/RRF and true lexical hybrid ranking.
+- RRF/planner-backed true hybrid text+vector ranking.
+- Phrase queries, snippets, positions, and tokenizer evolution beyond `lowercase-ascii-alnum`.
 - PyPI, wheels, signing, and external distribution hardening.
 
 ## [v0.1.0] - Initial MVP Release

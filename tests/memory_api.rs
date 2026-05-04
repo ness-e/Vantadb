@@ -133,11 +133,23 @@ fn memory_api_filters() {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.key, "first");
 
+    let text_hits = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("second".to_string()),
+            top_k: 5,
+        })
+        .expect("text-only search");
+    assert_eq!(text_hits.len(), 1);
+    assert_eq!(text_hits[0].record.key, "second");
+
     let text_query = db.search(VantaMemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![1.0, 0.0, 0.0],
         filters: Default::default(),
-        text_query: Some("not yet".to_string()),
+        text_query: Some("hybrid still deferred".to_string()),
         top_k: 5,
     });
     assert!(text_query.is_err());

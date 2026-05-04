@@ -2,6 +2,9 @@
 
 Date: 2026-05-04
 
+Note: this document records the phase-1 state before BM25. The current
+architecture state is tracked in `docs/architecture/TEXT_INDEX_DESIGN.md`.
+
 ## Status
 
 Closed for phase 1. VantaDB now has a persistent inverted index for memory

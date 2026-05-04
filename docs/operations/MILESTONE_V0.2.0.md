@@ -40,7 +40,7 @@ El bloque posterior ya quedó implementado en repo:
 
 - Modelo canónico de memoria persistente en el SDK, separado de `UnifiedNode`.
 - Namespaces first-class con identidad lógica `namespace + key`.
-- API mínima `put/get/delete/list/search` con `text_query` rechazado explícitamente hasta BM25/RRF.
+- API mínima `put/get/delete/list/search` con BM25 para `text_query` texto-only y rechazo explícito de hybrid hasta RRF/planner.
 - Python SDK con flujo de memoria y compatibilidad con APIs legacy.
 - CLI embebida para `put/get/list`.
 - Rebuild ANN manual desde VantaFile/storage canónico.

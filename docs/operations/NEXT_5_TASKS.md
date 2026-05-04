@@ -18,30 +18,32 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - [x] Add JSONL memory export/import by namespace and full database.
 - [x] Add derived namespace and payload indexes for namespace listing and equality filters.
 - [x] Add brutality/KPI tests covering recovery, rebuild, export/import, and 10K records.
+- [x] Add persistent BM25-ready text-index stats and text-only lexical retrieval.
 
 ## Current product surface
 
 - Rust SDK: `put/get/delete/list/search/list_namespaces/rebuild_index/export_namespace/export_all/import_records/import_file`.
 - Python SDK: `put/get_memory/delete_memory/list_memory/search_memory/rebuild_index/export_namespace/export_all/import_file`.
 - CLI: embedded `put/get/list/rebuild-index/export/import`.
-- Search remains vector + structured filters only. `text_query` still returns a clear BM25/RRF deferred error.
-- Text-index postings for payload are persisted internally and maintained as a derived index.
+- Search supports vector + structured filters and BM25 text-only `text_query`.
+- Requests that combine `text_query` and `query_vector` still return a clear RRF/planner deferred error.
+- Text-index postings and BM25 stats for payload are persisted internally and maintained as a derived index.
 
 ## Known limits still accepted
 
 - Derived indexes are persisted, reconstructible, and queried through backend prefix scans.
-- Text-index postings are persisted, reconstructible, and validated through state/count markers.
-- Startup, WAL replay, ANN rebuild, derived rebuild, text-index rebuild/repair, export, import, and import errors have structured operational metrics.
+- Text-index postings/stats are persisted, reconstructible, and validated through state/count markers plus debug structural audit.
+- Startup, WAL replay, ANN rebuild, derived rebuild, text-index rebuild/repair, lexical query, export, import, and import errors have structured operational metrics.
 - Derived-index state is validated on open and repaired from canonical records when stale or corrupt.
 - Text-index state is validated on writable open and repaired from canonical records when stale or corrupt.
 - Export/import is JSONL v1 and intentionally simple; it is not a migration framework or backup format with checksums.
-- Text-index persistence is not wired into public search.
+- Text-only lexical search is wired into public memory search; hybrid text+vector is not.
 - The server wrapper is not the primary product boundary.
 
 ## Deferred tasks
 
-- BM25/RRF and planner-backed hybrid ranking.
+- RRF and planner-backed hybrid ranking.
 - Euclidean/SIFT competitive benchmark validation.
 - PyPI/wheels/signing.
 - Server wrapper decision.
-- BM25 scoring, RRF fusion, and planner-backed hybrid ranking.
+- Phrase queries, snippets, positions, and tokenizer evolution beyond `lowercase-ascii-alnum`.
