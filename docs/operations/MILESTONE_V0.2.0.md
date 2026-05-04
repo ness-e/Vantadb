@@ -18,7 +18,7 @@ Cerrar el gap entre el núcleo técnico que ya existe y la forma en que el repos
 ### 3. Embedded SDK stabilization
 - [x] Mantener `src/sdk.rs` como boundary estable interno.
 - [x] Mantener el binding Python detrás de ese boundary.
-- [x] Diferir PyPI, wheels, signing e instaladores.
+- [x] Preparar CI de wheels/TestPyPI y diferir PyPI de producción, signing e instaladores.
 
 ### 4. Reliability gate
 - [x] Durability recovery green
@@ -40,7 +40,7 @@ El bloque posterior ya quedó implementado en repo:
 
 - Modelo canónico de memoria persistente en el SDK, separado de `UnifiedNode`.
 - Namespaces first-class con identidad lógica `namespace + key`.
-- API mínima `put/get/delete/list/search` con vector-only, BM25 texto-only y Hybrid Retrieval v1 con RRF/planner mínimo.
+- API mínima `put/get/delete/list/search` con vector-only, BM25 texto-only, phrase query básica y Hybrid Retrieval v1 con RRF/planner mínimo.
 - Python SDK con flujo de memoria y compatibilidad con APIs legacy.
 - CLI embebida para `put/get/list`.
 - Rebuild ANN manual desde VantaFile/storage canónico.

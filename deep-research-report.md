@@ -1,177 +1,139 @@
-# Estado actual de VantaDB
+# Estado actual de VantaDB después de Hybrid Retrieval v1
 
-## Diagnóstico ejecutivo
+## Resumen ejecutivo
 
-VantaDB quedó en una posición mucho mejor definida de la que tenía al inicio del ciclo. El snapshot auditable más reciente del repo que compartiste corresponde a `main` en el commit `43cd3dc` y ya describe un producto enfocado: motor embebido de memoria persistente, recuperación vía WAL, recuperación y rebuild de índices derivados, búsqueda vectorial HNSW por cosine, filtros estructurados por metadata, export/import JSONL, boundary estable en `src/sdk.rs` y surface operativa en Rust, Python y CLI. Además, la documentación de milestone, changelog y Python SDK ya lo ubica con `text_query` texto-only vía BM25 y con el modo híbrido `text_query + vector` todavía diferido hasta que exista RRF/planner. En otras palabras: el proyecto ya no está en fase de infraestructura básica; ya entró en fase de retrieval utilizable, aunque todavía no cerró su contrato de búsqueda híbrida. fileciteturn0file0
+VantaDB ya no está en la fase de “motor base con memoria persistente”, ni tampoco en la fase “índice textual interno sin uso público”. Con la evolución visible entre los snapshots `ae198c7`, `43cd3dc` y `e28e37a`, el proyecto pasó de tener un **índice textual persistente reconstruible**, a **BM25 texto-only**, y finalmente a **Hybrid Retrieval v1** con planner mínimo y fusión por RRF. En términos prácticos, el core ya soporta tres rutas de recuperación: **vector-only**, **BM25 text-only** y **hybrid text+vector**. Eso cambia el estado del proyecto de “infraestructura de memoria confiable” a **motor embebido de retrieval local con cobertura híbrida inicial**. fileciteturn14file2 fileciteturn14file1 fileciteturn14file0
 
-La conclusión dura, pero correcta, es esta: **el proyecto ya es serio como core embebido**, pero **todavía no es serio como producto de hybrid search completo**. Esa distinción importa porque define qué puedes afirmar, qué debes seguir construyendo y qué debes dejar de prometer. fileciteturn0file0
+La lectura ejecutiva correcta es esta: **el proyecto quedó técnicamente mucho más sólido y comercialmente más defendible, pero todavía no está listo para venderse como un buscador híbrido competitivo de primer nivel**. El propio diseño actualizado deja claro que la implementación actual es conservadora: BM25, planner mínimo, RRF, métricas operacionales y una postura explícita de no hacer claims agresivos de paridad competitiva. Esa honestidad es una fortaleza, pero también delata el siguiente cuello de botella: ahora el problema ya no es “tener hybrid”, sino **endurecerlo, medirlo, explicarlo y distribuirlo bien**. fileciteturn14file0
 
-## Cómo quedó el producto
+Mi conclusión directa es que VantaDB está entrando en una etapa nueva. **La fase fundacional ya está cerrada**. El siguiente ciclo no debería gastar energía en más primitives básicas. Debería concentrarse en cuatro frentes: **hardening del hybrid**, **calidad de recuperación léxica**, **distribución/release engineering**, y **validación comparativa seria sin vender humo**. Si haces eso, el producto gana forma. Si te dispersas con features laterales o marketing prematuro, el repositorio mismo te va a desmentir. fileciteturn14file0 fileciteturn14file1
 
-Hoy VantaDB debe describirse sin humo: no como “multimodel universal”, no como plataforma enterprise, y no como motor híbrido completo. Debe describirse como un **embedded persistent memory engine** con namespaces first-class, records canónicos, búsquedas vectoriales, filtros estructurados y una ruta lexical BM25 texto-only ya incorporada a la API de memoria. La CLI embebida, el SDK de Rust y el binding de Python ya cubren `put/get/delete/list/search`, rebuild manual, export/import y métricas operativas. El servidor existe, pero no es el boundary principal del producto. fileciteturn0file0
+## Cómo quedó el proyecto
 
-El salto técnico importante de esta fase es que el bloque textual dejó de ser una simple estructura interna y ya se convirtió en un path de búsqueda lexical real. Según el diff más reciente que compartiste, BM25 texto-only ya corre sobre postings persistentes con TF y estadísticas persistidas por término, documento y corpus por namespace; además, el path híbrido sigue rechazado de forma explícita mientras no exista RRF/planner. Esa decisión es correcta. Habilitar híbrido sin contrato de ranking habría sido un error de producto, no una victoria técnica.
+La trayectoria reciente del repo es bastante clara. En el snapshot `ae198c7`, el índice textual persistente ya existía, se reconstruía desde registros canónicos y reparaba estado corrupto en apertura writable, pero `text_query` seguía deshabilitado públicamente hasta tener BM25/RRF/planner. En `43cd3dc`, ese gap se cerró parcialmente con **BM25 texto-only**, incluyendo TF, DF, longitudes de documento, estadísticas de corpus por namespace y auditoría estructural del índice textual. En `e28e37a`, el diseño interno ya documenta **Hybrid Retrieval v1**, con planner mínimo, ejecución separada de vector y BM25, y fusión por **Reciprocal Rank Fusion** sobre `namespace + key`. fileciteturn14file2 fileciteturn14file1 fileciteturn14file0
 
-## Fortalezas reales
+La lectura técnica actual del producto es: **motor embebido de memoria persistente**, con registros canónicos como source of truth, WAL para recuperación, reconstrucción manual del índice ANN, índices derivados persistentes para namespace/metadata, índice textual persistente con estadísticas BM25, y búsqueda híbrida inicial sin mezclar scores crudos BM25/cosine. El diseño actualizado además fija un comportamiento concreto: BM25 usa `k1 = 1.2` y `b = 0.75`; hybrid ejecuta ambos rankings por separado, fusiona con RRF, usa `60.0` como constante interna y un candidate budget dependiente de `top_k`, y luego trunca el resultado final a `top_k`. fileciteturn14file0
 
-La mayor fortaleza del proyecto no es una feature aislada; es la arquitectura. Tienes una línea de diseño coherente: records canónicos como source of truth, índices derivados reconstruibles desde esos records, repair-on-open, export/import centrado en estado canónico, y un boundary estable en `src/sdk.rs` que evita exponer internals peligrosos al SDK de Python. Eso reduce deuda técnica futura, evita acoplamiento innecesario y hace que recovery, rebuild y paridad entre superficies sean defendibles. fileciteturn0file0
+Según tu propio reporte, también se extendieron las métricas y las pruebas Rust/Python para hybrid, filtros, namespace, ordenamiento determinista, reapertura, import/export y read-only. Tomando eso junto con el diseño del snapshot más reciente, el resultado es que el proyecto ya no tiene solo “soporte técnico interno” para texto, sino **una ruta pública utilizable para retrieval híbrido v1**, aunque todavía bajo una narrativa conscientemente conservadora. fileciteturn14file0
 
-La segunda fortaleza es la validación. No te quedaste en “compila en mi máquina”. En la evidencia visible hay ejecución satisfactoria de `cargo fmt --check`, suites Rust para `memory_api`, `memory_export_import`, `derived_indexes`, `derived_index_recovery`, `derived_index_prefix_scan`, `operational_metrics`, `text_index_recovery`, `memory_brutality`, build del wheel vía `maturin` y `pytest` del SDK Python. Los logs mostrados confirman green en recovery, rebuild, export/import, filtros, restart y smoke de volumen. Eso no te da marketing; te da algo más valioso: credibilidad técnica. fileciteturn0file2
+### Matriz de estado actual
 
-También es una fortaleza que el repositorio ya haya corregido su narrativa. La documentación insiste en limitar los claims a lo que existe hoy: memoria persistente embebida, vector retrieval por cosine, filtros estructurados, índices derivados persistentes, repair-on-open y Python source-install, dejando explícitamente fuera la historia de “hybrid completo”, PyPI listo y posicionamiento enterprise. Esa honestidad no es cosmética; es disciplina de producto. fileciteturn0file0
+| Bloque | Estado actual | Lectura ejecutiva |
+|---|---|---|
+| Core embebido + WAL + VantaFile + ANN | Cerrado | Ya no es el problema principal |
+| Memory MVP con namespaces, CRUD, list/search | Cerrado | Base estable del producto |
+| Export/import JSONL | Cerrado | Útil operativamente, todavía no es un sistema de backup “enterprise” |
+| Índices derivados namespace/payload | Cerrado | Filtros estructurados ya son parte seria del core |
+| Índice textual persistente | Cerrado | Ya no es scaffold; es infraestructura real |
+| BM25 texto-only | Cerrado | El texto ya tiene ranking léxico concreto |
+| Hybrid Retrieval v1 | Cerrado | Ya existe, pero en versión conservadora y mínima |
+| Explainability / debug de ranking | Abierto | Necesario para endurecer el feature |
+| Calidad lingüística avanzada | Abierto | Sin phrases, snippets, stemming, stopwords ni Unicode folding |
+| Distribución Python/packaging | Abierto | Sigue siendo deuda real de adopción |
+| Benchmark competitivo serio | Abierto | Todavía no deberías vender “paridad” |
 
-## Debilidades y riesgos
+La base documental que respalda esa lectura es consistente en la dirección general, aunque no perfecta en su coherencia interna. `TEXT_INDEX_DESIGN.md` ya habla de Hybrid Retrieval v1; `MUTATION_RECOVERY_PROTOCOL.md` también lo reconoce; `MEMORY_MVP_BASELINE.md` ya no describe el producto como solo vector + filtros. Pero hay señales de deriva documental: parte de la arquitectura general todavía arrastra wording que niega BM25/RRF/planner como “shipped claim”, algo que ya no coincide con el diseño textual actualizado. Eso no rompe el software, pero sí rompe la narrativa del repositorio si no lo corriges de inmediato. fileciteturn14file0
 
-La debilidad principal ya no es infraestructura. Es **cierre de producto**. Mientras `text_query + query_vector` siga bloqueado, VantaDB todavía tiene dos rutas de retrieval útiles, pero no una sola historia de búsqueda integrada. Tienes vector search. Tienes BM25 texto-only. No tienes todavía una experiencia híbrida cerrada. Si intentas vender “hybrid search” antes de resolver RRF/planner, repites exactamente el error de sobreclaim que la documentación ya había corregido antes. fileciteturn0file0
+## Estado operativo y nivel de madurez real
 
-La segunda debilidad es calidad lexical. Incluso con BM25 ya activo, el sistema sigue con una tokenización austera y sin varias capas que un usuario comparará tarde o temprano: stemming, stopwords, Unicode folding, phrase queries, posiciones y snippets. No digo que debas implementarlo ya; digo que esa deuda existe y que hoy no puedes competir en percepción contra motores full-text maduros si te comparan en esa dimensión. Tu ventaja actual no está allí. fileciteturn0file0
+Hoy sí puedes describir VantaDB, con bastante precisión, como un **embedded persistent memory engine** con tres rutas de recuperación: recuperación vectorial HNSW por coseno, recuperación léxica BM25 sobre índice persistente, y recuperación híbrida texto+vector mediante planner mínimo y RRF. También puedes sostener que el sistema mantiene un estándar serio de confiabilidad: registros canónicos como fuente de verdad, índices derivados reconstruibles, repair-on-open para estado corrupto o stale, export/import simple y métricas operacionales explícitas. Esa combinación ya no es trivial; es una base bastante decente para un producto local-first. fileciteturn14file0
 
-La tercera debilidad es distribución y packaging. El Python SDK sigue en modo source-install y la deuda de PyPI/wheels/signing sigue abierta. Eso no bloquea el desarrollo del motor, pero sí bloquea parte de la adopción externa y de la narrativa comercial. Y la cuarta debilidad es operativa: JSONL export/import está correctamente documentado como flujo simple, no como sistema robusto de backup o framework de migración. Está bien así, pero hay que respetar ese límite. fileciteturn0file0
+Lo que **no** deberías afirmar todavía es igual de importante. No deberías venderlo como “hybrid retrieval competitivo” frente a motores maduros. No deberías presentar el paquete Python como listo para distribución externa. No deberías sugerir que existe explainability rica del ranking, soporte lingüístico serio, phrase search, snippets o tuning avanzado del planner. Tampoco deberías mover el posicionamiento hacia enterprise/managed/server-first, porque la propia documentación sigue ubicando la frontera principal del producto en el core embebido y el SDK estable. fileciteturn14file0 fileciteturn14file1
 
-## Fortalezas y debilidades traducidas a oportunidad
+La validación que mostraste también importa. Aunque aquí no tengo un log del snapshot híbrido equivalente al de la fase textual previa, tu reporte indica que pasaron `cargo fmt --check`, la suite de tests Rust clave, `memory_brutality`, build del wheel con `maturin`, reinstalación del wheel y el `pytest` del SDK Python. Si eso se sostiene también en CI limpia, el proyecto queda en un estado que yo llamaría **feature-complete para Hybrid v1 local**, pero **todavía no production-complete como experiencia de búsqueda**. Esa distinción importa porque evita saltar de “funciona” a “ya está listo para competir” sin evidencia suficiente. La fase textual previa ya mostraba una disciplina fuerte de validación en Rust y Python, lo que vuelve creíble tu progresión actual. fileciteturn14file3
 
-La oportunidad más inteligente para VantaDB no es intentar ganarle a motores de búsqueda textual maduros en su terreno ni presentarse como una gran plataforma “todo en uno”. La oportunidad real, por inferencia del surface actual, es dominar el espacio de **motor embebido, durable, local-first**, con buen boundary para Rust/Python, recuperación fuerte, rebuild explícito, namespaces, filtros estructurados y una historia clara de memoria persistente. Ese posicionamiento es mucho más defendible con lo que ya existe. fileciteturn0file0
+### Claims que ya puedes hacer y claims que todavía no
 
-Dicho sin rodeos: tu ventaja competitiva potencial no está en vender amplitud; está en vender **claridad y confiabilidad**. Si conviertes BM25 + vector en una búsqueda híbrida pequeña, determinista y bien definida para embedded use cases, ahí sí empiezas a tener una propuesta distinta. Si te dispersas en snippets, packaging o benchmarks antes de cerrar ese contrato, desperdicias el momentum técnico.
+| Ya puedes decir | Todavía no deberías decir |
+|---|---|
+| Motor embebido de memoria persistente | Motor híbrido competitivo al nivel de líderes del mercado |
+| Recuperación por WAL y reconstrucción de índices derivados | Search platform generalista con relevancia avanzada |
+| BM25 texto-only sobre índice persistente | Soporte lingüístico serio multiidioma |
+| Hybrid Retrieval v1 con planner mínimo y RRF | Explainability completa del ranking |
+| Repair/rebuild desde registros canónicos | SDK Python distribuible a escala vía PyPI sin deuda |
+| Métricas operacionales de startup/rebuild/lexical/hybrid | Benchmarks de marketing fuertes basados en SIFT o una sola métrica local |
 
-## Siguiente fase prioritaria
+## Riesgos y gaps que siguen abiertos
 
-El siguiente paso correcto **no** es phrase search. **No** es stemming. **No** es PyPI. **No** es Euclidean/SIFT. El siguiente paso correcto es una fase **Hybrid Retrieval v1**: planner mínimo, ejecución dual BM25 + ANN, y fusión por RRF con ordenamiento determinista y respeto estricto por namespace/filtros. Ese es el mayor hueco funcional entre el estado actual y un producto mucho más coherente. fileciteturn0file0
+El riesgo principal ya no está en la persistencia. Está en la **calidad de retrieval** y en la **coherencia de producto**. El propio diseño textual actualizado enumera lo que falta: queries por frase, posiciones, snippets, stemming, stopwords, Unicode folding y explicaciones de ranking. Traducido a negocio: hoy puedes recuperar; mañana necesitas **recuperar bien y explicar por qué devolviste eso**. Sin esa capa, Hybrid v1 es funcional, pero todavía rudimentario. fileciteturn14file0
 
-Mi recomendación ejecutiva es simple. Cierra primero el contrato de búsqueda. Define de forma explícita tres modos: text-only, vector-only e híbrido. Mantén BM25 texto-only como está. Mantén ANN como está. En el caso híbrido, genera candidatos por ambas rutas, fusiona con RRF, aplica desempate estable y deja telemetría suficiente para auditar el comportamiento. Solo después de eso tiene sentido ir a calidad lexical avanzada, distribución externa y benchmarks más agresivos. fileciteturn0file0 fileciteturn0file2
+El segundo riesgo es la **deriva documental**. El snapshot más nuevo ya documenta Hybrid Retrieval v1 en el diseño textual, pero la arquitectura general todavía conserva wording previo que lo contradice o lo minimiza como si no existiera. Si dejas esa inconsistencia viva, el repo pierde credibilidad porque distintas fuentes internas cuentan historias diferentes del mismo producto. Eso se arregla rápido, pero hay que hacerlo ya. fileciteturn14file0
 
-## Roadmap inmediato
+El tercer riesgo es de **adopción**. El packaging sigue siendo deuda: el Python SDK sigue arrastrando trabajo pendiente de wheels/PyPI/signing y release automation, y esa fricción limita cualquier intento serio de validación externa con usuarios. Tecnología sin canal de distribución no escala adopción; solo escala deuda interna. Ese problema sigue señalado en los snapshots previos y no aparece como cerrado en el estado actual. fileciteturn14file1 fileciteturn14file2
 
-1. **Cerrar el contrato híbrido.** Habilitar `text_query + query_vector`, introducir planner mínimo y devolver resultados fusionados con RRF bajo un contrato auditable y determinista. fileciteturn0file0
+El cuarto riesgo es de **gobernanza**. En un snapshot anterior el checklist marca como restituido el tracker fuente de verdad en `seguimiento de proyecto.csv`, lo cual es bueno, pero en esta conversación ese CSV no está disponible para auditar fechas, owners y overdue real. Eso significa que sí puedo darte un roadmap técnico serio, pero no una lectura confiable de gestión operativa por SLA o por responsable. Si quieres control de ejecución, ese archivo tiene que entrar en la revisión y permanecer alineado con el repo truth. fileciteturn14file1
 
-2. **Endurecer operabilidad y pruebas.** Añadir métricas de hybrid path, candidates fused, decisiones del planner y cobertura Rust/Python para namespace isolation, metadata filters, deterministic ordering, import/export, reopen y compatibilidad en read-only. fileciteturn0file0 fileciteturn0file2
+## Siguientes pasos, tareas y fases
 
-3. **Subir la calidad de search.** Solo después, avanzar a phrase queries, posiciones, snippets, Unicode folding, stopwords y stemming. Antes de eso son mejoras visibles, pero no son la brecha principal. fileciteturn0file0
+La prioridad correcta ahora no es “más features”. Es **cerrar la fase de hardening y convertir Hybrid v1 en una capacidad defendible**. Después de eso sí tiene sentido expandir calidad léxica y distribución.
 
-4. **Cerrar distribución y benchmark con verdad.** Cuando el contrato híbrido exista, entonces sí tiene sentido abordar PyPI/wheels/signing y evaluar Euclidean/SIFT como benchmark serio y no como maquillaje. fileciteturn0file0
+### Prioridades inmediatas
 
-## Prompt final para Codex
+| Prioridad | Tarea | Por qué va ahora | Esfuerzo | Dependencias |
+|---|---|---|---|---|
+| Crítica | Alinear totalmente la documentación de arquitectura, checklist, Python SDK y changelog con el estado hybrid actual | Hoy hay evidencia de deriva documental; eso contamina repo truth y posicionamiento | Baja | Ninguna |
+| Crítica | Añadir certificación específica de Hybrid v1 | Necesitas medir calidad, determinismo y estabilidad de la fusión, no solo que compile y pase smoke | Media | Estado actual del planner |
+| Alta | Exponer debug/telemetría del planner y de la fusión RRF | Sin observabilidad del ranking, arreglar relevancia será lento y opaco | Media | Métricas ya existentes |
+| Alta | Construir corpus interno de evaluación para lexical/hybrid | Sin queries oro y expectativas mínimas, cualquier mejora será anecdótica | Media | BM25 + Hybrid v1 cerrados |
+| Alta | Endurecer read-only / reopen / import-export / stale-state para hybrid bajo más escenarios | La confiabilidad es parte del diferencial del proyecto; aquí no puedes bajar el estándar | Media | Suite actual de recovery |
+| Media | Cerrar deuda de packaging Python | Te hace falta un canal de adopción más serio | Alta | API suficientemente estable |
+| Media | Decidir si el server wrapper sigue siendo accesorio o entra a fase de producto real | Hoy el proyecto sigue siendo embedded-first; no conviene dejar esa frontera ambigua mucho tiempo | Media | Estrategia de distribución |
 
-La propia documentación del repo deja RRF/planner como el siguiente corte técnico natural, mientras packaging y benchmarking competitivo siguen explícitamente diferidos. El prompt para continuar debe atacar exactamente esa brecha y nada más. fileciteturn0file0
+### Fases recomendadas
 
-```text
-Quiero que implementes la siguiente fase de VantaDB: Hybrid Retrieval v1 sobre la base ya existente de BM25 texto-only y ANN vectorial.
+| Fase | Objetivo | Entregables concretos |
+|---|---|---|
+| Hardening de Hybrid v1 | Volver defendible el feature actual | Docs alineadas, tests/certificación hybrid, métricas y debugging, corpus interno |
+| Calidad léxica v2 | Mejorar relevancia y UX de texto | Phrase queries, posiciones, snippets, tokenizer versionado más rico, normalización |
+| Distribución y DX | Bajar fricción de adopción | Wheels multiplataforma, flujo PyPI/TestPyPI, release automation, smoke CI de instalación |
+| Credibilidad comparativa | Medir sin sobreactuar | Benchmark interno serio, Euclidean solo si aporta comparabilidad, notas metodológicas |
+| Decisión de producto | Fijar frontera del sistema | Decisión explícita sobre embedded-first vs server wrapper más productizado |
 
-Contexto operativo:
-- El repo ya tiene:
-  - canonical memory records con identidad namespace + key
-  - WAL/recovery
-  - derived indexes para namespace y metadata filters
-  - índice textual persistente
-  - BM25 text-only para `text_query`
-  - vector search existente
-  - Rust SDK + Python SDK + CLI embebida
-- Hoy `text_query + query_vector` sigue diferido/bloqueado y esa es la brecha principal del producto.
-- No quiero claims prematuros ni features cosméticas.
-- No normalices ni reviertas archivos sucios no relacionados.
-- Mantén el boundary estable en `src/sdk.rs` y cambios aditivos en el Python SDK.
+### Hoja de ruta sugerida
 
-Objetivo:
-Habilitar búsqueda híbrida real para memoria persistente usando planner mínimo + RRF entre resultados lexicales BM25 y resultados vectoriales ANN, respetando namespace y metadata filters.
-
-Alcance exacto:
-1. `src/sdk.rs`
-   - Permitir tres modos:
-     - vector-only
-     - text-only
-     - hybrid text+vector
-   - Reemplazar el error explícito actual de `text_query + query_vector` por ejecución híbrida.
-   - Mantener comportamiento actual cuando solo haya texto o solo vector.
-   - Definir ordenamiento determinista final: score fusionado desc, luego desempate estable por identidad lógica.
-   - No romper contratos públicos existentes; solo cambios aditivos o compatibles.
-
-2. Planner mínimo
-   - Si hay `text_query` y no hay vector: usar BM25.
-   - Si hay vector y no hay `text_query`: usar ANN actual.
-   - Si hay ambos: ejecutar ambas rutas y fusionar con RRF.
-   - Si `top_k == 0`: devolver vacío.
-   - Si filtros excluyen todo: devolver vacío.
-   - No introducir heurísticas complejas ni auto-tuning en esta fase; quiero un planner simple, auditable y testeable.
-
-3. Fusión RRF
-   - Implementar Reciprocal Rank Fusion con constante configurable a nivel interno.
-   - Fusionar por identidad lógica `namespace + key`.
-   - Si un candidato aparece en una sola lista, igual participa.
-   - Aplicar truncamiento razonable de candidatos antes de fusionar, con budgets internos claros y documentados.
-   - No usar una combinación ad-hoc de scores crudos BM25 y cosine; debe ser RRF por ranking.
-
-4. `src/text_index.rs`
-   - Exponer helpers mínimos que hagan falta para recuperar postings/stats del path lexical existente.
-   - Mantener el principio actual: nada de serializar internals del índice textual en export/import; todo sigue derivado de registros canónicos.
-   - No agregar phrase queries, posiciones, snippets, stemming, stopwords ni Unicode folding en esta fase.
-
-5. `src/metrics.rs` y `vantadb-python/src/lib.rs`
-   - Agregar métricas operativas para hybrid retrieval, como mínimo:
-     - hybrid_query_ms
-     - hybrid_candidates_fused
-     - planner_hybrid_queries
-     - planner_text_only_queries
-     - planner_vector_only_queries
-   - Exponerlas en `operational_metrics()` sin venderlas como claims de eficiencia pública.
-
-6. Tests
-   - Actualizar/agregar cobertura en:
-     - `tests/memory_api.rs`
-     - `tests/operational_metrics.rs`
-     - `tests/text_index_recovery.rs`
-     - `vantadb-python/tests/test_sdk.py`
-   - Casos obligatorios:
-     - text-only sigue funcionando
-     - vector-only sigue funcionando
-     - text+vector ya no falla y devuelve resultados fusionados
-     - namespace isolation
-     - metadata filters aplicados correctamente en hybrid
-     - deterministic ordering
-     - import/export + reopen no rompen hybrid
-     - read_only no intenta repair indebido en paths no permitidos
-     - error explícito solo para casos realmente no soportados
-
-7. Docs y changelog
-   - Actualizar:
-     - `docs/architecture/TEXT_INDEX_DESIGN.md`
-     - `docs/operations/RELIABILITY_GATE.md`
-     - `docs/operations/NEXT_5_TASKS.md`
-     - `docs/operations/REPO_CHECKLIST.md`
-     - `docs/operations/PYTHON_SDK.md`
-     - `CHANGELOG.md`
-   - Ajustar narrativa: ahora sí existe hybrid retrieval v1 con RRF/planner simple, pero siguen diferidos:
-     - phrase queries
-     - snippets
-     - stemming
-     - stopwords
-     - Unicode folding
-     - ranking/debug avanzado
-     - claims competitivos fuertes
-     - PyPI/wheels/signing
-     - Euclidean/SIFT como claim de marketing
-
-Criterios de aceptación:
-- `search_memory(..., text_query="...", query_vector=[])` sigue usando BM25.
-- `search_memory(..., text_query=None, query_vector=[...])` sigue usando ANN actual.
-- `search_memory(..., text_query="...", query_vector=[...])` funciona con RRF y no lanza el error anterior.
-- Los resultados híbridos respetan namespace/filtros y son deterministas.
-- No se reescanean payloads completos innecesariamente si ya existen postings/stats suficientes.
-- El export/import sigue serializando solo registros canónicos.
-- Todos los cambios pasan tests Rust/Python y no rompen la API actual.
-
-Validación requerida:
-- `cargo fmt --check`
-- `cargo test text_index --lib`
-- `cargo test --test memory_api --test memory_export_import --test derived_indexes --test derived_index_recovery --test derived_index_prefix_scan --test operational_metrics --test text_index_recovery`
-- `cargo test --test memory_brutality -- --nocapture`
-- `python -m maturin build --manifest-path .\\vantadb-python\\Cargo.toml --out .\\target\\wheels`
-- reinstalar el wheel generado resolviendo la ruta real, sin wildcard ambiguo de PowerShell
-- `python -m pytest vantadb-python/tests/test_sdk.py -v`
-
-Entrega esperada:
-- Resumen corto por archivo modificado
-- Decisiones técnicas adoptadas
-- Riesgos remanentes
-- Resultado de validación ejecutada
-- Nota explícita de lo que queda diferido después de esta fase
+```mermaid
+flowchart TD
+    A[Registros canónicos] --> B[ANN HNSW coseno]
+    A --> C[Índice textual persistente BM25]
+    B --> D[Planner mínimo]
+    C --> D
+    D --> E[RRF Hybrid v1]
+    E --> F[SDK Rust]
+    E --> G[SDK Python]
+    E --> H[CLI]
+    D --> I[Telemetría y debug del ranking]
+    I --> J[Hardening y benchmark interno]
 ```
+
+```mermaid
+gantt
+    title Roadmap recomendado a partir de 2026-05-05
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d-%b
+
+    section Hardening
+    Alinear docs y claims                 :a1, 2026-05-05, 2d
+    Certificación Hybrid v1              :a2, after a1, 5d
+    Debug planner y RRF                  :a3, after a1, 4d
+
+    section Calidad de retrieval
+    Corpus interno y evaluación          :b1, after a2, 5d
+    Phrase queries y posiciones          :b2, after b1, 7d
+    Snippets y explicación básica        :b3, after b2, 5d
+    Unicode folding / stopwords / stem   :b4, after b2, 8d
+
+    section Distribución
+    Wheels, PyPI y signing               :c1, after a2, 7d
+
+    section Estrategia
+    Benchmark serio y notas metodológicas: d1, after b4, 6d
+    Decisión server wrapper              : d2, after c1, 3d
+```
+
+## Mi lectura final del estado del proyecto
+
+VantaDB quedó **mucho mejor parado** que antes. Ya no es solo un motor persistente con búsqueda vectorial y filtros. Ahora es un **retrieval engine embebido**, con base de memoria confiable, BM25 texto-only y un primer hybrid usable con RRF. Eso es un salto real, no cosmético. El progreso entre `ae198c7`, `43cd3dc` y `e28e37a` lo demuestra con bastante claridad. fileciteturn14file2 fileciteturn14file1 fileciteturn14file0
+
+Pero también te digo la parte incómoda: **todavía no ganaste la guerra**. Ahora que ya tienes Hybrid v1, lo que sigue no es celebrar demasiado tiempo. Lo que sigue es volverlo **confiable, explicable, medible y distribuible**. Si haces eso, el proyecto entra en una fase de producto seria. Si no, se va a quedar en el peor punto posible: técnicamente interesante, pero comercialmente difícil de sostener. fileciteturn14file0
+
+La recomendación más pragmática es esta: **cierra primero hardening + observabilidad + corpus de evaluación**, luego entra a **calidad léxica v2**, y solo después invierte fuerte en **packaging y benchmark público**. Ese orden maximiza valor y minimiza riesgo de vender una historia que el repo todavía no puede respaldar del todo. fileciteturn14file0 fileciteturn14file1

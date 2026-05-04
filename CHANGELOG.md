@@ -21,10 +21,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Hybrid Retrieval v1 for memory search, using a minimal planner and RRF fusion over BM25 text rankings and vector rankings.
 - Operational metrics for hybrid query latency, fused hybrid candidates, and planner route counts.
 - Debug-build hybrid planner/RRF certification helper for route, budget, candidate counts, fused candidates, and top logical identities.
+- Text-index schema v3 with persisted token positions in posting values and basic quoted phrase query support over `text_query`.
+- Debug-build search explanation helper for snippets from canonical payloads, BM25 term contributions, matched phrases, and RRF ranks.
+- Python wheel CI workflow for Linux, macOS, and Windows with generated-wheel smoke install and manual TestPyPI upload gate.
+- Embedded-memory hybrid benchmark and certification corpora for text-only, vector-only, phrase, and hybrid retrieval paths.
 - Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
-- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, hybrid RRF behavior, deterministic hybrid corpus coverage, debug planner reporting, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
+- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, phrase positions, hybrid RRF behavior, deterministic hybrid corpus coverage, debug planner/explain reporting, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
 
 ### Changed
 
@@ -36,9 +40,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Deferred
 
-- Advanced hybrid ranking/debug output and competitive hybrid-search parity claims.
-- Phrase queries, snippets, positions, and tokenizer evolution beyond `lowercase-ascii-alnum`.
-- PyPI, wheels, signing, and external distribution hardening.
+- Public ranking explanation APIs, rich snippets/highlighting, and competitive hybrid-search parity claims.
+- Stemming, stopwords, Unicode folding, and tokenizer evolution beyond `lowercase-ascii-alnum`.
+- PyPI production publication, signing, and external distribution hardening.
 
 ## [v0.1.0] - Initial MVP Release
 

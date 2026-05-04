@@ -16,6 +16,8 @@ This note closes the current repo-alignment cycle.
 - Persistent inverted text index for memory payload postings, derived from canonical records
 - BM25 lexical retrieval for text-only memory `text_query`
 - Hybrid Retrieval v1 for memory search using simple planner + RRF over BM25 and vector rankings
+- Basic quoted phrase queries using persisted token positions in the derived text index
+- Debug-only search explanation for snippets from canonical payloads, BM25 term contributions, matched phrases, and RRF ranks
 - Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, hybrid queries, planner routes, export, import, and import errors
 - Debug-only planner/RRF certification for route, budget, candidate counts, and fused identities
 - Stale/corrupt derived-index state repair on open
@@ -25,7 +27,7 @@ This note closes the current repo-alignment cycle.
 ## Claims intentionally deferred
 
 - Universal multimodel database
-- Advanced hybrid ranking, learned fusion, ranking explanations, or competitive hybrid-search parity claims
+- Advanced hybrid ranking, learned fusion, public ranking explanation APIs, or competitive hybrid-search parity claims
 - Competitive parity claims on SIFT1M while cosine-only
 - PyPI-ready distribution
 - Enterprise, HA, RBAC, or managed-cloud positioning
@@ -64,11 +66,14 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - Derived namespace and payload lookups use backend prefix scans.
 - Derived-index state is validated on open and repaired from canonical records when missing, corrupt, or stale.
 - Text-index postings are persisted in a dedicated backend partition and rebuilt from canonical payloads.
-- Text-index postings store TF and small derived BM25 stats for DF, document length, and namespace corpus length.
+- Text-index postings store TF, token positions, and small derived BM25 stats for DF, document length, and namespace corpus length.
 - Text-index state is validated on writable open and repaired from canonical records when missing, corrupt, incompatible, or count-stale.
 - Text-only `text_query` executes BM25 lexical retrieval with metadata filters and deterministic ordering.
+- Quoted phrase `text_query` filters lexical candidates through exact consecutive token positions.
 - Hybrid `text_query + query_vector` executes both rankings and fuses them with RRF under a minimal planner.
 - Hybrid certification uses a small deterministic test corpus; it is not a marketing benchmark.
+- `hybrid_retrieval_quality` certifies text-only, vector-only, hybrid, phrase, namespace/filter behavior over a small local corpus.
+- `benches/hybrid_queries.rs` now uses a small deterministic embedded-memory corpus instead of synthetic mock operations.
 - Operational metrics are exposed through Rust/Python SDK.
 - The CLI is embedded-first for `put/get/list/rebuild-index/export/import` and no longer requires a local server for the first useful memory flow.
 - Public text-only `text_query` and simple hybrid text+vector retrieval are enabled.
@@ -79,6 +84,7 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - `cargo test --test derived_index_prefix_scan --test derived_index_recovery --test operational_metrics`
 - `cargo test text_index --lib`
 - `cargo test --test text_index_recovery`
+- `cargo test --test hybrid_retrieval_quality`
 - `cargo test --test memory_brutality -- --nocapture`
 - `python -m pytest vantadb-python/tests/test_sdk.py -v`
 - `memory_brutality` includes recovery without explicit flush, vector-index deletion plus manual rebuild, JSONL export/import, and a 10K-record namespace/filter/export/import smoke.

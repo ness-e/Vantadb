@@ -14,7 +14,7 @@ Este checklist define el corte inmediato del repositorio después del release t�
 
 - [x] Restos principales de naming legado eliminados en tests y descripciones públicas.
 - [x] El boundary estable del SDK se documenta como `src/sdk.rs`.
-- [x] El paquete Python sigue siendo source-install only y no promete PyPI.
+- [x] El paquete Python tiene CI de wheels/TestPyPI preparado, pero no promete PyPI de producción.
 
 ## 3. Observabilidad y métricas
 
@@ -35,8 +35,8 @@ Este checklist define el corte inmediato del repositorio después del release t�
 
 ## 5. Trabajo diferido de forma explícita
 
-- [x] PyPI, wheels y signing quedan fuera de este ciclo.
-- [x] Phrase queries, snippets, ranking/debug avanzado y claims competitivos quedan fuera de este ciclo.
+- [x] PyPI de producción y signing quedan fuera de este ciclo.
+- [x] Public ranking/debug avanzado, snippets ricos y claims competitivos quedan fuera de este ciclo.
 - [x] Namespaces first-class y modelo canónico pasan al siguiente bloque del MVP.
 
 ## 6. Siguiente bloque activo
@@ -62,7 +62,8 @@ Este checklist define el corte inmediato del repositorio después del release t�
 - [x] Endurecer recuperación de índices derivados stale/corruptos.
 - [x] Documentar protocolo de mutación y versionado recuperable.
 - [x] Diseñar índice textual antes de implementar BM25/RRF.
-- [ ] Mantener PyPI/wheels/signing fuera del ciclo hasta estabilizar API y release engineering.
+- [x] Preparar wheels/TestPyPI sin activar publicación PyPI de producción.
+- [ ] Mantener signing y publicación PyPI de producción fuera del ciclo hasta estabilizar release policy.
 
 ## 9. Siguiente corte técnico
 
@@ -77,3 +78,4 @@ Este checklist define el corte inmediato del repositorio después del release t�
 - [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
 - [x] Habilitar `text_query` texto-only y hybrid v1 con RRF/planner mínimo.
 - [x] Endurecer Hybrid v1 con certificación, corpus determinista y debug interno del planner/RRF.
+- [x] Añadir posiciones textuales v3, phrase query básica, explain/snippet debug-only, wheel CI y benchmark híbrido sobre corpus embebido real.
