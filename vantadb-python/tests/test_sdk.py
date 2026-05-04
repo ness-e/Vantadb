@@ -173,13 +173,14 @@ class TestPersistentMemoryApi:
         assert len(text_hits) == 1
         assert text_hits[0]["record"]["key"] == "task-1"
 
-        with pytest.raises(RuntimeError):
-            db.search_memory(
-                "agent/main",
-                [1.0, 0.0, 0.0],
-                text_query="memory API",
-                top_k=3,
-            )
+        hybrid_hits = db.search_memory(
+            "agent/main",
+            [1.0, 0.0, 0.0],
+            text_query="memory API",
+            top_k=3,
+        )
+        assert len(hybrid_hits) == 1
+        assert hybrid_hits[0]["record"]["key"] == "task-1"
 
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
@@ -260,6 +261,11 @@ class TestPersistentMemoryApi:
         assert "text_candidates_scored" in after
         assert "text_consistency_audits" in after
         assert "text_consistency_audit_failures" in after
+        assert "hybrid_query_ms" in after
+        assert "hybrid_candidates_fused" in after
+        assert "planner_hybrid_queries" in after
+        assert "planner_text_only_queries" in after
+        assert "planner_vector_only_queries" in after
         assert "records_exported" in after
         assert after["ann_rebuild_scanned_nodes"] >= rebuild["scanned_nodes"]
         assert after["records_exported"] >= before["records_exported"] + 1

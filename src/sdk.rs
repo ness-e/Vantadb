@@ -27,6 +27,10 @@ const EXPORT_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
+const HYBRID_RRF_K: f32 = 60.0;
+const HYBRID_CANDIDATE_MULTIPLIER: usize = 4;
+const HYBRID_MIN_CANDIDATE_BUDGET: usize = 32;
+const HYBRID_MAX_CANDIDATE_BUDGET: usize = 256;
 
 /// Stable open options for embedded SDK consumers.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -196,6 +200,11 @@ pub struct VantaOperationalMetrics {
     pub text_candidates_scored: u64,
     pub text_consistency_audits: u64,
     pub text_consistency_audit_failures: u64,
+    pub hybrid_query_ms: u64,
+    pub hybrid_candidates_fused: u64,
+    pub planner_hybrid_queries: u64,
+    pub planner_text_only_queries: u64,
+    pub planner_vector_only_queries: u64,
     pub records_exported: u64,
     pub records_imported: u64,
     pub import_errors: u64,
@@ -1639,6 +1648,102 @@ impl VantaEmbedded {
         Ok(hits)
     }
 
+    fn vector_memory_search(
+        &self,
+        namespace: &str,
+        query_vector: &[f32],
+        filters: &VantaMemoryMetadata,
+        top_k: usize,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        if query_vector.is_empty() || top_k == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut hits = Vec::new();
+        for record in self.records_for_namespace(namespace, filters)? {
+            let Some(vector) = record.vector.as_ref() else {
+                continue;
+            };
+            if vector.len() != query_vector.len() {
+                continue;
+            }
+
+            hits.push(VantaMemorySearchHit {
+                score: cosine_sim_f32(query_vector, vector),
+                record,
+            });
+        }
+
+        Self::sort_memory_hits(&mut hits);
+        hits.truncate(top_k);
+        Ok(hits)
+    }
+
+    fn sort_memory_hits(hits: &mut [VantaMemorySearchHit]) {
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.record.key.cmp(&b.record.key))
+                .then(a.record.node_id.cmp(&b.record.node_id))
+        });
+    }
+
+    fn hybrid_candidate_budget(top_k: usize) -> usize {
+        top_k
+            .saturating_mul(HYBRID_CANDIDATE_MULTIPLIER)
+            .max(HYBRID_MIN_CANDIDATE_BUDGET)
+            .min(HYBRID_MAX_CANDIDATE_BUDGET)
+            .max(top_k)
+    }
+
+    fn hybrid_search(
+        &self,
+        namespace: &str,
+        query_vector: &[f32],
+        text_query: &str,
+        filters: &VantaMemoryMetadata,
+        top_k: usize,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        let started = Instant::now();
+        if top_k == 0 {
+            crate::metrics::record_hybrid_query(0, 0);
+            return Ok(Vec::new());
+        }
+
+        let budget = Self::hybrid_candidate_budget(top_k);
+        let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
+        let vector_hits = self.vector_memory_search(namespace, query_vector, filters, budget)?;
+
+        let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
+        Self::apply_rrf_contributions(&mut fused, lexical_hits);
+        Self::apply_rrf_contributions(&mut fused, vector_hits);
+
+        let candidates_fused = fused.len() as u64;
+        let mut hits: Vec<_> = fused.into_values().collect();
+        Self::sort_memory_hits(&mut hits);
+        hits.truncate(top_k);
+        crate::metrics::record_hybrid_query(started.elapsed().as_millis() as u64, candidates_fused);
+        Ok(hits)
+    }
+
+    fn apply_rrf_contributions(
+        fused: &mut BTreeMap<(String, String), VantaMemorySearchHit>,
+        hits: Vec<VantaMemorySearchHit>,
+    ) {
+        for (rank, hit) in hits.into_iter().enumerate() {
+            let contribution = 1.0 / (HYBRID_RRF_K + rank as f32 + 1.0);
+            let identity = (hit.record.namespace.clone(), hit.record.key.clone());
+            fused
+                .entry(identity)
+                .and_modify(|existing| existing.score += contribution)
+                .or_insert_with(|| VantaMemorySearchHit {
+                    record: hit.record,
+                    score: contribution,
+                });
+        }
+    }
+
     fn records_for_namespace(
         &self,
         namespace: &str,
@@ -1889,48 +1994,43 @@ impl VantaEmbedded {
             .as_deref()
             .map(str::trim)
             .filter(|text| !text.is_empty());
+        let has_vector = !request.query_vector.is_empty();
 
-        if let Some(text_query) = text_query {
-            if !request.query_vector.is_empty() {
-                return Err(VantaError::Execution(
-                    "hybrid text+vector search requires RRF/planner, which is deferred".to_string(),
-                ));
-            }
-            return self.lexical_search(
-                &request.namespace,
-                text_query,
-                &request.filters,
-                request.top_k,
-            );
-        }
-
-        if request.query_vector.is_empty() || request.top_k == 0 {
+        if request.top_k == 0 {
             return Ok(Vec::new());
         }
 
-        let mut hits = Vec::new();
-
-        for record in self.records_for_namespace(&request.namespace, &request.filters)? {
-            let Some(vector) = record.vector.as_ref() else {
-                continue;
-            };
-            if vector.len() != request.query_vector.len() {
-                continue;
+        match (text_query, has_vector) {
+            (Some(text_query), true) => {
+                crate::metrics::record_planner_hybrid_query();
+                self.hybrid_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    text_query,
+                    &request.filters,
+                    request.top_k,
+                )
             }
-
-            hits.push(VantaMemorySearchHit {
-                score: cosine_sim_f32(&request.query_vector, vector),
-                record,
-            });
+            (Some(text_query), false) => {
+                crate::metrics::record_planner_text_only_query();
+                self.lexical_search(
+                    &request.namespace,
+                    text_query,
+                    &request.filters,
+                    request.top_k,
+                )
+            }
+            (None, true) => {
+                crate::metrics::record_planner_vector_only_query();
+                self.vector_memory_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    &request.filters,
+                    request.top_k,
+                )
+            }
+            (None, false) => Ok(Vec::new()),
         }
-
-        hits.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        hits.truncate(request.top_k);
-        Ok(hits)
     }
 
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
@@ -2262,6 +2362,11 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             text_candidates_scored: metrics.text_candidates_scored,
             text_consistency_audits: metrics.text_consistency_audits,
             text_consistency_audit_failures: metrics.text_consistency_audit_failures,
+            hybrid_query_ms: metrics.hybrid_query_ms,
+            hybrid_candidates_fused: metrics.hybrid_candidates_fused,
+            planner_hybrid_queries: metrics.planner_hybrid_queries,
+            planner_text_only_queries: metrics.planner_text_only_queries,
+            planner_vector_only_queries: metrics.planner_vector_only_queries,
             records_exported: metrics.records_exported,
             records_imported: metrics.records_imported,
             import_errors: metrics.import_errors,

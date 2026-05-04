@@ -33,6 +33,12 @@ record = db.get_memory("agent/main", "memory-1")
 page = db.list_memory("agent/main", filters={"kind": "note"})
 hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=5)
 text_hits = db.search_memory("agent/main", [], text_query="durable memory", top_k=5)
+hybrid_hits = db.search_memory(
+    "agent/main",
+    [1.0, 0.0, 0.0],
+    text_query="durable memory",
+    top_k=5,
+)
 report = db.rebuild_index()
 metrics = db.operational_metrics()
 db.export_namespace("./agent-main.jsonl", "agent/main")
@@ -41,10 +47,11 @@ db.close()
 ```
 
 Text-only `search_memory(..., query_vector=[], text_query="...")` uses BM25
-lexical retrieval. Combining `text_query` with a non-empty vector is still
-rejected until RRF/planner behavior exists. `operational_metrics()` is
-diagnostic telemetry for startup, WAL replay, rebuild, lexical queries, export,
-and import behavior; it is not a public efficiency claim.
+lexical retrieval. Combining `text_query` with a non-empty vector uses Hybrid
+Retrieval v1: BM25 and vector rankings are executed separately and fused with
+RRF. `operational_metrics()` is diagnostic telemetry for startup, WAL replay,
+rebuild, lexical queries, hybrid queries, planner routes, export, and import
+behavior; it is not a public efficiency claim.
 
 ## Remaining Release Debt
 - PyPI stays blocked until multiplatform wheels exist for Linux, macOS, and Windows.

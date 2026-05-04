@@ -232,6 +232,17 @@ fn operational_metrics_to_pydict(
         "text_consistency_audit_failures",
         metrics.text_consistency_audit_failures,
     )?;
+    dict.set_item("hybrid_query_ms", metrics.hybrid_query_ms)?;
+    dict.set_item("hybrid_candidates_fused", metrics.hybrid_candidates_fused)?;
+    dict.set_item("planner_hybrid_queries", metrics.planner_hybrid_queries)?;
+    dict.set_item(
+        "planner_text_only_queries",
+        metrics.planner_text_only_queries,
+    )?;
+    dict.set_item(
+        "planner_vector_only_queries",
+        metrics.planner_vector_only_queries,
+    )?;
     dict.set_item("records_exported", metrics.records_exported)?;
     dict.set_item("records_imported", metrics.records_imported)?;
     dict.set_item("import_errors", metrics.import_errors)?;

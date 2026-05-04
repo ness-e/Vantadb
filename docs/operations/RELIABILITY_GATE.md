@@ -15,7 +15,8 @@ This note closes the current repo-alignment cycle.
 - Prefix-scan-backed derived index lookups
 - Persistent inverted text index for memory payload postings, derived from canonical records
 - BM25 lexical retrieval for text-only memory `text_query`
-- Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, export, import, and import errors
+- Hybrid Retrieval v1 for memory search using simple planner + RRF over BM25 and vector rankings
+- Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, hybrid queries, planner routes, export, import, and import errors
 - Stale/corrupt derived-index state repair on open
 - Stale/corrupt text-index state repair on writable open
 - Source-install Python binding through a stable embedded boundary
@@ -23,7 +24,7 @@ This note closes the current repo-alignment cycle.
 ## Claims intentionally deferred
 
 - Universal multimodel database
-- True hybrid text + vector retrieval with RRF/planner behavior
+- Advanced hybrid ranking, learned fusion, ranking explanations, or competitive hybrid-search parity claims
 - Competitive parity claims on SIFT1M while cosine-only
 - PyPI-ready distribution
 - Enterprise, HA, RBAC, or managed-cloud positioning
@@ -44,10 +45,9 @@ This note closes the current repo-alignment cycle.
 ## Next cycle cut
 
 The product-building cycle no longer starts with the memory MVP primitives,
-text-index persistence substrate, or BM25 text-only retrieval; those are
-implemented in the repo. The next product cycle starts with RRF/planner behavior
-that can combine canonical records, vector search, structured filters, and
-lexical rankings without inflating public claims.
+text-index persistence substrate, BM25 text-only retrieval, or simple RRF
+hybrid retrieval; those are implemented in the repo. The next product cycle can
+focus on search quality and distribution without inflating public claims.
 
 Euclidean support remains a benchmark-enabling task, not a public product claim.
 
@@ -66,10 +66,10 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - Text-index postings store TF and small derived BM25 stats for DF, document length, and namespace corpus length.
 - Text-index state is validated on writable open and repaired from canonical records when missing, corrupt, incompatible, or count-stale.
 - Text-only `text_query` executes BM25 lexical retrieval with metadata filters and deterministic ordering.
-- Hybrid `text_query + query_vector` remains explicitly deferred until RRF/planner coverage exists.
+- Hybrid `text_query + query_vector` executes both rankings and fuses them with RRF under a minimal planner.
 - Operational metrics are exposed through Rust/Python SDK.
 - The CLI is embedded-first for `put/get/list/rebuild-index/export/import` and no longer requires a local server for the first useful memory flow.
-- Public text-only `text_query` is enabled; hybrid text+vector remains disabled until RRF/planner exists.
+- Public text-only `text_query` and simple hybrid text+vector retrieval are enabled.
 
 ## Current validation evidence
 

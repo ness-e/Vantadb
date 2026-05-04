@@ -145,14 +145,40 @@ fn memory_api_filters() {
     assert_eq!(text_hits.len(), 1);
     assert_eq!(text_hits[0].record.key, "second");
 
-    let text_query = db.search(VantaMemorySearchRequest {
-        namespace: "agent/main".to_string(),
-        query_vector: vec![1.0, 0.0, 0.0],
-        filters: Default::default(),
-        text_query: Some("hybrid still deferred".to_string()),
-        top_k: 5,
-    });
-    assert!(text_query.is_err());
+    let hybrid_hits = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("first".to_string()),
+            top_k: 5,
+        })
+        .expect("hybrid search");
+    assert_eq!(hybrid_hits.len(), 2);
+    assert_eq!(hybrid_hits[0].record.key, "first");
+    assert!(hybrid_hits.iter().any(|hit| hit.record.key == "second"));
+
+    let empty = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("second".to_string()),
+            top_k: 0,
+        })
+        .expect("hybrid top_k zero");
+    assert!(empty.is_empty());
+
+    let whitespace_text_query = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("   ".to_string()),
+            top_k: 5,
+        })
+        .expect("whitespace text query falls back to vector");
+    assert_eq!(whitespace_text_query[0].record.key, "first");
 }
 
 #[test]

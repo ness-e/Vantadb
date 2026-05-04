@@ -39,7 +39,7 @@ The brutality suite covers recovery without explicit flush, manual rebuild after
 
 ## Explicit Limits
 
-- Search remains cosine vector + structured filters. BM25/RRF is not implemented.
+- This baseline is historical. Current memory search includes vector-only, BM25 text-only, and Hybrid Retrieval v1 RRF paths.
 - Derived index lookups use backend prefix scans for namespace and scalar metadata filters.
 - JSONL export/import is an operational interchange format, not a full backup system with checksums or transactional snapshots.
 - Operational metrics cover startup, WAL replay, ANN rebuild, derived-index rebuild, export, import, and import errors.
