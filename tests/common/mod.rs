@@ -63,7 +63,7 @@ fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySa
 // ─── Internal Helpers ────────────────────────────────────────
 
 fn get_multi_progress() -> &'static MultiProgress {
-    MULTI_PROGRESS.get_or_init(|| MultiProgress::new())
+    MULTI_PROGRESS.get_or_init(MultiProgress::new)
 }
 
 fn get_global_bar() -> &'static ProgressBar {
@@ -378,7 +378,7 @@ impl VantaSession {
 
         for step in &self.steps {
             output.push_str(step);
-            output.push_str("\n");
+            output.push('\n');
         }
 
         if success {
