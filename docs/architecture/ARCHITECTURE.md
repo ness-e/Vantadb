@@ -106,3 +106,8 @@ Process-level telemetry is now treated as:
 - separate from mmap residency and OS page cache
 
 See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the current metric schema and validation harness.
+
+## 7. Mutation, Recovery, and Text Index Roadmap
+
+- [Mutation and Recovery Protocol](MUTATION_RECOVERY_PROTOCOL.md) defines the canonical mutation order and rebuild behavior for ANN and derived indexes.
+- [Minimal Text Index Design](TEXT_INDEX_DESIGN.md) defines the tokenizer/key scaffold required before BM25/RRF. It is not connected to public search yet.

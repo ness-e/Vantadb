@@ -36,6 +36,8 @@ impl InMemoryBackend {
         map.insert(BackendPartition::Tombstones, BTreeMap::new());
         map.insert(BackendPartition::NamespaceIndex, BTreeMap::new());
         map.insert(BackendPartition::PayloadIndex, BTreeMap::new());
+        map.insert(BackendPartition::TextIndex, BTreeMap::new());
+        map.insert(BackendPartition::InternalMetadata, BTreeMap::new());
         Self {
             partitions: RwLock::new(map),
         }
@@ -93,6 +95,26 @@ impl StorageBackend for InMemoryBackend {
             .get(&partition)
             .map(|btree| btree.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default())
+    }
+
+    fn scan_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let parts = self.partitions.read();
+        let Some(btree) = parts.get(&partition) else {
+            return Ok(Vec::new());
+        };
+
+        let mut result = Vec::new();
+        for (key, value) in btree.range(prefix.to_vec()..) {
+            if !key.starts_with(prefix) {
+                break;
+            }
+            result.push((key.clone(), value.clone()));
+        }
+        Ok(result)
     }
 
     fn flush(&self) -> Result<()> {

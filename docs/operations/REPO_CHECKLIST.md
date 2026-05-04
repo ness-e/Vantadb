@@ -57,7 +57,21 @@ Este checklist define el corte inmediato del repositorio después del release t�
 
 ## 8. Límites que siguen abiertos
 
-- [ ] Optimizar los índices derivados con iteradores/prefix scans reales en el backend.
-- [ ] Añadir telemetría estructurada de `startup_ms`, `wal_replay_ms`, `wal_records_replayed`, `rebuild_ms`, `records_exported` y `records_imported`.
-- [ ] Diseñar índice textual antes de implementar BM25/RRF.
+- [x] Optimizar los índices derivados con iteradores/prefix scans reales en el backend.
+- [x] Añadir telemetría estructurada de `startup_ms`, `wal_replay_ms`, `wal_records_replayed`, `rebuild_ms`, `records_exported` y `records_imported`.
+- [x] Endurecer recuperación de índices derivados stale/corruptos.
+- [x] Documentar protocolo de mutación y versionado recuperable.
+- [x] Diseñar índice textual antes de implementar BM25/RRF.
 - [ ] Mantener PyPI/wheels/signing fuera del ciclo hasta estabilizar API y release engineering.
+
+## 9. Siguiente corte técnico
+
+- [x] Convertir el scaffold textual en índice invertido persistente reconstruible.
+- [ ] Definir BM25 y RRF sobre el índice textual, sin claims competitivos todavía.
+- [ ] Evaluar Euclidean/SIFT solo como habilitador de benchmark serio.
+
+## 10. Cierre operativo antes de BM25
+
+- [x] Restituir tracker fuente de verdad en `seguimiento de proyecto.csv`.
+- [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
+- [x] Mantener `text_query` deshabilitado hasta BM25/RRF.

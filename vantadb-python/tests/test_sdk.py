@@ -221,6 +221,27 @@ class TestPersistentMemoryApi:
         all_export = target.export_all(all_export_path)
         assert all_export["records_exported"] == 1
 
+    def test_operational_metrics(self, tmp_path):
+        """Operational metrics should be available through the Python SDK."""
+        export_path = str(tmp_path / "metrics.jsonl")
+        db = vanta.VantaDB(str(tmp_path / "metrics-db"), memory_limit_bytes=128 * 1024 * 1024)
+        before = db.operational_metrics()
+
+        db.put("agent/main", "metric", "payload", vector=[1.0, 0.0, 0.0])
+        rebuild = db.rebuild_index()
+        db.export_all(export_path)
+        after = db.operational_metrics()
+
+        assert "startup_ms" in after
+        assert "wal_records_replayed" in after
+        assert "derived_rebuild_ms" in after
+        assert "text_index_rebuild_ms" in after
+        assert "text_postings_written" in after
+        assert "text_index_repairs" in after
+        assert "records_exported" in after
+        assert after["ann_rebuild_scanned_nodes"] >= rebuild["scanned_nodes"]
+        assert after["records_exported"] >= before["records_exported"] + 1
+
 
 class TestHardwareIntrospection:
     """Stable capability surface tests."""

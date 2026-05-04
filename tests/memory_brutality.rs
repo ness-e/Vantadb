@@ -146,3 +146,33 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
         "10K memory KPI smoke exceeded 120s ingest budget: {ingest_ms}ms"
     );
 }
+
+#[test]
+fn delete_without_explicit_flush_survives_reopen() {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_path_buf();
+
+    {
+        let db = VantaEmbedded::open(&path).expect("open");
+        db.put(VantaMemoryInput::new(
+            "agent/main",
+            "delete-replay",
+            "temporary",
+        ))
+        .expect("put");
+        db.flush().expect("flush seed");
+        assert!(db
+            .delete("agent/main", "delete-replay")
+            .expect("delete without explicit flush"));
+    }
+
+    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    assert!(reopened
+        .get("agent/main", "delete-replay")
+        .expect("get")
+        .is_none());
+    let page = reopened
+        .list("agent/main", VantaMemoryListOptions::default())
+        .expect("list");
+    assert!(page.records.is_empty());
+}

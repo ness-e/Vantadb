@@ -12,7 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Manual ANN rebuild API through Rust SDK, Python SDK, and `vanta-cli rebuild-index`.
 - JSONL memory export/import through Rust SDK, Python SDK, and `vanta-cli export/import`.
 - Derived namespace and payload indexes for namespace lists and scalar metadata equality filters.
+- Backend prefix scans for derived namespace/payload index lookups.
+- Operational metrics API for startup, WAL replay, rebuild, export, import, and import errors.
+- Derived-index state validation and repair on open.
+- Minimal text-index tokenizer/key-shape scaffold before BM25/RRF.
+- Persistent inverted text index for memory payload postings, with rebuild, repair-on-open, import rebuild, and operational metrics.
+- Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
+- `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, and import/export reconstruction.
 
 ### Changed
 
@@ -20,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Documented a process-scoped memory telemetry contract and added a controlled validation harness.
 - Stabilized the embedded SDK boundary as the supported path for the Python binding.
 - Expanded the embedded CLI from `put/get/list` to include rebuild and JSONL movement flows.
+- Kept public `text_query` disabled until BM25/RRF and planner behavior exist.
 
 ### Deferred
 

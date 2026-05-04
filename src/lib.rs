@@ -29,6 +29,7 @@ pub mod query;
 pub mod sdk;
 pub mod server;
 pub mod storage;
+pub(crate) mod text_index;
 pub mod vector;
 pub mod wal;
 
@@ -40,8 +41,9 @@ pub use sdk::{
     VantaCapabilities, VantaEdgeRecord, VantaEmbedded, VantaExportReport, VantaFields,
     VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
     VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOpenOptions, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchHit, VantaStorageTier, VantaValue,
+    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOpenOptions,
+    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchHit,
+    VantaStorageTier, VantaValue,
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};

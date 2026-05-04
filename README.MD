@@ -39,10 +39,10 @@ The current repo supports the following production-facing capabilities:
 | **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall is the default KV backend, RocksDB remains an explicit fallback, and index reconstruction is supported when the ANN artifact is missing. |
 | **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Internal validation covers 10K–100K synthetic datasets. |
 | **Persistent Memory API** | `namespace + key` records | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs behind the SDK boundary. |
-| **Structured Data** | Derived namespace/payload indexes | Metadata is stored with each record and equality filters use persisted derived indexes that can be rebuilt from canonical records. |
+| **Structured Data** | Derived namespace/payload indexes | Metadata is stored with each record and equality filters use persisted prefix-scan-backed indexes that can be rebuilt from canonical records. |
 | **Graph Edges** | Local adjacency lists | Directed edges with optional weights are stored in the same node model for local traversals and related lookups. |
 | **Embedded SDK Surface** | Stable Rust boundary + PyO3 binding | The Python binding is now routed through `src/sdk.rs` instead of accessing storage and executor internals directly. |
-| **Operational Flows** | Rebuild + JSONL | ANN rebuild and memory export/import are available through Rust SDK, Python SDK, and `vanta-cli`. |
+| **Operational Flows** | Rebuild + JSONL + metrics | ANN rebuild, memory export/import, stale derived-index repair, and operational metrics are available through the SDK boundary. |
 
 ## Install From Source
 
@@ -128,6 +128,8 @@ The following documents track the current repo truth:
 4. **[Python SDK Status](docs/operations/PYTHON_SDK.md)**: Stable boundary, current binding surface, and deferred distribution work.
 5. **[Reliability Gate](docs/operations/RELIABILITY_GATE.md)**: Allowed claims, trusted metrics, and the next cycle cut.
 6. **[Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md)**: Implemented memory surface, derived state, validation evidence, and explicit limits.
+7. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical mutation order and recovery behavior.
+8. **[Minimal Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: Token/key scaffold before BM25/RRF.
 
 ## 📄 License
 
