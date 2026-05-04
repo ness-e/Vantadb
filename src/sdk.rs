@@ -224,6 +224,39 @@ pub struct VantaMemorySearchDebugReport {
     pub top_identities: Vec<String>,
 }
 
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+#[doc(hidden)]
+pub struct VantaMemorySearchExplainReport {
+    pub route: String,
+    pub hits: Vec<VantaMemorySearchExplainHit>,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+#[doc(hidden)]
+pub struct VantaMemorySearchExplainHit {
+    pub identity: String,
+    pub score: f32,
+    pub snippet: Option<String>,
+    pub matched_tokens: Vec<String>,
+    pub matched_phrases: Vec<String>,
+    pub bm25_terms: Vec<VantaBm25TermContribution>,
+    pub rrf_text_rank: Option<usize>,
+    pub rrf_vector_rank: Option<usize>,
+}
+
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq)]
+#[doc(hidden)]
+pub struct VantaBm25TermContribution {
+    pub token: String,
+    pub tf: u32,
+    pub df: u64,
+    pub doc_len: u32,
+    pub contribution: f32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct DerivedIndexState {
     schema_version: u32,
@@ -1386,6 +1419,7 @@ impl VantaEmbedded {
         self.rebuild_text_index_with_report().map(|_| ())
     }
 
+    #[cfg(debug_assertions)]
     fn expected_text_index_entries(engine: &StorageEngine) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
         let mut entries = BTreeMap::new();
         let mut term_stats: BTreeMap<(String, String), u64> = BTreeMap::new();
@@ -1398,7 +1432,15 @@ impl VantaEmbedded {
                 for (token, tf) in &terms.token_counts {
                     entries.insert(
                         crate::text_index::posting_key(&record.namespace, token, &record.key),
-                        crate::text_index::posting_value(record.node_id, *tf)?,
+                        crate::text_index::posting_value(
+                            record.node_id,
+                            *tf,
+                            terms
+                                .token_positions
+                                .get(token)
+                                .map(Vec::as_slice)
+                                .unwrap_or(&[]),
+                        )?,
                     );
                     *term_stats
                         .entry((record.namespace.clone(), token.clone()))
@@ -1435,6 +1477,7 @@ impl VantaEmbedded {
         Ok(entries)
     }
 
+    #[cfg(debug_assertions)]
     fn audit_text_index(engine: &StorageEngine) -> Result<VantaTextIndexAuditReport> {
         let expected = Self::expected_text_index_entries(engine)?;
         let actual: BTreeMap<Vec<u8>, Vec<u8>> = engine
@@ -1521,11 +1564,44 @@ impl VantaEmbedded {
         };
         if !Self::text_index_state_matches_spec(&state) {
             return Err(VantaError::Execution(
-                "text_query requires text_index schema v2; reopen writable or run rebuild_index"
+                "text_query requires text_index schema v3; reopen writable or run rebuild_index"
                     .to_string(),
             ));
         }
         Ok(state)
+    }
+
+    fn text_positions_match_phrases(
+        term_positions: &BTreeMap<String, Vec<u32>>,
+        phrases: &[Vec<String>],
+    ) -> bool {
+        phrases
+            .iter()
+            .all(|phrase| Self::text_positions_match_phrase(term_positions, phrase))
+    }
+
+    fn text_positions_match_phrase(
+        term_positions: &BTreeMap<String, Vec<u32>>,
+        phrase: &[String],
+    ) -> bool {
+        let Some(first_token) = phrase.first() else {
+            return true;
+        };
+        let Some(first_positions) = term_positions.get(first_token) else {
+            return false;
+        };
+        if phrase.len() == 1 {
+            return !first_positions.is_empty();
+        }
+
+        first_positions.iter().any(|start| {
+            phrase.iter().enumerate().skip(1).all(|(offset, token)| {
+                let Some(positions) = term_positions.get(token) else {
+                    return false;
+                };
+                positions.contains(&start.saturating_add(offset as u32))
+            })
+        })
     }
 
     fn lexical_search(
@@ -1544,10 +1620,8 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
 
-        let query_terms: BTreeSet<String> = crate::text_index::tokenize(query_text)
-            .into_iter()
-            .collect();
-        if query_terms.is_empty() {
+        let query_plan = crate::text_index::query_plan(query_text);
+        if query_plan.terms.is_empty() {
             crate::metrics::record_text_lexical_query(0, 0);
             return Ok(Vec::new());
         }
@@ -1568,11 +1642,12 @@ impl VantaEmbedded {
             namespace_stats.total_doc_len as f32 / doc_count
         };
         let mut scores: BTreeMap<u64, f32> = BTreeMap::new();
+        let mut candidate_positions: BTreeMap<u64, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
         let mut doc_stats_cache: BTreeMap<String, crate::text_index::TextDocStats> =
             BTreeMap::new();
         let mut candidates_scored = 0u64;
 
-        for token in query_terms {
+        for token in query_plan.terms {
             let Some(term_stats) = Self::load_text_term_stats(&engine, namespace, &token)? else {
                 continue;
             };
@@ -1630,12 +1705,23 @@ impl VantaEmbedded {
                     .entry(posting.node_id)
                     .and_modify(|score| *score += contribution)
                     .or_insert(contribution);
+                candidate_positions
+                    .entry(posting.node_id)
+                    .or_default()
+                    .insert(token.clone(), posting.positions);
                 candidates_scored += 1;
             }
         }
 
         let mut hits = Vec::new();
         for (node_id, score) in scores {
+            let positions_match = candidate_positions
+                .get(&node_id)
+                .map(|positions| Self::text_positions_match_phrases(positions, &query_plan.phrases))
+                .unwrap_or(query_plan.phrases.is_empty());
+            if !positions_match {
+                continue;
+            }
             if let Some(node) = engine.get(node_id)? {
                 if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
@@ -1704,8 +1790,7 @@ impl VantaEmbedded {
     fn hybrid_candidate_budget(top_k: usize) -> usize {
         top_k
             .saturating_mul(HYBRID_CANDIDATE_MULTIPLIER)
-            .max(HYBRID_MIN_CANDIDATE_BUDGET)
-            .min(HYBRID_MAX_CANDIDATE_BUDGET)
+            .clamp(HYBRID_MIN_CANDIDATE_BUDGET, HYBRID_MAX_CANDIDATE_BUDGET)
             .max(top_k)
     }
 
@@ -2370,10 +2455,274 @@ impl VantaEmbedded {
     }
 
     #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_memory_search_explain_for_tests(
+        &self,
+        request: VantaMemorySearchRequest,
+    ) -> Result<VantaMemorySearchExplainReport> {
+        validate_namespace(&request.namespace)?;
+        validate_metadata(&request.filters)?;
+
+        let text_query = request
+            .text_query
+            .as_deref()
+            .map(str::trim)
+            .filter(|text| !text.is_empty());
+        let has_vector = !request.query_vector.is_empty();
+        if request.top_k == 0 {
+            return Ok(VantaMemorySearchExplainReport {
+                route: "empty".to_string(),
+                hits: Vec::new(),
+            });
+        }
+
+        let engine = self.engine_handle()?;
+        let (route, hits, text_ranks, vector_ranks) = match (text_query, has_vector) {
+            (Some(text_query), true) => {
+                let budget = Self::hybrid_candidate_budget(request.top_k);
+                let lexical_hits =
+                    self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
+                let vector_hits = self.vector_memory_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    &request.filters,
+                    budget,
+                )?;
+                let text_ranks = Self::debug_rank_map(&lexical_hits);
+                let vector_ranks = Self::debug_rank_map(&vector_hits);
+                let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
+                hits.truncate(request.top_k);
+                ("hybrid".to_string(), hits, text_ranks, vector_ranks)
+            }
+            (Some(text_query), false) => {
+                let hits = self.lexical_search(
+                    &request.namespace,
+                    text_query,
+                    &request.filters,
+                    request.top_k,
+                )?;
+                let text_ranks = Self::debug_rank_map(&hits);
+                ("text-only".to_string(), hits, text_ranks, BTreeMap::new())
+            }
+            (None, true) => {
+                let hits = self.vector_memory_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    &request.filters,
+                    request.top_k,
+                )?;
+                let vector_ranks = Self::debug_rank_map(&hits);
+                (
+                    "vector-only".to_string(),
+                    hits,
+                    BTreeMap::new(),
+                    vector_ranks,
+                )
+            }
+            (None, false) => {
+                return Ok(VantaMemorySearchExplainReport {
+                    route: "empty".to_string(),
+                    hits: Vec::new(),
+                });
+            }
+        };
+
+        let explained_hits = hits
+            .into_iter()
+            .map(|hit| {
+                Self::debug_explain_hit(&engine, hit, text_query, &text_ranks, &vector_ranks)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(VantaMemorySearchExplainReport {
+            route,
+            hits: explained_hits,
+        })
+    }
+
+    #[cfg(debug_assertions)]
     fn debug_hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
         hits.iter()
             .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
             .collect()
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_rank_map(hits: &[VantaMemorySearchHit]) -> BTreeMap<(String, String), usize> {
+        hits.iter()
+            .enumerate()
+            .map(|(index, hit)| {
+                (
+                    (hit.record.namespace.clone(), hit.record.key.clone()),
+                    index + 1,
+                )
+            })
+            .collect()
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_explain_hit(
+        engine: &StorageEngine,
+        hit: VantaMemorySearchHit,
+        text_query: Option<&str>,
+        text_ranks: &BTreeMap<(String, String), usize>,
+        vector_ranks: &BTreeMap<(String, String), usize>,
+    ) -> Result<VantaMemorySearchExplainHit> {
+        let identity_tuple = (hit.record.namespace.clone(), hit.record.key.clone());
+        let identity = format!("{}\0{}", hit.record.namespace, hit.record.key);
+        let bm25_terms = if let Some(text_query) = text_query {
+            Self::debug_bm25_terms_for_record(engine, &hit.record, text_query)?
+        } else {
+            Vec::new()
+        };
+        let matched_tokens = bm25_terms
+            .iter()
+            .map(|term| term.token.clone())
+            .collect::<Vec<_>>();
+        let matched_phrases = if let Some(text_query) = text_query {
+            Self::debug_matched_phrases_for_record(engine, &hit.record, text_query)?
+        } else {
+            Vec::new()
+        };
+        let snippet = text_query.and_then(|query| Self::debug_snippet(&hit.record.payload, query));
+
+        Ok(VantaMemorySearchExplainHit {
+            identity,
+            score: hit.score,
+            snippet,
+            matched_tokens,
+            matched_phrases,
+            bm25_terms,
+            rrf_text_rank: text_ranks.get(&identity_tuple).copied(),
+            rrf_vector_rank: vector_ranks.get(&identity_tuple).copied(),
+        })
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_bm25_terms_for_record(
+        engine: &StorageEngine,
+        record: &VantaMemoryRecord,
+        text_query: &str,
+    ) -> Result<Vec<VantaBm25TermContribution>> {
+        let query_plan = crate::text_index::query_plan(text_query);
+        if query_plan.terms.is_empty() {
+            return Ok(Vec::new());
+        }
+        let Some(namespace_stats) = Self::load_text_namespace_stats(engine, &record.namespace)?
+        else {
+            return Ok(Vec::new());
+        };
+        let Some(doc_stats) = Self::load_text_doc_stats(engine, &record.namespace, &record.key)?
+        else {
+            return Ok(Vec::new());
+        };
+        if namespace_stats.doc_count == 0 {
+            return Ok(Vec::new());
+        }
+
+        let doc_count = namespace_stats.doc_count as f32;
+        let avg_doc_len = if namespace_stats.total_doc_len == 0 {
+            1.0
+        } else {
+            namespace_stats.total_doc_len as f32 / doc_count
+        };
+        let doc_len = doc_stats.doc_len as f32;
+        let mut terms = Vec::new();
+
+        for token in query_plan.terms {
+            let Some(term_stats) = Self::load_text_term_stats(engine, &record.namespace, &token)?
+            else {
+                continue;
+            };
+            let Some(posting_value) = engine.get_from_partition(
+                BackendPartition::TextIndex,
+                &crate::text_index::posting_key(&record.namespace, &token, &record.key),
+            )?
+            else {
+                continue;
+            };
+            let posting = crate::text_index::decode_posting(&posting_value)?;
+            let df = term_stats.df as f32;
+            let idf = (1.0 + ((doc_count - df + 0.5) / (df + 0.5))).ln();
+            let tf = posting.tf as f32;
+            let denominator = tf
+                + crate::text_index::BM25_K1
+                    * (1.0 - crate::text_index::BM25_B
+                        + crate::text_index::BM25_B * (doc_len / avg_doc_len));
+            let contribution = idf * ((tf * (crate::text_index::BM25_K1 + 1.0)) / denominator);
+            terms.push(VantaBm25TermContribution {
+                token,
+                tf: posting.tf,
+                df: term_stats.df,
+                doc_len: doc_stats.doc_len,
+                contribution,
+            });
+        }
+
+        Ok(terms)
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_matched_phrases_for_record(
+        engine: &StorageEngine,
+        record: &VantaMemoryRecord,
+        text_query: &str,
+    ) -> Result<Vec<String>> {
+        let query_plan = crate::text_index::query_plan(text_query);
+        if query_plan.phrases.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut term_positions = BTreeMap::new();
+        for token in query_plan.terms {
+            if let Some(value) = engine.get_from_partition(
+                BackendPartition::TextIndex,
+                &crate::text_index::posting_key(&record.namespace, &token, &record.key),
+            )? {
+                let posting = crate::text_index::decode_posting(&value)?;
+                term_positions.insert(token, posting.positions);
+            }
+        }
+
+        Ok(query_plan
+            .phrases
+            .into_iter()
+            .filter(|phrase| Self::text_positions_match_phrase(&term_positions, phrase))
+            .map(|phrase| phrase.join(" "))
+            .collect())
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_snippet(payload: &str, text_query: &str) -> Option<String> {
+        let query_plan = crate::text_index::query_plan(text_query);
+        let first_token = query_plan.terms.iter().next()?;
+        if payload.len() <= 120 {
+            return Some(payload.to_string());
+        }
+
+        let lower_payload = payload.to_ascii_lowercase();
+        let match_at = lower_payload.find(first_token).unwrap_or(0);
+        let mut start = match_at.saturating_sub(48);
+        let mut end = match_at
+            .saturating_add(first_token.len())
+            .saturating_add(72)
+            .min(payload.len());
+        while start > 0 && !payload.is_char_boundary(start) {
+            start -= 1;
+        }
+        while end < payload.len() && !payload.is_char_boundary(end) {
+            end += 1;
+        }
+
+        let mut snippet = String::new();
+        if start > 0 {
+            snippet.push_str("...");
+        }
+        snippet.push_str(payload[start..end].trim());
+        if end < payload.len() {
+            snippet.push_str("...");
+        }
+        Some(snippet)
     }
 
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {

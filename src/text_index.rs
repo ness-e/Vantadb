@@ -9,14 +9,14 @@ use crate::error::{Result, VantaError};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 2;
+pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
 pub(crate) const TOKENIZER_NAME: &str = "lowercase-ascii-alnum";
 pub(crate) const TOKENIZER_VERSION: u32 = 1;
 pub(crate) const KEY_FORMAT: &str = "namespace\\0token\\0key";
 pub(crate) const BM25_K1: f32 = 1.2;
 pub(crate) const BM25_B: f32 = 0.75;
 
-const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v2\0";
+const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
 const TERM_STATS_TAG: &[u8] = b"term\0";
 const DOC_STATS_TAG: &[u8] = b"doc\0";
 const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
@@ -57,6 +57,7 @@ impl Default for TextIndexSpec {
 pub(crate) struct TextPosting {
     pub node_id: u64,
     pub tf: u32,
+    pub positions: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,7 +80,14 @@ pub(crate) struct TextNamespaceStats {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TextRecordTerms {
     pub token_counts: BTreeMap<String, u32>,
+    pub token_positions: BTreeMap<String, Vec<u32>>,
     pub doc_len: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TextQueryPlan {
+    pub terms: BTreeSet<String>,
+    pub phrases: Vec<Vec<String>>,
 }
 
 pub(crate) fn tokenize(text: &str) -> Vec<String> {
@@ -123,16 +131,59 @@ pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
     let tokens = tokenize(payload);
     let doc_len = tokens.len().min(u32::MAX as usize) as u32;
     let mut token_counts = BTreeMap::new();
-    for token in tokens {
+    let mut token_positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for (position, token) in tokens.into_iter().enumerate() {
         token_counts
-            .entry(token)
+            .entry(token.clone())
             .and_modify(|count: &mut u32| *count = count.saturating_add(1))
             .or_insert(1);
+        token_positions
+            .entry(token)
+            .or_default()
+            .push(position.min(u32::MAX as usize) as u32);
     }
     TextRecordTerms {
         token_counts,
+        token_positions,
         doc_len,
     }
+}
+
+pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
+    let mut terms = BTreeSet::new();
+    let mut phrases = Vec::new();
+    let mut outside = String::new();
+    let mut quoted = String::new();
+    let mut in_quote = false;
+
+    for ch in query.chars() {
+        if ch == '"' {
+            if in_quote {
+                let phrase = tokenize(&quoted);
+                if !phrase.is_empty() {
+                    terms.extend(phrase.iter().cloned());
+                    phrases.push(phrase);
+                }
+                quoted.clear();
+                in_quote = false;
+            } else {
+                terms.extend(tokenize(&outside));
+                outside.clear();
+                in_quote = true;
+            }
+        } else if in_quote {
+            quoted.push(ch);
+        } else {
+            outside.push(ch);
+        }
+    }
+
+    if in_quote {
+        outside.push_str(&quoted);
+    }
+    terms.extend(tokenize(&outside));
+
+    TextQueryPlan { terms, phrases }
 }
 
 pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
@@ -233,8 +284,12 @@ fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Resul
         .map_err(|err| VantaError::SerializationError(format!("{label} decode error: {err}")))
 }
 
-pub(crate) fn posting_value(node_id: u64, tf: u32) -> Result<Vec<u8>> {
-    serialize(&TextPosting { node_id, tf })
+pub(crate) fn posting_value(node_id: u64, tf: u32, positions: &[u32]) -> Result<Vec<u8>> {
+    serialize(&TextPosting {
+        node_id,
+        tf,
+        positions: positions.to_vec(),
+    })
 }
 
 pub(crate) fn decode_posting(bytes: &[u8]) -> Result<TextPosting> {
@@ -275,14 +330,19 @@ pub(crate) fn posting_put_ops(
     node_id: u64,
 ) -> Result<Vec<BackendWriteOp>> {
     let terms = record_terms(payload);
+    let token_positions = terms.token_positions;
     terms
         .token_counts
         .into_iter()
         .map(|(token, tf)| {
+            let positions = token_positions
+                .get(&token)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
             Ok(BackendWriteOp::Put {
                 partition: BackendPartition::TextIndex,
                 key: posting_key(namespace, &token, key),
-                value: posting_value(node_id, tf)?,
+                value: posting_value(node_id, tf, positions)?,
             })
         })
         .collect()
@@ -376,17 +436,28 @@ mod tests {
     }
 
     #[test]
-    fn posting_value_stores_node_id_and_tf() {
-        let value = posting_value(42, 3).expect("encode posting");
+    fn posting_value_stores_node_id_tf_and_positions() {
+        let value = posting_value(42, 3, &[0, 2, 4]).expect("encode posting");
         let posting = decode_posting(&value).expect("decode posting");
         assert_eq!(posting.node_id, 42);
         assert_eq!(posting.tf, 3);
+        assert_eq!(posting.positions, vec![0, 2, 4]);
     }
 
     #[test]
-    fn spec_declares_bm25_ready_text_index_v2() {
+    fn query_plan_extracts_phrases_and_terms() {
+        let plan = query_plan(r#"alpha "beta gamma" delta"#);
+        assert_eq!(
+            plan.terms.into_iter().collect::<Vec<_>>(),
+            vec!["alpha", "beta", "delta", "gamma"]
+        );
+        assert_eq!(plan.phrases, vec![vec!["beta", "gamma"]]);
+    }
+
+    #[test]
+    fn spec_declares_phrase_ready_text_index_v3() {
         let spec = TextIndexSpec::default();
-        assert_eq!(spec.schema_version, 2);
+        assert_eq!(spec.schema_version, 3);
         assert_eq!(spec.tokenizer.name, "lowercase-ascii-alnum");
         assert_eq!(spec.tokenizer.version, 1);
         assert_eq!(spec.key_format, "namespace\\0token\\0key");

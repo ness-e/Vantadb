@@ -182,6 +182,16 @@ class TestPersistentMemoryApi:
         assert len(hybrid_hits) == 1
         assert hybrid_hits[0]["record"]["key"] == "task-1"
 
+        db.put("agent/main", "phrase-exact", "alpha beta gamma")
+        db.put("agent/main", "phrase-separated", "alpha spacer beta")
+        phrase_hits = db.search_memory(
+            "agent/main",
+            [],
+            text_query='"alpha beta"',
+            top_k=3,
+        )
+        assert [hit["record"]["key"] for hit in phrase_hits] == ["phrase-exact"]
+
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
         path = _unique_path()
