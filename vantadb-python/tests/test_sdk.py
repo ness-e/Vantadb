@@ -11,17 +11,21 @@ import pytest
 import vantadb_py as vanta
 
 
+import glob
+
 TEST_DB_PATH = "./test_sdk_db"
 
 
 @pytest.fixture(autouse=True)
 def cleanup():
-    """Clean up test database before and after each test."""
-    if os.path.exists(TEST_DB_PATH):
-        shutil.rmtree(TEST_DB_PATH)
+    """Clean up test databases before and after each test."""
+    def _clean():
+        for path in glob.glob(f"{TEST_DB_PATH}_*"):
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=True)
+    _clean()
     yield
-    if os.path.exists(TEST_DB_PATH):
-        shutil.rmtree(TEST_DB_PATH)
+    _clean()
 
 
 import uuid
