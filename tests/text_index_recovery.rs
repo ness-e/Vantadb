@@ -53,6 +53,24 @@ fn search_keys(
     .collect()
 }
 
+fn seed_hybrid_eval_corpus(db: &VantaEmbedded) {
+    let mut both = input("agent/main", "both", "alpha fused");
+    both.vector = Some(vec![1.0, 0.0]);
+    db.put(both).expect("put both");
+
+    let mut vector_only = input("agent/main", "vector-only", "unrelated");
+    vector_only.vector = Some(vec![0.9, 0.1]);
+    db.put(vector_only).expect("put vector only");
+
+    let mut text_only = input("agent/main", "text-only", "alpha lexical");
+    text_only.vector = Some(vec![0.0, 1.0]);
+    db.put(text_only).expect("put text only");
+
+    let mut other_namespace = input("agent/other", "other", "alpha fused");
+    other_namespace.vector = Some(vec![1.0, 0.0]);
+    db.put(other_namespace).expect("put other namespace");
+}
+
 #[test]
 fn text_index_rebuilds_from_canonical_records() {
     let dir = tempdir().expect("tempdir");
@@ -370,18 +388,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
 
     {
         let db = VantaEmbedded::open(&path).expect("open");
-        let mut both = input("agent/main", "both", "alpha fused");
-        both.vector = Some(vec![1.0, 0.0]);
-        db.put(both).expect("put both");
-        let mut vector_only = input("agent/main", "vector-only", "unrelated");
-        vector_only.vector = Some(vec![0.9, 0.1]);
-        db.put(vector_only).expect("put vector only");
-        let mut text_only = input("agent/main", "text-only", "alpha lexical");
-        text_only.vector = Some(vec![0.0, 1.0]);
-        db.put(text_only).expect("put text only");
-        let mut other_namespace = input("agent/other", "other", "alpha fused");
-        other_namespace.vector = Some(vec![1.0, 0.0]);
-        db.put(other_namespace).expect("put other namespace");
+        seed_hybrid_eval_corpus(&db);
 
         let hybrid = db
             .search(VantaMemorySearchRequest {
@@ -397,6 +404,22 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         assert!(keys.contains(&"text-only"));
         assert!(keys.contains(&"vector-only"));
         assert!(!keys.contains(&"other"));
+
+        let debug = db
+            .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+                namespace: "agent/main".to_string(),
+                query_vector: vec![1.0, 0.0],
+                filters: Default::default(),
+                text_query: Some("alpha".to_string()),
+                top_k: 10,
+            })
+            .expect("debug hybrid plan");
+        assert_eq!(debug.route, "hybrid");
+        assert_eq!(debug.budget, 40);
+        assert_eq!(debug.text_candidates, 2);
+        assert_eq!(debug.vector_candidates, 3);
+        assert_eq!(debug.fused_candidates, 3);
+        assert_eq!(debug.top_identities[0], "agent/main\0both");
 
         db.debug_corrupt_text_index_state_for_tests()
             .expect("corrupt state");
@@ -475,6 +498,19 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.key, "keep");
 
+    let mut missing_filter = VantaMemoryMetadata::new();
+    missing_filter.insert("category".to_string(), field_string("missing"));
+    let empty = source
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: missing_filter,
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+        })
+        .expect("empty filtered hybrid");
+    assert!(empty.is_empty());
+
     source
         .export_namespace(&export_path, "agent/main")
         .expect("export");
@@ -522,4 +558,52 @@ fn hybrid_ordering_is_deterministic_on_ties() {
         .expect("hybrid tie search");
     let keys: Vec<_> = hits.into_iter().map(|hit| hit.record.key).collect();
     assert_eq!(keys, vec!["a".to_string(), "b".to_string()]);
+}
+
+#[test]
+fn debug_memory_search_plan_reports_all_routes() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+    seed_hybrid_eval_corpus(&db);
+
+    let text = db
+        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 2,
+        })
+        .expect("debug text plan");
+    assert_eq!(text.route, "text-only");
+    assert_eq!(text.budget, 2);
+    assert_eq!(text.text_candidates, 2);
+    assert_eq!(text.vector_candidates, 0);
+
+    let vector = db
+        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: None,
+            top_k: 2,
+        })
+        .expect("debug vector plan");
+    assert_eq!(vector.route, "vector-only");
+    assert_eq!(vector.budget, 2);
+    assert_eq!(vector.text_candidates, 0);
+    assert_eq!(vector.vector_candidates, 2);
+
+    let empty = db
+        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 0,
+        })
+        .expect("debug empty plan");
+    assert_eq!(empty.route, "empty");
+    assert_eq!(empty.budget, 0);
+    assert!(empty.top_identities.is_empty());
 }

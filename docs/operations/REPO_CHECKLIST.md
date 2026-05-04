@@ -71,8 +71,9 @@ Este checklist define el corte inmediato del repositorio después del release t�
 - [x] Definir RRF/planner mínimo sobre rankings lexicales y vectoriales.
 - [ ] Evaluar Euclidean/SIFT solo como habilitador de benchmark serio.
 
-## 10. Cierre operativo antes de BM25
+## 10. Cierre operativo de Hybrid v1
 
 - [x] Restituir tracker fuente de verdad en `seguimiento de proyecto.csv`.
 - [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
 - [x] Habilitar `text_query` texto-only y hybrid v1 con RRF/planner mínimo.
+- [x] Endurecer Hybrid v1 con certificación, corpus determinista y debug interno del planner/RRF.

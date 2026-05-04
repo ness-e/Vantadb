@@ -212,6 +212,18 @@ pub struct VantaOperationalMetrics {
     pub derived_full_scan_fallbacks: u64,
 }
 
+#[cfg(debug_assertions)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[doc(hidden)]
+pub struct VantaMemorySearchDebugReport {
+    pub route: String,
+    pub budget: usize,
+    pub text_candidates: usize,
+    pub vector_candidates: usize,
+    pub fused_candidates: usize,
+    pub top_identities: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct DerivedIndexState {
     schema_version: u32,
@@ -1714,17 +1726,24 @@ impl VantaEmbedded {
         let budget = Self::hybrid_candidate_budget(top_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
         let vector_hits = self.vector_memory_search(namespace, query_vector, filters, budget)?;
+        let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
+        let candidates_fused = hits.len() as u64;
+        hits.truncate(top_k);
+        crate::metrics::record_hybrid_query(started.elapsed().as_millis() as u64, candidates_fused);
+        Ok(hits)
+    }
 
+    fn fuse_rrf(
+        lexical_hits: Vec<VantaMemorySearchHit>,
+        vector_hits: Vec<VantaMemorySearchHit>,
+    ) -> Vec<VantaMemorySearchHit> {
         let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
         Self::apply_rrf_contributions(&mut fused, lexical_hits);
         Self::apply_rrf_contributions(&mut fused, vector_hits);
 
-        let candidates_fused = fused.len() as u64;
         let mut hits: Vec<_> = fused.into_values().collect();
         Self::sort_memory_hits(&mut hits);
-        hits.truncate(top_k);
-        crate::metrics::record_hybrid_query(started.elapsed().as_millis() as u64, candidates_fused);
-        Ok(hits)
+        hits
     }
 
     fn apply_rrf_contributions(
@@ -2254,6 +2273,107 @@ impl VantaEmbedded {
     pub fn debug_text_index_audit_for_tests(&self) -> Result<VantaTextIndexAuditReport> {
         let engine = self.engine_handle()?;
         Self::audit_text_index(&engine)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_memory_search_plan_for_tests(
+        &self,
+        request: VantaMemorySearchRequest,
+    ) -> Result<VantaMemorySearchDebugReport> {
+        validate_namespace(&request.namespace)?;
+        validate_metadata(&request.filters)?;
+
+        let text_query = request
+            .text_query
+            .as_deref()
+            .map(str::trim)
+            .filter(|text| !text.is_empty());
+        let has_vector = !request.query_vector.is_empty();
+        if request.top_k == 0 {
+            return Ok(VantaMemorySearchDebugReport {
+                route: "empty".to_string(),
+                budget: 0,
+                text_candidates: 0,
+                vector_candidates: 0,
+                fused_candidates: 0,
+                top_identities: Vec::new(),
+            });
+        }
+
+        match (text_query, has_vector) {
+            (Some(text_query), true) => {
+                let budget = Self::hybrid_candidate_budget(request.top_k);
+                let lexical_hits =
+                    self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
+                let vector_hits = self.vector_memory_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    &request.filters,
+                    budget,
+                )?;
+                let text_candidates = lexical_hits.len();
+                let vector_candidates = vector_hits.len();
+                let mut fused_hits = Self::fuse_rrf(lexical_hits, vector_hits);
+                let fused_candidates = fused_hits.len();
+                fused_hits.truncate(request.top_k);
+                Ok(VantaMemorySearchDebugReport {
+                    route: "hybrid".to_string(),
+                    budget,
+                    text_candidates,
+                    vector_candidates,
+                    fused_candidates,
+                    top_identities: Self::debug_hit_identities(&fused_hits),
+                })
+            }
+            (Some(text_query), false) => {
+                let hits = self.lexical_search(
+                    &request.namespace,
+                    text_query,
+                    &request.filters,
+                    request.top_k,
+                )?;
+                Ok(VantaMemorySearchDebugReport {
+                    route: "text-only".to_string(),
+                    budget: request.top_k,
+                    text_candidates: hits.len(),
+                    vector_candidates: 0,
+                    fused_candidates: hits.len(),
+                    top_identities: Self::debug_hit_identities(&hits),
+                })
+            }
+            (None, true) => {
+                let hits = self.vector_memory_search(
+                    &request.namespace,
+                    &request.query_vector,
+                    &request.filters,
+                    request.top_k,
+                )?;
+                Ok(VantaMemorySearchDebugReport {
+                    route: "vector-only".to_string(),
+                    budget: request.top_k,
+                    text_candidates: 0,
+                    vector_candidates: hits.len(),
+                    fused_candidates: hits.len(),
+                    top_identities: Self::debug_hit_identities(&hits),
+                })
+            }
+            (None, false) => Ok(VantaMemorySearchDebugReport {
+                route: "empty".to_string(),
+                budget: 0,
+                text_candidates: 0,
+                vector_candidates: 0,
+                fused_candidates: 0,
+                top_identities: Vec::new(),
+            }),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
+        hits.iter()
+            .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
+            .collect()
     }
 
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {

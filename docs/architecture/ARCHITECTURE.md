@@ -10,7 +10,7 @@ VantaDB is currently an **embedded persistent memory engine** with:
 - a stable embedded SDK boundary in `src/sdk.rs`
 - an optional server wrapper around the same core
 
-The current release should not be read as a universal multimodel platform, an enterprise control plane, or a full text+vector hybrid engine. Graph edges and structured metadata are part of the internal record model, but the primary product boundary today is persistent memory plus vector retrieval.
+The current release should not be read as a universal multimodel platform, an enterprise control plane, or a competitive full-text search platform. Graph edges and structured metadata are part of the internal record model, but the primary product boundary today is embedded persistent memory with vector, BM25 text-only, and Hybrid Retrieval v1.
 
 ## 2. Record Model
 
@@ -54,21 +54,21 @@ Current repo guarantees that matter:
 
 ## 4. Retrieval Model Today
 
-The current ANN path is:
+The current memory retrieval paths are:
 
-- HNSW
-- cosine similarity
-- namespace-scoped vector retrieval
-- equality filters over scalar metadata through derived payload indexes
+- vector-only retrieval using HNSW/cosine over canonical memory records
+- BM25 text-only retrieval over the persistent text index
+- Hybrid Retrieval v1 using a minimal planner and RRF over independently ranked vector and BM25 candidates
+- namespace-scoped retrieval with equality filters over scalar metadata through derived payload indexes
 
 What is **not** implemented as a shipped claim today:
 
-- BM25
-- RRF
-- lexical-first hybrid ranking
-- adaptive planner selection between text/vector paths
+- phrase queries, snippets, positions, stemming, stopwords, or Unicode folding
+- learned/adaptive ranking or ranking explanations
+- competitive hybrid-search parity claims
+- server-first search platform behavior
 
-Any mention of “hybrid search” in the current repo should therefore be read as **vector retrieval plus structured filters**, not as BM25 + vector fusion.
+Any mention of hybrid search in the current repo should therefore be read as **Hybrid Retrieval v1**: BM25 plus vector rankings fused with RRF under a simple deterministic planner, not as a broad search platform claim.
 
 ## 5. Embedded SDK Boundary
 

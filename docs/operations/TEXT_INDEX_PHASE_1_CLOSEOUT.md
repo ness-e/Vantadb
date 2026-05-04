@@ -2,7 +2,8 @@
 
 Date: 2026-05-04
 
-Note: this document records the phase-1 state before BM25. The current
+Note: this document records the phase-1 state before BM25 and Hybrid Retrieval
+v1. It is historical evidence, not the current product boundary. The current
 architecture state is tracked in `docs/architecture/TEXT_INDEX_DESIGN.md`.
 
 ## Status

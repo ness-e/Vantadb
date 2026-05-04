@@ -20,6 +20,7 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - [x] Add brutality/KPI tests covering recovery, rebuild, export/import, and 10K records.
 - [x] Add persistent BM25-ready text-index stats and text-only lexical retrieval.
 - [x] Add Hybrid Retrieval v1 with simple planner and RRF fusion.
+- [x] Harden Hybrid Retrieval v1 with deterministic certification corpus and debug-only planner/RRF report.
 
 ## Current product surface
 
@@ -28,6 +29,7 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - CLI: embedded `put/get/list/rebuild-index/export/import`.
 - Search supports vector-only, BM25 text-only, and hybrid text+vector retrieval.
 - Hybrid retrieval uses a minimal planner and RRF over independently ranked text/vector candidates.
+- Debug builds expose internal hybrid plan certification for tests; it is not a stable SDK API.
 - Text-index postings and BM25 stats for payload are persisted internally and maintained as a derived index.
 
 ## Known limits still accepted
@@ -43,7 +45,7 @@ This file is the repo-side mirror of the active task board for the current MVP b
 
 ## Deferred tasks
 
-- Advanced ranking/debug output for hybrid retrieval.
+- Public ranking explanations and advanced hybrid debug output.
 - Euclidean/SIFT competitive benchmark validation.
 - PyPI/wheels/signing.
 - Server wrapper decision.
