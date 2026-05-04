@@ -21,6 +21,7 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - [x] Add persistent BM25-ready text-index stats and text-only lexical retrieval.
 - [x] Add Hybrid Retrieval v1 with simple planner and RRF fusion.
 - [x] Harden Hybrid Retrieval v1 with deterministic certification corpus and debug-only planner/RRF report.
+- [x] Add text-index v3 token positions, quoted phrase query support, debug-only explain/snippet helpers, Python wheel CI, and real embedded-memory hybrid benchmark/certification corpora.
 
 ## Current product surface
 
@@ -30,23 +31,25 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - Search supports vector-only, BM25 text-only, and hybrid text+vector retrieval.
 - Hybrid retrieval uses a minimal planner and RRF over independently ranked text/vector candidates.
 - Debug builds expose internal hybrid plan certification for tests; it is not a stable SDK API.
-- Text-index postings and BM25 stats for payload are persisted internally and maintained as a derived index.
+- Text-index postings, token positions, and BM25 stats for payload are persisted internally and maintained as a derived index.
 
 ## Known limits still accepted
 
 - Derived indexes are persisted, reconstructible, and queried through backend prefix scans.
-- Text-index postings/stats are persisted, reconstructible, and validated through state/count markers plus debug structural audit.
+- Text-index postings/positions/stats are persisted, reconstructible, and validated through state/count markers plus debug structural audit.
 - Startup, WAL replay, ANN rebuild, derived rebuild, text-index rebuild/repair, lexical query, hybrid query, planner routing, export, import, and import errors have structured operational metrics.
 - Derived-index state is validated on open and repaired from canonical records when stale or corrupt.
 - Text-index state is validated on writable open and repaired from canonical records when stale or corrupt.
 - Export/import is JSONL v1 and intentionally simple; it is not a migration framework or backup format with checksums.
-- Text-only lexical search and simple hybrid text+vector search are wired into public memory search.
+- Text-only lexical search, basic quoted phrase search, and simple hybrid text+vector search are wired into public memory search.
+- Python wheel build/smoke CI exists for Linux, macOS, and Windows, with manual TestPyPI upload guarded by a secret.
+- Hybrid benchmark and certification coverage use small deterministic embedded-memory corpora; they are not competitive benchmarks.
 - The server wrapper is not the primary product boundary.
 
 ## Deferred tasks
 
 - Public ranking explanations and advanced hybrid debug output.
 - Euclidean/SIFT competitive benchmark validation.
-- PyPI/wheels/signing.
+- PyPI production publication/signing.
 - Server wrapper decision.
-- Phrase queries, snippets, positions, and tokenizer evolution beyond `lowercase-ascii-alnum`.
+- Rich snippets/highlighting and tokenizer evolution beyond `lowercase-ascii-alnum`.

@@ -172,6 +172,10 @@ name = "competitive_bench"
 path = "tests/certification/competitive_bench.rs"
 
 [[test]]
+name = "hybrid_retrieval_quality"
+path = "tests/certification/hybrid_retrieval_quality.rs"
+
+[[test]]
 name = "backend_tests"
 path = "tests/storage/backend_tests.rs"
 

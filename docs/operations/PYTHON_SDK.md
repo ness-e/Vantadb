@@ -33,6 +33,7 @@ record = db.get_memory("agent/main", "memory-1")
 page = db.list_memory("agent/main", filters={"kind": "note"})
 hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=5)
 text_hits = db.search_memory("agent/main", [], text_query="durable memory", top_k=5)
+phrase_hits = db.search_memory("agent/main", [], text_query='"local durable"', top_k=5)
 hybrid_hits = db.search_memory(
     "agent/main",
     [1.0, 0.0, 0.0],
@@ -53,16 +54,19 @@ RRF. `operational_metrics()` is diagnostic telemetry for startup, WAL replay,
 rebuild, lexical queries, hybrid queries, planner routes, export, and import
 behavior; it is not a public efficiency claim.
 
-Hybrid planner/RRF debug inspection remains Rust debug-build test support. It
-is not exposed as a stable Python SDK method.
+Quoted phrase queries such as `text_query='"local durable"'` are supported as
+exact consecutive-token filters using the current `lowercase-ascii-alnum`
+tokenizer. Hybrid planner/RRF explain and snippet inspection remains Rust
+debug-build test support. It is not exposed as a stable Python SDK method.
 
 ## Remaining Release Debt
-- PyPI stays blocked until multiplatform wheels exist for Linux, macOS, and Windows.
+- `.github/workflows/python_wheels.yml` builds Linux, macOS, and Windows wheels and smoke-installs the generated artifact.
+- TestPyPI upload is prepared as an explicit manual workflow input guarded by `TEST_PYPI_API_TOKEN`.
+- PyPI production publication remains blocked until the TestPyPI flow and release policy are verified.
 - `vantadb-python` still uses a local path dependency on the core crate for in-repo builds.
-- Release automation for `maturin build` and TestPyPI/PyPI publish is still pending.
 - Public SDK API changes should remain additive until the Python package is distributed externally.
 
 ## Explicitly Deferred
-- Package renaming, PyPI publication, and wheel distribution
-- Signing, installers, and external distribution automation
+- Package renaming and PyPI production publication
+- Signing and installers
 - Any SDK API that would require exposing storage or executor internals

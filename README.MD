@@ -11,7 +11,7 @@
 
 **VantaDB** is an embedded Rust engine for durable local memory. Today it focuses on persistent storage, HNSW vector retrieval, structured metadata, and crash recovery without requiring a separate database service.
 
-`v0.1.0` is the current MVP cut. Docker and Ollama remain deferred or experimental, the Python package is still install-from-source, and lexical BM25/RRF hybrid search is not part of the current shipped surface. The repo now includes the `memory-mvp-core` surface: namespace-scoped memory CRUD/search, manual ANN rebuild, JSONL export/import, and embedded CLI flows.
+`v0.1.0` is the current MVP cut. Docker and Ollama remain deferred or experimental, the Python package is still install-from-source. The repo now includes the `memory-mvp-core` surface: namespace-scoped memory CRUD/search, manual ANN rebuild, JSONL export/import, embedded CLI flows, and full hybrid search combining lexical BM25 and vector similarity via Reciprocal Rank Fusion (RRF).
 
 ## Current Product Boundary
 
@@ -26,7 +26,6 @@ VantaDB should currently be understood as:
 VantaDB should **not** currently be understood as:
 
 - a universal multimodel database
-- full hybrid text + vector search with BM25/RRF
 - a cloud or enterprise platform
 - a PyPI-ready distributed product
 
@@ -37,6 +36,7 @@ The current repo supports the following production-facing capabilities:
 | Engine | Mechanism | Details |
 |--------|-----------|---------|
 | **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall is the default KV backend, RocksDB remains an explicit fallback, and index reconstruction is supported when the ANN artifact is missing. |
+| **Hybrid Search** | BM25 + HNSW via RRF | Combines lexical scoring (BM25) and vector similarity (Cosine) using Reciprocal Rank Fusion with automatic routing via a query planner. |
 | **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Internal validation covers 10K–100K synthetic datasets. |
 | **Persistent Memory API** | `namespace + key` records | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs behind the SDK boundary. |
 | **Structured Data** | Derived namespace/payload indexes | Metadata is stored with each record and equality filters use persisted prefix-scan-backed indexes that can be rebuilt from canonical records. |
@@ -88,10 +88,10 @@ cargo run --bin vanta-cli -- rebuild-index --db ./vanta_data
 
 ## Search Semantics Today
 
-- The shipped ANN path is **cosine similarity only**.
+- The shipped ANN path uses **cosine similarity**.
 - Namespace-scoped `list/search` use derived namespace and scalar metadata indexes, with canonical records remaining the source of truth.
-- BM25, RRF, and true text+vector hybrid ranking are planned next-cycle work and are not claims for `v0.1.0`.
-- SIFT1M remains useful as a stress/recovery scenario, not as a competitive benchmark while the engine stays cosine-only.
+- **Hybrid Search** is supported natively. The engine plans and executes lexical (BM25) and vector (Cosine) queries, fusing them using Reciprocal Rank Fusion (RRF).
+- SIFT1M remains useful as a stress/recovery scenario.
 
 ## Optional Server Mode
 

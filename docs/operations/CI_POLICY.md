@@ -31,6 +31,13 @@ The heavy certification suite validates the engine's capability to run under pro
 **Why are these tests separated?**
 Running `stress_protocol` takes approximately 2 hours (~7085 seconds) and requires significant system resources (AVX2, 31GB RAM, Heavy SWAP). Running this on every PR would paralyze development velocity. 
 
+### 3. Python Wheel Certification (`python_wheels.yml`)
+The wheel workflow builds the Python SDK on Linux, macOS, and Windows with
+`maturin`, installs the generated wheel by resolved path, and runs the Python
+SDK smoke suite. Manual TestPyPI upload is available only through an explicit
+workflow input and the `TEST_PYPI_API_TOKEN` secret. Production PyPI publication
+and signing remain deferred.
+
 ## External Dependencies (Ollama/LLMs)
 VantaDB integrates with external LLMs for embeddings and semantic queries. However, **integration tests requiring network access to LLMs (like Ollama) are strictly excluded from the Fast Gate.** 
 They are either marked with `#[ignore]` or gated behind environment variables (e.g., `VANTADB_RUN_LLM_TESTS=1`). This ensures the core engine can be built and tested completely offline.

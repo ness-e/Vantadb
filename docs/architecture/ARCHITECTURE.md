@@ -59,11 +59,12 @@ The current memory retrieval paths are:
 - vector-only retrieval using HNSW/cosine over canonical memory records
 - BM25 text-only retrieval over the persistent text index
 - Hybrid Retrieval v1 using a minimal planner and RRF over independently ranked vector and BM25 candidates
+- basic quoted phrase matching over persisted token positions
 - namespace-scoped retrieval with equality filters over scalar metadata through derived payload indexes
 
 What is **not** implemented as a shipped claim today:
 
-- phrase queries, snippets, positions, stemming, stopwords, or Unicode folding
+- rich snippets/highlighting, public ranking explanations, stemming, stopwords, or Unicode folding
 - learned/adaptive ranking or ranking explanations
 - competitive hybrid-search parity claims
 - server-first search platform behavior
@@ -92,7 +93,7 @@ The Python binding routes through this boundary and currently exposes:
 - flush/close
 - capabilities
 
-Distribution hardening such as PyPI, wheels, signing, and installers is intentionally deferred until this boundary and the observability contract are stable.
+Distribution hardening now has wheel CI and a manual TestPyPI gate. PyPI production publication, signing, and installers remain deferred until release policy is stable.
 
 ## 6. Memory and Telemetry
 
@@ -110,4 +111,4 @@ See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the curre
 ## 7. Mutation, Recovery, and Text Index Roadmap
 
 - [Mutation and Recovery Protocol](MUTATION_RECOVERY_PROTOCOL.md) defines the canonical mutation order and rebuild behavior for ANN and derived indexes.
-- [Persistent Text Index Design](TEXT_INDEX_DESIGN.md) defines the BM25 text index and Hybrid Retrieval v1 RRF behavior for memory search.
+- [Persistent Text Index Design](TEXT_INDEX_DESIGN.md) defines the BM25 text index, phrase-position support, and Hybrid Retrieval v1 RRF behavior for memory search.
