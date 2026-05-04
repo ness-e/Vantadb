@@ -142,7 +142,7 @@ fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
     );
 
     let after = reopened.operational_metrics();
-    assert!(after.text_index_repairs >= repairs_before + 1);
+    assert!(after.text_index_repairs > repairs_before);
 }
 
 #[test]
@@ -218,6 +218,46 @@ fn text_index_tokenization_and_key_contract() {
 }
 
 #[test]
+fn phrase_query_uses_consecutive_positions_and_cleans_stale_positions() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "exact", "alpha beta gamma"))
+        .expect("put exact");
+    db.put(input("agent/main", "separated", "alpha spacer beta"))
+        .expect("put separated");
+    db.put(input("agent/main", "reversed", "beta alpha gamma"))
+        .expect("put reversed");
+
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"alpha beta\"", Default::default(), 10),
+        vec!["exact".to_string()]
+    );
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"beta alpha\"", Default::default(), 10),
+        vec!["reversed".to_string()]
+    );
+
+    db.put(input("agent/main", "exact", "alpha spacer beta"))
+        .expect("update exact");
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"alpha beta\"", Default::default(), 10),
+        Vec::<String>::new()
+    );
+
+    assert!(db.delete("agent/main", "reversed").expect("delete"));
+    assert_eq!(
+        search_keys(&db, "agent/main", "\"beta alpha\"", Default::default(), 10),
+        Vec::<String>::new()
+    );
+    assert!(
+        db.debug_text_index_audit_for_tests()
+            .expect("audit positions")
+            .passed
+    );
+}
+
+#[test]
 fn text_index_export_import_round_trip_rebuildable() {
     let source_dir = tempdir().expect("source tempdir");
     let target_dir = tempdir().expect("target tempdir");
@@ -255,6 +295,16 @@ fn text_index_export_import_round_trip_rebuildable() {
     assert_has_posting(&rebuilt_keys, "agent/main", "alpha", "portable");
     assert_eq!(
         search_keys(&target, "agent/main", "portable", Default::default(), 10),
+        vec!["portable".to_string()]
+    );
+    assert_eq!(
+        search_keys(
+            &target,
+            "agent/main",
+            "\"portable alpha\"",
+            Default::default(),
+            10
+        ),
         vec!["portable".to_string()]
     );
     assert!(
@@ -377,8 +427,8 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
     })
     .expect("metrics search");
     let after = db.operational_metrics();
-    assert!(after.text_lexical_queries >= before.text_lexical_queries + 1);
-    assert!(after.text_candidates_scored >= before.text_candidates_scored + 2);
+    assert!(after.text_lexical_queries > before.text_lexical_queries);
+    assert!(after.text_candidates_scored > before.text_candidates_scored + 1);
 }
 
 #[test]
@@ -558,6 +608,40 @@ fn hybrid_ordering_is_deterministic_on_ties() {
         .expect("hybrid tie search");
     let keys: Vec<_> = hits.into_iter().map(|hit| hit.record.key).collect();
     assert_eq!(keys, vec!["a".to_string(), "b".to_string()]);
+}
+
+#[test]
+fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+    seed_hybrid_eval_corpus(&db);
+
+    let explain = db
+        .debug_memory_search_explain_for_tests(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("\"alpha fused\"".to_string()),
+            top_k: 10,
+        })
+        .expect("explain hybrid");
+    assert_eq!(explain.route, "hybrid");
+    let both = explain
+        .hits
+        .iter()
+        .find(|hit| hit.identity == "agent/main\0both")
+        .expect("both explain");
+    assert_eq!(both.rrf_text_rank, Some(1));
+    assert_eq!(both.rrf_vector_rank, Some(1));
+    assert_eq!(both.matched_phrases, vec!["alpha fused".to_string()]);
+    assert!(both.matched_tokens.contains(&"alpha".to_string()));
+    assert!(both.matched_tokens.contains(&"fused".to_string()));
+    assert!(both
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("alpha fused"));
+    assert!(both.bm25_terms.iter().all(|term| term.doc_len > 0));
 }
 
 #[test]

@@ -41,9 +41,9 @@ fn metrics_track_rebuild_export_import_and_replay() {
         .expect("text search");
     assert_eq!(text_hits.len(), 1);
     let after_text = reopened.operational_metrics();
-    assert!(after_text.text_lexical_queries >= before_text.text_lexical_queries + 1);
-    assert!(after_text.text_candidates_scored >= before_text.text_candidates_scored + 1);
-    assert!(after_text.planner_text_only_queries >= before_text.planner_text_only_queries + 1);
+    assert!(after_text.text_lexical_queries > before_text.text_lexical_queries);
+    assert!(after_text.text_candidates_scored > before_text.text_candidates_scored);
+    assert!(after_text.planner_text_only_queries > before_text.planner_text_only_queries);
 
     let before_vector = reopened.operational_metrics();
     let vector_hits = reopened
@@ -57,9 +57,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
         .expect("vector search");
     assert_eq!(vector_hits.len(), 1);
     let after_vector = reopened.operational_metrics();
-    assert!(
-        after_vector.planner_vector_only_queries >= before_vector.planner_vector_only_queries + 1
-    );
+    assert!(after_vector.planner_vector_only_queries > before_vector.planner_vector_only_queries);
 
     let before_hybrid = reopened.operational_metrics();
     let hybrid_hits = reopened
@@ -73,14 +71,14 @@ fn metrics_track_rebuild_export_import_and_replay() {
         .expect("hybrid search");
     assert_eq!(hybrid_hits.len(), 1);
     let after_hybrid = reopened.operational_metrics();
-    assert!(after_hybrid.planner_hybrid_queries >= before_hybrid.planner_hybrid_queries + 1);
-    assert!(after_hybrid.hybrid_candidates_fused >= before_hybrid.hybrid_candidates_fused + 1);
+    assert!(after_hybrid.planner_hybrid_queries > before_hybrid.planner_hybrid_queries);
+    assert!(after_hybrid.hybrid_candidates_fused > before_hybrid.hybrid_candidates_fused);
 
     let before_export = reopened.operational_metrics();
     let export = reopened.export_all(&export_path).expect("export");
     assert_eq!(export.records_exported, 1);
     let after_export = reopened.operational_metrics();
-    assert!(after_export.records_exported >= before_export.records_exported + 1);
+    assert!(after_export.records_exported > before_export.records_exported);
 
     let import_dir = tempdir().expect("import tempdir");
     let imported = VantaEmbedded::open(import_dir.path()).expect("open imported");
@@ -88,7 +86,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
     let import = imported.import_file(&export_path).expect("import");
     assert_eq!(import.inserted, 1);
     let after_import = imported.operational_metrics();
-    assert!(after_import.records_imported >= before_import.records_imported + 1);
+    assert!(after_import.records_imported > before_import.records_imported);
 }
 
 #[test]
@@ -103,5 +101,5 @@ fn metrics_track_import_errors() {
     assert_eq!(report.errors, 1);
 
     let after = db.operational_metrics();
-    assert!(after.import_errors >= before.import_errors + 1);
+    assert!(after.import_errors > before.import_errors);
 }
