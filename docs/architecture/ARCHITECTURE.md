@@ -110,4 +110,4 @@ See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the curre
 ## 7. Mutation, Recovery, and Text Index Roadmap
 
 - [Mutation and Recovery Protocol](MUTATION_RECOVERY_PROTOCOL.md) defines the canonical mutation order and rebuild behavior for ANN and derived indexes.
-- [Minimal Text Index Design](TEXT_INDEX_DESIGN.md) defines the tokenizer/key scaffold required before BM25/RRF. It is not connected to public search yet.
+- [Persistent Text Index Design](TEXT_INDEX_DESIGN.md) defines the BM25 text index and Hybrid Retrieval v1 RRF behavior for memory search.

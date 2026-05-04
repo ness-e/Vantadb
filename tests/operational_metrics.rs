@@ -43,6 +43,38 @@ fn metrics_track_rebuild_export_import_and_replay() {
     let after_text = reopened.operational_metrics();
     assert!(after_text.text_lexical_queries >= before_text.text_lexical_queries + 1);
     assert!(after_text.text_candidates_scored >= before_text.text_candidates_scored + 1);
+    assert!(after_text.planner_text_only_queries >= before_text.planner_text_only_queries + 1);
+
+    let before_vector = reopened.operational_metrics();
+    let vector_hits = reopened
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            filters: Default::default(),
+            text_query: None,
+            top_k: 5,
+        })
+        .expect("vector search");
+    assert_eq!(vector_hits.len(), 1);
+    let after_vector = reopened.operational_metrics();
+    assert!(
+        after_vector.planner_vector_only_queries >= before_vector.planner_vector_only_queries + 1
+    );
+
+    let before_hybrid = reopened.operational_metrics();
+    let hybrid_hits = reopened
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("payload".to_string()),
+            top_k: 5,
+        })
+        .expect("hybrid search");
+    assert_eq!(hybrid_hits.len(), 1);
+    let after_hybrid = reopened.operational_metrics();
+    assert!(after_hybrid.planner_hybrid_queries >= before_hybrid.planner_hybrid_queries + 1);
+    assert!(after_hybrid.hybrid_candidates_fused >= before_hybrid.hybrid_candidates_fused + 1);
 
     let before_export = reopened.operational_metrics();
     let export = reopened.export_all(&export_path).expect("export");

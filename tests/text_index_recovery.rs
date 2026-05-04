@@ -364,23 +364,40 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
 }
 
 #[test]
-fn hybrid_text_vector_remains_deferred_and_read_only_does_not_repair() {
+fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
     let dir = tempdir().expect("tempdir");
     let path = dir.path().to_path_buf();
 
     {
         let db = VantaEmbedded::open(&path).expect("open");
-        let mut input = input("agent/main", "hybrid", "hybrid alpha");
-        input.vector = Some(vec![1.0, 0.0]);
-        db.put(input).expect("put");
-        let hybrid = db.search(VantaMemorySearchRequest {
-            namespace: "agent/main".to_string(),
-            query_vector: vec![1.0, 0.0],
-            filters: Default::default(),
-            text_query: Some("alpha".to_string()),
-            top_k: 10,
-        });
-        assert!(hybrid.is_err());
+        let mut both = input("agent/main", "both", "alpha fused");
+        both.vector = Some(vec![1.0, 0.0]);
+        db.put(both).expect("put both");
+        let mut vector_only = input("agent/main", "vector-only", "unrelated");
+        vector_only.vector = Some(vec![0.9, 0.1]);
+        db.put(vector_only).expect("put vector only");
+        let mut text_only = input("agent/main", "text-only", "alpha lexical");
+        text_only.vector = Some(vec![0.0, 1.0]);
+        db.put(text_only).expect("put text only");
+        let mut other_namespace = input("agent/other", "other", "alpha fused");
+        other_namespace.vector = Some(vec![1.0, 0.0]);
+        db.put(other_namespace).expect("put other namespace");
+
+        let hybrid = db
+            .search(VantaMemorySearchRequest {
+                namespace: "agent/main".to_string(),
+                query_vector: vec![1.0, 0.0],
+                filters: Default::default(),
+                text_query: Some("alpha".to_string()),
+                top_k: 10,
+            })
+            .expect("hybrid search");
+        let keys: Vec<_> = hybrid.iter().map(|hit| hit.record.key.as_str()).collect();
+        assert_eq!(keys[0], "both");
+        assert!(keys.contains(&"text-only"));
+        assert!(keys.contains(&"vector-only"));
+        assert!(!keys.contains(&"other"));
+
         db.debug_corrupt_text_index_state_for_tests()
             .expect("corrupt state");
         db.flush().expect("flush");
@@ -403,11 +420,106 @@ fn hybrid_text_vector_remains_deferred_and_read_only_does_not_repair() {
         top_k: 10,
     });
     assert!(text.is_err());
+    let hybrid = read_only.search(VantaMemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: vec![1.0, 0.0],
+        filters: Default::default(),
+        text_query: Some("alpha".to_string()),
+        top_k: 10,
+    });
+    assert!(hybrid.is_err());
     drop(read_only);
 
     let reopened = VantaEmbedded::open(&path).expect("open writable");
-    assert_eq!(
-        search_keys(&reopened, "agent/main", "alpha", Default::default(), 10),
-        vec!["hybrid".to_string()]
-    );
+    let hybrid = reopened
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+        })
+        .expect("hybrid after repair");
+    assert_eq!(hybrid[0].record.key, "both");
+}
+
+#[test]
+fn hybrid_respects_metadata_filters_and_reopen_import_export() {
+    let source_dir = tempdir().expect("source tempdir");
+    let target_dir = tempdir().expect("target tempdir");
+    let export_path = source_dir.path().join("hybrid.jsonl");
+
+    let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+    let mut keep = input("agent/main", "keep", "filtered alpha");
+    keep.vector = Some(vec![1.0, 0.0]);
+    keep.metadata
+        .insert("category".to_string(), field_string("task"));
+    source.put(keep).expect("put keep");
+    let mut drop = input("agent/main", "drop", "filtered alpha");
+    drop.vector = Some(vec![1.0, 0.0]);
+    drop.metadata
+        .insert("category".to_string(), field_string("note"));
+    source.put(drop).expect("put drop");
+
+    let mut filters = VantaMemoryMetadata::new();
+    filters.insert("category".to_string(), field_string("task"));
+    let hits = source
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: filters.clone(),
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+        })
+        .expect("filtered hybrid");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].record.key, "keep");
+
+    source
+        .export_namespace(&export_path, "agent/main")
+        .expect("export");
+    source.close().expect("close source");
+
+    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    target.import_file(&export_path).expect("import");
+    target.flush().expect("flush target");
+    target.close().expect("close target");
+
+    let reopened = VantaEmbedded::open(target_dir.path()).expect("reopen target");
+    let hits = reopened
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters,
+            text_query: Some("alpha".to_string()),
+            top_k: 10,
+        })
+        .expect("hybrid after import reopen");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].record.key, "keep");
+}
+
+#[test]
+fn hybrid_ordering_is_deterministic_on_ties() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    let mut a = input("agent/main", "a", "tie alpha");
+    a.vector = Some(vec![1.0, 0.0]);
+    db.put(a).expect("put a");
+    let mut b = input("agent/main", "b", "tie alpha");
+    b.vector = Some(vec![1.0, 0.0]);
+    db.put(b).expect("put b");
+
+    let hits = db
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: vec![1.0, 0.0],
+            filters: Default::default(),
+            text_query: Some("tie".to_string()),
+            top_k: 10,
+        })
+        .expect("hybrid tie search");
+    let keys: Vec<_> = hits.into_iter().map(|hit| hit.record.key).collect();
+    assert_eq!(keys, vec!["a".to_string(), "b".to_string()]);
 }

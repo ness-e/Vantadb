@@ -6,7 +6,7 @@ Este checklist define el corte inmediato del repositorio después del release t�
 
 - [x] README reposicionado como memoria persistente embebida + vector retrieval.
 - [x] Claims de multimodelo universal rebajados o eliminados.
-- [x] Claims de “hybrid search” acotados a vector + filtros estructurados mientras BM25/RRF siga pendiente.
+- [x] Claims de “hybrid search” acotados a Hybrid Retrieval v1 con planner simple + RRF, sin paridad competitiva.
 - [x] SIFT1M etiquetado como benchmark no comparable para competitividad mientras el motor siga en cosine-only.
 - [x] Documentación de arquitectura reescrita para reflejar el boundary actual del producto.
 
@@ -36,7 +36,7 @@ Este checklist define el corte inmediato del repositorio después del release t�
 ## 5. Trabajo diferido de forma explícita
 
 - [x] PyPI, wheels y signing quedan fuera de este ciclo.
-- [x] BM25, RRF y planner real quedan fuera de este ciclo.
+- [x] Phrase queries, snippets, ranking/debug avanzado y claims competitivos quedan fuera de este ciclo.
 - [x] Namespaces first-class y modelo canónico pasan al siguiente bloque del MVP.
 
 ## 6. Siguiente bloque activo
@@ -68,11 +68,11 @@ Este checklist define el corte inmediato del repositorio después del release t�
 
 - [x] Convertir el scaffold textual en índice invertido persistente reconstruible.
 - [x] Definir BM25 texto-only sobre el índice textual, sin claims competitivos todavía.
-- [ ] Definir RRF/planner sobre rankings lexicales y vectoriales.
+- [x] Definir RRF/planner mínimo sobre rankings lexicales y vectoriales.
 - [ ] Evaluar Euclidean/SIFT solo como habilitador de benchmark serio.
 
 ## 10. Cierre operativo antes de BM25
 
 - [x] Restituir tracker fuente de verdad en `seguimiento de proyecto.csv`.
 - [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
-- [x] Habilitar `text_query` texto-only y mantener hybrid diferido hasta RRF/planner.
+- [x] Habilitar `text_query` texto-only y hybrid v1 con RRF/planner mínimo.

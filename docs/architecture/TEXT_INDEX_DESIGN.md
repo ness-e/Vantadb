@@ -5,11 +5,13 @@ Date: 2026-05-04
 ## Purpose
 
 The text index is an internal, persistent, derived index over memory `payload`
-fields. It now supports BM25 lexical retrieval for text-only `text_query`
-requests while keeping canonical memory records as the source of truth.
+fields. It supports BM25 lexical retrieval and can participate in Hybrid
+Retrieval v1 with vector results through RRF. Canonical memory records remain
+the source of truth.
 
-This is not a hybrid-search claim. Requests that combine `text_query` and
-`query_vector` still return an explicit RRF/planner deferred error.
+This is still a conservative hybrid implementation: simple planner, BM25,
+current vector ranking, and RRF fusion. It is not a claim of competitive
+hybrid-search parity.
 
 ## Tokenization
 
@@ -71,9 +73,17 @@ The query path is namespace-scoped, uses persisted postings/stats, applies
 existing metadata filters to lexical candidates, respects `top_k`, and sorts
 by score descending with deterministic `key`/`node_id` tie breakers.
 
-Whitespace-only `text_query` preserves the previous vector-search behavior.
-Hybrid text+vector remains deferred until RRF/planner work is implemented and
-covered.
+Whitespace-only `text_query` preserves the vector-search behavior.
+
+Hybrid memory search (`text_query` non-empty and `query_vector` non-empty)
+executes BM25 and vector retrieval independently, then fuses ranked candidates
+with Reciprocal Rank Fusion. The internal RRF constant is `60.0`. Each side
+uses a candidate budget of `max(top_k, min(max(top_k * 4, 32), 256))`, then the
+final fused list is truncated to `top_k`.
+
+RRF fuses by logical identity `namespace + key`; candidates that appear in only
+one ranking still participate. Final ordering is fused score descending, then
+stable `key`/`node_id` tie breakers. Raw BM25 and cosine scores are not blended.
 
 ## Consistency And Observability
 
@@ -95,11 +105,14 @@ Operational metrics remain diagnostic only:
 - `text_candidates_scored`
 - `text_consistency_audits`
 - `text_consistency_audit_failures`
+- `hybrid_query_ms`
+- `hybrid_candidates_fused`
+- `planner_hybrid_queries`
+- `planner_text_only_queries`
+- `planner_vector_only_queries`
 
 ## Deferred Work
 
-- RRF fusion for text+vector hybrid ranking.
-- Planner behavior that combines vector, lexical, and structured retrieval.
 - Phrase queries, positions, snippets, and debug ranking explanations.
 - Unicode/ascii-folding/stemming/stopword tokenizer evolution.
 - Competitive hybrid-search claims.

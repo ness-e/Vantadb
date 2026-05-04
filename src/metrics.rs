@@ -200,6 +200,64 @@ pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new
     counter
 });
 
+pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
+    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+        "vanta_hybrid_query_latency_ms",
+        "Hybrid memory query fusion time in ms",
+    ))
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    hist
+});
+
+pub static HYBRID_CANDIDATES_FUSED: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_hybrid_candidates_fused_total",
+        "Unique memory candidates fused by hybrid retrieval",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static PLANNER_HYBRID_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_planner_hybrid_queries_total",
+        "Memory searches planned as hybrid text+vector retrieval",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_planner_text_only_queries_total",
+        "Memory searches planned as text-only retrieval",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_planner_vector_only_queries_total",
+        "Memory searches planned as vector-only retrieval",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
 static LAST_STARTUP_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_REPLAY_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_RECORDS_REPLAYED: AtomicU64 = AtomicU64::new(0);
@@ -219,6 +277,11 @@ static TEXT_LEXICAL_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CANDIDATES_SCORED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CONSISTENCY_AUDITS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static LAST_HYBRID_QUERY_MS: AtomicU64 = AtomicU64::new(0);
+static HYBRID_CANDIDATES_FUSED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static PLANNER_HYBRID_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static PLANNER_TEXT_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static PLANNER_VECTOR_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OperationalMetricsSnapshot {
@@ -236,6 +299,11 @@ pub struct OperationalMetricsSnapshot {
     pub text_candidates_scored: u64,
     pub text_consistency_audits: u64,
     pub text_consistency_audit_failures: u64,
+    pub hybrid_query_ms: u64,
+    pub hybrid_candidates_fused: u64,
+    pub planner_hybrid_queries: u64,
+    pub planner_text_only_queries: u64,
+    pub planner_vector_only_queries: u64,
     pub records_exported: u64,
     pub records_imported: u64,
     pub import_errors: u64,
@@ -299,6 +367,28 @@ pub fn record_text_consistency_audit(failed: bool) {
     }
 }
 
+pub fn record_hybrid_query(duration_ms: u64, candidates_fused: u64) {
+    LAST_HYBRID_QUERY_MS.store(duration_ms, Ordering::Relaxed);
+    HYBRID_CANDIDATES_FUSED_TOTAL.fetch_add(candidates_fused, Ordering::Relaxed);
+    HYBRID_QUERY_LATENCY_MS.observe(duration_ms as f64);
+    HYBRID_CANDIDATES_FUSED.inc_by(candidates_fused);
+}
+
+pub fn record_planner_hybrid_query() {
+    PLANNER_HYBRID_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    PLANNER_HYBRID_QUERIES.inc();
+}
+
+pub fn record_planner_text_only_query() {
+    PLANNER_TEXT_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    PLANNER_TEXT_ONLY_QUERIES.inc();
+}
+
+pub fn record_planner_vector_only_query() {
+    PLANNER_VECTOR_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    PLANNER_VECTOR_ONLY_QUERIES.inc();
+}
+
 pub fn record_export(records: u64) {
     RECORDS_EXPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
     RECORDS_EXPORTED.inc_by(records);
@@ -336,6 +426,11 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         text_consistency_audits: TEXT_CONSISTENCY_AUDITS_TOTAL.load(Ordering::Relaxed),
         text_consistency_audit_failures: TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL
             .load(Ordering::Relaxed),
+        hybrid_query_ms: LAST_HYBRID_QUERY_MS.load(Ordering::Relaxed),
+        hybrid_candidates_fused: HYBRID_CANDIDATES_FUSED_TOTAL.load(Ordering::Relaxed),
+        planner_hybrid_queries: PLANNER_HYBRID_QUERIES_TOTAL.load(Ordering::Relaxed),
+        planner_text_only_queries: PLANNER_TEXT_ONLY_QUERIES_TOTAL.load(Ordering::Relaxed),
+        planner_vector_only_queries: PLANNER_VECTOR_ONLY_QUERIES_TOTAL.load(Ordering::Relaxed),
         records_exported: RECORDS_EXPORTED_TOTAL.load(Ordering::Relaxed),
         records_imported: RECORDS_IMPORTED_TOTAL.load(Ordering::Relaxed),
         import_errors: IMPORT_ERRORS_TOTAL.load(Ordering::Relaxed),

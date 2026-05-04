@@ -38,5 +38,5 @@ payload indexes, and text indexes are derived materializations.
 - WAL replay metrics are operational diagnostics, not marketing claims.
 - JSONL export/import is an interchange flow, not a transactional backup system.
 - BM25 text-only memory search is implemented over the persistent text index.
-- Hybrid text+vector query execution remains disabled until RRF and planner behavior are implemented.
+- Hybrid text+vector memory search is implemented through a minimal planner and RRF fusion.
 - Text-index structural audit is an internal certification tool, not a public integrity API.
