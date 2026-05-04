@@ -142,6 +142,64 @@ pub static TEXT_INDEX_REPAIRS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
+    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+        "vanta_text_lexical_query_latency_ms",
+        "BM25 lexical memory query time in ms",
+    ))
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    hist
+});
+
+pub static TEXT_LEXICAL_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_text_lexical_queries_total",
+        "BM25 lexical memory queries executed",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static TEXT_CANDIDATES_SCORED: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_text_candidates_scored_total",
+        "BM25 lexical candidates scored",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static TEXT_CONSISTENCY_AUDITS: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_text_consistency_audits_total",
+        "Structural text index consistency audits executed",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
+pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new(|| {
+    let counter = IntCounter::new(
+        "vanta_text_consistency_audit_failures_total",
+        "Structural text index consistency audits that detected mismatch",
+    )
+    .unwrap();
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .unwrap();
+    counter
+});
+
 static LAST_STARTUP_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_REPLAY_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_RECORDS_REPLAYED: AtomicU64 = AtomicU64::new(0);
@@ -149,6 +207,7 @@ static LAST_ANN_REBUILD_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_ANN_REBUILD_SCANNED_NODES: AtomicU64 = AtomicU64::new(0);
 static LAST_DERIVED_REBUILD_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_TEXT_INDEX_REBUILD_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_TEXT_LEXICAL_QUERY_MS: AtomicU64 = AtomicU64::new(0);
 static RECORDS_EXPORTED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static RECORDS_IMPORTED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static IMPORT_ERRORS_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -156,6 +215,10 @@ static DERIVED_PREFIX_SCANS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static DERIVED_FULL_SCAN_FALLBACKS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_POSTINGS_WRITTEN_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_INDEX_REPAIRS_TOTAL: AtomicU64 = AtomicU64::new(0);
+static TEXT_LEXICAL_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
+static TEXT_CANDIDATES_SCORED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static TEXT_CONSISTENCY_AUDITS_TOTAL: AtomicU64 = AtomicU64::new(0);
+static TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OperationalMetricsSnapshot {
@@ -168,6 +231,11 @@ pub struct OperationalMetricsSnapshot {
     pub text_index_rebuild_ms: u64,
     pub text_postings_written: u64,
     pub text_index_repairs: u64,
+    pub text_lexical_queries: u64,
+    pub text_lexical_query_ms: u64,
+    pub text_candidates_scored: u64,
+    pub text_consistency_audits: u64,
+    pub text_consistency_audit_failures: u64,
     pub records_exported: u64,
     pub records_imported: u64,
     pub import_errors: u64,
@@ -213,6 +281,24 @@ pub fn record_text_index_repair() {
     TEXT_INDEX_REPAIRS.inc();
 }
 
+pub fn record_text_lexical_query(duration_ms: u64, candidates_scored: u64) {
+    LAST_TEXT_LEXICAL_QUERY_MS.store(duration_ms, Ordering::Relaxed);
+    TEXT_LEXICAL_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    TEXT_CANDIDATES_SCORED_TOTAL.fetch_add(candidates_scored, Ordering::Relaxed);
+    TEXT_LEXICAL_QUERY_LATENCY_MS.observe(duration_ms as f64);
+    TEXT_LEXICAL_QUERIES.inc();
+    TEXT_CANDIDATES_SCORED.inc_by(candidates_scored);
+}
+
+pub fn record_text_consistency_audit(failed: bool) {
+    TEXT_CONSISTENCY_AUDITS_TOTAL.fetch_add(1, Ordering::Relaxed);
+    TEXT_CONSISTENCY_AUDITS.inc();
+    if failed {
+        TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
+        TEXT_CONSISTENCY_AUDIT_FAILURES.inc();
+    }
+}
+
 pub fn record_export(records: u64) {
     RECORDS_EXPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
     RECORDS_EXPORTED.inc_by(records);
@@ -244,6 +330,12 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         text_index_rebuild_ms: LAST_TEXT_INDEX_REBUILD_MS.load(Ordering::Relaxed),
         text_postings_written: TEXT_POSTINGS_WRITTEN_TOTAL.load(Ordering::Relaxed),
         text_index_repairs: TEXT_INDEX_REPAIRS_TOTAL.load(Ordering::Relaxed),
+        text_lexical_queries: TEXT_LEXICAL_QUERIES_TOTAL.load(Ordering::Relaxed),
+        text_lexical_query_ms: LAST_TEXT_LEXICAL_QUERY_MS.load(Ordering::Relaxed),
+        text_candidates_scored: TEXT_CANDIDATES_SCORED_TOTAL.load(Ordering::Relaxed),
+        text_consistency_audits: TEXT_CONSISTENCY_AUDITS_TOTAL.load(Ordering::Relaxed),
+        text_consistency_audit_failures: TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL
+            .load(Ordering::Relaxed),
         records_exported: RECORDS_EXPORTED_TOTAL.load(Ordering::Relaxed),
         records_imported: RECORDS_IMPORTED_TOTAL.load(Ordering::Relaxed),
         import_errors: IMPORT_ERRORS_TOTAL.load(Ordering::Relaxed),

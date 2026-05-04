@@ -224,6 +224,14 @@ fn operational_metrics_to_pydict(
     dict.set_item("text_index_rebuild_ms", metrics.text_index_rebuild_ms)?;
     dict.set_item("text_postings_written", metrics.text_postings_written)?;
     dict.set_item("text_index_repairs", metrics.text_index_repairs)?;
+    dict.set_item("text_lexical_queries", metrics.text_lexical_queries)?;
+    dict.set_item("text_lexical_query_ms", metrics.text_lexical_query_ms)?;
+    dict.set_item("text_candidates_scored", metrics.text_candidates_scored)?;
+    dict.set_item("text_consistency_audits", metrics.text_consistency_audits)?;
+    dict.set_item(
+        "text_consistency_audit_failures",
+        metrics.text_consistency_audit_failures,
+    )?;
     dict.set_item("records_exported", metrics.records_exported)?;
     dict.set_item("records_imported", metrics.records_imported)?;
     dict.set_item("import_errors", metrics.import_errors)?;

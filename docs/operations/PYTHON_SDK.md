@@ -32,6 +32,7 @@ db.put(
 record = db.get_memory("agent/main", "memory-1")
 page = db.list_memory("agent/main", filters={"kind": "note"})
 hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=5)
+text_hits = db.search_memory("agent/main", [], text_query="durable memory", top_k=5)
 report = db.rebuild_index()
 metrics = db.operational_metrics()
 db.export_namespace("./agent-main.jsonl", "agent/main")
@@ -39,8 +40,11 @@ db.flush()
 db.close()
 ```
 
-`search_memory(..., text_query="...")` is intentionally rejected until BM25/RRF exists.
-`operational_metrics()` is diagnostic telemetry for startup, WAL replay, rebuild, export, and import behavior; it is not a public efficiency claim.
+Text-only `search_memory(..., query_vector=[], text_query="...")` uses BM25
+lexical retrieval. Combining `text_query` with a non-empty vector is still
+rejected until RRF/planner behavior exists. `operational_metrics()` is
+diagnostic telemetry for startup, WAL replay, rebuild, lexical queries, export,
+and import behavior; it is not a public efficiency claim.
 
 ## Remaining Release Debt
 - PyPI stays blocked until multiplatform wheels exist for Linux, macOS, and Windows.

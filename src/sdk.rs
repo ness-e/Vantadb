@@ -191,6 +191,11 @@ pub struct VantaOperationalMetrics {
     pub text_index_rebuild_ms: u64,
     pub text_postings_written: u64,
     pub text_index_repairs: u64,
+    pub text_lexical_queries: u64,
+    pub text_lexical_query_ms: u64,
+    pub text_candidates_scored: u64,
+    pub text_consistency_audits: u64,
+    pub text_consistency_audit_failures: u64,
     pub records_exported: u64,
     pub records_imported: u64,
     pub import_errors: u64,
@@ -219,17 +224,50 @@ struct DerivedIndexRebuildReport {
 struct TextIndexState {
     schema_version: u32,
     tokenizer: String,
+    tokenizer_version: u32,
     key_format: String,
     rebuilt_at_ms: u64,
     record_count: u64,
     posting_entries: u64,
+    doc_stats_entries: u64,
+    term_stats_entries: u64,
+    namespace_stats_entries: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TextIndexRebuildReport {
     record_count: u64,
     posting_entries: u64,
+    doc_stats_entries: u64,
+    term_stats_entries: u64,
+    namespace_stats_entries: u64,
     duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TextIndexCounts {
+    record_count: u64,
+    posting_entries: u64,
+    doc_stats_entries: u64,
+    term_stats_entries: u64,
+    namespace_stats_entries: u64,
+    unknown_entries: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TextIndexMutationReport {
+    postings_written: u64,
+    doc_stats_delta: i64,
+    term_stats_delta: i64,
+    namespace_stats_delta: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VantaTextIndexAuditReport {
+    pub expected_entries: u64,
+    pub actual_entries: u64,
+    pub mismatches: u64,
+    pub passed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -664,22 +702,27 @@ impl VantaEmbedded {
         )
     }
 
-    fn fresh_text_index_state(record_count: u64, posting_entries: u64) -> TextIndexState {
+    fn fresh_text_index_state(counts: TextIndexCounts) -> TextIndexState {
         let spec = crate::text_index::TextIndexSpec::default();
         TextIndexState {
             schema_version: spec.schema_version,
-            tokenizer: spec.tokenizer.to_string(),
+            tokenizer: spec.tokenizer.name.to_string(),
+            tokenizer_version: spec.tokenizer.version,
             key_format: spec.key_format.to_string(),
             rebuilt_at_ms: now_ms(),
-            record_count,
-            posting_entries,
+            record_count: counts.record_count,
+            posting_entries: counts.posting_entries,
+            doc_stats_entries: counts.doc_stats_entries,
+            term_stats_entries: counts.term_stats_entries,
+            namespace_stats_entries: counts.namespace_stats_entries,
         }
     }
 
     fn text_index_state_matches_spec(state: &TextIndexState) -> bool {
         let spec = crate::text_index::TextIndexSpec::default();
         state.schema_version == spec.schema_version
-            && state.tokenizer == spec.tokenizer
+            && state.tokenizer == spec.tokenizer.name
+            && state.tokenizer_version == spec.tokenizer.version
             && state.key_format == spec.key_format
     }
 
@@ -693,22 +736,47 @@ impl VantaEmbedded {
         Ok(count)
     }
 
-    fn expected_text_index_counts(engine: &StorageEngine) -> Result<(u64, u64)> {
-        let mut record_count = 0u64;
-        let mut posting_entries = 0u64;
+    fn expected_text_index_counts(engine: &StorageEngine) -> Result<TextIndexCounts> {
+        let mut counts = TextIndexCounts::default();
+        let mut terms = BTreeSet::new();
+        let mut namespaces = BTreeSet::new();
 
         for node in engine.scan_nodes()? {
             if let Some(record) = memory_record_from_node(node) {
-                record_count += 1;
-                posting_entries += crate::text_index::posting_count(&record.payload);
+                counts.record_count += 1;
+                counts.posting_entries += crate::text_index::posting_count(&record.payload);
+                counts.doc_stats_entries += 1;
+                namespaces.insert(record.namespace.clone());
+                for token in crate::text_index::unique_tokens(&record.payload) {
+                    terms.insert((record.namespace.clone(), token));
+                }
             }
         }
 
-        Ok((record_count, posting_entries))
+        counts.term_stats_entries = terms.len() as u64;
+        counts.namespace_stats_entries = namespaces.len() as u64;
+        Ok(counts)
     }
 
-    fn current_text_index_count(engine: &StorageEngine) -> Result<u64> {
-        Ok(engine.scan_partition(BackendPartition::TextIndex)?.len() as u64)
+    fn current_text_index_counts(engine: &StorageEngine) -> Result<TextIndexCounts> {
+        let mut counts = TextIndexCounts::default();
+        for (key, _value) in engine.scan_partition(BackendPartition::TextIndex)? {
+            if !crate::text_index::is_internal_key(&key) {
+                counts.posting_entries += 1;
+                continue;
+            }
+
+            if crate::text_index::is_doc_stats_key(&key) {
+                counts.doc_stats_entries += 1;
+            } else if crate::text_index::is_term_stats_key(&key) {
+                counts.term_stats_entries += 1;
+            } else if crate::text_index::is_namespace_stats_key(&key) {
+                counts.namespace_stats_entries += 1;
+            } else {
+                counts.unknown_entries += 1;
+            }
+        }
+        Ok(counts)
     }
 
     fn current_derived_index_counts(engine: &StorageEngine) -> Result<(u64, u64)> {
@@ -755,6 +823,199 @@ impl VantaEmbedded {
         ops
     }
 
+    fn load_text_term_stats(
+        engine: &StorageEngine,
+        namespace: &str,
+        token: &str,
+    ) -> Result<Option<crate::text_index::TextTermStats>> {
+        let Some(bytes) = engine.get_from_partition(
+            BackendPartition::TextIndex,
+            &crate::text_index::term_stats_key(namespace, token),
+        )?
+        else {
+            return Ok(None);
+        };
+        crate::text_index::decode_term_stats(&bytes).map(Some)
+    }
+
+    fn load_text_namespace_stats(
+        engine: &StorageEngine,
+        namespace: &str,
+    ) -> Result<Option<crate::text_index::TextNamespaceStats>> {
+        let Some(bytes) = engine.get_from_partition(
+            BackendPartition::TextIndex,
+            &crate::text_index::namespace_stats_key(namespace),
+        )?
+        else {
+            return Ok(None);
+        };
+        crate::text_index::decode_namespace_stats(&bytes).map(Some)
+    }
+
+    fn load_text_doc_stats(
+        engine: &StorageEngine,
+        namespace: &str,
+        key: &str,
+    ) -> Result<Option<crate::text_index::TextDocStats>> {
+        let Some(bytes) = engine.get_from_partition(
+            BackendPartition::TextIndex,
+            &crate::text_index::doc_stats_key(namespace, key),
+        )?
+        else {
+            return Ok(None);
+        };
+        crate::text_index::decode_doc_stats(&bytes).map(Some)
+    }
+
+    fn apply_u64_delta(value: u64, delta: i64) -> u64 {
+        if delta >= 0 {
+            value.saturating_add(delta as u64)
+        } else {
+            value.saturating_sub(delta.unsigned_abs())
+        }
+    }
+
+    fn checked_stats_value(value: i128, label: &str) -> Result<u64> {
+        if value < 0 {
+            return Err(VantaError::Execution(format!(
+                "text index {label} would become negative"
+            )));
+        }
+        u64::try_from(value).map_err(|_| {
+            VantaError::Execution(format!("text index {label} exceeds supported range"))
+        })
+    }
+
+    fn text_index_ops_for_replace(
+        engine: &StorageEngine,
+        previous: Option<&VantaMemoryRecord>,
+        current: Option<&VantaMemoryRecord>,
+    ) -> Result<(Vec<BackendWriteOp>, TextIndexMutationReport)> {
+        let mut ops = Vec::new();
+        let mut report = TextIndexMutationReport::default();
+        let mut term_deltas: BTreeMap<(String, String), i64> = BTreeMap::new();
+        let mut namespace_deltas: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+
+        if let Some(previous) = previous {
+            let terms = crate::text_index::record_terms(&previous.payload);
+            ops.extend(crate::text_index::posting_delete_ops(
+                &previous.namespace,
+                &previous.key,
+                &previous.payload,
+            ));
+            ops.push(crate::text_index::doc_stats_delete_op(
+                &previous.namespace,
+                &previous.key,
+            ));
+            report.doc_stats_delta -= 1;
+
+            for token in terms.token_counts.keys() {
+                *term_deltas
+                    .entry((previous.namespace.clone(), token.clone()))
+                    .or_default() -= 1;
+            }
+            let namespace_delta = namespace_deltas
+                .entry(previous.namespace.clone())
+                .or_insert((0, 0));
+            namespace_delta.0 -= 1;
+            namespace_delta.1 -= i64::from(terms.doc_len);
+        }
+
+        if let Some(current) = current {
+            let terms = crate::text_index::record_terms(&current.payload);
+            let posting_ops = crate::text_index::posting_put_ops(
+                &current.namespace,
+                &current.key,
+                &current.payload,
+                current.node_id,
+            )?;
+            report.postings_written = posting_ops.len() as u64;
+            ops.extend(posting_ops);
+            ops.push(crate::text_index::doc_stats_put_op(
+                &current.namespace,
+                &current.key,
+                &current.payload,
+                current.node_id,
+            )?);
+            report.doc_stats_delta += 1;
+
+            for token in terms.token_counts.keys() {
+                *term_deltas
+                    .entry((current.namespace.clone(), token.clone()))
+                    .or_default() += 1;
+            }
+            let namespace_delta = namespace_deltas
+                .entry(current.namespace.clone())
+                .or_insert((0, 0));
+            namespace_delta.0 += 1;
+            namespace_delta.1 += i64::from(terms.doc_len);
+        }
+
+        for ((namespace, token), delta) in term_deltas {
+            if delta == 0 {
+                continue;
+            }
+
+            let existing = Self::load_text_term_stats(engine, &namespace, &token)?
+                .map(|stats| stats.df)
+                .unwrap_or(0);
+            let next = Self::checked_stats_value(existing as i128 + delta as i128, "df")?;
+            match (existing == 0, next == 0) {
+                (true, false) => report.term_stats_delta += 1,
+                (false, true) => report.term_stats_delta -= 1,
+                _ => {}
+            }
+            if next == 0 {
+                ops.push(crate::text_index::term_stats_delete_op(&namespace, &token));
+            } else {
+                ops.push(crate::text_index::term_stats_put_op(
+                    &namespace, &token, next,
+                )?);
+            }
+        }
+
+        for (namespace, (doc_delta, len_delta)) in namespace_deltas {
+            if doc_delta == 0 && len_delta == 0 {
+                continue;
+            }
+
+            let existing = Self::load_text_namespace_stats(engine, &namespace)?.unwrap_or(
+                crate::text_index::TextNamespaceStats {
+                    doc_count: 0,
+                    total_doc_len: 0,
+                },
+            );
+            let next_doc_count = Self::checked_stats_value(
+                existing.doc_count as i128 + doc_delta as i128,
+                "doc_count",
+            )?;
+            let next_total_doc_len = Self::checked_stats_value(
+                existing.total_doc_len as i128 + len_delta as i128,
+                "total_doc_len",
+            )?;
+
+            match (existing.doc_count == 0, next_doc_count == 0) {
+                (true, false) => report.namespace_stats_delta += 1,
+                (false, true) => report.namespace_stats_delta -= 1,
+                _ => {}
+            }
+
+            if next_doc_count == 0 {
+                ops.push(crate::text_index::namespace_stats_delete_op(&namespace));
+            } else {
+                ops.push(crate::text_index::namespace_stats_put_op(
+                    &namespace,
+                    &crate::text_index::TextNamespaceStats {
+                        doc_count: next_doc_count,
+                        total_doc_len: next_total_doc_len,
+                    },
+                )?);
+            }
+        }
+
+        Ok((ops, report))
+    }
+
     fn replace_derived_indexes(
         &self,
         engine: &StorageEngine,
@@ -764,31 +1025,19 @@ impl VantaEmbedded {
         let mut ops = Vec::new();
         if let Some(previous) = previous {
             ops.extend(Self::derived_delete_ops(previous));
-            ops.extend(crate::text_index::posting_delete_ops(
-                &previous.namespace,
-                &previous.key,
-                &previous.payload,
-            ));
         }
-        let text_postings_written = current
-            .map(|record| crate::text_index::posting_count(&record.payload))
-            .unwrap_or(0);
         if let Some(current) = current {
             ops.extend(Self::derived_put_ops(current));
-            ops.extend(crate::text_index::posting_put_ops(
-                &current.namespace,
-                &current.key,
-                &current.payload,
-                current.node_id,
-            ));
         }
+        let (text_ops, text_report) = Self::text_index_ops_for_replace(engine, previous, current)?;
+        ops.extend(text_ops);
         if ops.is_empty() {
             return Ok(());
         }
         engine.write_backend_batch(ops)?;
         Self::adjust_derived_index_state_after_replace(engine, previous, current)?;
-        Self::adjust_text_index_state_after_replace(engine, previous, current)?;
-        crate::metrics::record_text_postings_written(text_postings_written);
+        Self::adjust_text_index_state_after_replace(engine, previous, current, text_report)?;
+        crate::metrics::record_text_postings_written(text_report.postings_written);
         Ok(())
     }
 
@@ -835,6 +1084,7 @@ impl VantaEmbedded {
         engine: &StorageEngine,
         previous: Option<&VantaMemoryRecord>,
         current: Option<&VantaMemoryRecord>,
+        report: TextIndexMutationReport,
     ) -> Result<()> {
         let Some(mut state) = Self::load_text_index_state(engine)? else {
             return Ok(());
@@ -849,21 +1099,31 @@ impl VantaEmbedded {
                 state.posting_entries = state
                     .posting_entries
                     .saturating_add(crate::text_index::posting_count(&current.payload));
+                state.doc_stats_entries =
+                    Self::apply_u64_delta(state.doc_stats_entries, report.doc_stats_delta);
             }
             (Some(previous), None) => {
                 state.record_count = state.record_count.saturating_sub(1);
                 state.posting_entries = state
                     .posting_entries
                     .saturating_sub(crate::text_index::posting_count(&previous.payload));
+                state.doc_stats_entries =
+                    Self::apply_u64_delta(state.doc_stats_entries, report.doc_stats_delta);
             }
             (Some(previous), Some(current)) => {
                 state.posting_entries = state
                     .posting_entries
                     .saturating_sub(crate::text_index::posting_count(&previous.payload))
                     .saturating_add(crate::text_index::posting_count(&current.payload));
+                state.doc_stats_entries =
+                    Self::apply_u64_delta(state.doc_stats_entries, report.doc_stats_delta);
             }
             (None, None) => {}
         }
+        state.term_stats_entries =
+            Self::apply_u64_delta(state.term_stats_entries, report.term_stats_delta);
+        state.namespace_stats_entries =
+            Self::apply_u64_delta(state.namespace_stats_entries, report.namespace_stats_delta);
 
         Self::write_text_index_state(engine, &state)
     }
@@ -922,29 +1182,43 @@ impl VantaEmbedded {
             }
         };
 
-        let (canonical_records, expected_postings) = Self::expected_text_index_counts(&engine)?;
-        let current_postings = Self::current_text_index_count(&engine)?;
+        let expected = Self::expected_text_index_counts(&engine)?;
+        let current = Self::current_text_index_counts(&engine)?;
 
         let has_state = state.is_some();
         let needs_rebuild = match &state {
             Some(state) => {
                 !Self::text_index_state_matches_spec(state)
-                    || state.record_count != canonical_records
-                    || state.posting_entries != current_postings
-                    || state.posting_entries != expected_postings
-                    || current_postings != expected_postings
+                    || state.record_count != expected.record_count
+                    || state.posting_entries != current.posting_entries
+                    || state.posting_entries != expected.posting_entries
+                    || state.doc_stats_entries != current.doc_stats_entries
+                    || state.doc_stats_entries != expected.doc_stats_entries
+                    || state.term_stats_entries != current.term_stats_entries
+                    || state.term_stats_entries != expected.term_stats_entries
+                    || state.namespace_stats_entries != current.namespace_stats_entries
+                    || state.namespace_stats_entries != expected.namespace_stats_entries
+                    || current.posting_entries != expected.posting_entries
+                    || current.doc_stats_entries != expected.doc_stats_entries
+                    || current.term_stats_entries != expected.term_stats_entries
+                    || current.namespace_stats_entries != expected.namespace_stats_entries
+                    || current.unknown_entries != 0
             }
-            None => canonical_records > 0 || current_postings > 0,
+            None => {
+                expected.record_count > 0
+                    || current.posting_entries > 0
+                    || current.doc_stats_entries > 0
+                    || current.term_stats_entries > 0
+                    || current.namespace_stats_entries > 0
+                    || current.unknown_entries > 0
+            }
         };
 
         if needs_rebuild {
             crate::metrics::record_text_index_repair();
             self.rebuild_text_index_with_report()?;
         } else if !has_state {
-            Self::write_text_index_state(
-                &engine,
-                &Self::fresh_text_index_state(canonical_records, expected_postings),
-            )?;
+            Self::write_text_index_state(&engine, &Self::fresh_text_index_state(expected))?;
         }
 
         Ok(())
@@ -1012,8 +1286,10 @@ impl VantaEmbedded {
         let started = Instant::now();
         let engine = self.engine_handle()?;
         let mut ops = Vec::new();
-        let mut record_count = 0u64;
-        let mut posting_entries = 0u64;
+        let mut counts = TextIndexCounts::default();
+        let mut term_stats: BTreeMap<(String, String), u64> = BTreeMap::new();
+        let mut namespace_stats: BTreeMap<String, crate::text_index::TextNamespaceStats> =
+            BTreeMap::new();
 
         for (key, _value) in engine.scan_partition(BackendPartition::TextIndex)? {
             ops.push(BackendWriteOp::Delete {
@@ -1024,30 +1300,61 @@ impl VantaEmbedded {
 
         for node in engine.scan_nodes()? {
             if let Some(record) = memory_record_from_node(node) {
-                record_count += 1;
+                counts.record_count += 1;
                 let posting_ops = crate::text_index::posting_put_ops(
                     &record.namespace,
                     &record.key,
                     &record.payload,
                     record.node_id,
-                );
-                posting_entries += posting_ops.len() as u64;
+                )?;
+                counts.posting_entries += posting_ops.len() as u64;
                 ops.extend(posting_ops);
+                ops.push(crate::text_index::doc_stats_put_op(
+                    &record.namespace,
+                    &record.key,
+                    &record.payload,
+                    record.node_id,
+                )?);
+                counts.doc_stats_entries += 1;
+
+                let terms = crate::text_index::record_terms(&record.payload);
+                for token in terms.token_counts.keys() {
+                    *term_stats
+                        .entry((record.namespace.clone(), token.clone()))
+                        .or_default() += 1;
+                }
+                let namespace = namespace_stats.entry(record.namespace.clone()).or_insert(
+                    crate::text_index::TextNamespaceStats {
+                        doc_count: 0,
+                        total_doc_len: 0,
+                    },
+                );
+                namespace.doc_count += 1;
+                namespace.total_doc_len += u64::from(terms.doc_len);
             }
         }
+
+        for ((namespace, token), df) in &term_stats {
+            ops.push(crate::text_index::term_stats_put_op(namespace, token, *df)?);
+        }
+        for (namespace, stats) in &namespace_stats {
+            ops.push(crate::text_index::namespace_stats_put_op(namespace, stats)?);
+        }
+        counts.term_stats_entries = term_stats.len() as u64;
+        counts.namespace_stats_entries = namespace_stats.len() as u64;
 
         if !ops.is_empty() {
             engine.write_backend_batch(ops)?;
         }
 
-        Self::write_text_index_state(
-            &engine,
-            &Self::fresh_text_index_state(record_count, posting_entries),
-        )?;
+        Self::write_text_index_state(&engine, &Self::fresh_text_index_state(counts))?;
 
         let report = TextIndexRebuildReport {
-            record_count,
-            posting_entries,
+            record_count: counts.record_count,
+            posting_entries: counts.posting_entries,
+            doc_stats_entries: counts.doc_stats_entries,
+            term_stats_entries: counts.term_stats_entries,
+            namespace_stats_entries: counts.namespace_stats_entries,
             duration_ms: started.elapsed().as_millis() as u64,
         };
         crate::metrics::record_text_index_rebuild(report.duration_ms, report.posting_entries);
@@ -1056,6 +1363,84 @@ impl VantaEmbedded {
 
     fn rebuild_text_index(&self) -> Result<()> {
         self.rebuild_text_index_with_report().map(|_| ())
+    }
+
+    fn expected_text_index_entries(engine: &StorageEngine) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
+        let mut entries = BTreeMap::new();
+        let mut term_stats: BTreeMap<(String, String), u64> = BTreeMap::new();
+        let mut namespace_stats: BTreeMap<String, crate::text_index::TextNamespaceStats> =
+            BTreeMap::new();
+
+        for node in engine.scan_nodes()? {
+            if let Some(record) = memory_record_from_node(node) {
+                let terms = crate::text_index::record_terms(&record.payload);
+                for (token, tf) in &terms.token_counts {
+                    entries.insert(
+                        crate::text_index::posting_key(&record.namespace, token, &record.key),
+                        crate::text_index::posting_value(record.node_id, *tf)?,
+                    );
+                    *term_stats
+                        .entry((record.namespace.clone(), token.clone()))
+                        .or_default() += 1;
+                }
+                entries.insert(
+                    crate::text_index::doc_stats_key(&record.namespace, &record.key),
+                    crate::text_index::doc_stats_value(record.node_id, terms.doc_len)?,
+                );
+                let namespace = namespace_stats.entry(record.namespace.clone()).or_insert(
+                    crate::text_index::TextNamespaceStats {
+                        doc_count: 0,
+                        total_doc_len: 0,
+                    },
+                );
+                namespace.doc_count += 1;
+                namespace.total_doc_len += u64::from(terms.doc_len);
+            }
+        }
+
+        for ((namespace, token), df) in term_stats {
+            entries.insert(
+                crate::text_index::term_stats_key(&namespace, &token),
+                crate::text_index::term_stats_value(df)?,
+            );
+        }
+        for (namespace, stats) in namespace_stats {
+            entries.insert(
+                crate::text_index::namespace_stats_key(&namespace),
+                crate::text_index::namespace_stats_value(stats.doc_count, stats.total_doc_len)?,
+            );
+        }
+
+        Ok(entries)
+    }
+
+    fn audit_text_index(engine: &StorageEngine) -> Result<VantaTextIndexAuditReport> {
+        let expected = Self::expected_text_index_entries(engine)?;
+        let actual: BTreeMap<Vec<u8>, Vec<u8>> = engine
+            .scan_partition(BackendPartition::TextIndex)?
+            .into_iter()
+            .collect();
+
+        let mut mismatches = 0u64;
+        for (key, value) in &expected {
+            if actual.get(key) != Some(value) {
+                mismatches += 1;
+            }
+        }
+        for key in actual.keys() {
+            if !expected.contains_key(key) {
+                mismatches += 1;
+            }
+        }
+
+        let report = VantaTextIndexAuditReport {
+            expected_entries: expected.len() as u64,
+            actual_entries: actual.len() as u64,
+            mismatches,
+            passed: mismatches == 0,
+        };
+        crate::metrics::record_text_consistency_audit(!report.passed);
+        Ok(report)
     }
 
     fn indexed_ids_by_namespace(
@@ -1098,6 +1483,160 @@ impl VantaEmbedded {
         }
 
         Ok((ids, has_index_entries))
+    }
+
+    fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<TextIndexState> {
+        let state = Self::load_text_index_state(engine).map_err(|_| {
+            VantaError::Execution(
+                "text_query requires a current BM25 text index; reopen writable or run rebuild_index"
+                    .to_string(),
+            )
+        })?;
+        let Some(state) = state else {
+            return Err(VantaError::Execution(
+                "text_query requires a current BM25 text index; reopen writable or run rebuild_index"
+                    .to_string(),
+            ));
+        };
+        if !Self::text_index_state_matches_spec(&state) {
+            return Err(VantaError::Execution(
+                "text_query requires text_index schema v2; reopen writable or run rebuild_index"
+                    .to_string(),
+            ));
+        }
+        Ok(state)
+    }
+
+    fn lexical_search(
+        &self,
+        namespace: &str,
+        query_text: &str,
+        filters: &VantaMemoryMetadata,
+        top_k: usize,
+    ) -> Result<Vec<VantaMemorySearchHit>> {
+        let started = Instant::now();
+        let engine = self.engine_handle()?;
+        Self::ensure_text_index_query_ready(&engine)?;
+
+        if top_k == 0 {
+            crate::metrics::record_text_lexical_query(0, 0);
+            return Ok(Vec::new());
+        }
+
+        let query_terms: BTreeSet<String> = crate::text_index::tokenize(query_text)
+            .into_iter()
+            .collect();
+        if query_terms.is_empty() {
+            crate::metrics::record_text_lexical_query(0, 0);
+            return Ok(Vec::new());
+        }
+
+        let Some(namespace_stats) = Self::load_text_namespace_stats(&engine, namespace)? else {
+            crate::metrics::record_text_lexical_query(started.elapsed().as_millis() as u64, 0);
+            return Ok(Vec::new());
+        };
+        if namespace_stats.doc_count == 0 {
+            crate::metrics::record_text_lexical_query(started.elapsed().as_millis() as u64, 0);
+            return Ok(Vec::new());
+        }
+
+        let doc_count = namespace_stats.doc_count as f32;
+        let avg_doc_len = if namespace_stats.total_doc_len == 0 {
+            1.0
+        } else {
+            namespace_stats.total_doc_len as f32 / doc_count
+        };
+        let mut scores: BTreeMap<u64, f32> = BTreeMap::new();
+        let mut doc_stats_cache: BTreeMap<String, crate::text_index::TextDocStats> =
+            BTreeMap::new();
+        let mut candidates_scored = 0u64;
+
+        for token in query_terms {
+            let Some(term_stats) = Self::load_text_term_stats(&engine, namespace, &token)? else {
+                continue;
+            };
+            if term_stats.df == 0 {
+                continue;
+            }
+
+            let df = term_stats.df as f32;
+            let idf = (1.0 + ((doc_count - df + 0.5) / (df + 0.5))).ln();
+            let prefix = crate::text_index::posting_prefix(namespace, &token);
+            for (posting_key, posting_value) in
+                engine.scan_partition_prefix(BackendPartition::TextIndex, &prefix)?
+            {
+                if crate::text_index::is_internal_key(&posting_key) {
+                    continue;
+                }
+                let posting = crate::text_index::decode_posting(&posting_value).map_err(|err| {
+                    VantaError::Execution(format!(
+                        "text_query found an unreadable posting; run rebuild_index: {err}"
+                    ))
+                })?;
+                let Some(record_key) =
+                    crate::text_index::posting_record_key(namespace, &token, &posting_key)
+                else {
+                    continue;
+                };
+                let doc_stats = if let Some(stats) = doc_stats_cache.get(&record_key) {
+                    stats.clone()
+                } else {
+                    let Some(stats) = Self::load_text_doc_stats(&engine, namespace, &record_key)?
+                    else {
+                        return Err(VantaError::Execution(
+                            "text_query found posting without document stats; run rebuild_index"
+                                .to_string(),
+                        ));
+                    };
+                    doc_stats_cache.insert(record_key.clone(), stats.clone());
+                    stats
+                };
+                if doc_stats.node_id != posting.node_id {
+                    return Err(VantaError::Execution(
+                        "text_query found posting/doc stats mismatch; run rebuild_index"
+                            .to_string(),
+                    ));
+                }
+
+                let tf = posting.tf as f32;
+                let doc_len = doc_stats.doc_len as f32;
+                let denominator = tf
+                    + crate::text_index::BM25_K1
+                        * (1.0 - crate::text_index::BM25_B
+                            + crate::text_index::BM25_B * (doc_len / avg_doc_len));
+                let contribution = idf * ((tf * (crate::text_index::BM25_K1 + 1.0)) / denominator);
+                scores
+                    .entry(posting.node_id)
+                    .and_modify(|score| *score += contribution)
+                    .or_insert(contribution);
+                candidates_scored += 1;
+            }
+        }
+
+        let mut hits = Vec::new();
+        for (node_id, score) in scores {
+            if let Some(node) = engine.get(node_id)? {
+                if let Some(record) = memory_record_from_node(node) {
+                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
+                        hits.push(VantaMemorySearchHit { record, score });
+                    }
+                }
+            }
+        }
+
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.record.key.cmp(&b.record.key))
+                .then(a.record.node_id.cmp(&b.record.node_id))
+        });
+        hits.truncate(top_k);
+        crate::metrics::record_text_lexical_query(
+            started.elapsed().as_millis() as u64,
+            candidates_scored,
+        );
+        Ok(hits)
     }
 
     fn records_for_namespace(
@@ -1345,15 +1884,24 @@ impl VantaEmbedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        if request
+        let text_query = request
             .text_query
             .as_deref()
             .map(str::trim)
-            .is_some_and(|text| !text.is_empty())
-        {
-            return Err(VantaError::Execution(
-                "text_query requires BM25/RRF, which is deferred for this MVP block".to_string(),
-            ));
+            .filter(|text| !text.is_empty());
+
+        if let Some(text_query) = text_query {
+            if !request.query_vector.is_empty() {
+                return Err(VantaError::Execution(
+                    "hybrid text+vector search requires RRF/planner, which is deferred".to_string(),
+                ));
+            }
+            return self.lexical_search(
+                &request.namespace,
+                text_query,
+                &request.filters,
+                request.top_k,
+            );
         }
 
         if request.query_vector.is_empty() || request.top_k == 0 {
@@ -1575,9 +2123,37 @@ impl VantaEmbedded {
             .scan_partition(BackendPartition::TextIndex)?
             .into_iter()
             .map(|(key, _value)| key)
+            .filter(|key| !crate::text_index::is_internal_key(key))
             .collect();
         keys.sort();
         Ok(keys)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_text_index_posting_for_tests(
+        &self,
+        namespace: &str,
+        token: &str,
+        key: &str,
+    ) -> Result<Option<(u64, u32)>> {
+        let engine = self.engine_handle()?;
+        let Some(bytes) = engine.get_from_partition(
+            BackendPartition::TextIndex,
+            &crate::text_index::posting_key(namespace, token, key),
+        )?
+        else {
+            return Ok(None);
+        };
+        let posting = crate::text_index::decode_posting(&bytes)?;
+        Ok(Some((posting.node_id, posting.tf)))
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_text_index_audit_for_tests(&self) -> Result<VantaTextIndexAuditReport> {
+        let engine = self.engine_handle()?;
+        Self::audit_text_index(&engine)
     }
 
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {
@@ -1681,6 +2257,11 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             text_index_rebuild_ms: metrics.text_index_rebuild_ms,
             text_postings_written: metrics.text_postings_written,
             text_index_repairs: metrics.text_index_repairs,
+            text_lexical_queries: metrics.text_lexical_queries,
+            text_lexical_query_ms: metrics.text_lexical_query_ms,
+            text_candidates_scored: metrics.text_candidates_scored,
+            text_consistency_audits: metrics.text_consistency_audits,
+            text_consistency_audit_failures: metrics.text_consistency_audit_failures,
             records_exported: metrics.records_exported,
             records_imported: metrics.records_imported,
             import_errors: metrics.import_errors,
