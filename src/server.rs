@@ -1,3 +1,8 @@
+//! Optional local server wrapper.
+//!
+//! The server wraps the embedded core for local HTTP access. It is not the primary v0.1.x product
+//! boundary and must not redefine behavior independently from the embedded engine.
+
 use crate::storage::StorageEngine;
 use axum::{
     extract::State,

@@ -1,3 +1,8 @@
+//! Experimental LISP evaluation surface.
+//!
+//! This module is retained for historical logic-language experiments. It is not part of the
+//! v0.1.x MVP product boundary or stable SDK contract.
+
 use crate::error::{Result, VantaError};
 use crate::executor::{ExecutionResult, Executor};
 use crate::node::FieldValue;

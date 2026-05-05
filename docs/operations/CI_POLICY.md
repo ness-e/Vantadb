@@ -10,6 +10,12 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 The fast gate is triggered automatically on every pull request and push to the `main` branch.
 **Goal:** Deliver PR feedback in under 5 minutes.
 
+The fast gate validates the production-facing MVP boundary only: embedded core behavior, stable
+SDK/CLI flows, durability, namespace and metadata indexes, vector retrieval, BM25, Hybrid Retrieval
+v1, rebuild/audit, and local deterministic integration tests. Historical or experimental surfaces
+such as IQL/LISP/DQL, MCP, LLM/Ollama integration, graph traversal beyond stored local edges, and
+governance semantics are excluded from the default fast lane.
+
 **What it runs:**
 
 - Static analysis: `cargo fmt` and `cargo clippy`.
@@ -25,6 +31,18 @@ The fast gate is triggered automatically on every pull request and push to the `
   required).
 - **Fast:** Any test exceeding a few seconds must be moved to heavy certification or heavily
   optimized.
+
+### Experimental Suite
+
+Experimental tests are retained for local/manual diagnostics but do not define the v0.1.x MVP. Run
+them explicitly with:
+
+```bash
+cargo nextest run --profile experimental --workspace --features experimental
+```
+
+Failures in this suite should be triaged, but they do not block the Fast Gate unless the failure is
+caused by a change to production-facing MVP behavior.
 
 ### 2. Heavy Certification (`heavy_certification.yml`)
 

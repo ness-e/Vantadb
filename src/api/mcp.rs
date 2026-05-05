@@ -1,3 +1,8 @@
+//! Experimental MCP integration surface.
+//!
+//! MCP support remains in-tree for integration experiments and is not part of the v0.1.x MVP
+//! product boundary or stable public API.
+
 use crate::executor::{ExecutionResult, Executor};
 use crate::storage::StorageEngine;
 use serde::{Deserialize, Serialize};

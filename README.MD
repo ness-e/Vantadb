@@ -49,6 +49,18 @@ VantaDB should **not** currently be understood as:
 - a cloud or enterprise platform
 - a PyPI-ready distributed product
 
+Boundary classification for v0.1.x:
+
+| Classification | Surface |
+| --- | --- |
+| **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit, JSONL export/import |
+| **Optional wrapper** | Local `vanta-server` around the embedded core |
+| **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges, Docker/Ollama examples |
+| **Deferred** | Metacognition, plugins, RBAC, true multi-tenancy, HA/replication, cloud, production PyPI distribution, advanced ranking/snippets/highlighting/tokenization, SQL/OLTP/warehouse/time-series |
+
+See [Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md) for the
+operational classification of repository surfaces.
+
 ## Technical Capabilities
 
 The current repo supports the following production-facing capabilities:
@@ -60,7 +72,7 @@ The current repo supports the following production-facing capabilities:
 | **Vector Retrieval**      | Native HNSW                         | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Internal validation covers 10K–100K synthetic datasets.                            |
 | **Persistent Memory API** | `namespace + key` records           | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs behind the SDK boundary. |
 | **Structured Data**       | Derived namespace/payload indexes   | Metadata is stored with each record and equality filters use persisted prefix-scan-backed indexes that can be rebuilt from canonical records.                   |
-| **Graph Edges**           | Local adjacency lists               | Directed edges with optional weights are stored in the same node model for local traversals and related lookups.                                                |
+| **Graph Edges**           | Local adjacency lists               | Directed edges with optional weights are stored in the internal node model. This is not a graph database or graph query-language claim.                         |
 | **Embedded SDK Surface**  | Stable Rust boundary + PyO3 binding | The Python binding is now routed through `src/sdk.rs` instead of accessing storage and executor internals directly.                                             |
 | **Operational Flows**     | Rebuild + JSONL + metrics           | ANN rebuild, memory export/import, stale derived-index repair, and operational metrics are available through the SDK boundary.                                  |
 
@@ -163,11 +175,13 @@ The following documents track the current repo truth:
    the next cycle cut.
 6. **[Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md)**: Implemented memory surface,
    derived state, validation evidence, and explicit limits.
-7. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical
+7. **[Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md)**:
+   Production-facing, optional, experimental, and deferred surfaces.
+8. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical
    mutation order and recovery behavior.
-8. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase
+9. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase
    positions, derived index repair, and Hybrid Retrieval v1 boundaries.
-9. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases,
+10. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases,
    validation gates, and deferred work.
 
 ## Contributing And Security
