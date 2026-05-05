@@ -99,15 +99,20 @@ count, top logical identities, snippets from canonical payloads, BM25 term
 contributions, matched phrases, and RRF ranks. These helpers are not stable SDK
 APIs.
 
+The stable audit surface is narrower: `VantaEmbedded::audit_text_index` and
+`vanta-cli audit-index` compare derived text-index entries against canonical
+records, report drift, and do not repair.
+
 ## Consistency And Observability
 
 The state marker tracks schema/tokenizer/key format plus counts for canonical
 records, postings, document stats, term stats, and namespace stats. Writable
 open rebuilds when those counts do not match the canonical source of truth.
 
-A debug/internal structural audit can compare expected postings/stats from
-canonical records against actual text-index entries. This catches incorrect
-entries with matching counts and is used in certification tests.
+A read-only structural audit compares expected postings/stats from canonical
+records against actual text-index entries. This catches incorrect entries with
+matching counts, works in read-only mode, and recommends explicit
+`rebuild_index` repair when drift is detected.
 
 Operational metrics remain diagnostic only:
 

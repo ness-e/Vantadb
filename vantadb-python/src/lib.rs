@@ -8,7 +8,7 @@ use vantadb::sdk::{
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
     VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord,
     VantaOpenOptions, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
-    VantaStorageTier, VantaValue,
+    VantaStorageTier, VantaTextIndexAuditReport, VantaValue,
 };
 
 fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
@@ -204,6 +204,33 @@ fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<P
     dict.set_item("skipped", report.skipped)?;
     dict.set_item("errors", report.errors)?;
     dict.set_item("duration_ms", report.duration_ms)?;
+    Ok(dict.into())
+}
+
+fn text_index_audit_report_to_pydict(
+    py: Python,
+    report: &VantaTextIndexAuditReport,
+) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("schema_version", report.schema_version)?;
+    dict.set_item("tokenizer", &report.tokenizer)?;
+    dict.set_item("tokenizer_version", report.tokenizer_version)?;
+    dict.set_item("key_format", &report.key_format)?;
+    dict.set_item("namespace_filter", report.namespace_filter.clone())?;
+    dict.set_item("namespaces_audited", report.namespaces_audited.clone())?;
+    dict.set_item("records_scanned", report.records_scanned)?;
+    dict.set_item("expected_entries", report.expected_entries)?;
+    dict.set_item("actual_entries", report.actual_entries)?;
+    dict.set_item("missing_entries", report.missing_entries)?;
+    dict.set_item("unexpected_entries", report.unexpected_entries)?;
+    dict.set_item("value_mismatches", report.value_mismatches)?;
+    dict.set_item("unreadable_entries", report.unreadable_entries)?;
+    dict.set_item("mismatches", report.mismatches)?;
+    dict.set_item("state_valid", report.state_valid)?;
+    dict.set_item("state_status", &report.state_status)?;
+    dict.set_item("duration_ms", report.duration_ms)?;
+    dict.set_item("passed", report.passed)?;
+    dict.set_item("status", &report.status)?;
     Ok(dict.into())
 }
 
@@ -478,6 +505,16 @@ impl VantaDB {
             .import_file(path)
             .map_err(|e| PyRuntimeError::new_err(format!("Import file error: {:?}", e)))?;
         import_report_to_pydict(py, &report)
+    }
+
+    /// Run a read-only structural audit of the derived text index.
+    #[pyo3(signature = (namespace=None))]
+    fn audit_text_index(&self, py: Python, namespace: Option<&str>) -> PyResult<PyObject> {
+        let report = self
+            .engine
+            .audit_text_index(namespace)
+            .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
+        text_index_audit_report_to_pydict(py, &report)
     }
 
     /// Return operational metrics for startup, replay, rebuild, export, and import.

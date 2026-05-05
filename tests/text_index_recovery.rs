@@ -1,5 +1,6 @@
 //! Persistent text-index certification for memory payloads.
 
+use std::process::Command;
 use tempfile::tempdir;
 use vantadb::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest,
@@ -143,6 +144,110 @@ fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
 
     let after = reopened.operational_metrics();
     assert!(after.text_index_repairs > repairs_before);
+}
+
+#[test]
+fn public_text_index_audit_detects_drift_without_repairing() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    db.put(input("agent/main", "audit", "audit alpha beta"))
+        .expect("put audit record");
+    db.put(input("agent/other", "audit", "audit outside"))
+        .expect("put other record");
+
+    let clean = db
+        .audit_text_index(Some("agent/main"))
+        .expect("clean namespace audit");
+    assert!(clean.passed);
+    assert_eq!(clean.status, "ok");
+    assert_eq!(clean.namespace_filter.as_deref(), Some("agent/main"));
+    assert_eq!(clean.namespaces_audited, vec!["agent/main".to_string()]);
+    assert_eq!(clean.mismatches, 0);
+    assert!(clean.expected_entries > 0);
+
+    db.debug_clear_text_index_for_tests()
+        .expect("clear text index");
+    let drift = db
+        .audit_text_index(Some("agent/main"))
+        .expect("drift namespace audit");
+    assert!(!drift.passed);
+    assert_eq!(drift.status, "repair_recommended");
+    assert!(drift.missing_entries > 0);
+    assert!(drift.mismatches >= drift.missing_entries);
+
+    let still_missing = db
+        .debug_text_index_posting_keys_for_tests()
+        .expect("posting keys remain cleared");
+    assert!(still_missing.is_empty());
+
+    db.rebuild_index().expect("rebuild after audit drift");
+    assert!(
+        db.audit_text_index(Some("agent/main"))
+            .expect("audit after rebuild")
+            .passed
+    );
+}
+
+#[test]
+fn cli_audit_index_reports_json_and_drift_exit_code() {
+    let dir = tempdir().expect("tempdir");
+    let db_path = dir.path().to_path_buf();
+
+    {
+        let db = VantaEmbedded::open(&db_path).expect("open");
+        db.put(input("agent/main", "cli", "cli audit alpha"))
+            .expect("put cli");
+        db.flush().expect("flush clean cli db");
+        db.close().expect("close clean cli db");
+    }
+
+    let clean = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+        ])
+        .output()
+        .expect("run clean cli audit");
+    assert!(
+        clean.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&clean.stdout),
+        String::from_utf8_lossy(&clean.stderr)
+    );
+    let clean_json: serde_json::Value =
+        serde_json::from_slice(&clean.stdout).expect("clean audit json");
+    assert_eq!(clean_json["passed"], true);
+    assert_eq!(clean_json["namespace_filter"], "agent/main");
+
+    {
+        let db = VantaEmbedded::open(&db_path).expect("reopen for drift");
+        db.debug_clear_text_index_for_tests()
+            .expect("clear cli text index");
+        db.flush().expect("flush drift cli db");
+        db.close().expect("close drift cli db");
+    }
+
+    let drift = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+        ])
+        .output()
+        .expect("run drift cli audit");
+    assert_eq!(drift.status.code(), Some(3));
+    let drift_json: serde_json::Value =
+        serde_json::from_slice(&drift.stdout).expect("drift audit json");
+    assert_eq!(drift_json["passed"], false);
+    assert!(drift_json["missing_entries"].as_u64().unwrap_or(0) > 0);
 }
 
 #[test]
@@ -485,6 +590,16 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         },
     )
     .expect("open read-only");
+    let repairs_before_read_only_audit = read_only.operational_metrics().text_index_repairs;
+    let audit = read_only
+        .audit_text_index(Some("agent/main"))
+        .expect("read-only audit should not repair");
+    assert!(!audit.passed);
+    assert!(!audit.state_valid);
+    assert_eq!(
+        read_only.operational_metrics().text_index_repairs,
+        repairs_before_read_only_audit
+    );
     let text = read_only.search(VantaMemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: Vec::new(),

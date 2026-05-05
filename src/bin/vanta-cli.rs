@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
+use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaOpenOptions};
 
 fn usage() {
     eprintln!("Usage:");
@@ -9,6 +9,7 @@ fn usage() {
     eprintln!("  vanta-cli get --db <path> --namespace <ns> --key <key>");
     eprintln!("  vanta-cli list --db <path> --namespace <ns>");
     eprintln!("  vanta-cli rebuild-index --db <path>");
+    eprintln!("  vanta-cli audit-index --db <path> [--namespace <ns>] [--json]");
     eprintln!("  vanta-cli export --db <path> [--namespace <ns>] --out <file>");
     eprintln!("  vanta-cli import --db <path> --in <file>");
 }
@@ -18,11 +19,12 @@ fn parse_flags(args: &[String]) -> HashMap<String, String> {
     let mut index = 0usize;
     while index < args.len() {
         if let Some(name) = args[index].strip_prefix("--") {
-            if let Some(value) = args.get(index + 1) {
+            if let Some(value) = args.get(index + 1).filter(|value| !value.starts_with("--")) {
                 flags.insert(name.to_string(), value.clone());
                 index += 2;
                 continue;
             }
+            flags.insert(name.to_string(), String::new());
         }
         index += 1;
     }
@@ -32,8 +34,14 @@ fn parse_flags(args: &[String]) -> HashMap<String, String> {
 fn required<'a>(flags: &'a HashMap<String, String>, name: &str) -> Result<&'a str, String> {
     flags
         .get(name)
+        .filter(|value| !value.is_empty())
         .map(String::as_str)
         .ok_or_else(|| format!("missing --{}", name))
+}
+
+fn has_flag(args: &[String], name: &str) -> bool {
+    let expected = format!("--{name}");
+    args.iter().any(|arg| arg == &expected)
 }
 
 fn main() {
@@ -54,7 +62,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let command = args.remove(0);
     let flags = parse_flags(&args);
     let db_path = required(&flags, "db")?;
-    let db = VantaEmbedded::open(db_path)?;
+    let db = if command == "audit-index" {
+        VantaEmbedded::open_with_options(
+            db_path,
+            VantaOpenOptions {
+                memory_limit_bytes: None,
+                read_only: true,
+            },
+        )?
+    } else {
+        VantaEmbedded::open(db_path)?
+    };
 
     match command.as_str() {
         "put" => {
@@ -97,6 +115,45 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 report.duration_ms,
                 report.index_path
             );
+        }
+        "audit-index" => {
+            let report = db.audit_text_index(flags.get("namespace").map(String::as_str))?;
+            if has_flag(&args, "json") {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report)
+                        .map_err(|err| format!("failed to encode audit report: {err}"))?
+                );
+            } else {
+                println!(
+                    "text_index_audit status={} passed={} namespace={} records_scanned={} expected_entries={} actual_entries={} mismatches={} missing={} unexpected={} value_mismatches={} unreadable={} state_status={} duration_ms={}",
+                    report.status,
+                    report.passed,
+                    report
+                        .namespace_filter
+                        .as_deref()
+                        .unwrap_or("*"),
+                    report.records_scanned,
+                    report.expected_entries,
+                    report.actual_entries,
+                    report.mismatches,
+                    report.missing_entries,
+                    report.unexpected_entries,
+                    report.value_mismatches,
+                    report.unreadable_entries,
+                    report.state_status,
+                    report.duration_ms
+                );
+                if !report.passed {
+                    eprintln!(
+                        "Text index drift detected. Run: vanta-cli rebuild-index --db {}",
+                        db_path
+                    );
+                }
+            }
+            if !report.passed {
+                std::process::exit(3);
+            }
         }
         "export" => {
             let out = required(&flags, "out")?;

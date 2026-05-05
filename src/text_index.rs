@@ -209,6 +209,13 @@ pub(crate) fn posting_prefix(namespace: &str, token: &str) -> Vec<u8> {
     prefix
 }
 
+pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
+    let mut prefix = Vec::with_capacity(namespace.len() + 1);
+    prefix.extend_from_slice(namespace.as_bytes());
+    prefix.push(0);
+    prefix
+}
+
 pub(crate) fn posting_record_key(namespace: &str, token: &str, index_key: &[u8]) -> Option<String> {
     let prefix = posting_prefix(namespace, token);
     let key_bytes = index_key.strip_prefix(prefix.as_slice())?;
@@ -236,6 +243,30 @@ fn internal_key_prefix(tag: &[u8]) -> Vec<u8> {
     prefix.extend_from_slice(INTERNAL_PREFIX);
     prefix.extend_from_slice(tag);
     prefix
+}
+
+pub(crate) fn term_stats_prefix(namespace: &str) -> Vec<u8> {
+    let mut prefix = internal_key_prefix(TERM_STATS_TAG);
+    prefix.extend_from_slice(namespace.as_bytes());
+    prefix.push(0);
+    prefix
+}
+
+pub(crate) fn doc_stats_prefix(namespace: &str) -> Vec<u8> {
+    let mut prefix = internal_key_prefix(DOC_STATS_TAG);
+    prefix.extend_from_slice(namespace.as_bytes());
+    prefix.push(0);
+    prefix
+}
+
+pub(crate) fn text_index_key_belongs_to_namespace(key: &[u8], namespace: &str) -> bool {
+    if !is_internal_key(key) {
+        return key.starts_with(&posting_namespace_prefix(namespace));
+    }
+
+    key.starts_with(&term_stats_prefix(namespace))
+        || key.starts_with(&doc_stats_prefix(namespace))
+        || key == namespace_stats_key(namespace)
 }
 
 pub(crate) fn term_stats_key(namespace: &str, token: &str) -> Vec<u8> {

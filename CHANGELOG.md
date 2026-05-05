@@ -26,6 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Python wheel CI workflow for Linux, macOS, and Windows with generated-wheel smoke install and manual TestPyPI upload gate.
 - Embedded-memory hybrid benchmark and certification corpora for text-only, vector-only, phrase, and hybrid retrieval paths.
 - Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
+- Public read-only text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index`.
+- Operational roadmap in `docs/operations/ROADMAP.md` covering hardening, backup/restore, Python release engineering, and Search Quality v2.
+- Fjall cold-copy restore validation covering canonical records, BM25/phrase text search, and hybrid retrieval.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
 - `text_index_recovery` tests for rebuild, repair-on-open, stale posting cleanup, tokenization/key contract, BM25 scoring behavior, phrase positions, hybrid RRF behavior, deterministic hybrid corpus coverage, debug planner/explain reporting, namespace/filter isolation, deterministic ordering, read-only non-repair, and import/export reconstruction.
@@ -37,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Stabilized the embedded SDK boundary as the supported path for the Python binding.
 - Expanded the embedded CLI from `put/get/list` to include rebuild and JSONL movement flows.
 - Enabled public hybrid `text_query + query_vector` through RRF while keeping the existing text-only and vector-only behavior stable.
+- Clarified that JSONL export/import is logical data movement, not physical backup.
 
 ### Deferred
 

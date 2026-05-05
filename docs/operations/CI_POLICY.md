@@ -12,6 +12,8 @@ The fast gate is triggered automatically on every pull request and push to the `
 - Static analysis: `cargo fmt` and `cargo clippy`.
 - Unit tests and fast integration tests (`cargo test --test <name>`).
 - API contract verifications that do not depend on external systems.
+- Embedded CLI diagnostics such as `audit-index`, when covered through local
+  integration tests and temporary database directories.
 
 **Strict Rules for the Fast Gate:**
 - **Deterministic:** Tests must not rely on random timing or external networking.
