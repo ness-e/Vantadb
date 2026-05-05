@@ -5,14 +5,35 @@ labels: ["bug", "triage"]
 body:
   - type: markdown
     attributes:
-      value: "Thank you for taking the time to file a bug report! Before you submit, please search the issue tracker to ensure it hasn't been reported already."
+      value:
+        "Thanks for reporting a bug. Before you submit, search existing issues and remove any
+        private data, local database contents, or secrets from logs."
 
   - type: input
     id: version
     attributes:
       label: VantaDB Version
-      description: "What version of VantaDB are you using? (e.g. `vanta-server --version`)"
-      placeholder: "e.g. 1.0.0"
+      description: "What release, tag, commit SHA, or local branch are you using?"
+      placeholder: "e.g. v0.1.0, main@abc1234, local checkout"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      description: "Which surface is failing?"
+      options:
+        - Rust SDK / embedded engine
+        - Python SDK
+        - CLI
+        - Local server
+        - Storage / durability / recovery
+        - Vector search / HNSW
+        - Text or hybrid search
+        - CI / packaging
+        - Documentation
+        - Unsure
     validations:
       required: true
 
@@ -34,7 +55,7 @@ body:
     attributes:
       label: Describe the Bug
       description: "A clear and concise description of what the bug is."
-      placeholder: "When I run an IQL query with X, it panics with Y..."
+      placeholder: "When I call search_memory with metadata filter X, I get Y instead of Z..."
     validations:
       required: true
 
@@ -42,17 +63,28 @@ body:
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: "How can we reproduce the problem? (Provide the specific IQL query if applicable)"
+      description: "How can we reproduce the problem from a clean checkout or a minimal database?"
       value: |
-        1. Run `vanta-server`
-        2. Execute query `FROM...`
-        3. See error
+        1. Create/open database at `./tmp-vantadb-repro`
+        2. Insert records or run command/API call:
+        3. Run search/read/rebuild/export/import:
+        4. Observe:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: "What should have happened?"
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Rust Error Logs / Panic Trace
-      description: "If the engine crashed, please paste the panic output or `RUST_BACKTRACE=1` logs here."
+      label: Logs / Panic Trace
+      description:
+        "If the engine crashed, paste the panic output, `RUST_BACKTRACE=1` logs, or relevant Python
+        traceback. Remove private data first."
       render: shell

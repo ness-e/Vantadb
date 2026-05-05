@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/DevpNess/Vantadb/security/policy
+    about: Report sensitive security issues through the security policy instead of a public issue.
+  - name: Releases and binaries
+    url: https://github.com/DevpNess/Vantadb/releases
+    about: Download release binaries and read release notes.
