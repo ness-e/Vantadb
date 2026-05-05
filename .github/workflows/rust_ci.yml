@@ -39,7 +39,7 @@ jobs:
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Add swap space (prevent OOM linker crash)
       run: |
