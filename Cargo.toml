@@ -19,7 +19,7 @@ zerocopy = { version = "0.8", features = ["derive"] }
 
 # ── Parser + Storage ──
 rand = "0.8"
-nom = "7"
+nom = "8"
 num-traits = "0.2"
 arrow = { version = "53", features = ["ipc"] }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
