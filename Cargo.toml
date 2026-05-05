@@ -86,6 +86,7 @@ path = "tests/core/basic_node.rs"
 [[test]]
 name = "integration"
 path = "tests/logic/integration.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "server"
@@ -106,14 +107,17 @@ path = "tests/storage/chaos_integrity.rs"
 [[test]]
 name = "parser"
 path = "tests/logic/parser.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "executor"
 path = "tests/logic/executor.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "graph"
 path = "tests/core/graph.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "storage"
@@ -130,10 +134,12 @@ path = "tests/storage/gc.rs"
 [[test]]
 name = "governor"
 path = "tests/logic/governor.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "mcp_integration"
 path = "tests/api/mcp_integration.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "hardware_profiles"
@@ -142,10 +148,12 @@ path = "tests/certification/hardware_profiles.rs"
 [[test]]
 name = "structured_api_v2"
 path = "tests/api/structured_api_v2.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "columnar"
 path = "tests/logic/columnar.rs"
+required-features = ["experimental"]
 
 [[test]]
 name = "mmap_index"

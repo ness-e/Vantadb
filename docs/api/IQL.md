@@ -1,3 +1,11 @@
+# Historical / Experimental Notice
+
+This document describes historical and experimental query-language work. IQL/LISP/DQL is not part
+of the v0.1.x MVP product boundary, is not a stable public API, and the examples below should not be
+read as current product claims. The stable boundary remains `src/sdk.rs`, embedded memory CRUD,
+namespace-scoped retrieval, vector search, BM25, Hybrid Retrieval v1, rebuild/audit, export/import,
+and CLI/SDK flows.
+
 # Inference Query Language (IQL) Specification
 
 VantaDB abandons the complexity of standard SQL JOINs and Graph query languages (like Cypher) by combining traversing arrays and geometric similarities into a unified functional grammar. We call this the **Inference Query Language (IQL)**.

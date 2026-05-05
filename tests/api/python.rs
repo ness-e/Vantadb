@@ -68,7 +68,7 @@ fn python_bridge_certification() {
         let caps = sdk.capabilities();
         assert!(caps.persistence);
         assert!(caps.vector_search);
-        assert!(caps.iql_queries);
+        assert!(!caps.iql_queries);
         assert!(!caps.read_only);
         TerminalReporter::success("Capabilities surface is stable and additive.");
     });

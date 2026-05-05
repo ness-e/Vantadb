@@ -1,3 +1,8 @@
+//! Optional external LLM integration.
+//!
+//! This module is not a core dependency of the v0.1.x MVP. Embedding generation and LLM runtime
+//! behavior remain external or experimental; the core stores and retrieves provided vectors.
+
 use crate::error::{Result, VantaError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

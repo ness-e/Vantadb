@@ -69,7 +69,7 @@ jobs:
       run: cargo fmt --check
 
     - name: Clippy Lints
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo clippy --workspace --all-targets -- -D warnings
 
     # ── Fast Gate: Unified execution via nextest ─────────────────────
     - name: Run fast gate tests (Audit profile)

@@ -1,3 +1,8 @@
+//! Internal and future-facing governance primitives.
+//!
+//! These modules are retained for maintenance and policy experiments. They do not make VantaDB an
+//! enterprise governance, RBAC, or metacognitive runtime in the v0.1.x MVP.
+
 pub mod admission_filter;
 pub mod conflict_resolver;
 pub mod consistency;

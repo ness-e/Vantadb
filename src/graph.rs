@@ -1,3 +1,8 @@
+//! Local graph traversal helper.
+//!
+//! VantaDB stores local edges in its internal node model, but v0.1.x does not claim to be a
+//! full-featured graph database or graph query engine.
+
 use crate::error::Result;
 use crate::storage::StorageEngine;
 use std::collections::{HashSet, VecDeque};

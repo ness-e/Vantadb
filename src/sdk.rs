@@ -2957,7 +2957,7 @@ impl VantaEmbedded {
             runtime_profile: profile,
             persistence: true,
             vector_search: true,
-            iql_queries: true,
+            iql_queries: false,
             read_only: self.options.read_only,
         }
     }

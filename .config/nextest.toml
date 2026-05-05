@@ -13,3 +13,13 @@ path = "junit.xml"
 report-name = "vantadb-audit"
 store-success-output = false
 store-failure-output = true
+
+[profile.experimental]
+default-filter = "binary_id(vantadb::integration) or binary_id(vantadb::parser) or binary_id(vantadb::executor) or binary_id(vantadb::governor) or binary_id(vantadb::columnar) or binary_id(vantadb::mcp_integration) or binary_id(vantadb::structured_api_v2) or binary_id(vantadb::graph)"
+fail-fast = false
+failure-output = "immediate-final"
+success-output = "never"
+status-level = "slow"
+final-status-level = "slow"
+slow-timeout = { period = "60s", terminate-after = 3 }
+leak-timeout = { period = "500ms", result = "fail" }
