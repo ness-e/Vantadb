@@ -235,6 +235,11 @@ class TestPersistentMemoryApi:
         rebuild = db.rebuild_index()
         assert rebuild["success"] is True
         assert rebuild["scanned_nodes"] >= 1
+        audit = db.audit_text_index("agent/main")
+        assert audit["passed"] is True
+        assert audit["status"] == "ok"
+        assert audit["namespace_filter"] == "agent/main"
+        assert audit["expected_entries"] > 0
 
         exported = db.export_namespace(export_path, "agent/main")
         assert exported["records_exported"] == 1

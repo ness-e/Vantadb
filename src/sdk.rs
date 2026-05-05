@@ -316,12 +316,39 @@ struct TextIndexMutationReport {
     namespace_stats_delta: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct ExpectedTextIndexEntries {
+    entries: BTreeMap<Vec<u8>, Vec<u8>>,
+    counts: TextIndexCounts,
+    records_scanned: u64,
+    namespaces: BTreeSet<String>,
+}
+
+/// Stable structural audit report for the derived persistent text index.
+///
+/// The audit is read-only. It compares text-index postings and BM25/phrase
+/// stats against canonical memory records and reports drift without repairing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VantaTextIndexAuditReport {
+    pub schema_version: u32,
+    pub tokenizer: String,
+    pub tokenizer_version: u32,
+    pub key_format: String,
+    pub namespace_filter: Option<String>,
+    pub namespaces_audited: Vec<String>,
+    pub records_scanned: u64,
     pub expected_entries: u64,
     pub actual_entries: u64,
+    pub missing_entries: u64,
+    pub unexpected_entries: u64,
+    pub value_mismatches: u64,
+    pub unreadable_entries: u64,
     pub mismatches: u64,
+    pub state_valid: bool,
+    pub state_status: String,
+    pub duration_ms: u64,
     pub passed: bool,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1419,18 +1446,26 @@ impl VantaEmbedded {
         self.rebuild_text_index_with_report().map(|_| ())
     }
 
-    #[cfg(debug_assertions)]
-    fn expected_text_index_entries(engine: &StorageEngine) -> Result<BTreeMap<Vec<u8>, Vec<u8>>> {
-        let mut entries = BTreeMap::new();
+    fn expected_text_index_entries(
+        engine: &StorageEngine,
+        namespace_filter: Option<&str>,
+    ) -> Result<ExpectedTextIndexEntries> {
+        let mut audit = ExpectedTextIndexEntries::default();
         let mut term_stats: BTreeMap<(String, String), u64> = BTreeMap::new();
         let mut namespace_stats: BTreeMap<String, crate::text_index::TextNamespaceStats> =
             BTreeMap::new();
 
         for node in engine.scan_nodes()? {
+            audit.records_scanned += 1;
             if let Some(record) = memory_record_from_node(node) {
+                if matches!(namespace_filter, Some(namespace) if record.namespace != namespace) {
+                    continue;
+                }
+                audit.counts.record_count += 1;
+                audit.namespaces.insert(record.namespace.clone());
                 let terms = crate::text_index::record_terms(&record.payload);
                 for (token, tf) in &terms.token_counts {
-                    entries.insert(
+                    audit.entries.insert(
                         crate::text_index::posting_key(&record.namespace, token, &record.key),
                         crate::text_index::posting_value(
                             record.node_id,
@@ -1442,14 +1477,16 @@ impl VantaEmbedded {
                                 .unwrap_or(&[]),
                         )?,
                     );
+                    audit.counts.posting_entries += 1;
                     *term_stats
                         .entry((record.namespace.clone(), token.clone()))
                         .or_default() += 1;
                 }
-                entries.insert(
+                audit.entries.insert(
                     crate::text_index::doc_stats_key(&record.namespace, &record.key),
                     crate::text_index::doc_stats_value(record.node_id, terms.doc_len)?,
                 );
+                audit.counts.doc_stats_entries += 1;
                 let namespace = namespace_stats.entry(record.namespace.clone()).or_insert(
                     crate::text_index::TextNamespaceStats {
                         doc_count: 0,
@@ -1462,46 +1499,159 @@ impl VantaEmbedded {
         }
 
         for ((namespace, token), df) in term_stats {
-            entries.insert(
+            audit.entries.insert(
                 crate::text_index::term_stats_key(&namespace, &token),
                 crate::text_index::term_stats_value(df)?,
             );
         }
         for (namespace, stats) in namespace_stats {
-            entries.insert(
+            audit.entries.insert(
                 crate::text_index::namespace_stats_key(&namespace),
                 crate::text_index::namespace_stats_value(stats.doc_count, stats.total_doc_len)?,
             );
         }
 
-        Ok(entries)
+        audit.counts.term_stats_entries = audit
+            .entries
+            .keys()
+            .filter(|key| crate::text_index::is_term_stats_key(key))
+            .count() as u64;
+        audit.counts.namespace_stats_entries = audit
+            .entries
+            .keys()
+            .filter(|key| crate::text_index::is_namespace_stats_key(key))
+            .count() as u64;
+
+        Ok(audit)
     }
 
-    #[cfg(debug_assertions)]
-    fn audit_text_index(engine: &StorageEngine) -> Result<VantaTextIndexAuditReport> {
-        let expected = Self::expected_text_index_entries(engine)?;
+    fn text_index_value_readable(key: &[u8], value: &[u8]) -> bool {
+        if !crate::text_index::is_internal_key(key) {
+            return crate::text_index::decode_posting(value).is_ok();
+        }
+
+        if crate::text_index::is_doc_stats_key(key) {
+            crate::text_index::decode_doc_stats(value).is_ok()
+        } else if crate::text_index::is_term_stats_key(key) {
+            crate::text_index::decode_term_stats(value).is_ok()
+        } else if crate::text_index::is_namespace_stats_key(key) {
+            crate::text_index::decode_namespace_stats(value).is_ok()
+        } else {
+            false
+        }
+    }
+
+    fn text_index_state_audit_status(
+        engine: &StorageEngine,
+        expected_counts: TextIndexCounts,
+        namespace_filter: Option<&str>,
+    ) -> (bool, String) {
+        let state = match Self::load_text_index_state(engine) {
+            Ok(Some(state)) => state,
+            Ok(None) => return (false, "missing".to_string()),
+            Err(err) => return (false, format!("decode_error: {err}")),
+        };
+
+        if !Self::text_index_state_matches_spec(&state) {
+            return (false, "incompatible".to_string());
+        }
+
+        if namespace_filter.is_none()
+            && (state.record_count != expected_counts.record_count
+                || state.posting_entries != expected_counts.posting_entries
+                || state.doc_stats_entries != expected_counts.doc_stats_entries
+                || state.term_stats_entries != expected_counts.term_stats_entries
+                || state.namespace_stats_entries != expected_counts.namespace_stats_entries)
+        {
+            return (false, "count_mismatch".to_string());
+        }
+
+        (true, "current".to_string())
+    }
+
+    fn build_text_index_audit_report(
+        engine: &StorageEngine,
+        namespace_filter: Option<&str>,
+    ) -> Result<VantaTextIndexAuditReport> {
+        let started = Instant::now();
+        let spec = crate::text_index::TextIndexSpec::default();
+        let expected = Self::expected_text_index_entries(engine, namespace_filter)?;
         let actual: BTreeMap<Vec<u8>, Vec<u8>> = engine
             .scan_partition(BackendPartition::TextIndex)?
             .into_iter()
+            .filter(|(key, _value)| {
+                namespace_filter
+                    .map(|namespace| {
+                        crate::text_index::text_index_key_belongs_to_namespace(key, namespace)
+                    })
+                    .unwrap_or(true)
+            })
             .collect();
 
-        let mut mismatches = 0u64;
-        for (key, value) in &expected {
-            if actual.get(key) != Some(value) {
-                mismatches += 1;
+        let mut missing_entries = 0u64;
+        let mut unexpected_entries = 0u64;
+        let mut value_mismatches = 0u64;
+        let mut unreadable_entries = 0u64;
+
+        for (key, value) in &expected.entries {
+            match actual.get(key) {
+                Some(actual_value) if actual_value == value => {}
+                Some(actual_value) => {
+                    value_mismatches += 1;
+                    if !Self::text_index_value_readable(key, actual_value) {
+                        unreadable_entries += 1;
+                    }
+                }
+                None => missing_entries += 1,
             }
         }
         for key in actual.keys() {
-            if !expected.contains_key(key) {
-                mismatches += 1;
+            if !expected.entries.contains_key(key) {
+                unexpected_entries += 1;
+                if let Some(value) = actual.get(key) {
+                    if !Self::text_index_value_readable(key, value) {
+                        unreadable_entries += 1;
+                    }
+                }
+            }
+        }
+
+        let (state_valid, state_status) =
+            Self::text_index_state_audit_status(engine, expected.counts, namespace_filter);
+        let state_mismatches = u64::from(!state_valid);
+        let mismatches = missing_entries + unexpected_entries + value_mismatches + state_mismatches;
+        let passed = mismatches == 0;
+        let mut namespaces_audited: Vec<String> = expected.namespaces.into_iter().collect();
+        if namespaces_audited.is_empty() {
+            if let Some(namespace) = namespace_filter {
+                namespaces_audited.push(namespace.to_string());
             }
         }
 
         let report = VantaTextIndexAuditReport {
-            expected_entries: expected.len() as u64,
+            schema_version: spec.schema_version,
+            tokenizer: spec.tokenizer.name.to_string(),
+            tokenizer_version: spec.tokenizer.version,
+            key_format: spec.key_format.to_string(),
+            namespace_filter: namespace_filter.map(ToOwned::to_owned),
+            namespaces_audited,
+            records_scanned: expected.records_scanned,
+            expected_entries: expected.entries.len() as u64,
             actual_entries: actual.len() as u64,
+            missing_entries,
+            unexpected_entries,
+            value_mismatches,
+            unreadable_entries,
             mismatches,
-            passed: mismatches == 0,
+            state_valid,
+            state_status,
+            duration_ms: started.elapsed().as_millis() as u64,
+            passed,
+            status: if passed {
+                "ok".to_string()
+            } else {
+                "repair_recommended".to_string()
+            },
         };
         crate::metrics::record_text_consistency_audit(!report.passed);
         Ok(report)
@@ -2259,6 +2409,20 @@ impl VantaEmbedded {
         Ok(report)
     }
 
+    /// Run a read-only structural audit of the derived persistent text index.
+    ///
+    /// The audit compares postings, BM25 stats, phrase positions, and the
+    /// state marker against canonical memory records. It never repairs state;
+    /// callers should use `rebuild_index` when the report returns `passed =
+    /// false`.
+    pub fn audit_text_index(&self, namespace: Option<&str>) -> Result<VantaTextIndexAuditReport> {
+        if let Some(namespace) = namespace {
+            validate_namespace(namespace)?;
+        }
+        let engine = self.engine_handle()?;
+        Self::build_text_index_audit_report(&engine, namespace)
+    }
+
     pub fn operational_metrics(&self) -> VantaOperationalMetrics {
         crate::metrics::operational_metrics_snapshot().into()
     }
@@ -2356,8 +2520,7 @@ impl VantaEmbedded {
     #[cfg(debug_assertions)]
     #[doc(hidden)]
     pub fn debug_text_index_audit_for_tests(&self) -> Result<VantaTextIndexAuditReport> {
-        let engine = self.engine_handle()?;
-        Self::audit_text_index(&engine)
+        self.audit_text_index(None)
     }
 
     #[cfg(debug_assertions)]

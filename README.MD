@@ -84,6 +84,7 @@ cargo run --bin vanta-cli -- put --db ./vanta_data --namespace agent/main --key 
 cargo run --bin vanta-cli -- list --db ./vanta_data --namespace agent/main
 cargo run --bin vanta-cli -- export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
 cargo run --bin vanta-cli -- rebuild-index --db ./vanta_data
+cargo run --bin vanta-cli -- audit-index --db ./vanta_data --namespace agent/main --json
 ```
 
 ## Search Semantics Today
@@ -129,7 +130,8 @@ The following documents track the current repo truth:
 5. **[Reliability Gate](docs/operations/RELIABILITY_GATE.md)**: Allowed claims, trusted metrics, and the next cycle cut.
 6. **[Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md)**: Implemented memory surface, derived state, validation evidence, and explicit limits.
 7. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical mutation order and recovery behavior.
-8. **[Minimal Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: Token/key scaffold before BM25/RRF.
+8. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase positions, derived index repair, and Hybrid Retrieval v1 boundaries.
+9. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases, validation gates, and deferred work.
 
 ## 📄 License
 

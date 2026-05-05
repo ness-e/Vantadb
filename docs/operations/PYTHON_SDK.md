@@ -13,7 +13,7 @@
 - Persistent memory APIs also route through the same boundary:
   `put`, `get_memory`, `delete_memory`, `list_memory`, `search_memory`,
   `rebuild_index`, `export_namespace`, `export_all`, `import_file`, and
-  `operational_metrics`.
+  `audit_text_index`, and `operational_metrics`.
 
 ## Memory Flow
 
@@ -41,6 +41,7 @@ hybrid_hits = db.search_memory(
     top_k=5,
 )
 report = db.rebuild_index()
+audit = db.audit_text_index("agent/main")
 metrics = db.operational_metrics()
 db.export_namespace("./agent-main.jsonl", "agent/main")
 db.flush()
@@ -59,9 +60,15 @@ exact consecutive-token filters using the current `lowercase-ascii-alnum`
 tokenizer. Hybrid planner/RRF explain and snippet inspection remains Rust
 debug-build test support. It is not exposed as a stable Python SDK method.
 
+`audit_text_index(namespace=None)` is a read-only diagnostic method. It reports
+derived text-index drift against canonical memory records and recommends
+`rebuild_index()` when the report does not pass. It does not repair state,
+including when the database is opened with `read_only=True`.
+
 ## Remaining Release Debt
 - `.github/workflows/python_wheels.yml` builds Linux, macOS, and Windows wheels and smoke-installs the generated artifact.
 - TestPyPI upload is prepared as an explicit manual workflow input guarded by `TEST_PYPI_API_TOKEN`.
+- `vantadb-python/pyproject.toml` points to the canonical GitHub repository at `https://github.com/DevpNess/Vantadb`.
 - PyPI production publication remains blocked until the TestPyPI flow and release policy are verified.
 - `vantadb-python` still uses a local path dependency on the core crate for in-repo builds.
 - Public SDK API changes should remain additive until the Python package is distributed externally.

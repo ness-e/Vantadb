@@ -29,6 +29,18 @@ fn metrics_track_rebuild_export_import_and_replay() {
     assert!(after_rebuild.text_postings_written >= 1);
     assert_eq!(after_rebuild.text_consistency_audit_failures, 0);
 
+    let before_audit = reopened.operational_metrics();
+    let audit = reopened
+        .audit_text_index(Some("agent/main"))
+        .expect("public text index audit");
+    assert!(audit.passed);
+    let after_audit = reopened.operational_metrics();
+    assert!(after_audit.text_consistency_audits > before_audit.text_consistency_audits);
+    assert_eq!(
+        after_audit.text_consistency_audit_failures,
+        before_audit.text_consistency_audit_failures
+    );
+
     let before_text = reopened.operational_metrics();
     let text_hits = reopened
         .search(VantaMemorySearchRequest {

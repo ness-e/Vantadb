@@ -43,7 +43,7 @@ pub use sdk::{
     VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
     VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOpenOptions,
     VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchHit,
-    VantaStorageTier, VantaValue,
+    VantaStorageTier, VantaTextIndexAuditReport, VantaValue,
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};

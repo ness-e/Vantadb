@@ -22,12 +22,14 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - [x] Add Hybrid Retrieval v1 with simple planner and RRF fusion.
 - [x] Harden Hybrid Retrieval v1 with deterministic certification corpus and debug-only planner/RRF report.
 - [x] Add text-index v3 token positions, quoted phrase query support, debug-only explain/snippet helpers, Python wheel CI, and real embedded-memory hybrid benchmark/certification corpora.
+- [x] Promote text-index structural audit to read-only Rust/Python SDK and CLI diagnostics.
+- [x] Add an operational roadmap for the next hardening and release phases.
 
 ## Current product surface
 
 - Rust SDK: `put/get/delete/list/search/list_namespaces/rebuild_index/export_namespace/export_all/import_records/import_file`.
 - Python SDK: `put/get_memory/delete_memory/list_memory/search_memory/rebuild_index/export_namespace/export_all/import_file`.
-- CLI: embedded `put/get/list/rebuild-index/export/import`.
+- CLI: embedded `put/get/list/rebuild-index/audit-index/export/import`.
 - Search supports vector-only, BM25 text-only, and hybrid text+vector retrieval.
 - Hybrid retrieval uses a minimal planner and RRF over independently ranked text/vector candidates.
 - Debug builds expose internal hybrid plan certification for tests; it is not a stable SDK API.
@@ -36,11 +38,12 @@ This file is the repo-side mirror of the active task board for the current MVP b
 ## Known limits still accepted
 
 - Derived indexes are persisted, reconstructible, and queried through backend prefix scans.
-- Text-index postings/positions/stats are persisted, reconstructible, and validated through state/count markers plus debug structural audit.
+- Text-index postings/positions/stats are persisted, reconstructible, and validated through state/count markers plus read-only structural audit.
 - Startup, WAL replay, ANN rebuild, derived rebuild, text-index rebuild/repair, lexical query, hybrid query, planner routing, export, import, and import errors have structured operational metrics.
 - Derived-index state is validated on open and repaired from canonical records when stale or corrupt.
 - Text-index state is validated on writable open and repaired from canonical records when stale or corrupt.
 - Export/import is JSONL v1 and intentionally simple; it is not a migration framework or backup format with checksums.
+- Physical backup remains backend-specific: Fjall uses volume snapshots or cold copies, while RocksDB keeps native checkpoint support.
 - Text-only lexical search, basic quoted phrase search, and simple hybrid text+vector search are wired into public memory search.
 - Python wheel build/smoke CI exists for Linux, macOS, and Windows, with manual TestPyPI upload guarded by a secret.
 - Hybrid benchmark and certification coverage use small deterministic embedded-memory corpora; they are not competitive benchmarks.
@@ -53,3 +56,4 @@ This file is the repo-side mirror of the active task board for the current MVP b
 - PyPI production publication/signing.
 - Server wrapper decision.
 - Rich snippets/highlighting and tokenizer evolution beyond `lowercase-ascii-alnum`.
+- Search Quality v2 analyzer work after operational hardening is complete.

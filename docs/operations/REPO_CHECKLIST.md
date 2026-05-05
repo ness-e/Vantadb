@@ -79,3 +79,12 @@ Este checklist define el corte inmediato del repositorio después del release t�
 - [x] Habilitar `text_query` texto-only y hybrid v1 con RRF/planner mínimo.
 - [x] Endurecer Hybrid v1 con certificación, corpus determinista y debug interno del planner/RRF.
 - [x] Añadir posiciones textuales v3, phrase query básica, explain/snippet debug-only, wheel CI y benchmark híbrido sobre corpus embebido real.
+- [x] Exponer auditoría estructural read-only del text index en Rust/Python SDK y CLI.
+- [x] Crear `docs/operations/ROADMAP.md` como roadmap operativo del proceso.
+
+## 11. Siguiente hardening operativo
+
+- [x] Documentar que JSONL export/import no es backup físico.
+- [x] Validar restore por cold copy para el backend Fjall default.
+- [ ] Mantener TestPyPI como gate manual antes de cualquier PyPI productivo.
+- [ ] Abrir Search Quality v2 solo después del cierre operativo: analyzer, Unicode folding, stopwords/stemming y snippets públicos siguen diferidos.

@@ -22,6 +22,7 @@ payload indexes, and text indexes are derived materializations.
 - `delete`: tombstones/removes the canonical record through the engine delete path and removes namespace/payload index entries plus text postings/positions/document stats for the previous record, decrementing term and namespace stats.
 - `import_records`: imports through exact memory records, preserves exported timestamps/version, updates existing records by identity, and rebuilds derived indexes before returning.
 - `rebuild_index`: rebuilds ANN from canonical VantaFile/storage and then rebuilds derived namespace/payload indexes plus text-index postings, positions, TF, DF, document length, and namespace corpus stats from canonical records.
+- `audit_text_index`: compares derived text-index entries and state markers against canonical memory records without mutating or repairing storage.
 - `open`: validates derived-index state and text-index state, then rebuilds derived indexes if a state marker is missing, corrupt, schema-incompatible, or count-inconsistent.
 
 ## Failure Behavior
@@ -40,4 +41,4 @@ payload indexes, and text indexes are derived materializations.
 - BM25 text-only memory search is implemented over the persistent text index.
 - Hybrid text+vector memory search is implemented through a minimal planner and RRF fusion.
 - Basic quoted phrase queries are implemented as exact consecutive-token matching over persisted posting positions.
-- Text-index structural audit is an internal certification tool, not a public integrity API.
+- Text-index structural audit is a public read-only diagnostic path. Repair remains explicit through writable open or `rebuild_index`.
