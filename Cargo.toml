@@ -1,6 +1,6 @@
 [package]
 name = "vantadb"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
 license = "Apache-2.0"

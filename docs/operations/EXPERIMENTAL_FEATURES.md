@@ -44,6 +44,14 @@ These surfaces may exist in the repository, but they are not stable product clai
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim |
 | Docker/Ollama examples | Experimental development examples |
 
+Visible in-tree examples and docs must carry the same boundary:
+
+- `docs/api/IQL.md`
+- `examples/docker/docker-compose.ollama.yml`
+- `examples/docker/Dockerfile`
+- `examples/docker/start.sh`
+- `examples/python/langchain_rag.py`
+
 ## Deferred
 
 The following are explicitly outside the v0.1.x MVP:

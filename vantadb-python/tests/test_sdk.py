@@ -1,6 +1,8 @@
 """
-Vantadb Python SDK — Integration Test Suite
-Tests the full CRUD + Search + IQL lifecycle via PyO3 in-process bindings.
+VantaDB Python SDK integration tests.
+
+These cover the source-installed PyO3 binding and namespace-scoped memory API.
+IQL/LISP/DQL is not part of the v0.1.x MVP boundary.
 """
 
 import os

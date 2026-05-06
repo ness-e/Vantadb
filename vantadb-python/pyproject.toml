@@ -4,20 +4,28 @@ build-backend = "maturin"
 
 [project]
 name = "vantadb-py"
-version = "0.1.0"
-description = "VantaDB: source-installed embedded persistent memory bindings."
+version = "0.1.1"
+description = "Source-installed Python bindings for the VantaDB embedded persistent memory engine."
+readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "VantaDB Team"}
 ]
-keywords = ["database", "vector", "graph", "ai", "embeddings"]
+keywords = ["database", "vector-search", "embedded", "ai", "persistent-memory"]
 classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Database",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -25,6 +33,8 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/DevpNess/Vantadb"
 Repository = "https://github.com/DevpNess/Vantadb"
+Documentation = "https://github.com/DevpNess/Vantadb/tree/main/docs"
+Issues = "https://github.com/DevpNess/Vantadb/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

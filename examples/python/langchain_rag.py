@@ -1,3 +1,11 @@
+"""
+Experimental / not part of the v0.1.x MVP.
+
+This legacy RAG sketch is retained as an integration idea. The production-facing
+Python path is `import vantadb_py as vantadb` with namespace-scoped memory APIs;
+see docs/QUICKSTART.md for the supported first-run flow.
+"""
+
 import time
 import uuid
 
