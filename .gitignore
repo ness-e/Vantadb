@@ -27,8 +27,14 @@ vantadb-python/target/
 vantadb-python/venv/
 vantadb-python/.venv/
 vantadb-python/__pycache__/
+.release-venv/
 *.py[cod]
 .pytest_cache/
+
+# Quickstart local artifacts
+quickstart_data/
+quickstart-agent-main.jsonl
+quickstart_memory.py
 
 # Local profiles and secrets
 .vanta_profile

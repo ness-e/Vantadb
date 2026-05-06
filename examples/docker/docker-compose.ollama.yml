@@ -1,3 +1,7 @@
+# Experimental / not part of the v0.1.x MVP.
+# This Docker + Ollama stack is retained as a development example only. The
+# production-facing boundary is the embedded SDK/CLI core.
+
 version: '3.8'
 
 services:

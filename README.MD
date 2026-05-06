@@ -15,7 +15,7 @@
 storage, HNSW vector retrieval, structured metadata, and crash recovery without requiring a separate
 database service.
 
-`v0.1.0` is the current MVP cut. Docker and Ollama remain deferred or experimental, the Python
+`v0.1.1` is the current release-readiness cut. Docker and Ollama remain deferred or experimental, the Python
 package is still install-from-source. The repo now includes the `memory-mvp-core` surface:
 namespace-scoped memory CRUD/search, manual ANN rebuild, JSONL export/import, embedded CLI flows,
 and full hybrid search combining lexical BM25 and vector similarity via Reciprocal Rank Fusion
@@ -26,6 +26,7 @@ and full hybrid search combining lexical BM25 and vector similarity via Reciproc
 | Need                            | Start here                                            |
 | ------------------------------- | ----------------------------------------------------- |
 | Understand the product boundary | [Current Product Boundary](#current-product-boundary) |
+| Try the MVP in five minutes      | [5-Minute Quickstart](docs/QUICKSTART.md)             |
 | Install and run locally         | [Install From Source](#install-from-source)           |
 | Use the CLI                     | [Embedded CLI smoke](#install-from-source)            |
 | Read architecture docs          | [Documentation](#documentation)                       |
@@ -177,11 +178,15 @@ The following documents track the current repo truth:
    derived state, validation evidence, and explicit limits.
 7. **[Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md)**:
    Production-facing, optional, experimental, and deferred surfaces.
-8. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical
+8. **[v0.1.1 Release Readiness](docs/operations/RELEASE_V0.1.1.md)**: Validation checklist,
+   TestPyPI guardrails, and draft release notes.
+9. **[Public Issue Drafts](docs/operations/PUBLIC_ISSUE_DRAFTS.md)**: Proposed public issues for
+   external validation, not yet published to GitHub.
+10. **[Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md)**: Canonical
    mutation order and recovery behavior.
-9. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase
+11. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase
    positions, derived index repair, and Hybrid Retrieval v1 boundaries.
-10. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases,
+12. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases,
    validation gates, and deferred work.
 
 ## Contributing And Security

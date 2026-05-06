@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Experimental / not part of the v0.1.x MVP.
+# This entrypoint supports the optional Docker/server example only.
+
 # VantaDB Intelligent Entrypoint
 # Detects Docker CGroup Memory Limits and injects them to HardwareScout
 

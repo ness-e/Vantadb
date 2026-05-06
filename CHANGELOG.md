@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search, Hybrid Retrieval v1, JSONL export, and text-index audit.
+- Python package README and cleaner `vantadb-py` metadata for wheel and TestPyPI validation.
+- v0.1.1 release readiness checklist with local validation, Python wheel workflow, TestPyPI guardrails, and draft release notes.
+- Draft public issue backlog for packaging, quickstart validation, Search Quality v2, benchmarks, backup/restore, Python distribution policy, and namespace-scoped memory examples.
 - Persistent memory MVP surface with canonical SDK records, first-class namespaces, and `put/get/delete/list/search`.
 - Manual ANN rebuild API through Rust SDK, Python SDK, and `vanta-cli rebuild-index`.
 - JSONL memory export/import through Rust SDK, Python SDK, and `vanta-cli export/import`.
@@ -35,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Bumped Rust crate, Python crate, Python package metadata, and lockfile entries to `0.1.1`.
+- Reaffirmed that v0.1.x remains embedded-first/local-first and that experimental surfaces are not part of the production-facing MVP.
 - Repositioned the repo narrative around embedded persistent memory, cosine HNSW retrieval, and structured fields.
 - Documented a process-scoped memory telemetry contract and added a controlled validation harness.
 - Stabilized the embedded SDK boundary as the supported path for the Python binding.
@@ -44,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Deferred
 
+- GitHub issue creation, TestPyPI upload, tag creation, and release publication until explicit approval.
 - Public ranking explanation APIs, rich snippets/highlighting, and competitive hybrid-search parity claims.
 - Stemming, stopwords, Unicode folding, and tokenizer evolution beyond `lowercase-ascii-alnum`.
 - PyPI production publication, signing, and external distribution hardening.

@@ -2,6 +2,8 @@
 
 ## Current State
 - Local installation is supported through `pip install .` inside `vantadb-python/`.
+- Package metadata is prepared as `vantadb-py` version `0.1.1`; the import name remains
+  `vantadb_py`.
 - The Python binding now targets the stable Rust SDK boundary in `src/sdk.rs`.
 - `vantadb-python/src/lib.rs` no longer needs direct access to `StorageEngine`, `Executor`, `UnifiedNode`, HNSW locks, or `HardwareCapabilities`.
 - The Python import surface remains `import vantadb_py as vanta` for source installs in this cycle.

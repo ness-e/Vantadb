@@ -1,3 +1,6 @@
+# Experimental / not part of the v0.1.x MVP.
+# This image builds the optional local server wrapper for development examples.
+
 # ==========================================
 # STAGE 1: BUILD STAGE
 # ==========================================
