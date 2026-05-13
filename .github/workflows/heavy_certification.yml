@@ -53,6 +53,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install system dependencies
         run: |
@@ -92,6 +94,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install system dependencies
         run: |
@@ -121,6 +125,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install system dependencies
         run: |
@@ -144,6 +150,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install system dependencies
         run: |
@@ -167,6 +175,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install system dependencies
         run: |
