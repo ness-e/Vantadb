@@ -48,6 +48,8 @@ jobs:
 
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Build Release Binary
         run: cargo build --release

@@ -54,6 +54,8 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Install Ubuntu system dependencies
         if: matrix.os == 'ubuntu-latest'
