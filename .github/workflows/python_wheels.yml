@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
 
     steps:
       - name: Checkout
@@ -70,14 +70,14 @@ jobs:
           --release
 
       - name: Install wheel smoke test (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-2025-vs2026'
         shell: bash
         run: |
           wheel="$(ls -t ./target/wheels/vantadb_py-*.whl | head -n 1)"
           python -m pip install --force-reinstall "$wheel"
 
       - name: Install wheel smoke test (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-2025-vs2026'
         shell: pwsh
         run: |
           $wheel = (Get-ChildItem .\target\wheels\vantadb_py-*.whl | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
