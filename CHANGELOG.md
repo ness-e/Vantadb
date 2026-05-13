@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+## [v0.1.1] - 2026-05-13
+
 ### Added
 
 - Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search, Hybrid Retrieval v1, JSONL export, and text-index audit.
@@ -41,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Bumped Rust crate, Python crate, Python package metadata, and lockfile entries to `0.1.1`.
 - Reaffirmed that v0.1.x remains embedded-first/local-first and that experimental surfaces are not part of the production-facing MVP.
+- Validated TestPyPI upload and clean TestPyPI install for `vantadb-py==0.1.1`; production PyPI remains deferred.
 - Repositioned the repo narrative around embedded persistent memory, cosine HNSW retrieval, and structured fields.
 - Documented a process-scoped memory telemetry contract and added a controlled validation harness.
 - Stabilized the embedded SDK boundary as the supported path for the Python binding.
@@ -50,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Deferred
 
-- GitHub issue creation, TestPyPI upload, tag creation, and release publication until explicit approval.
+- GitHub issue creation remains deferred until explicit approval.
 - Public ranking explanation APIs, rich snippets/highlighting, and competitive hybrid-search parity claims.
 - Stemming, stopwords, Unicode folding, and tokenizer evolution beyond `lowercase-ascii-alnum`.
 - PyPI production publication, signing, and external distribution hardening.
