@@ -20,6 +20,7 @@ pub mod hardware;
 pub mod index;
 pub mod integrations;
 pub mod llm;
+pub mod metadata;
 pub mod metrics;
 pub mod node;
 pub mod parser;

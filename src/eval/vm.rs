@@ -58,7 +58,7 @@ impl VantaLispVM {
         // Snapshot the epoch for this execution pass
         self.context_epoch = current_context.epoch;
 
-        // En v0.4.0, cada ejecución VantaLISP evalúa un Confidence Score inherente base general
+        // Cada ejecución VantaLISP evalúa un Confidence Score inherente base general
         let mut op_confidence = current_context.confidence_score;
 
         for op in program {

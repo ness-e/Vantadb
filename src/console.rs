@@ -28,9 +28,12 @@ pub fn print_banner() {
     eprintln!(
         "  {}  {}  {}",
         style("║").color256(166),
-        style("  ⚡  V A N T A D B   v0.1.0  ⚡           ║")
-            .bold()
-            .color256(166),
+        style(format!(
+            "  ⚡  V A N T A D B   {}  ⚡           ║",
+            crate::metadata::version_label()
+        ))
+        .bold()
+        .color256(166),
         style("  ║").color256(166),
     );
     eprintln!(

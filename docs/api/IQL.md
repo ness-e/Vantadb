@@ -34,19 +34,15 @@ LIMIT 5
 
 ---
 
-## 2. Production Examples
+## 2. Historical Examples (Not Supported in v0.1.x)
 
 ### A. Complex RAG System (Retrieval-Augmented Gen)
 
 Filter documents that belong exclusively to the `company_internal` tag, while finding the closest vector distance, ignoring stale documents.
 
 ```python
-# In standard PyO3 SDK SDK
-results = db.search(
-    vector=query_embedding,
-    top_k=5,
-    filter_expr="category == 'company_internal' AND is_stale == false"
-)
+# Historical example only: the v0.1.x Python binding does not support filter_expr-based node search.
+# Use namespace-scoped memory search APIs instead.
 ```
 
 ### B. Graph Recommendations (E-Commerce)

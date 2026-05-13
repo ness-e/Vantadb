@@ -189,6 +189,8 @@ pub struct IndexRebuildReport {
 pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
+    /// If true, all mutating operations must be rejected.
+    pub read_only: bool,
     pub hnsw: RwLock<CPIndex>,
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
     pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
@@ -338,6 +340,7 @@ impl StorageEngine {
 
         Ok(Self {
             backend,
+            read_only: config.read_only,
             hnsw: RwLock::new(hnsw),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
             admission_filter,
@@ -349,6 +352,16 @@ impl StorageEngine {
             vector_store: RwLock::new(vector_store),
             wal: std::sync::Arc::new(parking_lot::Mutex::new(Some(wal_writer))),
         })
+    }
+
+    #[inline]
+    fn ensure_writable(&self) -> Result<()> {
+        if self.read_only {
+            return Err(VantaError::Execution(
+                "StorageEngine is read-only; write operation rejected".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn touch_activity(&self) {
@@ -554,6 +567,7 @@ impl StorageEngine {
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
+        self.ensure_writable()?;
         if self.admission_filter.is_blocked(node.id) {
             return Err(VantaError::Execution(format!(
                 "Node {} is blocked by AdmissionFilter (recently rejected)",
@@ -614,6 +628,9 @@ impl StorageEngine {
     }
 
     pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) {
+        if storage_offset < 64 || !storage_offset.is_multiple_of(64) {
+            return;
+        }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                 let mut index = self.hnsw.write();
@@ -628,13 +645,19 @@ impl StorageEngine {
     }
 
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
+        self.ensure_writable()?;
         let mut persisted = node.clone();
         persisted.tier = crate::node::NodeTier::Cold;
 
         let key = persisted.id.to_le_bytes();
-        let val = bincode::serialize(&persisted)
+        let metadata = NodeMetadata {
+            relational: persisted.relational.clone(),
+            edges: persisted.edges.clone(),
+        };
+        let metadata_val = bincode::serialize(&metadata)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.backend.put(BackendPartition::Default, &key, &val)?;
+        self.backend
+            .put(BackendPartition::Default, &key, &metadata_val)?;
 
         // Consolidate doesn't change the vector store offset if already present
         let offset = {
@@ -655,6 +678,7 @@ impl StorageEngine {
     }
 
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
+        self.ensure_writable()?;
         let partition = Self::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
         let val =
@@ -739,6 +763,7 @@ impl StorageEngine {
     }
 
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
+        self.ensure_writable()?;
         if let Some(ref mut wal_writer) = *self.wal.lock() {
             wal_writer.append(&crate::wal::WalRecord::Delete { id })?;
         }
@@ -763,6 +788,7 @@ impl StorageEngine {
     }
 
     pub fn purge_permanent(&self, id: u64) -> Result<()> {
+        self.ensure_writable()?;
         let key = id.to_le_bytes();
         self.backend.write_batch(vec![
             BackendWriteOp::Delete {
@@ -816,6 +842,7 @@ impl StorageEngine {
     }
 
     pub fn flush(&self) -> Result<()> {
+        // Allow flush even in read-only mode (fsync-like behavior).
         self.backend.flush()?;
         self.save_vector_index();
         Ok(())
@@ -837,6 +864,7 @@ impl StorageEngine {
     }
 
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
+        self.ensure_writable()?;
         if !self.supports_checkpoint() {
             return Err(VantaError::Execution(format!(
                 "Checkpoint (live snapshot) is not supported by the {:?} backend. \
@@ -856,6 +884,7 @@ impl StorageEngine {
     }
 
     pub fn recover_archived_nodes(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
+        self.ensure_writable()?;
         let entries = self.backend.scan(BackendPartition::TombstoneStorage)?;
 
         let mut recovered = Vec::new();
@@ -869,13 +898,7 @@ impl StorageEngine {
                     node.flags.set(crate::node::NodeFlags::ACTIVE);
                     node.flags.set(crate::node::NodeFlags::RECOVERED);
                     node.tier = crate::node::NodeTier::Hot;
-
-                    self.refresh_index(&node, 0);
-
-                    {
-                        let mut cache = self.volatile_cache.write();
-                        cache.insert(node.id, node.clone());
-                    }
+                    self.insert(&node)?;
                     recovered.push(node);
                 }
             }

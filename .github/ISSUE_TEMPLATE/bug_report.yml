@@ -14,7 +14,7 @@ body:
     attributes:
       label: VantaDB Version
       description: "What release, tag, commit SHA, or local branch are you using?"
-      placeholder: "e.g. v0.1.0, main@abc1234, local checkout"
+      placeholder: "e.g. v0.1.1, main@abc1234, local checkout"
     validations:
       required: true
 

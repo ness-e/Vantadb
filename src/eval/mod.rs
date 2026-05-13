@@ -97,7 +97,7 @@ impl<'a> LispSandbox<'a> {
             }
         }
 
-        // Atar Metadata Homoiconica por v0.4.0 directiva "sys_rule: true"
+        // Atar Metadata Homoiconica: directiva "sys_rule: true"
         fields.insert("sys_rule".to_string(), FieldValue::Bool(true));
 
         // LISP rules are top-tier active nodes (Hot) —

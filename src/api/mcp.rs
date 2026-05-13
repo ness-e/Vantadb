@@ -4,6 +4,7 @@
 //! product boundary or stable public API.
 
 use crate::executor::{ExecutionResult, Executor};
+use crate::metadata;
 use crate::storage::StorageEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -61,8 +62,8 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                     }
                 });
                 if let Ok(out) = serde_json::to_string(&err_res) {
-                    writeln!(stdout, "{}", out).unwrap();
-                    stdout.flush().unwrap();
+                    let _ = writeln!(stdout, "{}", out);
+                    let _ = stdout.flush();
                 }
                 continue;
             }
@@ -92,8 +93,8 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         };
 
         if let Ok(out) = serde_json::to_string(&response) {
-            writeln!(stdout, "{}", out).unwrap();
-            stdout.flush().unwrap();
+            let _ = writeln!(stdout, "{}", out);
+            let _ = stdout.flush();
         }
     }
 }
@@ -102,8 +103,8 @@ pub fn handle_initialize() -> Result<Value, Value> {
     Ok(json!({
         "protocolVersion": "2024-11-05",
         "serverInfo": {
-            "name": "vantadb",
-            "version": "0.4.0"
+            "name": metadata::MCP_SERVER_INFO_NAME,
+            "version": metadata::reported_version().into_owned()
         },
         "capabilities": {
             "tools": {}
