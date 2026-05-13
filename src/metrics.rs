@@ -445,6 +445,8 @@ pub fn export_metrics_text() -> String {
     let encoder = TextEncoder::new();
     let metric_families = METRICS_REGISTRY.gather();
     let mut buffer = String::new();
-    encoder.encode_utf8(&metric_families, &mut buffer).unwrap();
+    if encoder.encode_utf8(&metric_families, &mut buffer).is_err() {
+        return String::new();
+    }
     buffer
 }

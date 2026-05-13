@@ -101,6 +101,14 @@ name = "mutations"
 path = "tests/storage/mutations.rs"
 
 [[test]]
+name = "core_invariants"
+path = "tests/storage/core_invariants.rs"
+
+[[test]]
+name = "tombstone_ann_vstore"
+path = "tests/storage/tombstone_ann_vstore.rs"
+
+[[test]]
 name = "chaos_integrity"
 path = "tests/storage/chaos_integrity.rs"
 
@@ -242,6 +250,10 @@ path = "tests/operational_metrics.rs"
 [[test]]
 name = "text_index_recovery"
 path = "tests/text_index_recovery.rs"
+
+[[test]]
+name = "version_coherence"
+path = "tests/version_coherence.rs"
 
 [profile.release]
 lto = "thin"

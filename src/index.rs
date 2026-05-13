@@ -15,6 +15,9 @@ const VECTOR_INDEX_VERSION: u32 = 2; // Upgraded for config support
 
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
     use crate::hardware::{HardwareCapabilities, InstructionSet};
     let caps = HardwareCapabilities::global();
     match caps.instructions {
@@ -273,15 +276,19 @@ impl CPIndex {
                     if let Some(header) = vs.read_header(node.storage_offset) {
                         let vec_start = header.vector_offset as usize;
                         let vec_end = vec_start + (header.vector_len as usize * 4);
-                        let vec_data = &vs.mmap[vec_start..vec_end];
-                        // Safety: we trust the header.vector_len and bounds checking above
-                        let f32_vec: &[f32] = unsafe {
-                            std::slice::from_raw_parts(
-                                vec_data.as_ptr() as *const f32,
-                                header.vector_len as usize,
-                            )
-                        };
-                        cosine_sim_f32(query_vec, f32_vec)
+                        if vec_end > vs.mmap.len() {
+                            0.0
+                        } else {
+                            let vec_data = &vs.mmap[vec_start..vec_end];
+                            // Safety: we trust the header.vector_len and bounds checking above
+                            let f32_vec: &[f32] = unsafe {
+                                std::slice::from_raw_parts(
+                                    vec_data.as_ptr() as *const f32,
+                                    header.vector_len as usize,
+                                )
+                            };
+                            cosine_sim_f32(query_vec, f32_vec)
+                        }
                     } else {
                         0.0
                     }
@@ -291,7 +298,15 @@ impl CPIndex {
 
                 candidates.push(NodeSim(d, ep));
 
-                if query_mask == u128::MAX || (node.bitset & query_mask) == query_mask {
+                let eligible = if let Some(vs) = vector_store {
+                    vs.read_header(node.storage_offset)
+                        .map(|h| (h.flags & 0x8) == 0)
+                        .unwrap_or(false)
+                } else {
+                    true
+                };
+                if eligible && (query_mask == u128::MAX || (node.bitset & query_mask) == query_mask)
+                {
                     results.push(NodeSimMin(d, ep));
                 }
                 visited.insert(ep);
@@ -318,17 +333,21 @@ impl CPIndex {
                             if let Some(neighbor) = self.nodes.get(&neighbor_id) {
                                 let d = if let Some(vs) = vector_store {
                                     if let Some(h) = vs.read_header(neighbor.storage_offset) {
-                                        let v_data = &vs.mmap[h.vector_offset as usize
-                                            ..(h.vector_offset as usize
-                                                + h.vector_len as usize * 4)];
-                                        // Safety: trusted bounds and aligned data
-                                        let f32_v: &[f32] = unsafe {
-                                            std::slice::from_raw_parts(
-                                                v_data.as_ptr() as *const f32,
-                                                h.vector_len as usize,
-                                            )
-                                        };
-                                        cosine_sim_f32(query_vec, f32_v)
+                                        let vec_start = h.vector_offset as usize;
+                                        let vec_end = vec_start + (h.vector_len as usize * 4);
+                                        if vec_end > vs.mmap.len() {
+                                            0.0
+                                        } else {
+                                            let v_data = &vs.mmap[vec_start..vec_end];
+                                            // Safety: trusted bounds and aligned data
+                                            let f32_v: &[f32] = unsafe {
+                                                std::slice::from_raw_parts(
+                                                    v_data.as_ptr() as *const f32,
+                                                    h.vector_len as usize,
+                                                )
+                                            };
+                                            cosine_sim_f32(query_vec, f32_v)
+                                        }
                                     } else {
                                         0.0
                                     }
@@ -341,8 +360,16 @@ impl CPIndex {
                                 {
                                     candidates.push(NodeSim(d, neighbor_id));
 
-                                    if query_mask == u128::MAX
-                                        || (neighbor.bitset & query_mask) == query_mask
+                                    let eligible = if let Some(vs) = vector_store {
+                                        vs.read_header(neighbor.storage_offset)
+                                            .map(|h| (h.flags & 0x8) == 0)
+                                            .unwrap_or(false)
+                                    } else {
+                                        true
+                                    };
+                                    if eligible
+                                        && (query_mask == u128::MAX
+                                            || (neighbor.bitset & query_mask) == query_mask)
                                     {
                                         results.push(NodeSimMin(d, neighbor_id));
                                         if results.len() > ef {

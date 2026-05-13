@@ -89,6 +89,9 @@ async fn main() {
 
         console::print_ready(&addr);
 
-        axum::serve(listener, router).await.unwrap();
+        if let Err(e) = axum::serve(listener, router).await {
+            console::error("Server terminated unexpectedly", Some(&e.to_string()));
+            std::process::exit(1);
+        }
     }
 }

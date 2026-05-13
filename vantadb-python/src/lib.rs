@@ -3,6 +3,7 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
+use vantadb::metadata;
 use vantadb::sdk::{
     VantaCapabilities, VantaEmbedded, VantaExportReport, VantaImportReport,
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
@@ -647,6 +648,6 @@ impl VantaDB {
 #[pymodule]
 fn vantadb_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<VantaDB>()?;
-    m.add("__version__", "0.1.0")?;
+    m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
 }

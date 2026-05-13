@@ -13,16 +13,14 @@ import uuid
 # from langchain.llms import Ollama
 # from langchain.embeddings import SentenceTransformerEmbeddings
 print("[Setup] Loading VantaDB & Emulated LangChain Modules...")
-import vantadb
+import vantadb_py as vantadb
 
 # ---------------------------------------------------------
 # 1. INITIALIZE VantaDB (In-Process, Zero-Network)
 # ---------------------------------------------------------
 # Like SQLite, it lives in your python heap.
 # We set a strict 128MB limit for this script to demo resource governance.
-db = vantadb.VantaDB(
-    path="./local_vanta_data", read_only=False, memory_limit_bytes=128_000_000
-)
+db = vantadb.VantaDB("./local_vanta_data", memory_limit_bytes=128_000_000, read_only=False)
 
 # ---------------------------------------------------------
 # 2. DOCUMENT INGESTION (Ollama Embeddings Pipeline)
@@ -49,13 +47,15 @@ start_time = time.perf_counter()
 embeddings = hook_embed_documents(raw_documents)
 for i, text in enumerate(raw_documents):
     db.insert(
-        {
+        i + 1,
+        text,
+        embeddings[i],
+        fields={
             "doc_id": str(uuid.uuid4()),
             "content": text,
-            "vector": embeddings[i],
             "category": "architecture",
             "processed": True,
-        }
+        },
     )
 
 print(
@@ -72,11 +72,7 @@ print("\n[RAG] Searching for context...")
 search_start = time.perf_counter()
 
 # This call maps directly to Rust C-ABI. No HTTP parsing, no TCP overhead.
-results = db.search(
-    vector=query_embedding,
-    top_k=2,
-    filter_expr="category == 'architecture' AND processed == true",
-)
+results = db.search(query_embedding, top_k=2)
 search_end = time.perf_counter()
 
 print(f"[RAG] Semantic search took {(search_end - search_start) * 1000:.3f} ms.")
@@ -85,7 +81,14 @@ print(f"[RAG] Semantic search took {(search_end - search_start) * 1000:.3f} ms."
 # 4. LLM GENERATION (Augmentation)
 # ---------------------------------------------------------
 # We pass the zero-latency results directly to the LLM prompt.
-context = "\n".join([str(res.get("content", "")) for res in results])
+context_chunks = []
+for (node_id, _distance) in results:
+    node = db.get(node_id) or {}
+    fields = node.get("fields") or {}
+    content = fields.get("content") or ""
+    if content:
+        context_chunks.append(str(content))
+context = "\n".join(context_chunks)
 prompt = f"Answer the user's question using the context.\n\nContext:\n{context}\n\nQuestion: {user_query}"
 
 print(f"\n[Generated Prompt Output to LLM]\n{prompt}\n")
