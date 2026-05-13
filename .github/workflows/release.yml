@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
         include:
           - os: ubuntu-latest
             artifact_name: vanta-server
@@ -24,7 +24,7 @@ jobs:
           - os: macos-latest
             artifact_name: vanta-server
             asset_name: vanta-server-macos-amd64
-          - os: windows-latest
+          - os: windows-2025-vs2026
             artifact_name: vanta-server.exe
             asset_name: vanta-server-windows-amd64.exe
 
@@ -53,23 +53,23 @@ jobs:
         run: cargo build --release
 
       - name: Rename Binary (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-2025-vs2026'
         run: mv target/release/${{ matrix.artifact_name }} target/release/${{ matrix.asset_name }}
 
       - name: Rename Binary (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-2025-vs2026'
         shell: pwsh
         run: Rename-Item -Path "target\release\${{ matrix.artifact_name }}" -NewName "${{ matrix.asset_name }}"
 
       - name: Generate Checksums (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-2025-vs2026'
         shell: pwsh
         run: |
           $hash = (Get-FileHash -Algorithm SHA256 "target\release\${{ matrix.asset_name }}").Hash.ToLower()
           Set-Content -Path "target\release\${{ matrix.asset_name }}.sha256" -NoNewline -Value $hash
 
       - name: Generate Checksums (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-2025-vs2026'
         shell: bash
         run: |
           cd target/release
