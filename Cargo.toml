@@ -21,7 +21,7 @@ zerocopy = { version = "0.8", features = ["derive"] }
 rand = "0.8"
 nom = "7"
 num-traits = "0.2"
-arrow = { version = "53", features = ["ipc"] }
+arrow = { version = "58", features = ["ipc"] }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
