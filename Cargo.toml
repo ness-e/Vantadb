@@ -22,7 +22,7 @@ rand = "0.8"
 nom = "7"
 num-traits = "0.2"
 arrow = { version = "53", features = ["ipc"] }
-rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
+rocksdb = { version = "0.24", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
 # ── Async + Integrations + Server ──
