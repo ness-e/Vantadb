@@ -10,7 +10,7 @@ name = "vantadb_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py38"] }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1.0"
 
