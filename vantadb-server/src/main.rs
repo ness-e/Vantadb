@@ -2,8 +2,8 @@ use std::env;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use vantadb::console;
-use vantadb::server::{app, ServerState};
 use vantadb::storage::StorageEngine;
+use vantadb_server::server::{app, ServerState};
 
 #[tokio::main]
 async fn main() {
@@ -18,12 +18,15 @@ async fn main() {
         console::progress("Initializing storage engine...", None);
     }
 
+    // ── Load Configuration ──────────────────────────────────────────────────
+    let config = vantadb::config::VantaConfig::from_env();
+
     // ── Open storage engine ─────────────────────────────────────────────────
-    let data_dir = env::var("VANTADB_STORAGE_PATH").unwrap_or_else(|_| "vantadb_data".to_string());
-    let storage = match StorageEngine::open(&data_dir) {
+    let storage = match StorageEngine::open_with_config(&config.storage_path, Some(config.clone()))
+    {
         Ok(s) => {
             if !is_mcp {
-                console::ok("Storage engine opened", Some(&data_dir));
+                console::ok("Storage engine opened", Some(&config.storage_path));
             }
             Arc::new(s)
         }
@@ -34,24 +37,32 @@ async fn main() {
     };
 
     // ── Bootstrap Invalidation Dispatcher ──────────────────────────────────
-    let mut dispatcher = vantadb::governance::invalidations::InvalidationDispatcher::new(256);
-    let invalidation_tx = dispatcher.sender();
-    if let Some(rx) = dispatcher.take_receiver() {
+    #[cfg(feature = "governance")]
+    let invalidation_tx = {
+        let mut dispatcher = vantadb::governance::invalidations::InvalidationDispatcher::new(256);
+        let tx = dispatcher.sender();
+        if let Some(rx) = dispatcher.take_receiver() {
+            tokio::spawn(async move {
+                vantadb::governance::invalidations::invalidation_listener(rx).await;
+            });
+        }
+        tx
+    };
+
+    // ── Background maintenance worker ───────────────────────────────────────
+    #[cfg(feature = "governance")]
+    {
+        let maintenance_storage_ctx = storage.clone();
         tokio::spawn(async move {
-            vantadb::governance::invalidations::invalidation_listener(rx).await;
+            vantadb::governance::maintenance_worker::MaintenanceWorker::start(
+                maintenance_storage_ctx,
+                invalidation_tx,
+            )
+            .await;
         });
     }
 
-    // ── Background maintenance worker ───────────────────────────────────────
-    let maintenance_storage_ctx = storage.clone();
-    tokio::spawn(async move {
-        vantadb::governance::maintenance_worker::MaintenanceWorker::start(
-            maintenance_storage_ctx,
-            invalidation_tx,
-        )
-        .await;
-    });
-
+    #[cfg(feature = "governance")]
     if !is_mcp {
         console::ok(
             "Background workers started",
@@ -61,20 +72,14 @@ async fn main() {
 
     // ── Serve MCP or HTTP ───────────────────────────────────────────────────
     if is_mcp {
-        vantadb::api::mcp::run_stdio_server(storage).await;
+        vantadb_server::mcp::run_stdio_server(storage).await;
     } else {
         let state = Arc::new(ServerState {
             storage: storage.clone(),
         });
         let router = app(state);
 
-        let host = env::var("VANTADB_HOST")
-            .or_else(|_| env::var("HOST"))
-            .unwrap_or_else(|_| "127.0.0.1".to_string());
-        let port = env::var("VANTADB_PORT")
-            .or_else(|_| env::var("PORT"))
-            .unwrap_or_else(|_| "8080".to_string());
-        let addr = format!("{}:{}", host, port);
+        let addr = format!("{}:{}", config.host, config.port);
 
         let listener = match TcpListener::bind(&addr).await {
             Ok(l) => {

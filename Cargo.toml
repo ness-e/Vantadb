@@ -21,14 +21,13 @@ zerocopy = { version = "0.8", features = ["derive"] }
 rand = "0.8"
 nom = "7"
 num-traits = "0.2"
-arrow = { version = "53", features = ["ipc"] }
+arrow = { version = "58", features = ["ipc"] }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
 # ── Async + Integrations + Server ──
-tokio = { version = "1", features = ["full", "rt-multi-thread"] }
-reqwest = { version = "0.13", features = ["json"] }
-axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
+reqwest = { version = "0.13", features = ["json"], optional = true }
 serde_json = "1.0"
 prometheus = "0.14"
 pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
@@ -38,14 +37,18 @@ sysinfo = "0.30"
 memmap2 = "0.9"
 
 # ── Console UX ──
-indicatif = "0.17"
-console = "0.15"
+indicatif = { version = "0.17", optional = true }
+console = { version = "0.15", optional = true }
 rayon = "1.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 twox-hash = "2.1.2"
 
 [features]
+default = ["llm", "governance"]
+cli = ["dep:indicatif", "dep:console"]
+llm = ["reqwest"]
+governance = []
 python_sdk = ["pyo3"]
 experimental = []
 
@@ -55,6 +58,8 @@ tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
 http = "1"
 futures = "0.3"
+console = "0.15"
+indicatif = "0.17"
 
 [[bench]]
 name = "hybrid_queries"
@@ -69,14 +74,10 @@ name = "stress_test"
 harness = false
 
 [[bin]]
-name = "vanta-server"
-path = "src/bin/vanta-server.rs"
-test = false
-
-[[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
 test = false
+required-features = ["cli"]
 
 # ── Integration Tests ─────────────────────────────────────────────
 [[test]]
@@ -88,9 +89,7 @@ name = "integration"
 path = "tests/logic/integration.rs"
 required-features = ["experimental"]
 
-[[test]]
-name = "server"
-path = "tests/api/server.rs"
+
 
 [[test]]
 name = "vector_scale_check"
@@ -255,16 +254,39 @@ path = "tests/text_index_recovery.rs"
 name = "version_coherence"
 path = "tests/version_coherence.rs"
 
+[[test]]
+name = "benchmark_internal"
+path = "tests/benchmark_internal.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
 opt-level = 3
 
+# Fast dev profile: balance between compilation speed and runtime performance.
+# opt-level=1 gives ~35% faster builds than 0 while keeping debug usable.
+# debug=1 emits line tables only (no full debug var info).
+[profile.dev]
+opt-level = 1
+debug = 1
+strip = "none"
+
+# CI profile: release-like but without LTO for faster CI builds.
+[profile.ci]
+inherits = "release"
+lto = "off"
+codegen-units = 16
+opt-level = 2
+
 [workspace]
 members = [
     ".",
-    "vantadb-python"
+    "vantadb-python",
+    "vantadb-server"
 ]
+# fuzz/ is intentionally excluded: cargo-fuzz requires nightly + Linux sanitizers.
+# Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
+exclude = ["fuzz"]
 
 [profile.test]
 debug = 0

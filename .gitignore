@@ -16,6 +16,7 @@ todo.md
 /rocksdb_data/
 /vanta_snapshots/
 vanta_certification.json
+vanta_benchmark_report.json
 build_logs/
 high_density_bench_db/
 benches_db/

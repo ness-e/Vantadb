@@ -1,5 +1,5 @@
 [profile.audit]
-default-filter = "not test(sift1m_competitive_benchmark) and not test(hnsw_hard_validation_certification) and not test(stress_protocol_certification)"
+default-filter = "not test(sift1m_competitive_benchmark) and not test(hnsw_hard_validation_certification) and not test(stress_protocol_certification) and not binary_id(vantadb::benchmark_internal)"
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"
