@@ -19,8 +19,10 @@ fn generate_vector(i: usize) -> Vec<f32> {
 #[test]
 fn test_benchmark_internal_10k() {
     let dir = tempdir().expect("create temp dir");
-    let mut config = VantaConfig::default();
-    config.storage_path = dir.path().to_string_lossy().to_string();
+    let config = VantaConfig {
+        storage_path: dir.path().to_string_lossy().to_string(),
+        ..Default::default()
+    };
     let db = VantaEmbedded::open_with_config(config).expect("open vanta db");
 
     let num_records = 10000;
@@ -35,7 +37,7 @@ fn test_benchmark_internal_10k() {
             i % 10,
             i % 500
         );
-        let mut input = VantaMemoryInput::new(namespace, &format!("doc-{:05}", i), payload);
+        let mut input = VantaMemoryInput::new(namespace, format!("doc-{:05}", i), payload);
         input.vector = Some(generate_vector(i));
         db.put(input).expect("put record");
     }
