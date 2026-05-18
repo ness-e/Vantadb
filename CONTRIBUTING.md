@@ -1,84 +1,116 @@
 # Contributing to VantaDB
 
-We welcome contributions to VantaDB! Our goal is to build a high-performance embedded multimodel
-database without marketing overhead.
+Thank you for your interest in contributing! This guide covers the development
+workflow, testing requirements, and specialized tooling like fuzzing.
 
-## Engineering Philosophy
+---
 
-1. **Precision & Consistency:** We use standard terminology. Avoid biological namespaces or
-   exaggerated descriptors.
-2. **Deterministic Debugging:** All core additions must have accompanying validation scripts
-   utilizing brute-force validation (e.g., recall tests) if they involve statistical modeling or
-   approximated distances.
-3. **Rust Tooling:** The project utilizes standard `cargo` toolchains. Ensure code is locked to
-   `stable`.
+## Development Prerequisites
 
-## CI Pipeline Policy
+- **Rust stable** (see `rust-toolchain.toml`)
+- **cargo-nextest**: `cargo install cargo-nextest`
+- **maturin** (for Python SDK): `pip install maturin`
 
-VantaDB uses a **two-tier CI strategy** to balance PR velocity with comprehensive coverage:
+---
 
-| Tier                                                | Trigger                 | Timeout | Scope                                                                |
-| --------------------------------------------------- | ----------------------- | ------- | -------------------------------------------------------------------- |
-| **Fast Gate** (`rust_ci.yml`)                       | Every push/PR to `main` | 30 min  | fmt, clippy, unit tests, integration tests                           |
-| **Heavy Certification** (`heavy_certification.yml`) | Manual / scheduled      | 60 min  | stress_protocol, hnsw_validation, sift_validation, competitive_bench |
+## Running Tests
 
-### Fast Gate Rules
+```bash
+# Full test suite (audit profile — used for CI and release validation)
+cargo nextest run --profile audit --workspace
 
-- Keep it deterministic and offline.
-- Do not add external network calls, remote services, Ollama requirements, dataset downloads, or
-  Docker-only dependencies to this lane.
-- If a check is slow, resource-heavy, or requires special infrastructure, it belongs in heavy
-  certification, not in the Fast Gate.
+# Experimental tests (parser, executor — require nightly or feature flags)
+cargo nextest run --profile experimental --workspace
+```
 
-### Heavy Certification Rules
+---
 
-- Use this lane for `stress_protocol`, HNSW recall/certification work, SIFT validation, and
-  competitive benchmarks.
-- Do not expand the Fast Gate to cover long-running certification jobs just to validate a specialist
-  change.
+## Code Quality
 
-For full details, see [`docs/operations/CI_POLICY.md`](docs/operations/CI_POLICY.md).
+All PRs must pass:
 
-## Submitting Pull Requests
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo nextest run --profile audit --workspace
+```
 
-1. Fork the repository and formulate your changes.
-2. Keep pull requests focused. Separate docs-only, test-only, and product-code changes when
-   possible.
-3. Run the minimum local validation expected by the Fast Gate:
-   - `cargo fmt --check`
-   - `cargo clippy --all-targets --all-features -- -D warnings`
-   - `cargo nextest run --profile audit --workspace`
-   - `cargo bench --no-run`
-4. If your change touches Python packaging, build the local binding and run the SDK tests in an
-   isolated environment.
-5. If your change touches heavier paths, document why and validate them through the appropriate
-   manual or scheduled certification workflow instead of extending the Fast Gate.
-6. Include an objective breakdown of metric changes if optimizing algorithmic paths.
-7. Target the `main` branch. Branch protection requires the Fast Gate checks to pass before merge.
+---
 
-## Pull Request Checklist
+## Fuzzing
 
-- The PR description explains what changed, why it changed, and how it was validated.
-- Public API, SDK, CLI, or documentation changes are reflected in the relevant docs.
-- New behavior includes focused tests or a clear reason tests were not added.
-- Heavy benchmarks or certification tests are not moved into the Fast Gate without justification.
-- Generated data, local databases, build artifacts, and private logs are not committed.
+VantaDB uses [`cargo-fuzz`](https://rust-fuzz.github.io/book/cargo-fuzz.html)
+for resilience testing. Fuzzing requires `cargo-fuzz`, a nightly toolchain, and AddressSanitizer support.
 
-## Commit Messages
+- **Rust nightly**: `rustup toolchain install nightly`
+- **cargo-fuzz**: `cargo install cargo-fuzz`
 
-Use concise Conventional Commit style when possible:
+> **Note on OS Support**: Our CI runs fuzzing exclusively on Linux where AddressSanitizer support is most stable. Windows support for `cargo-fuzz` is strictly best-effort and may require specific MSVC AddressSanitizer setups.
 
-- `feat: add memory export command`
-- `fix: repair stale text index cleanup`
-- `docs: clarify Python SDK install status`
-- `test: cover hybrid search filter isolation`
+### Available Targets
 
-## Reporting Issues
+| Target                 | Description                                              |
+|------------------------|----------------------------------------------------------|
+| `fuzz_parser`          | LISP expression parser, query parser, statement parser   |
+| `fuzz_node_deserialize`| `UnifiedNode` and `WalRecord` bincode deserialization    |
 
-Use the provided Issue Templates:
+### Running a Fuzz Target
 
-- **Bug Report** — for crashes, incorrect results, or regressions.
-- **Feature Request** — for new capabilities or API changes.
-- **Documentation Issue** — for unclear, stale, or missing docs.
+```bash
+# Navigate to the fuzz crate (it's excluded from the workspace on purpose)
+cd fuzz
 
-We look forward to reviewing your additions.
+# Run the parser fuzzer for 5 minutes
+cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
+
+# Run the node deserializer fuzzer
+cargo +nightly fuzz run fuzz_node_deserialize -- -max_total_time=300
+```
+
+### Reproducing a Crash
+
+If fuzzing finds a crash, a corpus artifact is saved under
+`fuzz/artifacts/<target>/`. To reproduce it:
+
+```bash
+cargo +nightly fuzz run fuzz_parser fuzz/artifacts/fuzz_parser/crash-<hash>
+```
+
+### Crash Triage
+
+When a crash artifact is produced:
+
+1. **Reproduce**: Run the command above to confirm the panic and get a backtrace.
+2. **Isolate**: Extract the raw bytes or text from the artifact.
+3. **Regression Test**: Create a deterministic unit test in `tests/` or inside the relevant module with the exact crashing input.
+4. **Fix**: Patch the code until the new unit test passes cleanly.
+
+### CI Integration
+
+Fuzzing runs as a scheduled job in `.github/workflows/heavy_certification.yml`
+on Linux runners only. It is **not** part of standard PR validation because it
+requires nightly and long wall-clock time.
+
+---
+
+## Workspace Structure
+
+```text
+vantadb/          ← core library crate (src/)
+vantadb-python/   ← PyO3 Python SDK
+fuzz/             ← cargo-fuzz targets (Linux nightly only, excluded from workspace)
+benches/          ← Criterion benchmarks
+tests/            ← integration test suite
+dev-tools/        ← validation scripts
+docs/             ← project documentation
+```
+
+---
+
+## Release Checklist
+
+1. `cargo fmt --check` — zero formatting issues
+2. `cargo clippy --workspace --all-targets -- -D warnings` — zero warnings
+3. `cargo nextest run --profile audit --workspace` — all tests pass
+4. `dev-tools/validate_python_sdk.ps1` (Windows) or `validate_python_sdk.sh` (Linux/macOS)
+5. Update `CHANGELOG.md` and bump version in `Cargo.toml`

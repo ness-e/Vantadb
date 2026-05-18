@@ -69,6 +69,32 @@ python -m pip install --upgrade pip maturin pytest
 python -m pip install -e .\vantadb-python
 ```
 
+### Alternative: Install from a Pre-built Wheel
+
+If a wheel is available from the GitHub Actions `Python Wheels` workflow or a
+GitHub Release, install it directly without needing the Rust toolchain:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip pytest
+pip install ./path/to/vantadb_py-0.1.1-*.whl
+```
+
+### Alternative: Install from TestPyPI
+
+When a TestPyPI release is available:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ vantadb-py
+```
+
+> **Note**: TestPyPI availability depends on the `TEST_PYPI_API_TOKEN` secret
+> being configured in the repository. Production PyPI is not yet available.
+
 ## 5. Search by Vector, Text, and Hybrid Retrieval
 
 Create `quickstart_memory.py`:
@@ -145,6 +171,8 @@ Expected result: export reports records written, and audit reports
 This quickstart covers the production-facing MVP: embedded storage, WAL-backed
 recovery, namespaces, metadata-bearing memory records, HNSW vector retrieval,
 BM25 text retrieval, Hybrid Retrieval v1, JSONL export, and text-index audit.
+
+> **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
 
 It does not cover IQL/LISP/DQL, MCP, Ollama/LLM integration, enterprise
 features, cloud, plugins, or graph database behavior.

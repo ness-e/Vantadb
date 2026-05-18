@@ -99,9 +99,12 @@ count, top logical identities, snippets from canonical payloads, BM25 term
 contributions, matched phrases, and RRF ranks. These helpers are not stable SDK
 APIs.
 
-The stable audit surface is narrower: `VantaEmbedded::audit_text_index` and
+The stable audit surface is narrower than the debug helpers:
+`VantaEmbedded::audit_text_index`, `VantaEmbedded::audit_text_index_deep`, and
 `vanta-cli audit-index` compare derived text-index entries against canonical
-records, report drift, and do not repair.
+records, report drift, and do not repair. `vanta-cli audit-index --deep --json`
+enables the logical audit fields (`tf_errors`, `position_errors`, `df_errors`,
+`doc_len_errors`, and `logical_corruptions`) for production triage.
 
 ## Consistency And Observability
 
@@ -112,7 +115,26 @@ open rebuilds when those counts do not match the canonical source of truth.
 A read-only structural audit compares expected postings/stats from canonical
 records against actual text-index entries. This catches incorrect entries with
 matching counts, works in read-only mode, and recommends explicit
-`rebuild_index` repair when drift is detected.
+`repair_text_index`, `rebuild_index`, or `vanta-cli repair-text-index` repair
+when drift is detected.
+
+CLI exit codes for text-index operations:
+
+- `0`: audit or repair completed successfully.
+- `1`: invalid CLI usage or operational error.
+- `3`: audit completed and detected drift.
+
+Operational flow:
+
+```bash
+vanta-cli audit-index --db ./vantadb_data --namespace agent/main --json --deep
+vanta-cli repair-text-index --db ./vantadb_data
+vanta-cli audit-index --db ./vantadb_data --namespace agent/main --json --deep
+```
+
+`repair-text-index` rebuilds postings, document stats, term stats, and namespace
+stats from canonical memory records. The repair path increments
+`text_index_repairs` once per explicit repair invocation.
 
 Operational metrics remain diagnostic only:
 

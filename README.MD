@@ -15,8 +15,8 @@
 storage, HNSW vector retrieval, structured metadata, and crash recovery without requiring a separate
 database service.
 
-`v0.1.1` is the current release-readiness cut. Docker and Ollama remain deferred or experimental, the Python
-package is still install-from-source. The repo now includes the `memory-mvp-core` surface:
+`v0.1.1` is the current release-readiness cut. Docker and Ollama remain deferred or experimental, and
+actual PyPI publication remains a manual release step. The repo now includes the `memory-mvp-core` surface:
 namespace-scoped memory CRUD/search, manual ANN rebuild, JSONL export/import, embedded CLI flows,
 and full hybrid search combining lexical BM25 and vector similarity via Reciprocal Rank Fusion
 (RRF).
@@ -41,20 +41,21 @@ VantaDB should currently be understood as:
 - embedded-first and local-first
 - durable memory with WAL-backed recovery
 - cosine-based HNSW vector retrieval
-- structured fields stored alongside vectors
 - optional local server wrapper around the same core
+
+> **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
 
 VantaDB should **not** currently be understood as:
 
 - a universal multimodel database
 - a cloud or enterprise platform
-- a PyPI-ready distributed product
+- a published PyPI distributed product
 
 Boundary classification for v0.1.x:
 
 | Classification | Surface |
 | --- | --- |
-| **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit, JSONL export/import |
+| **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
 | **Optional wrapper** | Local `vanta-server` around the embedded core |
 | **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges, Docker/Ollama examples |
 | **Deferred** | Metacognition, plugins, RBAC, true multi-tenancy, HA/replication, cloud, production PyPI distribution, advanced ranking/snippets/highlighting/tokenization, SQL/OLTP/warehouse/time-series |
@@ -75,7 +76,7 @@ The current repo supports the following production-facing capabilities:
 | **Structured Data**       | Derived namespace/payload indexes   | Metadata is stored with each record and equality filters use persisted prefix-scan-backed indexes that can be rebuilt from canonical records.                   |
 | **Graph Edges**           | Local adjacency lists               | Directed edges with optional weights are stored in the internal node model. This is not a graph database or graph query-language claim.                         |
 | **Embedded SDK Surface**  | Stable Rust boundary + PyO3 binding | The Python binding is now routed through `src/sdk.rs` instead of accessing storage and executor internals directly.                                             |
-| **Operational Flows**     | Rebuild + JSONL + metrics           | ANN rebuild, memory export/import, stale derived-index repair, and operational metrics are available through the SDK boundary.                                  |
+| **Operational Flows**     | Rebuild + JSONL + metrics           | ANN rebuild, memory export/import, explicit text-index repair, stale derived-index repair, and operational metrics are available through the SDK boundary.       |
 
 ## Install From Source
 
@@ -117,7 +118,8 @@ cargo run --bin vanta-cli -- put --db ./vanta_data --namespace agent/main --key 
 cargo run --bin vanta-cli -- list --db ./vanta_data --namespace agent/main
 cargo run --bin vanta-cli -- export --db ./vanta_data --namespace agent/main --out ./memory.jsonl
 cargo run --bin vanta-cli -- rebuild-index --db ./vanta_data
-cargo run --bin vanta-cli -- audit-index --db ./vanta_data --namespace agent/main --json
+cargo run --bin vanta-cli -- audit-index --db ./vanta_data --namespace agent/main --json --deep
+cargo run --bin vanta-cli -- repair-text-index --db ./vanta_data
 ```
 
 ## Search Semantics Today
@@ -186,8 +188,8 @@ The following documents track the current repo truth:
    mutation order and recovery behavior.
 11. **[Persistent Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md)**: BM25, phrase
    positions, derived index repair, and Hybrid Retrieval v1 boundaries.
-12. **[Operational Roadmap](docs/operations/ROADMAP.md)**: Current baseline, next hardening phases,
-   validation gates, and deferred work.
+12. **[Python Release Policy](docs/operations/PYTHON_RELEASE_POLICY.md)**: TestPyPI, production
+   publishing, signing, release assets, and rollback policy.
 
 ## Contributing And Security
 

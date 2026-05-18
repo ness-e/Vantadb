@@ -86,14 +86,19 @@ The Python binding routes through this boundary and currently exposes:
 - legacy node insert/get/delete
 - memory `put/get/delete/list/search`
 - manual `rebuild_index`
+- text-index `audit_text_index` and `repair_text_index`
 - memory `export_namespace/export_all/import_file`
+- operational metrics
 - vector search
 - query
 - add edge
 - flush/close
 - capabilities
 
-Distribution hardening now has wheel CI and a manual TestPyPI gate. PyPI production publication, signing, and installers remain deferred until release policy is stable.
+Distribution hardening now has wheel CI, version-coherence checks, a manual
+TestPyPI gate, tag-gated production publishing, and Sigstore signing. Actual
+PyPI publication remains a release-manager action outside normal development
+tasks.
 
 ## 6. Memory and Telemetry
 
@@ -103,8 +108,9 @@ Process-level telemetry is now treated as:
 
 - process-scoped
 - explicit about source and units
-- separate from logical HNSW memory estimates
-- separate from mmap residency and OS page cache
+- explicit about logical HNSW estimates through `hnsw_logical_bytes`
+- explicit about mmap residency when available through `mmap_resident_bytes`
+- separate from OS page cache and backend allocator internals
 
 See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the current metric schema and validation harness.
 
