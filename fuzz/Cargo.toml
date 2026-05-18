@@ -1,0 +1,31 @@
+[package]
+name = "vantadb-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# This crate is intentionally excluded from the workspace:
+# cargo-fuzz requires nightly + sanitizers (AddressSanitizer/LibFuzzer)
+# which are only available on Linux with the nightly toolchain.
+# Run via: cargo +nightly fuzz run <target>   (Linux only)
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.vantadb]
+path = ".."
+
+[[bin]]
+name = "fuzz_parser"
+path = "fuzz_targets/fuzz_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_node_deserialize"
+path = "fuzz_targets/fuzz_node_deserialize.rs"
+test = false
+doc = false

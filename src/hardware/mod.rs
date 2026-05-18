@@ -1,4 +1,3 @@
-use console::{style, Emoji};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::fs;
@@ -29,7 +28,12 @@ pub struct HardwareCapabilities {
     pub instructions: InstructionSet,
     pub profile: HardwareProfile,
     pub logical_cores: usize,
-    pub total_memory: u64, // Total RAM in bytes
+    /// Total physical RAM of the host machine in bytes (via `sysinfo::System::total_memory()`).
+    ///
+    /// **This is NOT process-scoped**: it reports what the OS sees, not what VantaDB
+    /// has allocated. For per-process metrics, use `metrics::memory_breakdown_snapshot()`
+    /// which reports RSS and virtual memory for the current process.
+    pub total_memory: u64,
     pub resource_score: u32,
     pub env_hash: u64, // Hash of the static environment for invalidation
 }
@@ -144,7 +148,10 @@ impl HardwareScout {
         (mem_score * 2) + core_score + instr_score
     }
 
+    #[cfg(feature = "cli")]
     fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
+        use console::{style, Emoji};
+
         let instr_str = match caps.instructions {
             InstructionSet::Avx512 => style("AVX-512").cyan().bold(),
             InstructionSet::Avx2 => style("AVX2").cyan().bold(),
@@ -209,6 +216,17 @@ impl HardwareScout {
                 "╰──────────────────────────────────────────────────────────────────────────────╯"
             )
             .dim()
+        );
+    }
+
+    #[cfg(not(feature = "cli"))]
+    fn log_adaptive_status(caps: &HardwareCapabilities, _cached: bool) {
+        tracing::info!(
+            "Hardware Profile: {:?} | Cores: {} | RAM: {}GB | Score: {}",
+            caps.profile,
+            caps.logical_cores,
+            caps.total_memory / (1024 * 1024 * 1024),
+            caps.resource_score
         );
     }
 }

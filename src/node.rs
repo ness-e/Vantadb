@@ -40,12 +40,22 @@ impl VectorRepresentations {
         }
     }
 
-    /// Computes cosine similarity (F32) or delegates to quantized logic
+    /// Zero-copy borrow of the f32 vector data.
+    /// Avoids heap allocation for distance computations on Full vectors.
+    pub fn as_f32_slice(&self) -> Option<&[f32]> {
+        match self {
+            VectorRepresentations::Full(v) => Some(v.as_slice()),
+            _ => None,
+        }
+    }
+
+    /// Computes cosine similarity (F32) or delegates to quantized logic.
+    /// Uses zero-copy slice access to avoid heap allocations.
     pub fn cosine_similarity(&self, other: &VectorRepresentations) -> Option<f32> {
         use crate::hardware::{HardwareCapabilities, InstructionSet};
 
-        let a = self.to_f32()?;
-        let b = other.to_f32()?;
+        let a = self.as_f32_slice()?;
+        let b = other.as_f32_slice()?;
         if a.len() != b.len() || a.is_empty() {
             return None;
         }
@@ -210,6 +220,7 @@ impl NodeFlags {
     pub const PINNED: u32 = 1 << 6;
     pub const RECOVERED: u32 = 1 << 7;
     pub const INVALIDATED: u32 = 1 << 8;
+    pub const CONFLICT_RESOLVED: u32 = 1 << 9;
 
     pub fn new() -> Self {
         Self(Self::ACTIVE)

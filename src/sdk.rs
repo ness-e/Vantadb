@@ -1,10 +1,11 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
+use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::executor::{ExecutionResult, Executor};
 use crate::hardware::{HardwareCapabilities, HardwareProfile};
 use crate::index::cosine_sim_f32;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
-use crate::storage::{BackendKind, EngineConfig, IndexRebuildReport, StorageEngine};
+use crate::storage::{BackendKind, IndexRebuildReport, StorageEngine};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -27,17 +28,9 @@ const EXPORT_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
-const HYBRID_RRF_K: f32 = 60.0;
-const HYBRID_CANDIDATE_MULTIPLIER: usize = 4;
-const HYBRID_MIN_CANDIDATE_BUDGET: usize = 32;
-const HYBRID_MAX_CANDIDATE_BUDGET: usize = 256;
+// RRF and budget constants live in crate::planner — imported below as needed.
 
-/// Stable open options for embedded SDK consumers.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct VantaOpenOptions {
-    pub memory_limit_bytes: Option<u64>,
-    pub read_only: bool,
-}
+// VantaOpenOptions was removed in favor of VantaConfig.
 
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -183,6 +176,18 @@ pub struct VantaImportReport {
     pub duration_ms: u64,
 }
 
+/// Stable report returned by text index repair operations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VantaTextIndexRepairReport {
+    pub record_count: u64,
+    pub posting_entries: u64,
+    pub doc_stats_entries: u64,
+    pub term_stats_entries: u64,
+    pub namespace_stats_entries: u64,
+    pub duration_ms: u64,
+    pub success: bool,
+}
+
 /// Stable snapshot of operational metrics used for validation and diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VantaOperationalMetrics {
@@ -210,6 +215,14 @@ pub struct VantaOperationalMetrics {
     pub import_errors: u64,
     pub derived_prefix_scans: u64,
     pub derived_full_scan_fallbacks: u64,
+    // Per-subsystem memory breakdown
+    pub process_rss_bytes: u64,
+    pub process_virtual_bytes: u64,
+    pub hnsw_nodes_count: u64,
+    pub hnsw_logical_bytes: u64,
+    pub mmap_resident_bytes: Option<u64>,
+    pub volatile_cache_entries: u64,
+    pub volatile_cache_cap_bytes: u64,
 }
 
 #[cfg(debug_assertions)]
@@ -224,18 +237,23 @@ pub struct VantaMemorySearchDebugReport {
     pub top_identities: Vec<String>,
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-#[doc(hidden)]
-pub struct VantaMemorySearchExplainReport {
-    pub route: String,
-    pub hits: Vec<VantaMemorySearchExplainHit>,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaHybridFusionReport {
+    pub text_candidates: usize,
+    pub vector_candidates: usize,
+    pub fused_candidates: usize,
+    pub rrf_k: usize,
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-#[doc(hidden)]
-pub struct VantaMemorySearchExplainHit {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaSearchExplanation {
+    pub route: String,
+    pub hits: Vec<VantaSearchExplanationHit>,
+    pub fusion_report: Option<VantaHybridFusionReport>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VantaSearchExplanationHit {
     pub identity: String,
     pub score: f32,
     pub snippet: Option<String>,
@@ -246,9 +264,7 @@ pub struct VantaMemorySearchExplainHit {
     pub rrf_vector_rank: Option<usize>,
 }
 
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq)]
-#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaBm25TermContribution {
     pub token: String,
     pub tf: u32,
@@ -344,6 +360,12 @@ pub struct VantaTextIndexAuditReport {
     pub value_mismatches: u64,
     pub unreadable_entries: u64,
     pub mismatches: u64,
+    pub deep_audit: bool,
+    pub position_errors: u64,
+    pub tf_errors: u64,
+    pub df_errors: u64,
+    pub doc_len_errors: u64,
+    pub logical_corruptions: u64,
     pub state_valid: bool,
     pub state_status: String,
     pub duration_ms: u64,
@@ -444,7 +466,7 @@ pub struct VantaCapabilities {
 #[derive(Clone)]
 pub struct VantaEmbedded {
     engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
-    options: VantaOpenOptions,
+    config: VantaConfig,
 }
 
 fn now_ms() -> u64 {
@@ -714,23 +736,26 @@ fn matches_memory_filters(record: &VantaMemoryRecord, filters: &VantaMemoryMetad
 
 impl VantaEmbedded {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        Self::open_with_options(path, VantaOpenOptions::default())
+        let config = VantaConfig {
+            storage_path: path.as_ref().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        Self::open_with_config(config)
     }
 
-    pub fn open_with_options(path: impl AsRef<Path>, options: VantaOpenOptions) -> Result<Self> {
-        let config = EngineConfig {
-            memory_limit: options.memory_limit_bytes,
-            force_mmap: false,
-            read_only: options.read_only,
-            backend_kind: BackendKind::Fjall,
-        };
-        let path = path.as_ref().to_string_lossy().into_owned();
-        let engine = StorageEngine::open_with_config(&path, Some(config))?;
+    pub fn open_with_config(config: VantaConfig) -> Result<Self> {
+        let mut final_config = config.clone();
+        final_config.backend_kind = BackendKind::Fjall;
+
+        let engine = StorageEngine::open_with_config(
+            &final_config.storage_path,
+            Some(final_config.clone()),
+        )?;
         let embedded = Self {
             engine: Arc::new(RwLock::new(Some(Arc::new(engine)))),
-            options,
+            config: final_config,
         };
-        if !embedded.options.read_only {
+        if !embedded.config.read_only {
             embedded.ensure_derived_indexes_current()?;
             embedded.ensure_text_index_current()?;
         }
@@ -1569,7 +1594,7 @@ impl VantaEmbedded {
         (true, "current".to_string())
     }
 
-    fn build_text_index_audit_report(
+    fn build_text_index_audit_report_deep(
         engine: &StorageEngine,
         namespace_filter: Option<&str>,
     ) -> Result<VantaTextIndexAuditReport> {
@@ -1592,6 +1617,11 @@ impl VantaEmbedded {
         let mut unexpected_entries = 0u64;
         let mut value_mismatches = 0u64;
         let mut unreadable_entries = 0u64;
+        let mut position_errors = 0u64;
+        let mut tf_errors = 0u64;
+        let mut df_errors = 0u64;
+        let mut doc_len_errors = 0u64;
+        let mut logical_corruptions = 0u64;
 
         for (key, value) in &expected.entries {
             match actual.get(key) {
@@ -1600,6 +1630,47 @@ impl VantaEmbedded {
                     value_mismatches += 1;
                     if !Self::text_index_value_readable(key, actual_value) {
                         unreadable_entries += 1;
+                    } else if crate::text_index::is_doc_stats_key(key) {
+                        if let (Ok(expected_stats), Ok(actual_stats)) = (
+                            crate::text_index::decode_doc_stats(value),
+                            crate::text_index::decode_doc_stats(actual_value),
+                        ) {
+                            if expected_stats.doc_len != actual_stats.doc_len {
+                                doc_len_errors += 1;
+                            } else {
+                                logical_corruptions += 1;
+                            }
+                        }
+                    } else if crate::text_index::is_term_stats_key(key) {
+                        if let (Ok(expected_stats), Ok(actual_stats)) = (
+                            crate::text_index::decode_term_stats(value),
+                            crate::text_index::decode_term_stats(actual_value),
+                        ) {
+                            if expected_stats.df != actual_stats.df {
+                                df_errors += 1;
+                            } else {
+                                logical_corruptions += 1;
+                            }
+                        }
+                    } else if !crate::text_index::is_internal_key(key) {
+                        if let (Ok(expected_posting), Ok(actual_posting)) = (
+                            crate::text_index::decode_posting(value),
+                            crate::text_index::decode_posting(actual_value),
+                        ) {
+                            if expected_posting.tf != actual_posting.tf {
+                                tf_errors += 1;
+                            }
+                            if expected_posting.positions != actual_posting.positions {
+                                position_errors += 1;
+                            }
+                            if expected_posting.tf == actual_posting.tf
+                                && expected_posting.positions == actual_posting.positions
+                            {
+                                logical_corruptions += 1;
+                            }
+                        }
+                    } else {
+                        logical_corruptions += 1;
                     }
                 }
                 None => missing_entries += 1,
@@ -1643,6 +1714,93 @@ impl VantaEmbedded {
             value_mismatches,
             unreadable_entries,
             mismatches,
+            deep_audit: true,
+            position_errors,
+            tf_errors,
+            df_errors,
+            doc_len_errors,
+            logical_corruptions,
+            state_valid,
+            state_status,
+            duration_ms: started.elapsed().as_millis() as u64,
+            passed,
+            status: if passed {
+                "ok".to_string()
+            } else {
+                "repair_recommended".to_string()
+            },
+        };
+        crate::metrics::record_text_consistency_audit(!report.passed);
+        Ok(report)
+    }
+
+    fn build_text_index_audit_report_shallow(
+        engine: &StorageEngine,
+        namespace_filter: Option<&str>,
+    ) -> Result<VantaTextIndexAuditReport> {
+        let started = Instant::now();
+        let spec = crate::text_index::TextIndexSpec::default();
+        let expected = Self::expected_text_index_entries(engine, namespace_filter)?;
+
+        let (state_valid, state_status) =
+            Self::text_index_state_audit_status(engine, expected.counts, namespace_filter);
+
+        // Shallow scan: count actual entries and check key presence (no value decoding).
+        let actual: BTreeSet<Vec<u8>> = engine
+            .scan_partition(BackendPartition::TextIndex)?
+            .into_iter()
+            .filter(|(key, _value)| {
+                namespace_filter
+                    .map(|namespace| {
+                        crate::text_index::text_index_key_belongs_to_namespace(key, namespace)
+                    })
+                    .unwrap_or(true)
+            })
+            .map(|(key, _value)| key)
+            .collect();
+
+        let actual_entries = actual.len() as u64;
+        let expected_keys: BTreeSet<&Vec<u8>> = expected.entries.keys().collect();
+        let missing_entries = expected_keys
+            .iter()
+            .filter(|key| !actual.contains(**key))
+            .count() as u64;
+        let unexpected_entries = actual
+            .iter()
+            .filter(|key| !expected.entries.contains_key(*key))
+            .count() as u64;
+        let mismatches = missing_entries + unexpected_entries;
+
+        let passed = state_valid && mismatches == 0;
+
+        let mut namespaces_audited: Vec<String> = expected.namespaces.into_iter().collect();
+        if namespaces_audited.is_empty() {
+            if let Some(namespace) = namespace_filter {
+                namespaces_audited.push(namespace.to_string());
+            }
+        }
+
+        let report = VantaTextIndexAuditReport {
+            schema_version: spec.schema_version,
+            tokenizer: spec.tokenizer.name.to_string(),
+            tokenizer_version: spec.tokenizer.version,
+            key_format: spec.key_format.to_string(),
+            namespace_filter: namespace_filter.map(ToOwned::to_owned),
+            namespaces_audited,
+            records_scanned: expected.records_scanned,
+            expected_entries: expected.entries.len() as u64,
+            actual_entries,
+            missing_entries,
+            unexpected_entries,
+            value_mismatches: 0,
+            unreadable_entries: 0,
+            mismatches,
+            deep_audit: false,
+            position_errors: 0,
+            tf_errors: 0,
+            df_errors: 0,
+            doc_len_errors: 0,
+            logical_corruptions: 0,
             state_valid,
             state_status,
             duration_ms: started.elapsed().as_millis() as u64,
@@ -1928,20 +2086,11 @@ impl VantaEmbedded {
     }
 
     fn sort_memory_hits(hits: &mut [VantaMemorySearchHit]) {
-        hits.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then(a.record.key.cmp(&b.record.key))
-                .then(a.record.node_id.cmp(&b.record.node_id))
-        });
+        crate::planner::sort_hits(hits);
     }
 
     fn hybrid_candidate_budget(top_k: usize) -> usize {
-        top_k
-            .saturating_mul(HYBRID_CANDIDATE_MULTIPLIER)
-            .clamp(HYBRID_MIN_CANDIDATE_BUDGET, HYBRID_MAX_CANDIDATE_BUDGET)
-            .max(top_k)
+        crate::planner::hybrid_candidate_budget(top_k)
     }
 
     fn hybrid_search(
@@ -1972,30 +2121,7 @@ impl VantaEmbedded {
         lexical_hits: Vec<VantaMemorySearchHit>,
         vector_hits: Vec<VantaMemorySearchHit>,
     ) -> Vec<VantaMemorySearchHit> {
-        let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
-        Self::apply_rrf_contributions(&mut fused, lexical_hits);
-        Self::apply_rrf_contributions(&mut fused, vector_hits);
-
-        let mut hits: Vec<_> = fused.into_values().collect();
-        Self::sort_memory_hits(&mut hits);
-        hits
-    }
-
-    fn apply_rrf_contributions(
-        fused: &mut BTreeMap<(String, String), VantaMemorySearchHit>,
-        hits: Vec<VantaMemorySearchHit>,
-    ) {
-        for (rank, hit) in hits.into_iter().enumerate() {
-            let contribution = 1.0 / (HYBRID_RRF_K + rank as f32 + 1.0);
-            let identity = (hit.record.namespace.clone(), hit.record.key.clone());
-            fused
-                .entry(identity)
-                .and_modify(|existing| existing.score += contribution)
-                .or_insert_with(|| VantaMemorySearchHit {
-                    record: hit.record,
-                    score: contribution,
-                });
-        }
+        crate::planner::fuse_rrf(lexical_hits, vector_hits)
     }
 
     fn records_for_namespace(
@@ -2243,11 +2369,7 @@ impl VantaEmbedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        let text_query = request
-            .text_query
-            .as_deref()
-            .map(str::trim)
-            .filter(|text| !text.is_empty());
+        let text_query = crate::planner::trimmed_text_query(&request);
         let has_vector = !request.query_vector.is_empty();
 
         if request.top_k == 0 {
@@ -2288,6 +2410,11 @@ impl VantaEmbedded {
     }
 
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "rebuild_index is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
         let report = self.engine_handle()?.rebuild_vector_index()?;
         let derived = self.rebuild_derived_indexes_with_report()?;
         self.rebuild_text_index_with_report()?;
@@ -2350,6 +2477,11 @@ impl VantaEmbedded {
     }
 
     pub fn import_records(&self, records: Vec<VantaMemoryRecord>) -> Result<VantaImportReport> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "import_records is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
         let started = Instant::now();
         let mut report = VantaImportReport {
             inserted: 0,
@@ -2376,6 +2508,11 @@ impl VantaEmbedded {
     }
 
     pub fn import_file(&self, path: impl AsRef<Path>) -> Result<VantaImportReport> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "import_file is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
         let started = Instant::now();
         let file = File::open(path.as_ref()).map_err(VantaError::IoError)?;
         let reader = BufReader::new(file);
@@ -2420,11 +2557,62 @@ impl VantaEmbedded {
             validate_namespace(namespace)?;
         }
         let engine = self.engine_handle()?;
-        Self::build_text_index_audit_report(&engine, namespace)
+        Self::build_text_index_audit_report_shallow(&engine, namespace)
+    }
+
+    /// Run a deep structural audit of the derived persistent text index.
+    ///
+    /// The audit decodes and compares individual fields (TF, positions, DF, doc lengths)
+    /// across all postings against the canonical memory records.
+    pub fn audit_text_index_deep(
+        &self,
+        namespace: Option<&str>,
+    ) -> Result<VantaTextIndexAuditReport> {
+        if let Some(namespace) = namespace {
+            validate_namespace(namespace)?;
+        }
+        let engine = self.engine_handle()?;
+        Self::build_text_index_audit_report_deep(&engine, namespace)
+    }
+
+    /// Public repair primitive for the text index. Rebuilds all postings,
+    /// doc stats, term stats, and namespace stats from canonical memory records.
+    pub fn repair_text_index(&self) -> Result<VantaTextIndexRepairReport> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "repair_text_index is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
+        crate::metrics::record_text_index_repair();
+        let report = self.rebuild_text_index_with_report()?;
+        Ok(VantaTextIndexRepairReport {
+            record_count: report.record_count,
+            posting_entries: report.posting_entries,
+            doc_stats_entries: report.doc_stats_entries,
+            term_stats_entries: report.term_stats_entries,
+            namespace_stats_entries: report.namespace_stats_entries,
+            duration_ms: report.duration_ms,
+            success: true,
+        })
     }
 
     pub fn operational_metrics(&self) -> VantaOperationalMetrics {
         crate::metrics::operational_metrics_snapshot().into()
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_memory_breakdown(&self) -> serde_json::Value {
+        let metrics = self.operational_metrics();
+        serde_json::json!({
+            "process_rss_bytes": metrics.process_rss_bytes,
+            "process_virtual_bytes": metrics.process_virtual_bytes,
+            "hnsw_nodes_count": metrics.hnsw_nodes_count,
+            "hnsw_logical_bytes": metrics.hnsw_logical_bytes,
+            "mmap_resident_bytes": metrics.mmap_resident_bytes,
+            "volatile_cache_entries": metrics.volatile_cache_entries,
+            "volatile_cache_cap_bytes": metrics.volatile_cache_cap_bytes,
+        })
     }
 
     #[cfg(debug_assertions)]
@@ -2485,6 +2673,76 @@ impl VantaEmbedded {
 
     #[cfg(debug_assertions)]
     #[doc(hidden)]
+    pub fn debug_corrupt_text_index_posting_tf_for_tests(
+        &self,
+        namespace: &str,
+        token: &str,
+        key: &str,
+        new_tf: u32,
+    ) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let pkey = crate::text_index::posting_key(namespace, token, key);
+        let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
+            return Err(VantaError::Execution("posting not found".to_string()));
+        };
+        let posting = crate::text_index::decode_posting(&bytes)?;
+        let val = crate::text_index::posting_value(posting.node_id, new_tf, &posting.positions)?;
+        engine.put_to_partition(BackendPartition::TextIndex, &pkey, &val)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_corrupt_text_index_posting_positions_for_tests(
+        &self,
+        namespace: &str,
+        token: &str,
+        key: &str,
+        new_positions: Vec<u32>,
+    ) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let pkey = crate::text_index::posting_key(namespace, token, key);
+        let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
+            return Err(VantaError::Execution("posting not found".to_string()));
+        };
+        let posting = crate::text_index::decode_posting(&bytes)?;
+        let val = crate::text_index::posting_value(posting.node_id, posting.tf, &new_positions)?;
+        engine.put_to_partition(BackendPartition::TextIndex, &pkey, &val)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_corrupt_text_index_term_stats_for_tests(
+        &self,
+        namespace: &str,
+        token: &str,
+        new_df: u64,
+    ) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let skey = crate::text_index::term_stats_key(namespace, token);
+        let val = crate::text_index::term_stats_value(new_df)?;
+        engine.put_to_partition(BackendPartition::TextIndex, &skey, &val)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn debug_corrupt_text_index_doc_stats_for_tests(
+        &self,
+        namespace: &str,
+        key: &str,
+        new_doc_len: u32,
+    ) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let dkey = crate::text_index::doc_stats_key(namespace, key);
+        let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &dkey)? else {
+            return Err(VantaError::Execution("doc stats not found".to_string()));
+        };
+        let stats = crate::text_index::decode_doc_stats(&bytes)?;
+        let val = crate::text_index::doc_stats_value(stats.node_id, new_doc_len)?;
+        engine.put_to_partition(BackendPartition::TextIndex, &dkey, &val)
+    }
+
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
     pub fn debug_text_index_posting_keys_for_tests(&self) -> Result<Vec<Vec<u8>>> {
         let engine = self.engine_handle()?;
         let mut keys: Vec<Vec<u8>> = engine
@@ -2520,7 +2778,7 @@ impl VantaEmbedded {
     #[cfg(debug_assertions)]
     #[doc(hidden)]
     pub fn debug_text_index_audit_for_tests(&self) -> Result<VantaTextIndexAuditReport> {
-        self.audit_text_index(None)
+        self.audit_text_index_deep(None)
     }
 
     #[cfg(debug_assertions)]
@@ -2532,11 +2790,7 @@ impl VantaEmbedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        let text_query = request
-            .text_query
-            .as_deref()
-            .map(str::trim)
-            .filter(|text| !text.is_empty());
+        let text_query = crate::planner::trimmed_text_query(&request);
         let has_vector = !request.query_vector.is_empty();
         if request.top_k == 0 {
             return Ok(VantaMemorySearchDebugReport {
@@ -2617,12 +2871,10 @@ impl VantaEmbedded {
         }
     }
 
-    #[cfg(debug_assertions)]
-    #[doc(hidden)]
-    pub fn debug_memory_search_explain_for_tests(
+    pub fn explain_memory_search(
         &self,
         request: VantaMemorySearchRequest,
-    ) -> Result<VantaMemorySearchExplainReport> {
+    ) -> Result<VantaSearchExplanation> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -2633,14 +2885,16 @@ impl VantaEmbedded {
             .filter(|text| !text.is_empty());
         let has_vector = !request.query_vector.is_empty();
         if request.top_k == 0 {
-            return Ok(VantaMemorySearchExplainReport {
+            return Ok(VantaSearchExplanation {
                 route: "empty".to_string(),
                 hits: Vec::new(),
+                fusion_report: None,
             });
         }
 
         let engine = self.engine_handle()?;
-        let (route, hits, text_ranks, vector_ranks) = match (text_query, has_vector) {
+        let (route, hits, text_ranks, vector_ranks, fusion_report) = match (text_query, has_vector)
+        {
             (Some(text_query), true) => {
                 let budget = Self::hybrid_candidate_budget(request.top_k);
                 let lexical_hits =
@@ -2653,9 +2907,16 @@ impl VantaEmbedded {
                 )?;
                 let text_ranks = Self::debug_rank_map(&lexical_hits);
                 let vector_ranks = Self::debug_rank_map(&vector_hits);
-                let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
+                let (mut hits, report) =
+                    crate::planner::fuse_rrf_with_report(lexical_hits, vector_hits);
                 hits.truncate(request.top_k);
-                ("hybrid".to_string(), hits, text_ranks, vector_ranks)
+                (
+                    "hybrid".to_string(),
+                    hits,
+                    text_ranks,
+                    vector_ranks,
+                    Some(report),
+                )
             }
             (Some(text_query), false) => {
                 let hits = self.lexical_search(
@@ -2665,7 +2926,13 @@ impl VantaEmbedded {
                     request.top_k,
                 )?;
                 let text_ranks = Self::debug_rank_map(&hits);
-                ("text-only".to_string(), hits, text_ranks, BTreeMap::new())
+                (
+                    "text-only".to_string(),
+                    hits,
+                    text_ranks,
+                    BTreeMap::new(),
+                    None,
+                )
             }
             (None, true) => {
                 let hits = self.vector_memory_search(
@@ -2680,12 +2947,14 @@ impl VantaEmbedded {
                     hits,
                     BTreeMap::new(),
                     vector_ranks,
+                    None,
                 )
             }
             (None, false) => {
-                return Ok(VantaMemorySearchExplainReport {
+                return Ok(VantaSearchExplanation {
                     route: "empty".to_string(),
                     hits: Vec::new(),
+                    fusion_report: None,
                 });
             }
         };
@@ -2697,20 +2966,19 @@ impl VantaEmbedded {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(VantaMemorySearchExplainReport {
+        Ok(VantaSearchExplanation {
             route,
             hits: explained_hits,
+            fusion_report,
         })
     }
 
-    #[cfg(debug_assertions)]
     fn debug_hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
         hits.iter()
             .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
             .collect()
     }
 
-    #[cfg(debug_assertions)]
     fn debug_rank_map(hits: &[VantaMemorySearchHit]) -> BTreeMap<(String, String), usize> {
         hits.iter()
             .enumerate()
@@ -2723,14 +2991,13 @@ impl VantaEmbedded {
             .collect()
     }
 
-    #[cfg(debug_assertions)]
     fn debug_explain_hit(
         engine: &StorageEngine,
         hit: VantaMemorySearchHit,
         text_query: Option<&str>,
         text_ranks: &BTreeMap<(String, String), usize>,
         vector_ranks: &BTreeMap<(String, String), usize>,
-    ) -> Result<VantaMemorySearchExplainHit> {
+    ) -> Result<VantaSearchExplanationHit> {
         let identity_tuple = (hit.record.namespace.clone(), hit.record.key.clone());
         let identity = format!("{}\0{}", hit.record.namespace, hit.record.key);
         let bm25_terms = if let Some(text_query) = text_query {
@@ -2749,7 +3016,7 @@ impl VantaEmbedded {
         };
         let snippet = text_query.and_then(|query| Self::debug_snippet(&hit.record.payload, query));
 
-        Ok(VantaMemorySearchExplainHit {
+        Ok(VantaSearchExplanationHit {
             identity,
             score: hit.score,
             snippet,
@@ -2761,7 +3028,6 @@ impl VantaEmbedded {
         })
     }
 
-    #[cfg(debug_assertions)]
     fn debug_bm25_terms_for_record(
         engine: &StorageEngine,
         record: &VantaMemoryRecord,
@@ -2825,7 +3091,6 @@ impl VantaEmbedded {
         Ok(terms)
     }
 
-    #[cfg(debug_assertions)]
     fn debug_matched_phrases_for_record(
         engine: &StorageEngine,
         record: &VantaMemoryRecord,
@@ -2855,7 +3120,6 @@ impl VantaEmbedded {
             .collect())
     }
 
-    #[cfg(debug_assertions)]
     fn debug_snippet(payload: &str, text_query: &str) -> Option<String> {
         let query_plan = crate::text_index::query_plan(text_query);
         let first_token = query_plan.terms.iter().next()?;
@@ -2914,7 +3178,7 @@ impl VantaEmbedded {
     }
 
     pub fn close(&self) -> Result<()> {
-        if self.options.read_only {
+        if self.config.read_only {
             return Ok(());
         }
 
@@ -2958,7 +3222,7 @@ impl VantaEmbedded {
             persistence: true,
             vector_search: true,
             iql_queries: false,
-            read_only: self.options.read_only,
+            read_only: self.config.read_only,
         }
     }
 }
@@ -3004,6 +3268,13 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             import_errors: metrics.import_errors,
             derived_prefix_scans: metrics.derived_prefix_scans,
             derived_full_scan_fallbacks: metrics.derived_full_scan_fallbacks,
+            process_rss_bytes: metrics.memory.process_rss_bytes,
+            process_virtual_bytes: metrics.memory.process_virtual_bytes,
+            hnsw_nodes_count: metrics.memory.hnsw_nodes_count,
+            hnsw_logical_bytes: metrics.memory.hnsw_logical_bytes,
+            mmap_resident_bytes: metrics.memory.mmap_resident_bytes,
+            volatile_cache_entries: metrics.memory.volatile_cache_entries,
+            volatile_cache_cap_bytes: metrics.memory.volatile_cache_cap_bytes,
         }
     }
 }

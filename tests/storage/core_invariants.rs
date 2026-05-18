@@ -1,15 +1,24 @@
 //! Core invariants regression tests for StorageEngine.
 
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::node::{FieldValue, UnifiedNode};
-use vantadb::storage::{BackendKind, EngineConfig, StorageEngine};
+use vantadb::storage::{BackendKind, StorageEngine};
 
 #[test]
 fn read_only_rejects_mutations() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = EngineConfig {
+    let writable_config = VantaConfig {
+        backend_kind: BackendKind::Fjall,
+        ..Default::default()
+    };
+    let writable = StorageEngine::open_with_config(db_path, Some(writable_config)).unwrap();
+    writable.flush().unwrap();
+    drop(writable);
+
+    let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
         read_only: true,
         ..Default::default()
@@ -29,7 +38,7 @@ fn consolidate_node_keeps_metadata_readable() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };

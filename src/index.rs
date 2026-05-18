@@ -99,7 +99,7 @@ pub fn calculate_similarity(
             }
         }
         VectorRepresentations::Full(f) => {
-            // ZERO ALLOCATION: Cálculo SIMD directo sin empaquetar ni clonar
+            // ZERO ALLOCATION: Direct SIMD calculation without unpacking or cloning
             cosine_sim_f32(raw_query, f)
         }
         VectorRepresentations::None => 0.0,
@@ -131,6 +131,13 @@ impl IndexBackend {
 
     pub fn is_mmap(&self) -> bool {
         matches!(self, IndexBackend::MMapFile { .. })
+    }
+
+    pub fn mmap_path(&self) -> Option<&Path> {
+        match self {
+            IndexBackend::MMapFile { path, .. } => Some(path.as_path()),
+            IndexBackend::InMemory => None,
+        }
     }
 }
 
@@ -248,6 +255,24 @@ impl CPIndex {
         }
     }
 
+    pub fn estimate_memory_bytes(&self) -> usize {
+        let mut total = 0usize;
+        for node in self.nodes.values() {
+            match &node.vec_data {
+                VectorRepresentations::Full(v) => total += v.len() * std::mem::size_of::<f32>(),
+                VectorRepresentations::Binary(b) => total += b.len() * std::mem::size_of::<u64>(),
+                VectorRepresentations::Turbo(t) => total += t.len(),
+                VectorRepresentations::None => {}
+            }
+            for layer in &node.neighbors {
+                total += layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<Vec<u64>>();
+            }
+            total += std::mem::size_of::<HnswNode>();
+        }
+        total += self.nodes.len() * 60;
+        total
+    }
+
     fn random_layer(&mut self) -> usize {
         let r: f64 = self.rng.gen_range(0.0001..1.0);
         (-r.ln() * self.config.ml).floor() as usize
@@ -276,10 +301,10 @@ impl CPIndex {
                     if let Some(header) = vs.read_header(node.storage_offset) {
                         let vec_start = header.vector_offset as usize;
                         let vec_end = vec_start + (header.vector_len as usize * 4);
-                        if vec_end > vs.mmap.len() {
+                        if vec_end > vs.mmap_bytes().len() {
                             0.0
                         } else {
-                            let vec_data = &vs.mmap[vec_start..vec_end];
+                            let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
                             // Safety: we trust the header.vector_len and bounds checking above
                             let f32_vec: &[f32] = unsafe {
                                 std::slice::from_raw_parts(
@@ -335,10 +360,10 @@ impl CPIndex {
                                     if let Some(h) = vs.read_header(neighbor.storage_offset) {
                                         let vec_start = h.vector_offset as usize;
                                         let vec_end = vec_start + (h.vector_len as usize * 4);
-                                        if vec_end > vs.mmap.len() {
+                                        if vec_end > vs.mmap_bytes().len() {
                                             0.0
                                         } else {
-                                            let v_data = &vs.mmap[vec_start..vec_end];
+                                            let v_data = &vs.mmap_bytes()[vec_start..vec_end];
                                             // Safety: trusted bounds and aligned data
                                             let f32_v: &[f32] = unsafe {
                                                 std::slice::from_raw_parts(

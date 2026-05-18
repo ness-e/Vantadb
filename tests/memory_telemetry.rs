@@ -11,11 +11,12 @@ use common::{TerminalReporter, VantaHarness};
 use std::fs;
 use std::path::Path;
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::node::{NodeFlags, UnifiedNode, VectorRepresentations};
-use vantadb::storage::{BackendKind, EngineConfig, StorageEngine};
+use vantadb::storage::{BackendKind, StorageEngine};
 
 fn open_fjall(path: &str) -> StorageEngine {
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -100,6 +101,13 @@ fn memory_telemetry_contract() {
             ann_index.exists(),
             "vector_index.bin must exist after flush"
         );
+
+        let metrics = vantadb::metrics::operational_metrics_snapshot();
+        assert!(metrics.memory.process_rss_bytes > 0);
+        assert!(metrics.memory.hnsw_nodes_count >= 1_000);
+        assert!(metrics.memory.hnsw_logical_bytes > 0);
+        #[cfg(target_os = "linux")]
+        assert!(metrics.memory.mmap_resident_bytes.is_some());
     });
 
     harness.execute("WAL Replay: write without flush then reopen", || {

@@ -1,3 +1,9 @@
+//! # Historical / Experimental Notice
+//!
+//! This module contains historical and experimental query-language work (IQL/LISP/DQL).
+//! It is NOT part of the v0.1.x MVP product boundary and should not be relied upon as a stable public API.
+//! The stable boundary remains `src/sdk.rs`.
+
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag},

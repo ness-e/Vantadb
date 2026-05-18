@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaOpenOptions};
+use vantadb::{config::VantaConfig, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
 
 fn usage() {
     eprintln!("Usage:");
@@ -9,7 +9,8 @@ fn usage() {
     eprintln!("  vanta-cli get --db <path> --namespace <ns> --key <key>");
     eprintln!("  vanta-cli list --db <path> --namespace <ns>");
     eprintln!("  vanta-cli rebuild-index --db <path>");
-    eprintln!("  vanta-cli audit-index --db <path> [--namespace <ns>] [--json]");
+    eprintln!("  vanta-cli audit-index --db <path> [--namespace <ns>] [--json] [--deep]");
+    eprintln!("  vanta-cli repair-text-index --db <path>");
     eprintln!("  vanta-cli export --db <path> [--namespace <ns>] --out <file>");
     eprintln!("  vanta-cli import --db <path> --in <file>");
 }
@@ -63,13 +64,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let flags = parse_flags(&args);
     let db_path = required(&flags, "db")?;
     let db = if command == "audit-index" {
-        VantaEmbedded::open_with_options(
-            db_path,
-            VantaOpenOptions {
-                memory_limit_bytes: None,
-                read_only: true,
-            },
-        )?
+        let config = VantaConfig {
+            storage_path: db_path.to_string(),
+            read_only: true,
+            ..Default::default()
+        };
+        VantaEmbedded::open_with_config(config)?
     } else {
         VantaEmbedded::open(db_path)?
     };
@@ -117,7 +117,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         "audit-index" => {
-            let report = db.audit_text_index(flags.get("namespace").map(String::as_str))?;
+            let report = if has_flag(&args, "deep") {
+                db.audit_text_index_deep(flags.get("namespace").map(String::as_str))?
+            } else {
+                db.audit_text_index(flags.get("namespace").map(String::as_str))?
+            };
             if has_flag(&args, "json") {
                 println!(
                     "{}",
@@ -144,16 +148,39 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     report.state_status,
                     report.duration_ms
                 );
+                if report.deep_audit {
+                    println!(
+                        "  deep_audit_details: tf_errors={} position_errors={} df_errors={} doc_len_errors={} logical_corruptions={}",
+                        report.tf_errors,
+                        report.position_errors,
+                        report.df_errors,
+                        report.doc_len_errors,
+                        report.logical_corruptions
+                    );
+                }
                 if !report.passed {
                     eprintln!(
-                        "Text index drift detected. Run: vanta-cli rebuild-index --db {}",
-                        db_path
+                        "Text index drift detected. Run: vanta-cli repair-text-index --db {} or vanta-cli rebuild-index --db {}",
+                        db_path, db_path
                     );
                 }
             }
             if !report.passed {
                 std::process::exit(3);
             }
+        }
+        "repair-text-index" => {
+            let report = db.repair_text_index()?;
+            println!(
+                "repair success={} record_count={} posting_entries={} doc_stats_entries={} term_stats_entries={} namespace_stats_entries={} duration_ms={}",
+                report.success,
+                report.record_count,
+                report.posting_entries,
+                report.doc_stats_entries,
+                report.term_stats_entries,
+                report.namespace_stats_entries,
+                report.duration_ms
+            );
         }
         "export" => {
             let out = required(&flags, "out")?;

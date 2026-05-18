@@ -117,11 +117,6 @@ impl StorageBackend for InMemoryBackend {
         Ok(result)
     }
 
-    fn flush(&self) -> Result<()> {
-        // No-op: all data is already in memory.
-        Ok(())
-    }
-
     fn checkpoint(&self, _path: &Path) -> Result<()> {
         Err(VantaError::Execution(
             "Checkpoint not supported by InMemoryBackend".to_string(),

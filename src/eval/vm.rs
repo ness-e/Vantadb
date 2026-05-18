@@ -38,7 +38,7 @@ impl VantaLispVM {
         self.context_epoch = epoch;
     }
 
-    /// Executa el array de bytecode (Opcodes) retornando (Valor, ConfidenceScore)
+    /// Executes the bytecode array (Opcodes) returning (Value, ConfidenceScore)
     pub fn execute(
         &mut self,
         program: &[Opcode],
@@ -58,7 +58,7 @@ impl VantaLispVM {
         // Snapshot the epoch for this execution pass
         self.context_epoch = current_context.epoch;
 
-        // Cada ejecución VantaLISP evalúa un Confidence Score inherente base general
+        // Each VantaLISP execution evaluates a general base inherent Confidence Score
         let mut op_confidence = current_context.confidence_score;
 
         for op in program {
@@ -70,7 +70,7 @@ impl VantaLispVM {
                     self.vec_stack.push(v.clone());
                 }
                 Opcode::OpConfidenceCheck => {
-                    // Empuja a la pila de floats el confidence score de contexto
+                    // Pushes the context confidence score to the float stack
                     self.float_stack.push(current_context.confidence_score);
                 }
                 Opcode::OpVecSim => {
@@ -80,14 +80,14 @@ impl VantaLispVM {
                     if let Some(sim) = v1.cosine_similarity(&v2) {
                         self.float_stack.push(sim);
                     } else {
-                        // Penalizar confidence si no hay similitud cálculable
+                        // Penalize confidence if no similarity is calculable
                         op_confidence *= 0.8;
                         self.float_stack.push(0.0);
                     }
                 }
                 Opcode::OpRehydrate => {
                     self.needs_rehydration = true;
-                    // Retorna temporalmente NaN float o similar para la pila (o simplemente ignora)
+                    // Returns temporary NaN float or similar to the stack (or simply ignores)
                     self.float_stack.push(0.0);
                 }
             }

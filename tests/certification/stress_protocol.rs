@@ -109,24 +109,6 @@ fn measure_latency_percentiles(index: &CPIndex, queries: &[Vec<f32>], k: usize) 
     (p50, p95, p99)
 }
 
-fn estimate_memory_bytes(index: &CPIndex) -> usize {
-    let mut total: usize = 0;
-    for node in index.nodes.values() {
-        match &node.vec_data {
-            VectorRepresentations::Full(v) => total += v.len() * 4,
-            VectorRepresentations::Binary(b) => total += b.len() * 8,
-            VectorRepresentations::Turbo(t) => total += t.len(),
-            VectorRepresentations::None => {}
-        }
-        for layer in &node.neighbors {
-            total += layer.len() * 8 + 24;
-        }
-        total += 8 + 16 + 8 + 24;
-    }
-    total += index.nodes.len() * 60;
-    total
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // UNIFIED CERTIFICATION RUNNER (Strict Logic Preservation)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,7 +188,7 @@ fn stress_protocol_certification() {
             let build_s = t0.elapsed().as_secs_f64();
             let recall = compute_recall(&index, &queries, &dataset, k);
             let (p50, p95, _) = measure_latency_percentiles(&index, &queries, k);
-            let mem_mb = estimate_memory_bytes(&index) as f64 / (1024.0 * 1024.0);
+            let mem_mb = index.estimate_memory_bytes() as f64 / (1024.0 * 1024.0);
             results.push((n, recall, p50, p95, build_s, mem_mb));
         }
 
@@ -311,7 +293,7 @@ fn stress_protocol_certification() {
                 .map(|(i, v)| (i as u64, v))
                 .collect();
             let index = build_index(&dataset, config.clone());
-            let m_bytes = estimate_memory_bytes(&index);
+            let m_bytes = index.estimate_memory_bytes();
             let m_mb = m_bytes as f64 / (1024. * 1024.);
             TerminalReporter::info(&format!(
                 "{:>6} vectors → {:>6.2} MB ({:.0} bytes/vector)",

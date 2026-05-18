@@ -1,11 +1,14 @@
 //! Persistent text-index certification for memory payloads.
 
 use std::process::Command;
+use std::sync::Mutex;
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest,
-    VantaOpenOptions, VantaValue,
+    VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest, VantaValue,
 };
+
+static TEXT_INDEX_REPAIR_METRIC_LOCK: Mutex<()> = Mutex::new(());
 
 fn input(namespace: &str, key: &str, payload: &str) -> VantaMemoryInput {
     VantaMemoryInput::new(namespace, key, payload)
@@ -110,6 +113,7 @@ fn text_index_rebuilds_from_canonical_records() {
 
 #[test]
 fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
     let dir = tempdir().expect("tempdir");
     let path = dir.path().to_path_buf();
     let repairs_before;
@@ -210,9 +214,10 @@ fn cli_audit_index_reports_json_and_drift_exit_code() {
             "--namespace",
             "agent/main",
             "--json",
+            "--deep",
         ])
         .output()
-        .expect("run clean cli audit");
+        .expect("run clean cli deep audit");
     assert!(
         clean.status.success(),
         "stdout={} stderr={}",
@@ -222,6 +227,7 @@ fn cli_audit_index_reports_json_and_drift_exit_code() {
     let clean_json: serde_json::Value =
         serde_json::from_slice(&clean.stdout).expect("clean audit json");
     assert_eq!(clean_json["passed"], true);
+    assert_eq!(clean_json["deep_audit"], true);
     assert_eq!(clean_json["namespace_filter"], "agent/main");
 
     {
@@ -240,14 +246,108 @@ fn cli_audit_index_reports_json_and_drift_exit_code() {
             "--namespace",
             "agent/main",
             "--json",
+            "--deep",
         ])
         .output()
-        .expect("run drift cli audit");
+        .expect("run drift cli deep audit");
     assert_eq!(drift.status.code(), Some(3));
     let drift_json: serde_json::Value =
         serde_json::from_slice(&drift.stdout).expect("drift audit json");
     assert_eq!(drift_json["passed"], false);
+    assert_eq!(drift_json["deep_audit"], true);
     assert!(drift_json["missing_entries"].as_u64().unwrap_or(0) > 0);
+}
+
+#[test]
+fn cli_repair_text_index_fixes_deep_logical_corruption() {
+    let dir = tempdir().expect("tempdir");
+    let db_path = dir.path().to_path_buf();
+
+    {
+        let db = VantaEmbedded::open(&db_path).expect("open");
+        db.put(input("agent/main", "cli-repair", "alpha beta gamma"))
+            .expect("put repair seed");
+        db.flush().expect("flush repair seed");
+        db.debug_corrupt_text_index_posting_tf_for_tests("agent/main", "alpha", "cli-repair", 99)
+            .expect("corrupt tf");
+        db.debug_corrupt_text_index_posting_positions_for_tests(
+            "agent/main",
+            "beta",
+            "cli-repair",
+            vec![8, 13],
+        )
+        .expect("corrupt positions");
+        db.debug_corrupt_text_index_term_stats_for_tests("agent/main", "gamma", 7)
+            .expect("corrupt term stats");
+        db.debug_corrupt_text_index_doc_stats_for_tests("agent/main", "cli-repair", 100)
+            .expect("corrupt doc stats");
+        db.flush().expect("flush logical corruption");
+        db.close().expect("close corrupted db");
+    }
+
+    let corrupt = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run corrupt deep audit");
+    assert_eq!(corrupt.status.code(), Some(3));
+    let corrupt_json: serde_json::Value =
+        serde_json::from_slice(&corrupt.stdout).expect("corrupt audit json");
+    assert_eq!(corrupt_json["passed"], false);
+    assert_eq!(corrupt_json["deep_audit"], true);
+    assert_eq!(corrupt_json["tf_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["position_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["df_errors"].as_u64(), Some(1));
+    assert_eq!(corrupt_json["doc_len_errors"].as_u64(), Some(1));
+
+    let repair = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "repair-text-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+        ])
+        .output()
+        .expect("run cli repair");
+    assert!(
+        repair.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&repair.stdout),
+        String::from_utf8_lossy(&repair.stderr)
+    );
+    let repair_stdout = String::from_utf8_lossy(&repair.stdout);
+    assert!(repair_stdout.contains("repair success=true"));
+    assert!(repair_stdout.contains("record_count=1"));
+
+    let repaired = Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+        .args([
+            "audit-index",
+            "--db",
+            db_path.to_str().expect("db path"),
+            "--namespace",
+            "agent/main",
+            "--json",
+            "--deep",
+        ])
+        .output()
+        .expect("run repaired deep audit");
+    assert!(
+        repaired.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&repaired.stdout),
+        String::from_utf8_lossy(&repaired.stderr)
+    );
+    let repaired_json: serde_json::Value =
+        serde_json::from_slice(&repaired.stdout).expect("repaired audit json");
+    assert_eq!(repaired_json["passed"], true);
+    assert_eq!(repaired_json["deep_audit"], true);
+    assert_eq!(repaired_json["value_mismatches"].as_u64(), Some(0));
 }
 
 #[test]
@@ -538,6 +638,7 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
 
 #[test]
 fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
     let dir = tempdir().expect("tempdir");
     let path = dir.path().to_path_buf();
 
@@ -582,13 +683,11 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         db.close().expect("close");
     }
 
-    let read_only = VantaEmbedded::open_with_options(
-        &path,
-        VantaOpenOptions {
-            memory_limit_bytes: None,
-            read_only: true,
-        },
-    )
+    let read_only = VantaEmbedded::open_with_config(VantaConfig {
+        storage_path: path.to_string_lossy().into_owned(),
+        read_only: true,
+        ..Default::default()
+    })
     .expect("open read-only");
     let repairs_before_read_only_audit = read_only.operational_metrics().text_index_repairs;
     let audit = read_only
@@ -732,7 +831,7 @@ fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
     seed_hybrid_eval_corpus(&db);
 
     let explain = db
-        .debug_memory_search_explain_for_tests(VantaMemorySearchRequest {
+        .explain_memory_search(VantaMemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -805,4 +904,78 @@ fn debug_memory_search_plan_reports_all_routes() {
     assert_eq!(empty.route, "empty");
     assert_eq!(empty.budget, 0);
     assert!(empty.top_identities.is_empty());
+}
+
+#[test]
+fn text_index_deep_audit_and_logical_repair_workflow() {
+    let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    // Seed document with lexical terms
+    db.put(input("agent/main", "a", "alpha beta gamma"))
+        .expect("put");
+    db.flush().expect("flush");
+
+    // Perform deep audit on clean state
+    let clean_report = db.audit_text_index_deep(None).expect("clean deep audit");
+    assert!(clean_report.passed);
+    assert_eq!(clean_report.tf_errors, 0);
+    assert_eq!(clean_report.position_errors, 0);
+    assert_eq!(clean_report.df_errors, 0);
+    assert_eq!(clean_report.doc_len_errors, 0);
+    assert_eq!(clean_report.value_mismatches, 0);
+
+    // Corrupt Posting TF for "alpha"
+    db.debug_corrupt_text_index_posting_tf_for_tests("agent/main", "alpha", "a", 99)
+        .expect("corrupt tf");
+
+    // Corrupt Posting Positions for "beta"
+    db.debug_corrupt_text_index_posting_positions_for_tests(
+        "agent/main",
+        "beta",
+        "a",
+        vec![10, 20],
+    )
+    .expect("corrupt positions");
+
+    // Corrupt Term Stats DF for "gamma"
+    db.debug_corrupt_text_index_term_stats_for_tests("agent/main", "gamma", 5)
+        .expect("corrupt term stats df");
+
+    // Corrupt Doc Stats length for doc "a"
+    db.debug_corrupt_text_index_doc_stats_for_tests("agent/main", "a", 100)
+        .expect("corrupt doc stats");
+
+    // Perform deep audit on corrupted state
+    let corrupt_report = db.audit_text_index_deep(None).expect("corrupt deep audit");
+    assert!(!corrupt_report.passed);
+    assert_eq!(corrupt_report.tf_errors, 1);
+    assert_eq!(corrupt_report.position_errors, 1);
+    assert_eq!(corrupt_report.df_errors, 1);
+    assert_eq!(corrupt_report.doc_len_errors, 1);
+    assert_eq!(corrupt_report.value_mismatches, 4);
+
+    // Perform repair
+    let repairs_before = db.operational_metrics().text_index_repairs;
+    let repair_report = db.repair_text_index().expect("repair text index");
+    assert!(repair_report.success);
+    assert!(repair_report.record_count > 0);
+    assert_eq!(
+        db.operational_metrics()
+            .text_index_repairs
+            .saturating_sub(repairs_before),
+        1
+    );
+
+    // Perform deep audit again to verify successful logical repair
+    let post_repair_report = db
+        .audit_text_index_deep(None)
+        .expect("post-repair deep audit");
+    assert!(post_repair_report.passed);
+    assert_eq!(post_repair_report.tf_errors, 0);
+    assert_eq!(post_repair_report.position_errors, 0);
+    assert_eq!(post_repair_report.df_errors, 0);
+    assert_eq!(post_repair_report.doc_len_errors, 0);
+    assert_eq!(post_repair_report.value_mismatches, 0);
 }

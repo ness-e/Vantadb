@@ -8,8 +8,9 @@ mod common;
 
 use common::{TerminalReporter, VantaSession};
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::node::UnifiedNode;
-use vantadb::storage::{BackendKind, EngineConfig, StorageEngine};
+use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── StorageEngine + InMemoryBackend Integration ────────────
 
@@ -20,7 +21,7 @@ fn test_storage_engine_with_inmemory_backend_insert_get_delete() {
     session.step("Initializing InMemory storage engine");
 
     let dir = tempdir().unwrap();
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
@@ -54,7 +55,7 @@ fn test_storage_engine_rocksdb_backend_still_works() {
 
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::RocksDb,
         ..Default::default()
     };
@@ -99,7 +100,7 @@ fn test_purge_permanent_via_backend() {
 
 fn open_fjall_engine() -> (StorageEngine, tempfile::TempDir) {
     let dir = tempdir().unwrap();
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -201,7 +202,7 @@ fn test_maintenance_with_rocksdb_preserves_behavior() {
     let mut session = VantaSession::begin("RocksDB Checkpoint Preservation");
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::RocksDb,
         ..Default::default()
     };
@@ -225,7 +226,7 @@ fn test_backend_capabilities() {
     let dir_m = tempdir().unwrap();
     let engine_mem = StorageEngine::open_with_config(
         dir_m.path().to_str().unwrap(),
-        Some(EngineConfig {
+        Some(VantaConfig {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         }),

@@ -5,8 +5,8 @@
 //! outside this module.
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
-use crate::storage::EngineConfig;
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
@@ -26,7 +26,7 @@ impl RocksDbBackend {
     /// Preserves the original tuning: bloom filters, LRU cache sizing,
     /// memtable budgets, LZ4 compression, mmap access for low-RAM profiles,
     /// and per-CF block-based table options.
-    pub(crate) fn open(path: &str, config: &EngineConfig) -> Result<Self> {
+    pub(crate) fn open(path: &str, config: &VantaConfig) -> Result<Self> {
         let caps = crate::hardware::HardwareCapabilities::global();
 
         // Memory limit resolution priority:

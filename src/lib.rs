@@ -3,32 +3,36 @@
 //! Embedded core for durable local memory, vector retrieval,
 //! and structured fields.
 
-pub mod api;
 pub(crate) mod backend;
 pub(crate) mod backends;
 pub mod columnar;
+pub mod config;
+#[cfg(feature = "cli")]
 pub mod console;
 pub mod engine;
 pub mod error;
 pub mod eval;
 pub mod executor;
 pub mod gc;
+#[cfg(feature = "governance")]
 pub mod governance;
 pub mod governor;
 pub mod graph;
 pub mod hardware;
 pub mod index;
 pub mod integrations;
+#[cfg(feature = "llm")]
 pub mod llm;
 pub mod metadata;
 pub mod metrics;
 pub mod node;
 pub mod parser;
+pub mod planner;
 #[cfg(feature = "python_sdk")]
 pub mod python;
 pub mod query;
 pub mod sdk;
-pub mod server;
+
 pub mod storage;
 pub(crate) mod text_index;
 pub mod vector;
@@ -42,9 +46,9 @@ pub use sdk::{
     VantaCapabilities, VantaEdgeRecord, VantaEmbedded, VantaExportReport, VantaFields,
     VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
     VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOpenOptions,
-    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaValue,
+    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
+    VantaQueryResult, VantaRuntimeProfile, VantaSearchHit, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};

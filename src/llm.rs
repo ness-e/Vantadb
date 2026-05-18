@@ -36,7 +36,7 @@ impl LlmClient {
         let base_url =
             env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
 
-        // El predeterminado de ollama para embeddings vectoriales es nomic-embed-text o all-minilm
+        // Ollama default for vector embeddings is nomic-embed-text or all-minilm
         let default_model =
             env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
 
@@ -52,7 +52,7 @@ impl LlmClient {
         }
     }
 
-    /// Comunica al LLM para traducir un texto nativo a un vector HNSW compatible.
+    /// Communicates with the LLM to translate native text into an HNSW compatible vector.
     pub async fn generate_embedding(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/api/embeddings", self.base_url);
 

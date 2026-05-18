@@ -42,6 +42,14 @@ fn public_surfaces_report_same_version() {
         version
     );
 
+    let python_cargo = read(root.join("vantadb-python").join("Cargo.toml"));
+    assert_eq!(
+        extract_cargo_version(&python_cargo),
+        version,
+        "vantadb-python/Cargo.toml must match root Cargo.toml version {}",
+        version
+    );
+
     let python_binding = read(root.join("vantadb-python").join("src").join("lib.rs"));
     assert!(
         python_binding.contains("metadata::reported_version"),
@@ -54,7 +62,7 @@ fn public_surfaces_report_same_version() {
         "Console banner must derive version via vantadb::metadata::version_label()"
     );
 
-    let mcp = read(root.join("src").join("api").join("mcp.rs"));
+    let mcp = read(root.join("vantadb-server").join("src").join("mcp.rs"));
     assert!(
         mcp.contains("metadata::reported_version()"),
         "MCP serverInfo.version must use vantadb::metadata::reported_version()"

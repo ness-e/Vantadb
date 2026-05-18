@@ -3,13 +3,14 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
+use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
     VantaCapabilities, VantaEmbedded, VantaExportReport, VantaImportReport,
     VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
     VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord,
-    VantaOpenOptions, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaValue,
+    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 
 fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
@@ -208,6 +209,21 @@ fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<P
     Ok(dict.into())
 }
 
+fn text_index_repair_report_to_pydict(
+    py: Python,
+    report: &VantaTextIndexRepairReport,
+) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("record_count", report.record_count)?;
+    dict.set_item("posting_entries", report.posting_entries)?;
+    dict.set_item("doc_stats_entries", report.doc_stats_entries)?;
+    dict.set_item("term_stats_entries", report.term_stats_entries)?;
+    dict.set_item("namespace_stats_entries", report.namespace_stats_entries)?;
+    dict.set_item("duration_ms", report.duration_ms)?;
+    dict.set_item("success", report.success)?;
+    Ok(dict.into())
+}
+
 fn text_index_audit_report_to_pydict(
     py: Python,
     report: &VantaTextIndexAuditReport,
@@ -227,6 +243,12 @@ fn text_index_audit_report_to_pydict(
     dict.set_item("value_mismatches", report.value_mismatches)?;
     dict.set_item("unreadable_entries", report.unreadable_entries)?;
     dict.set_item("mismatches", report.mismatches)?;
+    dict.set_item("deep_audit", report.deep_audit)?;
+    dict.set_item("position_errors", report.position_errors)?;
+    dict.set_item("tf_errors", report.tf_errors)?;
+    dict.set_item("df_errors", report.df_errors)?;
+    dict.set_item("doc_len_errors", report.doc_len_errors)?;
+    dict.set_item("logical_corruptions", report.logical_corruptions)?;
     dict.set_item("state_valid", report.state_valid)?;
     dict.set_item("state_status", &report.state_status)?;
     dict.set_item("duration_ms", report.duration_ms)?;
@@ -279,6 +301,14 @@ fn operational_metrics_to_pydict(
         "derived_full_scan_fallbacks",
         metrics.derived_full_scan_fallbacks,
     )?;
+    // Per-subsystem memory breakdown
+    dict.set_item("process_rss_bytes", metrics.process_rss_bytes)?;
+    dict.set_item("process_virtual_bytes", metrics.process_virtual_bytes)?;
+    dict.set_item("hnsw_nodes_count", metrics.hnsw_nodes_count)?;
+    dict.set_item("hnsw_logical_bytes", metrics.hnsw_logical_bytes)?;
+    dict.set_item("mmap_resident_bytes", metrics.mmap_resident_bytes)?;
+    dict.set_item("volatile_cache_entries", metrics.volatile_cache_entries)?;
+    dict.set_item("volatile_cache_cap_bytes", metrics.volatile_cache_cap_bytes)?;
     Ok(dict.into())
 }
 
@@ -324,11 +354,13 @@ impl VantaDB {
     #[new]
     #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false))]
     fn new(db_path: &str, memory_limit_bytes: Option<u64>, read_only: bool) -> PyResult<Self> {
-        let options = VantaOpenOptions {
-            memory_limit_bytes,
+        let config = VantaConfig {
+            storage_path: db_path.to_string(),
+            memory_limit: memory_limit_bytes,
             read_only,
+            ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_options(db_path, options).map_err(|e| {
+        let engine = VantaEmbedded::open_with_config(config).map_err(|e| {
             PyRuntimeError::new_err(format!("VantaDB initialization error: {:?}", e))
         })?;
 
@@ -509,13 +541,29 @@ impl VantaDB {
     }
 
     /// Run a read-only structural audit of the derived text index.
-    #[pyo3(signature = (namespace=None))]
-    fn audit_text_index(&self, py: Python, namespace: Option<&str>) -> PyResult<PyObject> {
+    #[pyo3(signature = (namespace=None, deep=false))]
+    fn audit_text_index(
+        &self,
+        py: Python,
+        namespace: Option<&str>,
+        deep: bool,
+    ) -> PyResult<PyObject> {
+        let report = if deep {
+            self.engine.audit_text_index_deep(namespace)
+        } else {
+            self.engine.audit_text_index(namespace)
+        }
+        .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
+        text_index_audit_report_to_pydict(py, &report)
+    }
+
+    /// Rebuild the text index from canonical storage as a repair primitive.
+    fn repair_text_index(&self, py: Python) -> PyResult<PyObject> {
         let report = self
             .engine
-            .audit_text_index(namespace)
-            .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
-        text_index_audit_report_to_pydict(py, &report)
+            .repair_text_index()
+            .map_err(|e| PyRuntimeError::new_err(format!("Repair text index error: {:?}", e)))?;
+        text_index_repair_report_to_pydict(py, &report)
     }
 
     /// Return operational metrics for startup, replay, rebuild, export, and import.
