@@ -1,4 +1,5 @@
-$outputFile = 'todo.md'
+$date = Get-Date -Format "yyyy-MM-dd"
+$outputFile = "docs/snapshots/snapshot_$date.md"
 $scriptName = $MyInvocation.MyCommand.Name
 
 # Directorios a excluir (regex)
@@ -7,7 +8,8 @@ $excludedPatterns = @(
     '^\.idea$', '^\.vscode$', 'dist', 'build', '^\.pytest_cache$', 'vanta_snapshots',
     'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '^\.agents$', '^\.cargo$',
     'vanta-web', 'vantadb-python', 'vantadb_data', 'vanta_python_binding',
-    'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api'
+    'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
+    'docs[\\/]snapshots'
 )
 
 # Extensiones a incluir (whitelist)
@@ -22,6 +24,19 @@ $gitCommit = 'N/A'
 try {
     $gitBranch = (git rev-parse --abbrev-ref HEAD 2>$null)
     $gitCommit = (git rev-parse --short HEAD 2>$null)
+} catch {}
+
+# --- METADATOS DEL SISTEMA ---
+$rustVersion = 'N/A'
+$cargoVersion = 'N/A'
+try {
+    $rustVersion = (rustc --version 2>$null)
+    $cargoVersion = (cargo --version 2>$null)
+} catch {}
+
+$gitLog = 'N/A'
+try {
+    $gitLog = (git log -n 5 --oneline 2>$null) -join "`n"
 } catch {}
 
 # --- CABECERA EN CONSOLA ---
@@ -61,7 +76,12 @@ $treeText += '```' + [System.Environment]::NewLine
 $nl = [System.Environment]::NewLine
 $aiHeader = '# VANTA DB - PROJECT CONTEXT SNAPSHOT' + $nl
 $aiHeader += 'Generado el: ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + $nl
-$aiHeader += 'Git: Rama [' + $gitBranch + '] | Commit [' + $gitCommit + ']' + $nl + $nl
+$aiHeader += 'Git: Rama [' + $gitBranch + '] | Commit [' + $gitCommit + ']' + $nl
+$aiHeader += 'Entorno: ' + $rustVersion + ' | ' + $cargoVersion + $nl + $nl
+
+$aiHeader += '## HISTORIAL RECIENTE (Git Log)' + $nl
+$aiHeader += '```text' + $nl + $gitLog + $nl + '```' + $nl + $nl
+
 $aiHeader += '## INSTRUCCIONES PARA LA IA' + $nl
 $aiHeader += 'Este documento contiene una consolidacion completa del proyecto VantaDB.' + $nl
 $aiHeader += '1. **Contexto**: Este archivo representa el estado actual y veridico del sistema.' + $nl
@@ -126,7 +146,12 @@ Write-Host '   Total Palabras: ' -NoNewline -ForegroundColor Gray; Write-Host $t
 Write-Host '   Tokens Est. (IA): ' -NoNewline -ForegroundColor Gray; Write-Host ('~' + $estimatedTokens) -ForegroundColor Cyan
 Write-Host '------------------------------------------------' -ForegroundColor Gray
 
-Add-Content -Path $outputFile -Value ($nl + '# RESUMEN FINAL DE RECOLECCIÓN') -Encoding utf8
-Add-Content -Path $outputFile -Value ('Total Archivos: ' + $totalFiles) -Encoding utf8
-Add-Content -Path $outputFile -Value ('Total Líneas: ' + $totalLines) -Encoding utf8
-Add-Content -Path $outputFile -Value ('Tokens Estimados: ~' + $estimatedTokens) -Encoding utf8
+Add-Content -Path $outputFile -Value ($nl + '---' + $nl + '## RESUMEN FINAL DE RECOLECCION') -Encoding utf8
+Add-Content -Path $outputFile -Value ('- **Total Archivos**: ' + $totalFiles) -Encoding utf8
+Add-Content -Path $outputFile -Value ('- **Total Lineas**: ' + $totalLines) -Encoding utf8
+Add-Content -Path $outputFile -Value ('- **Tokens Estimados (IA)**: ~' + $estimatedTokens) -Encoding utf8
+Add-Content -Path $outputFile -Value ($nl + '### Estadisticas por Lenguaje:') -Encoding utf8
+foreach ($kv in $langStats.GetEnumerator()) {
+    Add-Content -Path $outputFile -Value ('- ' + $kv.Key + ': ' + $kv.Value + ' archivos') -Encoding utf8
+}
+Add-Content -Path $outputFile -Value ($nl + '---' + $nl + 'END OF SNAPSHOT') -Encoding utf8

@@ -3,13 +3,13 @@
 //! MCP support remains in-tree for integration experiments and is not part of the v0.1.x MVP
 //! product boundary or stable public API.
 
-use crate::executor::{ExecutionResult, Executor};
-use crate::metadata;
-use crate::storage::StorageEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
+use vantadb::executor::{ExecutionResult, Executor};
+use vantadb::metadata;
+use vantadb::storage::StorageEngine;
 
 #[derive(Deserialize)]
 struct RpcRequest {
@@ -38,7 +38,7 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     let mut stdout = io::stdout();
     let executor = Executor::new(&storage);
 
-    // Bucle Stdio principal (JSON-RPC)
+    // Main Stdio loop (JSON-RPC)
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(l) => l,
@@ -117,53 +117,53 @@ pub fn handle_tools_list() -> Result<Value, Value> {
         "tools": [
             {
                 "name": "query_lisp",
-                "description": "Ejecuta código VantaLISP. Permite leer estructuras e insertar/mutar Nodes aportando contexto semántico.",
+                "description": "Executes VantaLISP code. Allows reading structures and inserting/mutating Nodes providing semantic context.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "query": { "type": "string", "description": "Programa o sentencia en VantaLISP" }
+                        "query": { "type": "string", "description": "VantaLISP program or statement" }
                     },
                     "required": ["query"]
                 }
             },
             {
                 "name": "search_semantic",
-                "description": "Búsqueda vectorial semántica cruda directamente en el índice HNSW.",
+                "description": "Raw semantic vector search directly in the HNSW index.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "vector": { "type": "array", "items": {"type": "number"}, "description": "Vector F32 de consulta" },
-                        "k": { "type": "number", "description": "Top K vecinos" }
+                        "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
+                        "k": { "type": "number", "description": "Top K neighbors" }
                     },
                     "required": ["vector", "k"]
                 }
             },
             {
                 "name": "get_node_neighbors",
-                "description": "Inspecciona vecinos o linaje de un nodo (Volatile o Archived).",
+                "description": "Inspects neighbors or lineage of a node (Volatile or Archived).",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "node_id": { "type": "number", "description": "ID del Nodo a explorar" }
+                        "node_id": { "type": "number", "description": "Node ID to explore" }
                     },
                     "required": ["node_id"]
                 }
             },
             {
                 "name": "inject_context",
-                "description": "Inyecta estado o contexto externo conectándolo a un hilo específico para consolidación posterior (Vector Compaction).",
+                "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation (Vector Compaction).",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "content": { "type": "string", "description": "Contenido del contexto" },
-                        "thread_id": { "type": "number", "description": "ID del hilo al que pertenece" }
+                        "content": { "type": "string", "description": "Context content" },
+                        "thread_id": { "type": "number", "description": "Thread ID it belongs to" }
                     },
                     "required": ["content", "thread_id"]
                 }
             },
             {
                 "name": "read_axioms",
-                "description": "Retorna los Axiomas (Iron Axioms) del Devil's Advocate activos en la base de datos.",
+                "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -211,7 +211,7 @@ pub async fn handle_tools_call(
                         "stale_context": true,
                         "rehydration_available": true,
                         "summary_id": summary_id,
-                        "message": "Recuperación Histórica sugerida (Confidence Score Crítico)."
+                        "message": "Suggested Historical Recovery (Critical Confidence Score)."
                     }))
                     .unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
@@ -305,10 +305,10 @@ pub async fn handle_tools_call(
         }
         "read_axioms" => {
             let axioms = json!([
-                {"id": 1, "name": "Axioma Topológico", "description": "No se permiten referencias (edges) a nodos huérfanos o en el Tombstone storage."},
-                {"id": 2, "name": "Confidence Constraint", "description": "Se rechazan mutaciones vectoriales divergentes con alto Confidence Score histórico."},
-                {"id": 3, "name": "Axioma Inmortal", "description": "Maintenance: Nodos marcados como PINNED evaden degradación por Data Decay."},
-                {"id": 4, "name": "Resource Allocation", "description": "Maintenance: Reservado el 5% de memoria para nodos con prioridad semántica >= 0.8."}
+                {"id": 1, "name": "Topological Axiom", "description": "References (edges) to orphan nodes or nodes in Tombstone storage are not allowed."},
+                {"id": 2, "name": "Confidence Constraint", "description": "Divergent vector mutations with high historical Confidence Score are rejected."},
+                {"id": 3, "name": "Immortal Axiom", "description": "Maintenance: Nodes marked as PINNED evade degradation by Data Decay."},
+                {"id": 4, "name": "Resource Allocation", "description": "Maintenance: 5% of memory reserved for nodes with semantic priority >= 0.8."}
             ]);
             let content = serde_json::to_string(&axioms).unwrap_or_default();
             Ok(json!({"content": [{"type": "text", "text": content}]}))

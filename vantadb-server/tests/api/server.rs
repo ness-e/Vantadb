@@ -1,7 +1,7 @@
 //! API Server & Health Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
-#[path = "../common/mod.rs"]
+#[path = "../../../tests/common/mod.rs"]
 mod common;
 
 use axum::{
@@ -11,7 +11,7 @@ use axum::{
 use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tower::ServiceExt;
-use vantadb::server::{app, ServerState};
+use vantadb_server::server::{app, ServerState};
 use vantadb::storage::StorageEngine;
 
 #[tokio::test]

@@ -3,7 +3,6 @@
 //! The server wraps the embedded core for local HTTP access. It is not the primary v0.1.x product
 //! boundary and must not redefine behavior independently from the embedded engine.
 
-use crate::storage::StorageEngine;
 use axum::{
     extract::State,
     routing::{get, post},
@@ -11,6 +10,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use vantadb::storage::StorageEngine;
 
 #[derive(Serialize, Deserialize)]
 pub struct QueryRequest {
@@ -31,13 +31,13 @@ pub struct QueryResponse {
 pub struct NodeDTO {
     pub id: u64,
     pub semantic_cluster: u32,
-    pub relational: std::collections::BTreeMap<String, crate::node::FieldValue>,
+    pub relational: std::collections::BTreeMap<String, vantadb::node::FieldValue>,
     pub hits: u32,
     pub confidence_score: f32,
 }
 
-impl From<&crate::node::UnifiedNode> for NodeDTO {
-    fn from(n: &crate::node::UnifiedNode) -> Self {
+impl From<&vantadb::node::UnifiedNode> for NodeDTO {
+    fn from(n: &vantadb::node::UnifiedNode) -> Self {
         Self {
             id: n.id,
             semantic_cluster: n.semantic_cluster,
@@ -72,7 +72,7 @@ async fn execute_query(
     State(state): State<Arc<ServerState>>,
     Json(payload): Json<QueryRequest>,
 ) -> Json<QueryResponse> {
-    use crate::executor::{ExecutionResult, Executor};
+    use vantadb::executor::{ExecutionResult, Executor};
 
     let executor = Executor::new(&state.storage);
     match executor.execute_hybrid(&payload.query).await {
