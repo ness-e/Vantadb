@@ -78,7 +78,7 @@ For Fjall cold backups:
 1. Stop the process or close the embedded handle.
 2. Copy the full database directory to the restore location.
 3. Open the restored directory with `VantaEmbedded::open`.
-4. Run `vanta-cli audit-index --db <restored> --json`.
+4. Run `vanta-cli audit-index --db <restored> --json --deep`.
 5. Run representative memory search checks for vector-only, text-only, and
    hybrid retrieval.
 

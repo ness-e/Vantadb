@@ -20,9 +20,11 @@ This note closes the current repo-alignment cycle.
 - Debug-only search explanation for snippets from canonical payloads, BM25 term contributions, matched phrases, and RRF ranks
 - Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, hybrid queries, planner routes, export, import, and import errors
 - Debug-only planner/RRF certification for route, budget, candidate counts, and fused identities
-- Read-only structural text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index`
+- Read-only structural and deep text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index --deep`
+- Explicit text-index repair through Rust SDK, Python SDK, and `vanta-cli repair-text-index`
 - Stale/corrupt derived-index state repair on open
 - Stale/corrupt text-index state repair on writable open
+- PyPI wheel release workflow with manual TestPyPI staging, tag-gated production publishing, OIDC, and Sigstore signing
 - Source-install Python binding through a stable embedded boundary
 
 ## Claims intentionally deferred
@@ -30,7 +32,8 @@ This note closes the current repo-alignment cycle.
 - Universal multimodel database
 - Advanced hybrid ranking, learned fusion, public ranking explanation APIs, or competitive hybrid-search parity claims
 - Competitive parity claims on SIFT1M while cosine-only
-- PyPI-ready distribution
+- Actual PyPI publication from this repository until Trusted Publisher/secrets
+  and a release tag are configured and exercised externally
 - Enterprise, HA, RBAC, or managed-cloud positioning
 
 ## Trusted metrics now
@@ -77,7 +80,7 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - `benches/hybrid_queries.rs` now uses a small deterministic embedded-memory corpus instead of synthetic mock operations.
 - Operational metrics are exposed through Rust/Python SDK.
 - The CLI is embedded-first for `put/get/list/rebuild-index/export/import` and no longer requires a local server for the first useful memory flow.
-- The CLI exposes `audit-index` as a read-only diagnostic path for text-index drift; repair remains explicit through `rebuild-index`.
+- The CLI exposes `audit-index --deep --json` as a read-only diagnostic path for text-index drift; repair remains explicit through `repair-text-index` or `rebuild-index`.
 - Public text-only `text_query` and simple hybrid text+vector retrieval are enabled.
 
 ## Current validation evidence
@@ -87,7 +90,7 @@ Euclidean support remains a benchmark-enabling task, not a public product claim.
 - `cargo test text_index --lib`
 - `cargo test --test text_index_recovery`
 - `cargo test --test hybrid_retrieval_quality`
-- `vanta-cli audit-index --db <path> [--namespace <ns>] [--json]` is covered by the text-index recovery suite.
+- `vanta-cli audit-index --db <path> [--namespace <ns>] [--json] [--deep]` and `vanta-cli repair-text-index --db <path>` are covered by the text-index recovery suite.
 - `cargo test --test memory_brutality -- --nocapture`
 - `python -m pytest vantadb-python/tests/test_sdk.py -v`
 - `memory_brutality` includes recovery without explicit flush, vector-index deletion plus manual rebuild, JSONL export/import, and a 10K-record namespace/filter/export/import smoke.

@@ -15,6 +15,9 @@ No unreleased changes yet.
 - Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search, Hybrid Retrieval v1, JSONL export, and text-index audit.
 - Python package README and cleaner `vantadb-py` metadata for wheel and TestPyPI validation.
 - v0.1.1 release readiness checklist with local validation, Python wheel workflow, TestPyPI guardrails, and draft release notes.
+- Extracted Search Planner (`src/planner.rs`) into a dedicated module encapsulating `SearchRoute` classification, budget derivation, and RRF logic.
+- Implemented fuzzing infrastructure (`fuzz/` crate) for LISP parser and Bincode deserialization with a dedicated CI `fuzz-resilience` workflow.
+- Created `CONTRIBUTING.md` developer guide and added wheel validation scripts (`dev-tools/validate_python_sdk.*`).
 - Draft public issue backlog for packaging, quickstart validation, Search Quality v2, benchmarks, backup/restore, Python distribution policy, and namespace-scoped memory examples.
 - Persistent memory MVP surface with canonical SDK records, first-class namespaces, and `put/get/delete/list/search`.
 - Manual ANN rebuild API through Rust SDK, Python SDK, and `vanta-cli rebuild-index`.
