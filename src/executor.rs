@@ -1,5 +1,6 @@
 use crate::error::{Result, VantaError};
 use crate::eval::LispSandbox;
+#[cfg(feature = "governance")]
 use crate::governance::{ConfidenceArbiter, ResolutionResult};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::lisp::parse as parse_lisp_expr;
@@ -15,7 +16,7 @@ pub enum ExecutionResult {
         message: String,
         node_id: Option<u64>,
     },
-    StaleContext(u64), // Phase 30: Señal de que un contexto requiere rehidratación (Confidence Score crítico)
+    StaleContext(u64), // Phase 30: Signal that a context requires rehydration (Critical Confidence Score)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -135,10 +136,13 @@ impl<'a> Executor<'a> {
             if let Ok(AllocationStatus::GrantedWithPressure) =
                 governor.request_allocation(probe_cost)
             {
-                println!("🚨 [ResourceGovernor] High memory pressure (>90%) detected. Triggering emergency flush.");
-                if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!("    └─ Priority record preserved: {}", winner.id);
-                    let _ = self.storage.insert(&winner);
+                #[cfg(feature = "governance")]
+                {
+                    println!("🚨 [ResourceGovernor] High memory pressure (>90%) detected. Triggering emergency flush.");
+                    if let Some(winner) = self.storage.consistency_buffer.force_flush() {
+                        println!("    └─ Priority record preserved: {}", winner.id);
+                        let _ = self.storage.insert(&winner);
+                    }
                 }
             }
         }
@@ -149,7 +153,7 @@ impl<'a> Executor<'a> {
                 let nodes = self.execute_plan(plan).await?;
 
                 use crate::node::AccessTracker;
-                // Fase 30: Interceptación Arqueológica (Non-blocking)
+                // Phase 30: Archaeological Interception (Non-blocking)
                 for node in &nodes {
                     if let Some(crate::node::FieldValue::String(node_type)) =
                         node.relational.get("type")
@@ -172,10 +176,10 @@ impl<'a> Executor<'a> {
                     node.set_field(&k, v);
                 }
 
-                // Auto-Embedding Logic: If VECTOR is not provided in IQL, but "texto" field exists!
+                // Auto-Embedding Logic: If VECTOR is not provided in IQL, but "text" field exists!
+                #[cfg(feature = "llm")]
                 if insert.vector.is_none() {
-                    if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("texto")
-                    {
+                    if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("text") {
                         let llm = crate::llm::LlmClient::new();
                         // Request vectors to local Ollama inference bridge
                         if let Ok(vec) = llm.generate_embedding(text).await {
@@ -183,12 +187,20 @@ impl<'a> Executor<'a> {
                             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                         }
                     }
-                } else if let Some(vec) = insert.vector {
-                    node.vector = VectorRepresentations::Full(vec);
-                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                }
+                #[cfg(not(feature = "llm"))]
+                if insert.vector.is_none() && insert.fields.contains_key("text") {
+                    tracing::warn!("LLM feature disabled: skipping automatic embedding generation");
+                }
+                if insert.vector.is_some() {
+                    if let Some(vec) = insert.vector {
+                        node.vector = VectorRepresentations::Full(vec);
+                        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                    }
                 }
 
                 // ── Admission Filter Check ──
+                #[cfg(feature = "governance")]
                 if let Some(crate::node::FieldValue::String(role)) =
                     node.relational.get("_owner_role")
                 {
@@ -199,8 +211,13 @@ impl<'a> Executor<'a> {
                         )));
                     }
                 }
+                #[cfg(not(feature = "governance"))]
+                {
+                    // Governance disabled: skip admission filtering
+                }
 
                 // Conflict Resolution
+                #[cfg(feature = "governance")]
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
                     if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
@@ -264,6 +281,7 @@ impl<'a> Executor<'a> {
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                 }
                 // ── Admission Filter Check ──
+                #[cfg(feature = "governance")]
                 if let Some(crate::node::FieldValue::String(role)) =
                     node.relational.get("_owner_role")
                 {
@@ -275,6 +293,7 @@ impl<'a> Executor<'a> {
                 }
 
                 // Conflict Resolution
+                #[cfg(feature = "governance")]
                 if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
                     if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                         let nearest = {
@@ -391,10 +410,13 @@ impl<'a> Executor<'a> {
                 );
 
                 // Embed directly via LLM since it's a message
-                let llm = crate::llm::LlmClient::new();
-                if let Ok(vec) = llm.generate_embedding(&msg.content).await {
-                    node.vector = VectorRepresentations::Full(vec);
-                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                #[cfg(feature = "llm")]
+                {
+                    let llm = crate::llm::LlmClient::new();
+                    if let Ok(vec) = llm.generate_embedding(&msg.content).await {
+                        node.vector = VectorRepresentations::Full(vec);
+                        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                    }
                 }
 
                 // Now create relationship: MESSAGE -> belongs_to -> THREAD
@@ -412,69 +434,82 @@ impl<'a> Executor<'a> {
                     node_id: Some(msg_id),
                 })
             }
+            #[cfg(feature = "governance")]
             Statement::Collapse(collapse) => {
-                let mut buffer = self.storage.consistency_buffer.records.write();
-                if let Some(mut record) = buffer.remove(&collapse.zone_id) {
-                    if collapse.index < record.candidates.len() {
-                        let winner = record.candidates.remove(collapse.index);
+                {
+                    let mut buffer = self.storage.consistency_buffer.records.write();
+                    if let Some(mut record) = buffer.remove(&collapse.zone_id) {
+                        if collapse.index < record.candidates.len() {
+                            let winner = record.candidates.remove(collapse.index);
 
-                        // Remaining candidates to archive
-                        let mut losers_to_archive = Vec::new();
-                        for cand in record.candidates {
-                            losers_to_archive.push((
-                                collapse.zone_id,
-                                cand.id,
-                                "Manual Resolution: Candidate discarded by administrator"
-                                    .to_string(),
-                            ));
-                        }
+                            // Remaining candidates to archive
+                            let mut losers_to_archive = Vec::new();
+                            for cand in record.candidates {
+                                losers_to_archive.push((
+                                    cand.id,
+                                    "Manual Resolution: Candidate discarded by administrator"
+                                        .to_string(),
+                                    0u64, // Placeholder for hash
+                                ));
+                            }
 
-                        self.storage
-                            .consistency_buffer
-                            .stats
-                            .pending_to_resolved
-                            .fetch_add(1, Ordering::Relaxed);
-                        drop(buffer);
+                            // ── Resolution ──
+                            let mut final_node = winner;
+                            final_node
+                                .flags
+                                .set(crate::node::NodeFlags::CONFLICT_RESOLVED);
+                            self.storage.insert(&final_node)?;
 
-                        self.storage.insert(&winner)?;
+                            // ── Consistency Logging ──
+                            self.storage
+                                .consistency_buffer
+                                .stats
+                                .pending_to_resolved
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            drop(buffer);
 
-                        if !losers_to_archive.is_empty() {
-                            use crate::backend::BackendPartition;
-                            use crate::governance::AuditableTombstone;
-                            for (id, hash, reason) in losers_to_archive {
-                                let tomb = AuditableTombstone::new(id, reason, hash);
-                                let key = id.to_le_bytes();
-                                if let Ok(tomb_val) = bincode::serialize(&tomb) {
-                                    let _ = self.storage.put_to_partition(
-                                        BackendPartition::TombstoneStorage,
-                                        &key,
-                                        &tomb_val,
-                                    );
+                            if !losers_to_archive.is_empty() {
+                                use crate::backend::BackendPartition;
+                                use crate::governance::AuditableTombstone;
+                                for (id, reason, hash) in losers_to_archive {
+                                    let tomb = AuditableTombstone::new(id, reason, hash);
+                                    let key = id.to_le_bytes();
+                                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                                        let _ = self.storage.put_to_partition(
+                                            BackendPartition::TombstoneStorage,
+                                            &key,
+                                            &tomb_val,
+                                        );
+                                    }
                                 }
                             }
-                        }
 
-                        Ok(ExecutionResult::Write {
-                            affected_nodes: 1,
-                            message: format!(
-                                "Consistency record {} resolved. Candidate {} prevailed.",
-                                collapse.zone_id, collapse.index
-                            ),
-                            node_id: Some(collapse.zone_id),
-                        })
+                            Ok(ExecutionResult::Write {
+                                affected_nodes: 1,
+                                message: format!(
+                                    "Consistency record {} resolved. Candidate {} prevailed.",
+                                    collapse.zone_id, collapse.index
+                                ),
+                                node_id: Some(collapse.zone_id),
+                            })
+                        } else {
+                            Err(VantaError::Execution(format!(
+                                "Candidate index {} out of bounds for record {}",
+                                collapse.index, collapse.zone_id
+                            )))
+                        }
                     } else {
                         Err(VantaError::Execution(format!(
-                            "Candidate index {} out of bounds for record {}",
-                            collapse.index, collapse.zone_id
+                            "Consistency record {} not found in buffer",
+                            collapse.zone_id
                         )))
                     }
-                } else {
-                    Err(VantaError::Execution(format!(
-                        "Consistency record {} not found in buffer",
-                        collapse.zone_id
-                    )))
                 }
             }
+            #[cfg(not(feature = "governance"))]
+            Statement::Collapse(_) => Err(VantaError::Execution(
+                "Governance feature disabled: Collapse statement not supported.".to_string(),
+            )),
         }
     }
 
@@ -488,10 +523,13 @@ impl<'a> Executor<'a> {
         let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
         match governor.request_allocation(estimated_mem_cost)? {
             crate::governor::AllocationStatus::GrantedWithPressure => {
-                println!("🚨 [ResourceGovernor] High memory pressure detected. Triggering emergency flush.");
-                if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                    println!("    └─ Priority record preserved: {}", winner.id);
-                    let _ = self.storage.insert(&winner);
+                #[cfg(feature = "governance")]
+                {
+                    println!("🚨 [ResourceGovernor] High memory pressure detected. Triggering emergency flush.");
+                    if let Some(winner) = self.storage.consistency_buffer.force_flush() {
+                        println!("    └─ Priority record preserved: {}", winner.id);
+                        let _ = self.storage.insert(&winner);
+                    }
                 }
             }
             crate::governor::AllocationStatus::Granted => {}
@@ -500,57 +538,69 @@ impl<'a> Executor<'a> {
         let mut results = Vec::new();
         let mut target_nodes = Vec::new();
 
-        // Pass 1: Resolver Escaneo Vectorial Dinámico (Si hubiere Condition::VectorSim)
+        // Pass 1: Resolve Dynamic Vector Scan (If Condition::VectorSim exists)
+        #[cfg_attr(not(feature = "llm"), allow(unused_mut))]
         let mut searched_hnsw = false;
 
         for op in &plan.operators {
             if let LogicalOperator::VectorSearch {
                 field: _,
-                query_vec,
+                query_vec: _query_vec,
                 min_score: _,
             } = op
             {
-                let llm = crate::llm::LlmClient::new();
+                #[cfg(feature = "llm")]
+                {
+                    let llm = crate::llm::LlmClient::new();
 
-                // Real Inference: Translate NLP into Embedded Vectors
-                if let Ok(vector) = llm.generate_embedding(query_vec).await {
-                    // Record basic vector search I/O cost (cost logic is synthetic placeholder)
-                    self.consume_io(10.0);
+                    // Real Inference: Translate NLP into Embedded Vectors
+                    if let Ok(vector) = llm.generate_embedding(_query_vec).await {
+                        // Record basic vector search I/O cost (cost logic is synthetic placeholder)
+                        self.consume_io(10.0);
 
-                    let index = self.storage.hnsw.read();
-                    let vs = self.storage.vector_store.read();
-                    let mut neighbors = index.search_nearest(&vector, None, None, 0, 5, Some(&vs)); // MVP: top_k = 5
+                        let index = self.storage.hnsw.read();
+                        let vs = self.storage.vector_store.read();
+                        let mut neighbors =
+                            index.search_nearest(&vector, None, None, 0, 5, Some(&vs)); // MVP: top_k = 5
 
-                    if self.path_mode == SearchPathMode::Uncertain {
-                        // Scan the ConsistencyBuffer via brute force
-                        let buffer = self.storage.consistency_buffer.records.read();
-                        let target_vec = VectorRepresentations::Full(vector.clone());
-                        let mut matches = Vec::new();
+                        #[cfg(feature = "governance")]
+                        if self.path_mode == SearchPathMode::Uncertain {
+                            // Scan the ConsistencyBuffer via brute force
+                            let buffer = self.storage.consistency_buffer.records.read();
+                            let target_vec = VectorRepresentations::Full(vector.clone());
+                            let mut matches = Vec::new();
 
-                        for (&id, record) in buffer.iter() {
-                            for cand in &record.candidates {
-                                if cand.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                                    if let Some(sim) = cand.vector.cosine_similarity(&target_vec) {
-                                        // Apply a penalty to the pending match
-                                        let penalized_sim = sim * 0.9;
-                                        matches.push((id, penalized_sim));
+                            for (&id, record) in buffer.iter() {
+                                for cand in &record.candidates {
+                                    if cand.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+                                        if let Some(sim) =
+                                            cand.vector.cosine_similarity(&target_vec)
+                                        {
+                                            // Apply a penalty to the pending match
+                                            let penalized_sim = sim * 0.9;
+                                            matches.push((id, penalized_sim));
+                                        }
                                     }
                                 }
                             }
+
+                            // Merge and sort
+                            neighbors.extend(matches);
+                            neighbors.sort_by(|a, b| {
+                                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                            });
+                            neighbors.truncate(5); // Keep top 5
                         }
 
-                        // Merge and sort
-                        neighbors.extend(matches);
-                        neighbors.sort_by(|a, b| {
-                            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-                        });
-                        neighbors.truncate(5); // Keep top 5
+                        for (id, _sim) in neighbors {
+                            target_nodes.push(id);
+                        }
+                        searched_hnsw = true;
                     }
-
-                    for (id, _sim) in neighbors {
-                        target_nodes.push(id);
-                    }
-                    searched_hnsw = true;
+                }
+                #[cfg(not(feature = "llm"))]
+                {
+                    tracing::warn!("LLM feature disabled: VectorSearch operator skipped.");
                 }
             }
         }
@@ -561,13 +611,23 @@ impl<'a> Executor<'a> {
                 if let LogicalOperator::Scan { entity } = op {
                     // If entity starts with Conflict#, intercept it immediately
                     if entity.starts_with("Conflict#") {
-                        if let Some(id_str) = entity.split('#').nth(1) {
-                            if let Ok(id) = id_str.parse::<u64>() {
-                                let buffer = self.storage.consistency_buffer.records.read();
-                                if let Some(record) = buffer.get(&id) {
-                                    return Ok(record.candidates.clone());
+                        #[cfg(feature = "governance")]
+                        {
+                            if let Some(id_str) = entity.split('#').nth(1) {
+                                if let Ok(id) = id_str.parse::<u64>() {
+                                    let buffer = self.storage.consistency_buffer.records.read();
+                                    if let Some(record) = buffer.get(&id) {
+                                        return Ok(record.candidates.clone());
+                                    }
                                 }
                             }
+                        }
+                        #[cfg(not(feature = "governance"))]
+                        {
+                            return Err(VantaError::Execution(
+                                "Governance feature disabled: Conflict entity scan not supported."
+                                    .to_string(),
+                            ));
                         }
                     } else if let Some(id_str) = entity.split('#').nth(1) {
                         if let Ok(id) = id_str.parse::<u64>() {
@@ -580,7 +640,7 @@ impl<'a> Executor<'a> {
             }
         }
 
-        // Pass 2: Materializar los nodos devueltos por el índice y filtrar RBAC
+        // Pass 2: Materialize nodes returned by the index and filter RBAC
         for id in target_nodes {
             // Materializing nodes is I/O intensive, track heavily
             self.consume_io(2.5);

@@ -1,9 +1,47 @@
 //! Persistent memory API certification.
 
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
 };
+
+fn db_snapshot(path: &std::path::Path) -> std::collections::BTreeMap<std::path::PathBuf, u64> {
+    fn visit(
+        root: &std::path::Path,
+        current: &std::path::Path,
+        out: &mut std::collections::BTreeMap<std::path::PathBuf, u64>,
+    ) {
+        let Ok(entries) = std::fs::read_dir(current) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                visit(root, &path, out);
+            } else if let Ok(metadata) = entry.metadata() {
+                let key = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
+                out.insert(key, metadata.len());
+            }
+        }
+    }
+
+    let mut snapshot = std::collections::BTreeMap::new();
+    visit(path, path, &mut snapshot);
+    snapshot
+}
+
+fn assert_read_only_error<T>(result: vantadb::Result<T>) {
+    let err = match result {
+        Ok(_) => panic!("operation must fail in read-only mode"),
+        Err(err) => err,
+    };
+    let message = err.to_string();
+    assert!(
+        message.contains("read-only"),
+        "expected read-only error, got: {message}"
+    );
+}
 
 fn field_string(value: &str) -> VantaValue {
     VantaValue::String(value.to_string())
@@ -164,7 +202,7 @@ fn memory_api_filters() {
     assert_eq!(phrase_hits[0].record.key, "phrase");
 
     let explain = db
-        .debug_memory_search_explain_for_tests(VantaMemorySearchRequest {
+        .explain_memory_search(VantaMemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -241,4 +279,70 @@ fn memory_api_recovery() {
         .get("agent/main", "recover")
         .expect("get deleted")
         .is_none());
+}
+
+#[test]
+fn read_only_rejects_mutations_without_changing_db_files() {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_path_buf();
+    let import_path = dir.path().join("readonly-import.jsonl");
+
+    {
+        let db = VantaEmbedded::open(&path).expect("open writable");
+        let mut input = VantaMemoryInput::new("agent/main", "readonly", "read only payload");
+        input.vector = Some(vec![1.0, 0.0, 0.0]);
+        db.put(input).expect("put");
+        db.flush().expect("flush writable");
+        db.close().expect("close writable");
+    }
+
+    std::fs::write(&import_path, "{}\n").expect("write import fixture");
+
+    let read_only = VantaEmbedded::open_with_config(VantaConfig {
+        storage_path: path.to_string_lossy().into_owned(),
+        read_only: true,
+        ..Default::default()
+    })
+    .expect("open read-only");
+
+    let before = db_snapshot(&path);
+
+    assert_read_only_error(read_only.put(VantaMemoryInput::new(
+        "agent/main",
+        "blocked-put",
+        "blocked",
+    )));
+    assert_read_only_error(read_only.delete("agent/main", "readonly"));
+    assert_read_only_error(read_only.import_file(&import_path));
+    assert_read_only_error(read_only.rebuild_index());
+    assert_read_only_error(read_only.repair_text_index());
+    assert_read_only_error(read_only.flush());
+
+    let fetched = read_only
+        .get("agent/main", "readonly")
+        .expect("read-only get")
+        .expect("record");
+    assert_eq!(fetched.payload, "read only payload");
+
+    let audit = read_only
+        .audit_text_index_deep(Some("agent/main"))
+        .expect("read-only deep audit");
+    assert!(audit.passed);
+
+    let hits = read_only
+        .search(VantaMemorySearchRequest {
+            namespace: "agent/main".to_string(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: Some("payload".to_string()),
+            top_k: 5,
+        })
+        .expect("read-only text search");
+    assert_eq!(hits.len(), 1);
+
+    let after = db_snapshot(&path);
+    assert_eq!(
+        after, before,
+        "read-only operations must not change DB files"
+    );
 }

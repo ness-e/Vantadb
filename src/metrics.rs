@@ -1,5 +1,5 @@
-use prometheus::{Histogram, IntCounter, Registry};
-use std::sync::atomic::{AtomicU64, Ordering};
+use prometheus::{Histogram, IntCounter, IntGauge, Registry};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
 
 // Ensure singleton metrics registry across the binary
@@ -258,6 +258,78 @@ pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| 
     counter
 });
 
+// ── Memory breakdown gauges ──────────────────────────────────────────────
+
+pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_process_rss_bytes",
+        "Process resident set size in bytes (via sysinfo)",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_process_virtual_bytes",
+        "Process virtual memory in bytes (via sysinfo)",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_hnsw_nodes_count",
+        "Number of nodes currently in the HNSW index",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_hnsw_logical_bytes",
+        "Estimated logical memory footprint of HNSW nodes and neighbor layers",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_mmap_resident_bytes",
+        "OS-reported resident bytes for VantaDB memory-mapped files when available",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_volatile_cache_entries",
+        "Number of entries in the volatile hot-node cache",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
+pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
+    let gauge = IntGauge::new(
+        "vanta_volatile_cache_cap_bytes",
+        "Maximum capacity in bytes for the volatile hot-node cache",
+    )
+    .unwrap();
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    gauge
+});
+
 static LAST_STARTUP_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_REPLAY_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_RECORDS_REPLAYED: AtomicU64 = AtomicU64::new(0);
@@ -273,6 +345,14 @@ static DERIVED_PREFIX_SCANS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static DERIVED_FULL_SCAN_FALLBACKS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_POSTINGS_WRITTEN_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_INDEX_REPAIRS_TOTAL: AtomicU64 = AtomicU64::new(0);
+static LAST_PROCESS_RSS_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_PROCESS_VIRTUAL_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_HNSW_NODES_COUNT: AtomicU64 = AtomicU64::new(0);
+static LAST_HNSW_LOGICAL_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_MMAP_RESIDENT_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_MMAP_RESIDENT_BYTES_PRESENT: AtomicBool = AtomicBool::new(false);
+static LAST_VOLATILE_CACHE_ENTRIES: AtomicU64 = AtomicU64::new(0);
+static LAST_VOLATILE_CACHE_CAP_BYTES: AtomicU64 = AtomicU64::new(0);
 static TEXT_LEXICAL_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CANDIDATES_SCORED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CONSISTENCY_AUDITS_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -282,6 +362,30 @@ static HYBRID_CANDIDATES_FUSED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_HYBRID_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_TEXT_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_VECTOR_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+/// Per-subsystem memory breakdown snapshot.
+///
+/// These values are **observational**, not accounting-grade. RSS and virtual
+/// memory come from `sysinfo::Process` and represent the OS-reported values
+/// for the current process. HNSW node count and cache entries are logical
+/// counters maintained by the engine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MemoryBreakdownSnapshot {
+    /// Process resident set size in bytes (OS-reported).
+    pub process_rss_bytes: u64,
+    /// Process virtual memory in bytes (OS-reported).
+    pub process_virtual_bytes: u64,
+    /// Number of nodes in the HNSW index.
+    pub hnsw_nodes_count: u64,
+    /// Estimated logical footprint of HNSW node/vector/edge allocations.
+    pub hnsw_logical_bytes: u64,
+    /// OS-reported resident bytes for mmap-backed files when available.
+    pub mmap_resident_bytes: Option<u64>,
+    /// Number of entries in the volatile hot-node cache.
+    pub volatile_cache_entries: u64,
+    /// Maximum capacity in bytes for the volatile cache.
+    pub volatile_cache_cap_bytes: u64,
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OperationalMetricsSnapshot {
@@ -309,6 +413,8 @@ pub struct OperationalMetricsSnapshot {
     pub import_errors: u64,
     pub derived_prefix_scans: u64,
     pub derived_full_scan_fallbacks: u64,
+    /// Per-subsystem memory breakdown at snapshot time.
+    pub memory: MemoryBreakdownSnapshot,
 }
 
 pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed: u64) {
@@ -409,6 +515,73 @@ pub fn record_derived_full_scan_fallback() {
     DERIVED_FULL_SCAN_FALLBACKS_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Record a point-in-time memory breakdown from engine subsystems.
+///
+/// Call this after significant state changes (startup, flush, rebuild) to
+/// keep the memory gauges current. The values are observational and come
+/// from `sysinfo` (process) and engine internals (HNSW, cache).
+pub fn record_memory_breakdown(
+    hnsw_nodes: u64,
+    hnsw_logical_bytes: u64,
+    mmap_resident_bytes: Option<u64>,
+    cache_entries: u64,
+    cache_cap_bytes: u64,
+) {
+    // Process-scoped metrics via sysinfo
+    let (rss, virt) = {
+        use sysinfo::{Pid, System};
+        let pid = Pid::from_u32(std::process::id());
+        let mut sys = System::new();
+        sys.refresh_process(pid);
+        match sys.process(pid) {
+            Some(proc) => (proc.memory(), proc.virtual_memory()),
+            None => (0, 0),
+        }
+    };
+
+    LAST_PROCESS_RSS_BYTES.store(rss, Ordering::Relaxed);
+    LAST_PROCESS_VIRTUAL_BYTES.store(virt, Ordering::Relaxed);
+    LAST_HNSW_NODES_COUNT.store(hnsw_nodes, Ordering::Relaxed);
+    LAST_HNSW_LOGICAL_BYTES.store(hnsw_logical_bytes, Ordering::Relaxed);
+    match mmap_resident_bytes {
+        Some(bytes) => {
+            LAST_MMAP_RESIDENT_BYTES.store(bytes, Ordering::Relaxed);
+            LAST_MMAP_RESIDENT_BYTES_PRESENT.store(true, Ordering::Relaxed);
+            MMAP_RESIDENT_BYTES.set(bytes as i64);
+        }
+        None => {
+            LAST_MMAP_RESIDENT_BYTES.store(0, Ordering::Relaxed);
+            LAST_MMAP_RESIDENT_BYTES_PRESENT.store(false, Ordering::Relaxed);
+            MMAP_RESIDENT_BYTES.set(0);
+        }
+    }
+    LAST_VOLATILE_CACHE_ENTRIES.store(cache_entries, Ordering::Relaxed);
+    LAST_VOLATILE_CACHE_CAP_BYTES.store(cache_cap_bytes, Ordering::Relaxed);
+
+    PROCESS_RSS_BYTES.set(rss as i64);
+    PROCESS_VIRTUAL_BYTES.set(virt as i64);
+    HNSW_NODES_COUNT.set(hnsw_nodes as i64);
+    HNSW_LOGICAL_BYTES.set(hnsw_logical_bytes as i64);
+    VOLATILE_CACHE_ENTRIES.set(cache_entries as i64);
+    VOLATILE_CACHE_CAP_BYTES.set(cache_cap_bytes as i64);
+}
+
+pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
+    let mmap_resident_bytes = LAST_MMAP_RESIDENT_BYTES_PRESENT
+        .load(Ordering::Relaxed)
+        .then(|| LAST_MMAP_RESIDENT_BYTES.load(Ordering::Relaxed));
+
+    MemoryBreakdownSnapshot {
+        process_rss_bytes: LAST_PROCESS_RSS_BYTES.load(Ordering::Relaxed),
+        process_virtual_bytes: LAST_PROCESS_VIRTUAL_BYTES.load(Ordering::Relaxed),
+        hnsw_nodes_count: LAST_HNSW_NODES_COUNT.load(Ordering::Relaxed),
+        hnsw_logical_bytes: LAST_HNSW_LOGICAL_BYTES.load(Ordering::Relaxed),
+        mmap_resident_bytes,
+        volatile_cache_entries: LAST_VOLATILE_CACHE_ENTRIES.load(Ordering::Relaxed),
+        volatile_cache_cap_bytes: LAST_VOLATILE_CACHE_CAP_BYTES.load(Ordering::Relaxed),
+    }
+}
+
 pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
     OperationalMetricsSnapshot {
         startup_ms: LAST_STARTUP_MS.load(Ordering::Relaxed),
@@ -436,6 +609,7 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         import_errors: IMPORT_ERRORS_TOTAL.load(Ordering::Relaxed),
         derived_prefix_scans: DERIVED_PREFIX_SCANS_TOTAL.load(Ordering::Relaxed),
         derived_full_scan_fallbacks: DERIVED_FULL_SCAN_FALLBACKS_TOTAL.load(Ordering::Relaxed),
+        memory: memory_breakdown_snapshot(),
     }
 }
 

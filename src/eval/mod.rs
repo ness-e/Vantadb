@@ -79,7 +79,7 @@ impl<'a> LispSandbox<'a> {
         let mut fields = BTreeMap::new();
         let node_type = target.to_string();
 
-        let node_id = rand::random::<u64>(); // Generación genérica
+        let node_id = rand::random::<u64>(); // Generic generation
 
         if let LispExpr::Map(map) = &args[1] {
             for (key, val) in map {
@@ -97,7 +97,7 @@ impl<'a> LispSandbox<'a> {
             }
         }
 
-        // Atar Metadata Homoiconica: directiva "sys_rule: true"
+        // Bind Homoiconic Metadata: "sys_rule: true" directive
         fields.insert("sys_rule".to_string(), FieldValue::Bool(true));
 
         // LISP rules are top-tier active nodes (Hot) —

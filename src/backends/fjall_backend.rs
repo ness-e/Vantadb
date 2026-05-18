@@ -22,6 +22,7 @@
 //!   LSM background threads. `compact()` is a no-op.
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
 use std::path::Path;
@@ -49,7 +50,7 @@ impl FjallBackend {
     /// Creates the database directory if it does not exist.
     /// Opens (or creates) one keyspace per `BackendPartition` using the
     /// same names as the RocksDB column families for semantic continuity.
-    pub(crate) fn open(path: &str) -> Result<Self> {
+    pub(crate) fn open(path: &str, _config: &VantaConfig) -> Result<Self> {
         let db = Database::builder(path)
             .open()
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;

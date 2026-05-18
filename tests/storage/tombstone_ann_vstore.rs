@@ -2,14 +2,15 @@
 //! logically deleted rows (disk tombstone flags on `DiskNodeHeader`).
 
 use tempfile::tempdir;
+use vantadb::config::VantaConfig;
 use vantadb::node::UnifiedNode;
-use vantadb::storage::{BackendKind, EngineConfig, StorageEngine};
+use vantadb::storage::{BackendKind, StorageEngine};
 
 #[test]
 fn raw_ann_layers_from_vantafile_exclude_tombstoned_neighbors() {
     let dir = tempdir().unwrap();
     let path = dir.path().to_str().unwrap();
-    let config = EngineConfig {
+    let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };

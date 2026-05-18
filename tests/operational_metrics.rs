@@ -28,6 +28,11 @@ fn metrics_track_rebuild_export_import_and_replay() {
     assert!(after_rebuild.ann_rebuild_scanned_nodes >= rebuild.scanned_nodes);
     assert!(after_rebuild.text_postings_written >= 1);
     assert_eq!(after_rebuild.text_consistency_audit_failures, 0);
+    assert!(after_rebuild.process_rss_bytes > 0);
+    assert!(after_rebuild.hnsw_nodes_count >= 1);
+    assert!(after_rebuild.hnsw_logical_bytes > 0);
+    #[cfg(target_os = "linux")]
+    assert!(after_rebuild.mmap_resident_bytes.is_some());
 
     let before_audit = reopened.operational_metrics();
     let audit = reopened

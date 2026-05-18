@@ -137,7 +137,10 @@ pub(crate) trait StorageBackend: Send + Sync {
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
 
     /// Flush all pending writes to durable storage.
-    fn flush(&self) -> Result<()>;
+    /// Default implementation is a no-op for backends without persistence.
+    fn flush(&self) -> Result<()> {
+        Ok(())
+    }
 
     /// Create a consistent snapshot at the given filesystem path.
     ///

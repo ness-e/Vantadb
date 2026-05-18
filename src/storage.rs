@@ -5,10 +5,10 @@ use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
-use memmap2::{MmapMut, MmapOptions};
+use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
 use std::fs::{File, OpenOptions};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -33,12 +33,96 @@ pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
 /// Increment when the DiskNodeHeader layout or write_cursor position changes.
 pub const VANTA_FILE_VERSION: u32 = 1;
 
+#[cfg(target_os = "linux")]
+fn mapped_file_resident_bytes(path: &Path) -> Option<u64> {
+    let canonical = path.canonicalize().ok()?;
+    let needle = canonical.to_string_lossy();
+    let smaps = std::fs::read_to_string("/proc/self/smaps").ok()?;
+    let mut in_mapping = false;
+    let mut resident_bytes = 0u64;
+
+    for line in smaps.lines() {
+        if line.contains('-') && line.split_whitespace().count() >= 5 {
+            in_mapping = line
+                .split_whitespace()
+                .last()
+                .is_some_and(|candidate| candidate == needle);
+            continue;
+        }
+        if in_mapping {
+            if let Some(rest) = line.strip_prefix("Rss:") {
+                if let Some(kb) = rest
+                    .split_whitespace()
+                    .next()
+                    .and_then(|value| value.parse::<u64>().ok())
+                {
+                    resident_bytes += kb * 1024;
+                }
+            }
+        }
+    }
+
+    Some(resident_bytes)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn mapped_file_resident_bytes(_path: &Path) -> Option<u64> {
+    None
+}
+
+fn engine_mmap_resident_bytes(hnsw: &CPIndex, vector_store: &VantaFile) -> Option<u64> {
+    let mut total = None;
+    for resident in [
+        vector_store.mmap_resident_bytes(),
+        hnsw.backend
+            .mmap_path()
+            .and_then(mapped_file_resident_bytes),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        total = Some(total.unwrap_or(0) + resident);
+    }
+    total
+}
+
 pub struct VantaFile {
     pub file: File,
-    pub mmap: MmapMut,
+    mmap: VantaFileMap,
     pub path: PathBuf,
     pub size: u64,
     pub write_cursor: u64,
+    read_only: bool,
+}
+
+enum VantaFileMap {
+    ReadOnly(Mmap),
+    ReadWrite(MmapMut),
+}
+
+impl VantaFileMap {
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            VantaFileMap::ReadOnly(mmap) => mmap,
+            VantaFileMap::ReadWrite(mmap) => mmap,
+        }
+    }
+
+    fn as_mut_slice(&mut self) -> Result<&mut [u8]> {
+        match self {
+            VantaFileMap::ReadOnly(_) => Err(VantaError::Execution(
+                "VantaFile is read-only; write operation rejected".to_string(),
+            )),
+            VantaFileMap::ReadWrite(mmap) => Ok(mmap),
+        }
+    }
+
+    fn flush(&self) -> Result<()> {
+        match self {
+            VantaFileMap::ReadOnly(_) => Ok(()),
+            VantaFileMap::ReadWrite(mmap) => mmap.flush().map_err(VantaError::IoError),
+        }
+    }
 }
 
 // VantaFile must be Send + Sync for multi-threaded Python usage (FastAPI/Gunicorn).
@@ -50,28 +134,55 @@ unsafe impl Sync for VantaFile {}
 
 impl VantaFile {
     pub fn open(path: PathBuf, initial_size: u64) -> Result<Self> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)
-            .map_err(VantaError::IoError)?;
+        Self::open_with_mode(path, initial_size, false)
+    }
+
+    pub fn open_read_only(path: PathBuf) -> Result<Self> {
+        Self::open_with_mode(path, 0, true)
+    }
+
+    fn open_with_mode(path: PathBuf, initial_size: u64, read_only: bool) -> Result<Self> {
+        let file = if read_only {
+            OpenOptions::new()
+                .read(true)
+                .open(&path)
+                .map_err(VantaError::IoError)?
+        } else {
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&path)
+                .map_err(VantaError::IoError)?
+        };
 
         let mut current_size = file.metadata().map_err(VantaError::IoError)?.len();
         if current_size < 8 {
+            if read_only {
+                return Err(VantaError::Execution(format!(
+                    "VantaFile {} is too small for read-only open",
+                    path.display()
+                )));
+            }
             current_size = initial_size.max(8);
             file.set_len(current_size).map_err(VantaError::IoError)?;
         }
 
-        let mmap = unsafe {
-            MmapOptions::new()
-                .map_mut(&file)
-                .map_err(VantaError::IoError)?
+        let mmap = if read_only {
+            VantaFileMap::ReadOnly(unsafe {
+                MmapOptions::new().map(&file).map_err(VantaError::IoError)?
+            })
+        } else {
+            VantaFileMap::ReadWrite(unsafe {
+                MmapOptions::new()
+                    .map_mut(&file)
+                    .map_err(VantaError::IoError)?
+            })
         };
 
-        // El primer u64 del mmap es nuestro write_cursor persistente
-        let write_cursor = u64::from_le_bytes(mmap[0..8].try_into().unwrap());
+        // The first u64 of the mmap is our persistent write_cursor
+        let write_cursor = u64::from_le_bytes(mmap.as_slice()[0..8].try_into().unwrap());
         let write_cursor = if write_cursor < 64 || write_cursor > current_size {
             64
         } else {
@@ -85,12 +196,37 @@ impl VantaFile {
             path,
             size: current_size,
             write_cursor,
+            read_only,
         })
     }
 
-    /// Guarda el cursor actual en el archivo para persistencia entre reinicios
-    pub fn save_cursor(&mut self) {
-        self.mmap[0..8].copy_from_slice(&self.write_cursor.to_le_bytes());
+    /// Saves the current cursor in the file for persistence between restarts
+    pub fn save_cursor(&mut self) -> Result<()> {
+        let write_cursor = self.write_cursor.to_le_bytes();
+        self.mmap.as_mut_slice()?[0..8].copy_from_slice(&write_cursor);
+        Ok(())
+    }
+
+    pub fn mmap_bytes(&self) -> &[u8] {
+        self.mmap.as_slice()
+    }
+
+    fn mmap_bytes_mut(&mut self) -> Result<&mut [u8]> {
+        self.mmap.as_mut_slice()
+    }
+
+    fn remap_mut(&mut self) -> Result<()> {
+        if self.read_only {
+            return Err(VantaError::Execution(
+                "VantaFile is read-only; remap operation rejected".to_string(),
+            ));
+        }
+        self.mmap = VantaFileMap::ReadWrite(unsafe {
+            MmapOptions::new()
+                .map_mut(&self.file)
+                .map_err(VantaError::IoError)?
+        });
+        Ok(())
     }
 
     /// Read a DiskNodeHeader from a specific offset without cloning (Zero-Copy)
@@ -100,7 +236,7 @@ impl VantaFile {
             return None;
         }
 
-        let slice = &self.mmap[offset as usize..(offset + header_size) as usize];
+        let slice = &self.mmap_bytes()[offset as usize..(offset + header_size) as usize];
         DiskNodeHeader::ref_from_bytes(slice).ok()
     }
 
@@ -126,33 +262,41 @@ impl VantaFile {
             )));
         }
 
-        let dest = &mut self.mmap[offset as usize..(offset + header_size) as usize];
+        let dest = &mut self.mmap_bytes_mut()?[offset as usize..(offset + header_size) as usize];
         dest.copy_from_slice(header.as_bytes());
         Ok(())
     }
 
-    /// Sincroniza los cambios con el disco
+    /// Synchronizes changes to disk
     pub fn flush(&self) -> Result<()> {
-        self.mmap.flush().map_err(VantaError::IoError)
+        self.mmap.flush()
     }
 
-    /// Implementación de Warm-up Strategy (Phase 3.4)
-    /// Protege capas superiores del HNSW con pre-fetching para evitar page faults iniciales.
+    /// Warm-up Strategy Implementation (Phase 3.4)
+    /// Protects upper HNSW layers with pre-fetching to avoid initial page faults.
     pub fn warmup_top_layers(&self, _size: usize) {
         #[cfg(unix)]
         {
             use memmap2::Advice;
-            let _ = self.mmap.advise(Advice::WillNeed);
+            let _ = match &self.mmap {
+                VantaFileMap::ReadOnly(mmap) => mmap.advise(Advice::WillNeed),
+                VantaFileMap::ReadWrite(mmap) => mmap.advise(Advice::WillNeed),
+            };
         }
         #[cfg(not(unix))]
         {
-            // En plataformas sin madvise, lectura secuencial para forzar cacheo del OS.
-            let len = _size.min(self.mmap.len());
+            // On platforms without madvise, sequential read to force OS caching.
+            let mmap = self.mmap_bytes();
+            let len = _size.min(mmap.len());
             let mut _sum = 0u8;
             for i in (0..len).step_by(4096) {
-                _sum ^= self.mmap[i];
+                _sum ^= mmap[i];
             }
         }
+    }
+
+    pub fn mmap_resident_bytes(&self) -> Option<u64> {
+        mapped_file_resident_bytes(&self.path)
     }
 }
 
@@ -165,15 +309,7 @@ impl VantaFile {
 /// in `backends::in_memory` for details.
 pub use crate::backend::BackendKind;
 
-/// Configuration for `StorageEngine` initialization.
-#[derive(Debug, Clone, Default)]
-pub struct EngineConfig {
-    pub memory_limit: Option<u64>,
-    pub force_mmap: bool,
-    pub read_only: bool,
-    /// Which KV backend to use. Defaults to `Fjall`.
-    pub backend_kind: BackendKind,
-}
+use crate::config::VantaConfig;
 
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -193,8 +329,11 @@ pub struct StorageEngine {
     pub read_only: bool,
     pub hnsw: RwLock<CPIndex>,
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    #[cfg(feature = "governance")]
     pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
+    #[cfg(feature = "governance")]
     pub consistency_buffer: crate::governance::consistency::ConsistencyBuffer,
+    #[cfg(feature = "governance")]
     pub conflict_resolver: crate::governance::conflict_resolver::ConflictResolver,
     pub last_query_timestamp: AtomicU64,
     pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
@@ -214,26 +353,41 @@ impl StorageEngine {
     }
 
     /// Open with explicit configuration for memory budgets and mode overrides.
-    /// Used by the Python SDK to inject per-instance memory limits.
-    pub fn open_with_config(path: &str, config: Option<EngineConfig>) -> Result<Self> {
+    pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
         let startup_started = Instant::now();
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
 
         let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
+        let base_path = PathBuf::from(path);
 
-        // Ensure base directory exists before initializing any backend
-        let _ = std::fs::create_dir_all(path);
+        if config.read_only && !base_path.exists() {
+            return Err(VantaError::Execution(format!(
+                "StorageEngine read-only open requires an existing database path: {}",
+                base_path.display()
+            )));
+        }
+        if !config.read_only {
+            std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
+        }
 
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),
-            BackendKind::Fjall => Arc::new(FjallBackend::open(path)?),
+            BackendKind::Fjall => Arc::new(FjallBackend::open(path, &config)?),
             BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
         };
 
-        let data_dir = PathBuf::from(path).join("data");
-        let _ = std::fs::create_dir_all(&data_dir);
+        let data_dir = base_path.join("data");
+        if config.read_only && !data_dir.exists() {
+            return Err(VantaError::Execution(format!(
+                "StorageEngine read-only open requires an existing data directory: {}",
+                data_dir.display()
+            )));
+        }
+        if !config.read_only {
+            std::fs::create_dir_all(&data_dir).map_err(VantaError::IoError)?;
+        }
         let index_path = data_dir.join("vector_index.bin");
 
         let use_mmap = config.force_mmap
@@ -267,7 +421,11 @@ impl StorageEngine {
         };
 
         let vector_store_path = data_dir.join("vector_store.vanta");
-        let mut vector_store = VantaFile::open(vector_store_path, 1024 * 1024 * 64)?;
+        let mut vector_store = if config.read_only {
+            VantaFile::open_read_only(vector_store_path)?
+        } else {
+            VantaFile::open(vector_store_path, 1024 * 1024 * 64)?
+        };
 
         // ── Index Reconstruction: rebuild HNSW if index file is missing ──────
         if hnsw.nodes.is_empty() {
@@ -289,7 +447,7 @@ impl StorageEngine {
         let wal_path = data_dir.join("vanta.wal");
         let mut wal_replay_ms = 0u64;
         let mut wal_records_replayed = 0u64;
-        if wal_path.exists() {
+        if !config.read_only && wal_path.exists() {
             let wal_replay_started = Instant::now();
             let mut wal_reader = crate::wal::WalReader::open(&wal_path)?;
             while let Some(record) = wal_reader.next_record()? {
@@ -326,10 +484,17 @@ impl StorageEngine {
             }
         }
 
-        let wal_writer = crate::wal::WalWriter::open(&wal_path)?;
+        let wal_writer = if config.read_only {
+            None
+        } else {
+            Some(crate::wal::WalWriter::open(&wal_path)?)
+        };
 
+        #[cfg(feature = "governance")]
         let admission_filter = crate::governance::admission_filter::AdmissionFilter::new(100_000);
+        #[cfg(feature = "governance")]
         let consistency_buffer = crate::governance::consistency::ConsistencyBuffer::new();
+        #[cfg(feature = "governance")]
         let conflict_resolver = crate::governance::conflict_resolver::ConflictResolver::new();
 
         crate::metrics::record_startup(
@@ -338,19 +503,31 @@ impl StorageEngine {
             wal_records_replayed,
         );
 
+        // Capture initial memory breakdown after engine is fully open
+        crate::metrics::record_memory_breakdown(
+            hnsw.nodes.len() as u64,
+            hnsw.estimate_memory_bytes() as u64,
+            engine_mmap_resident_bytes(&hnsw, &vector_store),
+            0, // volatile cache is empty at startup
+            0, // cache cap is set later by SDK; 0 until configured
+        );
+
         Ok(Self {
             backend,
             read_only: config.read_only,
             hnsw: RwLock::new(hnsw),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
+            #[cfg(feature = "governance")]
             admission_filter,
+            #[cfg(feature = "governance")]
             consistency_buffer,
+            #[cfg(feature = "governance")]
             conflict_resolver,
             last_query_timestamp: AtomicU64::new(0),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
             vector_store: RwLock::new(vector_store),
-            wal: std::sync::Arc::new(parking_lot::Mutex::new(Some(wal_writer))),
+            wal: std::sync::Arc::new(parking_lot::Mutex::new(wal_writer)),
         })
     }
 
@@ -388,12 +565,8 @@ impl StorageEngine {
         if total_needed > vstore.size {
             let new_size = vstore.size * 2;
             vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
-            vstore.mmap = unsafe {
-                MmapOptions::new()
-                    .map_mut(&vstore.file)
-                    .map_err(VantaError::IoError)?
-            };
             vstore.size = new_size;
+            vstore.remap_mut()?;
         }
 
         let mut header = DiskNodeHeader::new(node.id);
@@ -413,13 +586,13 @@ impl StorageEngine {
 
         if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
             let vec_bytes = vec.as_bytes();
-            vstore.mmap
+            vstore.mmap_bytes_mut()?
                 [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
                 .copy_from_slice(vec_bytes);
         }
 
         vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
-        vstore.save_cursor();
+        vstore.save_cursor()?;
         Ok(offset)
     }
 
@@ -438,12 +611,8 @@ impl StorageEngine {
         if total_needed > vstore.size {
             let new_size = (vstore.size * 2).max(total_needed + 4096);
             vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
-            vstore.mmap = unsafe {
-                MmapOptions::new()
-                    .map_mut(&vstore.file)
-                    .map_err(VantaError::IoError)?
-            };
             vstore.size = new_size;
+            vstore.remap_mut()?;
         }
 
         let mut header = DiskNodeHeader::new(node.id);
@@ -463,13 +632,13 @@ impl StorageEngine {
 
         if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
             let vec_bytes = vec.as_bytes();
-            vstore.mmap
+            vstore.mmap_bytes_mut()?
                 [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
                 .copy_from_slice(vec_bytes);
         }
 
         vstore.write_cursor = (total_needed + 63) & !63;
-        vstore.save_cursor();
+        vstore.save_cursor()?;
         Ok(offset)
     }
 
@@ -507,7 +676,7 @@ impl StorageEngine {
                             let start = header.vector_offset as usize;
                             let end = start + (header.vector_len as usize * 4);
                             if end <= vstore.size as usize {
-                                let slice = &vstore.mmap[start..end];
+                                let slice = &vstore.mmap_bytes()[start..end];
                                 let vec: &[f32] = unsafe {
                                     std::slice::from_raw_parts(
                                         slice.as_ptr() as *const f32,
@@ -545,6 +714,7 @@ impl StorageEngine {
     }
 
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
+        self.ensure_writable()?;
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
             let hnsw = self.hnsw.read();
@@ -568,6 +738,7 @@ impl StorageEngine {
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.ensure_writable()?;
+        #[cfg(feature = "governance")]
         if self.admission_filter.is_blocked(node.id) {
             return Err(VantaError::Execution(format!(
                 "Node {} is blocked by AdmissionFilter (recently rejected)",
@@ -740,7 +911,7 @@ impl StorageEngine {
             return Ok(None);
         }
 
-        let vec_bytes = &vstore.mmap[vec_start..vec_end];
+        let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
         let f32_vec: &[f32] = unsafe {
             std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
         };
@@ -842,9 +1013,20 @@ impl StorageEngine {
     }
 
     pub fn flush(&self) -> Result<()> {
-        // Allow flush even in read-only mode (fsync-like behavior).
+        self.ensure_writable()?;
         self.backend.flush()?;
         self.save_vector_index();
+
+        // Update memory breakdown after flush
+        let hnsw = self.hnsw.read();
+        let vector_store = self.vector_store.read();
+        crate::metrics::record_memory_breakdown(
+            hnsw.nodes.len() as u64,
+            hnsw.estimate_memory_bytes() as u64,
+            engine_mmap_resident_bytes(&hnsw, &vector_store),
+            self.volatile_cache.read().len() as u64,
+            0, // cache cap is tracked at SDK level
+        );
         Ok(())
     }
 
@@ -946,10 +1128,12 @@ impl StorageEngine {
         key: &[u8],
         value: &[u8],
     ) -> Result<()> {
+        self.ensure_writable()?;
         self.backend.put(partition, key, value)
     }
 
     pub(crate) fn write_backend_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        self.ensure_writable()?;
         self.backend.write_batch(ops)
     }
 

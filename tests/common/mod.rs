@@ -1,11 +1,15 @@
 #![allow(dead_code)]
 
+#[cfg(feature = "cli")]
 use console::{style, Emoji};
+#[cfg(feature = "cli")]
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
+#[cfg(feature = "cli")]
+use std::sync::OnceLock;
 use std::time::Instant;
 use sysinfo::System;
 
@@ -14,7 +18,9 @@ pub mod sift_loader;
 // ─── Global State for Final Summary & Progress ────────────────
 
 static TEST_RESULTS: Mutex<Vec<TestSummary>> = Mutex::new(Vec::new());
+#[cfg(feature = "cli")]
 static MULTI_PROGRESS: OnceLock<MultiProgress> = OnceLock::new();
+#[cfg(feature = "cli")]
 static GLOBAL_BAR: OnceLock<ProgressBar> = OnceLock::new();
 
 #[derive(Clone)]
@@ -62,10 +68,12 @@ fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySa
 
 // ─── Internal Helpers ────────────────────────────────────────
 
+#[cfg(feature = "cli")]
 fn get_multi_progress() -> &'static MultiProgress {
     MULTI_PROGRESS.get_or_init(MultiProgress::new)
 }
 
+#[cfg(feature = "cli")]
 fn get_global_bar() -> &'static ProgressBar {
     GLOBAL_BAR.get_or_init(|| {
         let pb = ProgressBar::new(10);
@@ -81,6 +89,7 @@ fn get_global_bar() -> &'static ProgressBar {
 
 pub struct TerminalReporter;
 
+#[cfg(feature = "cli")]
 impl TerminalReporter {
     pub fn suite_banner(name: &str, total_tests: u64) {
         let width = 60;
@@ -198,6 +207,30 @@ impl TerminalReporter {
         println!("│ {:<72} │", summary_text);
         println!("└{}┘\x1b[0m\n", "─".repeat(74));
     }
+}
+
+// Stub impl when CLI feature is absent — methods become no-ops so tests compile.
+#[cfg(not(feature = "cli"))]
+pub struct ProgressBar;
+
+#[cfg(not(feature = "cli"))]
+impl ProgressBar {
+    pub fn inc(&self, _amount: u64) {}
+    pub fn finish_and_clear(&self) {}
+}
+
+#[cfg(not(feature = "cli"))]
+impl TerminalReporter {
+    pub fn suite_banner(_name: &str, _total_tests: u64) {}
+    pub fn block_header(_title: &str) {}
+    pub fn sub_step(_msg: &str) {}
+    pub fn success(_msg: &str) {}
+    pub fn info(_msg: &str) {}
+    pub fn warning(_msg: &str) {}
+    pub fn create_progress(_len: u64, _msg: &str) -> ProgressBar {
+        ProgressBar
+    }
+    pub fn print_certification_summary() {}
 }
 
 // ─── VantaHarness (Reporting & Metrics) ──────────────────────────
@@ -330,8 +363,11 @@ pub struct VantaSession {
 
 impl VantaSession {
     pub fn begin(name: &str) -> Self {
-        let bar = get_global_bar();
-        bar.set_message(format!("Running: {}", name));
+        #[cfg(feature = "cli")]
+        {
+            let bar = get_global_bar();
+            bar.set_message(format!("Running: {}", name));
+        }
 
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -347,16 +383,22 @@ impl VantaSession {
     }
 
     pub fn step(&mut self, msg: &str) {
+        #[cfg(feature = "cli")]
         self.steps.push(format!(
             "  {} {}",
             style("➜").cyan().bold(),
             style(msg).dim()
         ));
+        #[cfg(not(feature = "cli"))]
+        self.steps.push(format!("  ➜ {}", msg));
     }
 
     pub fn success(&mut self, msg: &str) {
+        #[cfg(feature = "cli")]
         self.steps
             .push(format!("  {} {}", Emoji("✅", "OK"), style(msg).green()));
+        #[cfg(not(feature = "cli"))]
+        self.steps.push(format!("  OK {}", msg));
     }
 
     pub fn finish(self, success: bool) {
@@ -393,9 +435,14 @@ impl VantaSession {
             ));
         }
 
-        let bar = get_global_bar();
-        bar.println(output);
-        bar.inc(1);
+        #[cfg(feature = "cli")]
+        {
+            let bar = get_global_bar();
+            bar.println(output);
+            bar.inc(1);
+        }
+        #[cfg(not(feature = "cli"))]
+        print!("{}", output);
 
         TEST_RESULTS.lock().unwrap().push(TestSummary {
             name: self.name,

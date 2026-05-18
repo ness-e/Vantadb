@@ -5,7 +5,8 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
-use vantadb::sdk::{VantaEmbedded, VantaNodeInput, VantaOpenOptions, VantaValue};
+use vantadb::config::VantaConfig;
+use vantadb::sdk::{VantaEmbedded, VantaNodeInput, VantaValue};
 
 #[test]
 fn python_bridge_certification() {
@@ -14,14 +15,13 @@ fn python_bridge_certification() {
     harness.execute("Embedded SDK Boundary: CRUD + Search + Restart", || {
         let dir = tempdir().expect("Failed to create temp dir");
         let path = dir.path();
-        let sdk = VantaEmbedded::open_with_options(
-            path,
-            VantaOpenOptions {
-                memory_limit_bytes: Some(128 * 1024 * 1024),
-                read_only: false,
-            },
-        )
-        .expect("Failed to open embedded SDK");
+        let config = VantaConfig {
+            storage_path: path.to_string_lossy().into_owned(),
+            memory_limit: Some(128 * 1024 * 1024),
+            read_only: false,
+            ..Default::default()
+        };
+        let sdk = VantaEmbedded::open_with_config(config).expect("Failed to open embedded SDK");
 
         let mut input = VantaNodeInput::new(42);
         input.content = Some("sdk boundary".to_string());
