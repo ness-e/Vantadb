@@ -2973,6 +2973,7 @@ impl VantaEmbedded {
         })
     }
 
+    #[cfg(debug_assertions)]
     fn debug_hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
         hits.iter()
             .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
@@ -3165,11 +3166,7 @@ impl VantaEmbedded {
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
         let engine = self.engine_handle()?;
         let executor = Executor::new(engine.as_ref());
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|err| VantaError::Execution(err.to_string()))?;
-        let result = runtime.block_on(async { executor.execute_hybrid(query).await })?;
+        let result = executor.execute_hybrid(query)?;
         Ok(result.into())
     }
 

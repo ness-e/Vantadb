@@ -26,7 +26,7 @@ impl<'a> LispSandbox<'a> {
         }
     }
 
-    pub async fn eval(&mut self, expr: impl AsRef<LispExpr>) -> Result<ExecutionResult> {
+    pub fn eval(&mut self, expr: impl AsRef<LispExpr>) -> Result<ExecutionResult> {
         if self.fuel == 0 {
             return Err(VantaError::Execution(
                 "Sandbox Abort: Out of Execution Fuel".to_string(),
@@ -42,7 +42,7 @@ impl<'a> LispSandbox<'a> {
 
                 if let LispExpr::Atom(func) = &list[0] {
                     match func.to_uppercase().as_str() {
-                        "INSERT" => self.eval_insert(&list[1..]).await,
+                        "INSERT" => self.eval_insert(&list[1..]),
                         "MATCH" => Err(VantaError::Execution(
                             "MATCH LISP logic pending".to_string(),
                         )),
@@ -64,7 +64,7 @@ impl<'a> LispSandbox<'a> {
     }
 
     // MVP: (INSERT :node {:label "IA" :confidence 0.9})
-    async fn eval_insert(&mut self, args: &[LispExpr]) -> Result<ExecutionResult> {
+    fn eval_insert(&mut self, args: &[LispExpr]) -> Result<ExecutionResult> {
         if args.len() < 2 {
             return Err(VantaError::Execution(
                 "INSERT requires target and payload".to_string(),

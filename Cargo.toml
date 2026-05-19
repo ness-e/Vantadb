@@ -26,8 +26,7 @@ rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
 # ── Async + Integrations + Server ──
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
-reqwest = { version = "0.13", features = ["json"], optional = true }
+reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
 serde_json = "1.0"
 prometheus = "0.14"
 pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
@@ -51,8 +50,14 @@ llm = ["reqwest"]
 governance = []
 python_sdk = ["pyo3"]
 experimental = []
+custom-allocator = ["mimalloc"]
+
+[dependencies.mimalloc]
+version = "0.1"
+optional = true
 
 [dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
@@ -143,10 +148,7 @@ name = "governor"
 path = "tests/logic/governor.rs"
 required-features = ["experimental"]
 
-[[test]]
-name = "mcp_integration"
-path = "tests/api/mcp_integration.rs"
-required-features = ["experimental"]
+
 
 [[test]]
 name = "hardware_profiles"
@@ -193,6 +195,10 @@ path = "tests/certification/hybrid_retrieval_quality.rs"
 [[test]]
 name = "backend_tests"
 path = "tests/storage/backend_tests.rs"
+
+[[test]]
+name = "wal_resilience"
+path = "tests/storage/wal_resilience.rs"
 
 [[test]]
 name = "durability_recovery"

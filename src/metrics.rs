@@ -10,25 +10,27 @@ pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_query_latency_ms",
         "Query execution times in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create QUERY_LATENCY histogram - metric name conflict or invalid config");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register QUERY_LATENCY - registry error");
     hist
 });
 
 pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter =
-        IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents").unwrap();
+        IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents")
+        .expect("FATAL: Failed to create OOM_TRIPS counter - metric name conflict");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register OOM_TRIPS - registry error");
     counter
 });
 
 pub static CACHE_HITS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches").unwrap();
+    let counter = IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches")
+        .expect("FATAL: Failed to create CACHE_HITS counter - metric name conflict");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register CACHE_HITS - registry error");
     counter
 });
 
@@ -37,8 +39,8 @@ pub static STARTUP_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_startup_latency_ms",
         "Storage engine startup time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create STARTUP_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register STARTUP_LATENCY_MS");
     hist
 });
 
@@ -47,8 +49,8 @@ pub static WAL_REPLAY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_wal_replay_latency_ms",
         "WAL replay time in ms during startup",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create WAL_REPLAY_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register WAL_REPLAY_LATENCY_MS");
     hist
 });
 
@@ -57,8 +59,8 @@ pub static ANN_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_ann_rebuild_latency_ms",
         "Manual or startup ANN rebuild time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create ANN_REBUILD_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register ANN_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -67,8 +69,8 @@ pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_derived_rebuild_latency_ms",
         "Derived namespace/payload index rebuild time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create DERIVED_REBUILD_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register DERIVED_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -77,8 +79,8 @@ pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
         "vanta_text_index_rebuild_latency_ms",
         "Derived text index rebuild time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create TEXT_INDEX_REBUILD_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register TEXT_INDEX_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -87,10 +89,10 @@ pub static RECORDS_EXPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_records_exported_total",
         "Persistent memory records exported",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create RECORDS_EXPORTED counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register RECORDS_EXPORTED");
     counter
 });
 
@@ -99,10 +101,10 @@ pub static RECORDS_IMPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_records_imported_total",
         "Persistent memory records imported",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create RECORDS_IMPORTED counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register RECORDS_IMPORTED");
     counter
 });
 
@@ -111,10 +113,10 @@ pub static IMPORT_ERRORS: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_import_errors_total",
         "Persistent memory import errors",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create IMPORT_ERRORS counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register IMPORT_ERRORS");
     counter
 });
 
@@ -123,10 +125,10 @@ pub static TEXT_POSTINGS_WRITTEN: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_text_postings_written_total",
         "Derived text index postings written",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_POSTINGS_WRITTEN counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_POSTINGS_WRITTEN");
     counter
 });
 
@@ -135,10 +137,10 @@ pub static TEXT_INDEX_REPAIRS: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_text_index_repairs_total",
         "Derived text index repairs from canonical records",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_INDEX_REPAIRS counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_INDEX_REPAIRS");
     counter
 });
 
@@ -147,8 +149,8 @@ pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
         "vanta_text_lexical_query_latency_ms",
         "BM25 lexical memory query time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create TEXT_LEXICAL_QUERY_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register TEXT_LEXICAL_QUERY_LATENCY_MS");
     hist
 });
 
@@ -157,10 +159,10 @@ pub static TEXT_LEXICAL_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_text_lexical_queries_total",
         "BM25 lexical memory queries executed",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_LEXICAL_QUERIES counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_LEXICAL_QUERIES");
     counter
 });
 
@@ -169,10 +171,10 @@ pub static TEXT_CANDIDATES_SCORED: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_text_candidates_scored_total",
         "BM25 lexical candidates scored",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_CANDIDATES_SCORED counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_CANDIDATES_SCORED");
     counter
 });
 
@@ -181,10 +183,10 @@ pub static TEXT_CONSISTENCY_AUDITS: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_text_consistency_audits_total",
         "Structural text index consistency audits executed",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_CONSISTENCY_AUDITS counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_CONSISTENCY_AUDITS");
     counter
 });
 
@@ -193,10 +195,10 @@ pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new
         "vanta_text_consistency_audit_failures_total",
         "Structural text index consistency audits that detected mismatch",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create TEXT_CONSISTENCY_AUDIT_FAILURES counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register TEXT_CONSISTENCY_AUDIT_FAILURES");
     counter
 });
 
@@ -205,8 +207,8 @@ pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_hybrid_query_latency_ms",
         "Hybrid memory query fusion time in ms",
     ))
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(hist.clone())).unwrap();
+    .expect("FATAL: Failed to create HYBRID_QUERY_LATENCY_MS histogram");
+    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register HYBRID_QUERY_LATENCY_MS");
     hist
 });
 
@@ -215,10 +217,10 @@ pub static HYBRID_CANDIDATES_FUSED: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_hybrid_candidates_fused_total",
         "Unique memory candidates fused by hybrid retrieval",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create HYBRID_CANDIDATES_FUSED counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register HYBRID_CANDIDATES_FUSED");
     counter
 });
 
@@ -227,10 +229,10 @@ pub static PLANNER_HYBRID_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_planner_hybrid_queries_total",
         "Memory searches planned as hybrid text+vector retrieval",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create PLANNER_HYBRID_QUERIES counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register PLANNER_HYBRID_QUERIES");
     counter
 });
 
@@ -239,10 +241,10 @@ pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
         "vanta_planner_text_only_queries_total",
         "Memory searches planned as text-only retrieval",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create PLANNER_TEXT_ONLY_QUERIES counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register PLANNER_TEXT_ONLY_QUERIES");
     counter
 });
 
@@ -251,10 +253,10 @@ pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| 
         "vanta_planner_vector_only_queries_total",
         "Memory searches planned as vector-only retrieval",
     )
-    .unwrap();
+    .expect("FATAL: Failed to create PLANNER_VECTOR_ONLY_QUERIES counter");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
-        .unwrap();
+        .expect("FATAL: Failed to register PLANNER_VECTOR_ONLY_QUERIES");
     counter
 });
 
@@ -265,8 +267,8 @@ pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_process_rss_bytes",
         "Process resident set size in bytes (via sysinfo)",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create PROCESS_RSS_BYTES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register PROCESS_RSS_BYTES");
     gauge
 });
 
@@ -275,8 +277,8 @@ pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_process_virtual_bytes",
         "Process virtual memory in bytes (via sysinfo)",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create PROCESS_VIRTUAL_BYTES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register PROCESS_VIRTUAL_BYTES");
     gauge
 });
 
@@ -285,8 +287,8 @@ pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_hnsw_nodes_count",
         "Number of nodes currently in the HNSW index",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create HNSW_NODES_COUNT gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register HNSW_NODES_COUNT");
     gauge
 });
 
@@ -295,8 +297,8 @@ pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_hnsw_logical_bytes",
         "Estimated logical memory footprint of HNSW nodes and neighbor layers",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create HNSW_LOGICAL_BYTES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register HNSW_LOGICAL_BYTES");
     gauge
 });
 
@@ -305,8 +307,8 @@ pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_mmap_resident_bytes",
         "OS-reported resident bytes for VantaDB memory-mapped files when available",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create MMAP_RESIDENT_BYTES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register MMAP_RESIDENT_BYTES");
     gauge
 });
 
@@ -315,8 +317,8 @@ pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_volatile_cache_entries",
         "Number of entries in the volatile hot-node cache",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create VOLATILE_CACHE_ENTRIES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register VOLATILE_CACHE_ENTRIES");
     gauge
 });
 
@@ -325,8 +327,8 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "vanta_volatile_cache_cap_bytes",
         "Maximum capacity in bytes for the volatile hot-node cache",
     )
-    .unwrap();
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).unwrap();
+    .expect("FATAL: Failed to create VOLATILE_CACHE_CAP_BYTES gauge");
+    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register VOLATILE_CACHE_CAP_BYTES");
     gauge
 });
 

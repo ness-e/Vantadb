@@ -112,22 +112,22 @@ impl<'a> Executor<'a> {
         self.storage.insert(node)
     }
 
-    pub async fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
+    pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
             let expr = parse_lisp_expr(trimmed)
                 .map_err(|e| VantaError::Execution(format!("LISP Parse Error: {}", e)))?;
             let mut sandbox = LispSandbox::new(self);
-            sandbox.eval(std::borrow::Cow::Owned(expr)).await
+            sandbox.eval(std::borrow::Cow::Owned(expr))
         } else {
             match parse_statement(trimmed) {
-                Ok((_, stmt)) => self.execute_statement(stmt).await,
+                Ok((_, stmt)) => self.execute_statement(stmt),
                 Err(e) => Err(VantaError::Execution(format!("IQL Parse Error: {}", e))),
             }
         }
     }
 
-    pub async fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
+    pub fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
         // ── Memory Pressure Check ──
         {
             use crate::governor::{AllocationStatus, ResourceGovernor};
@@ -150,7 +150,7 @@ impl<'a> Executor<'a> {
         match statement {
             Statement::Query(query) => {
                 let plan = query.into_logical_plan();
-                let nodes = self.execute_plan(plan).await?;
+                let nodes = self.execute_plan(plan)?;
 
                 use crate::node::AccessTracker;
                 // Phase 30: Archaeological Interception (Non-blocking)
@@ -182,7 +182,7 @@ impl<'a> Executor<'a> {
                     if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("text") {
                         let llm = crate::llm::LlmClient::new();
                         // Request vectors to local Ollama inference bridge
-                        if let Ok(vec) = llm.generate_embedding(text).await {
+                        if let Ok(vec) = llm.generate_embedding(text) {
                             node.vector = VectorRepresentations::Full(vec);
                             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                         }
@@ -413,7 +413,7 @@ impl<'a> Executor<'a> {
                 #[cfg(feature = "llm")]
                 {
                     let llm = crate::llm::LlmClient::new();
-                    if let Ok(vec) = llm.generate_embedding(&msg.content).await {
+                    if let Ok(vec) = llm.generate_embedding(&msg.content) {
                         node.vector = VectorRepresentations::Full(vec);
                         node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                     }
@@ -514,7 +514,7 @@ impl<'a> Executor<'a> {
     }
 
     /// Evaluates the Logical Plan over the underlying storage engine
-    pub async fn execute_plan(&self, mut plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
+    pub fn execute_plan(&self, mut plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
         use crate::governor::ResourceGovernor;
 
         let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50); // 2GB Soft Limit, 50ms timeout
@@ -554,7 +554,7 @@ impl<'a> Executor<'a> {
                     let llm = crate::llm::LlmClient::new();
 
                     // Real Inference: Translate NLP into Embedded Vectors
-                    if let Ok(vector) = llm.generate_embedding(_query_vec).await {
+                    if let Ok(vector) = llm.generate_embedding(_query_vec) {
                         // Record basic vector search I/O cost (cost logic is synthetic placeholder)
                         self.consume_io(10.0);
 

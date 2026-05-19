@@ -1,58 +1,68 @@
 use crate::backend::BackendPartition;
 use crate::governance::invalidations::{InvalidationDispatcher, InvalidationEvent};
-use crate::node::{AccessTracker, FieldValue, NodeFlags, NodeTier, UnifiedNode};
+use crate::node::{AccessTracker, NodeFlags, UnifiedNode};
+#[cfg(feature = "llm")]
+use crate::node::{FieldValue, NodeTier};
 use crate::storage::StorageEngine;
+#[cfg(feature = "llm")]
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc;
-use tokio::time::sleep;
+use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(feature = "llm")]
+use std::time::Instant;
 
 /// Maximum duration the maintenance cycle may spend on data compression.
+#[cfg(feature = "llm")]
 const MAX_COMPRESSION_DURATION_MS: u128 = 8_000;
 
 /// Minimum combined hit-weight for a group to deserve compression.
+#[cfg(feature = "llm")]
 const MIN_GROUP_WEIGHT_FOR_COMPRESSION: u32 = 3;
 
 pub struct MaintenanceWorker;
 
 impl MaintenanceWorker {
-    pub async fn start(
+    /// Starts the background maintenance worker loop in a dedicated OS thread.
+    /// Returns the thread JoinHandle to allow graceful shutdown coordination if needed.
+    pub fn start(
         storage: Arc<StorageEngine>,
         invalidation_tx: mpsc::Sender<InvalidationEvent>,
-    ) {
-        let cycle_duration = Duration::from_secs(10);
-        let inactivity_threshold_ms = 5000;
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let cycle_duration = Duration::from_secs(10);
+            let inactivity_threshold_ms = 5000;
 
-        loop {
-            if storage
-                .emergency_maintenance_trigger
-                .load(Ordering::Acquire)
-            {
-                tracing::warn!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
-                storage
+            loop {
+                if storage
                     .emergency_maintenance_trigger
-                    .store(false, Ordering::Release);
-                Self::run_maintenance_cycle(&storage, &invalidation_tx).await;
+                    .load(Ordering::Acquire)
+                {
+                    tracing::warn!("🚨 [Maintenance] EMERGENCY TRIGGER: Volatile Cache at limit. Starting aggressive maintenance (OOM Guard).");
+                    storage
+                        .emergency_maintenance_trigger
+                        .store(false, Ordering::Release);
+                    Self::run_maintenance_cycle(&storage, &invalidation_tx);
+                }
+
+                std::thread::sleep(cycle_duration);
+
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                let last_activity = storage.last_query_timestamp.load(Ordering::Acquire);
+
+                if now - last_activity > inactivity_threshold_ms {
+                    Self::run_maintenance_cycle(&storage, &invalidation_tx);
+                }
             }
-
-            sleep(cycle_duration).await;
-
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64;
-            let last_activity = storage.last_query_timestamp.load(Ordering::Acquire);
-
-            if now - last_activity > inactivity_threshold_ms {
-                Self::run_maintenance_cycle(&storage, &invalidation_tx).await;
-            }
-        }
+        })
     }
 
-    async fn run_maintenance_cycle(
+    fn run_maintenance_cycle(
         storage: &Arc<StorageEngine>,
         invalidation_tx: &mpsc::Sender<InvalidationEvent>,
     ) {
@@ -289,8 +299,7 @@ impl MaintenanceWorker {
                     invalidation_tx,
                     *id,
                     "Flagged INVALIDATED during maintenance cycle".to_string(),
-                )
-                .await;
+                );
                 let _ = storage.delete(*id, "Reactive Purge: INVALIDATED flag");
             } else {
                 let _ = storage.delete(*id, "Low Confidence Eviction (Score < 0.2)");
@@ -299,7 +308,7 @@ impl MaintenanceWorker {
         }
 
         if !compression_candidates.is_empty() {
-            Self::execute_data_compression(storage, &compression_candidates).await;
+            Self::execute_data_compression(storage, &compression_candidates);
         }
 
         if deleted_count > 10_000 {
@@ -329,7 +338,8 @@ impl MaintenanceWorker {
         }
     }
 
-    async fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
+    #[cfg(feature = "llm")]
+    fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
         let mut thread_groups: HashMap<u64, Vec<&UnifiedNode>> = HashMap::new();
 
         for node in candidates {
@@ -361,7 +371,7 @@ impl MaintenanceWorker {
             }
 
             let node_refs: Vec<&UnifiedNode> = group.to_vec();
-            let summary_text = match llm.summarize_context(&node_refs).await {
+            let summary_text = match llm.summarize_context(&node_refs) {
                 Ok(text) => text,
                 Err(e) => {
                     tracing::warn!(
@@ -394,7 +404,6 @@ impl MaintenanceWorker {
                         .and_then(|f| f.as_str())
                         .unwrap_or(""),
                 )
-                .await
             {
                 summary_node.vector = crate::node::VectorRepresentations::Full(vec);
                 summary_node.flags.set(NodeFlags::HAS_VECTOR);
@@ -426,5 +435,10 @@ impl MaintenanceWorker {
                 group.len(), thread_id, summary_id
             );
         }
+    }
+
+    #[cfg(not(feature = "llm"))]
+    fn execute_data_compression(_storage: &Arc<StorageEngine>, _candidates: &[UnifiedNode]) {
+        tracing::warn!("⚠️ [Maintenance] Data compression requested but `llm` feature is disabled.");
     }
 }

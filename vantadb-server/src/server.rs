@@ -50,6 +50,7 @@ impl From<&vantadb::node::UnifiedNode> for NodeDTO {
 
 pub struct ServerState {
     pub storage: Arc<StorageEngine>,
+    pub semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 pub fn app(state: Arc<ServerState>) -> Router {
@@ -74,8 +75,40 @@ async fn execute_query(
 ) -> Json<QueryResponse> {
     use vantadb::executor::{ExecutionResult, Executor};
 
-    let executor = Executor::new(&state.storage);
-    match executor.execute_hybrid(&payload.query).await {
+    let _permit = match state.semaphore.clone().acquire_owned().await {
+        Ok(p) => p,
+        Err(_) => {
+            return Json(QueryResponse {
+                success: false,
+                data: "Server concurrency semaphore closed".to_string(),
+                node_id: None,
+                nodes: None,
+            });
+        }
+    };
+
+    let storage = state.storage.clone();
+    let query = payload.query.clone();
+
+    let join_res = tokio::task::spawn_blocking(move || {
+        let executor = Executor::new(&storage);
+        executor.execute_hybrid(&query)
+    })
+    .await;
+
+    let execution_result = match join_res {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(QueryResponse {
+                success: false,
+                data: format!("Internal server error: execution task panicked: {}", e),
+                node_id: None,
+                nodes: None,
+            });
+        }
+    };
+
+    match execution_result {
         Ok(ExecutionResult::Read(nodes)) => {
             let dtos = nodes.iter().map(NodeDTO::from).collect();
             Json(QueryResponse {
