@@ -1,3 +1,5 @@
+#![cfg(debug_assertions)]
+
 //! Persistent text-index certification for memory payloads.
 
 use std::process::Command;

@@ -16,6 +16,18 @@ tracing = "0.1"
 [dev-dependencies]
 tower = { version = "0.4", features = ["util"] }
 futures = "0.3"
+tempfile = "3"
+sysinfo = "0.30"
+chrono = "0.4"
+console = "0.15"
+indicatif = "0.17"
 
 [features]
 governance = ["vantadb/governance"]
+custom-allocator = ["mimalloc"]
+# Exposed solely for test harness compatibility with tests/common/mod.rs
+cli = ["vantadb/cli"]
+
+[dependencies.mimalloc]
+version = "0.1"
+optional = true

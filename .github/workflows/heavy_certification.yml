@@ -243,3 +243,37 @@ jobs:
           path: fuzz/artifacts/
           retention-days: 30
 
+  failpoint-tests:
+    name: "Certification: failpoint_injections"
+    runs-on: ubuntu-latest
+    concurrency:
+      group: failpoints-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Install nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run failpoint tests
+        env:
+          RUST_BACKTRACE: 1
+          FAILPOINTS: 1
+        run: |
+          cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
+          cargo nextest run --test wal_resilience --test-threads=1
+
+

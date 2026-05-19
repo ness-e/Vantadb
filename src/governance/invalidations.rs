@@ -1,4 +1,4 @@
-use tokio::sync::mpsc;
+use std::sync::mpsc;
 
 /// Types of invalidation events emitted by the reactive protocol.
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ pub enum InvalidationEvent {
     EnvironmentDrift { old_hash: u64, new_hash: u64 },
 }
 
-/// Dispatcher that manages an async MPSC channel for invalidation events.
+/// Dispatcher that manages a synchronous MPSC channel for invalidation events.
 /// Producers (SleepWorker, DevilsAdvocate) send events.
 /// Consumers (MCP API, Webhooks, Logging) receive and act on them.
 pub struct InvalidationDispatcher {
@@ -26,11 +26,9 @@ pub struct InvalidationDispatcher {
 }
 
 impl InvalidationDispatcher {
-    /// Create a new dispatcher with bounded channel capacity.
-    /// The capacity acts as backpressure: if the consumer is slow,
-    /// producers will await (not block the Tokio runtime).
-    pub fn new(capacity: usize) -> Self {
-        let (sender, receiver) = mpsc::channel(capacity);
+    /// Create a new dispatcher. Bounded capacity is not used for standard blocking channels.
+    pub fn new(_capacity: usize) -> Self {
+        let (sender, receiver) = mpsc::channel();
         Self {
             sender,
             receiver: Some(receiver),
@@ -48,7 +46,7 @@ impl InvalidationDispatcher {
     }
 
     /// Emit a PREMISE_INVALIDATED event.
-    pub async fn emit_premise_invalidated(
+    pub fn emit_premise_invalidated(
         sender: &mpsc::Sender<InvalidationEvent>,
         node_id: u64,
         old_epoch: u32,
@@ -61,7 +59,7 @@ impl InvalidationDispatcher {
             new_epoch,
             reason,
         };
-        if let Err(e) = sender.send(event).await {
+        if let Err(e) = sender.send(event) {
             eprintln!(
                 "⚠️ [Invalidation] Failed to emit PREMISE_INVALIDATED: {}",
                 e
@@ -70,13 +68,13 @@ impl InvalidationDispatcher {
     }
 
     /// Emit a INVALIDATED_PURGED event.
-    pub async fn emit_invalidated_purged(
+    pub fn emit_invalidated_purged(
         sender: &mpsc::Sender<InvalidationEvent>,
         node_id: u64,
         reason: String,
     ) {
         let event = InvalidationEvent::InvalidatedPurged { node_id, reason };
-        if let Err(e) = sender.send(event).await {
+        if let Err(e) = sender.send(event) {
             eprintln!("⚠️ [Invalidation] Failed to emit INVALIDATED_PURGED: {}", e);
         }
     }
@@ -84,8 +82,8 @@ impl InvalidationDispatcher {
 
 /// Background consumer task that logs invalidation events.
 /// In production this would forward to MCP/Webhooks.
-pub async fn invalidation_listener(mut receiver: mpsc::Receiver<InvalidationEvent>) {
-    while let Some(event) = receiver.recv().await {
+pub fn invalidation_listener(receiver: mpsc::Receiver<InvalidationEvent>) {
+    while let Ok(event) = receiver.recv() {
         match &event {
             InvalidationEvent::PremiseInvalidated {
                 node_id,

@@ -36,7 +36,8 @@ fn error_code(code: i32, message: &str) -> Result<Value, Value> {
 pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
-    let executor = Executor::new(&storage);
+    let max_threads = storage.config.max_blocking_threads;
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(max_threads));
 
     // Main Stdio loop (JSON-RPC)
     for line in stdin.lock().lines() {
@@ -76,7 +77,28 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         let res = match req.method.as_str() {
             "initialize" => handle_initialize(),
             "tools/list" => handle_tools_list(),
-            "tools/call" => handle_tools_call(&req.params, &executor, &storage).await,
+            "tools/call" => {
+                let sem = semaphore.clone();
+                let storage_ctx = storage.clone();
+                let params_ctx = req.params.clone();
+
+                match sem.acquire_owned().await {
+                    Ok(permit) => {
+                        let spawn_res = tokio::task::spawn_blocking(move || {
+                            let _permit = permit;
+                            let executor = Executor::new(&storage_ctx);
+                            handle_tools_call(&params_ctx, &executor, &storage_ctx)
+                        })
+                        .await;
+
+                        match spawn_res {
+                            Ok(r) => r,
+                            Err(e) => error_code(-32603, &format!("Internal error: task panicked: {}", e)),
+                        }
+                    }
+                    Err(_) => error_code(-32603, "Internal error: semaphore closed"),
+                }
+            }
             _ => error_code(-32601, "Method not found"),
         };
 
@@ -174,7 +196,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
     }))
 }
 
-pub async fn handle_tools_call(
+pub fn handle_tools_call(
     params: &Option<Value>,
     executor: &Executor<'_>,
     storage: &StorageEngine,
@@ -188,7 +210,7 @@ pub async fn handle_tools_call(
     match name {
         "query_lisp" => {
             let query = args["query"].as_str().unwrap_or("");
-            match executor.execute_hybrid(query).await {
+            match executor.execute_hybrid(query) {
                 Ok(ExecutionResult::Read(nodes)) => {
                     let content = serde_json::to_string(&nodes).unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
@@ -281,7 +303,7 @@ pub async fn handle_tools_call(
                 "INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}",
                 content, thread_id
             );
-            match executor.execute_hybrid(&query).await {
+            match executor.execute_hybrid(&query) {
                 Ok(ExecutionResult::Write {
                     affected_nodes,
                     message,

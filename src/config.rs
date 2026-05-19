@@ -17,6 +17,7 @@ pub struct VantaConfig {
     pub read_only: bool,
     pub force_mmap: bool,
     pub backend_kind: BackendKind,
+    pub max_blocking_threads: usize,
 }
 
 impl Default for VantaConfig {
@@ -41,6 +42,10 @@ impl Default for VantaConfig {
             read_only: false,
             force_mmap: false,
             backend_kind: BackendKind::Fjall,
+            max_blocking_threads: env::var("VANTADB_MAX_BLOCKING_THREADS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(16),
         }
     }
 }
@@ -78,6 +83,12 @@ impl VantaConfig {
     /// Selects the KV backend.
     pub fn with_backend(mut self, kind: BackendKind) -> Self {
         self.backend_kind = kind;
+        self
+    }
+
+    /// Sets the maximum number of blocking threads.
+    pub fn with_max_blocking_threads(mut self, max: usize) -> Self {
+        self.max_blocking_threads = max;
         self
     }
 }

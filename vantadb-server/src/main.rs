@@ -1,3 +1,7 @@
+#[cfg(feature = "custom-allocator")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::env;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -42,8 +46,8 @@ async fn main() {
         let mut dispatcher = vantadb::governance::invalidations::InvalidationDispatcher::new(256);
         let tx = dispatcher.sender();
         if let Some(rx) = dispatcher.take_receiver() {
-            tokio::spawn(async move {
-                vantadb::governance::invalidations::invalidation_listener(rx).await;
+            std::thread::spawn(move || {
+                vantadb::governance::invalidations::invalidation_listener(rx);
             });
         }
         tx
@@ -53,13 +57,10 @@ async fn main() {
     #[cfg(feature = "governance")]
     {
         let maintenance_storage_ctx = storage.clone();
-        tokio::spawn(async move {
-            vantadb::governance::maintenance_worker::MaintenanceWorker::start(
-                maintenance_storage_ctx,
-                invalidation_tx,
-            )
-            .await;
-        });
+        let _maintenance_handle = vantadb::governance::maintenance_worker::MaintenanceWorker::start(
+            maintenance_storage_ctx,
+            invalidation_tx.clone(),
+        );
     }
 
     #[cfg(feature = "governance")]
@@ -74,8 +75,10 @@ async fn main() {
     if is_mcp {
         vantadb_server::mcp::run_stdio_server(storage).await;
     } else {
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_blocking_threads));
         let state = Arc::new(ServerState {
             storage: storage.clone(),
+            semaphore,
         });
         let router = app(state);
 

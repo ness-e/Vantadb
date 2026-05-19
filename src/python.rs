@@ -26,28 +26,21 @@ impl ClientEngine {
 
     /// High level query mapping directly traversing the execution plan.
     pub fn execute(&self, query: &str) -> PyResult<Vec<String>> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-
-        rt.block_on(async {
-            let executor = crate::executor::Executor::new(&self._storage);
-            match executor.execute_hybrid(query).await {
-                Ok(crate::executor::ExecutionResult::Read(nodes)) => {
-                    let results = nodes
-                        .into_iter()
-                        .map(|n| format!("ID: {} | Relational: {:?}", n.id, n.relational))
-                        .collect();
-                    Ok(results)
-                }
-                Ok(crate::executor::ExecutionResult::Write { message, .. }) => Ok(vec![message]),
-                Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
-                    Ok(vec![format!("STALE_CONTEXT: {}", id)])
-                }
-                Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+        let executor = crate::executor::Executor::new(&self._storage);
+        match executor.execute_hybrid(query) {
+            Ok(crate::executor::ExecutionResult::Read(nodes)) => {
+                let results = nodes
+                    .into_iter()
+                    .map(|n| format!("ID: {} | Relational: {:?}", n.id, n.relational))
+                    .collect();
+                Ok(results)
             }
-        })
+            Ok(crate::executor::ExecutionResult::Write { message, .. }) => Ok(vec![message]),
+            Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
+                Ok(vec![format!("STALE_CONTEXT: {}", id)])
+            }
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+        }
     }
 
     /// Exposes node insertion directly to python scripts skipping HTTP serialization

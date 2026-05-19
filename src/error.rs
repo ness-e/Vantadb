@@ -15,6 +15,13 @@ pub enum VantaError {
     #[error("WAL error: {0}")]
     WalError(String),
 
+    #[error("WAL version mismatch: expected {expected}, found {found}. Hint: {hint}")]
+    WALVersionMismatch {
+        expected: u32,
+        found: u32,
+        hint: String,
+    },
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
 

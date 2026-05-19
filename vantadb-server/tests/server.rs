@@ -1,7 +1,7 @@
 //! API Server & Health Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
-#[path = "../../../tests/common/mod.rs"]
+#[path = "../../tests/common/mod.rs"]
 mod common;
 
 use axum::{
@@ -22,7 +22,10 @@ async fn api_server_certification() {
         futures::executor::block_on(async {
             let temp_dir = tempfile::tempdir().unwrap();
             let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
-            let state = Arc::new(ServerState { storage });
+            let state = Arc::new(ServerState {
+                storage,
+                semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+            });
             let app = app(state);
 
             TerminalReporter::sub_step("Dispatching oneshot request to /health...");

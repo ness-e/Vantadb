@@ -12,8 +12,8 @@ use vantadb::executor::Executor;
 use vantadb::query::{InsertStatement, RelateStatement, Statement};
 use vantadb::storage::StorageEngine;
 
-#[tokio::test]
-async fn chaos_integrity_certification() {
+#[test]
+fn chaos_integrity_certification() {
     TerminalReporter::suite_banner("TOPOLOGICAL INTEGRITY & CHAOS AXIOMS", 2);
 
     // ─── AXIOM 1: Ghost Node Prevention ──────────────────────────
@@ -34,7 +34,6 @@ async fn chaos_integrity_certification() {
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }))
-        .await
         .unwrap();
 
     executor1
@@ -44,7 +43,6 @@ async fn chaos_integrity_certification() {
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }))
-        .await
         .unwrap();
 
     s1.step("Attempting illegal relation to non-existent ID 999");
@@ -54,7 +52,7 @@ async fn chaos_integrity_certification() {
         label: "likes".to_string(),
         weight: None,
     });
-    let result_ghost = executor1.execute_statement(relate_ghost).await;
+    let result_ghost = executor1.execute_statement(relate_ghost);
 
     assert!(
         result_ghost.is_err(),
@@ -89,7 +87,6 @@ async fn chaos_integrity_certification() {
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }))
-        .await
         .unwrap();
 
     executor2
@@ -99,14 +96,12 @@ async fn chaos_integrity_certification() {
             fields: std::collections::BTreeMap::new(),
             vector: None,
         }))
-        .await
         .unwrap();
 
     executor2
         .execute_statement(Statement::Delete(vantadb::query::DeleteStatement {
             node_id: 2,
         }))
-        .await
         .unwrap();
 
     s2.step("Attempting relation to deleted (Tombstoned) node");
@@ -116,7 +111,7 @@ async fn chaos_integrity_certification() {
         label: "likes".to_string(),
         weight: None,
     });
-    let result_tombstone = executor2.execute_statement(relate_tombstone).await;
+    let result_tombstone = executor2.execute_statement(relate_tombstone);
 
     assert!(
         result_tombstone.is_err(),

@@ -1,3 +1,5 @@
+#![cfg(debug_assertions)]
+
 //! Recovery certification for stale/corrupt derived memory index state.
 
 use tempfile::tempdir;

@@ -11,8 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
-tokio = { version = "1", features = ["rt"] }
 serde_json = "1.0"
 
 # In-process reference to the core engine (zero network overhead)
-vantadb = { path = "../" }
+vantadb = { path = "../", default-features = false, features = ["governance"] }

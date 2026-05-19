@@ -4,7 +4,7 @@
 //! behavior remain external or experimental; the core stores and retrieves provided vectors.
 
 use crate::error::{Result, VantaError};
-use reqwest::Client;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -53,7 +53,7 @@ impl LlmClient {
     }
 
     /// Communicates with the LLM to translate native text into an HNSW compatible vector.
-    pub async fn generate_embedding(&self, text: &str) -> Result<Vec<f32>> {
+    pub fn generate_embedding(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/api/embeddings", self.base_url);
 
         let req_body = OllamaEmbeddingRequest {
@@ -66,7 +66,6 @@ impl LlmClient {
             .post(&url)
             .json(&req_body)
             .send()
-            .await
             .map_err(|e| {
                 VantaError::Execution(format!(
                     "Network error communicating with Inference Bridge: {}",
@@ -82,7 +81,7 @@ impl LlmClient {
             )));
         }
 
-        let result: OllamaEmbeddingResponse = response.json().await.map_err(|e| {
+        let result: OllamaEmbeddingResponse = response.json().map_err(|e| {
             VantaError::Execution(format!(
                 "Invalid response format from Inference Bridge: {}",
                 e
@@ -95,7 +94,7 @@ impl LlmClient {
     /// Invoke the LLM to generate a semantic summary of a group of archived nodes.
     /// The prompt includes importance and keywords so the summary preserves
     /// the priority data rather than being a generic recap.
-    pub async fn summarize_context(&self, nodes: &[&crate::node::UnifiedNode]) -> Result<String> {
+    pub fn summarize_context(&self, nodes: &[&crate::node::UnifiedNode]) -> Result<String> {
         // Build structured context: each node contributes its content + importance metadata
         let mut context_blocks = Vec::new();
         for (i, node) in nodes.iter().enumerate() {
@@ -163,7 +162,6 @@ impl LlmClient {
             .post(&url)
             .json(&req_body)
             .send()
-            .await
             .map_err(|e| {
                 VantaError::Execution(format!(
                     "Network error during Semantic Summarization: {}",
@@ -179,7 +177,7 @@ impl LlmClient {
             )));
         }
 
-        let result: OllamaGenerateResponse = response.json().await.map_err(|e| {
+        let result: OllamaGenerateResponse = response.json().map_err(|e| {
             VantaError::Execution(format!(
                 "Invalid response format from Inference Bridge (summarize): {}",
                 e

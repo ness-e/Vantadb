@@ -37,32 +37,43 @@ pub const VANTA_FILE_VERSION: u32 = 1;
 fn mapped_file_resident_bytes(path: &Path) -> Option<u64> {
     let canonical = path.canonicalize().ok()?;
     let needle = canonical.to_string_lossy();
-    let smaps = std::fs::read_to_string("/proc/self/smaps").ok()?;
-    let mut in_mapping = false;
-    let mut resident_bytes = 0u64;
 
-    for line in smaps.lines() {
-        if line.contains('-') && line.split_whitespace().count() >= 5 {
-            in_mapping = line
-                .split_whitespace()
-                .last()
-                .is_some_and(|candidate| candidate == needle);
-            continue;
-        }
-        if in_mapping {
-            if let Some(rest) = line.strip_prefix("Rss:") {
-                if let Some(kb) = rest
-                    .split_whitespace()
-                    .next()
-                    .and_then(|value| value.parse::<u64>().ok())
-                {
-                    resident_bytes += kb * 1024;
+    // Atrapamos explícitamente cualquier error de lectura (como EACCES/EPERM en sandboxes) para devolver None
+    match std::fs::read_to_string("/proc/self/smaps") {
+        Ok(smaps) => {
+            let mut in_mapping = false;
+            let mut resident_bytes = 0u64;
+
+            for line in smaps.lines() {
+                if line.contains('-') && line.split_whitespace().count() >= 5 {
+                    in_mapping = line
+                        .split_whitespace()
+                        .last()
+                        .is_some_and(|candidate| candidate == needle);
+                    continue;
                 }
+                if in_mapping {
+                    if let Some(rest) = line.strip_prefix("Rss:") {
+                        if let Some(kb) = rest
+                            .split_whitespace()
+                            .next()
+                            .and_then(|value| value.parse::<u64>().ok())
+                        {
+                            resident_bytes += kb * 1024;
+                        }
+                    }
+                }
+            }
+            Some(resident_bytes)
+        }
+        Err(e) => {
+            // Silenciamos errores de permisos (PermissionDenied / EACCES / EPERM) y otros de forma segura
+            match e.kind() {
+                std::io::ErrorKind::PermissionDenied => None,
+                _ => None,
             }
         }
     }
-
-    Some(resident_bytes)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -325,6 +336,7 @@ pub struct IndexRebuildReport {
 pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
+    pub config: VantaConfig,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
     pub hnsw: RwLock<CPIndex>,
@@ -447,10 +459,20 @@ impl StorageEngine {
         let wal_path = data_dir.join("vanta.wal");
         let mut wal_replay_ms = 0u64;
         let mut wal_records_replayed = 0u64;
+        let checkpoint_seq: u64 = backend
+            .get(BackendPartition::InternalMetadata, b"checkpoint_seq")?
+            .and_then(|bytes| bincode::deserialize::<u64>(&bytes).ok())
+            .unwrap_or(0);
+
         if !config.read_only && wal_path.exists() {
             let wal_replay_started = Instant::now();
             let mut wal_reader = crate::wal::WalReader::open(&wal_path)?;
+            let mut current_seq = 0u64;
             while let Some(record) = wal_reader.next_record()? {
+                current_seq += 1;
+                if current_seq <= checkpoint_seq {
+                    continue;
+                }
                 wal_records_replayed += 1;
                 match record {
                     crate::wal::WalRecord::Insert(node) => {
@@ -479,6 +501,7 @@ impl StorageEngine {
                 info!(
                     replayed = wal_records_replayed,
                     duration_ms = wal_replay_ms,
+                    checkpoint_seq = checkpoint_seq,
                     "WAL replay: recovered un-flushed mutations"
                 );
             }
@@ -514,6 +537,7 @@ impl StorageEngine {
 
         Ok(Self {
             backend,
+            config: config.clone(),
             read_only: config.read_only,
             hnsw: RwLock::new(hnsw),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
@@ -532,13 +556,18 @@ impl StorageEngine {
     }
 
     #[inline]
-    fn ensure_writable(&self) -> Result<()> {
-        if self.read_only {
+    pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
+        if config.read_only {
             return Err(VantaError::Execution(
                 "StorageEngine is read-only; write operation rejected".to_string(),
             ));
         }
         Ok(())
+    }
+
+    #[inline]
+    fn ensure_writable(&self) -> Result<()> {
+        Self::guard_write_allowed(&self.config)
     }
 
     pub fn touch_activity(&self) {
@@ -1015,6 +1044,23 @@ impl StorageEngine {
     pub fn flush(&self) -> Result<()> {
         self.ensure_writable()?;
         self.backend.flush()?;
+
+        let current_wal_seq = {
+            let wal_guard = self.wal.lock();
+            if let Some(ref wal_writer) = *wal_guard {
+                wal_writer.record_count()
+            } else {
+                0
+            }
+        };
+
+        if current_wal_seq > 0 {
+            let seq_bytes = bincode::serialize(&current_wal_seq)
+                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+            self.backend.put(BackendPartition::InternalMetadata, b"checkpoint_seq", &seq_bytes)?;
+            self.backend.flush()?;
+        }
+
         self.save_vector_index();
 
         // Update memory breakdown after flush
