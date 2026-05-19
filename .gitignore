@@ -54,3 +54,11 @@ vanta-server-rc*.exe.sha256
 Thumbs.db
 .agents/
 .cargo/
+
+# Local Python test database
+vantadb-python/test_vanta_db/
+test_vanta_db*/
+vanta_data*/
+vantadb_data*/
+vanta.db*
+
