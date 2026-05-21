@@ -64,8 +64,8 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
         let res = unsafe { libc::mincore(chunk_addr, chunk_len, vec_buffer.as_mut_ptr()) };
 
         if res == 0 {
-            for i in 0..pages_in_chunk {
-                if (vec_buffer[i] & 1) != 0 {
+            for &page_state in vec_buffer.iter().take(pages_in_chunk) {
+                if (page_state & 1) != 0 {
                     resident_pages += 1;
                 }
             }
