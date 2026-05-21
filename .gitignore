@@ -5,6 +5,7 @@ debug/
 release/
 *.rs.bk
 **/test_sdk*/
+/docs/snapshots/
 # Local database instances and logs
 todo.md
 *.log
