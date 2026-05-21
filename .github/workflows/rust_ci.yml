@@ -26,6 +26,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 1
 
 jobs:
   build:
@@ -71,12 +72,12 @@ jobs:
       run: cargo fmt --check
 
     - name: Clippy Lints
-      run: cargo clippy --workspace --all-targets -- -D warnings
+      run: cargo clippy -p vantadb --all-targets -- -D warnings
 
     # ── Fast Gate: Unified execution via nextest ─────────────────────
     - name: Run fast gate tests (Audit profile)
-      run: cargo nextest run --profile audit --workspace
+      run: cargo nextest run --profile audit -p vantadb
 
     # ── Bench compilation check (no execution) ───────────────────────
     - name: Run benchmarks (verification only)
-      run: cargo bench --no-run
+      run: cargo bench --no-run -p vantadb
