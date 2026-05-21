@@ -50,7 +50,9 @@ jobs:
           python-version: "3.11"
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
