@@ -11,8 +11,8 @@ use axum::{
 use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tower::ServiceExt;
-use vantadb_server::server::{app, ServerState};
 use vantadb::storage::StorageEngine;
+use vantadb_server::server::{app, ServerState};
 
 #[tokio::test]
 async fn api_server_certification() {
@@ -44,4 +44,3 @@ async fn api_server_certification() {
         });
     });
 }
-
