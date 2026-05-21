@@ -387,7 +387,9 @@ fn text_index_update_delete_remove_stale_postings() {
     let keys = db
         .debug_text_index_posting_keys_for_tests()
         .expect("text keys after delete");
-    assert!(!keys.iter().any(|key| key.starts_with(b"agent/main\0")));
+    assert!(!keys
+        .iter()
+        .any(|key: &Vec<u8>| key.starts_with(b"agent/main\0")));
     assert!(
         db.debug_text_index_audit_for_tests()
             .expect("audit after delete")

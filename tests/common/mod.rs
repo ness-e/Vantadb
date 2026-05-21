@@ -81,10 +81,7 @@ fn get_multi_progress() -> &'static MultiProgress {
 #[cfg(feature = "cli")]
 fn get_global_bar() -> &'static ProgressBar {
     GLOBAL_BAR.get_or_init(|| {
-        let pb = ProgressBar::with_draw_target(
-            10,
-            ProgressDrawTarget::stderr_with_hz(10),
-        );
+        let pb = ProgressBar::with_draw_target(Some(10), ProgressDrawTarget::stderr_with_hz(10));
         pb.set_style(
             ProgressStyle::default_bar()
                 .template(
@@ -157,7 +154,7 @@ impl TerminalReporter {
     }
 
     pub fn create_progress(len: u64, msg: &str) -> ProgressBar {
-        let pb = ProgressBar::with_draw_target(len, ProgressDrawTarget::stderr_with_hz(10));
+        let pb = ProgressBar::with_draw_target(Some(len), ProgressDrawTarget::stderr_with_hz(10));
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("  {spinner:.cyan} {msg:.white} [{bar:30.cyan/blue}] {pos}/{len} ({eta})")
