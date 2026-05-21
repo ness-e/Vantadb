@@ -442,3 +442,4 @@ impl MaintenanceWorker {
         tracing::warn!("⚠️ [Maintenance] Data compression requested but `llm` feature is disabled.");
     }
 }
+

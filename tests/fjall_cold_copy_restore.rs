@@ -44,6 +44,7 @@ fn search_keys(
         filters: Default::default(),
         text_query: text_query.map(|s| s.to_string()),
         top_k,
+        ..Default::default()
     })
     .expect("search")
     .into_iter()
@@ -245,3 +246,4 @@ fn fjall_cold_copy_restore_preserves_all_retrieval_paths() {
         "startup_ms must be recorded after restore"
     );
 }
+

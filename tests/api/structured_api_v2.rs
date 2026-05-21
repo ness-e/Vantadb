@@ -80,3 +80,4 @@ fn ollama_integration() {
         TerminalReporter::success("Structured message routing validated.");
     });
 }
+

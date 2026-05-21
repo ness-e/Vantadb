@@ -33,61 +33,143 @@ pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
 /// Increment when the DiskNodeHeader layout or write_cursor position changes.
 pub const VANTA_FILE_VERSION: u32 = 1;
 
-#[cfg(target_os = "linux")]
-fn mapped_file_resident_bytes(path: &Path) -> Option<u64> {
-    let canonical = path.canonicalize().ok()?;
-    let needle = canonical.to_string_lossy();
-
-    // Atrapamos explícitamente cualquier error de lectura (como EACCES/EPERM en sandboxes) para devolver None
-    match std::fs::read_to_string("/proc/self/smaps") {
-        Ok(smaps) => {
-            let mut in_mapping = false;
-            let mut resident_bytes = 0u64;
-
-            for line in smaps.lines() {
-                if line.contains('-') && line.split_whitespace().count() >= 5 {
-                    in_mapping = line
-                        .split_whitespace()
-                        .last()
-                        .is_some_and(|candidate| candidate == needle);
-                    continue;
-                }
-                if in_mapping {
-                    if let Some(rest) = line.strip_prefix("Rss:") {
-                        if let Some(kb) = rest
-                            .split_whitespace()
-                            .next()
-                            .and_then(|value| value.parse::<u64>().ok())
-                        {
-                            resident_bytes += kb * 1024;
-                        }
-                    }
+#[cfg(unix)]
+pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
+    if len == 0 || addr.is_null() {
+        return Some(0);
+    }
+    
+    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    let page_size = if page_size <= 0 { 4096 } else { page_size as usize };
+    
+    let addr_val = addr as usize;
+    let aligned_addr = addr_val & !(page_size - 1);
+    let offset = addr_val - aligned_addr;
+    let aligned_len = (len + offset + page_size - 1) & !(page_size - 1);
+    let num_pages = aligned_len / page_size;
+    
+    const CHUNK_PAGES: usize = 65536;
+    let mut resident_pages = 0u64;
+    let mut vec_buffer = vec![0u8; CHUNK_PAGES.min(num_pages)];
+    
+    for chunk_start_page in (0..num_pages).step_by(CHUNK_PAGES) {
+        let pages_in_chunk = (num_pages - chunk_start_page).min(CHUNK_PAGES);
+        let chunk_addr = (aligned_addr + chunk_start_page * page_size) as *mut libc::c_void;
+        let chunk_len = pages_in_chunk * page_size;
+        
+        let res = unsafe {
+            libc::mincore(
+                chunk_addr,
+                chunk_len,
+                vec_buffer.as_mut_ptr() as *mut libc::c_char,
+            )
+        };
+        
+        if res == 0 {
+            for i in 0..pages_in_chunk {
+                if (vec_buffer[i] & 1) != 0 {
+                    resident_pages += 1;
                 }
             }
-            Some(resident_bytes)
-        }
-        Err(e) => {
-            // Silenciamos errores de permisos (PermissionDenied / EACCES / EPERM) y otros de forma segura
-            match e.kind() {
-                std::io::ErrorKind::PermissionDenied => None,
-                _ => None,
-            }
+        } else {
+            let err = std::io::Error::last_os_error();
+            warn!("mincore syscall failed: {:?}", err);
+            return None;
         }
     }
+    
+    Some(resident_pages * page_size as u64)
 }
 
-#[cfg(not(target_os = "linux"))]
-fn mapped_file_resident_bytes(_path: &Path) -> Option<u64> {
+#[cfg(target_os = "windows")]
+pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
+    use windows_sys::Win32::System::ProcessStatus::{
+        QueryWorkingSetEx, PSAPI_WORKING_SET_EX_INFORMATION,
+    };
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+
+    if len == 0 || addr.is_null() {
+        return Some(0);
+    }
+
+    let page_size = 4096;
+    let addr_val = addr as usize;
+    let aligned_addr = addr_val & !(page_size - 1);
+    let offset = addr_val - aligned_addr;
+    let aligned_len = (len + offset + page_size - 1) & !(page_size - 1);
+    let num_pages = aligned_len / page_size;
+
+    const CHUNK_PAGES: usize = 65536;
+    let mut resident_pages = 0u64;
+
+    let h_process = unsafe { GetCurrentProcess() };
+    let mut info_buffer = vec![
+        unsafe { std::mem::zeroed::<PSAPI_WORKING_SET_EX_INFORMATION>() };
+        CHUNK_PAGES.min(num_pages)
+    ];
+
+    for chunk_start_page in (0..num_pages).step_by(CHUNK_PAGES) {
+        let pages_in_chunk = (num_pages - chunk_start_page).min(CHUNK_PAGES);
+        
+        for (i, info_entry) in info_buffer.iter_mut().enumerate().take(pages_in_chunk) {
+            let page_addr = aligned_addr + (chunk_start_page + i) * page_size;
+            info_entry.VirtualAddress = page_addr as *mut _;
+            #[allow(unused_unsafe)]
+            unsafe {
+                info_entry.VirtualAttributes.Flags = 0;
+            }
+        }
+
+        let cb = (pages_in_chunk * std::mem::size_of::<PSAPI_WORKING_SET_EX_INFORMATION>()) as u32;
+        let res = unsafe {
+            QueryWorkingSetEx(
+                h_process,
+                info_buffer.as_mut_ptr() as *mut _,
+                cb,
+            )
+        };
+
+        if res != 0 {
+            for info_entry in info_buffer.iter().take(pages_in_chunk) {
+                let flags = unsafe { info_entry.VirtualAttributes.Flags };
+                if (flags & 1) != 0 {
+                    resident_pages += 1;
+                }
+            }
+        } else {
+            let err = std::io::Error::last_os_error();
+            warn!("QueryWorkingSetEx failed: {:?}", err);
+            return None;
+        }
+    }
+
+    Some(resident_pages * page_size as u64)
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
+pub fn get_resident_bytes(_addr: *const u8, _len: usize) -> Option<u64> {
     None
 }
 
+/// Legacy helper kept for backward compatibility.
+/// Prefer `engine_mmap_resident_bytes` or `StorageEngine::get_memory_stats()` for accurate telemetry.
+#[allow(dead_code)]
+fn mapped_file_resident_bytes(path: &Path) -> Option<u64> {
+    let file = File::open(path).ok()?;
+    let mmap = unsafe { Mmap::map(&file).ok()? };
+    get_resident_bytes(mmap.as_ptr(), mmap.len())
+}
+
+/// Computes the approximate Resident Set Size (RSS) of memory-mapped regions
+/// used by the HNSW index backend and the vector store file.
+///
+/// Returns `None` if the platform does not support querying resident pages
+/// (e.g., non-Unix/non-Windows), or if a syscall fails.
 fn engine_mmap_resident_bytes(hnsw: &CPIndex, vector_store: &VantaFile) -> Option<u64> {
     let mut total = None;
     for resident in [
         vector_store.mmap_resident_bytes(),
-        hnsw.backend
-            .mmap_path()
-            .and_then(mapped_file_resident_bytes),
+        hnsw.backend.mmap_resident_bytes(),
     ]
     .into_iter()
     .flatten()
@@ -116,6 +198,20 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(mmap) => mmap,
             VantaFileMap::ReadWrite(mmap) => mmap,
+        }
+    }
+
+    fn as_ptr(&self) -> *const u8 {
+        match self {
+            VantaFileMap::ReadOnly(mmap) => mmap.as_ptr(),
+            VantaFileMap::ReadWrite(mmap) => mmap.as_ptr(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            VantaFileMap::ReadOnly(mmap) => mmap.len(),
+            VantaFileMap::ReadWrite(mmap) => mmap.len(),
         }
     }
 
@@ -307,7 +403,7 @@ impl VantaFile {
     }
 
     pub fn mmap_resident_bytes(&self) -> Option<u64> {
-        mapped_file_resident_bytes(&self.path)
+        get_resident_bytes(self.mmap.as_ptr(), self.mmap.len())
     }
 }
 
@@ -321,6 +417,29 @@ impl VantaFile {
 pub use crate::backend::BackendKind;
 
 use crate::config::VantaConfig;
+
+/// Memory usage statistics for a `StorageEngine` instance.
+///
+/// - `logical_bytes`: Estimated logical memory footprint (in-memory structures + mapped file sizes).
+/// - `physical_rss`: Approximate Resident Set Size (pages actually in RAM) for mmap'd regions,
+///   if the platform supports querying it (`Some(value)`), or `None` otherwise.
+/// - `node_count`: Number of nodes currently indexed in HNSW.
+/// - `cache_entries`: Number of "hot" nodes cached in the volatile LRU cache.
+#[derive(Debug, Clone, Copy)]
+pub struct MemoryStats {
+    pub logical_bytes: u64,
+    pub physical_rss: Option<u64>,
+    pub node_count: u64,
+    pub cache_entries: usize,
+}
+
+impl MemoryStats {
+    /// Returns the physical RSS if available, otherwise falls back to logical estimate.
+    #[inline]
+    pub fn effective_bytes(&self) -> u64 {
+        self.physical_rss.unwrap_or(self.logical_bytes)
+    }
+}
 
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1259,6 +1378,39 @@ impl StorageEngine {
         }
     }
 
+    /// Returns detailed memory usage statistics for this engine instance.
+    ///
+    /// This is useful for host applications (e.g., AI agents) to decide when to
+    /// trigger memory pressure handling, such as evicting cold nodes or flushing caches.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let stats = engine.get_memory_stats();
+    /// if stats.effective_bytes() > MEMORY_BUDGET {
+    ///     engine.evict_cold_nodes(0.2)?; // Evict 20% of cold nodes
+    /// }
+    /// ```
+    pub fn get_memory_stats(&self) -> MemoryStats {
+        let hnsw = self.hnsw.read();
+        let vector_store = self.vector_store.read();
+        let cache = self.volatile_cache.read();
+
+        // Logical estimate: HNSW structures + vector store file size + cached nodes
+        // Note: This is an upper bound; actual RAM usage may be lower due to OS paging.
+        let logical = hnsw.estimate_memory_bytes() as u64
+            + vector_store.size
+            + (cache.len() as u64 * 1536); // ~1.5KB per cached node (conservative estimate)
+
+        let physical = engine_mmap_resident_bytes(&hnsw, &vector_store);
+
+        MemoryStats {
+            logical_bytes: logical,
+            physical_rss: physical,
+            node_count: hnsw.nodes.len() as u64,
+            cache_entries: cache.len(),
+        }
+    }
+
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
         println!("🔥 VANTADB SYSTEM EMERGENCY: Security Constraint Violated 🔥");
@@ -1280,3 +1432,4 @@ impl StorageEngine {
         std::process::exit(1);
     }
 }
+

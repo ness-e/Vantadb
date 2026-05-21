@@ -40,3 +40,4 @@ pub enum VantaError {
 
 /// Crate-wide Result alias
 pub type Result<T> = std::result::Result<T, VantaError>;
+

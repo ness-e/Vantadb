@@ -22,8 +22,10 @@ fn test_wal_durability_and_checkpoint_coherence() {
     let db_path = dir.path().to_str().unwrap();
 
     // 1. Inicializar con configuración explícita
-    let mut config = VantaConfig::default();
-    config.backend_kind = BackendKind::InMemory;
+    let config = VantaConfig {
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    };
 
     session.step("Seeding database nodes with active WAL");
     let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
@@ -66,3 +68,4 @@ fn test_wal_durability_and_checkpoint_coherence() {
     session.success("WAL checkpoint_seq bypass successfully certified.");
     session.finish(true);
 }
+

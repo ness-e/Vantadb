@@ -39,6 +39,7 @@ fn search_keys(
         filters: keep_filter(),
         text_query: text_query.map(str::to_string),
         top_k,
+        ..Default::default()
     })
     .expect("search cert corpus")
     .into_iter()
@@ -85,3 +86,4 @@ fn deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths() {
     assert!(hybrid.contains(&"vector-only".to_string()));
     assert!(!hybrid.contains(&"filtered".to_string()));
 }
+

@@ -55,3 +55,4 @@ fn run_stress_test(c: &mut Criterion) {
 
 criterion_group!(benches, run_stress_test);
 criterion_main!(benches);
+

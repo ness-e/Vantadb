@@ -106,7 +106,7 @@ fn memory_telemetry_contract() {
         assert!(metrics.memory.process_rss_bytes > 0);
         assert!(metrics.memory.hnsw_nodes_count >= 1_000);
         assert!(metrics.memory.hnsw_logical_bytes > 0);
-        #[cfg(target_os = "linux")]
+        #[cfg(any(unix, target_os = "windows"))]
         assert!(metrics.memory.mmap_resident_bytes.is_some());
     });
 
@@ -151,3 +151,4 @@ fn memory_telemetry_contract() {
         );
     });
 }
+

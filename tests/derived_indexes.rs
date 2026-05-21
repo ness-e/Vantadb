@@ -120,3 +120,4 @@ fn rebuild_index_reconstructs_derived_indexes_from_canonical_records() {
         .expect("list");
     assert_eq!(page.records.len(), 2);
 }
+

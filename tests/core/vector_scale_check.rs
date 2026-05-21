@@ -53,3 +53,4 @@ async fn vector_scale_performance_certification() {
         });
     });
 }
+

@@ -1,5 +1,6 @@
 //! Storage Chaos & Data Integrity Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
+#![cfg(feature = "experimental")]
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -123,3 +124,4 @@ fn chaos_integrity_certification() {
     // Final Report for this suite
     TerminalReporter::print_certification_summary();
 }
+

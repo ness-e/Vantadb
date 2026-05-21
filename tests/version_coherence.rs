@@ -68,3 +68,4 @@ fn public_surfaces_report_same_version() {
         "MCP serverInfo.version must use vantadb::metadata::reported_version()"
     );
 }
+

@@ -46,3 +46,4 @@ pub enum ResolutionResult {
     Superposition(crate::governance::consistency::ConsistencyRecord),
     Merge { new_confidence: f32 },
 }
+

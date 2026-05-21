@@ -97,3 +97,4 @@ impl VantaLispVM {
         Ok((result_val, op_confidence))
     }
 }
+

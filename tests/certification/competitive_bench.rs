@@ -138,23 +138,47 @@ fn sift1m_competitive_benchmark() {
 
         let configs = vec![
             (
-                "Balanced",
+                "Balanced Cos",
                 HnswConfig {
                     m: 16,
                     m_max0: 32,
                     ef_construction: 200,
                     ef_search: 100,
                     ml: 1.0 / (16_f64).ln(),
+                    distance_metric: vantadb::node::DistanceMetric::Cosine,
                 },
             ),
             (
-                "High Recall",
+                "High Recall Cos",
                 HnswConfig {
                     m: 32,
                     m_max0: 64,
                     ef_construction: 400,
                     ef_search: 200,
                     ml: 1.0 / (32_f64).ln(),
+                    distance_metric: vantadb::node::DistanceMetric::Cosine,
+                },
+            ),
+            (
+                "Balanced L2",
+                HnswConfig {
+                    m: 16,
+                    m_max0: 32,
+                    ef_construction: 200,
+                    ef_search: 100,
+                    ml: 1.0 / (16_f64).ln(),
+                    distance_metric: vantadb::node::DistanceMetric::Euclidean,
+                },
+            ),
+            (
+                "High Recall L2",
+                HnswConfig {
+                    m: 32,
+                    m_max0: 64,
+                    ef_construction: 400,
+                    ef_search: 200,
+                    ml: 1.0 / (32_f64).ln(),
+                    distance_metric: vantadb::node::DistanceMetric::Euclidean,
                 },
             ),
         ];
@@ -206,14 +230,14 @@ fn sift1m_competitive_benchmark() {
 
     println!(
         "  {}",
-        style("╭──────────┬──────────────┬──────────┬────────────┬────────────┬────────────┬──────────╮").dim()
+        style("╭──────────┬──────────────────┬──────────┬────────────┬────────────┬────────────┬──────────╮").dim()
     );
     println!(
         "  {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
         style("│").dim(),
         style(" Scale   ").bold(),
         style("│").dim(),
-        style("   Config    ").bold(),
+        style("    Config      ").bold(),
         style("│").dim(),
         style("Recall@10").bold(),
         style("│").dim(),
@@ -228,7 +252,7 @@ fn sift1m_competitive_benchmark() {
     );
     println!(
         "  {}",
-        style("├──────────┼──────────────┼──────────┼────────────┼────────────┼────────────┼──────────┤").dim()
+        style("├──────────┼──────────────────┼──────────┼────────────┼────────────┼────────────┼──────────┤").dim()
     );
 
     for r in &all_results {
@@ -241,7 +265,7 @@ fn sift1m_competitive_benchmark() {
         };
 
         println!(
-            "  {} {:>7}K {} {:^12} {} {} {} {:>9.1} {} {:>9.1} {} {:>9.0} {} {:>7.1} {}",
+            "  {} {:>7}K {} {:^16} {} {} {} {:>9.1} {} {:>9.1} {} {:>9.0} {} {:>7.1} {}",
             style("│").dim(),
             r.scale / 1000,
             style("│").dim(),
@@ -262,7 +286,7 @@ fn sift1m_competitive_benchmark() {
 
     println!(
         "  {}",
-        style("╰──────────┴──────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
+        style("╰──────────┴──────────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
     );
 
     println!(
@@ -287,3 +311,4 @@ fn sift1m_competitive_benchmark() {
 
     TerminalReporter::success("SIFT1M stress benchmark completed without parity claims.");
 }
+

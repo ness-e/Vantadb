@@ -43,3 +43,4 @@ pub async fn ollama_proxy_handler(req: OllamaGenerateRequest) -> String {
         req.model
     )
 }
+

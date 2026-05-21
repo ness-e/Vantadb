@@ -7,11 +7,11 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-pub use crate::node::VectorRepresentations;
+pub use crate::node::{DistanceMetric, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
 const VECTOR_INDEX_MAGIC: &[u8; 8] = b"VNTHNSW1";
-const VECTOR_INDEX_VERSION: u32 = 2; // Upgraded for config support
+const VECTOR_INDEX_VERSION: u32 = 3; // Upgraded for DistanceMetric support
 
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
@@ -77,11 +77,57 @@ pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
+#[inline(always)]
+pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    use crate::hardware::{HardwareCapabilities, InstructionSet};
+    let caps = HardwareCapabilities::global();
+    match caps.instructions {
+        InstructionSet::Fallback => {
+            let mut sum: f32 = 0.0;
+            for (va, vb) in a.iter().zip(b.iter()) {
+                let diff = va - vb;
+                sum += diff * diff;
+            }
+            sum
+        }
+        _ => {
+            use wide::f32x8;
+            let mut sum_v = f32x8::ZERO;
+            let chunks_a = a.chunks_exact(8);
+            let chunks_b = b.chunks_exact(8);
+            let rem_a = chunks_a.remainder();
+            let rem_b = chunks_b.remainder();
+            for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
+                let va = f32x8::from([
+                    a_chunk[0], a_chunk[1], a_chunk[2], a_chunk[3], a_chunk[4], a_chunk[5],
+                    a_chunk[6], a_chunk[7],
+                ]);
+                let vb = f32x8::from([
+                    b_chunk[0], b_chunk[1], b_chunk[2], b_chunk[3], b_chunk[4], b_chunk[5],
+                    b_chunk[6], b_chunk[7],
+                ]);
+                let diff = va - vb;
+                sum_v += diff * diff;
+            }
+            let mut sum = sum_v.reduce_add();
+            for i in 0..rem_a.len() {
+                let diff = rem_a[i] - rem_b[i];
+                sum += diff * diff;
+            }
+            sum
+        }
+    }
+}
+
 pub fn calculate_similarity(
     raw_query: &[f32],
     quantized_query_1bit: Option<&[u64]>,
     quantized_query_3bit: Option<(&[u8], f32)>,
     node_vec: &VectorRepresentations,
+    metric: DistanceMetric,
 ) -> f32 {
     match node_vec {
         VectorRepresentations::Binary(b) => {
@@ -98,10 +144,11 @@ pub fn calculate_similarity(
                 0.0
             }
         }
-        VectorRepresentations::Full(f) => {
+        VectorRepresentations::Full(f) => match metric {
             // ZERO ALLOCATION: Direct SIMD calculation without unpacking or cloning
-            cosine_sim_f32(raw_query, f)
-        }
+            DistanceMetric::Cosine => cosine_sim_f32(raw_query, f),
+            DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f).sqrt(),
+        },
         VectorRepresentations::None => 0.0,
     }
 }
@@ -139,6 +186,24 @@ impl IndexBackend {
             IndexBackend::InMemory => None,
         }
     }
+
+    /// Returns the number of resident (physically-in-RAM) bytes for the HNSW index mmap.
+    /// Uses the live mmap pointer directly when available (zero syscall overhead for address resolution).
+    /// Falls back to opening the file and creating a temporary read-only Mmap if the mutable mmap is not loaded.
+    pub fn mmap_resident_bytes(&self) -> Option<u64> {
+        match self {
+            IndexBackend::MMapFile { mmap: Some(m), .. } => {
+                crate::storage::get_resident_bytes(m.as_ptr(), m.len())
+            }
+            IndexBackend::MMapFile { path, mmap: None } => {
+                // Fallback: open the file and create a temporary read-only mmap
+                let file = File::open(path).ok()?;
+                let mmap = unsafe { memmap2::Mmap::map(&file).ok()? };
+                crate::storage::get_resident_bytes(mmap.as_ptr(), mmap.len())
+            }
+            IndexBackend::InMemory => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -148,6 +213,8 @@ pub struct HnswConfig {
     pub ef_construction: usize,
     pub ef_search: usize,
     pub ml: f64,
+    #[serde(default)]
+    pub distance_metric: DistanceMetric,
 }
 
 impl Default for HnswConfig {
@@ -158,6 +225,7 @@ impl Default for HnswConfig {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
         }
     }
 }
@@ -281,6 +349,7 @@ impl CPIndex {
     /// Primary search subroutine for HNSW.
     /// Performs a greedy beam search to return the `ef` nearest neighbors
     /// found at `layer`. Candidates are validated against `query_mask`.
+    #[allow(clippy::too_many_arguments)]
     fn search_layer(
         &self,
         query_vec: &[f32],
@@ -289,6 +358,7 @@ impl CPIndex {
         layer: usize,
         query_mask: u128,
         vector_store: Option<&crate::storage::VantaFile>,
+        metric: DistanceMetric,
     ) -> BinaryHeap<NodeSimMin> {
         let mut visited = std::collections::HashSet::new();
         let mut candidates = BinaryHeap::new(); // Max-heap: candidates to visit
@@ -312,13 +382,16 @@ impl CPIndex {
                                     header.vector_len as usize,
                                 )
                             };
-                            cosine_sim_f32(query_vec, f32_vec)
+                            match metric {
+                                DistanceMetric::Cosine => cosine_sim_f32(query_vec, f32_vec),
+                                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, f32_vec).sqrt(),
+                            }
                         }
                     } else {
                         0.0
                     }
                 } else {
-                    calculate_similarity(query_vec, None, None, &node.vec_data)
+                    calculate_similarity(query_vec, None, None, &node.vec_data, metric)
                 };
 
                 candidates.push(NodeSim(d, ep));
@@ -371,13 +444,16 @@ impl CPIndex {
                                                     h.vector_len as usize,
                                                 )
                                             };
-                                            cosine_sim_f32(query_vec, f32_v)
+                                            match metric {
+                                                DistanceMetric::Cosine => cosine_sim_f32(query_vec, f32_v),
+                                                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, f32_v).sqrt(),
+                                            }
                                         }
                                     } else {
                                         0.0
                                     }
                                 } else {
-                                    calculate_similarity(query_vec, None, None, &neighbor.vec_data)
+                                    calculate_similarity(query_vec, None, None, &neighbor.vec_data, metric)
                                 };
 
                                 if results.len() < ef
@@ -449,7 +525,7 @@ impl CPIndex {
             for &sel_id in &selected {
                 if let Some(sel_node) = self.nodes.get(&sel_id) {
                     let sim_cand_sel =
-                        calculate_similarity(cand_slice, None, None, &sel_node.vec_data);
+                        calculate_similarity(cand_slice, None, None, &sel_node.vec_data, self.config.distance_metric);
                     if sim_cand_sel > sim_q_cand {
                         is_diverse = false;
                         break;
@@ -544,7 +620,7 @@ impl CPIndex {
         // Phase 1: Descend down to the new node's insertion level (or top_layer)
         for layer in (level + 1..=top_layer).rev() {
             let mut w =
-                self.search_layer(&query_f32, &curr_entry_points, 1, layer, u128::MAX, None);
+                self.search_layer(&query_f32, &curr_entry_points, 1, layer, u128::MAX, None, self.config.distance_metric);
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
             }
@@ -560,6 +636,7 @@ impl CPIndex {
                 layer,
                 u128::MAX,
                 None,
+                self.config.distance_metric,
             );
 
             // extendCandidates: expand W with the neighbors of its elements
@@ -583,6 +660,7 @@ impl CPIndex {
                                             None,
                                             None,
                                             &adj_node.vec_data,
+                                            self.config.distance_metric,
                                         );
                                         extended_w.push(NodeSimMin(sim, adj_id));
                                     }
@@ -645,7 +723,7 @@ impl CPIndex {
                         let mut cand_heap = BinaryHeap::new();
                         for &n_target in &current_neighbors {
                             if let Some(nt) = self.nodes.get(&n_target) {
-                                let d = calculate_similarity(nb_v, None, None, &nt.vec_data);
+                                let d = calculate_similarity(nb_v, None, None, &nt.vec_data, self.config.distance_metric);
                                 cand_heap.push(NodeSimMin(d, n_target));
                             }
                         }
@@ -690,6 +768,7 @@ impl CPIndex {
                 layer,
                 u128::MAX,
                 vector_store,
+                self.config.distance_metric,
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
@@ -703,6 +782,7 @@ impl CPIndex {
             0,
             query_mask,
             vector_store,
+            self.config.distance_metric,
         );
 
         let mut result = w.into_sorted_vec();
@@ -726,6 +806,12 @@ impl CPIndex {
         buf.extend_from_slice(&(self.config.ef_construction as u64).to_le_bytes());
         buf.extend_from_slice(&(self.config.ef_search as u64).to_le_bytes());
         buf.extend_from_slice(&self.config.ml.to_le_bytes());
+        // V3+: distance metric byte (0 = Cosine, 1 = Euclidean)
+        let metric_byte: u8 = match self.config.distance_metric {
+            DistanceMetric::Cosine => 0,
+            DistanceMetric::Euclidean => 1,
+        };
+        buf.push(metric_byte);
 
         match self.entry_point {
             Some(ep) => {
@@ -819,6 +905,14 @@ impl CPIndex {
             pos += 8;
             config.ml = f64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
             pos += 8;
+        }
+        // V3+: distance metric byte
+        if version >= 3 && pos < data.len() {
+            config.distance_metric = match data[pos] {
+                1 => DistanceMetric::Euclidean,
+                _ => DistanceMetric::Cosine,
+            };
+            pos += 1;
         }
 
         if pos >= data.len() {
@@ -1170,3 +1264,4 @@ impl Default for CPIndex {
         Self::new()
     }
 }
+

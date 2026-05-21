@@ -15,6 +15,7 @@ use rand::{Rng, SeedableRng};
 
 use console::style;
 use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::node::DistanceMetric;
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -116,6 +117,7 @@ fn hnsw_hard_validation_certification() {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -142,6 +144,7 @@ fn hnsw_hard_validation_certification() {
             ef_construction: 400,
             ef_search: 200,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -168,6 +171,7 @@ fn hnsw_hard_validation_certification() {
             ef_construction: 500,
             ef_search: 350,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -369,3 +373,4 @@ fn hnsw_hard_validation_certification() {
         style("VANTA HNSW HARD VALIDATION COMPLETE").green().bold()
     );
 }
+

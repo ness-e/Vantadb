@@ -56,3 +56,4 @@ fn storage_gc_certification() {
         ));
     });
 }
+

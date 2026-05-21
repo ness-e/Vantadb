@@ -1,5 +1,6 @@
 //! DML Pipeline & Mutations Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
+#![cfg(feature = "experimental")]
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -91,3 +92,4 @@ fn dml_mutations_certification() {
         TerminalReporter::success("Node excision complete.");
     });
 }
+

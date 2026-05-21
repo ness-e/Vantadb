@@ -517,11 +517,70 @@ pub fn record_derived_full_scan_fallback() {
     DERIVED_FULL_SCAN_FALLBACKS_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
+fn get_native_memory() -> Option<(u64, u64)> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::fs::File;
+        use std::io::Read;
+        if let Ok(mut file) = File::open("/proc/self/statm") {
+            let mut content = String::new();
+            if file.read_to_string(&mut content).is_ok() {
+                let mut parts = content.split_whitespace();
+                if let (Some(size_str), Some(resident_str)) = (parts.next(), parts.next()) {
+                    if let (Ok(size_pages), Ok(resident_pages)) = (size_str.parse::<u64>(), resident_str.parse::<u64>()) {
+                        let page_size = 4096; // Standard page size on Linux
+                        return Some((resident_pages * page_size, size_pages * page_size));
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use libc::{mach_task_self, task_info, task_vm_info_data_t, TASK_VM_INFO, TASK_VM_INFO_COUNT};
+        use std::mem;
+        unsafe {
+            let mut info: task_vm_info_data_t = mem::zeroed();
+            let mut count = TASK_VM_INFO_COUNT;
+            let kr = task_info(
+                mach_task_self(),
+                TASK_VM_INFO,
+                &mut info as *mut task_vm_info_data_t as *mut _,
+                &mut count,
+            );
+            if kr == 0 {
+                return Some((info.resident_size as u64, info.virtual_size as u64));
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        use std::mem;
+        unsafe {
+            let mut counters: PROCESS_MEMORY_COUNTERS = mem::zeroed();
+            let process_handle = GetCurrentProcess();
+            if GetProcessMemoryInfo(
+                process_handle,
+                &mut counters,
+                mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+            ) != 0 {
+                return Some((counters.WorkingSetSize as u64, counters.PagefileUsage as u64));
+            }
+        }
+    }
+
+    None
+}
+
 /// Record a point-in-time memory breakdown from engine subsystems.
 ///
 /// Call this after significant state changes (startup, flush, rebuild) to
 /// keep the memory gauges current. The values are observational and come
-/// from `sysinfo` (process) and engine internals (HNSW, cache).
+/// from native OS APIs (Linux, macOS, Windows) with sysinfo as a fallback.
 pub fn record_memory_breakdown(
     hnsw_nodes: u64,
     hnsw_logical_bytes: u64,
@@ -529,8 +588,10 @@ pub fn record_memory_breakdown(
     cache_entries: u64,
     cache_cap_bytes: u64,
 ) {
-    // Process-scoped metrics via sysinfo
-    let (rss, virt) = {
+    let (rss, virt) = if let Some((rss, virt)) = get_native_memory() {
+        (rss, virt)
+    } else {
+        tracing::warn!("Native memory telemetry failed. Falling back to sysinfo.");
         use sysinfo::{Pid, System};
         let pid = Pid::from_u32(std::process::id());
         let mut sys = System::new();
@@ -626,3 +687,4 @@ pub fn export_metrics_text() -> String {
     }
     buffer
 }
+

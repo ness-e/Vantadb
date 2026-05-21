@@ -331,3 +331,4 @@ pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
         map(parse_query, Statement::Query),
     ))(i)
 }
+

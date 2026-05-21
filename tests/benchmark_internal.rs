@@ -81,6 +81,7 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: Some(text_q),
                 top_k: 10,
+                ..Default::default()
             })
             .expect("search");
         let elapsed = start_query.elapsed().as_secs_f64() * 1000.0; // milliseconds
@@ -103,6 +104,7 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: None,
                 top_k: 10,
+                ..Default::default()
             })
             .expect("search");
         let elapsed = start_query.elapsed().as_secs_f64() * 1000.0;
@@ -125,6 +127,7 @@ fn test_benchmark_internal_10k() {
                 filters: Default::default(),
                 text_query: Some(text_q),
                 top_k: 10,
+                ..Default::default()
             })
             .expect("search");
         let elapsed = start_query.elapsed().as_secs_f64() * 1000.0;
@@ -195,3 +198,4 @@ fn test_benchmark_internal_10k() {
 
     println!("Benchmark report saved to {}", report_path);
 }
+

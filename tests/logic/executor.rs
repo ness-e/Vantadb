@@ -40,3 +40,4 @@ fn engine_executor_certification() {
         TerminalReporter::success("Bitset filter and NN ranking integrated correctly.");
     });
 }
+

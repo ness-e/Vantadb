@@ -51,3 +51,4 @@ fn namespace_and_filter_paths_use_prefix_scans() {
         before.derived_full_scan_fallbacks
     );
 }
+

@@ -50,3 +50,4 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
     assert_eq!(filtered.records.len(), 1);
     assert_eq!(filtered.records[0].key, "a");
 }
+

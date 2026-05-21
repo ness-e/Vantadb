@@ -60,3 +60,4 @@ fn consolidate_node_keeps_metadata_readable() {
     assert_eq!(roundtrip.edges[0].target, 7);
     assert_eq!(roundtrip.edges[0].label, "creo");
 }
+

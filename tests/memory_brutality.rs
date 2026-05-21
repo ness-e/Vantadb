@@ -54,6 +54,7 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
             filters: Default::default(),
             text_query: None,
             top_k: 1,
+            ..Default::default()
         })
         .expect("search");
     assert_eq!(hits.len(), 1);
@@ -176,3 +177,4 @@ fn delete_without_explicit_flush_survives_reopen() {
         .expect("list");
     assert!(page.records.is_empty());
 }
+
