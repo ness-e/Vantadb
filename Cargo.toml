@@ -8,6 +8,7 @@ readme = "README.MD"
 keywords = ["database", "vector", "graph", "embedded", "rust"]
 categories = ["database-implementations"]
 
+
 [dependencies]
 # ── Core ──
 serde = { version = "1", features = ["derive"] }
