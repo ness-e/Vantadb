@@ -50,23 +50,35 @@ fn storage_engine_read_only_barrier_test() {
         // Pero de hecho, el backend in-memory o RocksDB de solo lectura requiere que el directorio exista si es read-only.
         // Primero abrimos y cerramos un StorageEngine de escritura normal para inicializar los archivos:
         {
-            let _init = StorageEngine::open(db_path.to_str().unwrap()).expect("Failed to init storage directory");
+            let _init = StorageEngine::open(db_path.to_str().unwrap())
+                .expect("Failed to init storage directory");
         }
 
         let config = VantaConfig::default()
             .with_read_only(true)
             .with_storage_path(db_path.to_str().unwrap().to_string());
 
-        let storage = StorageEngine::open_with_config(db_path.to_str().unwrap(), Some(config)).expect("Failed to open read-only engine");
+        let storage = StorageEngine::open_with_config(db_path.to_str().unwrap(), Some(config))
+            .expect("Failed to open read-only engine");
 
         let node = UnifiedNode::new(42);
         let insert_res = storage.insert(&node);
-        assert!(insert_res.is_err(), "Insert should fail on read-only storage");
+        assert!(
+            insert_res.is_err(),
+            "Insert should fail on read-only storage"
+        );
         let err_msg = insert_res.err().unwrap().to_string();
-        assert!(err_msg.contains("read-only"), "Error should mention read-only: {}", err_msg);
+        assert!(
+            err_msg.contains("read-only"),
+            "Error should mention read-only: {}",
+            err_msg
+        );
 
         let delete_res = storage.delete(42, "read-only validation test");
-        assert!(delete_res.is_err(), "Delete should fail on read-only storage");
+        assert!(
+            delete_res.is_err(),
+            "Delete should fail on read-only storage"
+        );
 
         let flush_res = storage.flush();
         assert!(flush_res.is_err(), "Flush should fail on read-only storage");
@@ -74,5 +86,3 @@ fn storage_engine_read_only_barrier_test() {
         TerminalReporter::success("Read-only barrier validated successfully.");
     });
 }
-
-

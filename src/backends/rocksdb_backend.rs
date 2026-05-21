@@ -285,4 +285,3 @@ impl StorageBackend for RocksDbBackend {
         }
     }
 }
-

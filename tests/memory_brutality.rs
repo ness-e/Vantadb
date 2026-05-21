@@ -177,4 +177,3 @@ fn delete_without_explicit_flush_survives_reopen() {
         .expect("list");
     assert!(page.records.is_empty());
 }
-

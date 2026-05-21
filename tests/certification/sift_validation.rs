@@ -46,4 +46,3 @@ fn validate_sift_dataset_integrity() {
 
     println!("SIFT1M Dataset Integrity: PASSED ✅");
 }
-

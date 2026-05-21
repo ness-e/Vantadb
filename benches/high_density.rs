@@ -131,4 +131,3 @@ fn high_density_benchmark(c: &mut Criterion) {
 
 criterion_group!(benches, high_density_benchmark);
 criterion_main!(benches);
-

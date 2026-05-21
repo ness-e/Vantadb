@@ -42,4 +42,3 @@ pub fn reported_version() -> Cow<'static, str> {
 pub fn version_label() -> String {
     format!("v{}", reported_version())
 }
-

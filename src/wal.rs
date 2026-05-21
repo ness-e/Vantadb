@@ -1,5 +1,5 @@
 use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
-use crc32c::crc32c;  // ← Importar función específica para evitar conflicto de namespace
+use crc32c::crc32c; // ← Importar función específica para evitar conflicto de namespace
 
 /// CRC32C (Castagnoli) using hardware-accelerated crate for performance
 /// Falls back to pure Rust implementation if hardware acceleration unavailable
@@ -22,8 +22,13 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WalRecord {
     Insert(UnifiedNode),
-    Update { id: u64, node: UnifiedNode },
-    Delete { id: u64 },
+    Update {
+        id: u64,
+        node: UnifiedNode,
+    },
+    Delete {
+        id: u64,
+    },
     /// Checkpoint with optional index checksum for integrity validation
     /// `index_checksum` is computed over serialized index state; None for backward compat
     /// `timestamp` allows ordering checkpoints for recovery decisions
@@ -38,10 +43,10 @@ pub enum WalRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
-    pub magic: [u8; 8],     // b"VANTAWAL"
-    pub version: u32,       // >= 1
-    pub flags: u32,         // 0
-    pub crc: u32,           // CRC32C Castagnoli de los primeros 16 bytes
+    pub magic: [u8; 8], // b"VANTAWAL"
+    pub version: u32,   // >= 1
+    pub flags: u32,     // 0
+    pub crc: u32,       // CRC32C Castagnoli de los primeros 16 bytes
 }
 
 impl WalHeader {
@@ -146,7 +151,7 @@ impl WalWriter {
             .read(true)
             .write(true)
             .create(true)
-            .truncate(false)  // ← Explicit for Clippy: preserve existing WAL data for recovery
+            .truncate(false) // ← Explicit for Clippy: preserve existing WAL data for recovery
             .open(&path)?;
 
         let file_len = file.metadata()?.len();
@@ -187,7 +192,9 @@ impl WalWriter {
                     match reader.read_exact(&mut record_bytes) {
                         Ok(_) => {
                             let payload = &record_bytes[0..len as usize];
-                            let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4].try_into().unwrap();
+                            let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4]
+                                .try_into()
+                                .unwrap();
                             let stored_crc = u32::from_le_bytes(crc_bytes);
                             let computed_crc = crc32c(payload);
                             if stored_crc == computed_crc {
@@ -275,7 +282,9 @@ impl WalReader {
         let file_len = file.metadata()?.len();
 
         if file_len < WalHeader::SIZE as u64 {
-            return Err(VantaError::WalError("WAL file is truncated or too small for header".to_string()));
+            return Err(VantaError::WalError(
+                "WAL file is truncated or too small for header".to_string(),
+            ));
         }
 
         // Leer y validar el header
@@ -343,11 +352,13 @@ impl WalRecord {
     /// Create a checkpoint record with optional index state for checksum computation
     pub fn create_checkpoint(node_count: u64, index_state: Option<&[u8]>) -> Self {
         let index_checksum = index_state.map(compute_crc32c);
-        let timestamp = Some(std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64);
-        
+        let timestamp = Some(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+        );
+
         WalRecord::Checkpoint {
             node_count,
             index_checksum,
@@ -357,7 +368,11 @@ impl WalRecord {
 
     /// Validate checkpoint integrity if checksum is present
     pub fn validate_checkpoint(&self, index_state: &[u8]) -> Result<()> {
-        if let WalRecord::Checkpoint { index_checksum: Some(expected), .. } = self {
+        if let WalRecord::Checkpoint {
+            index_checksum: Some(expected),
+            ..
+        } = self
+        {
             let computed = compute_crc32c(index_state);
             if computed != *expected {
                 return Err(VantaError::WalError(format!(
@@ -421,14 +436,14 @@ mod tests {
     fn test_checkpoint_validation() {
         let index_state = b"serialized_index_bytes";
         let checkpoint = WalRecord::create_checkpoint(42, Some(index_state));
-        
+
         // Valid checkpoint should pass
         assert!(checkpoint.validate_checkpoint(index_state).is_ok());
-        
+
         // Corrupted state should fail
         let corrupted = b"corrupted_index";
         assert!(checkpoint.validate_checkpoint(corrupted).is_err());
-        
+
         // Checkpoint without checksum should always pass validation
         let checkpoint_no_crc = WalRecord::Checkpoint {
             node_count: 42,
@@ -454,7 +469,9 @@ mod tests {
             let r = WalReader::open(&dir);
             assert!(r.is_err());
             match r.err().unwrap() {
-                VantaError::WALVersionMismatch { expected, found, .. } => {
+                VantaError::WALVersionMismatch {
+                    expected, found, ..
+                } => {
                     assert_eq!(expected, 1);
                     assert_eq!(found, 0);
                 }
@@ -484,7 +501,10 @@ mod tests {
         // 2. Corromper el WAL agregando basura trunca al final
         {
             let mut file = OpenOptions::new().append(true).open(&dir).unwrap();
-            file.write_all(b"\x0a\x00\x00\x00truncated garbage here that fails CRC or is cut off mid-way").unwrap();
+            file.write_all(
+                b"\x0a\x00\x00\x00truncated garbage here that fails CRC or is cut off mid-way",
+            )
+            .unwrap();
         }
 
         // 3. Abrir el WAL de nuevo con WalWriter
@@ -506,7 +526,8 @@ mod tests {
             r.replay_all(|rec| {
                 records.push(rec);
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
             assert_eq!(records.len(), 5);
             match &records[4] {
                 WalRecord::Insert(node) => assert_eq!(node.id, 4),
@@ -517,4 +538,3 @@ mod tests {
         let _ = std::fs::remove_file(&dir);
     }
 }
-

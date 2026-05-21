@@ -151,4 +151,3 @@ fn memory_telemetry_contract() {
         );
     });
 }
-

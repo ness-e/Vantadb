@@ -49,4 +49,3 @@ fn graph_traversal_certification() {
         TerminalReporter::success("BFS Traversal Axioms satisfied.");
     });
 }
-

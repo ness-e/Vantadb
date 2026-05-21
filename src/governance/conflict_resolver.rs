@@ -145,4 +145,3 @@ impl ConfidenceArbiter for ConflictResolver {
         ResolutionResult::Accept
     }
 }
-

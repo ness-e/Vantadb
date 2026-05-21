@@ -79,4 +79,3 @@ fn dql_parser_certification() {
         TerminalReporter::success("DML statement family parsing complete.");
     });
 }
-

@@ -86,4 +86,3 @@ fn deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths() {
     assert!(hybrid.contains(&"vector-only".to_string()));
     assert!(!hybrid.contains(&"filtered".to_string()));
 }
-

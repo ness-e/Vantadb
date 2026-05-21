@@ -10,14 +10,17 @@ pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
         "vanta_query_latency_ms",
         "Query execution times in ms",
     ))
-    .expect("FATAL: Failed to create QUERY_LATENCY histogram - metric name conflict or invalid config");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register QUERY_LATENCY - registry error");
+    .expect(
+        "FATAL: Failed to create QUERY_LATENCY histogram - metric name conflict or invalid config",
+    );
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register QUERY_LATENCY - registry error");
     hist
 });
 
 pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter =
-        IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents")
+    let counter = IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents")
         .expect("FATAL: Failed to create OOM_TRIPS counter - metric name conflict");
     METRICS_REGISTRY
         .register(Box::new(counter.clone()))
@@ -40,7 +43,9 @@ pub static STARTUP_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "Storage engine startup time in ms",
     ))
     .expect("FATAL: Failed to create STARTUP_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register STARTUP_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register STARTUP_LATENCY_MS");
     hist
 });
 
@@ -50,7 +55,9 @@ pub static WAL_REPLAY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "WAL replay time in ms during startup",
     ))
     .expect("FATAL: Failed to create WAL_REPLAY_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register WAL_REPLAY_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register WAL_REPLAY_LATENCY_MS");
     hist
 });
 
@@ -60,7 +67,9 @@ pub static ANN_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "Manual or startup ANN rebuild time in ms",
     ))
     .expect("FATAL: Failed to create ANN_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register ANN_REBUILD_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register ANN_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -70,7 +79,9 @@ pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "Derived namespace/payload index rebuild time in ms",
     ))
     .expect("FATAL: Failed to create DERIVED_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register DERIVED_REBUILD_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register DERIVED_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -80,7 +91,9 @@ pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
         "Derived text index rebuild time in ms",
     ))
     .expect("FATAL: Failed to create TEXT_INDEX_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register TEXT_INDEX_REBUILD_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register TEXT_INDEX_REBUILD_LATENCY_MS");
     hist
 });
 
@@ -150,7 +163,9 @@ pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
         "BM25 lexical memory query time in ms",
     ))
     .expect("FATAL: Failed to create TEXT_LEXICAL_QUERY_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register TEXT_LEXICAL_QUERY_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register TEXT_LEXICAL_QUERY_LATENCY_MS");
     hist
 });
 
@@ -208,7 +223,9 @@ pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
         "Hybrid memory query fusion time in ms",
     ))
     .expect("FATAL: Failed to create HYBRID_QUERY_LATENCY_MS histogram");
-    METRICS_REGISTRY.register(Box::new(hist.clone())).expect("FATAL: Failed to register HYBRID_QUERY_LATENCY_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register HYBRID_QUERY_LATENCY_MS");
     hist
 });
 
@@ -268,7 +285,9 @@ pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "Process resident set size in bytes (via sysinfo)",
     )
     .expect("FATAL: Failed to create PROCESS_RSS_BYTES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register PROCESS_RSS_BYTES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register PROCESS_RSS_BYTES");
     gauge
 });
 
@@ -278,7 +297,9 @@ pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "Process virtual memory in bytes (via sysinfo)",
     )
     .expect("FATAL: Failed to create PROCESS_VIRTUAL_BYTES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register PROCESS_VIRTUAL_BYTES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register PROCESS_VIRTUAL_BYTES");
     gauge
 });
 
@@ -288,7 +309,9 @@ pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
         "Number of nodes currently in the HNSW index",
     )
     .expect("FATAL: Failed to create HNSW_NODES_COUNT gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register HNSW_NODES_COUNT");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register HNSW_NODES_COUNT");
     gauge
 });
 
@@ -298,7 +321,9 @@ pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "Estimated logical memory footprint of HNSW nodes and neighbor layers",
     )
     .expect("FATAL: Failed to create HNSW_LOGICAL_BYTES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register HNSW_LOGICAL_BYTES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register HNSW_LOGICAL_BYTES");
     gauge
 });
 
@@ -308,7 +333,9 @@ pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "OS-reported resident bytes for VantaDB memory-mapped files when available",
     )
     .expect("FATAL: Failed to create MMAP_RESIDENT_BYTES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register MMAP_RESIDENT_BYTES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register MMAP_RESIDENT_BYTES");
     gauge
 });
 
@@ -318,7 +345,9 @@ pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
         "Number of entries in the volatile hot-node cache",
     )
     .expect("FATAL: Failed to create VOLATILE_CACHE_ENTRIES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register VOLATILE_CACHE_ENTRIES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register VOLATILE_CACHE_ENTRIES");
     gauge
 });
 
@@ -328,7 +357,9 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         "Maximum capacity in bytes for the volatile hot-node cache",
     )
     .expect("FATAL: Failed to create VOLATILE_CACHE_CAP_BYTES gauge");
-    METRICS_REGISTRY.register(Box::new(gauge.clone())).expect("FATAL: Failed to register VOLATILE_CACHE_CAP_BYTES");
+    METRICS_REGISTRY
+        .register(Box::new(gauge.clone()))
+        .expect("FATAL: Failed to register VOLATILE_CACHE_CAP_BYTES");
     gauge
 });
 
@@ -527,7 +558,9 @@ fn get_native_memory() -> Option<(u64, u64)> {
             if file.read_to_string(&mut content).is_ok() {
                 let mut parts = content.split_whitespace();
                 if let (Some(size_str), Some(resident_str)) = (parts.next(), parts.next()) {
-                    if let (Ok(size_pages), Ok(resident_pages)) = (size_str.parse::<u64>(), resident_str.parse::<u64>()) {
+                    if let (Ok(size_pages), Ok(resident_pages)) =
+                        (size_str.parse::<u64>(), resident_str.parse::<u64>())
+                    {
                         let page_size = 4096; // Standard page size on Linux
                         return Some((resident_pages * page_size, size_pages * page_size));
                     }
@@ -538,7 +571,9 @@ fn get_native_memory() -> Option<(u64, u64)> {
 
     #[cfg(target_os = "macos")]
     {
-        use libc::{mach_task_self, task_info, task_vm_info_data_t, TASK_VM_INFO, TASK_VM_INFO_COUNT};
+        use libc::{
+            mach_task_self, task_info, task_vm_info_data_t, TASK_VM_INFO, TASK_VM_INFO_COUNT,
+        };
         use std::mem;
         unsafe {
             let mut info: task_vm_info_data_t = mem::zeroed();
@@ -557,9 +592,11 @@ fn get_native_memory() -> Option<(u64, u64)> {
 
     #[cfg(target_os = "windows")]
     {
-        use windows_sys::Win32::System::ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
-        use windows_sys::Win32::System::Threading::GetCurrentProcess;
         use std::mem;
+        use windows_sys::Win32::System::ProcessStatus::{
+            GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
+        };
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
         unsafe {
             let mut counters: PROCESS_MEMORY_COUNTERS = mem::zeroed();
             let process_handle = GetCurrentProcess();
@@ -567,8 +604,12 @@ fn get_native_memory() -> Option<(u64, u64)> {
                 process_handle,
                 &mut counters,
                 mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-            ) != 0 {
-                return Some((counters.WorkingSetSize as u64, counters.PagefileUsage as u64));
+            ) != 0
+            {
+                return Some((
+                    counters.WorkingSetSize as u64,
+                    counters.PagefileUsage as u64,
+                ));
             }
         }
     }
@@ -687,4 +728,3 @@ pub fn export_metrics_text() -> String {
     }
     buffer
 }
-

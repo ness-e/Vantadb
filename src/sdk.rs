@@ -2061,7 +2061,11 @@ impl VantaEmbedded {
             if let Some(node) = engine.get(node_id)? {
                 if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
-                        hits.push(VantaMemorySearchHit { record, score, explanation: None });
+                        hits.push(VantaMemorySearchHit {
+                            record,
+                            score,
+                            explanation: None,
+                        });
                     }
                 }
             }
@@ -2105,7 +2109,9 @@ impl VantaEmbedded {
 
             let score = match distance_metric {
                 DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
-                DistanceMetric::Euclidean => -crate::index::euclidean_distance_squared_f32(query_vector, vector).sqrt(),
+                DistanceMetric::Euclidean => {
+                    -crate::index::euclidean_distance_squared_f32(query_vector, vector).sqrt()
+                }
             };
 
             hits.push(VantaMemorySearchHit {
@@ -2145,7 +2151,8 @@ impl VantaEmbedded {
 
         let budget = Self::hybrid_candidate_budget(top_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
-        let vector_hits = self.vector_memory_search(namespace, query_vector, filters, budget, distance_metric)?;
+        let vector_hits =
+            self.vector_memory_search(namespace, query_vector, filters, budget, distance_metric)?;
         let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
         let candidates_fused = hits.len() as u64;
         hits.truncate(top_k);
@@ -2417,8 +2424,12 @@ impl VantaEmbedded {
             let (hits, text_ranks, vector_ranks) = match (text_query, has_vector) {
                 (Some(text_query), true) => {
                     let budget = Self::hybrid_candidate_budget(request.top_k);
-                    let lexical_hits =
-                        self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
+                    let lexical_hits = self.lexical_search(
+                        &request.namespace,
+                        text_query,
+                        &request.filters,
+                        budget,
+                    )?;
                     let vector_hits = self.vector_memory_search(
                         &request.namespace,
                         &request.query_vector,
@@ -2460,7 +2471,13 @@ impl VantaEmbedded {
             let explained_hits = hits
                 .into_iter()
                 .map(|mut hit| {
-                    let explanation = Self::debug_explain_hit(&engine, hit.clone(), text_query, &text_ranks, &vector_ranks)?;
+                    let explanation = Self::debug_explain_hit(
+                        &engine,
+                        hit.clone(),
+                        text_query,
+                        &text_ranks,
+                        &vector_ranks,
+                    )?;
                     hit.explanation = Some(explanation);
                     Ok(hit)
                 })
@@ -2711,7 +2728,10 @@ impl VantaEmbedded {
         }
         hits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         hits.truncate(top_k);
-        Ok(hits.into_iter().map(|(node_id, distance)| VantaSearchHit { node_id, distance }).collect())
+        Ok(hits
+            .into_iter()
+            .map(|(node_id, distance)| VantaSearchHit { node_id, distance })
+            .collect())
     }
 
     /// Flush WAL and memory-mapped files to disk.
@@ -2733,9 +2753,17 @@ impl VantaEmbedded {
     }
 
     /// Add a directed edge between two nodes.
-    pub fn add_edge(&self, source_id: u64, target_id: u64, label: &str, weight: Option<f32>) -> Result<()> {
+    pub fn add_edge(
+        &self,
+        source_id: u64,
+        target_id: u64,
+        label: &str,
+        weight: Option<f32>,
+    ) -> Result<()> {
         let engine = self.engine_handle()?;
-        let mut node = engine.get(source_id)?.ok_or_else(|| VantaError::NodeNotFound(source_id))?;
+        let mut node = engine
+            .get(source_id)?
+            .ok_or_else(|| VantaError::NodeNotFound(source_id))?;
         node.edges.push(crate::node::Edge {
             target: target_id,
             label: label.to_string(),
@@ -2759,15 +2787,27 @@ impl VantaEmbedded {
         let executor = Executor::new(engine);
         let result = executor.execute(query)?;
         Ok(match result {
-            ExecutionResult::Read(nodes) => VantaQueryResult::Read(nodes.into_iter().map(Into::into).collect()),
-            ExecutionResult::Write { affected_nodes, message, node_id } => VantaQueryResult::Write { affected_nodes, message, node_id },
+            ExecutionResult::Read(nodes) => {
+                VantaQueryResult::Read(nodes.into_iter().map(Into::into).collect())
+            }
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => VantaQueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            },
             ExecutionResult::StaleContext { node_id } => VantaQueryResult::StaleContext { node_id },
         })
     }
 
     #[cfg(not(feature = "experimental"))]
     pub fn query(&self, _query: &str) -> Result<VantaQueryResult> {
-        Err(VantaError::Execution("query requires experimental feature".to_string()))
+        Err(VantaError::Execution(
+            "query requires experimental feature".to_string(),
+        ))
     }
 
     #[cfg(debug_assertions)]
@@ -3332,7 +3372,6 @@ impl VantaEmbedded {
         }
         Some(snippet)
     }
-
 }
 
 impl From<IndexRebuildReport> for VantaIndexRebuildReport {
@@ -3481,4 +3520,3 @@ impl From<UnifiedNode> for VantaNodeRecord {
         }
     }
 }
-

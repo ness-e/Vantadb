@@ -86,4 +86,3 @@ async fn hardware_certification_full() {
         TerminalReporter::success("Mathematical consistency verified.");
     });
 }
-

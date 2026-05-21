@@ -135,4 +135,3 @@ pub fn turbo_quant_similarity(
     // But since this is a dot product, we just return it.
     dot as f32 * (a_max_abs * b_max_abs) / 49.0
 }
-

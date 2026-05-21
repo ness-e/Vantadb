@@ -50,7 +50,8 @@ fn test_wal_durability_and_checkpoint_coherence() {
         // Reabrimos el WAL para escribir un cuarto registro
         let wal_path = dir.path().join("data").join("vanta.wal");
         let mut w = vantadb::wal::WalWriter::open(&wal_path).unwrap();
-        w.append(&vantadb::wal::WalRecord::Insert(UnifiedNode::new(104))).unwrap();
+        w.append(&vantadb::wal::WalRecord::Insert(UnifiedNode::new(104)))
+            .unwrap();
         w.sync().unwrap();
         assert_eq!(w.record_count(), 4);
     }
@@ -63,9 +64,11 @@ fn test_wal_durability_and_checkpoint_coherence() {
 
     // Validamos que el nodo 104 está presente en el índice reconstruido
     let hnsw = storage2.hnsw.read();
-    assert!(hnsw.nodes.contains_key(&104), "WAL replay should recover un-flushed node 104");
+    assert!(
+        hnsw.nodes.contains_key(&104),
+        "WAL replay should recover un-flushed node 104"
+    );
 
     session.success("WAL checkpoint_seq bypass successfully certified.");
     session.finish(true);
 }
-

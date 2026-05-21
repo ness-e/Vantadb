@@ -531,4 +531,3 @@ mod tests {
         assert_eq!(node.get_field("missing"), None);
     }
 }
-

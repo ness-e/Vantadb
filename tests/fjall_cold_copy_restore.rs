@@ -246,4 +246,3 @@ fn fjall_cold_copy_restore_preserves_all_retrieval_paths() {
         "startup_ms must be recorded after restore"
     );
 }
-

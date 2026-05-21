@@ -482,5 +482,3 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 7 PASSED.");
     });
 }
-
-

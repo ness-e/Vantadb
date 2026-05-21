@@ -311,4 +311,3 @@ fn sift1m_competitive_benchmark() {
 
     TerminalReporter::success("SIFT1M stress benchmark completed without parity claims.");
 }
-

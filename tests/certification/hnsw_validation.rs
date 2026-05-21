@@ -373,4 +373,3 @@ fn hnsw_hard_validation_certification() {
         style("VANTA HNSW HARD VALIDATION COMPLETE").green().bold()
     );
 }
-

@@ -384,7 +384,9 @@ impl CPIndex {
                             };
                             match metric {
                                 DistanceMetric::Cosine => cosine_sim_f32(query_vec, f32_vec),
-                                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, f32_vec).sqrt(),
+                                DistanceMetric::Euclidean => {
+                                    -euclidean_distance_squared_f32(query_vec, f32_vec).sqrt()
+                                }
                             }
                         }
                     } else {
@@ -445,15 +447,28 @@ impl CPIndex {
                                                 )
                                             };
                                             match metric {
-                                                DistanceMetric::Cosine => cosine_sim_f32(query_vec, f32_v),
-                                                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, f32_v).sqrt(),
+                                                DistanceMetric::Cosine => {
+                                                    cosine_sim_f32(query_vec, f32_v)
+                                                }
+                                                DistanceMetric::Euclidean => {
+                                                    -euclidean_distance_squared_f32(
+                                                        query_vec, f32_v,
+                                                    )
+                                                    .sqrt()
+                                                }
                                             }
                                         }
                                     } else {
                                         0.0
                                     }
                                 } else {
-                                    calculate_similarity(query_vec, None, None, &neighbor.vec_data, metric)
+                                    calculate_similarity(
+                                        query_vec,
+                                        None,
+                                        None,
+                                        &neighbor.vec_data,
+                                        metric,
+                                    )
                                 };
 
                                 if results.len() < ef
@@ -524,8 +539,13 @@ impl CPIndex {
             let mut is_diverse = true;
             for &sel_id in &selected {
                 if let Some(sel_node) = self.nodes.get(&sel_id) {
-                    let sim_cand_sel =
-                        calculate_similarity(cand_slice, None, None, &sel_node.vec_data, self.config.distance_metric);
+                    let sim_cand_sel = calculate_similarity(
+                        cand_slice,
+                        None,
+                        None,
+                        &sel_node.vec_data,
+                        self.config.distance_metric,
+                    );
                     if sim_cand_sel > sim_q_cand {
                         is_diverse = false;
                         break;
@@ -619,8 +639,15 @@ impl CPIndex {
 
         // Phase 1: Descend down to the new node's insertion level (or top_layer)
         for layer in (level + 1..=top_layer).rev() {
-            let mut w =
-                self.search_layer(&query_f32, &curr_entry_points, 1, layer, u128::MAX, None, self.config.distance_metric);
+            let mut w = self.search_layer(
+                &query_f32,
+                &curr_entry_points,
+                1,
+                layer,
+                u128::MAX,
+                None,
+                self.config.distance_metric,
+            );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
             }
@@ -723,7 +750,13 @@ impl CPIndex {
                         let mut cand_heap = BinaryHeap::new();
                         for &n_target in &current_neighbors {
                             if let Some(nt) = self.nodes.get(&n_target) {
-                                let d = calculate_similarity(nb_v, None, None, &nt.vec_data, self.config.distance_metric);
+                                let d = calculate_similarity(
+                                    nb_v,
+                                    None,
+                                    None,
+                                    &nt.vec_data,
+                                    self.config.distance_metric,
+                                );
                                 cand_heap.push(NodeSimMin(d, n_target));
                             }
                         }
@@ -1264,4 +1297,3 @@ impl Default for CPIndex {
         Self::new()
     }
 }
-

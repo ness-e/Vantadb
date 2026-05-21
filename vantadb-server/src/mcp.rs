@@ -93,7 +93,9 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
 
                         match spawn_res {
                             Ok(r) => r,
-                            Err(e) => error_code(-32603, &format!("Internal error: task panicked: {}", e)),
+                            Err(e) => {
+                                error_code(-32603, &format!("Internal error: task panicked: {}", e))
+                            }
                         }
                     }
                     Err(_) => error_code(-32603, "Internal error: semaphore closed"),
@@ -278,7 +280,7 @@ pub fn handle_tools_call(
 
             let text_query = args["text_query"].as_str().map(String::from);
             let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
-            
+
             let distance_metric = match args["distance_metric"].as_str() {
                 Some("euclidean") => vantadb::DistanceMetric::Euclidean,
                 _ => vantadb::DistanceMetric::Cosine,
@@ -290,7 +292,8 @@ pub fn handle_tools_call(
             if let Some(obj) = args["filters"].as_object() {
                 for (key, val) in obj {
                     if let Some(s) = val.as_str() {
-                        filters.insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
+                        filters
+                            .insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
                     } else if let Some(b) = val.as_bool() {
                         filters.insert(key.clone(), vantadb::sdk::VantaValue::Bool(b));
                     } else if let Some(i) = val.as_i64() {
@@ -417,4 +420,3 @@ pub fn handle_tools_call(
         _ => error_code(-32601, "Tool not found"),
     }
 }
-

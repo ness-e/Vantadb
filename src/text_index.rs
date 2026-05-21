@@ -494,4 +494,3 @@ mod tests {
         assert_eq!(spec.key_format, "namespace\\0token\\0key");
     }
 }
-

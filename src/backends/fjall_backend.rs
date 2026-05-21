@@ -236,4 +236,3 @@ impl StorageBackend for FjallBackend {
         }
     }
 }
-

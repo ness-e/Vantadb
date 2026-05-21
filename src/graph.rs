@@ -50,4 +50,3 @@ impl<'a> GraphTraverser<'a> {
         Ok(results)
     }
 }
-

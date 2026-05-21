@@ -134,4 +134,3 @@ fn test_bulk_property_migration() {
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
 }
-

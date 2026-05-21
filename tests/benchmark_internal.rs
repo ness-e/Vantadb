@@ -198,4 +198,3 @@ fn test_benchmark_internal_10k() {
 
     println!("Benchmark report saved to {}", report_path);
 }
-

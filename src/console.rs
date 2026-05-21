@@ -265,4 +265,3 @@ pub fn format_duration_ms(ms: u128) -> String {
         t => format!("{:.2}s", t as f64 / 1000.0),
     }
 }
-

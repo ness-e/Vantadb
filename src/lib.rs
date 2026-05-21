@@ -45,7 +45,9 @@ pub mod wal;
 // Re-exports for ergonomic API
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
-pub use node::{DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
+pub use node::{
+    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations,
+};
 pub use sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaEmbedded,
     VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
@@ -57,4 +59,3 @@ pub use sdk::{
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};
-

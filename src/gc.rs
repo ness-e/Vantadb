@@ -53,4 +53,3 @@ impl<'a> GcWorker<'a> {
         expired_count
     }
 }
-
