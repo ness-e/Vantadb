@@ -75,7 +75,7 @@ libc = "0.2"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tempfile = "3"
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.5", features = ["util"] }
 http = "1"
 futures = "0.3"
 console = "0.15"
