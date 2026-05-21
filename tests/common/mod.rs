@@ -3,7 +3,7 @@
 #[cfg(feature = "cli")]
 use console::{style, Emoji};
 #[cfg(feature = "cli")]
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -70,17 +70,34 @@ fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySa
 
 #[cfg(feature = "cli")]
 fn get_multi_progress() -> &'static MultiProgress {
-    MULTI_PROGRESS.get_or_init(MultiProgress::new)
+    MULTI_PROGRESS.get_or_init(|| {
+        // Stderr IS a TTY under `cargo test --nocapture`, unlike stdout which
+        // is captured. Routing here ensures indicatif can update lines in-place
+        // instead of printing a new line on every tick / set_message call.
+        MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(10))
+    })
 }
 
 #[cfg(feature = "cli")]
 fn get_global_bar() -> &'static ProgressBar {
     GLOBAL_BAR.get_or_init(|| {
-        let pb = ProgressBar::new(10);
-        pb.set_style(ProgressStyle::default_bar()
-            .template("{spinner:.green} \x1b[1;37m[{elapsed_precise}]\x1b[0m [{bar:40.cyan/blue}] \x1b[1;36m{pos}/{len}\x1b[0m \x1b[37m{msg}\x1b[0m")
-            .expect("Invalid progress template")
-            .progress_chars("█▉▊▋▌▍▎▏  "));
+        let pb = ProgressBar::with_draw_target(
+            10,
+            ProgressDrawTarget::stderr_with_hz(10),
+        );
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{spinner:.green} \x1b[1;37m[{elapsed_precise}]\x1b[0m \
+                     [{bar:40.cyan/blue}] \x1b[1;36m{pos}/{len}\x1b[0m \
+                     \x1b[37m{msg}\x1b[0m",
+                )
+                .expect("Invalid progress template")
+                .progress_chars("█▉▊▋▌▍▎▏  "),
+        );
+        // steady_tick makes indicatif own the render loop; without it every
+        // .set_message() call triggers a fresh print when stdout isn't a TTY.
+        pb.enable_steady_tick(std::time::Duration::from_millis(100));
         get_multi_progress().add(pb)
     })
 }
@@ -140,14 +157,15 @@ impl TerminalReporter {
     }
 
     pub fn create_progress(len: u64, msg: &str) -> ProgressBar {
-        let pb = ProgressBar::new(len);
+        let pb = ProgressBar::with_draw_target(len, ProgressDrawTarget::stderr_with_hz(10));
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("  {spinner:.cyan} {msg:.white} [{bar:25.cyan/blue}] {pos}/{len}")
+                .template("  {spinner:.cyan} {msg:.white} [{bar:30.cyan/blue}] {pos}/{len} ({eta})")
                 .expect("Invalid progress template")
                 .progress_chars("█▉▊▋▌▍▎▏  "),
         );
         pb.set_message(msg.to_string());
+        pb.enable_steady_tick(std::time::Duration::from_millis(80));
         get_multi_progress().add(pb)
     }
 
