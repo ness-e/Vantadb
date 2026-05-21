@@ -14,10 +14,10 @@ fn generate_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
 fn bench_hnsw_pure(c: &mut Criterion) {
     let dim = 1536;
     let count = 10_000;
-    
+
     let mut group = c.benchmark_group("hnsw_pure");
     group.sample_size(10);
-    
+
     group.bench_function("insert_10k", |b| {
         b.iter_custom(|iters| {
             let mut total_duration = std::time::Duration::new(0, 0);
@@ -32,15 +32,10 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                     distance_metric: vantadb::node::DistanceMetric::Cosine,
                 };
                 let mut index = CPIndex::new_with_config(config);
-                
+
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
-                    index.add(
-                        id as u64,
-                        u128::MAX,
-                        VectorRepresentations::Full(vec),
-                        0,
-                    );
+                    index.add(id as u64, u128::MAX, VectorRepresentations::Full(vec), 0);
                 }
                 total_duration += start.elapsed();
             }
@@ -59,7 +54,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
             distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let mut index = CPIndex::new_with_config(config);
-        
+
         for (id, vec) in vectors.iter().enumerate() {
             index.add(
                 id as u64,
@@ -68,19 +63,18 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                 0,
             );
         }
-        
+
         let queries = generate_vectors(100, dim);
-        
+
         b.iter(|| {
             for query in &queries {
                 criterion::black_box(index.search_nearest(query, None, None, u128::MAX, 10, None));
             }
         });
     });
-    
+
     group.finish();
 }
 
 criterion_group!(benches, bench_hnsw_pure);
 criterion_main!(benches);
-

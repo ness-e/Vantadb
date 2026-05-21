@@ -10,9 +10,9 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "llm")]
 use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Maximum duration the maintenance cycle may spend on data compression.
 #[cfg(feature = "llm")]
@@ -397,14 +397,12 @@ impl MaintenanceWorker {
             let ancestor_ids: Vec<String> = group.iter().map(|n| n.id.to_string()).collect();
             summary_node.set_field("ancestors", FieldValue::String(ancestor_ids.join(",")));
 
-            if let Ok(vec) = llm
-                .generate_embedding(
-                    summary_node
-                        .get_field("content")
-                        .and_then(|f| f.as_str())
-                        .unwrap_or(""),
-                )
-            {
+            if let Ok(vec) = llm.generate_embedding(
+                summary_node
+                    .get_field("content")
+                    .and_then(|f| f.as_str())
+                    .unwrap_or(""),
+            ) {
                 summary_node.vector = crate::node::VectorRepresentations::Full(vec);
                 summary_node.flags.set(NodeFlags::HAS_VECTOR);
             }
@@ -439,7 +437,8 @@ impl MaintenanceWorker {
 
     #[cfg(not(feature = "llm"))]
     fn execute_data_compression(_storage: &Arc<StorageEngine>, _candidates: &[UnifiedNode]) {
-        tracing::warn!("⚠️ [Maintenance] Data compression requested but `llm` feature is disabled.");
+        tracing::warn!(
+            "⚠️ [Maintenance] Data compression requested but `llm` feature is disabled."
+        );
     }
 }
-

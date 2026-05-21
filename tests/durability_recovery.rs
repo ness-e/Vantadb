@@ -270,4 +270,3 @@ fn test_wal_replay_mixed_mutations() {
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
 }
-

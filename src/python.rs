@@ -64,4 +64,3 @@ fn vantadb(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ClientEngine>()?;
     Ok(())
 }
-

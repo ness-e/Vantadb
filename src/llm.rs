@@ -61,17 +61,12 @@ impl LlmClient {
             input: text,
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .json(&req_body)
-            .send()
-            .map_err(|e| {
-                VantaError::Execution(format!(
-                    "Network error communicating with Inference Bridge: {}",
-                    e
-                ))
-            })?;
+        let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
+            VantaError::Execution(format!(
+                "Network error communicating with Inference Bridge: {}",
+                e
+            ))
+        })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -157,17 +152,12 @@ impl LlmClient {
             stream: false,
         };
 
-        let response = self
-            .client
-            .post(&url)
-            .json(&req_body)
-            .send()
-            .map_err(|e| {
-                VantaError::Execution(format!(
-                    "Network error during Semantic Summarization: {}",
-                    e
-                ))
-            })?;
+        let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
+            VantaError::Execution(format!(
+                "Network error during Semantic Summarization: {}",
+                e
+            ))
+        })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -200,4 +190,3 @@ struct OllamaGenerateRequest<'a> {
 struct OllamaGenerateResponse {
     response: String,
 }
-

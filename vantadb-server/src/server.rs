@@ -145,4 +145,3 @@ async fn execute_query(
         }),
     }
 }
-

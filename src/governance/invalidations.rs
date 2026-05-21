@@ -112,4 +112,3 @@ pub fn invalidation_listener(receiver: mpsc::Receiver<InvalidationEvent>) {
     }
     eprintln!("[INVALIDATION] Listener channel closed. Dispatcher shut down.");
 }
-

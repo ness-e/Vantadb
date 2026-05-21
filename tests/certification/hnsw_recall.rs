@@ -121,4 +121,3 @@ fn recall_certification_runner() {
         TerminalReporter::success("Recall and Latency standards satisfied.");
     });
 }
-

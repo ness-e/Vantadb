@@ -1,13 +1,13 @@
 //! 🔍 Fuzzing basado en propiedades (Property-Based Testing) para validación cross-platform.
-//! 
+//!
 //! Ejecuta: `cargo test fuzz_proptest`
-//! 
+//!
 //! Este módulo valida que el código de deserialización de VantaDB maneja inputs
 //! aleatorios/corruptos de forma segura, sin entrar en pánico.
 
 use proptest::prelude::*;
-use vantadb::wal::WalRecord;
 use vantadb::node::UnifiedNode;
+use vantadb::wal::WalRecord;
 
 proptest! {
     /// Test 1: WalRecord debe manejar bytes aleatorios sin panic
@@ -32,7 +32,7 @@ proptest! {
         let node = UnifiedNode::new(id);
         let serialized = bincode::serialize(&node).unwrap();
         let deserialized: UnifiedNode = bincode::deserialize(&serialized).unwrap();
-        
+
         // Verificar que el ID se preserva en el roundtrip
         prop_assert_eq!(node.id, deserialized.id);
     }

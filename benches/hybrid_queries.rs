@@ -75,7 +75,7 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     text_query: Some("alpha retrieval".to_string()),
                     top_k: 10,
                     ..Default::default()
-                    })
+                })
                 .expect("text search");
             black_box(hits);
         })
@@ -92,7 +92,7 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     text_query: None,
                     top_k: 10,
                     ..Default::default()
-                    })
+                })
                 .expect("vector search");
             black_box(hits);
         })
@@ -109,7 +109,7 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
                     text_query: Some("alpha retrieval".to_string()),
                     top_k: 10,
                     ..Default::default()
-                    })
+                })
                 .expect("hybrid search");
             black_box(hits);
         })
@@ -118,4 +118,3 @@ fn bench_memory_retrieval_modes(c: &mut Criterion) {
 
 criterion_group!(benches, bench_memory_retrieval_modes);
 criterion_main!(benches);
-

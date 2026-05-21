@@ -92,4 +92,3 @@ impl VantaConfig {
         self
     }
 }
-

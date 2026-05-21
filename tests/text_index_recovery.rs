@@ -540,7 +540,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
             text_query: Some("alpha".to_string()),
             top_k: 2,
             ..Default::default()
-            })
+        })
         .expect("tf search");
     assert_eq!(hits[0].record.key, "tf-high");
     assert!(hits[0].score > hits[1].score);
@@ -584,7 +584,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
             text_query: Some("anchor".to_string()),
             top_k: 2,
             ..Default::default()
-            })
+        })
         .expect("length search");
     assert_eq!(hits[0].record.key, "short");
     assert!(hits[0].score > hits[1].score);
@@ -635,7 +635,7 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
         text_query: Some("tie".to_string()),
         top_k: 2,
         ..Default::default()
-        })
+    })
     .expect("metrics search");
     let after = db.operational_metrics();
     assert!(after.text_lexical_queries > before.text_lexical_queries);
@@ -660,7 +660,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
                 text_query: Some("alpha".to_string()),
                 top_k: 10,
                 ..Default::default()
-                })
+            })
             .expect("hybrid search");
         let keys: Vec<_> = hybrid.iter().map(|hit| hit.record.key.as_str()).collect();
         assert_eq!(keys[0], "both");
@@ -676,7 +676,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
                 text_query: Some("alpha".to_string()),
                 top_k: 10,
                 ..Default::default()
-                })
+            })
             .expect("debug hybrid plan");
         assert_eq!(debug.route, "hybrid");
         assert_eq!(debug.budget, 40);
@@ -714,7 +714,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         text_query: Some("alpha".to_string()),
         top_k: 10,
         ..Default::default()
-        });
+    });
     assert!(text.is_err());
     let hybrid = read_only.search(VantaMemorySearchRequest {
         namespace: "agent/main".to_string(),
@@ -723,7 +723,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         text_query: Some("alpha".to_string()),
         top_k: 10,
         ..Default::default()
-        });
+    });
     assert!(hybrid.is_err());
     drop(read_only);
 
@@ -736,7 +736,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
             text_query: Some("alpha".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("hybrid after repair");
     assert_eq!(hybrid[0].record.key, "both");
 }
@@ -769,7 +769,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             text_query: Some("alpha".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("filtered hybrid");
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.key, "keep");
@@ -784,7 +784,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             text_query: Some("alpha".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("empty filtered hybrid");
     assert!(empty.is_empty());
 
@@ -807,7 +807,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
             text_query: Some("alpha".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("hybrid after import reopen");
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.key, "keep");
@@ -833,7 +833,7 @@ fn hybrid_ordering_is_deterministic_on_ties() {
             text_query: Some("tie".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("hybrid tie search");
     let keys: Vec<_> = hits.into_iter().map(|hit| hit.record.key).collect();
     assert_eq!(keys, vec!["a".to_string(), "b".to_string()]);
@@ -853,7 +853,7 @@ fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
             text_query: Some("\"alpha fused\"".to_string()),
             top_k: 10,
             ..Default::default()
-            })
+        })
         .expect("explain hybrid");
     assert_eq!(explain.route, "hybrid");
     let both = explain
@@ -888,7 +888,7 @@ fn debug_memory_search_plan_reports_all_routes() {
             text_query: Some("alpha".to_string()),
             top_k: 2,
             ..Default::default()
-            })
+        })
         .expect("debug text plan");
     assert_eq!(text.route, "text-only");
     assert_eq!(text.budget, 2);
@@ -903,7 +903,7 @@ fn debug_memory_search_plan_reports_all_routes() {
             text_query: None,
             top_k: 2,
             ..Default::default()
-            })
+        })
         .expect("debug vector plan");
     assert_eq!(vector.route, "vector-only");
     assert_eq!(vector.budget, 2);
@@ -918,7 +918,7 @@ fn debug_memory_search_plan_reports_all_routes() {
             text_query: Some("alpha".to_string()),
             top_k: 0,
             ..Default::default()
-            })
+        })
         .expect("debug empty plan");
     assert_eq!(empty.route, "empty");
     assert_eq!(empty.budget, 0);
@@ -998,4 +998,3 @@ fn text_index_deep_audit_and_logical_repair_workflow() {
     assert_eq!(post_repair_report.doc_len_errors, 0);
     assert_eq!(post_repair_report.value_mismatches, 0);
 }
-

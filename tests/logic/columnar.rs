@@ -28,4 +28,3 @@ fn columnar_engine_certification() {
         TerminalReporter::success("Apache Arrow record batch generated successfully.");
     });
 }
-

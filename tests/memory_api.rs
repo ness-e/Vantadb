@@ -362,12 +362,16 @@ fn memory_euclidean_and_explainable_ranking() {
 
     let mut input1 = VantaMemoryInput::new("agent/main", "vec-1", "payload 1");
     input1.vector = Some(vec![1.0, 0.0, 0.0]);
-    input1.metadata.insert("category".to_string(), field_string("test"));
+    input1
+        .metadata
+        .insert("category".to_string(), field_string("test"));
     db.put(input1).expect("put vec-1");
 
     let mut input2 = VantaMemoryInput::new("agent/main", "vec-2", "payload 2");
     input2.vector = Some(vec![0.0, 1.0, 0.0]);
-    input2.metadata.insert("category".to_string(), field_string("test"));
+    input2
+        .metadata
+        .insert("category".to_string(), field_string("test"));
     db.put(input2).expect("put vec-2");
 
     // Buscar con distancia Euclidiana y explain = true
@@ -402,10 +406,10 @@ fn memory_euclidean_and_explainable_ranking() {
         explain: false,
     };
 
-    let hits_no_explain = db.search(request_no_explain).expect("search without explain");
+    let hits_no_explain = db
+        .search(request_no_explain)
+        .expect("search without explain");
     assert_eq!(hits_no_explain.len(), 2);
     assert!(hits_no_explain[0].explanation.is_none());
     assert!(hits_no_explain[1].explanation.is_none());
 }
-
-

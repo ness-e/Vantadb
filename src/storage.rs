@@ -38,25 +38,29 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
     if len == 0 || addr.is_null() {
         return Some(0);
     }
-    
+
     let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
-    let page_size = if page_size <= 0 { 4096 } else { page_size as usize };
-    
+    let page_size = if page_size <= 0 {
+        4096
+    } else {
+        page_size as usize
+    };
+
     let addr_val = addr as usize;
     let aligned_addr = addr_val & !(page_size - 1);
     let offset = addr_val - aligned_addr;
     let aligned_len = (len + offset + page_size - 1) & !(page_size - 1);
     let num_pages = aligned_len / page_size;
-    
+
     const CHUNK_PAGES: usize = 65536;
     let mut resident_pages = 0u64;
     let mut vec_buffer = vec![0u8; CHUNK_PAGES.min(num_pages)];
-    
+
     for chunk_start_page in (0..num_pages).step_by(CHUNK_PAGES) {
         let pages_in_chunk = (num_pages - chunk_start_page).min(CHUNK_PAGES);
         let chunk_addr = (aligned_addr + chunk_start_page * page_size) as *mut libc::c_void;
         let chunk_len = pages_in_chunk * page_size;
-        
+
         let res = unsafe {
             libc::mincore(
                 chunk_addr,
@@ -64,7 +68,7 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
                 vec_buffer.as_mut_ptr() as *mut libc::c_char,
             )
         };
-        
+
         if res == 0 {
             for i in 0..pages_in_chunk {
                 if (vec_buffer[i] & 1) != 0 {
@@ -77,7 +81,7 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
             return None;
         }
     }
-    
+
     Some(resident_pages * page_size as u64)
 }
 
@@ -110,7 +114,7 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
 
     for chunk_start_page in (0..num_pages).step_by(CHUNK_PAGES) {
         let pages_in_chunk = (num_pages - chunk_start_page).min(CHUNK_PAGES);
-        
+
         for (i, info_entry) in info_buffer.iter_mut().enumerate().take(pages_in_chunk) {
             let page_addr = aligned_addr + (chunk_start_page + i) * page_size;
             info_entry.VirtualAddress = page_addr as *mut _;
@@ -121,13 +125,7 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
         }
 
         let cb = (pages_in_chunk * std::mem::size_of::<PSAPI_WORKING_SET_EX_INFORMATION>()) as u32;
-        let res = unsafe {
-            QueryWorkingSetEx(
-                h_process,
-                info_buffer.as_mut_ptr() as *mut _,
-                cb,
-            )
-        };
+        let res = unsafe { QueryWorkingSetEx(h_process, info_buffer.as_mut_ptr() as *mut _, cb) };
 
         if res != 0 {
             for info_entry in info_buffer.iter().take(pages_in_chunk) {
@@ -1176,7 +1174,11 @@ impl StorageEngine {
         if current_wal_seq > 0 {
             let seq_bytes = bincode::serialize(&current_wal_seq)
                 .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-            self.backend.put(BackendPartition::InternalMetadata, b"checkpoint_seq", &seq_bytes)?;
+            self.backend.put(
+                BackendPartition::InternalMetadata,
+                b"checkpoint_seq",
+                &seq_bytes,
+            )?;
             self.backend.flush()?;
         }
 
@@ -1397,9 +1399,8 @@ impl StorageEngine {
 
         // Logical estimate: HNSW structures + vector store file size + cached nodes
         // Note: This is an upper bound; actual RAM usage may be lower due to OS paging.
-        let logical = hnsw.estimate_memory_bytes() as u64
-            + vector_store.size
-            + (cache.len() as u64 * 1536); // ~1.5KB per cached node (conservative estimate)
+        let logical =
+            hnsw.estimate_memory_bytes() as u64 + vector_store.size + (cache.len() as u64 * 1536); // ~1.5KB per cached node (conservative estimate)
 
         let physical = engine_mmap_resident_bytes(&hnsw, &vector_store);
 
@@ -1432,4 +1433,3 @@ impl StorageEngine {
         std::process::exit(1);
     }
 }
-

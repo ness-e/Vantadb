@@ -124,4 +124,3 @@ fn chaos_integrity_certification() {
     // Final Report for this suite
     TerminalReporter::print_certification_summary();
 }
-

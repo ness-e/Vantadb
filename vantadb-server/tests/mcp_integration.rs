@@ -31,9 +31,8 @@ async fn mcp_protocol_certification() {
 
     harness.execute("Protocol: Tool Execution & State Mutability", || {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = std::sync::Arc::new(
-            StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap(),
-        );
+        let storage =
+            std::sync::Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
         let executor = Executor::new(&storage);
 
         TerminalReporter::sub_step("Testing get_node_neighbors tool...");
@@ -46,8 +45,7 @@ async fn mcp_protocol_certification() {
             "arguments": { "node_id": 100 }
         }));
 
-        let tool_res =
-            handle_tools_call(&params, &executor, &storage).expect("Tool call failed");
+        let tool_res = handle_tools_call(&params, &executor, &storage).expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("\"confidence_score\":0.99"));
 

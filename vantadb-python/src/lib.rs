@@ -5,7 +5,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
-use vantadb::DistanceMetric;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaEmbedded, VantaExportReport,
     VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
@@ -14,6 +13,7 @@ use vantadb::sdk::{
     VantaSearchExplanationHit, VantaStorageTier, VantaTextIndexAuditReport,
     VantaTextIndexRepairReport, VantaValue,
 };
+use vantadb::DistanceMetric;
 
 fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
     if value.is_none() {
@@ -627,15 +627,16 @@ impl VantaDB {
     ) -> PyResult<PyObject> {
         let engine = self.engine.clone();
         let namespace = namespace.map(|s| s.to_string());
-        let report = py.allow_threads(move || {
-            let ns_ref = namespace.as_deref();
-            if deep {
-                engine.audit_text_index_deep(ns_ref)
-            } else {
-                engine.audit_text_index(ns_ref)
-            }
-        })
-        .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
+        let report = py
+            .allow_threads(move || {
+                let ns_ref = namespace.as_deref();
+                if deep {
+                    engine.audit_text_index_deep(ns_ref)
+                } else {
+                    engine.audit_text_index(ns_ref)
+                }
+            })
+            .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
         text_index_audit_report_to_pydict(py, &report)
     }
 
@@ -805,4 +806,3 @@ fn vantadb_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
 }
-

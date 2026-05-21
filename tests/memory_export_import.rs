@@ -178,4 +178,3 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
         .expect("restored hybrid search");
     assert_eq!(hybrid_hits[0].record.key, "restore");
 }
-
