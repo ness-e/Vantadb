@@ -6,10 +6,10 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use serde_json::json;
-use vantadb_server::mcp::{handle_initialize, handle_tools_call, handle_tools_list};
 use vantadb::executor::Executor;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
+use vantadb_server::mcp::{handle_initialize, handle_tools_call, handle_tools_list};
 
 #[tokio::test]
 async fn mcp_protocol_certification() {
@@ -31,7 +31,9 @@ async fn mcp_protocol_certification() {
 
     harness.execute("Protocol: Tool Execution & State Mutability", || {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = std::sync::Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
+        let storage = std::sync::Arc::new(
+            StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap(),
+        );
         let executor = Executor::new(&storage);
 
         TerminalReporter::sub_step("Testing get_node_neighbors tool...");
@@ -44,8 +46,8 @@ async fn mcp_protocol_certification() {
             "arguments": { "node_id": 100 }
         }));
 
-        let tool_res = handle_tools_call(&params, &executor, &storage)
-            .expect("Tool call failed");
+        let tool_res =
+            handle_tools_call(&params, &executor, &storage).expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("\"confidence_score\":0.99"));
 
@@ -54,8 +56,8 @@ async fn mcp_protocol_certification() {
             "name": "query_lisp",
             "arguments": { "query": "(INSERT :node {:label \"MCP_TEST\"})" }
         }));
-        let lisp_res = handle_tools_call(&lisp_params, &executor, &storage)
-            .expect("Lisp execution failed");
+        let lisp_res =
+            handle_tools_call(&lisp_params, &executor, &storage).expect("Lisp execution failed");
         assert!(lisp_res["content"][0]["text"]
             .as_str()
             .unwrap()
@@ -64,4 +66,3 @@ async fn mcp_protocol_certification() {
         TerminalReporter::success("MCP tool dispatcher correctly routed and executed calls.");
     });
 }
-
