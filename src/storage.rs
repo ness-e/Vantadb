@@ -61,13 +61,7 @@ pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
         let chunk_addr = (aligned_addr + chunk_start_page * page_size) as *mut libc::c_void;
         let chunk_len = pages_in_chunk * page_size;
 
-        let res = unsafe {
-            libc::mincore(
-                chunk_addr,
-                chunk_len,
-                vec_buffer.as_mut_ptr() as *mut libc::c_char,
-            )
-        };
+        let res = unsafe { libc::mincore(chunk_addr, chunk_len, vec_buffer.as_mut_ptr()) };
 
         if res == 0 {
             for i in 0..pages_in_chunk {

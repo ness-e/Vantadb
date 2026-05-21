@@ -2763,7 +2763,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let mut node = engine
             .get(source_id)?
-            .ok_or_else(|| VantaError::NodeNotFound(source_id))?;
+            .ok_or(VantaError::NodeNotFound(source_id))?;
         node.edges.push(crate::node::Edge {
             target: target_id,
             label: label.to_string(),
@@ -2784,8 +2784,8 @@ impl VantaEmbedded {
     #[cfg(feature = "experimental")]
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
         let engine = self.engine_handle()?;
-        let executor = Executor::new(engine);
-        let result = executor.execute(query)?;
+        let executor = Executor::new(&engine);
+        let result = executor.execute_hybrid(query)?;
         Ok(match result {
             ExecutionResult::Read(nodes) => {
                 VantaQueryResult::Read(nodes.into_iter().map(Into::into).collect())
@@ -2799,7 +2799,7 @@ impl VantaEmbedded {
                 message,
                 node_id,
             },
-            ExecutionResult::StaleContext { node_id } => VantaQueryResult::StaleContext { node_id },
+            ExecutionResult::StaleContext(node_id) => VantaQueryResult::StaleContext { node_id },
         })
     }
 
