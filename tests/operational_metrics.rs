@@ -54,7 +54,8 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
-        })
+            ..Default::default()
+            })
         .expect("text search");
     assert_eq!(text_hits.len(), 1);
     let after_text = reopened.operational_metrics();
@@ -70,7 +71,8 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: None,
             top_k: 5,
-        })
+            ..Default::default()
+            })
         .expect("vector search");
     assert_eq!(vector_hits.len(), 1);
     let after_vector = reopened.operational_metrics();
@@ -84,7 +86,8 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
-        })
+            ..Default::default()
+            })
         .expect("hybrid search");
     assert_eq!(hybrid_hits.len(), 1);
     let after_hybrid = reopened.operational_metrics();
@@ -120,3 +123,4 @@ fn metrics_track_import_errors() {
     let after = db.operational_metrics();
     assert!(after.import_errors > before.import_errors);
 }
+

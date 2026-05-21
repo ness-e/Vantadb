@@ -278,3 +278,4 @@ fn test_fjall_backend_opens_all_partitions() {
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
 }
+

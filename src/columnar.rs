@@ -39,3 +39,4 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
 
     Ok(batch)
 }
+

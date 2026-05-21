@@ -157,3 +157,4 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// Introspect the capabilities of this backend instance.
     fn capabilities(&self) -> BackendCapabilities;
 }
+

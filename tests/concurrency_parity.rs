@@ -171,3 +171,4 @@ fn test_interleaved_read_write_parity() {
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
 }
+

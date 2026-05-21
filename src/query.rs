@@ -200,3 +200,4 @@ impl Query {
 /// Technically identical to `LogicalPlan` — it decides what to scan,
 /// how to filter, and which traversal strategy to execute.
 pub type QueryPlanner = LogicalPlan;
+

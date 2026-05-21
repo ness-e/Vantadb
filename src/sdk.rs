@@ -1,10 +1,11 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
+#[cfg(feature = "experimental")]
 use crate::executor::{ExecutionResult, Executor};
 use crate::hardware::{HardwareCapabilities, HardwareProfile};
 use crate::index::cosine_sim_f32;
-use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::node::{DistanceMetric, FieldValue, UnifiedNode, VectorRepresentations};
 use crate::storage::{BackendKind, IndexRebuildReport, StorageEngine};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -136,13 +137,32 @@ pub struct VantaMemorySearchRequest {
     pub filters: VantaMemoryMetadata,
     pub text_query: Option<String>,
     pub top_k: usize,
+    /// Distance metric for vector similarity. Defaults to Cosine.
+    pub distance_metric: DistanceMetric,
+    /// When true, each result will carry a `VantaSearchExplanation`.
+    pub explain: bool,
+}
+
+impl Default for VantaMemorySearchRequest {
+    fn default() -> Self {
+        Self {
+            namespace: String::new(),
+            query_vector: Vec::new(),
+            filters: Default::default(),
+            text_query: None,
+            top_k: 10,
+            distance_metric: DistanceMetric::Cosine,
+            explain: false,
+        }
+    }
 }
 
 /// Stable vector search hit for persistent memory records.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemorySearchHit {
     pub record: VantaMemoryRecord,
     pub score: f32,
+    pub explanation: Option<VantaSearchExplanationHit>,
 }
 
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
@@ -735,6 +755,14 @@ fn matches_memory_filters(record: &VantaMemoryRecord, filters: &VantaMemoryMetad
 }
 
 impl VantaEmbedded {
+    pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
+        let config = engine.config.clone();
+        Self {
+            engine: Arc::new(RwLock::new(Some(engine))),
+            config,
+        }
+    }
+
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let config = VantaConfig {
             storage_path: path.as_ref().to_string_lossy().into_owned(),
@@ -2033,7 +2061,7 @@ impl VantaEmbedded {
             if let Some(node) = engine.get(node_id)? {
                 if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
-                        hits.push(VantaMemorySearchHit { record, score });
+                        hits.push(VantaMemorySearchHit { record, score, explanation: None });
                     }
                 }
             }
@@ -2060,6 +2088,7 @@ impl VantaEmbedded {
         query_vector: &[f32],
         filters: &VantaMemoryMetadata,
         top_k: usize,
+        distance_metric: DistanceMetric,
     ) -> Result<Vec<VantaMemorySearchHit>> {
         if query_vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
@@ -2074,9 +2103,15 @@ impl VantaEmbedded {
                 continue;
             }
 
+            let score = match distance_metric {
+                DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
+                DistanceMetric::Euclidean => -crate::index::euclidean_distance_squared_f32(query_vector, vector).sqrt(),
+            };
+
             hits.push(VantaMemorySearchHit {
-                score: cosine_sim_f32(query_vector, vector),
+                score,
                 record,
+                explanation: None,
             });
         }
 
@@ -2100,6 +2135,7 @@ impl VantaEmbedded {
         text_query: &str,
         filters: &VantaMemoryMetadata,
         top_k: usize,
+        distance_metric: DistanceMetric,
     ) -> Result<Vec<VantaMemorySearchHit>> {
         let started = Instant::now();
         if top_k == 0 {
@@ -2109,7 +2145,7 @@ impl VantaEmbedded {
 
         let budget = Self::hybrid_candidate_budget(top_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
-        let vector_hits = self.vector_memory_search(namespace, query_vector, filters, budget)?;
+        let vector_hits = self.vector_memory_search(namespace, query_vector, filters, budget, distance_metric)?;
         let mut hits = Self::fuse_rrf(lexical_hits, vector_hits);
         let candidates_fused = hits.len() as u64;
         hits.truncate(top_k);
@@ -2376,6 +2412,63 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
 
+        if request.explain {
+            let engine = self.engine_handle()?;
+            let (hits, text_ranks, vector_ranks) = match (text_query, has_vector) {
+                (Some(text_query), true) => {
+                    let budget = Self::hybrid_candidate_budget(request.top_k);
+                    let lexical_hits =
+                        self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
+                    let vector_hits = self.vector_memory_search(
+                        &request.namespace,
+                        &request.query_vector,
+                        &request.filters,
+                        budget,
+                        request.distance_metric,
+                    )?;
+                    let text_ranks = Self::debug_rank_map(&lexical_hits);
+                    let vector_ranks = Self::debug_rank_map(&vector_hits);
+                    let (mut hits, _report) =
+                        crate::planner::fuse_rrf_with_report(lexical_hits, vector_hits);
+                    hits.truncate(request.top_k);
+                    (hits, text_ranks, vector_ranks)
+                }
+                (Some(text_query), false) => {
+                    let hits = self.lexical_search(
+                        &request.namespace,
+                        text_query,
+                        &request.filters,
+                        request.top_k,
+                    )?;
+                    let text_ranks = Self::debug_rank_map(&hits);
+                    (hits, text_ranks, BTreeMap::new())
+                }
+                (None, true) => {
+                    let hits = self.vector_memory_search(
+                        &request.namespace,
+                        &request.query_vector,
+                        &request.filters,
+                        request.top_k,
+                        request.distance_metric,
+                    )?;
+                    let vector_ranks = Self::debug_rank_map(&hits);
+                    (hits, BTreeMap::new(), vector_ranks)
+                }
+                (None, false) => (Vec::new(), BTreeMap::new(), BTreeMap::new()),
+            };
+
+            let explained_hits = hits
+                .into_iter()
+                .map(|mut hit| {
+                    let explanation = Self::debug_explain_hit(&engine, hit.clone(), text_query, &text_ranks, &vector_ranks)?;
+                    hit.explanation = Some(explanation);
+                    Ok(hit)
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            return Ok(explained_hits);
+        }
+
         match (text_query, has_vector) {
             (Some(text_query), true) => {
                 crate::metrics::record_planner_hybrid_query();
@@ -2385,6 +2478,7 @@ impl VantaEmbedded {
                     text_query,
                     &request.filters,
                     request.top_k,
+                    request.distance_metric,
                 )
             }
             (Some(text_query), false) => {
@@ -2403,6 +2497,7 @@ impl VantaEmbedded {
                     &request.query_vector,
                     &request.filters,
                     request.top_k,
+                    request.distance_metric,
                 )
             }
             (None, false) => Ok(Vec::new()),
@@ -2813,6 +2908,7 @@ impl VantaEmbedded {
                     &request.query_vector,
                     &request.filters,
                     budget,
+                    request.distance_metric,
                 )?;
                 let text_candidates = lexical_hits.len();
                 let vector_candidates = vector_hits.len();
@@ -2850,6 +2946,7 @@ impl VantaEmbedded {
                     &request.query_vector,
                     &request.filters,
                     request.top_k,
+                    request.distance_metric,
                 )?;
                 Ok(VantaMemorySearchDebugReport {
                     route: "vector-only".to_string(),
@@ -2893,8 +2990,14 @@ impl VantaEmbedded {
         }
 
         let engine = self.engine_handle()?;
-        let (route, hits, text_ranks, vector_ranks, fusion_report) = match (text_query, has_vector)
-        {
+        #[allow(clippy::type_complexity)]
+        let (route, hits, text_ranks, vector_ranks, fusion_report): (
+            String,
+            Vec<VantaMemorySearchHit>,
+            std::collections::BTreeMap<(String, String), usize>,
+            std::collections::BTreeMap<(String, String), usize>,
+            Option<VantaHybridFusionReport>,
+        ) = match (text_query, has_vector) {
             (Some(text_query), true) => {
                 let budget = Self::hybrid_candidate_budget(request.top_k);
                 let lexical_hits =
@@ -2904,6 +3007,7 @@ impl VantaEmbedded {
                     &request.query_vector,
                     &request.filters,
                     budget,
+                    request.distance_metric,
                 )?;
                 let text_ranks = Self::debug_rank_map(&lexical_hits);
                 let vector_ranks = Self::debug_rank_map(&vector_hits);
@@ -2940,6 +3044,7 @@ impl VantaEmbedded {
                     &request.query_vector,
                     &request.filters,
                     request.top_k,
+                    request.distance_metric,
                 )?;
                 let vector_ranks = Self::debug_rank_map(&hits);
                 (
@@ -3163,6 +3268,7 @@ impl VantaEmbedded {
             .collect())
     }
 
+    #[cfg(feature = "experimental")]
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
         let engine = self.engine_handle()?;
         let executor = Executor::new(engine.as_ref());
@@ -3300,6 +3406,7 @@ impl From<FieldValue> for VantaValue {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl From<ExecutionResult> for VantaQueryResult {
     fn from(result: ExecutionResult) -> Self {
         match result {
@@ -3369,3 +3476,4 @@ impl From<UnifiedNode> for VantaNodeRecord {
         }
     }
 }
+

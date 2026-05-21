@@ -3,6 +3,14 @@ use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+/// Metric type used for vector distance/similarity calculations.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub enum DistanceMetric {
+    #[default]
+    Cosine,
+    Euclidean,
+}
+
 // ─── Vector Data ───────────────────────────────────────────
 
 /// Vector storage — supports tiered precision (Hybrid Quantization)
@@ -523,3 +531,4 @@ mod tests {
         assert_eq!(node.get_field("missing"), None);
     }
 }
+

@@ -73,3 +73,4 @@ fn python_bridge_certification() {
         TerminalReporter::success("Capabilities surface is stable and additive.");
     });
 }
+

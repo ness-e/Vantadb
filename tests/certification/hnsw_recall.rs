@@ -11,6 +11,7 @@ use console::style;
 use rand::{thread_rng, Rng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::node::DistanceMetric;
 
 fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
     let mut rng = thread_rng();
@@ -71,6 +72,7 @@ fn recall_certification_runner() {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (24_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
         };
         let mut index = CPIndex::new_with_config(config);
 
@@ -119,3 +121,4 @@ fn recall_certification_runner() {
         TerminalReporter::success("Recall and Latency standards satisfied.");
     });
 }
+

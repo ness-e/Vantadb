@@ -49,3 +49,4 @@ fn hnsw_core_logic_certification() {
         TerminalReporter::success("Greedy search converged on expected neighbors.");
     });
 }
+

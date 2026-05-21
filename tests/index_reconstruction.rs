@@ -158,3 +158,4 @@ fn test_index_reconstruction_from_storage() {
 fn zzz_print_summary() {
     TerminalReporter::print_certification_summary();
 }
+

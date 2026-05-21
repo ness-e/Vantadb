@@ -11,12 +11,15 @@ pub mod config;
 pub mod console;
 pub mod engine;
 pub mod error;
+#[cfg(feature = "experimental")]
 pub mod eval;
+#[cfg(feature = "experimental")]
 pub mod executor;
 pub mod gc;
 #[cfg(feature = "governance")]
 pub mod governance;
 pub mod governor;
+#[cfg(feature = "experimental")]
 pub mod graph;
 pub mod hardware;
 pub mod index;
@@ -26,6 +29,7 @@ pub mod llm;
 pub mod metadata;
 pub mod metrics;
 pub mod node;
+#[cfg(feature = "experimental")]
 pub mod parser;
 pub mod planner;
 #[cfg(feature = "python_sdk")]
@@ -41,14 +45,16 @@ pub mod wal;
 // Re-exports for ergonomic API
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
-pub use node::{Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
+pub use node::{DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations};
 pub use sdk::{
-    VantaCapabilities, VantaEdgeRecord, VantaEmbedded, VantaExportReport, VantaFields,
-    VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
-    VantaQueryResult, VantaRuntimeProfile, VantaSearchHit, VantaStorageTier,
-    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaEmbedded,
+    VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
+    VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
+    VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
+    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
+    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
+    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};
+

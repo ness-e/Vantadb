@@ -166,6 +166,7 @@ fn memory_api_filters() {
             filters,
             text_query: None,
             top_k: 5,
+            ..Default::default()
         })
         .expect("search");
     assert_eq!(hits.len(), 1);
@@ -178,6 +179,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("second".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("text-only search");
     assert_eq!(text_hits.len(), 1);
@@ -196,6 +198,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("\"first second\"".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("phrase search");
     assert_eq!(phrase_hits.len(), 1);
@@ -208,6 +211,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("\"first second\"".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("debug explain");
     assert_eq!(explain.route, "text-only");
@@ -224,6 +228,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("first".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("hybrid search");
     assert!(hybrid_hits.len() >= 2);
@@ -237,6 +242,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("second".to_string()),
             top_k: 0,
+            ..Default::default()
         })
         .expect("hybrid top_k zero");
     assert!(empty.is_empty());
@@ -248,6 +254,7 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("   ".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("whitespace text query falls back to vector");
     assert_eq!(whitespace_text_query[0].record.key, "first");
@@ -336,6 +343,7 @@ fn read_only_rejects_mutations_without_changing_db_files() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
+            ..Default::default()
         })
         .expect("read-only text search");
     assert_eq!(hits.len(), 1);
@@ -346,3 +354,58 @@ fn read_only_rejects_mutations_without_changing_db_files() {
         "read-only operations must not change DB files"
     );
 }
+
+#[test]
+fn memory_euclidean_and_explainable_ranking() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    let mut input1 = VantaMemoryInput::new("agent/main", "vec-1", "payload 1");
+    input1.vector = Some(vec![1.0, 0.0, 0.0]);
+    input1.metadata.insert("category".to_string(), field_string("test"));
+    db.put(input1).expect("put vec-1");
+
+    let mut input2 = VantaMemoryInput::new("agent/main", "vec-2", "payload 2");
+    input2.vector = Some(vec![0.0, 1.0, 0.0]);
+    input2.metadata.insert("category".to_string(), field_string("test"));
+    db.put(input2).expect("put vec-2");
+
+    // Buscar con distancia Euclidiana y explain = true
+    let request_explain = VantaMemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        filters: Default::default(),
+        text_query: None,
+        top_k: 2,
+        distance_metric: vantadb::DistanceMetric::Euclidean,
+        explain: true,
+    };
+
+    let hits_explain = db.search(request_explain).expect("search with explain");
+    assert_eq!(hits_explain.len(), 2);
+    assert_eq!(hits_explain[0].record.key, "vec-1"); // Más cercano
+    assert_eq!(hits_explain[1].record.key, "vec-2"); // Más lejano
+
+    // Validar que la explicación de ranking esté presente
+    assert!(hits_explain[0].explanation.is_some());
+    let explanation = hits_explain[0].explanation.as_ref().unwrap();
+    assert_eq!(explanation.identity, "vec-1");
+
+    // Buscar con explain = false para validar que no se devuelvan explicaciones innecesarias
+    let request_no_explain = VantaMemorySearchRequest {
+        namespace: "agent/main".to_string(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        filters: Default::default(),
+        text_query: None,
+        top_k: 2,
+        distance_metric: vantadb::DistanceMetric::Euclidean,
+        explain: false,
+    };
+
+    let hits_no_explain = db.search(request_no_explain).expect("search without explain");
+    assert_eq!(hits_no_explain.len(), 2);
+    assert!(hits_no_explain[0].explanation.is_none());
+    assert!(hits_no_explain[1].explanation.is_none());
+}
+
+

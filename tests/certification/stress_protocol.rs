@@ -139,6 +139,7 @@ fn stress_protocol_certification() {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (16_f64).ln(),
+            distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let index = build_index(&dataset, config);
         let recall = compute_recall(&index, &queries, &dataset, k);
@@ -175,6 +176,7 @@ fn stress_protocol_certification() {
                     300
                 },
                 ml: 1.0 / (32_f64).ln(),
+                distance_metric: vantadb::node::DistanceMetric::Cosine,
             };
             let vecs = gen_vectors(n, dims, seed);
             let dataset: Vec<(u64, Vec<f32>)> = vecs
@@ -282,6 +284,7 @@ fn stress_protocol_certification() {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let sizes = [1_000, 5_000, 10_000, 50_000];
         let mut memories = Vec::new();
@@ -332,6 +335,7 @@ fn stress_protocol_certification() {
             ef_construction: 200,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let original = build_index(&dataset, config);
         let recall_before = compute_recall(&original, &queries, &dataset, k);
@@ -416,6 +420,7 @@ fn stress_protocol_certification() {
             ef_construction: 400,
             ef_search: 200,
             ml: 1.0 / (32_f64).ln(),
+            distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let vecs = gen_vectors(n, dims, seed);
         let dataset: Vec<(u64, Vec<f32>)> = vecs
@@ -448,6 +453,7 @@ fn stress_protocol_certification() {
                 ef_construction: if n <= 10000 { 200 } else { 400 },
                 ef_search: if n <= 10000 { 100 } else { 200 },
                 ml: 1.0 / (32_f64).ln(),
+                distance_metric: vantadb::node::DistanceMetric::Cosine,
             };
             let vecs = gen_vectors(n, dims, seed);
             let dataset: Vec<(u64, Vec<f32>)> = vecs
@@ -476,3 +482,5 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 7 PASSED.");
     });
 }
+
+

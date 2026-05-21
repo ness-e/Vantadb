@@ -26,6 +26,8 @@ rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
 # ── Async + Integrations + Server ──
+tokio = { version = "1", features = ["sync", "rt"] }
+crc32c = "0.5"
 reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
 serde_json = "1.0"
 prometheus = "0.14"
@@ -44,17 +46,30 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 twox-hash = "2.1.2"
 
 [features]
-default = ["llm", "governance"]
+default = ["cli"]
 cli = ["dep:indicatif", "dep:console"]
 llm = ["reqwest"]
 governance = []
 python_sdk = ["pyo3"]
-experimental = []
+# === EXPERIMENTAL (no usar en producción) ===
+experimental = ["eval", "executor", "parser", "graph", "mcp"]
+# Módulos experimentales individuales (para desarrollo)
+eval = []
+executor = []
+parser = []
+graph = []
+mcp = []
 custom-allocator = ["mimalloc"]
 
 [dependencies.mimalloc]
 version = "0.1"
 optional = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_System_ProcessStatus", "Win32_System_Threading", "Win32_Foundation"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
@@ -65,6 +80,7 @@ http = "1"
 futures = "0.3"
 console = "0.15"
 indicatif = "0.17"
+proptest = "1"  # ← Añadido: Property-based testing para fuzzing cross-platform
 
 [[bench]]
 name = "hybrid_queries"
@@ -76,6 +92,10 @@ harness = false
 
 [[bench]]
 name = "stress_test"
+harness = false
+
+[[bench]]
+name = "hnsw_pure"
 harness = false
 
 [[bin]]

@@ -157,6 +157,7 @@ fn apply_rrf_contributions(
             .or_insert_with(|| VantaMemorySearchHit {
                 record: hit.record,
                 score: contribution,
+                explanation: None,
             });
     }
 }
@@ -244,7 +245,6 @@ mod tests {
     fn make_hit(ns: &str, key: &str, score: f32, node_id: u64) -> VantaMemorySearchHit {
         use crate::sdk::{VantaMemoryMetadata, VantaMemoryRecord};
         VantaMemorySearchHit {
-            score,
             record: VantaMemoryRecord {
                 namespace: ns.to_string(),
                 key: key.to_string(),
@@ -256,6 +256,8 @@ mod tests {
                 node_id,
                 vector: None,
             },
+            score,
+            explanation: None,
         }
     }
 

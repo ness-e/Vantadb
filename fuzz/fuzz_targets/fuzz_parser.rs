@@ -24,3 +24,4 @@ fuzz_target!(|data: &[u8]| {
     // 3. Statement-level parser (DDL-style)
     let _ = vantadb::parser::parse_statement(input);
 });
+

@@ -31,7 +31,7 @@ async fn mcp_protocol_certification() {
 
     harness.execute("Protocol: Tool Execution & State Mutability", || {
         let temp_dir = tempfile::tempdir().unwrap();
-        let storage = StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap();
+        let storage = std::sync::Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
         let executor = Executor::new(&storage);
 
         TerminalReporter::sub_step("Testing get_node_neighbors tool...");
@@ -64,3 +64,4 @@ async fn mcp_protocol_certification() {
         TerminalReporter::success("MCP tool dispatcher correctly routed and executed calls.");
     });
 }
+

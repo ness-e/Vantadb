@@ -7,6 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
+use crc32c::crc32c;  // ← Importar función específica para evitar conflicto de namespace
+
+/// CRC32C (Castagnoli) using hardware-accelerated crate for performance
+/// Falls back to pure Rust implementation if hardware acceleration unavailable
+#[inline]
+pub fn compute_crc32c(data: &[u8]) -> u32 {
+    crc32c::crc32c(data)
+}
 
 // ─── WAL Record ────────────────────────────────────────────
 
@@ -16,7 +24,14 @@ pub enum WalRecord {
     Insert(UnifiedNode),
     Update { id: u64, node: UnifiedNode },
     Delete { id: u64 },
-    Checkpoint { node_count: u64 },
+    /// Checkpoint with optional index checksum for integrity validation
+    /// `index_checksum` is computed over serialized index state; None for backward compat
+    /// `timestamp` allows ordering checkpoints for recovery decisions
+    Checkpoint {
+        node_count: u64,
+        index_checksum: Option<u32>,
+        timestamp: Option<u64>,
+    },
 }
 
 // ─── WAL Header ────────────────────────────────────────────
@@ -131,6 +146,7 @@ impl WalWriter {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)  // ← Explicit for Clippy: preserve existing WAL data for recovery
             .open(&path)?;
 
         let file_len = file.metadata()?.len();
@@ -321,22 +337,37 @@ impl WalReader {
     }
 }
 
-// ─── CRC32C (Castagnoli) ───────────────────────────────────
+// ─── Checkpoint Helpers ───────────────────────────────────
 
-/// CRC32C (Castagnoli polynomial 0x1EDC6F41, reflected 0x82F63B78)
-pub fn crc32c(data: &[u8]) -> u32 {
-    let mut crc: u32 = 0xFFFF_FFFF;
-    for &byte in data {
-        crc ^= byte as u32;
-        for _ in 0..8 {
-            if crc & 1 != 0 {
-                crc = (crc >> 1) ^ 0x82F6_3B78;
-            } else {
-                crc >>= 1;
-            }
+impl WalRecord {
+    /// Create a checkpoint record with optional index state for checksum computation
+    pub fn create_checkpoint(node_count: u64, index_state: Option<&[u8]>) -> Self {
+        let index_checksum = index_state.map(compute_crc32c);
+        let timestamp = Some(std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64);
+        
+        WalRecord::Checkpoint {
+            node_count,
+            index_checksum,
+            timestamp,
         }
     }
-    !crc
+
+    /// Validate checkpoint integrity if checksum is present
+    pub fn validate_checkpoint(&self, index_state: &[u8]) -> Result<()> {
+        if let WalRecord::Checkpoint { index_checksum: Some(expected), .. } = self {
+            let computed = compute_crc32c(index_state);
+            if computed != *expected {
+                return Err(VantaError::WalError(format!(
+                    "Checkpoint index checksum mismatch: expected={:#x}, computed={:#x}",
+                    expected, computed
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -354,8 +385,9 @@ mod tests {
             w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
             w.append(&WalRecord::Delete { id: 1 }).unwrap();
+            w.append(&WalRecord::create_checkpoint(2, None)).unwrap();
             w.sync().unwrap();
-            assert_eq!(w.record_count(), 3);
+            assert_eq!(w.record_count(), 4);
         }
 
         {
@@ -366,17 +398,44 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-            assert_eq!(records.len(), 3);
+            assert_eq!(records.len(), 4);
+            // Verify checkpoint was read correctly
+            if let WalRecord::Checkpoint { node_count, .. } = &records[3] {
+                assert_eq!(*node_count, 2);
+            } else {
+                panic!("Expected Checkpoint at index 3");
+            }
         }
 
         let _ = std::fs::remove_file(&dir);
     }
 
     #[test]
-    fn test_crc32c_deterministic() {
+    fn test_compute_crc32c_deterministic() {
         let data = b"vanta wal test";
-        assert_eq!(crc32c(data), crc32c(data));
-        assert_ne!(crc32c(data), crc32c(b"vanta wal tesx"));
+        assert_eq!(compute_crc32c(data), compute_crc32c(data));
+        assert_ne!(compute_crc32c(data), compute_crc32c(b"vanta wal tesx"));
+    }
+
+    #[test]
+    fn test_checkpoint_validation() {
+        let index_state = b"serialized_index_bytes";
+        let checkpoint = WalRecord::create_checkpoint(42, Some(index_state));
+        
+        // Valid checkpoint should pass
+        assert!(checkpoint.validate_checkpoint(index_state).is_ok());
+        
+        // Corrupted state should fail
+        let corrupted = b"corrupted_index";
+        assert!(checkpoint.validate_checkpoint(corrupted).is_err());
+        
+        // Checkpoint without checksum should always pass validation
+        let checkpoint_no_crc = WalRecord::Checkpoint {
+            node_count: 42,
+            index_checksum: None,
+            timestamp: None,
+        };
+        assert!(checkpoint_no_crc.validate_checkpoint(b"any_state").is_ok());
     }
 
     #[test]
@@ -411,32 +470,33 @@ mod tests {
         let dir = std::env::temp_dir().join("vanta_test_wal_healing");
         let _ = std::fs::remove_file(&dir);
 
-        // 1. Escribir 3 registros válidos
+        // 1. Escribir 3 registros válidos + checkpoint
         {
             let mut w = WalWriter::open(&dir).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(3))).unwrap();
+            w.append(&WalRecord::create_checkpoint(3, None)).unwrap();
             w.sync().unwrap();
-            assert_eq!(w.record_count(), 3);
+            assert_eq!(w.record_count(), 4);
         }
 
         // 2. Corromper el WAL agregando basura trunca al final
         {
-            let mut file = OpenOptions::new().write(true).append(true).open(&dir).unwrap();
+            let mut file = OpenOptions::new().append(true).open(&dir).unwrap();
             file.write_all(b"\x0a\x00\x00\x00truncated garbage here that fails CRC or is cut off mid-way").unwrap();
         }
 
         // 3. Abrir el WAL de nuevo con WalWriter
         {
             let mut w = WalWriter::open(&dir).unwrap();
-            // Debe haber truncado la basura y cargado la cantidad correcta de registros (3)
-            assert_eq!(w.record_count(), 3);
+            // Debe haber truncado la basura y cargado la cantidad correcta de registros (4)
+            assert_eq!(w.record_count(), 4);
 
             // Intentar escribir un nuevo registro
             w.append(&WalRecord::Insert(UnifiedNode::new(4))).unwrap();
             w.sync().unwrap();
-            assert_eq!(w.record_count(), 4);
+            assert_eq!(w.record_count(), 5);
         }
 
         // 4. Leer con WalReader y verificar integridad
@@ -447,13 +507,14 @@ mod tests {
                 records.push(rec);
                 Ok(())
             }).unwrap();
-            assert_eq!(records.len(), 4);
-            match &records[3] {
+            assert_eq!(records.len(), 5);
+            match &records[4] {
                 WalRecord::Insert(node) => assert_eq!(node.id, 4),
-                _ => panic!("Expected Insert node at index 3"),
+                _ => panic!("Expected Insert node at index 4"),
             }
         }
 
         let _ = std::fs::remove_file(&dir);
     }
 }
+

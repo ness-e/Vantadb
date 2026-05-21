@@ -5,12 +5,14 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
+use vantadb::DistanceMetric;
 use vantadb::sdk::{
-    VantaCapabilities, VantaEmbedded, VantaExportReport, VantaImportReport,
-    VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord,
-    VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile, VantaStorageTier,
-    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    VantaBm25TermContribution, VantaCapabilities, VantaEmbedded, VantaExportReport,
+    VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput,
+    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
+    VantaSearchExplanationHit, VantaStorageTier, VantaTextIndexAuditReport,
+    VantaTextIndexRepairReport, VantaValue,
 };
 
 fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
@@ -171,10 +173,43 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
     Ok(dict.into())
 }
 
+fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("token", &term.token)?;
+    dict.set_item("tf", term.tf)?;
+    dict.set_item("df", term.df)?;
+    dict.set_item("doc_len", term.doc_len)?;
+    dict.set_item("contribution", term.contribution)?;
+    Ok(dict.into())
+}
+
+fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("identity", &exp.identity)?;
+    dict.set_item("score", exp.score)?;
+    dict.set_item("snippet", exp.snippet.clone())?;
+    dict.set_item("matched_tokens", exp.matched_tokens.clone())?;
+    dict.set_item("matched_phrases", exp.matched_phrases.clone())?;
+
+    let bm25_terms = PyList::empty(py);
+    for term in &exp.bm25_terms {
+        bm25_terms.append(bm25_term_to_pydict(py, term)?)?;
+    }
+    dict.set_item("bm25_terms", bm25_terms)?;
+    dict.set_item("rrf_text_rank", exp.rrf_text_rank)?;
+    dict.set_item("rrf_vector_rank", exp.rrf_vector_rank)?;
+
+    Ok(dict.into())
+}
+
 fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<PyObject> {
     let dict = PyDict::new(py);
     dict.set_item("score", hit.score)?;
     dict.set_item("record", memory_record_to_pydict(py, &hit.record)?)?;
+    match &hit.explanation {
+        Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, exp)?)?,
+        None => dict.set_item("explanation", py.None())?,
+    }
     Ok(dict.into())
 }
 
@@ -495,7 +530,7 @@ impl VantaDB {
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
     fn search_memory(
         &self,
         py: Python,
@@ -504,13 +539,22 @@ impl VantaDB {
         filters: Option<&PyDict>,
         text_query: Option<String>,
         top_k: usize,
+        distance_metric: Option<&str>,
+        explain: bool,
     ) -> PyResult<Vec<PyObject>> {
+        let metric = match distance_metric {
+            Some("euclidean") => DistanceMetric::Euclidean,
+            _ => DistanceMetric::Cosine,
+        };
+
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k,
+            distance_metric: metric,
+            explain,
         };
 
         let engine = self.engine.clone();
@@ -761,3 +805,4 @@ fn vantadb_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
 }
+

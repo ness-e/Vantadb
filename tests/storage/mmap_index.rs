@@ -116,3 +116,4 @@ fn mmap_vector_index_certification() {
         TerminalReporter::success("Memory and MMap backend equivalence confirmed.");
     });
 }
+

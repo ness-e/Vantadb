@@ -200,3 +200,4 @@ struct OllamaGenerateRequest<'a> {
 struct OllamaGenerateResponse {
     response: String,
 }
+

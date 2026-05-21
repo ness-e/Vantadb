@@ -161,6 +161,23 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 }
             },
             {
+                "name": "search_memory",
+                "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, and explain.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace for search" },
+                        "query_vector": { "type": "array", "items": {"type": "number"}, "description": "Optional query vector" },
+                        "text_query": { "type": "string", "description": "Optional lexical query string" },
+                        "top_k": { "type": "number", "description": "Top K hits to return, default is 10" },
+                        "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"], "description": "Distance metric, default is cosine" },
+                        "explain": { "type": "boolean", "description": "If true, returns explainable ranking details, default is false" },
+                        "filters": { "type": "object", "description": "Optional metadata key-value filters" }
+                    },
+                    "required": ["namespace"]
+                }
+            },
+            {
                 "name": "get_node_neighbors",
                 "description": "Inspects neighbors or lineage of a node (Volatile or Archived).",
                 "inputSchema": {
@@ -199,7 +216,7 @@ pub fn handle_tools_list() -> Result<Value, Value> {
 pub fn handle_tools_call(
     params: &Option<Value>,
     executor: &Executor<'_>,
-    storage: &StorageEngine,
+    storage: &Arc<StorageEngine>,
 ) -> Result<Value, Value> {
     let p = params
         .as_ref()
@@ -240,6 +257,68 @@ pub fn handle_tools_call(
                 }
                 Err(e) => Ok(
                     json!({"isError": true, "content": [{"type": "text", "text": format!("LISP Runtime Error: {}", e)}]}),
+                ),
+            }
+        }
+        "search_memory" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'namespace'"}))?
+                .to_string();
+
+            let query_vector = if let Some(arr) = args["query_vector"].as_array() {
+                let mut v = Vec::with_capacity(arr.len());
+                for val in arr {
+                    v.push(val.as_f64().unwrap_or(0.0) as f32);
+                }
+                v
+            } else {
+                Vec::new()
+            };
+
+            let text_query = args["text_query"].as_str().map(String::from);
+            let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
+            
+            let distance_metric = match args["distance_metric"].as_str() {
+                Some("euclidean") => vantadb::DistanceMetric::Euclidean,
+                _ => vantadb::DistanceMetric::Cosine,
+            };
+
+            let explain = args["explain"].as_bool().unwrap_or(false);
+
+            let mut filters = vantadb::sdk::VantaMemoryMetadata::new();
+            if let Some(obj) = args["filters"].as_object() {
+                for (key, val) in obj {
+                    if let Some(s) = val.as_str() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
+                    } else if let Some(b) = val.as_bool() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Bool(b));
+                    } else if let Some(i) = val.as_i64() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Int(i));
+                    } else if let Some(f) = val.as_f64() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Float(f));
+                    }
+                }
+            }
+
+            let request = vantadb::sdk::VantaMemorySearchRequest {
+                namespace,
+                query_vector,
+                filters,
+                text_query,
+                top_k,
+                distance_metric,
+                explain,
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.search(request) {
+                Ok(hits) => {
+                    let content = serde_json::to_string(&hits).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("Search Error: {}", e)}]}),
                 ),
             }
         }
@@ -338,3 +417,4 @@ pub fn handle_tools_call(
         _ => error_code(-32601, "Tool not found"),
     }
 }
+
