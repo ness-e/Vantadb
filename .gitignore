@@ -7,6 +7,7 @@ release/
 **/test_sdk*/
 **/docs/snapshots/
 /snapshots/
+test_smoke/
 # Local database instances and logs
 todo.md
 *.log
