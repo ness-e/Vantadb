@@ -15,7 +15,8 @@ store-success-output = false
 store-failure-output = true
 
 [profile.experimental]
-default-filter = "binary_id(vantadb::integration) or binary_id(vantadb::parser) or binary_id(vantadb::executor) or binary_id(vantadb::governor) or binary_id(vantadb::columnar) or binary_id(vantadb::mcp_integration) or binary_id(vantadb::structured_api_v2) or binary_id(vantadb::graph)"
+default-filter = "binary_id(vantadb::integration) or binary_id(vantadb::parser) or binary_id(vantadb::executor) or binary_id(vantadb::governor) or binary_id(vantadb::columnar) or binary_id(vantadb-server::mcp_integration) or binary_id(vantadb::structured_api_v2) or binary_id(vantadb::graph)"
+features = ["experimental"]
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"

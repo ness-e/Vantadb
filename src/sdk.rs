@@ -2736,6 +2736,12 @@ impl VantaEmbedded {
 
     /// Flush WAL and memory-mapped files to disk.
     pub fn flush(&self) -> Result<()> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "flush is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
+
         // StorageEngine handles durability automatically via WAL and MMap.
         // Explicit flush is a no-op for now but satisfies the SDK boundary.
         Ok(())
