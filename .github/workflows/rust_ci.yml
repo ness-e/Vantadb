@@ -10,6 +10,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'build.rs'
+      - '.config/nextest.toml'
       - '.github/workflows/rust_ci.yml'
   pull_request:
     branches: [ "main" ]
@@ -20,6 +21,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'build.rs'
+      - '.config/nextest.toml'
       - '.github/workflows/rust_ci.yml'
   workflow_dispatch:
 
