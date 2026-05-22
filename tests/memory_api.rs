@@ -31,7 +31,7 @@ fn db_snapshot(path: &std::path::Path) -> std::collections::BTreeMap<std::path::
     snapshot
 }
 
-fn assert_read_only_error<T>(result: vantadb::Result<T>) {
+fn assert_read_only_error<T: std::fmt::Debug>(result: vantadb::Result<T>) {
     let err = result.expect_err("operation must fail in read-only mode");
     let message = err.to_string();
     assert!(
