@@ -1,4 +1,6 @@
 [toolchain]
 channel = "1.94.1"
 components = ["rustfmt", "clippy", "rust-src"]
-targets = ["x86_64-pc-windows-msvc"]
+# Targets: x86_64-pc-windows-msvc es el target local (Windows dev).
+# El runner CI (ubuntu-latest) usa su target nativo; no se necesita listarlo explícitamente.
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]

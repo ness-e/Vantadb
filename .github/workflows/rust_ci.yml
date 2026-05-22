@@ -74,9 +74,10 @@ jobs:
       run: cargo clippy -p vantadb --all-targets -- -D warnings
 
     # ── Fast Gate: Unified execution via nextest ─────────────────────
+    # Benchmarks no se ejecutan aquí; clippy --all-targets ya los verifica sintácticamente.
+    # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
+    # exclusivamente en heavy_certification.yml (semanal / manual).
     - name: Run fast gate tests (Audit profile)
+      timeout-minutes: 20
       run: cargo nextest run --profile audit -p vantadb
 
-    # ── Bench compilation check (no execution) ───────────────────────
-    - name: Run benchmarks (verification only)
-      run: cargo bench --no-run -p vantadb
