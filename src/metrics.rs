@@ -571,10 +571,10 @@ fn get_native_memory() -> Option<(u64, u64)> {
 
     #[cfg(target_os = "macos")]
     {
-        use mach2::traps::mach_task_self;
+        use mach2::mach_types::TASK_VM_INFO;
         use mach2::task::task_info;
         use mach2::task_info::task_vm_info;
-        use mach2::mach_types::TASK_VM_INFO;
+        use mach2::traps::mach_task_self;
         use std::mem;
         unsafe {
             let mut info: task_vm_info = mem::zeroed();
