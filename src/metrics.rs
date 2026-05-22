@@ -571,18 +571,17 @@ fn get_native_memory() -> Option<(u64, u64)> {
 
     #[cfg(target_os = "macos")]
     {
-        use mach2::mach_types::TASK_VM_INFO;
         use mach2::task::task_info;
-        use mach2::task_info::task_vm_info;
+        use mach2::task_info::{mach_task_basic_info, MACH_TASK_BASIC_INFO, MACH_TASK_BASIC_INFO_COUNT};
         use mach2::traps::mach_task_self;
         use std::mem;
         unsafe {
-            let mut info: task_vm_info = mem::zeroed();
-            let mut count = (mem::size_of::<task_vm_info>() / mem::size_of::<u32>()) as u32;
+            let mut info: mach_task_basic_info = mem::zeroed();
+            let mut count = MACH_TASK_BASIC_INFO_COUNT;
             let kr = task_info(
                 mach_task_self(),
-                TASK_VM_INFO,
-                &mut info as *mut task_vm_info as *mut _,
+                MACH_TASK_BASIC_INFO,
+                &mut info as *mut mach_task_basic_info as *mut _,
                 &mut count,
             );
             if kr == 0 {
