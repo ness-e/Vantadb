@@ -390,7 +390,7 @@ fn memory_euclidean_and_explainable_ranking() {
     // Validar que la explicación de ranking esté presente
     assert!(hits_explain[0].explanation.is_some());
     let explanation = hits_explain[0].explanation.as_ref().unwrap();
-    assert_eq!(explanation.identity, "vec-1");
+    assert_eq!(explanation.identity, "agent/main\0vec-1");
 
     // Buscar con explain = false para validar que no se devuelvan explicaciones innecesarias
     let request_no_explain = VantaMemorySearchRequest {
