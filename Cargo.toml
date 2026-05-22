@@ -71,7 +71,8 @@ windows-sys = { version = "0.52", features = ["Win32_System_ProcessStatus", "Win
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
-
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2 = "0.4"
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "fs", "macros", "io-util"] }
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
