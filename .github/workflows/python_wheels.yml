@@ -104,7 +104,9 @@ jobs:
     name: Publish wheels to TestPyPI
     runs-on: ubuntu-latest
     needs: build-wheels
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true')
     environment: testpypi
     permissions:
       id-token: write  # OIDC Trusted Publishing
@@ -122,6 +124,7 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
+          skip-existing: true
 
   publish-pypi:
     name: Publish wheels to PyPI (Production)
