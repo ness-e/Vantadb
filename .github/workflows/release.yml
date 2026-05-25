@@ -19,13 +19,13 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
         include:
           - os: ubuntu-latest
-            artifact_name: vanta-server
+            artifact_name: vantadb-server
             asset_name: vanta-server-linux-amd64
           - os: macos-latest
-            artifact_name: vanta-server
+            artifact_name: vantadb-server
             asset_name: vanta-server-macos-amd64
           - os: windows-2025-vs2026
-            artifact_name: vanta-server.exe
+            artifact_name: vantadb-server.exe
             asset_name: vanta-server-windows-amd64.exe
 
     steps:
