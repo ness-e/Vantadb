@@ -6,6 +6,13 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
   packages: write
@@ -13,11 +20,34 @@ permissions:
   attestations: write
 
 jobs:
+  gate:
+    name: Pre-release validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Validate version coherence
+        run: cargo test --test version_coherence --all-features
+
   build-and-deploy:
     name: Build release binaries (${{ matrix.os }})
+    needs: gate
     runs-on: ${{ matrix.os }}
-
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
 
@@ -64,12 +94,12 @@ jobs:
           
           # Hash
           cd target/release
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 vanta-cli-$SUFFIX | awk '{print $1}' > vanta-cli-$SUFFIX.sha256
-            shasum -a 256 vantadb-server-$SUFFIX | awk '{print $1}' > vantadb-server-$SUFFIX.sha256
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
+            sha256sum vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
           else
-            sha256sum vanta-cli-$SUFFIX | awk '{print $1}' > vanta-cli-$SUFFIX.sha256
-            sha256sum vantadb-server-$SUFFIX | awk '{print $1}' > vantadb-server-$SUFFIX.sha256
+            shasum -a 256 vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
+            shasum -a 256 vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
           fi
 
       - name: Rename and Hash (Windows)
@@ -80,10 +110,10 @@ jobs:
           Rename-Item -Path "target\release\vantadb-server.exe" -NewName "vantadb-server-windows-amd64.exe"
           
           $hash_cli = (Get-FileHash -Algorithm SHA256 "target\release\vanta-cli-windows-amd64.exe").Hash.ToLower()
-          Set-Content -Path "target\release\vanta-cli-windows-amd64.exe.sha256" -NoNewline -Value $hash_cli
+          Set-Content -Path "target\release\vanta-cli-windows-amd64.exe.sha256" -NoNewline -Value "$hash_cli  vanta-cli-windows-amd64.exe"
           
           $hash_server = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-server-windows-amd64.exe").Hash.ToLower()
-          Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value $hash_server
+          Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value "$hash_server  vantadb-server-windows-amd64.exe"
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@v2
