@@ -16,9 +16,7 @@ jobs:
   build-and-deploy:
     name: Build release binaries (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: "sccache"
+
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
@@ -41,8 +39,10 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - name: Run sccache-cache
-        uses: mozilla/sccache-action@v0.0.7
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "false"
 
       - name: Build Release Binaries
         run: cargo build --release -p vantadb -p vantadb-server
