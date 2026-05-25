@@ -17,16 +17,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
-        include:
-          - os: ubuntu-latest
-            artifact_name: vantadb-server
-            asset_name: vanta-server-linux-amd64
-          - os: macos-latest
-            artifact_name: vantadb-server
-            asset_name: vanta-server-macos-amd64
-          - os: windows-2025-vs2026
-            artifact_name: vantadb-server.exe
-            asset_name: vanta-server-windows-amd64.exe
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -51,42 +41,53 @@ jobs:
         with:
           cache-bin: "false"
 
-      - name: Build Release Binary
-        run: cargo build --release
+      - name: Build Release Binaries
+        run: cargo build --release --workspace
 
-      - name: Rename Binary (Unix)
-        if: matrix.os != 'windows-2025-vs2026'
-        run: mv target/release/${{ matrix.artifact_name }} target/release/${{ matrix.asset_name }}
-
-      - name: Rename Binary (Windows)
-        if: matrix.os == 'windows-2025-vs2026'
-        shell: pwsh
-        run: Rename-Item -Path "target\release\${{ matrix.artifact_name }}" -NewName "${{ matrix.asset_name }}"
-
-      - name: Generate Checksums (Windows)
-        if: matrix.os == 'windows-2025-vs2026'
-        shell: pwsh
-        run: |
-          $hash = (Get-FileHash -Algorithm SHA256 "target\release\${{ matrix.asset_name }}").Hash.ToLower()
-          Set-Content -Path "target\release\${{ matrix.asset_name }}.sha256" -NoNewline -Value $hash
-
-      - name: Generate Checksums (Unix)
+      - name: Rename and Hash (Unix)
         if: matrix.os != 'windows-2025-vs2026'
         shell: bash
         run: |
+          SUFFIX=""
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            SUFFIX="macos-amd64"
+          else
+            SUFFIX="linux-amd64"
+          fi
+          
+          # Rename
+          mv target/release/vanta-cli target/release/vanta-cli-$SUFFIX
+          mv target/release/vantadb-server target/release/vantadb-server-$SUFFIX
+          
+          # Hash
           cd target/release
           if [ "$RUNNER_OS" == "macOS" ]; then
-            shasum -a 256 ${{ matrix.asset_name }} | awk '{print $1}' > ${{ matrix.asset_name }}.sha256
+            shasum -a 256 vanta-cli-$SUFFIX | awk '{print $1}' > vanta-cli-$SUFFIX.sha256
+            shasum -a 256 vantadb-server-$SUFFIX | awk '{print $1}' > vantadb-server-$SUFFIX.sha256
           else
-            sha256sum ${{ matrix.asset_name }} | awk '{print $1}' > ${{ matrix.asset_name }}.sha256
+            sha256sum vanta-cli-$SUFFIX | awk '{print $1}' > vanta-cli-$SUFFIX.sha256
+            sha256sum vantadb-server-$SUFFIX | awk '{print $1}' > vantadb-server-$SUFFIX.sha256
           fi
+
+      - name: Rename and Hash (Windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        shell: pwsh
+        run: |
+          Rename-Item -Path "target\release\vanta-cli.exe" -NewName "vanta-cli-windows-amd64.exe"
+          Rename-Item -Path "target\release\vantadb-server.exe" -NewName "vantadb-server-windows-amd64.exe"
+          
+          $hash_cli = (Get-FileHash -Algorithm SHA256 "target\release\vanta-cli-windows-amd64.exe").Hash.ToLower()
+          Set-Content -Path "target\release\vanta-cli-windows-amd64.exe.sha256" -NoNewline -Value $hash_cli
+          
+          $hash_server = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-server-windows-amd64.exe").Hash.ToLower()
+          Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value $hash_server
 
       - name: Release
         uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            target/release/${{ matrix.asset_name }}
-            target/release/${{ matrix.asset_name }}.sha256
+            target/release/vanta-cli-*
+            target/release/vantadb-server-*
           draft: true
           generate_release_notes: true
