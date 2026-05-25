@@ -161,10 +161,16 @@ jobs:
         with:
           files: |
             ./dist/*.whl
-            ./dist/*.sig
+            ./dist/*.sig*
             ./dist/*.crt
+
+      - name: Prepare pure wheels for PyPI
+        run: |
+          mkdir pypi_dist
+          cp ./dist/*.whl ./pypi_dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          packages-dir: pypi_dist/
           verbose: true
