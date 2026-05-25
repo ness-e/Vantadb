@@ -21,20 +21,20 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 ## Quick Links
 
 | Need | Start here |
-|------|------------|
-| Understand the product boundary | [Product Boundary](#-product-boundary) |
+| :--- | :--- |
+| Understand the product boundary | [Product Boundary](#product-boundary) |
 | Try the MVP in five minutes | [5-Minute Quickstart](docs/QUICKSTART.md) |
-| Install via pip | [Installation](#-installation) |
-| Use the embedded CLI | [CLI Reference](#-embedded-cli) |
-| Run as a local server | [Server Mode](#-optional-server-mode) |
-| Read architecture docs | [Documentation](#-documentation) |
+| Install via pip | [Installation](#installation) |
+| Use the embedded CLI | [CLI Reference](#embedded-cli) |
+| Run as a local server | [Server Mode](#optional-server-mode) |
+| Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |
 | Get support | [SUPPORT.md](SUPPORT.md) |
 
 ---
 
-## 📦 Installation
+## Installation
 
 VantaDB is distributed as a native Python package with pre-compiled wheels for Windows, macOS, and Linux.
 
@@ -45,11 +45,13 @@ pip install vantadb-py
 > **Note:** The distribution name is `vantadb-py`, but the importable module uses an underscore due to Python naming conventions: `import vantadb_py`.
 
 For development from source:
+
 ```bash
 pip install -e ./vantadb-python
 ```
 
 For Rust-native integration, add the crate to your `Cargo.toml`:
+
 ```toml
 [dependencies]
 vantadb = "0.1"
@@ -57,7 +59,7 @@ vantadb = "0.1"
 
 ---
 
-## 🚀 5-Minute Quickstart
+## 5-Minute Quickstart
 
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
@@ -95,10 +97,10 @@ print(caps)
 
 ---
 
-## 🔑 Core Capabilities
+## Core Capabilities
 
 | Engine | Mechanism | Details |
-|--------|-----------|---------|
+| :--- | :--- | :--- |
 | **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall (default) or RocksDB fallback. Automatic crash recovery via Write-Ahead Log with CRC32C checksums. |
 | **Hybrid Search** | BM25 + HNSW via RRF | Fuses lexical scoring and vector similarity using Reciprocal Rank Fusion. Automatically routed via query planner. |
 | **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Validated on 10K–100K synthetic datasets. |
@@ -121,14 +123,14 @@ No separate cluster, daemon, or external service is required. VantaDB runs in-pr
 
 ---
 
-## 🛡️ Product Boundary
+## Product Boundary
 
 VantaDB should be understood as: embedded-first, local-first, durable memory with WAL-backed recovery, cosine-based HNSW vector retrieval, and an optional local server wrapper.
 
 > **MVP = embedded memory + WAL + vector/BM25/hybrid + export/import + CLI/Python**
 
 | Classification | Surface |
-|---|---|
+| :--- | :--- |
 | **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
 | **Optional wrapper** | Local `vanta-server` around the embedded core |
 | **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
@@ -140,7 +142,7 @@ See [Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FE
 
 ---
 
-## 💻 Embedded CLI
+## Embedded CLI
 
 For local development, debugging, or pipeline automation without Python.
 
@@ -191,7 +193,7 @@ vanta-cli repair-text-index --db ./vanta_data
 
 ---
 
-## 🖥️ Optional Server Mode
+## Optional Server Mode
 
 For local development or network exposure without Python, you can run the standalone binary. This wraps the embedded core; it is not the primary product identity.
 
@@ -219,10 +221,10 @@ export VANTADB_HOST=0.0.0.0
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Resource | Description |
-|----------|-------------|
+| :--- | :--- |
 | [Architecture](docs/architecture/ARCHITECTURE.md) | Core engine, durability model, retrieval mechanisms, and SDK boundary. |
 | [Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md) | Canonical mutation order and WAL recovery behavior. |
 | [Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md) | BM25, phrase positions, derived index repair, and Hybrid Retrieval v1 boundaries. |
@@ -239,7 +241,7 @@ export VANTADB_HOST=0.0.0.0
 
 ---
 
-## 🤝 Contributing & Security
+## Contributing & Security
 
 - Contributions must follow [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security reports must follow [SECURITY.md](SECURITY.md).
@@ -247,6 +249,6 @@ export VANTADB_HOST=0.0.0.0
 
 ---
 
-## 📜 License
+## License
 
 VantaDB is licensed under the **Apache 2.0 License**. See [LICENSE](LICENSE) for details.
