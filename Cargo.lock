@@ -3235,7 +3235,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vantadb"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "arrow",
  "bincode",
@@ -3279,7 +3279,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-server"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "axum",
  "chrono",
@@ -3299,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb_py"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "pyo3",
  "serde_json",
