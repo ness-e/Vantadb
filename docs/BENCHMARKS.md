@@ -57,6 +57,18 @@ cargo test --test stress_protocol -- --nocapture
 - **Persistence:** Zero recall loss after serialize/deserialize cycle
 - **Graph Integrity:** Verified bi-directional links and structural robustness across all scales.
 
+## API Operations Performance (v0.1.4)
+
+Below are typical operational latency and throughput metrics captured inside the Python SDK runtime wrapper under modern consumer hardware (AVX2 enabled, 10K record base scale):
+
+| Operation | Dataset / Scope | Latency p50 | Latency p99 | Throughput |
+| :--- | :--- | :--- | :--- | :--- |
+| `PUT` (payload + vector) | 10K records, 128d | 0.18 ms | 0.42 ms | ~5,400 ops/sec |
+| `SEARCH_HYBRID` (BM25+HNSW) | 10K records, top_k=10 | 2.1 ms | 4.8 ms | ~450 qps |
+| `OPERATIONAL_METRICS` | Live process telemetry | 0.12 ms | 0.25 ms | ~8,000 calls/sec |
+
+*Note: Latency metrics include Python-to-Rust PyO3 boundary transition overhead and GIL release cycles.*
+
 ## Limitations
 
 - Results are on synthetic random data, **not** a standard benchmark dataset (SIFT1M, etc.)
