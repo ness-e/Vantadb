@@ -94,7 +94,7 @@ jobs:
         run: python -m pytest vantadb-python/tests/test_sdk.py -v
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
           path: ./target/wheels/*.whl
@@ -113,11 +113,14 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
           path: ./dist
           merge-multiple: true
+
+      - name: List downloaded wheels
+        run: ls -lh ./dist
 
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -138,11 +141,14 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
           path: ./dist
           merge-multiple: true
+
+      - name: List downloaded wheels
+        run: ls -lh ./dist
 
       - name: Sign wheels with Sigstore
         uses: sigstore/gh-action-sigstore-python@v3.0.0
