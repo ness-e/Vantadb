@@ -9,11 +9,16 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-and-deploy:
     name: Build release binaries (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-2025-vs2026]
@@ -36,13 +41,11 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
+      - name: Run sccache-cache
+        uses: mozilla/sccache-action@v0.0.7
 
       - name: Build Release Binaries
-        run: cargo build --release --workspace
+        run: cargo build --release -p vantadb -p vantadb-server
 
       - name: Rename and Hash (Unix)
         if: matrix.os != 'windows-2025-vs2026'
@@ -81,6 +84,12 @@ jobs:
           
           $hash_server = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-server-windows-amd64.exe").Hash.ToLower()
           Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value $hash_server
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          subject-path: 'target/release/vanta-*'
 
       - name: Release
         uses: softprops/action-gh-release@v3

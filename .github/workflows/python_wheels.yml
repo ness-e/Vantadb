@@ -35,6 +35,9 @@ jobs:
   build-wheels:
     name: Build Python wheel (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     strategy:
       fail-fast: false
       matrix:
@@ -54,10 +57,8 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
+      - name: Run sccache-cache
+        uses: mozilla/sccache-action@v0.0.7
 
       - name: Install Ubuntu system dependencies
         if: matrix.os == 'ubuntu-latest'
@@ -138,6 +139,7 @@ jobs:
     permissions:
       id-token: write  # OIDC Trusted Publishing
       contents: write  # For GitHub Release assets
+      attestations: write
 
     steps:
       - name: Download wheels
@@ -150,19 +152,16 @@ jobs:
       - name: List downloaded wheels
         run: ls -lh ./dist
 
-      - name: Sign wheels with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
+      - name: Attest Build Provenance for Wheels
+        uses: actions/attest-build-provenance@v2
         with:
-          inputs: |
-            ./dist/*.whl
+          subject-path: './dist/*.whl'
 
       - name: Attach signed wheel artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ./dist/*.whl
-            ./dist/*.sig*
-            ./dist/*.crt
 
       - name: Prepare pure wheels for PyPI
         run: |
