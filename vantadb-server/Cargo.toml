@@ -1,6 +1,6 @@
 [package]
 name = "vantadb-server"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
