@@ -2,14 +2,15 @@ $date = Get-Date -Format "yyyy-MM-dd"
 $outputFile = "docs/snapshots/snapshot_$date.md"
 $scriptName = $MyInvocation.MyCommand.Name
 
-# Directorios a excluir (regex)
+# Directorios a excluir (coincidencia exacta de carpetas y subcarpetas)
 $excludedPatterns = @(
-    '^\.git$', 'target', 'node_modules', 'venv', '^\.venv$', '__pycache__',
-    '^\.idea$', '^\.vscode$', 'dist', 'build', '^\.pytest_cache$', 'vanta_snapshots',
-    'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '^\.agents$', '^\.cargo$',
+    '\.git', 'target', 'node_modules', 'venv', '\.venv', '__pycache__',
+    '\.idea', '\.vscode', 'dist', 'build', '\.pytest_cache', 'vanta_snapshots',
+    'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents', '\.cargo',
     'vanta-web', 'vantadb-python', 'vantadb_data', 'vanta_python_binding',
     'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
-    'docs[\\/]snapshots'
+    'docs[\\/]snapshots', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
+    '\.trash_docker', 'dev-tools'
 )
 
 # Extensiones a incluir (whitelist)
@@ -52,7 +53,7 @@ Set-Content -Path $outputFile -Value '' -Encoding utf8
 $basePath = (Get-Location).Path
 $files = Get-ChildItem -File -Recurse | Where-Object {
     $relPath = $_.FullName.Substring($basePath.Length).TrimStart('\')
-    foreach ($p in $excludedPatterns) { if ($relPath -match ('(^|\\)' + $p + '(\\.*|$)')) { return $false } }
+    foreach ($p in $excludedPatterns) { if ($relPath -match ('(^|\\)' + $p + '($|\\)')) { return $false } }
     if ($_.Name -eq $outputFile -or $_.Name -eq $scriptName) { return $false }
     $ext = $_.Extension.ToLower()
     $name = $_.Name.ToLower()

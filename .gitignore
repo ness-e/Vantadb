@@ -58,10 +58,22 @@ Thumbs.db
 .agents/
 .cargo/
 
-# Local Python test database
+# Local Python test database and virtual environments
 vantadb-python/test_vanta_db/
 test_vanta_db*/
 vanta_data*/
 vantadb_data*/
 vanta.db*
+
+# Local development environments, tests, and temporary logs
+.venv/
+venv/
+apruba/
+release_test/
+.trash_docker/
+validation_logs/
+job*_logs/
+*logs/
+*db/
+tests_*/
 
