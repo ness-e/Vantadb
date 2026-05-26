@@ -1,8 +1,6 @@
-#![allow(non_local_definitions)]
-
 use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList};
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods};
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
@@ -15,7 +13,7 @@ use vantadb::sdk::{
 };
 use vantadb::DistanceMetric;
 
-fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
+fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     if value.is_none() {
         return Ok(VantaValue::Null);
     }
@@ -37,13 +35,18 @@ fn py_any_to_value(value: &PyAny) -> PyResult<VantaValue> {
     ))
 }
 
-fn set_python_value(dict: &PyDict, key: &str, value: &VantaValue) -> PyResult<()> {
+fn set_python_value(
+    py: Python<'_>,
+    dict: &Bound<'_, PyDict>,
+    key: &str,
+    value: &VantaValue,
+) -> PyResult<()> {
     match value {
         VantaValue::String(value) => dict.set_item(key, value),
         VantaValue::Int(value) => dict.set_item(key, value),
         VantaValue::Float(value) => dict.set_item(key, value),
         VantaValue::Bool(value) => dict.set_item(key, value),
-        VantaValue::Null => dict.set_item(key, dict.py().None()),
+        VantaValue::Null => dict.set_item(key, py.None()),
     }
 }
 
@@ -88,7 +91,7 @@ fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<PyObject> {
 
     let fields = PyDict::new(py);
     for (k, v) in &node.fields {
-        set_python_value(fields, k, v)?;
+        set_python_value(py, &fields, k, v)?;
     }
     dict.set_item("fields", fields)?;
 
@@ -99,7 +102,7 @@ fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<PyObject> {
     }
     dict.set_item("edges", edges)?;
 
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 /// Format a stable SDK query result into a JSON-like string for Python consumption.
@@ -146,7 +149,7 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
     dict.set_item("persistence", capabilities.persistence)?;
     dict.set_item("vector_search", capabilities.vector_search)?;
     dict.set_item("iql_queries", capabilities.iql_queries)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<PyObject> {
@@ -166,11 +169,11 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
 
     let metadata = PyDict::new(py);
     for (key, value) in &record.metadata {
-        set_python_value(metadata, key, value)?;
+        set_python_value(py, &metadata, key, value)?;
     }
     dict.set_item("metadata", metadata)?;
 
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<PyObject> {
@@ -180,7 +183,7 @@ fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult
     dict.set_item("df", term.df)?;
     dict.set_item("doc_len", term.doc_len)?;
     dict.set_item("contribution", term.contribution)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyResult<PyObject> {
@@ -199,7 +202,7 @@ fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyR
     dict.set_item("rrf_text_rank", exp.rrf_text_rank)?;
     dict.set_item("rrf_vector_rank", exp.rrf_vector_rank)?;
 
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<PyObject> {
@@ -210,7 +213,7 @@ fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<PyOb
         Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, exp)?)?,
         None => dict.set_item("explanation", py.None())?,
     }
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<PyObject> {
@@ -222,7 +225,7 @@ fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyR
     dict.set_item("derived_rebuild_ms", report.derived_rebuild_ms)?;
     dict.set_item("index_path", &report.index_path)?;
     dict.set_item("success", report.success)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn export_report_to_pydict(py: Python, report: &VantaExportReport) -> PyResult<PyObject> {
@@ -231,7 +234,7 @@ fn export_report_to_pydict(py: Python, report: &VantaExportReport) -> PyResult<P
     dict.set_item("namespaces", report.namespaces.clone())?;
     dict.set_item("path", &report.path)?;
     dict.set_item("duration_ms", report.duration_ms)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<PyObject> {
@@ -241,7 +244,7 @@ fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<P
     dict.set_item("skipped", report.skipped)?;
     dict.set_item("errors", report.errors)?;
     dict.set_item("duration_ms", report.duration_ms)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn text_index_repair_report_to_pydict(
@@ -256,7 +259,7 @@ fn text_index_repair_report_to_pydict(
     dict.set_item("namespace_stats_entries", report.namespace_stats_entries)?;
     dict.set_item("duration_ms", report.duration_ms)?;
     dict.set_item("success", report.success)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn text_index_audit_report_to_pydict(
@@ -289,7 +292,7 @@ fn text_index_audit_report_to_pydict(
     dict.set_item("duration_ms", report.duration_ms)?;
     dict.set_item("passed", report.passed)?;
     dict.set_item("status", &report.status)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn operational_metrics_to_pydict(
@@ -344,17 +347,17 @@ fn operational_metrics_to_pydict(
     dict.set_item("mmap_resident_bytes", metrics.mmap_resident_bytes)?;
     dict.set_item("volatile_cache_entries", metrics.volatile_cache_entries)?;
     dict.set_item("volatile_cache_cap_bytes", metrics.volatile_cache_cap_bytes)?;
-    Ok(dict.into())
+    Ok(dict.unbind().into())
 }
 
 fn py_dict_to_metadata(
-    fields: Option<&PyDict>,
+    fields: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<std::collections::BTreeMap<String, VantaValue>> {
     let mut metadata = std::collections::BTreeMap::new();
     if let Some(extra) = fields {
         for (key, value) in extra.iter() {
             let k: String = key.extract()?;
-            metadata.insert(k, py_any_to_value(value)?);
+            metadata.insert(k, py_any_to_value(&value)?);
         }
     }
     Ok(metadata)
@@ -418,7 +421,7 @@ impl VantaDB {
         id: u64,
         content: &str,
         vector: Vec<f32>,
-        fields: Option<&PyDict>,
+        fields: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
         let mut input = VantaNodeInput::new(id);
         input.content = Some(content.to_string());
@@ -427,7 +430,7 @@ impl VantaDB {
         if let Some(extra) = fields {
             for (key, value) in extra.iter() {
                 let k: String = key.extract()?;
-                input.fields.insert(k, py_any_to_value(value)?);
+                input.fields.insert(k, py_any_to_value(&value)?);
             }
         }
 
@@ -449,7 +452,7 @@ impl VantaDB {
         namespace: &str,
         key: &str,
         payload: &str,
-        metadata: Option<&PyDict>,
+        metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<Vec<f32>>,
     ) -> PyResult<PyObject> {
         let mut input = VantaMemoryInput::new(namespace, key, payload);
@@ -499,7 +502,7 @@ impl VantaDB {
         &self,
         py: Python,
         namespace: &str,
-        filters: Option<&PyDict>,
+        filters: Option<&Bound<'_, PyDict>>,
         limit: usize,
         cursor: Option<usize>,
     ) -> PyResult<PyObject> {
@@ -526,17 +529,18 @@ impl VantaDB {
         }
         dict.set_item("records", records)?;
         dict.set_item("next_cursor", page.next_cursor)?;
-        Ok(dict.into())
+        Ok(dict.unbind().into())
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
     #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
+    #[allow(clippy::too_many_arguments)]
     fn search_memory(
         &self,
         py: Python,
         namespace: &str,
         query_vector: Vec<f32>,
-        filters: Option<&PyDict>,
+        filters: Option<&Bound<'_, PyDict>>,
         text_query: Option<String>,
         top_k: usize,
         distance_metric: Option<&str>,
@@ -801,7 +805,7 @@ impl VantaDB {
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
-fn vantadb_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<VantaDB>()?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())

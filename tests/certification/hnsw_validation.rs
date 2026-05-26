@@ -245,8 +245,8 @@ fn hnsw_hard_validation_certification() {
         }
         let results = index.search_nearest(&iv, None, None, u128::MAX, k, None);
         assert_eq!(results.len(), k);
-        for (_, sim) in &results {
-            assert!((sim - 1.0).abs() < 0.01);
+        for &(_, sim) in &results {
+            assert!((sim - 1.0_f32).abs() < 0.01_f32);
         }
         TerminalReporter::success("100 identical vectors handled correctly.");
     });
@@ -356,12 +356,22 @@ fn hnsw_hard_validation_certification() {
         let links1: usize = idx1
             .nodes
             .values()
-            .map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>())
+            .map(|n| {
+                n.neighbors
+                    .iter()
+                    .map(|l: &Vec<u64>| l.len())
+                    .sum::<usize>()
+            })
             .sum();
         let links5: usize = idx5
             .nodes
             .values()
-            .map(|n| n.neighbors.iter().map(|l| l.len()).sum::<usize>())
+            .map(|n| {
+                n.neighbors
+                    .iter()
+                    .map(|l: &Vec<u64>| l.len())
+                    .sum::<usize>()
+            })
             .sum();
         let ratio = links5 as f64 / links1 as f64;
         TerminalReporter::info(&format!("Memory Growth Factor (5x N): {:.2}x links", ratio));

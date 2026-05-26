@@ -141,11 +141,12 @@ pub struct WalWriter {
     path: PathBuf,
     bytes_written: u64,
     record_count: u64,
+    pub sync_mode: crate::config::SyncMode,
 }
 
 impl WalWriter {
     /// Open or create WAL file, writing or validating WalHeader.
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn open(path: impl AsRef<Path>, sync_mode: crate::config::SyncMode) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let mut file = OpenOptions::new()
             .read(true)
@@ -231,6 +232,7 @@ impl WalWriter {
             path,
             bytes_written,
             record_count,
+            sync_mode,
         })
     }
 
@@ -247,6 +249,10 @@ impl WalWriter {
 
         self.bytes_written += 4 + payload.len() as u64 + 4;
         self.record_count += 1;
+
+        if self.sync_mode == crate::config::SyncMode::Always {
+            self.sync()?;
+        }
         Ok(())
     }
 
@@ -396,7 +402,7 @@ mod tests {
         let _ = std::fs::remove_file(&dir);
 
         {
-            let mut w = WalWriter::open(&dir).unwrap();
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
             w.append(&WalRecord::Delete { id: 1 }).unwrap();
@@ -489,7 +495,7 @@ mod tests {
 
         // 1. Escribir 3 registros válidos + checkpoint
         {
-            let mut w = WalWriter::open(&dir).unwrap();
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(3))).unwrap();
@@ -509,7 +515,7 @@ mod tests {
 
         // 3. Abrir el WAL de nuevo con WalWriter
         {
-            let mut w = WalWriter::open(&dir).unwrap();
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
             // Debe haber truncado la basura y cargado la cantidad correcta de registros (4)
             assert_eq!(w.record_count(), 4);
 
