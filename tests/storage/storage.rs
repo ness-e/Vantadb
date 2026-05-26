@@ -86,3 +86,39 @@ fn storage_engine_read_only_barrier_test() {
         TerminalReporter::success("Read-only barrier validated successfully.");
     });
 }
+
+#[test]
+fn storage_engine_file_locking_test() {
+    let mut harness = VantaHarness::new("STORAGE LAYER FILE LOCKING");
+
+    harness.execute("Integration: Multi-Process File Lock Barrier", || {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().to_str().unwrap();
+
+        TerminalReporter::sub_step("Opening first StorageEngine (holds the lock)...");
+        let _storage1 = StorageEngine::open(db_path).expect("Failed to open first StorageEngine");
+
+        TerminalReporter::sub_step("Opening second StorageEngine (should fail due to lock)...");
+        let storage2_res = StorageEngine::open(db_path);
+        
+        assert!(
+            storage2_res.is_err(),
+            "Opening the same database concurrently must fail"
+        );
+        let err_msg = storage2_res.err().unwrap().to_string();
+        assert!(
+            err_msg.contains("locked by another process") || err_msg.contains("Only one VantaDB instance"),
+            "Error message should indicate lock failure, got: {}",
+            err_msg
+        );
+
+        TerminalReporter::sub_step("Releasing first StorageEngine lock...");
+        drop(_storage1);
+
+        TerminalReporter::sub_step("Opening second StorageEngine again (should succeed)...");
+        let _storage2 = StorageEngine::open(db_path).expect("Failed to open StorageEngine after lock release");
+
+        TerminalReporter::success("File locking barrier validated successfully.");
+    });
+}
+

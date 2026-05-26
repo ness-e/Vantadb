@@ -3,9 +3,20 @@ use std::env;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SyncMode {
+    /// Forces fsync/fdatasync on every write operation to the WAL and storage backend.
+    ///
+    /// WARNING: This mode guarantees maximum durability (ACID compliance) but carries a
+    /// critical performance penalty. On standard SATA SSDs and HDDs, it can degrade write
+    /// throughput by 10x to 100x (latencies up to 10-100ms per write) compared to `Periodic`.
+    /// Only use this mode for transactional workloads where data durability is strictly
+    /// prioritized over ingest speed (e.g., financial transactions).
     Always,
+    /// Flushes data periodically to disk (default). Combines high throughput with
+    /// reasonable durability guarantees.
     #[default]
     Periodic,
+    /// Disables explicit flushing to disk. Relies entirely on the OS page cache.
+    /// Provides maximum performance but risks losing the last few writes in case of a crash.
     Never,
 }
 
