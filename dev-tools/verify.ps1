@@ -53,17 +53,33 @@ try {
 
     # 6. Workspace Tests (skip long-running / benchmark tests)
     Write-Header "Unit & Integration Tests"
-    Run-Command "Rust Tests" @(
-        "cargo", "test", "--workspace", "--all-features", "-j", "2", "--",
-        "--skip", "benchmark",
-        "--skip", "competitive",
-        "--skip", "recall",
-        "--skip", "sift",
-        "--skip", "chaos",
-        "--skip", "hnsw_hard_validation",
-        "--skip", "stress_protocol",
-        "--skip", "vector_scale"
-    )
+    if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+        Write-Host "cargo-nextest detected! Running accelerated tests..." -ForegroundColor Gray
+        Run-Command "Rust Tests (Nextest)" @(
+            "cargo", "nextest", "run", "--workspace", "--all-features", "-j", "2",
+            "--skip", "benchmark",
+            "--skip", "competitive",
+            "--skip", "recall",
+            "--skip", "sift",
+            "--skip", "chaos",
+            "--skip", "hnsw_hard_validation",
+            "--skip", "stress_protocol",
+            "--skip", "vector_scale"
+        )
+    } else {
+        Write-Host "cargo-nextest not found. Falling back to standard cargo test..." -ForegroundColor Gray
+        Run-Command "Rust Tests (Standard)" @(
+            "cargo", "test", "--workspace", "--all-features", "-j", "2", "--",
+            "--skip", "benchmark",
+            "--skip", "competitive",
+            "--skip", "recall",
+            "--skip", "sift",
+            "--skip", "chaos",
+            "--skip", "hnsw_hard_validation",
+            "--skip", "stress_protocol",
+            "--skip", "vector_scale"
+        )
+    }
 
     # Restore RUSTFLAGS before release build
     $env:RUSTFLAGS = $null
