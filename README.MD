@@ -5,6 +5,7 @@
   [![CI](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml)
   [![Python Wheels](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml)
   [![Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml)
+  [![Benchmarks](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml)
   [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&color=blue)](https://github.com/ness-e/Vantadb/releases)
   [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
   [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&color=blue)](https://pypi.org/project/vantadb-py/)
