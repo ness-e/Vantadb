@@ -40,11 +40,11 @@ try {
 
     # 2. Cargo Check
     Write-Header "Workspace Compilation"
-    Run-Command "Compilation (All Features)" "cargo" "check --workspace --tests --all-features"
+    Run-Command "Compilation (All Features)" "cargo" "check --workspace --tests --all-features -j 2"
 
     # 3. Clippy Lints
     Write-Header "Static Analysis (Clippy)"
-    Run-Command "Clippy Lints" "cargo" "clippy --workspace --tests --all-features -- -D warnings"
+    Run-Command "Clippy Lints" "cargo" "clippy --workspace --tests --all-features -j 2 -- -D warnings"
 
     # 4. Security Audit
     Write-Header "Security Auditing"
@@ -56,7 +56,7 @@ try {
 
     # 6. Workspace Tests
     Write-Header "Unit & Integration Tests"
-    Run-Command "Rust Tests" "cargo" "test --workspace --all-features"
+    Run-Command "Rust Tests" "cargo" "test --workspace --all-features -j 2"
 
     # Restore RUSTFLAGS to allow optimized release build for Python SDK
     $env:RUSTFLAGS = $null
