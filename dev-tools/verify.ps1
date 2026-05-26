@@ -31,6 +31,9 @@ try {
     Write-Host "   VantaDB Pre-Flight Verification (Local)   " -ForegroundColor Cyan -FontWeight Bold
     Write-Host "=============================================" -ForegroundColor Cyan
 
+    # Force compiler optimization to 0 for local validation to prevent MSVC compiler stack overflow crashes
+    $env:RUSTFLAGS = "-C opt-level=0"
+
     # 1. Rustfmt Check
     Write-Header "Code Formatting Check"
     Run-Command "Format Check" "cargo" "fmt --all -- --check"
@@ -54,6 +57,9 @@ try {
     # 6. Workspace Tests
     Write-Header "Unit & Integration Tests"
     Run-Command "Rust Tests" "cargo" "test --workspace --all-features"
+
+    # Restore RUSTFLAGS to allow optimized release build for Python SDK
+    $env:RUSTFLAGS = $null
 
     # 7. Python Bindings Maturin Build
     Write-Header "Python Bindings (Maturin)"
