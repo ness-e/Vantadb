@@ -325,4 +325,4 @@ exclude = ["fuzz"]
 
 [profile.test]
 debug = 0
-opt-level = 3
+opt-level = 0
