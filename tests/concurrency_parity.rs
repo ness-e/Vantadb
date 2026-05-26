@@ -93,7 +93,7 @@ fn test_high_concurrency_fjall_stress() {
     session.step("Launching 10 concurrent writers (100 ops/thread)");
     let mut handles = vec![];
     for t in 0..10 {
-        let e = Arc::clone(&engine);
+        let e: Arc<StorageEngine> = Arc::clone(&engine);
         handles.push(thread::spawn(move || {
             for i in 0..100 {
                 let id = (t * 100) + i;
@@ -132,7 +132,7 @@ fn test_interleaved_read_write_parity() {
     ));
 
     session.step("Starting interleaved R/W workload");
-    let e_write = Arc::clone(&engine);
+    let e_write: Arc<StorageEngine> = Arc::clone(&engine);
     let writer = thread::spawn(move || {
         for i in 0..500 {
             let node = UnifiedNode::new(i);
@@ -141,7 +141,7 @@ fn test_interleaved_read_write_parity() {
         }
     });
 
-    let e_read = Arc::clone(&engine);
+    let e_read: Arc<StorageEngine> = Arc::clone(&engine);
     let reader = thread::spawn(move || {
         let mut found = 0;
         for _ in 0..1000 {

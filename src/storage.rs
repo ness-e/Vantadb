@@ -5,6 +5,7 @@ use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
+use fs2::FileExt;
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
 use std::fs::{File, OpenOptions};
@@ -469,6 +470,8 @@ pub struct StorageEngine {
     pub vector_store: RwLock<VantaFile>,
     /// Write-Ahead Log for durability
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
+    /// File handle for multi-process isolation lock
+    pub(crate) _lock_file: Option<File>,
 }
 
 impl StorageEngine {
@@ -493,9 +496,28 @@ impl StorageEngine {
                 base_path.display()
             )));
         }
-        if !config.read_only {
+        let lock_file = if !config.read_only {
             std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
-        }
+            let lock_path = base_path.join(".vanta.lock");
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&lock_path)
+                .map_err(VantaError::IoError)?;
+
+            file.try_lock_exclusive().map_err(|_| {
+                VantaError::Execution(format!(
+                    "Database at '{}' is locked by another process. \
+                     Only one VantaDB instance can open a database directory at a time.",
+                    base_path.display()
+                ))
+            })?;
+            Some(file)
+        } else {
+            None
+        };
 
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
@@ -624,7 +646,7 @@ impl StorageEngine {
         let wal_writer = if config.read_only {
             None
         } else {
-            Some(crate::wal::WalWriter::open(&wal_path)?)
+            Some(crate::wal::WalWriter::open(&wal_path, config.sync_mode)?)
         };
 
         #[cfg(feature = "governance")]
@@ -666,6 +688,7 @@ impl StorageEngine {
             data_dir,
             vector_store: RwLock::new(vector_store),
             wal: std::sync::Arc::new(parking_lot::Mutex::new(wal_writer)),
+            _lock_file: lock_file,
         })
     }
 

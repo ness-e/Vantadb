@@ -49,7 +49,8 @@ fn test_wal_durability_and_checkpoint_coherence() {
     {
         // Reabrimos el WAL para escribir un cuarto registro
         let wal_path = dir.path().join("data").join("vanta.wal");
-        let mut w = vantadb::wal::WalWriter::open(&wal_path).unwrap();
+        let mut w =
+            vantadb::wal::WalWriter::open(&wal_path, vantadb::config::SyncMode::Periodic).unwrap();
         w.append(&vantadb::wal::WalRecord::Insert(UnifiedNode::new(104)))
             .unwrap();
         w.sync().unwrap();

@@ -2,6 +2,7 @@
 name = "vantadb"
 version = "0.1.4"
 edition = "2021"
+rust-version = "1.94.1"
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
 license = "Apache-2.0"
 readme = "README.MD"
@@ -32,11 +33,12 @@ crc32c = "0.5"
 reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
 serde_json = "1.0"
 prometheus = "0.14"
-pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
-wide = "1.2.0"
+pyo3 = { version = "0.24.1", features = ["extension-module"], optional = true }
+wide = "=1.2.0"
 cpufeatures = "0.3"
 sysinfo = "0.30"
 memmap2 = "0.9"
+fs2 = "0.4"
 
 # ── Console UX ──
 indicatif = { version = "0.17", optional = true }
@@ -51,7 +53,7 @@ default = ["cli"]
 cli = ["dep:indicatif", "dep:console"]
 llm = ["reqwest"]
 governance = []
-python_sdk = ["pyo3"]
+python_sdk = ["pyo3", "experimental"]
 # === EXPERIMENTAL (no usar en producción) ===
 experimental = ["eval", "executor", "parser", "graph", "mcp"]
 # Módulos experimentales individuales (para desarrollo)
@@ -323,4 +325,4 @@ exclude = ["fuzz"]
 
 [profile.test]
 debug = 0
-opt-level = 3
+opt-level = 0

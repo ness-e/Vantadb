@@ -7,7 +7,7 @@ $excludedPatterns = @(
     '\.git', 'target', 'node_modules', 'venv', '\.venv', '__pycache__',
     '\.idea', '\.vscode', 'dist', 'build', '\.pytest_cache', 'vanta_snapshots',
     'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents', '\.cargo',
-    'vanta-web', 'vantadb-python', 'vantadb_data', 'vanta_python_binding',
+    'vanta-web', 'vantadb_data',
     'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
     'docs[\\/]snapshots', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
     '\.trash_docker', 'dev-tools'
@@ -25,7 +25,8 @@ $gitCommit = 'N/A'
 try {
     $gitBranch = (git rev-parse --abbrev-ref HEAD 2>$null)
     $gitCommit = (git rev-parse --short HEAD 2>$null)
-} catch {}
+}
+catch {}
 
 # --- METADATOS DEL SISTEMA ---
 $rustVersion = 'N/A'
@@ -33,12 +34,14 @@ $cargoVersion = 'N/A'
 try {
     $rustVersion = (rustc --version 2>$null)
     $cargoVersion = (cargo --version 2>$null)
-} catch {}
+}
+catch {}
 
 $gitLog = 'N/A'
 try {
     $gitLog = (git log -n 5 --oneline 2>$null) -join "`n"
-} catch {}
+}
+catch {}
 
 # --- CABECERA EN CONSOLA ---
 Write-Host ' '
