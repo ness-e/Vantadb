@@ -1,17 +1,12 @@
 use crate::backend::BackendKind;
 use std::env;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SyncMode {
     Always,
+    #[default]
     Periodic,
     Never,
-}
-
-impl Default for SyncMode {
-    fn default() -> Self {
-        SyncMode::Periodic
-    }
 }
 
 /// Unified configuration for VantaDB.
