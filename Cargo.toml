@@ -53,7 +53,7 @@ default = ["cli"]
 cli = ["dep:indicatif", "dep:console"]
 llm = ["reqwest"]
 governance = []
-python_sdk = ["pyo3"]
+python_sdk = ["pyo3", "experimental"]
 # === EXPERIMENTAL (no usar en producción) ===
 experimental = ["eval", "executor", "parser", "graph", "mcp"]
 # Módulos experimentales individuales (para desarrollo)

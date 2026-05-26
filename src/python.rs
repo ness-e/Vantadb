@@ -39,7 +39,7 @@ impl ClientEngine {
             Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
                 Ok(vec![format!("STALE_CONTEXT: {}", id)])
             }
-            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e.to_string())),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err((e.to_string(),))),
         }
     }
 
@@ -52,7 +52,7 @@ impl ClientEngine {
         }
         self._storage
             .insert(&node)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err((e.to_string(),)))?;
         Ok(())
     }
 }
