@@ -73,18 +73,19 @@ jobs:
 
     - name: Install maturin & build python bindings
       run: |
-        python -m pip install --upgrade pip
-        pip install maturin
-        # Build in release mode for accurate baseline metrics
-        maturin develop --manifest-path vantadb-python/Cargo.toml --release
+        python -m venv .venv
+        .venv/bin/python -m pip install --upgrade pip
+        .venv/bin/python -m pip install maturin
+        # Build and install inside the virtual environment
+        .venv/bin/maturin develop --manifest-path vantadb-python/Cargo.toml --release
 
     - name: Run Standard Ingestion & Search Benchmark
       run: |
         # Use inputs if triggered manually, otherwise fall back to a lightweight 1K size for automated push runs
-        SIZE="${{ github.event.inputs.size || '1000' }}"
-        QUERIES="${{ github.event.inputs.queries || '100' }}"
-        DIM="${{ github.event.inputs.dim || '128' }}"
-        python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.json
+        SIZE="${{ github.event.inputs && github.event.inputs.size || '1000' }}"
+        QUERIES="${{ github.event.inputs && github.event.inputs.queries || '100' }}"
+        DIM="${{ github.event.inputs && github.event.inputs.dim || '128' }}"
+        .venv/bin/python benchmarks/vantadb_local_bench.py --size $SIZE --dim $DIM --queries $QUERIES --output benchmark_results.json
 
     - name: Upload Benchmark Results Artifact
       uses: actions/upload-artifact@v4
