@@ -1,8 +1,8 @@
 #![cfg(feature = "python_sdk")]
-#![allow(non_local_definitions)] // PyO3 0.20 macro limitation; remove after upgrading to 0.21+
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::storage::StorageEngine;
 use pyo3::prelude::*;
+use pyo3::types::PyModuleMethods;
 
 #[pyclass]
 pub struct ClientEngine {
@@ -60,7 +60,7 @@ impl ClientEngine {
 /// The python module definition.
 /// Compiled utilizing `maturin develop --features python_sdk`.
 #[pymodule]
-fn vantadb(_py: Python, m: &PyModule) -> PyResult<()> {
+fn vantadb(_py: Python<'_>, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<ClientEngine>()?;
     Ok(())
 }
