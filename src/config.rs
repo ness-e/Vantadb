@@ -1,6 +1,19 @@
 use crate::backend::BackendKind;
 use std::env;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncMode {
+    Always,
+    Periodic,
+    Never,
+}
+
+impl Default for SyncMode {
+    fn default() -> Self {
+        SyncMode::Periodic
+    }
+}
+
 /// Unified configuration for VantaDB.
 ///
 /// Consolidates engine, LLM, and server settings. Loads from environment
@@ -18,6 +31,7 @@ pub struct VantaConfig {
     pub force_mmap: bool,
     pub backend_kind: BackendKind,
     pub max_blocking_threads: usize,
+    pub sync_mode: SyncMode,
 }
 
 impl Default for VantaConfig {
@@ -46,6 +60,7 @@ impl Default for VantaConfig {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(16),
+            sync_mode: SyncMode::default(),
         }
     }
 }
@@ -89,6 +104,12 @@ impl VantaConfig {
     /// Sets the maximum number of blocking threads.
     pub fn with_max_blocking_threads(mut self, max: usize) -> Self {
         self.max_blocking_threads = max;
+        self
+    }
+
+    /// Sets the sync mode.
+    pub fn with_sync_mode(mut self, sync_mode: SyncMode) -> Self {
+        self.sync_mode = sync_mode;
         self
     }
 }

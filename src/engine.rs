@@ -95,7 +95,7 @@ impl InMemoryEngine {
             })?;
         }
 
-        let writer = WalWriter::open(&path)?;
+        let writer = WalWriter::open(&path, crate::config::SyncMode::Periodic)?;
 
         Ok(Self {
             nodes: RwLock::new(nodes_map),
