@@ -70,7 +70,12 @@ try {
 
     # 7. Python Bindings — Maturin Build
     Write-Header "Python Bindings (Maturin)"
-    Run-Command "Maturin Python SDK Build" @("maturin", "build", "--manifest-path", "./vantadb-python/Cargo.toml", "--release")
+    if (Get-Command "maturin" -ErrorAction SilentlyContinue) {
+        Run-Command "Maturin Python SDK Build" @("maturin", "build", "--manifest-path", "./vantadb-python/Cargo.toml", "--release")
+    } else {
+        Write-Host "WARNING: 'maturin' executable not found in PATH." -ForegroundColor Yellow
+        Write-Host "Skipping local Python SDK wheel build check. (Install via 'pip install maturin' if needed)" -ForegroundColor Gray
+    }
 
     Write-Host "`n=============================================" -ForegroundColor Green
     Write-Host "  SUCCESS: All local checks passed cleanly!  " -ForegroundColor Green
