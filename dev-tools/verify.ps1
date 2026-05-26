@@ -56,7 +56,7 @@ try {
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
         Write-Host "cargo-nextest detected! Running accelerated tests..." -ForegroundColor Gray
         Run-Command "Rust Tests (Nextest)" @(
-            "cargo", "nextest", "run", "--workspace", "--all-features", "-j", "2",
+            "cargo", "nextest", "run", "--workspace", "--all-features", "-j", "2", "--",
             "--skip", "benchmark",
             "--skip", "competitive",
             "--skip", "recall",
