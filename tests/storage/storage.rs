@@ -100,14 +100,15 @@ fn storage_engine_file_locking_test() {
 
         TerminalReporter::sub_step("Opening second StorageEngine (should fail due to lock)...");
         let storage2_res = StorageEngine::open(db_path);
-        
+
         assert!(
             storage2_res.is_err(),
             "Opening the same database concurrently must fail"
         );
         let err_msg = storage2_res.err().unwrap().to_string();
         assert!(
-            err_msg.contains("locked by another process") || err_msg.contains("Only one VantaDB instance"),
+            err_msg.contains("locked by another process")
+                || err_msg.contains("Only one VantaDB instance"),
             "Error message should indicate lock failure, got: {}",
             err_msg
         );
@@ -116,9 +117,9 @@ fn storage_engine_file_locking_test() {
         drop(_storage1);
 
         TerminalReporter::sub_step("Opening second StorageEngine again (should succeed)...");
-        let _storage2 = StorageEngine::open(db_path).expect("Failed to open StorageEngine after lock release");
+        let _storage2 =
+            StorageEngine::open(db_path).expect("Failed to open StorageEngine after lock release");
 
         TerminalReporter::success("File locking barrier validated successfully.");
     });
 }
-
