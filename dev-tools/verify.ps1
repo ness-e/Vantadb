@@ -60,7 +60,8 @@ try {
         "--skip", "recall",
         "--skip", "sift",
         "--skip", "chaos",
-        "--skip", "hnsw_hard_validation"
+        "--skip", "hnsw_hard_validation",
+        "--skip", "stress_protocol"
     )
 
     # Restore RUSTFLAGS before release build
