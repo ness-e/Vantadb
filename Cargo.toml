@@ -47,21 +47,15 @@ rayon = "1.12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 twox-hash = "2.1.2"
+fail = { version = "0.5", optional = true, features = ["failpoints"] }
 
 [features]
 default = ["cli"]
 cli = ["dep:indicatif", "dep:console"]
+failpoints = ["dep:fail"]
 llm = ["reqwest"]
 governance = []
-python_sdk = ["pyo3", "experimental"]
-# === EXPERIMENTAL (no usar en producción) ===
-experimental = ["eval", "executor", "parser", "graph", "mcp"]
-# Módulos experimentales individuales (para desarrollo)
-eval = []
-executor = []
-parser = []
-graph = []
-mcp = []
+python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
 
 [dependencies.mimalloc]
@@ -72,6 +66,7 @@ optional = true
 windows-sys = { version = "0.52", features = [
     "Win32_System_ProcessStatus",
     "Win32_System_Threading",
+    "Win32_System_Memory",
     "Win32_Foundation",
 ] }
 
@@ -119,6 +114,11 @@ path = "src/bin/vanta-cli.rs"
 test = false
 required-features = ["cli"]
 
+[[bin]]
+name = "lock_helper"
+path = "src/bin/lock_helper.rs"
+test = false
+
 # ── Integration Tests ─────────────────────────────────────────────
 [[test]]
 name = "basic_node"
@@ -127,7 +127,6 @@ path = "tests/core/basic_node.rs"
 [[test]]
 name = "integration"
 path = "tests/logic/integration.rs"
-required-features = ["experimental"]
 
 
 [[test]]
@@ -153,17 +152,14 @@ path = "tests/storage/chaos_integrity.rs"
 [[test]]
 name = "parser"
 path = "tests/logic/parser.rs"
-required-features = ["experimental"]
 
 [[test]]
 name = "executor"
 path = "tests/logic/executor.rs"
-required-features = ["experimental"]
 
 [[test]]
 name = "graph"
 path = "tests/core/graph.rs"
-required-features = ["experimental"]
 
 [[test]]
 name = "storage"
@@ -180,7 +176,6 @@ path = "tests/storage/gc.rs"
 [[test]]
 name = "governor"
 path = "tests/logic/governor.rs"
-required-features = ["experimental"]
 
 
 [[test]]
@@ -190,12 +185,10 @@ path = "tests/certification/hardware_profiles.rs"
 [[test]]
 name = "structured_api_v2"
 path = "tests/api/structured_api_v2.rs"
-required-features = ["experimental"]
 
 [[test]]
 name = "columnar"
 path = "tests/logic/columnar.rs"
-required-features = ["experimental"]
 
 [[test]]
 name = "mmap_index"
@@ -297,6 +290,10 @@ path = "tests/version_coherence.rs"
 name = "benchmark_internal"
 path = "tests/benchmark_internal.rs"
 
+[[test]]
+name = "multi_process_lock"
+path = "tests/storage/multi_process_lock.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
@@ -318,7 +315,14 @@ codegen-units = 16
 opt-level = 2
 
 [workspace]
-members = [".", "vantadb-python", "vantadb-server"]
+members = [
+    ".",
+    "vantadb-python",
+    "vantadb-server",
+    "vantadb-mcp",
+    "packages/experimental-lisp",
+    "packages/experimental-governance"
+]
 # fuzz/ is intentionally excluded: cargo-fuzz requires nightly + Linux sanitizers.
 # Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
 exclude = ["fuzz"]

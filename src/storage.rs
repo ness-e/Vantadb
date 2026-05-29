@@ -1,4 +1,5 @@
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+pub use crate::backend::BackendPartition;
+use crate::backend::{BackendWriteOp, StorageBackend};
 use crate::backends::fjall_backend::FjallBackend;
 use crate::backends::in_memory::InMemoryBackend;
 use crate::backends::rocksdb_backend::RocksDbBackend;
@@ -8,6 +9,7 @@ use crate::node::{DiskNodeHeader, UnifiedNode};
 use fs2::FileExt;
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -472,6 +474,11 @@ pub struct StorageEngine {
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
     /// File handle for multi-process isolation lock
     pub(crate) _lock_file: Option<File>,
+    /// In-memory cache for BM25 term stats to avoid redundant I/O during ingestion.
+    pub(crate) text_stats_cache:
+        RwLock<HashMap<(String, String), crate::text_index::TextTermStats>>,
+    /// In-memory cache for BM25 namespace stats.
+    pub(crate) text_ns_cache: RwLock<HashMap<String, crate::text_index::TextNamespaceStats>>,
 }
 
 impl StorageEngine {
@@ -542,16 +549,14 @@ impl StorageEngine {
             || caps.profile == crate::hardware::HardwareProfile::LowResource
             || effective_memory < 16 * 1024 * 1024 * 1024;
 
-        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path) {
-            let mut idx = loaded;
+        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
             if use_mmap {
-                idx.backend = IndexBackend::new_mmap(index_path.clone());
                 info!(
                     backend = "mmap",
                     "HNSW Resource Governance: MMap backend activated (cold-start)"
                 );
             }
-            idx
+            loaded
         } else {
             if use_mmap {
                 info!(
@@ -689,6 +694,8 @@ impl StorageEngine {
             vector_store: RwLock::new(vector_store),
             wal: std::sync::Arc::new(parking_lot::Mutex::new(wal_writer)),
             _lock_file: lock_file,
+            text_stats_cache: RwLock::new(HashMap::new()),
+            text_ns_cache: RwLock::new(HashMap::new()),
         })
     }
 
@@ -904,6 +911,13 @@ impl StorageEngine {
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.ensure_writable()?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("storage_insert_fail", |_| {
+            Err(VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Simulated Storage insert catastrophic I/O failure",
+            )))
+        });
         #[cfg(feature = "governance")]
         if self.admission_filter.is_blocked(node.id) {
             return Err(VantaError::Execution(format!(
@@ -1105,7 +1119,7 @@ impl StorageEngine {
             wal_writer.append(&crate::wal::WalRecord::Delete { id })?;
         }
 
-        let hnsw = self.hnsw.write();
+        let hnsw = self.hnsw.read();
         if let Some(index_node) = hnsw.nodes.get(&id) {
             let offset = index_node.storage_offset;
 
@@ -1309,7 +1323,7 @@ impl StorageEngine {
     ///
     /// Used by Executor (Collapse) and MaintenanceWorker to write
     /// auditable tombstones to `TombstoneStorage`.
-    pub(crate) fn put_to_partition(
+    pub fn put_to_partition(
         &self,
         partition: BackendPartition,
         key: &[u8],

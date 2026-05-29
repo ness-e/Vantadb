@@ -1,7 +1,6 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
-#[cfg(feature = "experimental")]
 use crate::executor::{ExecutionResult, Executor};
 // use crate::hardware::{HardwareCapabilities, HardwareProfile}; // Temporarily commented out to fix unused_imports warning in CI
 use crate::index::cosine_sim_f32;
@@ -962,28 +961,49 @@ impl VantaEmbedded {
         namespace: &str,
         token: &str,
     ) -> Result<Option<crate::text_index::TextTermStats>> {
-        let Some(bytes) = engine.get_from_partition(
-            BackendPartition::TextIndex,
-            &crate::text_index::term_stats_key(namespace, token),
-        )?
-        else {
+        let cache_key = (namespace.to_string(), token.to_string());
+        {
+            let cache = engine.text_stats_cache.read();
+            if let Some(stats) = cache.get(&cache_key) {
+                return Ok(Some(stats.clone()));
+            }
+        }
+
+        let skey = crate::text_index::term_stats_key(namespace, token);
+        let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &skey)? else {
             return Ok(None);
         };
-        crate::text_index::decode_term_stats(&bytes).map(Some)
+        let stats = crate::text_index::decode_term_stats(&bytes)?;
+
+        {
+            let mut cache = engine.text_stats_cache.write();
+            cache.insert(cache_key, stats.clone());
+        }
+        Ok(Some(stats))
     }
 
     fn load_text_namespace_stats(
         engine: &StorageEngine,
         namespace: &str,
     ) -> Result<Option<crate::text_index::TextNamespaceStats>> {
-        let Some(bytes) = engine.get_from_partition(
-            BackendPartition::TextIndex,
-            &crate::text_index::namespace_stats_key(namespace),
-        )?
-        else {
+        {
+            let cache = engine.text_ns_cache.read();
+            if let Some(stats) = cache.get(namespace) {
+                return Ok(Some(stats.clone()));
+            }
+        }
+
+        let skey = crate::text_index::namespace_stats_key(namespace);
+        let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &skey)? else {
             return Ok(None);
         };
-        crate::text_index::decode_namespace_stats(&bytes).map(Some)
+        let stats = crate::text_index::decode_namespace_stats(&bytes)?;
+
+        {
+            let mut cache = engine.text_ns_cache.write();
+            cache.insert(namespace.to_string(), stats.clone());
+        }
+        Ok(Some(stats))
     }
 
     fn load_text_doc_stats(
@@ -1168,11 +1188,77 @@ impl VantaEmbedded {
         if ops.is_empty() {
             return Ok(());
         }
-        engine.write_backend_batch(ops)?;
+        engine.write_backend_batch(ops.clone())?;
+
+        // Actualizar/Invalidar la caché en memoria en base a las operaciones escritas
+        for op in &ops {
+            match op {
+                BackendWriteOp::Put {
+                    partition: BackendPartition::TextIndex,
+                    key,
+                    value,
+                } => {
+                    if crate::text_index::is_term_stats_key(key) {
+                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
+                            if let Ok(stats) = crate::text_index::decode_term_stats(value) {
+                                let mut cache = engine.text_stats_cache.write();
+                                cache.insert((ns, token), stats);
+                            }
+                        }
+                    } else if crate::text_index::is_namespace_stats_key(key) {
+                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
+                            if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
+                                let mut cache = engine.text_ns_cache.write();
+                                cache.insert(ns, stats);
+                            }
+                        }
+                    }
+                }
+                BackendWriteOp::Delete {
+                    partition: BackendPartition::TextIndex,
+                    key,
+                } => {
+                    if crate::text_index::is_term_stats_key(key) {
+                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
+                            let mut cache = engine.text_stats_cache.write();
+                            cache.remove(&(ns, token));
+                        }
+                    } else if crate::text_index::is_namespace_stats_key(key) {
+                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
+                            let mut cache = engine.text_ns_cache.write();
+                            cache.remove(&ns);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
         Self::adjust_derived_index_state_after_replace(engine, previous, current)?;
         Self::adjust_text_index_state_after_replace(engine, previous, current, text_report)?;
         crate::metrics::record_text_postings_written(text_report.postings_written);
         Ok(())
+    }
+
+    fn parse_term_stats_key(key: &[u8]) -> Option<(String, String)> {
+        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
+        const TERM_STATS_TAG: &[u8] = b"term\0";
+        let remainder = key
+            .strip_prefix(INTERNAL_PREFIX)?
+            .strip_prefix(TERM_STATS_TAG)?;
+        let pos = remainder.iter().position(|&b| b == 0)?;
+        let ns = String::from_utf8(remainder[..pos].to_vec()).ok()?;
+        let token = String::from_utf8(remainder[pos + 1..].to_vec()).ok()?;
+        Some((ns, token))
+    }
+
+    fn parse_namespace_stats_key(key: &[u8]) -> Option<String> {
+        const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
+        const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
+        let remainder = key
+            .strip_prefix(INTERNAL_PREFIX)?
+            .strip_prefix(NAMESPACE_STATS_TAG)?;
+        String::from_utf8(remainder.to_vec()).ok()
     }
 
     fn adjust_derived_index_state_after_replace(
@@ -1419,6 +1505,17 @@ impl VantaEmbedded {
     fn rebuild_text_index_with_report(&self) -> Result<TextIndexRebuildReport> {
         let started = Instant::now();
         let engine = self.engine_handle()?;
+
+        // Limpiar la caché en memoria antes de la reconstrucción masiva
+        {
+            let mut cache = engine.text_stats_cache.write();
+            cache.clear();
+        }
+        {
+            let mut cache = engine.text_ns_cache.write();
+            cache.clear();
+        }
+
         let mut ops = Vec::new();
         let mut counts = TextIndexCounts::default();
         let mut term_stats: BTreeMap<(String, String), u64> = BTreeMap::new();
@@ -2753,7 +2850,7 @@ impl VantaEmbedded {
             runtime_profile: VantaRuntimeProfile::Performance,
             persistence: true,
             vector_search: true,
-            iql_queries: cfg!(feature = "experimental"),
+            iql_queries: true,
             read_only: self.config.read_only,
         }
     }
@@ -2786,34 +2883,12 @@ impl VantaEmbedded {
         Ok(())
     }
 
-    /// Execute an IQL/LISP query (requires experimental feature).
-    #[cfg(feature = "experimental")]
+    /// Execute an IQL query.
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
         let engine = self.engine_handle()?;
         let executor = Executor::new(&engine);
         let result = executor.execute_hybrid(query)?;
-        Ok(match result {
-            ExecutionResult::Read(nodes) => {
-                VantaQueryResult::Read(nodes.into_iter().map(Into::into).collect())
-            }
-            ExecutionResult::Write {
-                affected_nodes,
-                message,
-                node_id,
-            } => VantaQueryResult::Write {
-                affected_nodes,
-                message,
-                node_id,
-            },
-            ExecutionResult::StaleContext(node_id) => VantaQueryResult::StaleContext { node_id },
-        })
-    }
-
-    #[cfg(not(feature = "experimental"))]
-    pub fn query(&self, _query: &str) -> Result<VantaQueryResult> {
-        Err(VantaError::Execution(
-            "query requires experimental feature".to_string(),
-        ))
+        Ok(result.into())
     }
 
     #[cfg(debug_assertions)]
@@ -3456,7 +3531,6 @@ impl From<FieldValue> for VantaValue {
     }
 }
 
-#[cfg(feature = "experimental")]
 impl From<ExecutionResult> for VantaQueryResult {
     fn from(result: ExecutionResult) -> Self {
         match result {

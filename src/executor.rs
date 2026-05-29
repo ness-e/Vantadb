@@ -1,9 +1,7 @@
 use crate::error::{Result, VantaError};
-use crate::eval::LispSandbox;
 #[cfg(feature = "governance")]
 use crate::governance::{ConfidenceArbiter, ResolutionResult};
 use crate::node::{UnifiedNode, VectorRepresentations};
-use crate::parser::lisp::parse as parse_lisp_expr;
 use crate::parser::parse_statement;
 use crate::query::{LogicalOperator, LogicalPlan, Statement};
 use crate::storage::StorageEngine;
@@ -115,10 +113,9 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            let expr = parse_lisp_expr(trimmed)
-                .map_err(|e| VantaError::Execution(format!("LISP Parse Error: {}", e)))?;
-            let mut sandbox = LispSandbox::new(self);
-            sandbox.eval(std::borrow::Cow::Owned(expr))
+            return Err(VantaError::Execution(
+                "LISP queries require the experimental-lisp extension/crate.".to_string(),
+            ));
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),

@@ -11,15 +11,11 @@ pub mod config;
 pub mod console;
 pub mod engine;
 pub mod error;
-#[cfg(feature = "experimental")]
-pub mod eval;
-#[cfg(feature = "experimental")]
 pub mod executor;
 pub mod gc;
 #[cfg(feature = "governance")]
 pub mod governance;
 pub mod governor;
-#[cfg(feature = "experimental")]
 pub mod graph;
 pub mod hardware;
 pub mod index;
@@ -29,7 +25,6 @@ pub mod llm;
 pub mod metadata;
 pub mod metrics;
 pub mod node;
-#[cfg(feature = "experimental")]
 pub mod parser;
 pub mod planner;
 #[cfg(feature = "python_sdk")]
@@ -59,3 +54,16 @@ pub use sdk::{
 };
 pub use storage::BackendKind;
 pub use wal::{WalReader, WalRecord, WalWriter};
+
+#[cfg(feature = "failpoints")]
+pub use fail::FailScenario;
+
+#[cfg(feature = "failpoints")]
+pub fn cfg_failpoint(name: &str, actions: &str) -> std::result::Result<(), String> {
+    fail::cfg(name, actions).map_err(|e| format!("{:?}", e))
+}
+
+#[cfg(feature = "failpoints")]
+pub fn remove_failpoint(name: &str) {
+    fail::remove(name);
+}
