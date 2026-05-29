@@ -113,9 +113,9 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            return Err(VantaError::Execution(
+            Err(VantaError::Execution(
                 "LISP queries require the experimental-lisp extension/crate.".to_string(),
-            ));
+            ))
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),

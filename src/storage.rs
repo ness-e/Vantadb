@@ -913,8 +913,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
-            Err(VantaError::IoError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(VantaError::IoError(std::io::Error::other(
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });
