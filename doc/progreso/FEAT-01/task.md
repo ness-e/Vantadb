@@ -1,0 +1,29 @@
+# Checklist de Implementación: Fase FEAT-01 (Ecosistema Python y Desacoplamiento de MCP)
+
+- [x] **Componente 1: Adapter LangChain (`langchain-vantadb`)**
+  - [x] Crear estructura de directorio `packages/langchain-vantadb/`
+  - [x] Crear `pyproject.toml` para el paquete `langchain-vantadb`
+  - [x] Crear `langchain_vantadb/__init__.py` y `langchain_vantadb/vectorstores.py`
+  - [x] Implementar la clase `VantaDBVectorStore` heredando de `langchain_core.vectorstores.VectorStore`
+  - [x] Añadir métodos CRUD básicos, `add_texts`, `similarity_search` y `similarity_search_with_score`
+  - [x] Crear test suite simple en `packages/langchain-vantadb/tests/`
+- [x] **Componente 2: Adapter LlamaIndex (`llamaindex-vantadb`)**
+  - [x] Crear estructura de directorio `packages/llamaindex-vantadb/`
+  - [x] Crear `pyproject.toml` para el paquete `llamaindex-vantadb`
+  - [x] Crear `llama_index/vector_stores/vantadb/__init__.py` y `llama_index/vector_stores/vantadb/base.py`
+  - [x] Implementar la clase `VantaDBVectorStore` heredando de la clase `VectorStore` o compatible con LlamaIndex
+  - [x] Implementar métodos `add`, `query` y `delete`
+  - [x] Crear test suite simple en `packages/llamaindex-vantadb/tests/`
+- [x] **Componente 3: Crate de MCP Autónomo (`vantadb-mcp`)**
+  - [x] Crear el directorio `vantadb-mcp/` y `vantadb-mcp/src/`
+  - [x] Crear `vantadb-mcp/Cargo.toml` con las dependencias requeridas
+  - [x] Crear `vantadb-mcp/src/lib.rs` y trasladar la lógica JSON-RPC de `vantadb-server/src/mcp.rs`
+  - [x] Registrar `"vantadb-mcp"` en el workspace en la raíz `Cargo.toml`
+  - [x] Modificar `vantadb-server/Cargo.toml` para agregar `vantadb-mcp` como dependencia
+  - [x] Modificar `vantadb-server/src/main.rs` para utilizar `vantadb_mcp::run_stdio_server`
+  - [x] Eliminar `vantadb-server/src/mcp.rs` de forma definitiva
+- [x] **Fase de Verificación**
+  - [x] Validar compilación del workspace de Rust (`cargo check --workspace --all-targets`) → ✅ 100% Correcta
+  - [x] Ejecutar tests de integración de Rust (`cargo test --test mcp_integration`) → ✅ 1/1 PASS
+  - [x] Validar instalación manual y tests de humo en Python para LangChain → ✅ 1/1 PASS
+  - [x] Validar instalación manual y tests de humo en Python para LlamaIndex → ✅ 1/1 PASS

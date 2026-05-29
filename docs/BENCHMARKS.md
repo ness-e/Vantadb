@@ -41,11 +41,11 @@ A continuación se muestran los resultados generados de forma reproducible por l
 <!-- BENCHMARK_METRICS_START -->
 | Operación / Fase | Dataset / Configuración | Latencia p50 | Latencia p95 | Latencia p99 | Rendimiento (Throughput) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Ingesta (`PUT`)** | 10K registros, 128d (con payload y metadata) | *N/D* | *N/D* | *N/D* | **~5,400 ops/sec** |
-| **Index Rebuild** | Reconstrucción híbrida (HNSW + BM25) | **~2.1s** | *N/D* | *N/D* | N/D |
-| **Búsqueda Lexical (BM25)** | 10K registros, `top_k=10` | *N/D* | *N/D* | *N/D* | **~830 queries/sec** |
-| **Búsqueda Vectorial (HNSW)** | 10K registros, `top_k=10`, 128d | *N/D* | *N/D* | *N/D* | **~830 queries/sec** |
-| **Búsqueda Híbrida (RRF)** | 10K registros, `top_k=10`, RRF Fusion | *N/D* | *N/D* | *N/D* | **~450 queries/sec** |
+| **Ingesta (`PUT`)** | 10,000 registros, 128d | **10.678 ms** | **17.490 ms** | **18.988 ms** | **95 ops/sec** |
+| **Index Rebuild** | Reconstrucción híbrida (HNSW + BM25) | **93.51s** | *N/A (Lote único)* | *N/A (Lote único)* | **107 ops/sec** |
+| **Búsqueda Lexical (BM25)** | 10,000 registros, `top_k=10` | **115.334 ms** | **127.139 ms** | **137.539 ms** | **9 qps** |
+| **Búsqueda Vectorial (HNSW)** | 10,000 registros, `top_k=10`, 128d | **61.996 ms** | **67.065 ms** | **71.893 ms** | **16 qps** |
+| **Búsqueda Híbrida (RRF)** | 10,000 registros, `top_k=10`, RRF Fusion | **179.810 ms** | **191.805 ms** | **211.059 ms** | **6 qps** |
 <!-- BENCHMARK_METRICS_END -->
 
 *(Nota: Los valores marcados con `~` son aproximaciones basadas en hardware estándar con AVX2 habilitado).*
@@ -73,3 +73,19 @@ Este script exportará un reporte detallado con paridad de esquema en [benchmark
 1. **Datos Sintéticos:** Las pruebas actuales se realizan sobre vectores aleatorios normalizados L2 (distribución uniforme). El comportamiento real del índice puede variar ligeramente con datasets de producción reales (ej. texto/embeddings reales de RAG).
 2. **Construcción Monohilo:** La fase de ingesta y construcción del grafo HNSW actualmente es monohilo en la API del SDK.
 3. **Métricas de Distancia:** La versión actual está altamente optimizada para **Distancia Coseno**.
+
+---
+
+## 🚀 4. Impacto del Prefetching Predictivo del Kernel (SCALE-01)
+
+Este benchmark compara la latencia de las consultas sobre un dataset persistido bajo `VantaFile` con y sin la optimización de prefetch predictivo del kernel (`madvise(MADV_WILLNEED)` en Unix y `PrefetchVirtualMemory` en Windows).
+
+<!-- PREFETCH_BENCHMARK_START -->
+| Métrica | Sin Prefetch (A) | Con Prefetch (B) | Mejora (%) |
+| :--- | :--- | :--- | :--- |
+| **Latencia Media** | 38.870 ms | 38.539 ms | **0.9%** |
+| **Latencia p50** | 36.639 ms | 36.007 ms | **1.7%** |
+| **Latencia p95** | 52.592 ms | 51.537 ms | **2.0%** |
+| **Latencia p99** | 57.057 ms | 57.776 ms | **-1.3%** |
+| **Throughput (QPS)** | 25.7 qps | 25.9 qps | **+0.9%** |
+<!-- PREFETCH_BENCHMARK_END -->
