@@ -43,11 +43,11 @@ async fn main() {
     // ── Bootstrap Invalidation Dispatcher ──────────────────────────────────
     #[cfg(feature = "governance")]
     let invalidation_tx = {
-        let mut dispatcher = vantadb::governance::invalidations::InvalidationDispatcher::new(256);
+        let mut dispatcher = experimental_governance::InvalidationDispatcher::new(256);
         let tx = dispatcher.sender();
         if let Some(rx) = dispatcher.take_receiver() {
             std::thread::spawn(move || {
-                vantadb::governance::invalidations::invalidation_listener(rx);
+                experimental_governance::invalidations::invalidation_listener(rx);
             });
         }
         tx
@@ -57,7 +57,7 @@ async fn main() {
     #[cfg(feature = "governance")]
     {
         let maintenance_storage_ctx = storage.clone();
-        let _maintenance_handle = vantadb::governance::maintenance_worker::MaintenanceWorker::start(
+        let _maintenance_handle = experimental_governance::MaintenanceWorker::start(
             maintenance_storage_ctx,
             invalidation_tx.clone(),
         );
