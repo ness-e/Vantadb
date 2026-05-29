@@ -1,4 +1,5 @@
-use crate::node::{AccessTracker, UnifiedNode};
+use crate::ResolutionResult;
+use vantadb::node::{AccessTracker, UnifiedNode};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
@@ -61,15 +62,6 @@ impl OriginCollisionTracker {
     pub fn reset(&mut self) {
         self.origins.clear();
     }
-}
-
-/// Resolution result enum for conflict arbitration.
-#[derive(Debug, Clone)]
-pub enum ResolutionResult {
-    Accept,
-    Reject(String),
-    Superposition(crate::governance::consistency::ConsistencyRecord),
-    Merge { new_confidence: f32 },
 }
 
 pub struct ConflictResolver {
@@ -141,7 +133,7 @@ impl ConfidenceArbiter for ConflictResolver {
 
                 if challenger.confidence_score() < incumbent.confidence_score() {
                     return ResolutionResult::Superposition(
-                        crate::governance::consistency::ConsistencyRecord::new_superposition(
+                        crate::consistency::ConsistencyRecord::new_superposition(
                             incumbent.clone(),
                             challenger.clone(),
                             10000,
