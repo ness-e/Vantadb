@@ -73,10 +73,11 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
     # 2. Ingestión (Fase PUT)
     print(f"\n[1/5] Ingesting {num_vectors} memory records via PUT...")
     start_ingest = time.perf_counter()
+    put_latencies = []
     
     namespace = "bench/main"
     for i, vec in enumerate(vectors):
-        # API MVP: namespace, key, payload, metadata, vector
+        t_start = time.perf_counter()
         db.put(
             namespace=namespace,
             key=f"doc-{i:05d}",
@@ -84,6 +85,8 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
             metadata={"category": "benchmark", "index": i},
             vector=vec
         )
+        t_duration = (time.perf_counter() - t_start) * 1000.0  # ms
+        put_latencies.append(t_duration)
         
         # Reportar progreso cada 10% para la ingesta (que tarda segundos/minutos)
         step = num_vectors // 10
@@ -190,11 +193,15 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
     print("==================================================")
 
     # 5. Exportar reporte con paridad absoluta frente a benchmark_internal.rs
+    p50_put, p95_put, p99_put = calculate_percentiles(put_latencies)
     report = {
         "insert": {
             "total_records": num_vectors,
             "total_duration_ms": ingest_duration * 1000.0,
             "throughput_records_per_sec": ingest_throughput,
+            "p50_ms": p50_put,
+            "p95_ms": p95_put,
+            "p99_ms": p99_put,
         },
         "rebuild": {
             "duration_ms": rebuild_duration,

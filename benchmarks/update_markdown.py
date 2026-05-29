@@ -14,21 +14,34 @@ START_MARKER = "<!-- BENCHMARK_METRICS_START -->"
 END_MARKER = "<!-- BENCHMARK_METRICS_END -->"
 
 def main():
-    if not os.path.exists(RESULTS_FILE):
-        print(f"Error: {RESULTS_FILE} not found. Running with placeholder metrics.")
-        return
+    results_path = RESULTS_FILE
+    if not os.path.exists(results_path):
+        fallback_path = "benchmarks/vanta_benchmark_report.json"
+        if os.path.exists(fallback_path):
+            results_path = fallback_path
+        else:
+            print(f"Error: Neither {RESULTS_FILE} nor {fallback_path} found. Exiting.")
+            return
 
     if not os.path.exists(BENCHMARK_MD):
         print(f"Error: {BENCHMARK_MD} not found.")
         return
 
     # 1. Leer los resultados JSON reales
-    with open(RESULTS_FILE, "r") as f:
+    with open(results_path, "r") as f:
         metrics = json.load(f)
 
     # Extraer valores de forma segura
-    insert_tput = metrics.get("insert", {}).get("throughput_records_per_sec", 0.0)
-    rebuild_ms = metrics.get("rebuild", {}).get("duration_ms", 0.0)
+    insert_block = metrics.get("insert", {})
+    insert_tput = insert_block.get("throughput_records_per_sec", 0.0)
+    insert_p50 = insert_block.get("p50_ms", 0.0)
+    insert_p95 = insert_block.get("p95_ms", 0.0)
+    insert_p99 = insert_block.get("p99_ms", 0.0)
+    total_records = insert_block.get("total_records", 0)
+
+    rebuild_block = metrics.get("rebuild", {})
+    rebuild_ms = rebuild_block.get("duration_ms", 0.0)
+    rebuild_tput = total_records / (rebuild_ms / 1000.0) if rebuild_ms > 0 else 0.0
     
     q_text = metrics.get("query_text", {})
     q_vector = metrics.get("query_vector", {})
@@ -50,11 +63,11 @@ def main():
     table_lines = [
         "| Operación / Fase | Dataset / Configuración | Latencia p50 | Latencia p95 | Latencia p99 | Rendimiento (Throughput) |",
         "| :--- | :--- | :--- | :--- | :--- | :--- |",
-        f"| **Ingesta (`PUT`)** | {metrics.get('insert', {}).get('total_records', 0):,} registros, 128d | *N/D* | *N/D* | *N/D* | {format_tput(insert_tput)} |",
-        f"| **Index Rebuild** | Reconstrucción híbrida (HNSW + BM25) | **{rebuild_ms / 1000.0:.2f}s** | *N/D* | *N/D* | *N/D* |",
-        f"| **Búsqueda Lexical (BM25)** | {metrics.get('insert', {}).get('total_records', 0):,} registros, `top_k=10` | {format_latency(q_text.get('p50_ms', 0))} | {format_latency(q_text.get('p95_ms', 0))} | {format_latency(q_text.get('p99_ms', 0))} | {format_qps(q_text.get('p50_ms', 0))} |",
-        f"| **Búsqueda Vectorial (HNSW)** | {metrics.get('insert', {}).get('total_records', 0):,} registros, `top_k=10`, 128d | {format_latency(q_vector.get('p50_ms', 0))} | {format_latency(q_vector.get('p95_ms', 0))} | {format_latency(q_vector.get('p99_ms', 0))} | {format_qps(q_vector.get('p50_ms', 0))} |",
-        f"| **Búsqueda Híbrida (RRF)** | {metrics.get('insert', {}).get('total_records', 0):,} registros, `top_k=10`, RRF Fusion | {format_latency(q_hybrid.get('p50_ms', 0))} | {format_latency(q_hybrid.get('p95_ms', 0))} | {format_latency(q_hybrid.get('p99_ms', 0))} | {format_qps(q_hybrid.get('p50_ms', 0))} |"
+        f"| **Ingesta (`PUT`)** | {total_records:,} registros, 128d | {format_latency(insert_p50)} | {format_latency(insert_p95)} | {format_latency(insert_p99)} | {format_tput(insert_tput)} |",
+        f"| **Index Rebuild** | Reconstrucción híbrida (HNSW + BM25) | **{rebuild_ms / 1000.0:.2f}s** | *N/A (Lote único)* | *N/A (Lote único)* | {format_tput(rebuild_tput)} |",
+        f"| **Búsqueda Lexical (BM25)** | {total_records:,} registros, `top_k=10` | {format_latency(q_text.get('p50_ms', 0))} | {format_latency(q_text.get('p95_ms', 0))} | {format_latency(q_text.get('p99_ms', 0))} | {format_qps(q_text.get('p50_ms', 0))} |",
+        f"| **Búsqueda Vectorial (HNSW)** | {total_records:,} registros, `top_k=10`, 128d | {format_latency(q_vector.get('p50_ms', 0))} | {format_latency(q_vector.get('p95_ms', 0))} | {format_latency(q_vector.get('p99_ms', 0))} | {format_qps(q_vector.get('p50_ms', 0))} |",
+        f"| **Búsqueda Híbrida (RRF)** | {total_records:,} registros, `top_k=10`, RRF Fusion | {format_latency(q_hybrid.get('p50_ms', 0))} | {format_latency(q_hybrid.get('p95_ms', 0))} | {format_latency(q_hybrid.get('p99_ms', 0))} | {format_qps(q_hybrid.get('p50_ms', 0))} |"
     ]
     
     new_table_content = "\n".join(table_lines)
