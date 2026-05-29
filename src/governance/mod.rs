@@ -1,15 +1,18 @@
-//! Internal and future-facing governance primitives.
+//! Governance primitives for StorageEngine.
 //!
-//! These modules are retained for maintenance and policy experiments. They do not make VantaDB an
-//! enterprise governance, RBAC, or metacognitive runtime in the v0.1.x MVP.
+//! This module provides the data structures (`AdmissionFilter`, `ConsistencyBuffer`,
+//! `ConflictResolver`) that are conditionally compiled into `StorageEngine` when
+//! the `governance` feature is active. The full experimental logic (maintenance
+//! workers, invalidation dispatch, etc.) lives in the `experimental-governance`
+//! crate under `packages/`.
 
 pub mod admission_filter;
 pub mod conflict_resolver;
 pub mod consistency;
-pub mod invalidations;
-pub mod maintenance_worker;
 
-pub use conflict_resolver::{ConfidenceArbiter, ConflictResolver};
+pub use admission_filter::AdmissionFilter;
+pub use conflict_resolver::{ConfidenceArbiter, ConflictResolver, ResolutionResult};
+pub use consistency::{ConsistencyBuffer, ConsistencyRecord};
 
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -37,12 +40,4 @@ impl AuditableTombstone {
             original_hash,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum ResolutionResult {
-    Accept,
-    Reject(String),
-    Superposition(crate::governance::consistency::ConsistencyRecord),
-    Merge { new_confidence: f32 },
 }

@@ -1,4 +1,3 @@
-use crate::governance::ResolutionResult;
 use crate::node::{AccessTracker, UnifiedNode};
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -62,6 +61,15 @@ impl OriginCollisionTracker {
     pub fn reset(&mut self) {
         self.origins.clear();
     }
+}
+
+/// Resolution result enum for conflict arbitration.
+#[derive(Debug, Clone)]
+pub enum ResolutionResult {
+    Accept,
+    Reject(String),
+    Superposition(crate::governance::consistency::ConsistencyRecord),
+    Merge { new_confidence: f32 },
 }
 
 pub struct ConflictResolver {

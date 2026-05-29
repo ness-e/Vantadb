@@ -1,9 +1,9 @@
-use crate::backend::BackendPartition;
-use crate::governance::invalidations::{InvalidationDispatcher, InvalidationEvent};
-use crate::node::{AccessTracker, NodeFlags, UnifiedNode};
+use vantadb::storage::BackendPartition;
+use crate::invalidations::{InvalidationDispatcher, InvalidationEvent};
+use vantadb::node::{AccessTracker, NodeFlags, UnifiedNode};
 #[cfg(feature = "llm")]
-use crate::node::{FieldValue, NodeTier};
-use crate::storage::StorageEngine;
+use vantadb::node::{FieldValue, NodeTier};
+use vantadb::storage::StorageEngine;
 #[cfg(feature = "llm")]
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -91,7 +91,7 @@ impl MaintenanceWorker {
                     .unwrap_or_default()
                     .as_millis() as u64;
 
-                let mut best_confidence = -1.0;
+                let mut best_confidence = -1.0_f32;
                 for cand in &record.candidates {
                     if cand.confidence_score() > best_confidence {
                         best_confidence = cand.confidence_score();
@@ -149,7 +149,7 @@ impl MaintenanceWorker {
                         .fetch_add(1, Ordering::Relaxed);
 
                     let mut best_idx = 0;
-                    let mut best_confidence = -1.0;
+                    let mut best_confidence = -1.0_f32;
                     for (i, cand) in record.candidates.iter().enumerate() {
                         if cand.confidence_score() > best_confidence {
                             best_confidence = cand.confidence_score();
@@ -178,7 +178,7 @@ impl MaintenanceWorker {
                 let _ = storage.insert(&winner);
             }
 
-            use crate::governance::AuditableTombstone;
+            use crate::AuditableTombstone;
             if !losers_to_log.is_empty() {
                 for (id, hash, reason) in losers_to_log {
                     let tomb = AuditableTombstone::new(id, reason, hash);
@@ -205,11 +205,11 @@ impl MaintenanceWorker {
 
             let mut keys_to_remove = Vec::new();
 
-            let caps = crate::hardware::HardwareCapabilities::global();
+            let caps = vantadb::hardware::HardwareCapabilities::global();
             let max_consolidations = match caps.profile {
-                crate::hardware::HardwareProfile::Enterprise => 5000,
-                crate::hardware::HardwareProfile::Performance => 500,
-                crate::hardware::HardwareProfile::LowResource => 50,
+                vantadb::hardware::HardwareProfile::Enterprise => 5000,
+                vantadb::hardware::HardwareProfile::Performance => 500,
+                vantadb::hardware::HardwareProfile::LowResource => 50,
             };
 
             for (&id, node) in cache.iter_mut() {
@@ -241,7 +241,7 @@ impl MaintenanceWorker {
                     let slashed_role: Option<String> = node
                         .relational
                         .get("_owner_role")
-                        .and_then(|v: &crate::node::FieldValue| v.as_str())
+                        .and_then(|v: &vantadb::node::FieldValue| v.as_str())
                         .map(|s: &str| s.to_string());
                     to_purge.push((id, true, slashed_role));
                     continue;
@@ -352,7 +352,7 @@ impl MaintenanceWorker {
         }
 
         let deadline = Instant::now();
-        let llm = crate::llm::LlmClient::new();
+        let llm = vantadb::llm::LlmClient::new();
 
         for (thread_id, group) in &thread_groups {
             if deadline.elapsed().as_millis() > MAX_COMPRESSION_DURATION_MS {
@@ -403,7 +403,7 @@ impl MaintenanceWorker {
                     .and_then(|f| f.as_str())
                     .unwrap_or(""),
             ) {
-                summary_node.vector = crate::node::VectorRepresentations::Full(vec);
+                summary_node.vector = vantadb::node::VectorRepresentations::Full(vec);
                 summary_node.flags.set(NodeFlags::HAS_VECTOR);
             }
 
