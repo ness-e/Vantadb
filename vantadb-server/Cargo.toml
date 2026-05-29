@@ -8,6 +8,7 @@ description = "Optional local server wrapper and MCP interface for VantaDB"
 [dependencies]
 vantadb = { path = "..", features = ["cli"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
+experimental-governance = { path = "../packages/experimental-governance", optional = true }
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 axum = "0.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -24,7 +25,7 @@ console = "0.15"
 indicatif = "0.17"
 
 [features]
-governance = ["vantadb/governance"]
+governance = ["vantadb/governance", "dep:experimental-governance"]
 custom-allocator = ["mimalloc"]
 # Exposed solely for test harness compatibility with tests/common/mod.rs
 cli = ["vantadb/cli"]
