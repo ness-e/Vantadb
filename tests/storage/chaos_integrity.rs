@@ -1,6 +1,4 @@
-//! Storage Chaos & Data Integrity Modernized Test Suite
-//! Part of the Vanta Certification ecosystem.
-#![cfg(feature = "experimental")]
+
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -123,4 +121,54 @@ fn chaos_integrity_certification() {
 
     // Final Report for this suite
     TerminalReporter::print_certification_summary();
+}
+
+#[test]
+fn chaos_integrity_failpoints_certification() {
+    #[cfg(feature = "failpoints")]
+    {
+        TerminalReporter::suite_banner("FAILPOINT INJECTION & RESILIENCE AXIOMS", 1);
+
+        let _scenario = vantadb::FailScenario::setup();
+
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().to_str().unwrap();
+
+        // 1. Inicialización y escritura inicial exitosa
+        let storage = Arc::new(StorageEngine::open(db_path).unwrap());
+        let executor = Executor::new(&storage);
+
+        // 2. Activar inyección de fallo en WAL
+        vantadb::cfg_failpoint("wal_append_fail", "return").unwrap();
+
+        // 3. Comprobar que la base de datos rechaza la operación limpiamente
+        let result = executor.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 42,
+            node_type: "Chaos".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }));
+
+        assert!(
+            result.is_err(),
+            "Se esperaba error debido a inyección de fallo en el WAL"
+        );
+
+        // Desactivar inyección
+        vantadb::remove_failpoint("wal_append_fail");
+
+        // 4. Comprobar auto-recuperación y escrituras posteriores
+        let recovery_result = executor.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 42,
+            node_type: "Chaos".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }));
+        assert!(
+            recovery_result.is_ok(),
+            "El motor debería recuperarse tras desactivar el failpoint"
+        );
+
+        TerminalReporter::print_certification_summary();
+    }
 }
