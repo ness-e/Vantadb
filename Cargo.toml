@@ -321,7 +321,7 @@ members = [
     "vantadb-server",
     "vantadb-mcp",
     "packages/experimental-lisp",
-    "packages/experimental-governance"
+    "packages/experimental-governance",
 ]
 # fuzz/ is intentionally excluded: cargo-fuzz requires nightly + Linux sanitizers.
 # Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
