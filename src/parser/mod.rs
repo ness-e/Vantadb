@@ -14,8 +14,6 @@ use nom::{
     IResult, Parser,
 };
 
-pub mod lisp;
-
 use crate::node::FieldValue;
 use crate::query::*;
 

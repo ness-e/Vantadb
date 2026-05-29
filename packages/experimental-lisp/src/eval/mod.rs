@@ -1,12 +1,9 @@
-//! Experimental LISP evaluation surface.
-//!
-//! This module is retained for historical logic-language experiments. It is not part of the
-//! v0.1.x MVP product boundary or stable SDK contract.
+//! Experimental LISP evaluation surface in quarantine.
 
-use crate::error::{Result, VantaError};
-use crate::executor::{ExecutionResult, Executor};
-use crate::node::FieldValue;
-use crate::parser::lisp::LispExpr;
+use vantadb::error::{Result, VantaError};
+use vantadb::executor::{ExecutionResult, Executor};
+use vantadb::node::FieldValue;
+use crate::parser::LispExpr;
 use std::collections::BTreeMap;
 
 pub mod vm;
@@ -102,8 +99,8 @@ impl<'a> LispSandbox<'a> {
 
         // LISP rules are top-tier active nodes (Hot) —
         // must live in volatile_cache for low-latency access.
-        let mut node = crate::node::UnifiedNode::new(node_id);
-        node.tier = crate::node::NodeTier::Hot;
+        let mut node = vantadb::node::UnifiedNode::new(node_id);
+        node.tier = vantadb::node::NodeTier::Hot;
         node.set_field("type", FieldValue::String(node_type.clone()));
         for (k, v) in &fields {
             node.set_field(k.as_str(), v.clone());

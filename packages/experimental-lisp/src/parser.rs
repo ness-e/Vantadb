@@ -1,8 +1,6 @@
-//! # Historical / Experimental Notice
+//! # LISP Parser in Quarantine
 //!
-//! This module contains historical and experimental query-language work (IQL/LISP/DQL).
-//! It is NOT part of the v0.1.x MVP product boundary and should not be relied upon as a stable public API.
-//! The stable boundary remains `src/sdk.rs`.
+//! Excluded from the core and compiled in the experimental subcrate.
 
 use nom::{
     branch::alt,
