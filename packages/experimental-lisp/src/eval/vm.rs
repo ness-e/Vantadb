@@ -1,4 +1,4 @@
-use crate::node::{UnifiedNode, VectorRepresentations};
+use vantadb::node::{UnifiedNode, VectorRepresentations};
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -52,6 +52,7 @@ impl VantaLispVM {
                 current_context.id, self.context_epoch, current_context.epoch
             );
             // Return degraded result — confidence collapses to signal stale data
+            // (Uses 0.0 value, 0.1 confidence to mark stale data)
             return Ok((0.0, 0.1));
         }
 
@@ -87,7 +88,7 @@ impl VantaLispVM {
                 }
                 Opcode::OpRehydrate => {
                     self.needs_rehydration = true;
-                    // Returns temporary NaN float or similar to the stack (or simply ignores)
+                    // Returns temporary NaN float or simply 0.0
                     self.float_stack.push(0.0);
                 }
             }
