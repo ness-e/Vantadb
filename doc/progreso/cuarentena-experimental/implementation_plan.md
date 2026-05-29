@@ -9,7 +9,7 @@ Este plan detalla el desacoplamiento físico y lógico de los módulos experimen
 > [!IMPORTANT]
 > **No se elimina código histórico:** Todo el código fuente experimental de LISP y Gobernanza se mantendrá intacto y compilable dentro del directorio `packages/`.
 > 
-> **Desactivación de Features del Core:** Se removerán las features `experimental` y `governance` del `Cargo.toml` raíz. Los campos condicionales en `StorageEngine` y `Executor` se deshabilitarán o aislarán para que no influyan en la ruta crítica del core.
+> **Desactivación de Features del Core:** Se removerán las features `experimental` and `governance` del `Cargo.toml` raíz. Los campos condicionales en `StorageEngine` y `Executor` se deshabilitarán o aislarán para que no influyan en la ruta crítica del core.
 > 
 > **Frontera de Consulta LISP en el Core:** Si se intenta ejecutar una consulta que comience con `(` (sintaxis LISP) a través de la API del core, se retornará un error semántico limpio indicando que se requiere el uso de la extensión experimental.
 

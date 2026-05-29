@@ -17,6 +17,6 @@
 - `[x]` Eliminar archivos originales del core (`src/eval/`, `src/parser/lisp.rs`, `src/governance/`)
 
 ## CUARENTENA-01c: Estabilizar tests del core
-- `[/]` Auditar tests que requieren feature `experimental` o `governance`
-- `[ ]` Ajustar o mover tests afectados
-- `[ ]` Solicitar al usuario que ejecute `cargo check --lib` y `cargo test`
+- `[x]` Auditar tests que requieren feature `experimental` o `governance`
+- `[x]` Ajustar o mover tests afectados
+- `[x]` Solicitar al usuario que ejecute `cargo check --lib` y `cargo test`
