@@ -21,10 +21,10 @@ fn structured_api_v2_certification() {
 
         TerminalReporter::sub_step("Inserting nodes S1 and S2 via hybrid syntax...");
         executor
-            .execute_hybrid("(INSERT :node {:label \"S1\"})")
+            .execute_hybrid("INSERT NODE#1 TYPE node { label: \"S1\" }")
             .unwrap();
         executor
-            .execute_hybrid("(INSERT :node {:label \"S2\"})")
+            .execute_hybrid("INSERT NODE#2 TYPE node { label: \"S2\" }")
             .unwrap();
 
         let (s1_id, s2_id);
@@ -67,7 +67,7 @@ fn ollama_integration() {
         let executor = Executor::new(&storage);
 
         executor
-            .execute_hybrid("(INSERT :node {:type \"Thread\" :id 999})")
+            .execute_hybrid("INSERT NODE#999 TYPE Thread { type: \"Thread\" }")
             .unwrap();
 
         TerminalReporter::sub_step("Dispatching message to THREAD#999...");
