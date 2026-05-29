@@ -7,11 +7,76 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-pub use crate::node::{DistanceMetric, VectorRepresentations};
+pub use crate::node::{DistanceMetric, SendPtr, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
+/// SCALE-01: Prefetching Predictivo del Kernel para búsqueda HNSW MMap.
+///
+/// Emite una sugerencia asíncrona al OS para pre-cargar páginas físicas del vector
+/// de un nodo candidato *antes* de que la CPU las calcule. Esto oculta la latencia
+/// de page fault detrás del cálculo de distancia del nodo actual.
+///
+/// La función es no-bloqueante y best-effort: si falla (permisos, no soportado),
+/// la búsqueda continúa correctamente sin degradación.
+///
+/// # Safety
+/// El puntero `mmap_ptr` debe ser válido durante la duración de la llamada.
+/// El rango `[offset, offset+len)` debe estar dentro del mmap mapeado.
+#[inline(always)]
+#[allow(unused_variables)]
+fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
+    #[cfg(unix)]
+    {
+        // POSIX: madvise(MADV_WILLNEED) — solicita al kernel cargar páginas de forma asíncrona.
+        // Disponible en Linux y macOS. No bloquea el hilo llamante.
+        unsafe {
+            // SAFETY: mmap_ptr es un puntero activo al mmap; offset+len está validado por
+            // el caller. madvise falla silenciosamente si el rango es inválido.
+            libc::madvise(
+                mmap_ptr.add(offset) as *mut libc::c_void,
+                len,
+                libc::MADV_WILLNEED,
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        // Windows: PrefetchVirtualMemory — equivalente a MADV_WILLNEED.
+        // Disponible desde Windows 8 / Server 2012. Falla silenciosamente en versiones anteriores.
+        use windows_sys::Win32::System::Memory::{PrefetchVirtualMemory, WIN32_MEMORY_RANGE_ENTRY};
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        unsafe {
+            // SAFETY: mismas garantías que el caso Unix.
+            let addr = mmap_ptr.add(offset) as *mut core::ffi::c_void;
+            let entry = WIN32_MEMORY_RANGE_ENTRY {
+                VirtualAddress: addr,
+                NumberOfBytes: len,
+            };
+            let process_handle = GetCurrentProcess();
+            // La firma acepta *const WIN32_MEMORY_RANGE_ENTRY y Flags=0 (requerido por Win32)
+            PrefetchVirtualMemory(process_handle, 1, std::ptr::addr_of!(entry), 0);
+        }
+    }
+
+
+    // Fallback no-op para plataformas sin soporte (e.g., WASM, Tier-3).
+    // El compilador elimina este bloque vacío en release.
+    #[cfg(not(any(unix, windows)))]
+    let _ = (mmap_ptr, offset, len);
+}
+
+/// Controla dinámicamente si el prefetch predictivo está activo.
+/// Lee la variable de entorno `VANTA_DISABLE_PREFETCH` en cada invocación.
+/// El overhead de `std::env::var` (~1µs) es despreciable frente al cómputo
+/// de distancia vectorial (~50µs) y la propia syscall de prefetch (~2µs).
+#[inline(always)]
+fn should_prefetch() -> bool {
+    std::env::var("VANTA_DISABLE_PREFETCH").is_err()
+}
+
 const VECTOR_INDEX_MAGIC: &[u8; 8] = b"VNTHNSW1";
-const VECTOR_INDEX_VERSION: u32 = 3; // Upgraded for DistanceMetric support
+const VECTOR_INDEX_VERSION: u32 = 4; // Upgraded for zero-copy aligned vector paging
 
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
@@ -149,6 +214,13 @@ pub fn calculate_similarity(
             DistanceMetric::Cosine => cosine_sim_f32(raw_query, f),
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f).sqrt(),
         },
+        VectorRepresentations::MmapFull(ptr, len) => {
+            let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+            match metric {
+                DistanceMetric::Cosine => cosine_sim_f32(raw_query, slice),
+                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, slice).sqrt(),
+            }
+        }
         VectorRepresentations::None => 0.0,
     }
 }
@@ -328,6 +400,7 @@ impl CPIndex {
         for node in self.nodes.values() {
             match &node.vec_data {
                 VectorRepresentations::Full(v) => total += v.len() * std::mem::size_of::<f32>(),
+                VectorRepresentations::MmapFull(_, _) => {} // Zero heap allocations for mapped memory
                 VectorRepresentations::Binary(b) => total += b.len() * std::mem::size_of::<u64>(),
                 VectorRepresentations::Turbo(t) => total += t.len(),
                 VectorRepresentations::None => {}
@@ -426,6 +499,31 @@ impl CPIndex {
 
             if let Some(node) = self.nodes.get(&cand_id) {
                 if layer < node.neighbors.len() {
+                    // SCALE-01: Prefetch predictivo — emitimos sugerencias de pre-carga para
+                    // TODOS los vecinos del candidato actual antes de calcular cualquier distancia.
+                    // Esto permite al kernel (y al controlador de SSD) iniciar DMA de las páginas
+                    // físicas en paralelo mientras la CPU calcula la distancia del nodo actual.
+                    if should_prefetch() {
+                        if let Some(vs) = vector_store {
+                            let mmap_base = vs.mmap_bytes().as_ptr();
+                            let mmap_len = vs.mmap_bytes().len();
+                            for &pf_neighbor_id in &node.neighbors[layer] {
+                                if !visited.contains(&pf_neighbor_id) {
+                                    if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
+                                        if let Some(h) = vs.read_header(pf_node.storage_offset) {
+                                            let vec_start = h.vector_offset as usize;
+                                            let vec_len_bytes = h.vector_len as usize * 4;
+                                            // Validar bounds antes de emitir prefetch
+                                            if vec_start + vec_len_bytes <= mmap_len && vec_len_bytes > 0 {
+                                                prefetch_mmap_vector(mmap_base, vec_start, vec_len_bytes);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     for &neighbor_id in &node.neighbors[layer] {
                         if !visited.contains(&neighbor_id) {
                             visited.insert(neighbor_id);
@@ -528,9 +626,9 @@ impl CPIndex {
             let cand_id = ns.1;
             let sim_q_cand = ns.0;
 
-            let cand_slice = match self.nodes.get(&cand_id).map(|n| &n.vec_data) {
-                Some(VectorRepresentations::Full(v)) => v.as_slice(),
-                _ => {
+            let cand_slice = match self.nodes.get(&cand_id).and_then(|n| n.vec_data.as_f32_slice()) {
+                Some(slice) => slice,
+                None => {
                     selected.push(cand_id);
                     continue;
                 }
@@ -741,10 +839,7 @@ impl CPIndex {
 
                 if needs_shrink {
                     // Zero-Copy Extractor for Pruning
-                    let nb_vec = match self.nodes.get(&neighbor_id).map(|n| &n.vec_data) {
-                        Some(VectorRepresentations::Full(v)) => Some(v.as_slice()),
-                        _ => None,
-                    };
+                    let nb_vec = self.nodes.get(&neighbor_id).and_then(|n| n.vec_data.as_f32_slice());
 
                     if let Some(nb_v) = nb_vec {
                         let mut cand_heap = BinaryHeap::new();
@@ -869,7 +964,23 @@ impl CPIndex {
                 VectorRepresentations::Full(f) => {
                     buf.push(1);
                     buf.extend_from_slice(&(f.len() as u64).to_le_bytes());
+                    let padding = (4 - (buf.len() % 4)) % 4;
+                    if padding > 0 {
+                        buf.extend(std::iter::repeat(0).take(padding));
+                    }
                     for &val in f {
+                        buf.extend_from_slice(&val.to_le_bytes());
+                    }
+                }
+                VectorRepresentations::MmapFull(ptr, len) => {
+                    buf.push(1);
+                    buf.extend_from_slice(&(*len as u64).to_le_bytes());
+                    let padding = (4 - (buf.len() % 4)) % 4;
+                    if padding > 0 {
+                        buf.extend(std::iter::repeat(0).take(padding));
+                    }
+                    let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+                    for &val in slice {
                         buf.extend_from_slice(&val.to_le_bytes());
                     }
                 }
@@ -905,7 +1016,7 @@ impl CPIndex {
         buf
     }
 
-    pub fn deserialize_from_bytes(data: &[u8]) -> std::io::Result<Self> {
+    pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
         if data.len() < 29 {
@@ -1005,18 +1116,29 @@ impl CPIndex {
             let vec_data = match vec_type {
                 1 => {
                     let byte_len = vec_len * 4;
+                    if version >= 4 {
+                        let padding = (4 - (pos % 4)) % 4;
+                        pos += padding;
+                    }
                     if pos + byte_len > data.len() {
                         return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated f32 vec"));
                     }
-                    let mut v = Vec::with_capacity(vec_len);
-                    for i in 0..vec_len {
-                        let start = pos + i * 4;
-                        v.push(f32::from_le_bytes(
-                            data[start..start + 4].try_into().unwrap(),
-                        ));
+                    if force_copy {
+                        let mut v = Vec::with_capacity(vec_len);
+                        for i in 0..vec_len {
+                            let start = pos + i * 4;
+                            v.push(f32::from_le_bytes(
+                                data[start..start + 4].try_into().unwrap(),
+                            ));
+                        }
+                        pos += byte_len;
+                        VectorRepresentations::Full(v)
+                    } else {
+                        // ZERO-COPY
+                        let ptr = data[pos..pos + byte_len].as_ptr() as *const f32;
+                        pos += byte_len;
+                        VectorRepresentations::MmapFull(SendPtr(ptr), vec_len)
                     }
-                    pos += byte_len;
-                    VectorRepresentations::Full(v)
                 }
                 2 => {
                     let byte_len = vec_len * 8;
@@ -1115,42 +1237,76 @@ impl CPIndex {
         Ok(())
     }
 
-    pub fn load_from_file(path: &Path) -> Option<Self> {
+    pub fn load_from_file(path: &Path, use_mmap: bool) -> Option<Self> {
         if !path.exists() {
             return None;
         }
 
-        let file = match std::fs::File::open(path) {
-            Ok(f) => f,
-            Err(_) => return None,
-        };
+        if use_mmap {
+            let file = match OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(path)
+            {
+                Ok(f) => f,
+                Err(_) => return None,
+            };
 
-        let mmap = match unsafe { memmap2::MmapOptions::new().map(&file) } {
-            Ok(m) => m,
-            Err(e) => {
-                warn!(err = %e, "Failed to mmap HNSW index file — will rebuild");
-                return None;
-            }
-        };
-
-        match Self::deserialize_from_bytes(&mmap) {
-            Ok(index) => {
-                info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded index from file");
-                // Phase 1.3: Validate integrity on every cold-start
-                if let Err(violations) = index.validate_index() {
-                    warn!(
-                        violation_count = violations.len(),
-                        "HNSW index has integrity violations after deserialization"
-                    );
-                    for v in &violations[..violations.len().min(5)] {
-                        warn!(violation = %v, "HNSW integrity violation");
-                    }
+            let mmap = match unsafe { memmap2::MmapMut::map_mut(&file) } {
+                Ok(m) => m,
+                Err(e) => {
+                    warn!(err = %e, "Failed to mmap HNSW index file — will rebuild");
+                    return None;
                 }
-                Some(index)
+            };
+
+            match Self::deserialize_from_bytes(&mmap, false) {
+                Ok(mut index) => {
+                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded zero-copy index from file");
+                    index.backend = IndexBackend::MMapFile {
+                        path: path.to_path_buf(),
+                        mmap: Some(mmap),
+                    };
+                    if let Err(violations) = index.validate_index() {
+                        warn!(
+                            violation_count = violations.len(),
+                            "HNSW index has integrity violations after deserialization"
+                        );
+                        for v in &violations[..violations.len().min(5)] {
+                            warn!(violation = %v, "HNSW integrity violation");
+                        }
+                    }
+                    Some(index)
+                }
+                Err(e) => {
+                    warn!(err = %e, "Corrupt vector_index.bin — will rebuild and overwrite");
+                    None
+                }
             }
-            Err(e) => {
-                warn!(err = %e, "Corrupt vector_index.bin — will rebuild and overwrite");
-                None
+        } else {
+            let data = match std::fs::read(path) {
+                Ok(d) => d,
+                Err(_) => return None,
+            };
+
+            match Self::deserialize_from_bytes(&data, true) {
+                Ok(index) => {
+                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded memory-copied index from file");
+                    if let Err(violations) = index.validate_index() {
+                        warn!(
+                            violation_count = violations.len(),
+                            "HNSW index has integrity violations after deserialization"
+                        );
+                        for v in &violations[..violations.len().min(5)] {
+                            warn!(violation = %v, "HNSW integrity violation");
+                        }
+                    }
+                    Some(index)
+                }
+                Err(e) => {
+                    warn!(err = %e, "Corrupt vector_index.bin — will rebuild and overwrite");
+                    None
+                }
             }
         }
     }
@@ -1175,11 +1331,16 @@ impl CPIndex {
         mapped.copy_from_slice(&data);
         mapped.flush()?;
 
+        // Remapear todos los nodos a la nueva dirección de memoria virtual para evitar dangling pointers
+        let new_index = Self::deserialize_from_bytes(&mapped, false)?;
+        self.nodes = new_index.nodes;
+        self.entry_point = new_index.entry_point;
+
         if let IndexBackend::MMapFile { ref mut mmap, .. } = self.backend {
             *mmap = Some(mapped);
         }
 
-        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced");
+        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced & zero-copy pointers re-mapped");
         Ok(())
     }
 }

@@ -27,7 +27,7 @@ use std::path::Path;
 /// implementation decides how to map these to physical storage
 /// (e.g. RocksDB column families, separate BTreeMaps, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum BackendPartition {
+pub enum BackendPartition {
     /// Primary metadata store (node metadata, relational fields).
     Default,
     /// Auditable tombstone archive for conflict resolution losers.
@@ -66,6 +66,7 @@ impl BackendPartition {
 // ─── Batch Write Operations ─────────────────────────────────
 
 /// A single write operation within an atomic batch.
+#[derive(Clone)]
 pub(crate) enum BackendWriteOp {
     #[allow(dead_code)]
     Put {

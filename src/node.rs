@@ -13,6 +13,17 @@ pub enum DistanceMetric {
 
 // ─── Vector Data ───────────────────────────────────────────
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SendPtr(pub *const f32);
+unsafe impl Send for SendPtr {}
+unsafe impl Sync for SendPtr {}
+
+impl Default for SendPtr {
+    fn default() -> Self {
+        SendPtr(std::ptr::null())
+    }
+}
+
 /// Vector storage — supports tiered precision (Hybrid Quantization)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum VectorRepresentations {
@@ -22,6 +33,13 @@ pub enum VectorRepresentations {
     Turbo(Box<[u8]>),
     /// L3: Full precision float32.
     Full(Vec<f32>),
+    /// L3 (MMap): Zero-copy view into the memory-mapped file
+    MmapFull(
+        #[serde(skip)]
+        SendPtr,
+        #[serde(skip)]
+        usize,
+    ),
     /// No vector attached
     None,
 }
@@ -30,6 +48,7 @@ impl VectorRepresentations {
     pub fn dimensions(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len(),
+            VectorRepresentations::MmapFull(_, len) => *len,
             VectorRepresentations::Binary(data) => data.len() * 64, // rough dim
             VectorRepresentations::Turbo(data) => data.len() * 2,   // depends on packing
             VectorRepresentations::None => 0,
@@ -44,6 +63,10 @@ impl VectorRepresentations {
     pub fn to_f32(&self) -> Option<Vec<f32>> {
         match self {
             VectorRepresentations::Full(v) => Some(v.clone()),
+            VectorRepresentations::MmapFull(ptr, len) => {
+                let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+                Some(slice.to_vec())
+            }
             _ => None, // Only full supports exact to_f32 without decomp
         }
     }
@@ -53,6 +76,9 @@ impl VectorRepresentations {
     pub fn as_f32_slice(&self) -> Option<&[f32]> {
         match self {
             VectorRepresentations::Full(v) => Some(v.as_slice()),
+            VectorRepresentations::MmapFull(ptr, len) => {
+                Some(unsafe { std::slice::from_raw_parts(ptr.0, *len) })
+            }
             _ => None,
         }
     }
@@ -129,6 +155,7 @@ impl VectorRepresentations {
     pub fn memory_size(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len() * 4,
+            VectorRepresentations::MmapFull(_, _) => 0, // Zero heap allocations for mapped memory
             VectorRepresentations::Binary(data) => data.len() * 8,
             VectorRepresentations::Turbo(data) => data.len(),
             VectorRepresentations::None => 0,

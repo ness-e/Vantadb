@@ -171,42 +171,97 @@ impl WalWriter {
             file.read_exact(&mut header_bytes)?;
             let _header = WalHeader::deserialize(&header_bytes)?;
 
-            // Escanear para contar registros válidos y detectar corrupción final (truncar si es necesario)
+            // Escanear para contar registros válidos y detectar corrupción final o intermedia (Scan-Forward Auto-healing)
             let mut valid_bytes_limit = WalHeader::SIZE as u64;
             {
-                let mut reader = BufReader::new(File::open(&path)?);
-                // Saltamos el header
-                let mut tmp_header = [0u8; WalHeader::SIZE];
-                let _ = reader.read_exact(&mut tmp_header);
-
+                let mut file_handle = File::open(&path)?;
                 let mut current_offset = WalHeader::SIZE as u64;
+
                 loop {
+                    if current_offset >= file_len {
+                        break;
+                    }
+                    if file_handle.seek(SeekFrom::Start(current_offset)).is_err() {
+                        break;
+                    }
                     let mut len_buf = [0u8; 4];
-                    match reader.read_exact(&mut len_buf) {
-                        Ok(_) => {}
-                        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-                        Err(_) => break,
+                    if file_handle.read_exact(&mut len_buf).is_err() {
+                        break;
                     }
                     let len = u32::from_le_bytes(len_buf) as u64;
 
-                    let mut record_bytes = vec![0u8; len as usize + 4];
-                    match reader.read_exact(&mut record_bytes) {
-                        Ok(_) => {
+                    let mut is_valid = false;
+                    // FMEA-03: Evitar OOM limitando el tamaño máximo analizado por corrupción a 10MB
+                    if len > 0 && len <= 10_000_000 && current_offset + 4 + len + 4 <= file_len {
+                        let mut record_bytes = vec![0u8; len as usize + 4];
+                        if file_handle.read_exact(&mut record_bytes).is_ok() {
                             let payload = &record_bytes[0..len as usize];
                             let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4]
                                 .try_into()
                                 .unwrap();
                             let stored_crc = u32::from_le_bytes(crc_bytes);
                             let computed_crc = crc32c(payload);
+
                             if stored_crc == computed_crc {
-                                record_count += 1;
-                                current_offset += 4 + len + 4;
-                                valid_bytes_limit = current_offset;
-                            } else {
-                                break;
+                                // FMEA-02: Validar deserialización estructural para evitar colisiones accidentales de CRC
+                                if bincode::deserialize::<WalRecord>(payload).is_ok() {
+                                    is_valid = true;
+                                }
                             }
                         }
-                        Err(_) => {
+                    }
+
+                    if is_valid {
+                        record_count += 1;
+                        current_offset += 4 + len + 4;
+                        valid_bytes_limit = current_offset;
+                    } else {
+                        // Entramos en modo Scan-Forward (escanear hacia adelante byte a byte)
+                        warn!(
+                            path = %path.display(),
+                            offset = current_offset,
+                            "Corrupt record detected in WAL. Entering Scan-Forward mode to locate next valid transaction..."
+                        );
+
+                        let mut found_next = false;
+                        let mut scan_pos = current_offset + 1;
+
+                        while scan_pos + 8 <= file_len {
+                            if file_handle.seek(SeekFrom::Start(scan_pos)).is_err() {
+                                break;
+                            }
+                            let mut test_len_buf = [0u8; 4];
+                            if file_handle.read_exact(&mut test_len_buf).is_ok() {
+                                let test_len = u32::from_le_bytes(test_len_buf) as u64;
+                                if test_len > 0 && test_len <= 10_000_000 && scan_pos + 4 + test_len + 4 <= file_len {
+                                    let mut test_bytes = vec![0u8; test_len as usize + 4];
+                                    if file_handle.read_exact(&mut test_bytes).is_ok() {
+                                        let payload = &test_bytes[0..test_len as usize];
+                                        let crc_bytes: [u8; 4] = test_bytes[test_len as usize..test_len as usize + 4]
+                                            .try_into()
+                                            .unwrap();
+                                        let stored_crc = u32::from_le_bytes(crc_bytes);
+                                        let computed_crc = crc32c(payload);
+
+                                        if stored_crc == computed_crc && bincode::deserialize::<WalRecord>(payload).is_ok() {
+                                            warn!(
+                                                path = %path.display(),
+                                                skipped_corrupt_bytes = scan_pos - current_offset,
+                                                recovered_offset = scan_pos,
+                                                "Successfully bypassed corrupt segment and recovered next transaction."
+                                            );
+                                            current_offset = scan_pos;
+                                            found_next = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            scan_pos += 1;
+                        }
+
+                        if !found_next {
+                            // No hay más registros válidos en el archivo. La corrupción es final/truncada.
                             break;
                         }
                     }
@@ -238,6 +293,14 @@ impl WalWriter {
 
     /// Append a record to the WAL
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("wal_append_fail", |_| {
+            Err(VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Simulated WAL append catastrophic I/O failure",
+            )))
+        });
+
         let payload = bincode::serialize(record)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         let len = payload.len() as u32;
@@ -304,38 +367,107 @@ impl WalReader {
         })
     }
 
-    /// Read next record. Returns None at EOF.
+    /// Read next record with Scan-Forward Auto-healing. Returns None at EOF.
     pub fn next_record(&mut self) -> Result<Option<WalRecord>> {
-        // Read length prefix
-        let mut len_buf = [0u8; 4];
-        match self.reader.read_exact(&mut len_buf) {
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
-            Err(e) => return Err(e.into()),
+        let file_len = self.reader.get_ref().metadata()?.len();
+
+        loop {
+            let current_pos = self.reader.stream_position()?;
+            if current_pos >= file_len {
+                return Ok(None);
+            }
+
+            // Intentamos leer el prefijo de longitud
+            let mut len_buf = [0u8; 4];
+            if let Err(e) = self.reader.read_exact(&mut len_buf) {
+                if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    return Ok(None);
+                }
+                return Err(e.into());
+            }
+            let len = u32::from_le_bytes(len_buf) as u64;
+
+            let mut is_valid = false;
+            let mut payload = Vec::new();
+            if len > 0 && len <= 10_000_000 && current_pos + 4 + len + 4 <= file_len {
+                payload = vec![0u8; len as usize];
+                if self.reader.read_exact(&mut payload).is_ok() {
+                    let mut crc_buf = [0u8; 4];
+                    if self.reader.read_exact(&mut crc_buf).is_ok() {
+                        let stored_crc = u32::from_le_bytes(crc_buf);
+                        let computed_crc = crc32c(&payload);
+                        let is_crc_valid = stored_crc == computed_crc;
+                        let deserialize_res = bincode::deserialize::<WalRecord>(&payload);
+                        let is_deser_ok = deserialize_res.is_ok();
+                        
+                        if is_crc_valid && is_deser_ok {
+                            is_valid = true;
+                        } else {
+                            let prefix_len = std::cmp::min(16, payload.len());
+                            eprintln!("DEBUG: Record at current_pos={} is invalid. len={}, is_crc_valid={} (stored={:#x}, computed={:#x}), is_deser_ok={}, deser_err={:?}, payload_prefix={:?}",
+                                current_pos, len, is_crc_valid, stored_crc, computed_crc, is_deser_ok, deserialize_res.err(), &payload[0..prefix_len]);
+                        }
+                    } else {
+                        eprintln!("DEBUG: Failed to read CRC buf at pos {}", current_pos);
+                    }
+                } else {
+                    eprintln!("DEBUG: Failed to read payload of len {} at pos {}", len, current_pos);
+                }
+            } else {
+                eprintln!("DEBUG: Bounds check failed for record at pos {}: len={}, file_len={}", current_pos, len, file_len);
+            }
+
+            if is_valid {
+                let record = bincode::deserialize(&payload)
+                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                self.records_read += 1;
+                return Ok(Some(record));
+            } else {
+                // Entramos en modo Scan-Forward para saltar la corrupción y buscar el siguiente bloque consistente
+                warn!(
+                    offset = current_pos,
+                    "WalReader detected corrupt record. Scanning forward to recover next valid transaction..."
+                );
+
+                let mut scan_pos = current_pos + 1;
+                let mut found_next = false;
+
+                while scan_pos + 8 <= file_len {
+                    if self.reader.seek(SeekFrom::Start(scan_pos)).is_ok() {
+                        let mut test_len_buf = [0u8; 4];
+                        if self.reader.read_exact(&mut test_len_buf).is_ok() {
+                            let test_len = u32::from_le_bytes(test_len_buf) as u64;
+                            if test_len > 0 && test_len <= 10_000_000 && scan_pos + 4 + test_len + 4 <= file_len {
+                                let mut test_payload = vec![0u8; test_len as usize];
+                                if self.reader.read_exact(&mut test_payload).is_ok() {
+                                    let mut test_crc_buf = [0u8; 4];
+                                    if self.reader.read_exact(&mut test_crc_buf).is_ok() {
+                                        let stored_crc = u32::from_le_bytes(test_crc_buf);
+                                        let computed_crc = crc32c(&test_payload);
+                                        if stored_crc == computed_crc && bincode::deserialize::<WalRecord>(&test_payload).is_ok() {
+                                            warn!(
+                                                corrupt_bytes_skipped = scan_pos - current_pos,
+                                                recovered_offset = scan_pos,
+                                                "WalReader successfully bypassed corrupt bytes and resumed recovery."
+                                            );
+                                            self.reader.seek(SeekFrom::Start(scan_pos))?;
+                                            found_next = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    scan_pos += 1;
+                }
+
+                if !found_next {
+                    // No hay más registros válidos en todo el archivo, final real del stream
+                    return Ok(None);
+                }
+            }
         }
-        let len = u32::from_le_bytes(len_buf) as usize;
-
-        // Read payload
-        let mut payload = vec![0u8; len];
-        self.reader.read_exact(&mut payload)?;
-
-        // Read and verify CRC
-        let mut crc_buf = [0u8; 4];
-        self.reader.read_exact(&mut crc_buf)?;
-        let stored_crc = u32::from_le_bytes(crc_buf);
-        let computed_crc = crc32c(&payload);
-
-        if stored_crc != computed_crc {
-            return Err(VantaError::WalError(format!(
-                "CRC mismatch at record {}: stored={:#x}, computed={:#x}",
-                self.records_read, stored_crc, computed_crc
-            )));
-        }
-
-        let record: WalRecord = bincode::deserialize(&payload)
-            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
-        self.records_read += 1;
-        Ok(Some(record))
     }
 
     /// Replay all records through a handler function
@@ -398,7 +530,7 @@ mod tests {
 
     #[test]
     fn test_wal_roundtrip() {
-        let dir = std::env::temp_dir().join("vanta_test_wal_rt");
+        let dir = std::env::temp_dir().join(format!("vanta_test_wal_rt_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
         {
@@ -461,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_wal_version_mismatch() {
-        let dir = std::env::temp_dir().join("vanta_test_wal_mismatch");
+        let dir = std::env::temp_dir().join(format!("vanta_test_wal_mismatch_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
         {
@@ -490,7 +622,7 @@ mod tests {
 
     #[test]
     fn test_wal_auto_healing_and_recovery() {
-        let dir = std::env::temp_dir().join("vanta_test_wal_healing");
+        let dir = std::env::temp_dir().join(format!("vanta_test_wal_healing_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
         // 1. Escribir 3 registros válidos + checkpoint

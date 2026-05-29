@@ -391,14 +391,16 @@ impl VantaDB {
     ///         access when another process holds the write lock.
     #[new]
     #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false))]
-    fn new(db_path: &str, memory_limit_bytes: Option<u64>, read_only: bool) -> PyResult<Self> {
+    fn new(py: Python<'_>, db_path: &str, memory_limit_bytes: Option<u64>, read_only: bool) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             memory_limit: memory_limit_bytes,
             read_only,
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(|e| {
+        let engine = py.allow_threads(move || {
+            VantaEmbedded::open_with_config(config)
+        }).map_err(|e| {
             PyRuntimeError::new_err(format!("VantaDB initialization error: {:?}", e))
         })?;
 
