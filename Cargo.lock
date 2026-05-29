@@ -854,6 +854,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "experimental-governance"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "rand 0.8.6",
+ "serde",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "experimental-lisp"
+version = "0.1.0"
+dependencies = [
+ "nom",
+ "rand 0.8.6",
+ "serde",
+ "vantadb",
+]
+
+[[package]]
+name = "fail"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe5e43d0f78a42ad591453aedb1d7ae631ce7ee445c7643691055a9ed8d3b01c"
+dependencies = [
+ "log",
+ "once_cell",
+ "rand 0.8.6",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3248,6 +3281,7 @@ dependencies = [
  "cpufeatures",
  "crc32c",
  "criterion",
+ "fail",
  "fjall",
  "fs2",
  "futures",
@@ -3283,6 +3317,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-mcp"
+version = "0.1.4"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
 name = "vantadb-server"
 version = "0.1.4"
 dependencies = [
@@ -3300,6 +3345,7 @@ dependencies = [
  "tower 0.4.13",
  "tracing",
  "vantadb",
+ "vantadb-mcp",
 ]
 
 [[package]]
