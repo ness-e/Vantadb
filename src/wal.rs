@@ -233,17 +233,23 @@ impl WalWriter {
                             let mut test_len_buf = [0u8; 4];
                             if file_handle.read_exact(&mut test_len_buf).is_ok() {
                                 let test_len = u32::from_le_bytes(test_len_buf) as u64;
-                                if test_len > 0 && test_len <= 10_000_000 && scan_pos + 4 + test_len + 4 <= file_len {
+                                if test_len > 0
+                                    && test_len <= 10_000_000
+                                    && scan_pos + 4 + test_len + 4 <= file_len
+                                {
                                     let mut test_bytes = vec![0u8; test_len as usize + 4];
                                     if file_handle.read_exact(&mut test_bytes).is_ok() {
                                         let payload = &test_bytes[0..test_len as usize];
-                                        let crc_bytes: [u8; 4] = test_bytes[test_len as usize..test_len as usize + 4]
+                                        let crc_bytes: [u8; 4] = test_bytes
+                                            [test_len as usize..test_len as usize + 4]
                                             .try_into()
                                             .unwrap();
                                         let stored_crc = u32::from_le_bytes(crc_bytes);
                                         let computed_crc = crc32c(payload);
 
-                                        if stored_crc == computed_crc && bincode::deserialize::<WalRecord>(payload).is_ok() {
+                                        if stored_crc == computed_crc
+                                            && bincode::deserialize::<WalRecord>(payload).is_ok()
+                                        {
                                             warn!(
                                                 path = %path.display(),
                                                 skipped_corrupt_bytes = scan_pos - current_offset,
@@ -399,7 +405,7 @@ impl WalReader {
                         let is_crc_valid = stored_crc == computed_crc;
                         let deserialize_res = bincode::deserialize::<WalRecord>(&payload);
                         let is_deser_ok = deserialize_res.is_ok();
-                        
+
                         if is_crc_valid && is_deser_ok {
                             is_valid = true;
                         } else {
@@ -411,10 +417,16 @@ impl WalReader {
                         eprintln!("DEBUG: Failed to read CRC buf at pos {}", current_pos);
                     }
                 } else {
-                    eprintln!("DEBUG: Failed to read payload of len {} at pos {}", len, current_pos);
+                    eprintln!(
+                        "DEBUG: Failed to read payload of len {} at pos {}",
+                        len, current_pos
+                    );
                 }
             } else {
-                eprintln!("DEBUG: Bounds check failed for record at pos {}: len={}, file_len={}", current_pos, len, file_len);
+                eprintln!(
+                    "DEBUG: Bounds check failed for record at pos {}: len={}, file_len={}",
+                    current_pos, len, file_len
+                );
             }
 
             if is_valid {
@@ -437,14 +449,20 @@ impl WalReader {
                         let mut test_len_buf = [0u8; 4];
                         if self.reader.read_exact(&mut test_len_buf).is_ok() {
                             let test_len = u32::from_le_bytes(test_len_buf) as u64;
-                            if test_len > 0 && test_len <= 10_000_000 && scan_pos + 4 + test_len + 4 <= file_len {
+                            if test_len > 0
+                                && test_len <= 10_000_000
+                                && scan_pos + 4 + test_len + 4 <= file_len
+                            {
                                 let mut test_payload = vec![0u8; test_len as usize];
                                 if self.reader.read_exact(&mut test_payload).is_ok() {
                                     let mut test_crc_buf = [0u8; 4];
                                     if self.reader.read_exact(&mut test_crc_buf).is_ok() {
                                         let stored_crc = u32::from_le_bytes(test_crc_buf);
                                         let computed_crc = crc32c(&test_payload);
-                                        if stored_crc == computed_crc && bincode::deserialize::<WalRecord>(&test_payload).is_ok() {
+                                        if stored_crc == computed_crc
+                                            && bincode::deserialize::<WalRecord>(&test_payload)
+                                                .is_ok()
+                                        {
                                             warn!(
                                                 corrupt_bytes_skipped = scan_pos - current_pos,
                                                 recovered_offset = scan_pos,
@@ -593,7 +611,8 @@ mod tests {
 
     #[test]
     fn test_wal_version_mismatch() {
-        let dir = std::env::temp_dir().join(format!("vanta_test_wal_mismatch_{}", rand::random::<u32>()));
+        let dir =
+            std::env::temp_dir().join(format!("vanta_test_wal_mismatch_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
         {
@@ -622,7 +641,8 @@ mod tests {
 
     #[test]
     fn test_wal_auto_healing_and_recovery() {
-        let dir = std::env::temp_dir().join(format!("vanta_test_wal_healing_{}", rand::random::<u32>()));
+        let dir =
+            std::env::temp_dir().join(format!("vanta_test_wal_healing_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
         // 1. Escribir 3 registros válidos + checkpoint

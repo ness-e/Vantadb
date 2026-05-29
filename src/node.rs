@@ -34,12 +34,7 @@ pub enum VectorRepresentations {
     /// L3: Full precision float32.
     Full(Vec<f32>),
     /// L3 (MMap): Zero-copy view into the memory-mapped file
-    MmapFull(
-        #[serde(skip)]
-        SendPtr,
-        #[serde(skip)]
-        usize,
-    ),
+    MmapFull(#[serde(skip)] SendPtr, #[serde(skip)] usize),
     /// No vector attached
     None,
 }

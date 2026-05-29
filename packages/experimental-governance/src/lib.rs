@@ -10,8 +10,10 @@ pub use vantadb::governance::admission_filter;
 pub use vantadb::governance::conflict_resolver;
 pub use vantadb::governance::consistency;
 
-pub use vantadb::governance::conflict_resolver::{ConfidenceArbiter, ConflictResolver, ResolutionResult};
 pub use vantadb::governance::admission_filter::AdmissionFilter;
+pub use vantadb::governance::conflict_resolver::{
+    ConfidenceArbiter, ConflictResolver, ResolutionResult,
+};
 pub use vantadb::governance::consistency::{ConsistencyBuffer, ConsistencyRecord};
 
 // Experimental-only modules
