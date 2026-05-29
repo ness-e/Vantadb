@@ -108,7 +108,6 @@ fn test_wal_middle_corruption_auto_healing() {
             file.read_to_end(&mut file_content).unwrap();
         }
 
-
         // Corrompemos 15 bytes a partir del offset 120 (el cual cae exactamente en la carga útil de node 202)
         let start_pos = 120;
         for i in 0..15 {
@@ -171,4 +170,3 @@ fn test_wal_middle_corruption_auto_healing() {
     session.success("WAL middle corruption scan-forward auto-healing successfully certified.");
     session.finish(true);
 }
-

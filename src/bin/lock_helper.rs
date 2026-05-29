@@ -11,7 +11,8 @@ fn main() {
         std::process::exit(1);
     }
     let db_path = &args[1];
-    let sleep_ms = args.get(2)
+    let sleep_ms = args
+        .get(2)
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(2000);
 
@@ -21,10 +22,10 @@ fn main() {
         Ok(_engine) => {
             println!("LOCK_HELPER: SUCCESS_LOCK");
             let _ = std::io::stdout().flush();
-            
+
             // Mantenemos el proceso vivo para sostener el lock
             thread::sleep(Duration::from_millis(sleep_ms));
-            
+
             println!("LOCK_HELPER: Releasing lock...");
             let _ = std::io::stdout().flush();
             std::process::exit(0);

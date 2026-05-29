@@ -1,10 +1,10 @@
 //! Experimental LISP evaluation surface in quarantine.
 
+use crate::parser::LispExpr;
+use std::collections::BTreeMap;
 use vantadb::error::{Result, VantaError};
 use vantadb::executor::{ExecutionResult, Executor};
 use vantadb::node::FieldValue;
-use crate::parser::LispExpr;
-use std::collections::BTreeMap;
 
 pub mod vm;
 

@@ -1,9 +1,9 @@
+use std::io::{BufRead, BufReader};
+use std::process::Command;
 use tempfile::tempdir;
 use vantadb::config::VantaConfig;
 use vantadb::error::VantaError;
 use vantadb::storage::StorageEngine;
-use std::process::Command;
-use std::io::{BufRead, BufReader};
 
 /// Certifica que:
 /// 1. Un segundo escritor NO puede abrir la base de datos mientras el primero tiene el lock.
@@ -88,7 +88,9 @@ fn test_exclusive_writer_lock_prevents_second_writer_multi_process() {
     let stdout = p1.stdout.take().expect("Failed to open stdout of P1");
     let mut reader = BufReader::new(stdout);
     let mut first_line = String::new();
-    reader.read_line(&mut first_line).expect("Failed to read from P1");
+    reader
+        .read_line(&mut first_line)
+        .expect("Failed to read from P1");
     assert!(
         first_line.contains("LOCK_HELPER: SUCCESS_LOCK"),
         "Expected P1 to lock database successfully, got: {}",

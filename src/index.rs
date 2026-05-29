@@ -59,7 +59,6 @@ fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
         }
     }
 
-
     // Fallback no-op para plataformas sin soporte (e.g., WASM, Tier-3).
     // El compilador elimina este bloque vacío en release.
     #[cfg(not(any(unix, windows)))]
@@ -218,7 +217,9 @@ pub fn calculate_similarity(
             let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
             match metric {
                 DistanceMetric::Cosine => cosine_sim_f32(raw_query, slice),
-                DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, slice).sqrt(),
+                DistanceMetric::Euclidean => {
+                    -euclidean_distance_squared_f32(raw_query, slice).sqrt()
+                }
             }
         }
         VectorRepresentations::None => 0.0,
@@ -514,8 +515,14 @@ impl CPIndex {
                                             let vec_start = h.vector_offset as usize;
                                             let vec_len_bytes = h.vector_len as usize * 4;
                                             // Validar bounds antes de emitir prefetch
-                                            if vec_start + vec_len_bytes <= mmap_len && vec_len_bytes > 0 {
-                                                prefetch_mmap_vector(mmap_base, vec_start, vec_len_bytes);
+                                            if vec_start + vec_len_bytes <= mmap_len
+                                                && vec_len_bytes > 0
+                                            {
+                                                prefetch_mmap_vector(
+                                                    mmap_base,
+                                                    vec_start,
+                                                    vec_len_bytes,
+                                                );
                                             }
                                         }
                                     }
@@ -626,7 +633,11 @@ impl CPIndex {
             let cand_id = ns.1;
             let sim_q_cand = ns.0;
 
-            let cand_slice = match self.nodes.get(&cand_id).and_then(|n| n.vec_data.as_f32_slice()) {
+            let cand_slice = match self
+                .nodes
+                .get(&cand_id)
+                .and_then(|n| n.vec_data.as_f32_slice())
+            {
                 Some(slice) => slice,
                 None => {
                     selected.push(cand_id);
@@ -839,7 +850,10 @@ impl CPIndex {
 
                 if needs_shrink {
                     // Zero-Copy Extractor for Pruning
-                    let nb_vec = self.nodes.get(&neighbor_id).and_then(|n| n.vec_data.as_f32_slice());
+                    let nb_vec = self
+                        .nodes
+                        .get(&neighbor_id)
+                        .and_then(|n| n.vec_data.as_f32_slice());
 
                     if let Some(nb_v) = nb_vec {
                         let mut cand_heap = BinaryHeap::new();
@@ -1243,11 +1257,7 @@ impl CPIndex {
         }
 
         if use_mmap {
-            let file = match OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(path)
-            {
+            let file = match OpenOptions::new().read(true).write(true).open(path) {
                 Ok(f) => f,
                 Err(_) => return None,
             };
