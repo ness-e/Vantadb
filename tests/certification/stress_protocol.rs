@@ -346,7 +346,7 @@ fn stress_protocol_certification() {
             "File size: {:.2} MB",
             file_size as f64 / (1024. * 1024.)
         ));
-        let loaded = CPIndex::load_from_file(tmp.path()).unwrap();
+        let loaded = CPIndex::load_from_file(tmp.path(), false).unwrap();
         assert_eq!(loaded.nodes.len(), n);
         let recall_after = compute_recall(&loaded, &queries, &dataset, k);
         assert!((recall_before - recall_after).abs() < 0.001);

@@ -30,7 +30,7 @@ fn mmap_vector_index_certification() {
         let bytes = index.serialize_to_bytes();
         assert_eq!(&bytes[0..8], b"VNTHNSW1");
 
-        let restored = CPIndex::deserialize_from_bytes(&bytes).expect("Deserialization failed");
+        let restored = CPIndex::deserialize_from_bytes(&bytes, true).expect("Deserialization failed");
         assert_eq!(restored.nodes.len(), 50);
         TerminalReporter::success(&format!(
             "Serialization roundtrip: {} nodes, {} bytes",
@@ -46,7 +46,7 @@ fn mmap_vector_index_certification() {
         let index = build_test_index(100);
         index.persist_to_file(&index_path).expect("Persist failed");
 
-        let loaded = CPIndex::load_from_file(&index_path).expect("Cold-start load failed");
+        let loaded = CPIndex::load_from_file(&index_path, false).expect("Cold-start load failed");
         assert_eq!(loaded.nodes.len(), 100);
 
         let query = [1.0f32, 2.0, 3.0, 4.0];
@@ -73,7 +73,7 @@ fn mmap_vector_index_certification() {
         index.sync_to_mmap().expect("MMap sync failed");
         assert!(mmap_path.exists());
 
-        let reloaded = CPIndex::load_from_file(&mmap_path).expect("Load from MMap failed");
+        let reloaded = CPIndex::load_from_file(&mmap_path, true).expect("Load from MMap failed");
         assert_eq!(reloaded.nodes.len(), 30);
         TerminalReporter::success("MMap governance backend functional.");
     });
@@ -83,8 +83,8 @@ fn mmap_vector_index_certification() {
         let index_path = tmp.path().join("corrupt_index.bin");
         std::fs::write(&index_path, b"GARBAGE").unwrap();
 
-        assert!(CPIndex::load_from_file(&index_path).is_none());
-        assert!(CPIndex::load_from_file(&tmp.path().join("absent.bin")).is_none());
+        assert!(CPIndex::load_from_file(&index_path, false).is_none());
+        assert!(CPIndex::load_from_file(&tmp.path().join("absent.bin"), false).is_none());
         TerminalReporter::success("Graceful fallback on corruption verified.");
     });
 
