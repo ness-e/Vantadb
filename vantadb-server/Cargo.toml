@@ -6,7 +6,8 @@ publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
 
 [dependencies]
-vantadb = { path = "..", features = ["cli", "experimental"] }
+vantadb = { path = "..", features = ["cli"] }
+vantadb-mcp = { path = "../vantadb-mcp" }
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 axum = "0.8"
 serde = { version = "1.0", features = ["derive"] }

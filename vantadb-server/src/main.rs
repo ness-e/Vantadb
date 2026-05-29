@@ -73,7 +73,7 @@ async fn main() {
 
     // ── Serve MCP or HTTP ───────────────────────────────────────────────────
     if is_mcp {
-        vantadb_server::mcp::run_stdio_server(storage).await;
+        vantadb_mcp::run_stdio_server(storage).await;
     } else {
         let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_blocking_threads));
         let state = Arc::new(ServerState {

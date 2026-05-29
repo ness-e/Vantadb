@@ -9,7 +9,7 @@ use serde_json::json;
 use vantadb::executor::Executor;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
-use vantadb_server::mcp::{handle_initialize, handle_tools_call, handle_tools_list};
+use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list};
 
 #[tokio::test]
 async fn mcp_protocol_certification() {
