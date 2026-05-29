@@ -980,7 +980,7 @@ impl CPIndex {
                     buf.extend_from_slice(&(f.len() as u64).to_le_bytes());
                     let padding = (4 - (buf.len() % 4)) % 4;
                     if padding > 0 {
-                        buf.extend(std::iter::repeat(0).take(padding));
+                        buf.extend(std::iter::repeat_n(0, padding));
                     }
                     for &val in f {
                         buf.extend_from_slice(&val.to_le_bytes());
@@ -991,7 +991,7 @@ impl CPIndex {
                     buf.extend_from_slice(&(*len as u64).to_le_bytes());
                     let padding = (4 - (buf.len() % 4)) % 4;
                     if padding > 0 {
-                        buf.extend(std::iter::repeat(0).take(padding));
+                        buf.extend(std::iter::repeat_n(0, padding));
                     }
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
