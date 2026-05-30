@@ -32,13 +32,13 @@ fn structured_api_v2_certification() {
             let cache = storage.volatile_cache.read();
             s1_id = *cache
                 .iter()
-                .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S1"))
-                .unwrap()
+                .find(|(_, n)| n.get_field("label").and_then(|v| v.as_str()) == Some("S1"))
+                .expect("Node with label='S1' not found in volatile_cache")
                 .0;
             s2_id = *cache
                 .iter()
-                .find(|(_, n)| n.get_field("label").unwrap().as_str() == Some("S2"))
-                .unwrap()
+                .find(|(_, n)| n.get_field("label").and_then(|v| v.as_str()) == Some("S2"))
+                .expect("Node with label='S2' not found in volatile_cache")
                 .0;
         }
 

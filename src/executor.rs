@@ -166,6 +166,9 @@ impl<'a> Executor<'a> {
             }
             Statement::Insert(insert) => {
                 let mut node = UnifiedNode::new(insert.node_id);
+                // Newly inserted nodes are immediately Hot: they just arrived and are
+                // the highest-priority candidates for volatile_cache residence.
+                node.tier = crate::node::NodeTier::Hot;
                 node.set_field("type", crate::node::FieldValue::String(insert.node_type));
 
                 // Copy all provided fields
