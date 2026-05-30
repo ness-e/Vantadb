@@ -62,7 +62,8 @@ fn public_surfaces_report_same_version() {
         "Console banner must derive version via vantadb::metadata::version_label()"
     );
 
-    let mcp = read(root.join("vantadb-server").join("src").join("mcp.rs"));
+    // MCP was extracted from vantadb-server/src/mcp.rs into its own crate during CUARENTENA-01.
+    let mcp = read(root.join("vantadb-mcp").join("src").join("lib.rs"));
     assert!(
         mcp.contains("metadata::reported_version()"),
         "MCP serverInfo.version must use vantadb::metadata::reported_version()"

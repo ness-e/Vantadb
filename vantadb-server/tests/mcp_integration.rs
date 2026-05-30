@@ -49,13 +49,15 @@ async fn mcp_protocol_certification() {
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("\"confidence_score\":0.99"));
 
-        TerminalReporter::sub_step("Testing query_lisp tool (Insertion)...");
+        // Note: 'query_lisp' tool now routes through execute_hybrid (IQL), since LISP
+        // was extracted to the experimental-lisp crate during CUARENTENA-01.
+        TerminalReporter::sub_step("Testing query_lisp tool (IQL Insertion via MCP dispatcher)...");
         let lisp_params = Some(json!({
             "name": "query_lisp",
-            "arguments": { "query": "(INSERT :node {:label \"MCP_TEST\"})" }
+            "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
         let lisp_res =
-            handle_tools_call(&lisp_params, &executor, &storage).expect("Lisp execution failed");
+            handle_tools_call(&lisp_params, &executor, &storage).expect("Tool execution failed");
         assert!(lisp_res["content"][0]["text"]
             .as_str()
             .unwrap()
