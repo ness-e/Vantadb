@@ -20,12 +20,13 @@ pub mod graph;
 pub mod hardware;
 pub mod index;
 pub mod integrations;
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 pub mod llm;
 pub mod metadata;
 pub mod metrics;
 pub mod node;
 pub mod parser;
+pub mod physical_plan;
 pub mod planner;
 #[cfg(feature = "python_sdk")]
 pub mod python;

@@ -14,4 +14,4 @@ tracing = "0.1"
 rand = "0.8"
 
 [features]
-llm = ["vantadb/llm"]
+remote-inference = ["vantadb/remote-inference"]

@@ -175,6 +175,120 @@ pub fn sort_hits(hits: &mut [VantaMemorySearchHit]) {
     });
 }
 
+// ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
+
+pub fn optimize_and_compile<'a>(
+    plan: &crate::query::LogicalPlan,
+    storage: &'a crate::storage::StorageEngine,
+) -> crate::error::Result<Box<dyn crate::query::PhysicalOperator + 'a>> {
+    let mut entity = "*".to_string();
+    for op in &plan.operators {
+        if let crate::query::LogicalOperator::Scan { entity: ent } = op {
+            entity = ent.clone();
+        }
+    }
+
+    let mut relational_filters = Vec::new();
+    let mut vector_search = None;
+    let mut limit = None;
+    let mut project = None;
+    let mut sort = None;
+
+    for op in &plan.operators {
+        match op {
+            crate::query::LogicalOperator::FilterRelational {
+                field,
+                op: rel_op,
+                value,
+            } => {
+                relational_filters.push((field.clone(), rel_op.clone(), value.clone()));
+            }
+            crate::query::LogicalOperator::VectorSearch {
+                field,
+                query_vec,
+                min_score,
+            } => {
+                vector_search = Some((field.clone(), query_vec.clone(), *min_score));
+            }
+            crate::query::LogicalOperator::Limit { top_k } => {
+                limit = Some(*top_k);
+            }
+            crate::query::LogicalOperator::Project { fields } => {
+                project = Some(fields.clone());
+            }
+            crate::query::LogicalOperator::Sort { field, desc } => {
+                sort = Some((field.clone(), *desc));
+            }
+            _ => {}
+        }
+    }
+
+    let mut joint_selectivity = 1.0f32;
+    for (field, rel_op, value) in &relational_filters {
+        let sel = storage.get_estimated_selectivity(field, rel_op, value);
+        joint_selectivity *= sel;
+    }
+
+    let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> =
+        if let Some((_field, query_text, min_score)) = vector_search {
+            if joint_selectivity < 0.1 && !relational_filters.is_empty() {
+                let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+                    Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
+                for (field, rel_op, value) in relational_filters {
+                    scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                        scan_op, field, rel_op, value,
+                    ));
+                }
+                Box::new(crate::physical_plan::PhysicalVectorRefine::new(
+                    scan_op, query_text, min_score,
+                ))
+            } else {
+                let mut vs_op: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
+                    crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
+                );
+                for (field, rel_op, value) in relational_filters {
+                    vs_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                        vs_op, field, rel_op, value,
+                    ));
+                }
+                vs_op
+            }
+        } else {
+            let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
+                Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
+            for (field, rel_op, value) in relational_filters {
+                scan_op = Box::new(crate::physical_plan::PhysicalFilter::new(
+                    scan_op, field, rel_op, value,
+                ));
+            }
+            scan_op
+        };
+
+    if let Some((field, desc)) = sort {
+        current_operator = Box::new(crate::physical_plan::PhysicalSort::new(
+            current_operator,
+            field,
+            desc,
+        ));
+    }
+
+    if let Some(fields) = project {
+        current_operator = Box::new(crate::physical_plan::PhysicalProject::new(
+            current_operator,
+            fields,
+        ));
+    }
+
+    if let Some(lim) = limit {
+        current_operator = Box::new(crate::physical_plan::PhysicalLimit::new(
+            current_operator,
+            lim,
+        ));
+    }
+
+    Ok(current_operator)
+}
+
 // ── Unit tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]

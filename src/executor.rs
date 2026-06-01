@@ -177,7 +177,7 @@ impl<'a> Executor<'a> {
                 }
 
                 // Auto-Embedding Logic: If VECTOR is not provided in IQL, but "text" field exists!
-                #[cfg(feature = "llm")]
+                #[cfg(feature = "remote-inference")]
                 if insert.vector.is_none() {
                     if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("text") {
                         let llm = crate::llm::LlmClient::new();
@@ -188,7 +188,7 @@ impl<'a> Executor<'a> {
                         }
                     }
                 }
-                #[cfg(not(feature = "llm"))]
+                #[cfg(not(feature = "remote-inference"))]
                 if insert.vector.is_none() && insert.fields.contains_key("text") {
                     tracing::warn!("LLM feature disabled: skipping automatic embedding generation");
                 }
@@ -410,7 +410,7 @@ impl<'a> Executor<'a> {
                 );
 
                 // Embed directly via LLM since it's a message
-                #[cfg(feature = "llm")]
+                #[cfg(feature = "remote-inference")]
                 {
                     let llm = crate::llm::LlmClient::new();
                     if let Ok(vec) = llm.generate_embedding(&msg.content) {
@@ -535,136 +535,62 @@ impl<'a> Executor<'a> {
             crate::governor::AllocationStatus::Granted => {}
         }
 
-        let mut results = Vec::new();
-        let mut target_nodes = Vec::new();
-
-        // Pass 1: Resolve Dynamic Vector Scan (If Condition::VectorSim exists)
-        #[cfg_attr(not(feature = "llm"), allow(unused_mut))]
-        let mut searched_hnsw = false;
-
+        // Intercept Conflict entity scan for experimental governance immediately
         for op in &plan.operators {
-            if let LogicalOperator::VectorSearch {
-                field: _,
-                query_vec: _query_vec,
-                min_score: _,
-            } = op
-            {
-                #[cfg(feature = "llm")]
-                {
-                    let llm = crate::llm::LlmClient::new();
-
-                    // Real Inference: Translate NLP into Embedded Vectors
-                    if let Ok(vector) = llm.generate_embedding(_query_vec) {
-                        // Record basic vector search I/O cost (cost logic is synthetic placeholder)
-                        self.consume_io(10.0);
-
-                        let index = self.storage.hnsw.read();
-                        let vs = self.storage.vector_store.read();
-                        let mut neighbors =
-                            index.search_nearest(&vector, None, None, 0, 5, Some(&vs)); // MVP: top_k = 5
-
-                        #[cfg(feature = "governance")]
-                        if self.path_mode == SearchPathMode::Uncertain {
-                            // Scan the ConsistencyBuffer via brute force
-                            let buffer = self.storage.consistency_buffer.records.read();
-                            let target_vec = VectorRepresentations::Full(vector.clone());
-                            let mut matches = Vec::new();
-
-                            for (&id, record) in buffer.iter() {
-                                for cand in &record.candidates {
-                                    if cand.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                                        if let Some(sim) =
-                                            cand.vector.cosine_similarity(&target_vec)
-                                        {
-                                            // Apply a penalty to the pending match
-                                            let penalized_sim = sim * 0.9;
-                                            matches.push((id, penalized_sim));
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Merge and sort
-                            neighbors.extend(matches);
-                            neighbors.sort_by(|a, b| {
-                                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-                            });
-                            neighbors.truncate(5); // Keep top 5
-                        }
-
-                        for (id, _sim) in neighbors {
-                            target_nodes.push(id);
-                        }
-                        searched_hnsw = true;
-                    }
-                }
-                #[cfg(not(feature = "llm"))]
-                {
-                    tracing::warn!("LLM feature disabled: VectorSearch operator skipped.");
-                }
-            }
-        }
-
-        if !searched_hnsw {
-            // Fallback: real scan based on FROM entity (Scan operator)
-            for op in &plan.operators {
-                if let LogicalOperator::Scan { entity } = op {
-                    // If entity starts with Conflict#, intercept it immediately
-                    if entity.starts_with("Conflict#") {
-                        #[cfg(feature = "governance")]
-                        {
-                            if let Some(id_str) = entity.split('#').nth(1) {
-                                if let Ok(id) = id_str.parse::<u64>() {
-                                    let buffer = self.storage.consistency_buffer.records.read();
-                                    if let Some(record) = buffer.get(&id) {
-                                        return Ok(record.candidates.clone());
-                                    }
-                                }
-                            }
-                        }
-                        #[cfg(not(feature = "governance"))]
-                        {
-                            return Err(VantaError::Execution(
-                                "Governance feature disabled: Conflict entity scan not supported."
-                                    .to_string(),
-                            ));
-                        }
-                    } else if let Some(id_str) = entity.split('#').nth(1) {
-                        if let Ok(id) = id_str.parse::<u64>() {
-                            target_nodes.push(id);
-                        }
-                    }
-                    // Otherwise, scan is deferred to post-filter (MVP limitation)
-                    break;
-                }
-            }
-        }
-
-        // Pass 2: Materialize nodes returned by the index and filter RBAC
-        for id in target_nodes {
-            // Materializing nodes is I/O intensive, track heavily
-            self.consume_io(2.5);
-
-            if let Ok(Some(node)) = self.storage.get(id) {
-                // Agented RBAC (Role-Based Access Control) Graph pruning
-                if let Some(required_role) = &plan.enforce_role {
-                    let mut role_match = false;
-                    if let Some(crate::node::FieldValue::String(node_role)) =
-                        node.relational.get("_owner_role")
+            if let LogicalOperator::Scan { entity } = op {
+                if entity.starts_with("Conflict#") {
+                    #[cfg(feature = "governance")]
                     {
-                        if node_role == required_role {
-                            role_match = true;
+                        if let Some(id_str) = entity.split('#').nth(1) {
+                            if let Ok(id) = id_str.parse::<u64>() {
+                                let buffer = self.storage.consistency_buffer.records.read();
+                                if let Some(record) = buffer.get(&id) {
+                                    governor.free_allocation(estimated_mem_cost);
+                                    return Ok(record.candidates.clone());
+                                }
+                            }
                         }
                     }
-                    if !role_match && required_role != "admin" {
-                        continue; // Prune branch (Sub-graph isolation enforced)
+                    #[cfg(not(feature = "governance"))]
+                    {
+                        governor.free_allocation(estimated_mem_cost);
+                        return Err(VantaError::Execution(
+                            "Governance feature disabled: Conflict entity scan not supported."
+                                .to_string(),
+                        ));
                     }
                 }
-
-                results.push(node);
             }
         }
 
+        // Compile logical plan into dynamic physical Volcano plan using Cost-Based Optimizer
+        let mut physical_op = crate::planner::optimize_and_compile(&plan, self.storage)?;
+
+        let mut results = Vec::new();
+        physical_op.open()?;
+
+        while let Some(node) = physical_op.next()? {
+            self.consume_io(1.0); // Track I/O units for Volcano step execution
+
+            // Agented RBAC (Role-Based Access Control) Graph pruning
+            if let Some(required_role) = &plan.enforce_role {
+                let mut role_match = false;
+                if let Some(crate::node::FieldValue::String(node_role)) =
+                    node.relational.get("_owner_role")
+                {
+                    if node_role == required_role {
+                        role_match = true;
+                    }
+                }
+                if !role_match && required_role != "admin" {
+                    continue; // Prune branch (Sub-graph isolation enforced)
+                }
+            }
+
+            results.push(node);
+        }
+
+        physical_op.close()?;
         governor.free_allocation(estimated_mem_cost);
         Ok(results)
     }
