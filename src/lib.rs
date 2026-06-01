@@ -5,6 +5,8 @@
 
 pub(crate) mod backend;
 pub(crate) mod backends;
+#[cfg(feature = "cli")]
+pub mod cli;
 pub mod columnar;
 pub mod config;
 #[cfg(feature = "cli")]

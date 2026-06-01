@@ -184,6 +184,7 @@ fn evaluate_condition(
 
 pub struct PhysicalVectorSearch<'a> {
     storage: &'a StorageEngine,
+    #[allow(dead_code)]
     query_vec_text: String,
     min_score: f32,
     results: Vec<u64>,
@@ -420,6 +421,7 @@ impl PhysicalOperator for PhysicalSort<'_> {
 
 pub struct PhysicalVectorRefine<'a> {
     child: Box<dyn PhysicalOperator + 'a>,
+    #[allow(dead_code)]
     query_vec_text: String,
     min_score: f32,
     query_vector: Option<crate::node::VectorRepresentations>,
