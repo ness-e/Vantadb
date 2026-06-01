@@ -1357,7 +1357,7 @@ impl StorageEngine {
     ///
     /// This is intentionally not a hot path. It supports early product APIs
     /// such as namespace listing before secondary indexes exist.
-    pub(crate) fn scan_nodes(&self) -> Result<Vec<UnifiedNode>> {
+    pub fn scan_nodes(&self) -> Result<Vec<UnifiedNode>> {
         let entries = self.backend.scan(BackendPartition::Default)?;
         let mut nodes = Vec::new();
 

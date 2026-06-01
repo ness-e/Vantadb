@@ -1,0 +1,365 @@
+#compdef vanta-cli
+
+autoload -U is-at-least
+
+_vanta-cli() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+'-V[Print version]' \
+'--version[Print version]' \
+":: :_vanta-cli_commands" \
+"*::: :->vanta-cli" \
+&& ret=0
+    case $state in
+    (vanta-cli)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-command-$line[1]:"
+        case $line[1] in
+            (put)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace for the key]:NAMESPACE:_default' \
+'--key=[Key to store the value under]:KEY:_default' \
+'--payload=[Value to store (payload text)]:PAYLOAD:_default' \
+'--vector=[Optional vector embedding (comma-separated f32 values)]:VECTOR:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(get)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace for the key]:NAMESPACE:_default' \
+'--key=[Key to retrieve the value for]:KEY:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace to list]:NAMESPACE:_default' \
+'--limit=[Maximum number of records to return]:LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(rebuild-index)
+_arguments "${_arguments_options[@]}" : \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(audit-index)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Optional namespace to audit (audits all if not specified)]:NAMESPACE:_default' \
+'--json[Output results as JSON]' \
+'--deep[Perform deep structural validation]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(repair-text-index)
+_arguments "${_arguments_options[@]}" : \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Optional namespace to export (exports all if not specified)]:NAMESPACE:_default' \
+'--out=[Output file path]:OUT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(import)
+_arguments "${_arguments_options[@]}" : \
+'--input=[Input file path]:in:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(query)
+_arguments "${_arguments_options[@]}" : \
+'--limit=[Maximum results to return]:LIMIT:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':query -- Query string:_default' \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+'--shell=[Shell type for the completion script]:SHELL:(bash zsh fish powershell)' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-command-$line[1]:"
+        case $line[1] in
+            (put)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(get)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(rebuild-index)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(audit-index)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(repair-text-index)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(export)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(import)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(query)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(status)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(completions)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_vanta-cli_commands] )) ||
+_vanta-cli_commands() {
+    local commands; commands=(
+'put:Save a key-value pair to persistent memory' \
+'get:Retrieve a value from persistent memory' \
+'list:List keys and values in a namespace' \
+'rebuild-index:Rebuild all database indexes (HNSW, text index, derived indexes)' \
+'audit-index:Validate text index integrity without repairing' \
+'repair-text-index:Repair text index if inconsistencies are detected' \
+'export:Export records to a JSON file' \
+'import:Import records from a JSON file' \
+'query:Execute a structured query (IQL/hybrid)' \
+'status:Display database health diagnostics and system status' \
+'completions:Generate shell completion scripts' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__audit-index_commands] )) ||
+_vanta-cli__subcmd__audit-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli audit-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__completions_commands] )) ||
+_vanta-cli__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli completions commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__export_commands] )) ||
+_vanta-cli__subcmd__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli export commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__get_commands] )) ||
+_vanta-cli__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli get commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__help_commands() {
+    local commands; commands=(
+'put:Save a key-value pair to persistent memory' \
+'get:Retrieve a value from persistent memory' \
+'list:List keys and values in a namespace' \
+'rebuild-index:Rebuild all database indexes (HNSW, text index, derived indexes)' \
+'audit-index:Validate text index integrity without repairing' \
+'repair-text-index:Repair text index if inconsistencies are detected' \
+'export:Export records to a JSON file' \
+'import:Import records from a JSON file' \
+'query:Execute a structured query (IQL/hybrid)' \
+'status:Display database health diagnostics and system status' \
+'completions:Generate shell completion scripts' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__audit-index_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__audit-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help audit-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__completions_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__completions_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help completions commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__export_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__export_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help export commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__get_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__get_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help get commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__import_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__import_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help import commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__put_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__put_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help put commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__query_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__query_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help query commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__rebuild-index_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__rebuild-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help rebuild-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__repair-text-index_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__repair-text-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help repair-text-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__status_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help status commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__import_commands] )) ||
+_vanta-cli__subcmd__import_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli import commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__put_commands] )) ||
+_vanta-cli__subcmd__put_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli put commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__query_commands] )) ||
+_vanta-cli__subcmd__query_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli query commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__rebuild-index_commands] )) ||
+_vanta-cli__subcmd__rebuild-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli rebuild-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__repair-text-index_commands] )) ||
+_vanta-cli__subcmd__repair-text-index_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli repair-text-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__status_commands] )) ||
+_vanta-cli__subcmd__status_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli status commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_vanta-cli" ]; then
+    _vanta-cli "$@"
+else
+    compdef _vanta-cli vanta-cli
+fi
