@@ -479,6 +479,8 @@ pub struct StorageEngine {
         RwLock<HashMap<(String, String), crate::text_index::TextTermStats>>,
     /// In-memory cache for BM25 namespace stats.
     pub(crate) text_ns_cache: RwLock<HashMap<String, crate::text_index::TextNamespaceStats>>,
+    /// Lightweight cardinality statistics for query optimization.
+    pub(crate) cardinality_stats: RwLock<HashMap<String, HashMap<String, usize>>>,
 }
 
 impl StorageEngine {
@@ -676,8 +678,9 @@ impl StorageEngine {
             0, // cache cap is set later by SDK; 0 until configured
         );
 
+        let cardinality_stats = Self::initialize_cardinality_stats(backend.as_ref());
+
         Ok(Self {
-            backend,
             config: config.clone(),
             read_only: config.read_only,
             hnsw: RwLock::new(hnsw),
@@ -696,6 +699,8 @@ impl StorageEngine {
             _lock_file: lock_file,
             text_stats_cache: RwLock::new(HashMap::new()),
             text_ns_cache: RwLock::new(HashMap::new()),
+            cardinality_stats: RwLock::new(cardinality_stats),
+            backend,
         })
     }
 
@@ -910,6 +915,45 @@ impl StorageEngine {
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
+        // Si el nodo ya existía, decrementamos sus estadísticas previas para mantener la consistencia
+        if let Ok(Some(existing_node)) = self.get(node.id) {
+            let mut stats = self.cardinality_stats.write();
+            for (field, value) in existing_node.relational {
+                let val_key = match value {
+                    crate::node::FieldValue::String(s) => s,
+                    crate::node::FieldValue::Int(i) => i.to_string(),
+                    crate::node::FieldValue::Float(f) => f.to_string(),
+                    crate::node::FieldValue::Bool(b) => b.to_string(),
+                    crate::node::FieldValue::Null => "null".to_string(),
+                };
+                if let Some(val_map) = stats.get_mut(&field) {
+                    if let Some(count) = val_map.get_mut(&val_key) {
+                        if *count > 0 {
+                            *count -= 1;
+                        }
+                    }
+                    val_map.retain(|_, &mut v| v > 0);
+                }
+            }
+        }
+
+        {
+            let mut stats = self.cardinality_stats.write();
+            for (field, value) in &node.relational {
+                let val_key = match value {
+                    crate::node::FieldValue::String(s) => s.clone(),
+                    crate::node::FieldValue::Int(i) => i.to_string(),
+                    crate::node::FieldValue::Float(f) => f.to_string(),
+                    crate::node::FieldValue::Bool(b) => b.to_string(),
+                    crate::node::FieldValue::Null => "null".to_string(),
+                };
+                let val_map = stats.entry(field.clone()).or_default();
+                if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                    *val_map.entry(val_key).or_default() += 1;
+                }
+            }
+        }
+
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
@@ -1113,6 +1157,27 @@ impl StorageEngine {
     }
 
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
+        if let Ok(Some(node)) = self.get(id) {
+            let mut stats = self.cardinality_stats.write();
+            for (field, value) in node.relational {
+                let val_key = match value {
+                    crate::node::FieldValue::String(s) => s,
+                    crate::node::FieldValue::Int(i) => i.to_string(),
+                    crate::node::FieldValue::Float(f) => f.to_string(),
+                    crate::node::FieldValue::Bool(b) => b.to_string(),
+                    crate::node::FieldValue::Null => "null".to_string(),
+                };
+                if let Some(val_map) = stats.get_mut(&field) {
+                    if let Some(count) = val_map.get_mut(&val_key) {
+                        if *count > 0 {
+                            *count -= 1;
+                        }
+                    }
+                    val_map.retain(|_, &mut v| v > 0);
+                }
+            }
+        }
+
         self.ensure_writable()?;
         if let Some(ref mut wal_writer) = *self.wal.lock() {
             wal_writer.append(&crate::wal::WalRecord::Delete { id })?;
@@ -1464,5 +1529,88 @@ impl StorageEngine {
             println!("Buffers flushed successfully.");
         }
         std::process::exit(1);
+    }
+
+    fn initialize_cardinality_stats(
+        backend: &dyn StorageBackend,
+    ) -> HashMap<String, HashMap<String, usize>> {
+        let mut stats: HashMap<String, HashMap<String, usize>> = HashMap::new();
+        if let Ok(records) = backend.scan(BackendPartition::Default) {
+            for (_key, val) in records {
+                if let Ok(metadata) = bincode::deserialize::<NodeMetadata>(&val) {
+                    for (field, value) in metadata.relational {
+                        let val_str = match value {
+                            crate::node::FieldValue::String(s) => s,
+                            crate::node::FieldValue::Int(i) => i.to_string(),
+                            crate::node::FieldValue::Float(f) => f.to_string(),
+                            crate::node::FieldValue::Bool(b) => b.to_string(),
+                            crate::node::FieldValue::Null => "null".to_string(),
+                        };
+                        let val_map = stats.entry(field).or_default();
+                        if val_map.len() < 100 || val_map.contains_key(&val_str) {
+                            *val_map.entry(val_str).or_default() += 1;
+                        }
+                    }
+                }
+            }
+        }
+        stats
+    }
+
+    pub fn get_estimated_selectivity(
+        &self,
+        field: &str,
+        op: &crate::query::RelOp,
+        value: &crate::node::FieldValue,
+    ) -> f32 {
+        let stats = self.cardinality_stats.read();
+        let total_nodes = self.hnsw.read().nodes.len();
+        if total_nodes == 0 {
+            return 1.0;
+        }
+
+        let val_key = match value {
+            crate::node::FieldValue::String(s) => s.clone(),
+            crate::node::FieldValue::Int(i) => i.to_string(),
+            crate::node::FieldValue::Float(f) => f.to_string(),
+            crate::node::FieldValue::Bool(b) => b.to_string(),
+            crate::node::FieldValue::Null => "null".to_string(),
+        };
+
+        if let Some(val_map) = stats.get(field) {
+            let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
+
+            match op {
+                crate::query::RelOp::Eq => {
+                    if freq > 0.0 {
+                        freq / total_nodes as f32
+                    } else if val_map.len() >= 100 {
+                        1.0 / total_nodes.max(1) as f32
+                    } else {
+                        0.0
+                    }
+                }
+                crate::query::RelOp::Neq => {
+                    let eq_sel = if freq > 0.0 {
+                        freq / total_nodes as f32
+                    } else if val_map.len() >= 100 {
+                        1.0 / total_nodes.max(1) as f32
+                    } else {
+                        0.0
+                    };
+                    1.0 - eq_sel
+                }
+                crate::query::RelOp::Gt
+                | crate::query::RelOp::Gte
+                | crate::query::RelOp::Lt
+                | crate::query::RelOp::Lte => 0.33,
+            }
+        } else {
+            match op {
+                crate::query::RelOp::Eq => 0.0,
+                crate::query::RelOp::Neq => 1.0,
+                _ => 0.5,
+            }
+        }
     }
 }

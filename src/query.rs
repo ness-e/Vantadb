@@ -200,3 +200,12 @@ impl Query {
 /// Technically identical to `LogicalPlan` — it decides what to scan,
 /// how to filter, and which traversal strategy to execute.
 pub type QueryPlanner = LogicalPlan;
+
+/// Physical Volcano-style execution operator.
+pub trait PhysicalOperator: Send + Sync {
+    /// Initialize resources needed for execution.
+    fn open(&mut self) -> crate::error::Result<()>;
+    /// Retrieve the next UnifiedNode in the stream, or None if the stream is exhausted.
+    fn next(&mut self) -> crate::error::Result<Option<crate::node::UnifiedNode>>;
+    fn close(&mut self) -> crate::error::Result<()>;
+}

@@ -1,25 +1,25 @@
 use crate::invalidations::{InvalidationDispatcher, InvalidationEvent};
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 use std::time::Instant;
 use std::time::{SystemTime, UNIX_EPOCH};
 use vantadb::node::{AccessTracker, NodeFlags, UnifiedNode};
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 use vantadb::node::{FieldValue, NodeTier};
 use vantadb::storage::BackendPartition;
 use vantadb::storage::StorageEngine;
 
 /// Maximum duration the maintenance cycle may spend on data compression.
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 const MAX_COMPRESSION_DURATION_MS: u128 = 8_000;
 
 /// Minimum combined hit-weight for a group to deserve compression.
-#[cfg(feature = "llm")]
+#[cfg(feature = "remote-inference")]
 const MIN_GROUP_WEIGHT_FOR_COMPRESSION: u32 = 3;
 
 pub struct MaintenanceWorker;
@@ -338,7 +338,7 @@ impl MaintenanceWorker {
         }
     }
 
-    #[cfg(feature = "llm")]
+    #[cfg(feature = "remote-inference")]
     fn execute_data_compression(storage: &Arc<StorageEngine>, candidates: &[UnifiedNode]) {
         let mut thread_groups: HashMap<u64, Vec<&UnifiedNode>> = HashMap::new();
 
@@ -435,7 +435,7 @@ impl MaintenanceWorker {
         }
     }
 
-    #[cfg(not(feature = "llm"))]
+    #[cfg(not(feature = "remote-inference"))]
     fn execute_data_compression(_storage: &Arc<StorageEngine>, _candidates: &[UnifiedNode]) {
         tracing::warn!(
             "⚠️ [Maintenance] Data compression requested but `llm` feature is disabled."
