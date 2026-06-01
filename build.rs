@@ -2,15 +2,26 @@
 //!
 //! Generates shell completion scripts automatically during compilation.
 
+#[cfg(feature = "cli")]
 #[allow(dead_code)]
 #[path = "src/cli.rs"]
 mod cli;
 
+#[cfg(feature = "cli")]
 use clap::CommandFactory;
-use std::fs::create_dir_all;
-use std::path::PathBuf;
 
 fn main() {
+    generate_completions();
+}
+
+#[cfg(not(feature = "cli"))]
+fn generate_completions() {}
+
+#[cfg(feature = "cli")]
+fn generate_completions() {
+    use std::fs::create_dir_all;
+    use std::path::PathBuf;
+
     // Tell Cargo to re-run this build script if src/cli.rs changes
     println!("cargo:rerun-if-changed=src/cli.rs");
 

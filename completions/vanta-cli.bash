@@ -117,13 +117,21 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__audit__subcmd__index)
-            opts="-v -h --namespace --json --deep --verbose --help"
+            opts="-d -v -h --namespace --json --deep --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --namespace)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -135,7 +143,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__completions)
-            opts="-v -h --shell --verbose --help"
+            opts="-d -v -h --shell --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -143,6 +151,14 @@ _vanta-cli() {
             case "${prev}" in
                 --shell)
                     COMPREPLY=($(compgen -W "bash zsh fish powershell" -- "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)
@@ -153,7 +169,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__export)
-            opts="-v -h --namespace --out --verbose --help"
+            opts="-d -v -h --namespace --out --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -167,6 +183,14 @@ _vanta-cli() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -175,7 +199,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__get)
-            opts="-v -h --namespace --key --verbose --help"
+            opts="-d -v -h --namespace --key --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -186,6 +210,14 @@ _vanta-cli() {
                     return 0
                     ;;
                 --key)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -379,13 +411,21 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__import)
-            opts="-v -h --input --verbose --help"
+            opts="-d -v -h --input --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --input)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -397,7 +437,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__list)
-            opts="-v -h --namespace --limit --verbose --help"
+            opts="-d -v -h --namespace --limit --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -411,6 +451,14 @@ _vanta-cli() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -419,7 +467,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__put)
-            opts="-v -h --namespace --key --payload --vector --verbose --help"
+            opts="-d -v -h --namespace --key --payload --vector --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -441,6 +489,14 @@ _vanta-cli() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -449,13 +505,21 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__query)
-            opts="-v -h --limit --verbose --help <QUERY>"
+            opts="-d -v -h --limit --db --verbose --help <QUERY>"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -467,12 +531,20 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__rebuild__subcmd__index)
-            opts="-v -h --verbose --help"
+            opts="-d -v -h --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -481,12 +553,20 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__repair__subcmd__text__subcmd__index)
-            opts="-v -h --verbose --help"
+            opts="-d -v -h --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -495,12 +575,20 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__status)
-            opts="-v -h --verbose --help"
+            opts="-d -v -h --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
