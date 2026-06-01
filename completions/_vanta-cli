@@ -38,6 +38,8 @@ _arguments "${_arguments_options[@]}" : \
 '--key=[Key to store the value under]:KEY:_default' \
 '--payload=[Value to store (payload text)]:PAYLOAD:_default' \
 '--vector=[Optional vector embedding (comma-separated f32 values)]:VECTOR:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -48,6 +50,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Namespace for the key]:NAMESPACE:_default' \
 '--key=[Key to retrieve the value for]:KEY:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -58,6 +62,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Namespace to list]:NAMESPACE:_default' \
 '--limit=[Maximum number of records to return]:LIMIT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -66,6 +72,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (rebuild-index)
 _arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -75,6 +83,8 @@ _arguments "${_arguments_options[@]}" : \
 (audit-index)
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Optional namespace to audit (audits all if not specified)]:NAMESPACE:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--json[Output results as JSON]' \
 '--deep[Perform deep structural validation]' \
 '-v[Enable verbose output]' \
@@ -85,6 +95,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (repair-text-index)
 _arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -95,6 +107,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Optional namespace to export (exports all if not specified)]:NAMESPACE:_default' \
 '--out=[Output file path]:OUT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -104,6 +118,8 @@ _arguments "${_arguments_options[@]}" : \
 (import)
 _arguments "${_arguments_options[@]}" : \
 '--input=[Input file path]:in:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -113,6 +129,8 @@ _arguments "${_arguments_options[@]}" : \
 (query)
 _arguments "${_arguments_options[@]}" : \
 '--limit=[Maximum results to return]:LIMIT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -122,6 +140,8 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (status)
 _arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -131,6 +151,8 @@ _arguments "${_arguments_options[@]}" : \
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '--shell=[Shell type for the completion script]:SHELL:(bash zsh fish powershell)' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \

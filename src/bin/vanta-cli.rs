@@ -537,7 +537,7 @@ fn cmd_audit_index(
             "{}",
             header_style().apply_to("╭─────────────────────────────────────────╮")
         ));
-        let _ = term.write_line(&"│  Index Status Check                     │".to_string());
+        let _ = term.write_line("│  Index Status Check                     │");
         let _ = term.write_line(&format!(
             "{}",
             header_style().apply_to("├─────────────────────────────────────────┤")
@@ -976,7 +976,7 @@ fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Result<
             ));
 
             if verbose {
-                print_info(&"Query parsed successfully".to_string());
+                print_info("Query parsed successfully");
             }
         }
         vantadb::executor::ExecutionResult::Write {
