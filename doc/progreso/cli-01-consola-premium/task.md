@@ -11,6 +11,6 @@
     - `[x]` Integrar spinners de progreso con `indicatif` en `rebuild-index` e `import`.
     - `[x]` Formatear listados y resultados de `query` en tablas limpias y estéticas con `console`.
     - `[x]` Diseñar el dashboard detallado del subcomando `status`.
-- `[/]` Pruebas y Validación Manual
-    - `[ ]` Comprobar que compila correctamente con `cargo check --workspace --all-targets --all-features`.
-    - `[ ]` Validar funcionamiento de subcomandos y reportar.
+- `[x]` Pruebas y Validación Manual
+    - `[x]` Comprobar que compila correctamente con `cargo check --workspace --all-targets --all-features`.
+    - `[x]` Validar funcionamiento de subcomandos y reportar.
