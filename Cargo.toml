@@ -322,6 +322,7 @@ opt-level = 2
 [workspace]
 members = [
     ".",
+    "fuzz",
     "vantadb-python",
     "vantadb-server",
     "vantadb-mcp",
