@@ -19,4 +19,3 @@ fuzz_target!(|data: &[u8]| {
     // 2. WAL record deserialization — hit on every recovery and replication event
     let _: Result<WalRecord, _> = bincode::deserialize(data);
 });
-

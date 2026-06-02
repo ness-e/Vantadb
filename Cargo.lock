@@ -429,6 +429,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd6a120d2e16b3e1b4a24bd70f23b12d3e16b81f113364a26935f8db7245452d"
+
+[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -937,7 +943,7 @@ dependencies = [
 name = "experimental-governance"
 version = "0.1.0"
 dependencies = [
- "bincode",
+ "bincode 1.3.3",
  "chrono",
  "rand 0.8.6",
  "serde",
@@ -3395,7 +3401,7 @@ name = "vantadb"
 version = "0.1.4"
 dependencies = [
  "arrow",
- "bincode",
+ "bincode 1.3.3",
  "chrono",
  "clap",
  "clap_complete",
@@ -3442,6 +3448,7 @@ dependencies = [
 name = "vantadb-fuzz"
 version = "0.0.0"
 dependencies = [
+ "bincode 3.0.0",
  "libfuzzer-sys",
  "vantadb",
 ]
