@@ -31,7 +31,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                     ml: 1.0 / (16_f64).ln(),
                     distance_metric: vantadb::node::DistanceMetric::Cosine,
                 };
-                let mut index = CPIndex::new_with_config(config);
+                let index = CPIndex::new_with_config(config);
 
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
@@ -53,7 +53,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
             ml: 1.0 / (16_f64).ln(),
             distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
-        let mut index = CPIndex::new_with_config(config);
+        let index = CPIndex::new_with_config(config);
 
         for (id, vec) in vectors.iter().enumerate() {
             index.add(

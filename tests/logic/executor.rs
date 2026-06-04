@@ -22,7 +22,7 @@ fn engine_executor_certification() {
     });
 
     harness.execute("Search: Bitset + Nearest Neighbor Projection", || {
-        let mut idx = CPIndex::new();
+        let idx = CPIndex::new();
         TerminalReporter::sub_step("Setting up tiered bitmask dataset...");
         // Match mask + High sim
         idx.add(1, 0b11, VectorRepresentations::Full(vec![1.0, 0.0]), 0);

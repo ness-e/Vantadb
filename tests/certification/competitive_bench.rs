@@ -112,7 +112,7 @@ fn build_in_memory_index(
     scale_base: &[Vec<f32>],
     scale: usize,
 ) -> (CPIndex, f64) {
-    let mut idx = CPIndex::new_with_config(config.clone());
+    let idx = CPIndex::new_with_config(config.clone());
     let pb = TerminalReporter::create_progress(scale as u64, "Inserting vectors");
     let t0 = Instant::now();
 

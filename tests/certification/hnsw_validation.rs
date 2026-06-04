@@ -52,7 +52,7 @@ fn brute_force_knn(query: &[f32], dataset: &[(u64, Vec<f32>)], k: usize) -> Vec<
 
 fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig, block_msg: &str) -> CPIndex {
     let pb = TerminalReporter::create_progress(dataset.len() as u64, block_msg);
-    let mut index = CPIndex::new_with_config(config);
+    let index = CPIndex::new_with_config(config);
     for (id, vec) in dataset {
         index.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
         pb.inc(1);
@@ -239,7 +239,7 @@ fn hnsw_hard_validation_certification() {
         let dims = 32;
         let k = 5;
         let iv = vec![1.0; dims];
-        let mut index = CPIndex::new();
+        let index = CPIndex::new();
         for i in 0..100 {
             index.add(i, u128::MAX, VectorRepresentations::Full(iv.clone()), 0);
         }
@@ -252,7 +252,7 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Edge Case: Zero Vector Resilience", || {
-        let mut index = CPIndex::new();
+        let index = CPIndex::new();
         index.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; 32]), 0);
         index.add(2, u128::MAX, VectorRepresentations::Full(vec![0.0; 32]), 0);
         let res = index.search_nearest(&[1.0; 32], None, None, u128::MAX, 3, None);
@@ -261,7 +261,7 @@ fn hnsw_hard_validation_certification() {
     });
 
     harness.execute("Edge Case: Single Node Index", || {
-        let mut index = CPIndex::new();
+        let index = CPIndex::new();
         index.add(42, u128::MAX, VectorRepresentations::Full(vec![1.0; 16]), 0);
         let res = index.search_nearest(&[1.0; 16], None, None, u128::MAX, 10, None);
         assert_eq!(res.len(), 1);
@@ -355,9 +355,10 @@ fn hnsw_hard_validation_certification() {
         let idx5 = build_index(&ds5, HnswConfig::default(), "Building 5K");
         let links1: usize = idx1
             .nodes
-            .values()
-            .map(|n| {
-                n.neighbors
+            .iter()
+            .map(|r| {
+                r.value()
+                    .neighbors
                     .iter()
                     .map(|l: &Vec<u64>| l.len())
                     .sum::<usize>()
@@ -365,9 +366,10 @@ fn hnsw_hard_validation_certification() {
             .sum();
         let links5: usize = idx5
             .nodes
-            .values()
-            .map(|n| {
-                n.neighbors
+            .iter()
+            .map(|r| {
+                r.value()
+                    .neighbors
                     .iter()
                     .map(|l: &Vec<u64>| l.len())
                     .sum::<usize>()

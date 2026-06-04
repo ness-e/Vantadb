@@ -3387,6 +3387,7 @@ dependencies = [
  "cpufeatures",
  "crc32c",
  "criterion",
+ "dashmap",
  "fail",
  "fjall",
  "fs2",

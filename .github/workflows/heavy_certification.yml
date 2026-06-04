@@ -63,7 +63,7 @@ jobs:
 
       - name: Run stress protocol
         timeout-minutes: 150
-        run: cargo test --test stress_protocol -- --nocapture --test-threads=1
+        run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
 
   hnsw-validation:
     name: "Certification: hnsw_validation"
@@ -104,7 +104,7 @@ jobs:
 
       - name: Run HNSW validation
         timeout-minutes: 15
-        run: cargo test --test hnsw_validation -- --nocapture --test-threads=1
+        run: cargo test --release --test hnsw_validation -- --nocapture --test-threads=1
 
   hnsw-recall:
     name: "Certification: hnsw_recall_certification"
@@ -135,7 +135,7 @@ jobs:
 
       - name: Run HNSW recall certification
         timeout-minutes: 25
-        run: cargo test --test hnsw_recall_certification -- --nocapture --test-threads=1
+        run: cargo test --release --test hnsw_recall_certification -- --nocapture --test-threads=1
 
   sift-validation:
     name: "Certification: sift_validation"
@@ -271,7 +271,6 @@ jobs:
       - name: Run failpoint tests
         env:
           RUST_BACKTRACE: 1
-          FAILPOINTS: 1
         run: |
           cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
           cargo nextest run --test wal_resilience --test-threads=1
