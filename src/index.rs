@@ -666,8 +666,7 @@ impl CPIndex {
                                             )
                                         };
                                         match metric {
-                                            DistanceMetric::Cosine
-                                            | DistanceMetric::Euclidean => {
+                                            DistanceMetric::Cosine | DistanceMetric::Euclidean => {
                                                 f32_slice_similarity(
                                                     query_vec, query_norm, f32_v, metric,
                                                 )
@@ -687,26 +686,25 @@ impl CPIndex {
                                 )
                             };
 
-                                if results.len() < ef
-                                    || (results.peek().is_some() && d > results.peek().unwrap().0)
-                                {
-                                    candidates.push(NodeSim(d, neighbor_id));
+                            if results.len() < ef
+                                || (results.peek().is_some() && d > results.peek().unwrap().0)
+                            {
+                                candidates.push(NodeSim(d, neighbor_id));
 
-                                    let eligible = if let Some(vs) = vector_store {
-                                        vs.read_header(neighbor.storage_offset)
-                                            .map(|h| (h.flags & 0x8) == 0)
-                                            .unwrap_or(false)
-                                    } else {
-                                        true
-                                    };
-                                    if eligible
-                                        && (query_mask == u128::MAX
-                                            || (neighbor.bitset & query_mask) == query_mask)
-                                    {
-                                        results.push(NodeSimMin(d, neighbor_id));
-                                        if results.len() > ef {
-                                            results.pop(); // Remove the worst to keep size at `ef`
-                                        }
+                                let eligible = if let Some(vs) = vector_store {
+                                    vs.read_header(neighbor.storage_offset)
+                                        .map(|h| (h.flags & 0x8) == 0)
+                                        .unwrap_or(false)
+                                } else {
+                                    true
+                                };
+                                if eligible
+                                    && (query_mask == u128::MAX
+                                        || (neighbor.bitset & query_mask) == query_mask)
+                                {
+                                    results.push(NodeSimMin(d, neighbor_id));
+                                    if results.len() > ef {
+                                        results.pop(); // Remove the worst to keep size at `ef`
                                     }
                                 }
                             }
@@ -714,6 +712,7 @@ impl CPIndex {
                     }
                 }
             }
+        }
         results
     }
 
@@ -750,7 +749,10 @@ impl CPIndex {
             let sim_q_cand = ns.0;
 
             let (cand_slice, cand_inv_norm) = match self.nodes.get(&cand_id) {
-                Some(n) => (n.vec_data.as_f32_slice().map(|s| s.to_vec()), n.inv_cached_norm),
+                Some(n) => (
+                    n.vec_data.as_f32_slice().map(|s| s.to_vec()),
+                    n.inv_cached_norm,
+                ),
                 None => continue,
             };
 
@@ -830,13 +832,7 @@ impl CPIndex {
         final_selected
     }
 
-    pub fn add(
-        &self,
-        id: u64,
-        bitset: u128,
-        vec_data: VectorRepresentations,
-        storage_offset: u64,
-    ) {
+    pub fn add(&self, id: u64, bitset: u128, vec_data: VectorRepresentations, storage_offset: u64) {
         if let Some(mut node) = self.nodes.get_mut(&id) {
             node.bitset = bitset;
             node.vec_data = vec_data;
@@ -1003,7 +999,10 @@ impl CPIndex {
 
                 if needs_shrink {
                     let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
-                        Some(n) => (n.vec_data.as_f32_slice().map(|s| s.to_vec()), n.inv_cached_norm),
+                        Some(n) => (
+                            n.vec_data.as_f32_slice().map(|s| s.to_vec()),
+                            n.inv_cached_norm,
+                        ),
                         None => (None, 0.0),
                     };
 
@@ -1318,8 +1317,7 @@ impl CPIndex {
         let node_count = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
         pos += 8;
 
-        let nodes =
-            DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
+        let nodes = DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
 
         for _ in 0..node_count {
             if pos + 8 > data.len() {
@@ -1780,9 +1778,9 @@ mod tests {
     fn concurrent_search_during_insert() {
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::Mutex;
         use std::thread;
         use std::time::Duration;
-        use std::sync::Mutex;
 
         let index = Arc::new(CPIndex::new_with_config(HnswConfig {
             m: 16,
@@ -1812,8 +1810,12 @@ mod tests {
                     let id = start_id + i;
                     let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
-                    let vec: Vec<f32> = if norm > 0.0 { raw_vec.iter().map(|v| v / norm).collect() } else { raw_vec };
-                    
+                    let vec: Vec<f32> = if norm > 0.0 {
+                        raw_vec.iter().map(|v| v / norm).collect()
+                    } else {
+                        raw_vec
+                    };
+
                     // Adquirir lock para cumplir el contrato de CPIndex::add
                     let _guard = insert_mutex.lock().unwrap();
                     index.add(id, u128::MAX, VectorRepresentations::Full(vec), 0);
@@ -1830,7 +1832,11 @@ mod tests {
                 while !stop.load(Ordering::Relaxed) {
                     let query: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
                     let norm = f32_l2_norm(&query);
-                    let q_vec = if norm > 0.0 { query.iter().map(|v| v / norm).collect() } else { query };
+                    let q_vec = if norm > 0.0 {
+                        query.iter().map(|v| v / norm).collect()
+                    } else {
+                        query
+                    };
                     // Búsqueda concurrente sin adquirir insert_lock
                     let _res = index.search_nearest(&q_vec, None, None, u128::MAX, 5, None);
                     thread::sleep(Duration::from_micros(10));
@@ -1853,11 +1859,11 @@ mod tests {
 
     #[test]
     fn concurrent_insert_preserves_hnsw_invariants() {
-        use tempfile::tempdir;
+        use crate::node::UnifiedNode;
+        use crate::storage::StorageEngine;
         use std::sync::Arc;
         use std::thread;
-        use crate::storage::StorageEngine;
-        use crate::node::UnifiedNode;
+        use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
@@ -1874,7 +1880,11 @@ mod tests {
                     let id = start_id + i;
                     let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
-                    let vec: Vec<f32> = if norm > 0.0 { raw_vec.iter().map(|v| v / norm).collect() } else { raw_vec };
+                    let vec: Vec<f32> = if norm > 0.0 {
+                        raw_vec.iter().map(|v| v / norm).collect()
+                    } else {
+                        raw_vec
+                    };
 
                     let mut node = UnifiedNode::new(id);
                     node.vector = VectorRepresentations::Full(vec);
@@ -1912,6 +1922,10 @@ mod tests {
         }
 
         // Todos los nodos en HNSW deben ser alcanzables
-        assert_eq!(visited.len(), hnsw.nodes.len(), "Not all nodes are reachable from the entry point!");
+        assert_eq!(
+            visited.len(),
+            hnsw.nodes.len(),
+            "Not all nodes are reachable from the entry point!"
+        );
     }
 }
