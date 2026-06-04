@@ -3441,6 +3441,7 @@ dependencies = [
  "chrono",
  "console",
  "experimental-governance",
+ "fs2",
  "futures",
  "indicatif",
  "mimalloc",
