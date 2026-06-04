@@ -1,8 +1,8 @@
 # Tareas: Fases 1 (Saneamiento) y 2 (Optimización Mmap/Distancias)
 
-- `[ ]` **FASE-01-ENV: Entorno y Lints FFI**
-  - `[ ]` Ejecutar e instalar el entorno virtual exclusivo (`dev-tools/setup_venv.ps1`) y verificar importación de `vantadb_py`.
-  - `[ ]` Correr Clippy y depurar todas las advertencias (`warnings`) en `src/python.rs`, `src/sdk.rs` y FFI.
+- `[x]` **FASE-01-ENV: Entorno y Lints FFI**
+  - `[x]` Ejecutar e instalar el entorno virtual exclusivo (`dev-tools/setup_venv.ps1`) y verificar importación de `vantadb_py`.
+  - `[x]` Correr Clippy y depurar todas las advertencias (`warnings`) en `src/python.rs`, `src/sdk.rs` y FFI.
 - `[x]` **FASE-02-MMAP: Optimización Mmap y Motor de Distancias**
   - `[x]` Correr el benchmark baseline (`cargo test --test competitive_bench --release -- --nocapture`) y anotar resultados de latencia originales (Completado: 3700.24s totales).
   - `[x]` Optimizar el prefetch en `src/index.rs`: Reemplazar llamadas dinámicas a `std::env::var` por caché estática con `OnceLock`.
