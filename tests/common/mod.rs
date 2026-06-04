@@ -367,6 +367,7 @@ impl VantaHarness {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&report_file)
         {
             Ok(f) => f,
