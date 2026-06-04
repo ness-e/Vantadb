@@ -205,6 +205,11 @@ name = "mmap_index"
 path = "tests/storage/mmap_index.rs"
 
 [[test]]
+name = "antilocality_layout"
+path = "tests/storage/antilocality_layout.rs"
+
+
+[[test]]
 name = "stress_protocol"
 path = "tests/certification/stress_protocol.rs"
 
