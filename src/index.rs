@@ -1,13 +1,17 @@
+use dashmap::DashMap;
 use memmap2::MmapMut;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 use std::fs::{File, OpenOptions};
 use std::hash::BuildHasherDefault;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tracing::{info, warn};
 use twox_hash::XxHash64;
+
+const ENTRY_POINT_NONE: u64 = u64::MAX;
 
 pub use crate::node::{DistanceMetric, SendPtr, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
@@ -395,51 +399,52 @@ impl Ord for NodeSimMin {
 }
 
 pub struct CPIndex {
-    pub nodes: HashMap<u64, HnswNode, BuildHasherDefault<XxHash64>>,
-    pub max_layer: usize,
-    pub entry_point: Option<u64>,
+    pub nodes: DashMap<u64, HnswNode, BuildHasherDefault<XxHash64>>,
+    pub max_layer: AtomicUsize,
+    pub entry_point: AtomicU64,
     pub backend: IndexBackend,
     pub config: HnswConfig,
-    rng: rand::rngs::StdRng,
+    rng: parking_lot::Mutex<rand::rngs::StdRng>,
 }
 
 impl CPIndex {
     pub fn new() -> Self {
         Self {
             nodes: Default::default(),
-            max_layer: 0,
-            entry_point: None,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config: HnswConfig::default(),
-            rng: rand::rngs::StdRng::seed_from_u64(42),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
 
     pub fn new_with_config(config: HnswConfig) -> Self {
         Self {
             nodes: Default::default(),
-            max_layer: 0,
-            entry_point: None,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config,
-            rng: rand::rngs::StdRng::seed_from_u64(42),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
 
     pub fn with_backend(backend: IndexBackend) -> Self {
         Self {
             nodes: Default::default(),
-            max_layer: 0,
-            entry_point: None,
+            max_layer: AtomicUsize::new(0),
+            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend,
             config: HnswConfig::default(),
-            rng: rand::rngs::StdRng::seed_from_u64(42),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
 
     pub fn estimate_memory_bytes(&self) -> usize {
         let mut total = 0usize;
-        for node in self.nodes.values() {
+        for r in self.nodes.iter() {
+            let node = r.value();
             match &node.vec_data {
                 VectorRepresentations::Full(v) => total += v.len() * std::mem::size_of::<f32>(),
                 VectorRepresentations::MmapFull(_, _) => {} // Zero heap allocations for mapped memory
@@ -456,9 +461,28 @@ impl CPIndex {
         total
     }
 
-    fn random_layer(&mut self) -> usize {
-        let r: f64 = self.rng.gen_range(0.0001..1.0);
+    fn random_layer(&self) -> usize {
+        let mut rng = self.rng.lock();
+        let r: f64 = rng.gen_range(0.0001..1.0);
         (-r.ln() * self.config.ml).floor() as usize
+    }
+
+    /// Thread-safe accessor for the current entry point.
+    #[inline]
+    pub fn get_entry_point(&self) -> Option<u64> {
+        let ep = self.entry_point.load(Ordering::Acquire);
+        if ep == ENTRY_POINT_NONE {
+            None
+        } else {
+            Some(ep)
+        }
+    }
+
+    /// Thread-safe setter. Uses Release ordering to ensure the node
+    /// is fully visible in DashMap before other threads follow this pointer.
+    #[inline]
+    pub fn set_entry_point(&self, id: u64) {
+        self.entry_point.store(id, Ordering::Release);
     }
 
     #[inline(always)]
@@ -548,7 +572,7 @@ impl CPIndex {
                         0.0
                     }
                 } else {
-                    self.fast_similarity(query_vec, query_norm, query_inv_norm, node, metric)
+                    self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
 
                 candidates.push(NodeSim(d, ep));
@@ -579,80 +603,89 @@ impl CPIndex {
                 }
             }
 
-            if let Some(node) = self.nodes.get(&cand_id) {
+            let neighbors = if let Some(node) = self.nodes.get(&cand_id) {
                 if layer < node.neighbors.len() {
-                    // SCALE-01: Prefetch predictivo — emitimos sugerencias de pre-carga para
-                    // TODOS los vecinos del candidato actual antes de calcular cualquier distancia.
-                    // Esto permite al kernel (y al controlador de SSD) iniciar DMA de las páginas
-                    // físicas en paralelo mientras la CPU calcula la distancia del nodo actual.
-                    if should_prefetch() {
-                        if let Some(vs) = vector_store {
-                            let mmap_base = vs.mmap_bytes().as_ptr();
-                            let mmap_len = vs.mmap_bytes().len();
-                            for &pf_neighbor_id in &node.neighbors[layer] {
-                                if !visited.contains(&pf_neighbor_id) {
-                                    if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
-                                        if let Some(h) = vs.read_header(pf_node.storage_offset) {
-                                            let vec_start = h.vector_offset as usize;
-                                            let vec_len_bytes = h.vector_len as usize * 4;
-                                            // Validar bounds antes de emitir prefetch
-                                            if vec_start + vec_len_bytes <= mmap_len
-                                                && vec_len_bytes > 0
-                                            {
-                                                prefetch_mmap_vector(
-                                                    mmap_base,
-                                                    vec_start,
-                                                    vec_len_bytes,
-                                                );
-                                            }
+                    Some(node.neighbors[layer].clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some(neighbors_list) = neighbors {
+                // SCALE-01: Prefetch predictivo — emitimos sugerencias de pre-carga para
+                // TODOS los vecinos del candidato actual antes de calcular cualquier distancia.
+                // Esto permite al kernel (y al controlador de SSD) iniciar DMA de las páginas
+                // físicas en paralelo mientras la CPU calcula la distancia del nodo actual.
+                if should_prefetch() {
+                    if let Some(vs) = vector_store {
+                        let mmap_base = vs.mmap_bytes().as_ptr();
+                        let mmap_len = vs.mmap_bytes().len();
+                        for &pf_neighbor_id in &neighbors_list {
+                            if !visited.contains(&pf_neighbor_id) {
+                                if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
+                                    if let Some(h) = vs.read_header(pf_node.storage_offset) {
+                                        let vec_start = h.vector_offset as usize;
+                                        let vec_len_bytes = h.vector_len as usize * 4;
+                                        // Validar bounds antes de emitir prefetch
+                                        if vec_start + vec_len_bytes <= mmap_len
+                                            && vec_len_bytes > 0
+                                        {
+                                            prefetch_mmap_vector(
+                                                mmap_base,
+                                                vec_start,
+                                                vec_len_bytes,
+                                            );
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                }
 
-                    for &neighbor_id in &node.neighbors[layer] {
-                        if !visited.contains(&neighbor_id) {
-                            visited.insert(neighbor_id);
+                for &neighbor_id in &neighbors_list {
+                    if !visited.contains(&neighbor_id) {
+                        visited.insert(neighbor_id);
 
-                            if let Some(neighbor) = self.nodes.get(&neighbor_id) {
-                                let d = if let Some(vs) = vector_store {
-                                    if let Some(h) = vs.read_header(neighbor.storage_offset) {
-                                        let vec_start = h.vector_offset as usize;
-                                        let vec_end = vec_start + (h.vector_len as usize * 4);
-                                        if vec_end > vs.mmap_bytes().len() {
-                                            0.0
-                                        } else {
-                                            let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                            // Safety: trusted bounds and aligned data
-                                            let f32_v: &[f32] = unsafe {
-                                                std::slice::from_raw_parts(
-                                                    v_data.as_ptr() as *const f32,
-                                                    h.vector_len as usize,
+                        if let Some(neighbor) = self.nodes.get(&neighbor_id) {
+                            let d = if let Some(vs) = vector_store {
+                                if let Some(h) = vs.read_header(neighbor.storage_offset) {
+                                    let vec_start = h.vector_offset as usize;
+                                    let vec_end = vec_start + (h.vector_len as usize * 4);
+                                    if vec_end > vs.mmap_bytes().len() {
+                                        0.0
+                                    } else {
+                                        let v_data = &vs.mmap_bytes()[vec_start..vec_end];
+                                        // Safety: trusted bounds and aligned data
+                                        let f32_v: &[f32] = unsafe {
+                                            std::slice::from_raw_parts(
+                                                v_data.as_ptr() as *const f32,
+                                                h.vector_len as usize,
+                                            )
+                                        };
+                                        match metric {
+                                            DistanceMetric::Cosine
+                                            | DistanceMetric::Euclidean => {
+                                                f32_slice_similarity(
+                                                    query_vec, query_norm, f32_v, metric,
                                                 )
-                                            };
-                                            match metric {
-                                                DistanceMetric::Cosine
-                                                | DistanceMetric::Euclidean => {
-                                                    f32_slice_similarity(
-                                                        query_vec, query_norm, f32_v, metric,
-                                                    )
-                                                }
                                             }
                                         }
-                                    } else {
-                                        0.0
                                     }
                                 } else {
-                                    self.fast_similarity(
-                                        query_vec,
-                                        query_norm,
-                                        query_inv_norm,
-                                        neighbor,
-                                        metric,
-                                    )
-                                };
+                                    0.0
+                                }
+                            } else {
+                                self.fast_similarity(
+                                    query_vec,
+                                    query_norm,
+                                    query_inv_norm,
+                                    &neighbor,
+                                    metric,
+                                )
+                            };
 
                                 if results.len() < ef
                                     || (results.peek().is_some() && d > results.peek().unwrap().0)
@@ -681,7 +714,6 @@ impl CPIndex {
                     }
                 }
             }
-        }
         results
     }
 
@@ -700,9 +732,9 @@ impl CPIndex {
         // into_sorted_vec returns ascending order based on NodeSimMin's Ord
         // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
 
-        struct SelectedInfo<'a> {
+        struct SelectedInfo {
             id: u64,
-            slice: Option<&'a [f32]>,
+            vec: Option<Vec<f32>>,
             inv_norm: f32,
         }
 
@@ -717,19 +749,16 @@ impl CPIndex {
             let cand_id = ns.1;
             let sim_q_cand = ns.0;
 
-            let cand_node = match self.nodes.get(&cand_id) {
-                Some(n) => n,
+            let (cand_slice, cand_inv_norm) = match self.nodes.get(&cand_id) {
+                Some(n) => (n.vec_data.as_f32_slice().map(|s| s.to_vec()), n.inv_cached_norm),
                 None => continue,
             };
-
-            let cand_slice = cand_node.vec_data.as_f32_slice();
-            let cand_inv_norm = cand_node.inv_cached_norm;
 
             let mut is_diverse = true;
             for sel in &selected {
                 let sim_cand_sel = match self.config.distance_metric {
                     DistanceMetric::Cosine => {
-                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, sel.slice) {
+                        if let (Some(c_slice), Some(s_slice)) = (&cand_slice, &sel.vec) {
                             cosine_sim_cached_norms(c_slice, cand_inv_norm, s_slice, sel.inv_norm)
                         } else {
                             if let Some(sel_node) = self.nodes.get(&sel.id) {
@@ -739,7 +768,7 @@ impl CPIndex {
                                     None
                                 };
                                 calculate_similarity(
-                                    cand_slice.unwrap_or(&[]),
+                                    cand_slice.as_deref().unwrap_or(&[]),
                                     cand_norm,
                                     None,
                                     None,
@@ -752,12 +781,12 @@ impl CPIndex {
                         }
                     }
                     DistanceMetric::Euclidean => {
-                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, sel.slice) {
+                        if let (Some(c_slice), Some(s_slice)) = (&cand_slice, &sel.vec) {
                             -euclidean_distance_squared_f32(c_slice, s_slice)
                         } else {
                             if let Some(sel_node) = self.nodes.get(&sel.id) {
                                 calculate_similarity(
-                                    cand_slice.unwrap_or(&[]),
+                                    cand_slice.as_deref().unwrap_or(&[]),
                                     None,
                                     None,
                                     None,
@@ -780,7 +809,7 @@ impl CPIndex {
             if is_diverse {
                 selected.push(SelectedInfo {
                     id: cand_id,
-                    slice: cand_slice,
+                    vec: cand_slice,
                     inv_norm: cand_inv_norm,
                 });
             } else {
@@ -802,13 +831,13 @@ impl CPIndex {
     }
 
     pub fn add(
-        &mut self,
+        &self,
         id: u64,
         bitset: u128,
         vec_data: VectorRepresentations,
         storage_offset: u64,
     ) {
-        if let Some(node) = self.nodes.get_mut(&id) {
+        if let Some(mut node) = self.nodes.get_mut(&id) {
             node.bitset = bitset;
             node.vec_data = vec_data;
             node.storage_offset = storage_offset;
@@ -865,10 +894,10 @@ impl CPIndex {
         };
 
         // If index is empty, just register the node and return
-        let ep = match self.entry_point {
+        let ep = match self.get_entry_point() {
             None => {
-                self.entry_point = Some(id);
-                self.max_layer = level;
+                self.set_entry_point(id);
+                self.max_layer.store(level, Ordering::Release);
                 self.nodes.insert(id, node);
                 return;
             }
@@ -897,7 +926,7 @@ impl CPIndex {
         };
 
         let mut curr_entry_points = vec![ep];
-        let top_layer = self.max_layer;
+        let top_layer = self.max_layer.load(Ordering::Acquire);
 
         // Phase 1: Descend down to the new node's insertion level (or top_layer)
         for layer in (level + 1..=top_layer).rev() {
@@ -944,7 +973,7 @@ impl CPIndex {
             let selected_neighbors = self.select_neighbors(w, m_max);
 
             // Update our own neighbors for this layer
-            if let Some(n) = self.nodes.get_mut(&id) {
+            if let Some(mut n) = self.nodes.get_mut(&id) {
                 n.neighbors[layer] = selected_neighbors.clone();
             }
 
@@ -952,7 +981,7 @@ impl CPIndex {
             for &neighbor_id in &selected_neighbors {
                 // Scope mutable access to avoid overlap with immutable `self.nodes.get(&nt)`
                 let (needs_shrink, current_neighbors) = {
-                    if let Some(neighbor_node) = self.nodes.get_mut(&neighbor_id) {
+                    if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
                         if layer < neighbor_node.neighbors.len() {
                             if !neighbor_node.neighbors[layer].contains(&id) {
                                 neighbor_node.neighbors[layer].push(id);
@@ -974,7 +1003,7 @@ impl CPIndex {
 
                 if needs_shrink {
                     let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
-                        Some(n) => (n.vec_data.as_f32_slice(), n.inv_cached_norm),
+                        Some(n) => (n.vec_data.as_f32_slice().map(|s| s.to_vec()), n.inv_cached_norm),
                         None => (None, 0.0),
                     };
 
@@ -993,17 +1022,17 @@ impl CPIndex {
                         for &n_target in &current_neighbors {
                             if let Some(nt) = self.nodes.get(&n_target) {
                                 let d = self.fast_similarity(
-                                    nb_v,
+                                    &nb_v,
                                     q_norm,
                                     q_inv_norm,
-                                    nt,
+                                    &nt,
                                     self.config.distance_metric,
                                 );
                                 cand_heap.push(NodeSimMin(d, n_target));
                             }
                         }
                         let pruned = self.select_neighbors(cand_heap, m_max);
-                        if let Some(neighbor_node) = self.nodes.get_mut(&neighbor_id) {
+                        if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
                             neighbor_node.neighbors[layer] = pruned;
                         }
                     }
@@ -1012,9 +1041,10 @@ impl CPIndex {
         }
 
         // Update entry point if we created a new highest layer
-        if level > self.max_layer {
-            self.max_layer = level;
-            self.entry_point = Some(id);
+        let current_max = self.max_layer.load(Ordering::Acquire);
+        if level > current_max {
+            self.max_layer.fetch_max(level, Ordering::Release);
+            self.set_entry_point(id);
         }
     }
 
@@ -1027,7 +1057,7 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::VantaFile>,
     ) -> Vec<(u64, f32)> {
-        let ep = match self.entry_point {
+        let ep = match self.get_entry_point() {
             Some(id) => id,
             None => return Vec::new(),
         };
@@ -1045,7 +1075,8 @@ impl CPIndex {
         };
         let mut curr_entry_points = vec![ep];
 
-        for layer in (1..=self.max_layer).rev() {
+        let max_l = self.max_layer.load(Ordering::Acquire);
+        for layer in (1..=max_l).rev() {
             let mut w = self.search_layer(
                 query_vec,
                 query_norm,
@@ -1098,7 +1129,7 @@ impl CPIndex {
         let mut order = Vec::with_capacity(self.nodes.len());
         let mut seen = HashSet::new();
 
-        if let Some(ep) = self.entry_point {
+        if let Some(ep) = self.get_entry_point() {
             let mut queue = VecDeque::new();
             queue.push_back(ep);
             seen.insert(ep);
@@ -1119,9 +1150,9 @@ impl CPIndex {
 
         let mut orphans: Vec<u64> = self
             .nodes
-            .keys()
+            .iter()
+            .map(|r| *r.key())
             .filter(|id| !seen.contains(id))
-            .copied()
             .collect();
         orphans.sort_unstable();
         order.extend(orphans);
@@ -1133,7 +1164,7 @@ impl CPIndex {
 
         buf.extend_from_slice(VECTOR_INDEX_MAGIC);
         buf.extend_from_slice(&VECTOR_INDEX_VERSION.to_le_bytes());
-        buf.extend_from_slice(&(self.max_layer as u64).to_le_bytes());
+        buf.extend_from_slice(&(self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes());
 
         // Config block (only in V2+)
         buf.extend_from_slice(&(self.config.m as u64).to_le_bytes());
@@ -1148,7 +1179,7 @@ impl CPIndex {
         };
         buf.push(metric_byte);
 
-        match self.entry_point {
+        match self.get_entry_point() {
             Some(ep) => {
                 buf.push(1);
                 buf.extend_from_slice(&ep.to_le_bytes());
@@ -1287,8 +1318,8 @@ impl CPIndex {
         let node_count = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
         pos += 8;
 
-        let mut nodes =
-            HashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
+        let nodes =
+            DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
 
         for _ in 0..node_count {
             if pos + 8 > data.len() {
@@ -1455,11 +1486,11 @@ impl CPIndex {
 
         Ok(Self {
             nodes,
-            max_layer,
-            entry_point,
+            max_layer: AtomicUsize::new(max_layer),
+            entry_point: AtomicU64::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
             config,
-            rng: rand::rngs::StdRng::seed_from_u64(42),
+            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         })
     }
 
@@ -1600,13 +1631,13 @@ impl CPIndex {
         let node_count = self.nodes.len();
         let orphan_count = self
             .nodes
-            .values()
-            .filter(|n| n.neighbors.is_empty() || n.neighbors[0].is_empty())
+            .iter()
+            .filter(|r| r.value().neighbors.is_empty() || r.value().neighbors[0].is_empty())
             .count();
         let total_l0_connections: usize = self
             .nodes
-            .values()
-            .map(|n| n.neighbors.first().map(|l| l.len()).unwrap_or(0))
+            .iter()
+            .map(|r| r.value().neighbors.first().map(|l| l.len()).unwrap_or(0))
             .sum();
         let avg_connections_l0 = if node_count > 0 {
             total_l0_connections as f32 / node_count as f32
@@ -1616,7 +1647,7 @@ impl CPIndex {
 
         IndexStats {
             node_count,
-            max_layer: self.max_layer,
+            max_layer: self.max_layer.load(Ordering::Acquire),
             orphan_count,
             avg_connections_l0,
             violation_count: 0, // Updated by validate_index()
@@ -1638,7 +1669,9 @@ impl CPIndex {
     pub fn validate_index(&self) -> Result<(), Vec<String>> {
         let mut violations = Vec::new();
 
-        for (id, node) in &self.nodes {
+        for r in self.nodes.iter() {
+            let id = *r.key();
+            let node = r.value();
             // Check: layer count should be ≥ 1
             if node.neighbors.is_empty() {
                 violations.push(format!(
@@ -1652,7 +1685,7 @@ impl CPIndex {
             for (layer_idx, layer) in node.neighbors.iter().enumerate() {
                 for &neighbor_id in layer {
                     // Self-loop check
-                    if neighbor_id == *id {
+                    if neighbor_id == id {
                         violations.push(format!(
                             "Node {} has a self-loop at layer {}",
                             id, layer_idx
@@ -1671,7 +1704,7 @@ impl CPIndex {
         }
 
         // Check entry point validity
-        if let Some(ep) = self.entry_point {
+        if let Some(ep) = self.get_entry_point() {
             if !self.nodes.contains_key(&ep) {
                 violations.push(format!("Entry point {} does not exist in the node map", ep));
             }
@@ -1711,7 +1744,7 @@ mod tests {
 
     #[test]
     fn serialization_order_preserves_search_results() {
-        let mut index = CPIndex::new_with_config(HnswConfig {
+        let index = CPIndex::new_with_config(HnswConfig {
             m: 8,
             m_max0: 16,
             ef_construction: 64,
@@ -1741,5 +1774,144 @@ mod tests {
 
         assert_eq!(before, after);
         assert_eq!(restored.nodes.len(), index.nodes.len());
+    }
+
+    #[test]
+    fn concurrent_search_during_insert() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        use std::thread;
+        use std::time::Duration;
+        use std::sync::Mutex;
+
+        let index = Arc::new(CPIndex::new_with_config(HnswConfig {
+            m: 16,
+            m_max0: 32,
+            ef_construction: 64,
+            ef_search: 32,
+            ml: 1.0 / (16_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+        }));
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let insert_mutex = Arc::new(Mutex::new(())); // Imita el insert_lock de StorageEngine
+        let mut handles = Vec::new();
+
+        // Lanzar 2 hilos que insertan nodos de manera sincronizada
+        for t in 0..2 {
+            let index = index.clone();
+            let stop = stop.clone();
+            let insert_mutex = insert_mutex.clone();
+            handles.push(thread::spawn(move || {
+                let mut rng = rand::thread_rng();
+                let start_id = t * 1000;
+                for i in 0..1000 {
+                    if stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let id = start_id + i;
+                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let norm = f32_l2_norm(&raw_vec);
+                    let vec: Vec<f32> = if norm > 0.0 { raw_vec.iter().map(|v| v / norm).collect() } else { raw_vec };
+                    
+                    // Adquirir lock para cumplir el contrato de CPIndex::add
+                    let _guard = insert_mutex.lock().unwrap();
+                    index.add(id, u128::MAX, VectorRepresentations::Full(vec), 0);
+                }
+            }));
+        }
+
+        // Lanzar 4 hilos de búsqueda
+        for _ in 0..4 {
+            let index = index.clone();
+            let stop = stop.clone();
+            handles.push(thread::spawn(move || {
+                let mut rng = rand::thread_rng();
+                while !stop.load(Ordering::Relaxed) {
+                    let query: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let norm = f32_l2_norm(&query);
+                    let q_vec = if norm > 0.0 { query.iter().map(|v| v / norm).collect() } else { query };
+                    // Búsqueda concurrente sin adquirir insert_lock
+                    let _res = index.search_nearest(&q_vec, None, None, u128::MAX, 5, None);
+                    thread::sleep(Duration::from_micros(10));
+                }
+            }));
+        }
+
+        // Dejar correr por 1 segundo
+        thread::sleep(Duration::from_millis(1000));
+        stop.store(true, Ordering::Relaxed);
+
+        // Join de todos los hilos
+        for handle in handles {
+            let _ = handle.join();
+        }
+
+        // Validar integridad estructural del grafo
+        assert!(index.validate_index().is_ok());
+    }
+
+    #[test]
+    fn concurrent_insert_preserves_hnsw_invariants() {
+        use tempfile::tempdir;
+        use std::sync::Arc;
+        use std::thread;
+        use crate::storage::StorageEngine;
+        use crate::node::UnifiedNode;
+
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().to_str().unwrap();
+        let storage = Arc::new(StorageEngine::open(db_path).unwrap());
+
+        let mut handles = Vec::new();
+        // 4 hilos insertando de forma concurrente
+        for t in 0..4 {
+            let storage = storage.clone();
+            handles.push(thread::spawn(move || {
+                let mut rng = rand::thread_rng();
+                let start_id = t * 500 + 1; // Evitar ID 0 que a veces es entry point
+                for i in 0..500 {
+                    let id = start_id + i;
+                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let norm = f32_l2_norm(&raw_vec);
+                    let vec: Vec<f32> = if norm > 0.0 { raw_vec.iter().map(|v| v / norm).collect() } else { raw_vec };
+
+                    let mut node = UnifiedNode::new(id);
+                    node.vector = VectorRepresentations::Full(vec);
+                    storage.insert(&node).unwrap();
+                }
+            }));
+        }
+
+        for handle in handles {
+            let _ = handle.join();
+        }
+
+        // Validar integridad
+        let hnsw = storage.hnsw.read();
+        assert!(hnsw.validate_index().is_ok());
+
+        // Validar que todos los nodos sean alcanzables BFS desde el entry point
+        let ep = hnsw.get_entry_point().expect("Should have entry point");
+        let mut visited = std::collections::HashSet::new();
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(ep);
+        visited.insert(ep);
+
+        while let Some(node_id) = queue.pop_front() {
+            if let Some(node) = hnsw.nodes.get(&node_id) {
+                // BFS en todos los vecinos de todas las capas
+                for layer in &node.neighbors {
+                    for &neighbor in layer {
+                        if visited.insert(neighbor) {
+                            queue.push_back(neighbor);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Todos los nodos en HNSW deben ser alcanzables
+        assert_eq!(visited.len(), hnsw.nodes.len(), "Not all nodes are reachable from the entry point!");
     }
 }

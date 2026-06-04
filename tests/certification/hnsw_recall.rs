@@ -74,7 +74,7 @@ fn recall_certification_runner() {
             ml: 1.0 / (24_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
         };
-        let mut index = CPIndex::new_with_config(config);
+        let index = CPIndex::new_with_config(config);
 
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
         for (id, vec) in &dataset {

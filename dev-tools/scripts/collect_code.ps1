@@ -9,14 +9,14 @@ $excludedPatterns = @(
     'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents',
     'vanta-web', 'vantadb_data',
     'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
-    'docs[\\/]snapshots', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
-    '\.trash_docker'
+    'docs[\\/]snapshots', 'docs[\\/]progreso', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
+    '\.trash_docker', 'vanta_certification\.json'
 )
 
 # Extensiones a incluir (whitelist)
 $includedPatterns = @(
     '.rs', '.toml', '.py', '.sh', '.ps1', '.bat', '.md', '.json', '.yml', '.yaml',
-    '.sql', '.dockerignore', '.gitignore', '.vanta_profile', '.env', 'Cargo.lock'
+    '.sql', '.dockerignore', '.gitignore', '.vanta_profile', '.env'
 )
 
 # --- METADATOS DE GIT ---
@@ -99,6 +99,23 @@ Set-Content -Path $outputFile -Value $aiHeader -Encoding utf8
 # --- PROCESAMIENTO ---
 Write-Host ('📂 Procesando ' + $totalFiles + ' archivos...') -ForegroundColor Yellow
 
+function Get-MarkdownLanguage ($ext) {
+    switch ($ext) {
+        '.rs'   { return 'rust' }
+        '.py'   { return 'python' }
+        '.toml' { return 'toml' }
+        '.json' { return 'json' }
+        '.yml'  { return 'yaml' }
+        '.yaml' { return 'yaml' }
+        '.sh'   { return 'bash' }
+        '.ps1'  { return 'powershell' }
+        '.bat'  { return 'cmd' }
+        '.sql'  { return 'sql' }
+        '.md'   { return 'markdown' }
+        default { return 'text' }
+    }
+}
+
 foreach ($file in $files) {
     $current++
     $relPath = $file.FullName.Substring($basePath.Length).TrimStart('\')
@@ -109,16 +126,21 @@ foreach ($file in $files) {
     Write-Progress -Activity 'Vanta Collector' -Status ('Procesando: ' + $relPath) -PercentComplete (($current / $totalFiles) * 100)
     
     $sep = '=' * 80
-    Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
-    Add-Content -Path $outputFile -Value ('--- START OF FILE: ' + $relPath + ' (Size: ' + $sizeStr + ' | Modified: ' + $file.LastWriteTime.ToString() + ') ---') -Encoding utf8
-    Add-Content -Path $outputFile -Value $sep -Encoding utf8
     
     try {
         $content = Get-Content $file.FullName -Raw -ErrorAction Stop
         $totalLines += ($content -split '\r?\n').Count
         $totalWords += ($content -split '\s+').Count
+        
+        $lang = Get-MarkdownLanguage $file.Extension.ToLower()
+        $fence = "````"
+        
+        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
+        Add-Content -Path $outputFile -Value ('--- START OF FILE: ' + $relPath + ' (Size: ' + $sizeStr + ' | Modified: ' + $file.LastWriteTime.ToString() + ') ---') -Encoding utf8
+        Add-Content -Path $outputFile -Value $sep -Encoding utf8
+        Add-Content -Path $outputFile -Value "$fence$lang" -Encoding utf8
         Add-Content -Path $outputFile -Value $content -Encoding utf8
-
+        Add-Content -Path $outputFile -Value "$fence" -Encoding utf8
         Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
         Add-Content -Path $outputFile -Value ('--- END OF FILE: ' + $relPath + ' ---') -Encoding utf8
         Add-Content -Path $outputFile -Value ($sep + $nl) -Encoding utf8
@@ -129,7 +151,14 @@ foreach ($file in $files) {
         Write-Host ('(' + $sizeStr + ')') -ForegroundColor DarkGray
     }
     catch {
-        Add-Content -Path $outputFile -Value ('[Error de lectura en ' + $relPath + ']') -Encoding utf8
+        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
+        Add-Content -Path $outputFile -Value ('--- START OF FILE: ' + $relPath + ' (Error de Lectura) ---') -Encoding utf8
+        Add-Content -Path $outputFile -Value $sep -Encoding utf8
+        Add-Content -Path $outputFile -Value ('[Error de lectura en ' + $relPath + ': ' + $_.Exception.Message + ']') -Encoding utf8
+        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
+        Add-Content -Path $outputFile -Value ('--- END OF FILE: ' + $relPath + ' ---') -Encoding utf8
+        Add-Content -Path $outputFile -Value ($sep + $nl) -Encoding utf8
+        
         Write-Host ('[' + $current + '/' + $totalFiles + '] ✖ ' + $relPath + ' [Error]') -ForegroundColor Red
     }
 }

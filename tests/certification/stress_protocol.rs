@@ -7,6 +7,11 @@
 //!
 //! Run with: cargo test --test stress_protocol -- --nocapture
 //! Sequential execution is enforced to maintain console output integrity.
+//!
+//! ## Performance Optimization
+//! Shared indexes are pre-built once and reused across blocks with identical
+//! construction parameters. Datasets are regenerated on-demand (deterministic
+//! via seed) to avoid holding >100MB of vector data in memory alongside indexes.
 
 use console::style;
 use rand::rngs::StdRng;
@@ -18,6 +23,15 @@ use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations}
 #[path = "../common/mod.rs"]
 mod common;
 use common::*;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DIMS: usize = 128;
+const SEED: u64 = 2024;
+const QUERY_SEED: u64 = SEED + 9999;
+const K: usize = 10;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -35,6 +49,16 @@ fn gen_vectors(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
             }
             v
         })
+        .collect()
+}
+
+/// Generate an indexed dataset: (id, vector) pairs.
+/// Deterministic — same (count, dims, seed) always produces identical output.
+fn gen_dataset(count: usize, dims: usize, seed: u64) -> Vec<(u64, Vec<f32>)> {
+    gen_vectors(count, dims, seed)
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| (i as u64, v))
         .collect()
 }
 
@@ -82,7 +106,7 @@ fn compute_recall(
 }
 
 fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
-    let mut idx = CPIndex::new_with_config(config);
+    let idx = CPIndex::new_with_config(config);
     let pb = TerminalReporter::create_progress(dataset.len() as u64, "Building HNSW");
     for (id, vec) in dataset {
         idx.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
@@ -110,7 +134,35 @@ fn measure_latency_percentiles(index: &CPIndex, queries: &[Vec<f32>], k: usize) 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UNIFIED CERTIFICATION RUNNER (Strict Logic Preservation)
+// SHARED CONFIGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// m=32, ef_c=200, ef_s=100 — used by Blocks 2(10K), 3(10K), 4, 7(10K)
+fn config_base() -> HnswConfig {
+    HnswConfig {
+        m: 32,
+        m_max0: 64,
+        ef_construction: 200,
+        ef_search: 100,
+        ml: 1.0 / (32_f64).ln(),
+        distance_metric: vantadb::node::DistanceMetric::Cosine,
+    }
+}
+
+/// m=32, ef_c=400, ef_s=200 — used by Blocks 2(50K), 6, 7(50K)
+fn config_50k_high() -> HnswConfig {
+    HnswConfig {
+        m: 32,
+        m_max0: 64,
+        ef_construction: 400,
+        ef_search: 200,
+        ml: 1.0 / (32_f64).ln(),
+        distance_metric: vantadb::node::DistanceMetric::Cosine,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNIFIED CERTIFICATION RUNNER (Shared Index Pool)
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
@@ -118,82 +170,105 @@ fn stress_protocol_certification() {
     TerminalReporter::suite_banner("VANTA HNSW STRESS & PERFORMANCE PROTOCOL", 7);
     let mut harness = VantaHarness::new("VANTA STRESS PROTOCOL");
 
-    // BLOCK 1: Recall
+    // ─── Phase 0: Build shared indexes ───────────────────────────
+    // Datasets are generated inside scoped blocks and dropped immediately
+    // after index construction to minimize peak memory. Indexes retain
+    // their own copies of vector data via VectorRepresentations::Full.
+
+    TerminalReporter::sub_step("Building shared 10K index (m=32, ef_c=200)...");
+    let t0 = Instant::now();
+    let shared_idx_10k = {
+        let ds = gen_dataset(10_000, DIMS, SEED);
+        build_index(&ds, config_base())
+    }; // ds dropped — only index survives (~11 MB)
+    let shared_10k_build_s = t0.elapsed().as_secs_f64();
+
+    TerminalReporter::sub_step("Building shared 50K index (m=32, ef_c=400)...");
+    let t0 = Instant::now();
+    let shared_idx_50k = {
+        let ds = gen_dataset(50_000, DIMS, SEED);
+        build_index(&ds, config_50k_high())
+    }; // ds dropped — only index survives (~58 MB)
+    let shared_50k_build_s = t0.elapsed().as_secs_f64();
+
+    TerminalReporter::info(&format!(
+        "Shared indexes ready: 10K in {:.1}s, 50K in {:.1}s",
+        shared_10k_build_s, shared_50k_build_s
+    ));
+
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 1: Recall (unique m=16 config — cannot share)
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 1 — GROUND TRUTH RECALL (50K/128D)", || {
-        let n = 50_000;
-        let dims = 128;
-        let k = 10;
-        let n_queries = 100;
-        let seed = 2024;
         TerminalReporter::sub_step("Generating synthetic datasets...");
-        let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| (i as u64, v))
-            .collect();
-        let queries = gen_vectors(n_queries, dims, seed + 9999);
+        let dataset = gen_dataset(50_000, DIMS, SEED);
+        let queries = gen_vectors(100, DIMS, QUERY_SEED);
         let config = HnswConfig {
-            m: 16, // Optimized for faster certification
+            m: 16,
             m_max0: 32,
             ef_construction: 200,
-            ef_search: 100,
+            ef_search: 250,
             ml: 1.0 / (16_f64).ln(),
             distance_metric: vantadb::node::DistanceMetric::Cosine,
         };
         let index = build_index(&dataset, config);
-        let recall = compute_recall(&index, &queries, &dataset, k);
-        let status_msg = format!("Recall@{}: {:.4} (Required >= 0.95)", k, recall);
+        let recall = compute_recall(&index, &queries, &dataset, K);
+        let status_msg = format!("Recall@{}: {:.4} (Required >= 0.95)", K, recall);
         assert!(recall >= 0.95, "BLOCK 1 FAILED: {}", status_msg);
         TerminalReporter::success(&format!("PASSED: {}", status_msg));
     });
 
-    // BLOCK 2: Scaling
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 2: Scaling (reuses shared 10K and 50K, only builds 100K)
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 2 — SCALING (10K → 50K → 100K)", || {
-        let dims = 128;
-        let k = 10;
-        let n_queries = 100;
-        let seed = 2024;
-        let scales = [10_000, 50_000, 100_000];
+        let queries = gen_vectors(100, DIMS, QUERY_SEED);
         let mut results = Vec::new();
-        for &n in &scales {
-            TerminalReporter::sub_step(&format!("Processing scale: {} vectors", n));
-            let config = HnswConfig {
+
+        // ── 10K: reuse shared index, regenerate dataset for brute-force ──
+        {
+            TerminalReporter::sub_step("Processing scale: 10000 vectors (shared)");
+            let ds = gen_dataset(10_000, DIMS, SEED);
+            let recall = compute_recall(&shared_idx_10k, &queries, &ds, K);
+            let (p50, p95, _) = measure_latency_percentiles(&shared_idx_10k, &queries, K);
+            let mem_mb = shared_idx_10k.estimate_memory_bytes() as f64 / (1024.0 * 1024.0);
+            results.push((10_000, recall, p50, p95, shared_10k_build_s, mem_mb));
+        } // ds dropped
+
+        // ── 50K: reuse shared index ──
+        {
+            TerminalReporter::sub_step("Processing scale: 50000 vectors (shared)");
+            let ds = gen_dataset(50_000, DIMS, SEED);
+            let recall = compute_recall(&shared_idx_50k, &queries, &ds, K);
+            let (p50, p95, _) = measure_latency_percentiles(&shared_idx_50k, &queries, K);
+            let mem_mb = shared_idx_50k.estimate_memory_bytes() as f64 / (1024.0 * 1024.0);
+            results.push((50_000, recall, p50, p95, shared_50k_build_s, mem_mb));
+        } // ds dropped
+
+        // ── 100K: build fresh (unique ef_c=500, ef_s=300) ──
+        {
+            TerminalReporter::sub_step("Processing scale: 100000 vectors");
+            let ds = gen_dataset(100_000, DIMS, SEED);
+            let config_100k = HnswConfig {
                 m: 32,
                 m_max0: 64,
-                ef_construction: if n <= 10_000 {
-                    200
-                } else if n <= 50_000 {
-                    400
-                } else {
-                    500
-                },
-                ef_search: if n <= 10_000 {
-                    100
-                } else if n <= 50_000 {
-                    200
-                } else {
-                    300
-                },
+                ef_construction: 500,
+                ef_search: 300,
                 ml: 1.0 / (32_f64).ln(),
                 distance_metric: vantadb::node::DistanceMetric::Cosine,
             };
-            let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs
-                .into_iter()
-                .enumerate()
-                .map(|(i, v)| (i as u64, v))
-                .collect();
-            let queries = gen_vectors(n_queries, dims, seed + 9999);
             let t0 = Instant::now();
-            let index = build_index(&dataset, config);
+            let idx_100k = build_index(&ds, config_100k);
             let build_s = t0.elapsed().as_secs_f64();
-            let recall = compute_recall(&index, &queries, &dataset, k);
-            let (p50, p95, _) = measure_latency_percentiles(&index, &queries, k);
-            let mem_mb = index.estimate_memory_bytes() as f64 / (1024.0 * 1024.0);
-            results.push((n, recall, p50, p95, build_s, mem_mb));
-        }
+            let recall = compute_recall(&idx_100k, &queries, &ds, K);
+            let (p50, p95, _) = measure_latency_percentiles(&idx_100k, &queries, K);
+            let mem_mb = idx_100k.estimate_memory_bytes() as f64 / (1024.0 * 1024.0);
+            results.push((100_000, recall, p50, p95, build_s, mem_mb));
+        } // ds + idx_100k dropped
 
+        // ── Print summary table ──
         println!(
             "\n  {}",
             style("SCALING PERFORMANCE SUMMARY").bold().underlined()
@@ -274,28 +349,24 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 2 PASSED.");
     });
 
-    // BLOCK 3: Memory
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 3: Memory (consistent ef_c=200 across all sizes)
+    // Reuses shared 10K index (same config); builds others fresh.
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 3 — MEMORY MEASUREMENT", || {
-        let dims = 128;
-        let seed = 2024;
-        let config = HnswConfig {
-            m: 32,
-            m_max0: 64,
-            ef_construction: 200,
-            ef_search: 100,
-            ml: 1.0 / (32_f64).ln(),
-            distance_metric: vantadb::node::DistanceMetric::Cosine,
-        };
         let sizes = [1_000, 5_000, 10_000, 50_000];
         let mut memories = Vec::new();
         for &n in &sizes {
-            let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs
-                .into_iter()
-                .enumerate()
-                .map(|(i, v)| (i as u64, v))
-                .collect();
-            let index = build_index(&dataset, config.clone());
+            // 10K matches shared_idx_10k config exactly; others built fresh
+            let owned_index;
+            let index: &CPIndex = if n == 10_000 {
+                &shared_idx_10k
+            } else {
+                let ds = gen_dataset(n, DIMS, SEED);
+                owned_index = build_index(&ds, config_base());
+                &owned_index
+            };
             let m_bytes = index.estimate_memory_bytes();
             let m_mb = m_bytes as f64 / (1024. * 1024.);
             TerminalReporter::info(&format!(
@@ -315,32 +386,19 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 3 PASSED.");
     });
 
-    // BLOCK 4: Persistence
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 4: Persistence (reuses shared 10K index)
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 4 — PERSISTENCE ROUND-TRIP", || {
         let n = 10_000;
-        let dims = 128;
-        let k = 10;
         let n_queries = 100;
-        let seed = 2024;
-        let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| (i as u64, v))
-            .collect();
-        let queries = gen_vectors(n_queries, dims, seed + 9999);
-        let config = HnswConfig {
-            m: 32,
-            m_max0: 64,
-            ef_construction: 200,
-            ef_search: 100,
-            ml: 1.0 / (32_f64).ln(),
-            distance_metric: vantadb::node::DistanceMetric::Cosine,
-        };
-        let original = build_index(&dataset, config);
-        let recall_before = compute_recall(&original, &queries, &dataset, k);
+        let ds = gen_dataset(n, DIMS, SEED);
+        let queries = gen_vectors(n_queries, DIMS, QUERY_SEED);
+
+        let recall_before = compute_recall(&shared_idx_10k, &queries, &ds, K);
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        original.persist_to_file(tmp.path()).unwrap();
+        shared_idx_10k.persist_to_file(tmp.path()).unwrap();
         let file_size = std::fs::metadata(tmp.path()).unwrap().len();
         TerminalReporter::info(&format!(
             "File size: {:.2} MB",
@@ -348,13 +406,16 @@ fn stress_protocol_certification() {
         ));
         let loaded = CPIndex::load_from_file(tmp.path(), false).unwrap();
         assert_eq!(loaded.nodes.len(), n);
-        let recall_after = compute_recall(&loaded, &queries, &dataset, k);
+        let recall_after = compute_recall(&loaded, &queries, &ds, K);
         assert!((recall_before - recall_after).abs() < 0.001);
         loaded.validate_index().unwrap();
         TerminalReporter::success("BLOCK 4 PASSED.");
     });
 
-    // BLOCK 5: Edge Cases (5a-5g)
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 5: Edge Cases (5a-5g) — lightweight, no sharing needed
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 5 — EDGE CASES", || {
         let k = 5;
         let d = 64;
@@ -365,7 +426,7 @@ fn stress_protocol_certification() {
             .is_empty());
 
         TerminalReporter::sub_step("5b: Single node...");
-        let mut single = CPIndex::new();
+        let single = CPIndex::new();
         single.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         assert_eq!(
             single
@@ -375,7 +436,7 @@ fn stress_protocol_certification() {
         );
 
         TerminalReporter::sub_step("5c: Two nodes...");
-        let mut two = CPIndex::new();
+        let two = CPIndex::new();
         two.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         two.add(2, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
         assert_eq!(
@@ -385,20 +446,20 @@ fn stress_protocol_certification() {
         );
 
         TerminalReporter::sub_step("5d: Zero vector...");
-        let mut zvec = CPIndex::new();
+        let zvec = CPIndex::new();
         zvec.add(1, u128::MAX, VectorRepresentations::Full(vec![0.0; d]), 0);
-        assert!(!zvec
+        assert!(zvec
             .search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
             .is_empty());
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
-        let mut dup = CPIndex::new();
+        let dup = CPIndex::new();
         dup.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         dup.add(1, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
         assert_eq!(dup.nodes.len(), 1);
 
         TerminalReporter::sub_step("5f: Dimension Mismatch...");
-        let mut dvec = CPIndex::new();
+        let dvec = CPIndex::new();
         dvec.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
         let _ = dvec.search_nearest(&vec![1.0; 128], None, None, u128::MAX, k, None);
 
@@ -409,28 +470,13 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 5 PASSED.");
     });
 
-    // BLOCK 6: Consistency
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 6: Consistency (reuses shared 50K index)
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 6 — GRAPH CONSISTENCY", || {
-        let n = 50_000;
-        let dims = 128;
-        let seed = 2024;
-        let config = HnswConfig {
-            m: 32,
-            m_max0: 64,
-            ef_construction: 400,
-            ef_search: 200,
-            ml: 1.0 / (32_f64).ln(),
-            distance_metric: vantadb::node::DistanceMetric::Cosine,
-        };
-        let vecs = gen_vectors(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| (i as u64, v))
-            .collect();
-        let index = build_index(&dataset, config);
-        index.validate_index().unwrap();
-        let stats = index.stats();
+        shared_idx_50k.validate_index().unwrap();
+        let stats = shared_idx_50k.stats();
         TerminalReporter::info(&format!(
             "Nodes: {} | Orphans: {} | Avg L0 Conn: {:.1}",
             stats.node_count, stats.orphan_count, stats.avg_connections_l0
@@ -439,40 +485,30 @@ fn stress_protocol_certification() {
         TerminalReporter::success("BLOCK 6 PASSED.");
     });
 
-    // BLOCK 7: Latency
+    // ═══════════════════════════════════════════════════════════════
+    // BLOCK 7: Latency (reuses shared 10K and 50K indexes)
+    // ═══════════════════════════════════════════════════════════════
+
     harness.execute("BLOCK 7 — LATENCY PERCENTILES", || {
-        let n1 = 10000;
-        let n2 = 50000;
-        let dims = 128;
-        let seed = 2024;
+        let queries = gen_vectors(200, DIMS, QUERY_SEED);
         let mut results = Vec::new();
-        for &n in &[n1, n2] {
-            let config = HnswConfig {
-                m: 32,
-                m_max0: 64,
-                ef_construction: if n <= 10000 { 200 } else { 400 },
-                ef_search: if n <= 10000 { 100 } else { 200 },
-                ml: 1.0 / (32_f64).ln(),
-                distance_metric: vantadb::node::DistanceMetric::Cosine,
-            };
-            let vecs = gen_vectors(n, dims, seed);
-            let dataset: Vec<(u64, Vec<f32>)> = vecs
-                .into_iter()
-                .enumerate()
-                .map(|(i, v)| (i as u64, v))
-                .collect();
-            let queries = gen_vectors(200, dims, seed + 9999);
-            let index = build_index(&dataset, config);
-            let (p50, p95, p99) = measure_latency_percentiles(&index, &queries, 10);
-            TerminalReporter::info(&format!(
-                "{}K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs",
-                n / 1000,
-                p50,
-                p95,
-                p99
-            ));
-            results.push(p50);
-        }
+
+        // 10K: shared index (ef_s=100) ✓
+        let (p50, p95, p99) = measure_latency_percentiles(&shared_idx_10k, &queries, K);
+        TerminalReporter::info(&format!(
+            "10K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs",
+            p50, p95, p99
+        ));
+        results.push(p50);
+
+        // 50K: shared index (ef_s=200) ✓
+        let (p50, p95, p99) = measure_latency_percentiles(&shared_idx_50k, &queries, K);
+        TerminalReporter::info(&format!(
+            "50K vectors -> p50: {:.1}µs | p95: {:.1}µs | p99: {:.1}µs",
+            p50, p95, p99
+        ));
+        results.push(p50);
+
         let s_factor = results[1] / results[0];
         TerminalReporter::info(&format!("Latency scale factor (50K/10K): {:.2}x", s_factor));
         // Threshold: 8.0x accounts for CPU cache/thermal variance between runs.

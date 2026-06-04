@@ -10,7 +10,7 @@ use vantadb::index::{CPIndex, IndexBackend, VectorRepresentations};
 
 /// Helper: create a CPIndex with N test vectors
 fn build_test_index(node_count: u64) -> CPIndex {
-    let mut index = CPIndex::new();
+    let index = CPIndex::new();
     for i in 1..=node_count {
         let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
         let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -107,8 +107,8 @@ fn mmap_vector_index_certification() {
         let tmp = TempDir::new().expect("Failed to create temp dir");
         let mmap_path = tmp.path().join("equiv_test.bin");
 
-        let mut inmem_index = CPIndex::new();
-        let mut mmap_index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path));
+        let inmem_index = CPIndex::new();
+        let mmap_index = CPIndex::with_backend(IndexBackend::new_mmap(mmap_path));
 
         let vectors: Vec<(u64, Vec<f32>)> = (1..=20u64)
             .map(|i| {

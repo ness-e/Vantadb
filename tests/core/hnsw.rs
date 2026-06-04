@@ -32,7 +32,7 @@ fn hnsw_core_logic_certification() {
     });
 
     harness.execute("HNSW: Greedy Search Integrity", || {
-        let mut index = CPIndex::new();
+        let index = CPIndex::new();
         TerminalReporter::sub_step("Populating sparse vector space...");
         index.add(1, 0, VectorRepresentations::Full(vec![1.0, 0.0, 0.0]), 0);
         index.add(2, 0, VectorRepresentations::Full(vec![0.8, 0.2, 0.0]), 0);

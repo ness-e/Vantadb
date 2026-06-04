@@ -457,6 +457,9 @@ pub struct StorageEngine {
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
     pub hnsw: RwLock<CPIndex>,
+    /// Serializes insert/refresh operations to avoid bidirectional
+    /// neighbor update races. Searches acquire hnsw.read() freely.
+    insert_lock: parking_lot::Mutex<()>,
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
     #[cfg(feature = "governance")]
     pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
@@ -684,6 +687,7 @@ impl StorageEngine {
             config: config.clone(),
             read_only: config.read_only,
             hnsw: RwLock::new(hnsw),
+            insert_lock: parking_lot::Mutex::new(()),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
             #[cfg(feature = "governance")]
             admission_filter,
@@ -994,7 +998,8 @@ impl StorageEngine {
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
         {
-            let mut hnsw = self.hnsw.write();
+            let _guard = self.insert_lock.lock();
+            let hnsw = self.hnsw.read();
             hnsw.add(
                 active_node.id,
                 active_node.bitset,
@@ -1027,7 +1032,8 @@ impl StorageEngine {
         }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                let mut index = self.hnsw.write();
+                let _guard = self.insert_lock.lock();
+                let index = self.hnsw.read();
                 index.add(
                     node.id,
                     node.bitset,
@@ -1235,8 +1241,9 @@ impl StorageEngine {
 
         let tombstone_count = hnsw
             .nodes
-            .values()
-            .filter(|n| {
+            .iter()
+            .filter(|r| {
+                let n = r.value();
                 if let Some(h) = vstore.read_header(n.storage_offset) {
                     (h.flags & 0x8) != 0
                 } else {

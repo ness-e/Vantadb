@@ -1,0 +1,31 @@
+# Tareas: FASE-05: Concurrent HNSW — Fine-Grained Locking
+
+- `[x]` **FASE-00: Benchmark de Baseline**
+  - `[x]` Crear [bench_concurrent.rs](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/benches/bench_concurrent.rs) para medir throughput concurrente.
+  - `[x]` Solicitar al usuario ejecutar el benchmark baseline y registrar los resultados (throughput y latencia para 1, 4, 8, 16 hilos).
+- `[x]` **FASE-01: Migración Interna de HNSW a Concurrencia Fina**
+  - `[x]` Agregar la dependencia `dashmap = "6"` en [Cargo.toml](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/Cargo.toml).
+  - `[x]` Modificar [index.rs](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/src/index.rs):
+    - `[x]` Agregar imports (`dashmap::DashMap`, `std::sync::atomic::{AtomicU64, AtomicUsize, Ordering}`) y constante `ENTRY_POINT_NONE = u64::MAX`.
+    - `[x]` Cambiar definición de `CPIndex`: `nodes` a `DashMap`, `max_layer` a `AtomicUsize`, `entry_point` a `AtomicU64`, eliminar `rng` directo.
+    - `[x]` Actualizar constructores (`new`, `new_with_config`, `with_backend`) para inicializar atómicos y `DashMap`.
+    - `[x]` Modificar `random_layer(&self)` para usar `rng.lock()` y no requerir `&mut self`.
+    - `[x]` Implementar getters/setters seguros para `entry_point` (`get_entry_point` y `set_entry_point`).
+    - `[x]` Adaptar `search_layer()` para usar DashMap guards limitando su scope (evitar retención de locks de shard).
+    - `[x]` Cambiar firma de `add()` a `&self` y adaptar lógica para usar DashMap, `set_entry_point`, y `max_layer.fetch_max`.
+    - `[x]` Adaptar `select_neighbors()` y sus referencias a `self.nodes.get()`.
+    - `[x]` Adaptar serialización (`serialize_to_bytes()`, `serialization_order()`, `deserialize_from_bytes()`).
+    - `[x]` Adaptar `stats()` y `validate_index()` a la interfaz de `DashMap`.
+  - `[x]` Modificar [storage.rs](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/src/storage.rs):
+    - `[x]` Agregar `insert_lock: parking_lot::Mutex<()>` a `StorageEngine` y su inicialización.
+    - `[x]` Modificar el path de inserción (`insert` / `add` y `refresh_index`) para bloquear `insert_lock` y obtener `hnsw.read()` en lugar de `hnsw.write()`.
+    - `[x]` Verificar y adaptar los accesos directos a `hnsw.nodes` (locks y guards).
+- `[x]` **FASE-02: Verificación, Tests y Comparación**
+  - `[x]` Implementar tests concurrentes en [index.rs](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/src/index.rs):
+    - `[x]` Test `concurrent_search_during_insert`.
+    - `[x]` Test `concurrent_insert_preserves_hnsw_invariants`.
+  - `[x]` Solicitar al usuario ejecutar validaciones locales:
+    - `[x]` `cargo clippy --all-targets -- -D warnings`
+    - `[x]` `cargo deny check`
+    - `[x]` `cargo test --workspace --release`
+  - `[x]` Solicitar al usuario correr de nuevo el benchmark concurrente para comparar throughput y certificar la mejora de rendimiento (throughput multi-hilo >= 2x con 4 hilos, regresión single-hilo < 5%).
