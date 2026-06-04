@@ -2632,6 +2632,23 @@ impl VantaEmbedded {
         Ok(report)
     }
 
+    /// Compacta físicamente el archivo de vectores (`vector_store.vanta`) reescribiendo
+    /// los nodos en orden BFS desde el entry point del grafo HNSW.
+    ///
+    /// Esta operación reduce drásticamente los page-faults en accesos MMap durante
+    /// búsquedas semánticas, ya que agrupa los nodos más conectados (hubs y capas
+    /// superiores del HNSW) en las primeras páginas virtuales del archivo.
+    ///
+    /// Retorna el número de nodos compactados.
+    pub fn compact_layout(&self) -> Result<u64> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "compact_layout is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
+        self.engine_handle()?.compact_layout_bfs()
+    }
+
     pub fn export_namespace(
         &self,
         path: impl AsRef<Path>,
