@@ -89,3 +89,25 @@ Este benchmark compara la latencia de las consultas sobre un dataset persistido 
 | **Latencia p99** | 57.057 ms | 57.776 ms | **-1.3%** |
 | **Throughput (QPS)** | 25.7 qps | 25.9 qps | **+0.9%** |
 <!-- PREFETCH_BENCHMARK_END -->
+
+---
+
+## 🚀 5. Impacto de Optimización de Bucle y Distancias HNSW (Fase 2)
+
+Este benchmark documenta el rendimiento y los tiempos de construcción en base al dataset estándar **SIFT1M** (escalas de 10K y 100K) tras aplicar las mejoras de la Fase 2:
+
+1. **Caché en pila O(M²) de select_neighbors:** Eliminación absoluta de las búsquedas redundantes en `HashMap` (`self.nodes.get`) en el bucle de diversidad.
+2. **Euclideana al Cuadrado en Travesía:** Supresión de `.sqrt()` en el hot path.
+3. **Carga SIMD vmovups:** Carga vectorial alineada/unalineada contigua mediante `try_from` en registros `f32x8`.
+
+### Resultados Comparativos de Construcción y Búsqueda (SIFT1M)
+
+| Escala | Configuración | Métrica | Construcción (Antes) | Construcción (Ahora) | Aceleración (Speedup) | Latencia p99 | QPS Promedio |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **100K** | Balanced Cos | Cosine | 139.4s | **63.7s** | **2.18x** | 441.2 µs | 3,636 |
+| **100K** | High Recall Cos | Cosine | 390.8s | **182.2s** | **2.14x** | 1,231.8 µs | 1,379 |
+| **100K** | Balanced L2 | Euclidean | 191.4s | **68.4s** | **2.80x** | 671.4 µs | 3,270 |
+| **100K** | High Recall L2 | Euclidean | 462.2s | **194.5s** | **2.37x** | 1,183.6 µs | 1,353 |
+| **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
+
+*Certificación en hardware: AMD Ryzen 12-Core @ 3.5GHz, compilación con `-C target-cpu=native`.*

@@ -322,16 +322,14 @@ opt-level = 2
 [workspace]
 members = [
     ".",
-    "fuzz",
     "vantadb-python",
     "vantadb-server",
     "vantadb-mcp",
     "packages/experimental-lisp",
     "packages/experimental-governance",
 ]
-# fuzz/ is intentionally excluded: cargo-fuzz requires nightly + Linux sanitizers.
+# fuzz/ is intentionally outside the workspace: cargo-fuzz requires nightly + Linux sanitizers.
 # Run with: cargo +nightly fuzz run <target>  (in the fuzz/ directory on Linux)
-exclude = ["fuzz"]
 
 [profile.test]
 debug = 0

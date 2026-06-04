@@ -1,75 +1,84 @@
 #!/usr/bin/env bash
-# validate_python_sdk.sh — Build wheel, install in clean venv, run pytest.
-# Usage: ./dev-tools/validate_python_sdk.sh [--skip-build]
+# validate_python_sdk.sh — Build wheel, install in audit venv, run pytest.
+# Usage: ./dev-tools/scripts/validate_python_sdk.sh [--skip-build]
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WHEEL_DIR="$REPO_ROOT/target/wheels"
-VENV_DIR="$REPO_ROOT/.validate-venv"
+VENV_DIR="$REPO_ROOT/target/audit-venv"
 PYTHON_DIR="$REPO_ROOT/vantadb-python"
+SETUP_SCRIPT="$REPO_ROOT/dev-tools/setup_venv.sh"
+VENV_PYTHON="$VENV_DIR/bin/python"
 
-echo "═══════════════════════════════════════════════════════════"
+echo "============================================================"
 echo "  VantaDB Python SDK Validation"
-echo "═══════════════════════════════════════════════════════════"
+echo "============================================================"
 
-# ── Step 1: Build wheel ──────────────────────────────────────
-if [[ "${1:-}" != "--skip-build" ]]; then
+if [[ ! -x "$VENV_PYTHON" ]]; then
     echo ""
-    echo "▸ Building wheel with maturin..."
-    python3 -m maturin build \
-        --manifest-path "$PYTHON_DIR/Cargo.toml" \
-        --out "$WHEEL_DIR" \
-        --release
-    echo "  ✓ Wheel built successfully."
-else
-    echo ""
-    echo "▸ Skipping build (--skip-build)."
+    echo "▸ Audit venv missing; running setup_venv.sh..."
+    if [[ -x "$SETUP_SCRIPT" ]]; then
+        bash "$SETUP_SCRIPT"
+    else
+        echo "  Creating audit venv..."
+        python3 -m venv "$VENV_DIR"
+        "$VENV_PYTHON" -m pip install --upgrade pip wheel maturin pytest --quiet
+        export VIRTUAL_ENV="$VENV_DIR"
+        (cd "$PYTHON_DIR" && "$VENV_PYTHON" -m maturin develop --release)
+        unset VIRTUAL_ENV
+    fi
 fi
 
-# ── Step 2: Create clean venv ────────────────────────────────
+if [[ "${1:-}" != "--skip-build" ]]; then
+    echo ""
+    echo "> Building wheel with maturin..."
+    export VIRTUAL_ENV="$VENV_DIR"
+    (cd "$PYTHON_DIR" && "$VENV_PYTHON" -m maturin build --out "$WHEEL_DIR" --release)
+    unset VIRTUAL_ENV
+    echo "  [OK] Wheel built successfully."
+else
+    echo ""
+    echo "> Skipping build (--skip-build)."
+fi
+
+# Ensure editable install when venv already exists
+export VIRTUAL_ENV="$VENV_DIR"
+(cd "$PYTHON_DIR" && "$VENV_PYTHON" -m maturin develop --release) >/dev/null 2>&1 || true
+unset VIRTUAL_ENV
+
+# ── Step 2: Ensure audit venv tooling ────────────────────────
 echo ""
-echo "▸ Creating clean virtual environment..."
-rm -rf "$VENV_DIR"
-python3 -m venv "$VENV_DIR"
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-python -m pip install --upgrade pip pytest --quiet
+echo "▸ Ensuring audit venv dependencies..."
+"$VENV_PYTHON" -m pip install --upgrade pip pytest --quiet
 
 # ── Step 3: Install wheel ────────────────────────────────────
 echo ""
-echo "▸ Installing latest wheel..."
+echo "▸ Installing latest wheel into audit venv..."
 WHEEL="$(ls -t "$WHEEL_DIR"/vantadb_py-*.whl 2>/dev/null | head -n 1)"
 if [[ -z "$WHEEL" ]]; then
     echo "  ✗ No wheel found in $WHEEL_DIR. Run without --skip-build."
-    deactivate
-    rm -rf "$VENV_DIR"
     exit 1
 fi
-python -m pip install --force-reinstall "$WHEEL" --quiet
+"$VENV_PYTHON" -m pip install --force-reinstall "$WHEEL" --quiet
 echo "  ✓ Installed: $(basename "$WHEEL")"
 
 # ── Step 4: Run pytest ───────────────────────────────────────
 echo ""
 echo "▸ Running Python SDK tests..."
-python -m pytest "$PYTHON_DIR/tests/test_sdk.py" -v
+"$VENV_PYTHON" -m pytest "$PYTHON_DIR/tests/test_sdk.py" -v
 RESULT=$?
 
-# ── Step 5: Cleanup ──────────────────────────────────────────
-echo ""
-echo "▸ Cleaning up..."
-deactivate
-rm -rf "$VENV_DIR"
-
+"$VENV_PYTHON" -c "import vantadb_py"
 if [[ $RESULT -eq 0 ]]; then
     echo ""
-    echo "═══════════════════════════════════════════════════════════"
-    echo "  ✓ Python SDK validation PASSED"
-    echo "═══════════════════════════════════════════════════════════"
+    echo "============================================================"
+    echo "  [OK] Python SDK validation PASSED"
+    echo "============================================================"
 else
     echo ""
-    echo "═══════════════════════════════════════════════════════════"
-    echo "  ✗ Python SDK validation FAILED (exit code: $RESULT)"
-    echo "═══════════════════════════════════════════════════════════"
+    echo "============================================================"
+    echo "  [FAIL] Python SDK validation FAILED (exit code: $RESULT)"
+    echo "============================================================"
     exit $RESULT
 fi

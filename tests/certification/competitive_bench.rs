@@ -3,17 +3,24 @@
 //! ═══════════════════════════════════════════════════════════════════════════
 //!
 //! Stress-oriented dataset benchmark using SIFT1M ground truth.
-//! This is intentionally not treated as a competitive parity benchmark while
-//! the engine remains cosine-only and SIFT1M ground truth remains L2-based.
 //!
-//! Run with: cargo test --test competitive_bench --release -- --nocapture
+//! **Release mode is required.** Debug/dev profiles disable SIMD/inlining and
+//! produce misleading latency numbers:
+//!   cargo test --test competitive_bench --release -- --nocapture
+//!
+//! Scenario classes:
+//! - Product (Cosine): shipped product metric; SIFT L2 ground truth is not comparable.
+//! - Stress (L2): honest L2 measurement against SIFT ground truth.
+//! - Stress (L2 Mmap): zero-copy mmap path at 100K scale where page locality matters.
 //!
 //! Requires: datasets/sift/{sift_base.fvecs, sift_query.fvecs, sift_groundtruth.ivecs}
 
 use console::style;
 use std::path::Path;
 use std::time::Instant;
-use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
+use tempfile::TempDir;
+use vantadb::index::{CPIndex, HnswConfig, IndexBackend, VectorRepresentations};
+use vantadb::node::DistanceMetric;
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -21,11 +28,43 @@ mod common;
 use common::sift_loader::{read_fvecs, read_ivecs};
 use common::{TerminalReporter, VantaHarness};
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScenarioClass {
+    ProductCosine,
+    StressL2,
+    StressL2Mmap,
+}
 
-/// Calculate Recall@K by comparing VantaDB results against SIFT1M ground truth.
+impl ScenarioClass {
+    fn label(self) -> &'static str {
+        match self {
+            ScenarioClass::ProductCosine => "product-cosine",
+            ScenarioClass::StressL2 => "stress-l2",
+            ScenarioClass::StressL2Mmap => "stress-l2-mmap",
+        }
+    }
+}
+
+struct ScenarioResult {
+    scale: usize,
+    config_name: String,
+    class: ScenarioClass,
+    recall: f64,
+    p50_us: f64,
+    _p95_us: f64,
+    p99_us: f64,
+    qps: f64,
+    build_secs: f64,
+}
+
+fn assert_release_profile() {
+    if cfg!(debug_assertions) {
+        panic!(
+            "competitive_bench must run with --release (debug/dev profiles skew latency by 10-20x)"
+        );
+    }
+}
+
 fn calculate_recall(
     index: &CPIndex,
     queries: &[Vec<f32>],
@@ -48,7 +87,6 @@ fn calculate_recall(
     total_hits as f64 / (queries.len() * k) as f64
 }
 
-/// Measure per-query latency percentiles (p50, p95, p99) in microseconds.
 fn measure_latency(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64, f64, f64) {
     let mut latencies_us: Vec<f64> = queries
         .iter()
@@ -69,25 +107,72 @@ fn measure_latency(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64
     (p50, p95, p99, qps)
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// BENCHMARK RUNNER
-// ═══════════════════════════════════════════════════════════════════════════
+fn build_in_memory_index(
+    config: &HnswConfig,
+    scale_base: &[Vec<f32>],
+    scale: usize,
+) -> (CPIndex, f64) {
+    let mut idx = CPIndex::new_with_config(config.clone());
+    let pb = TerminalReporter::create_progress(scale as u64, "Inserting vectors");
+    let t0 = Instant::now();
+
+    for (id, vec) in scale_base.iter().enumerate() {
+        idx.add(
+            id as u64,
+            u128::MAX,
+            VectorRepresentations::Full(vec.clone()),
+            0,
+        );
+        pb.inc(1);
+    }
+    pb.finish_and_clear();
+    (idx, t0.elapsed().as_secs_f64())
+}
+
+fn build_mmap_index(
+    config: &HnswConfig,
+    scale_base: &[Vec<f32>],
+    scale: usize,
+    mmap_path: &Path,
+) -> (CPIndex, f64) {
+    let mut idx = CPIndex::new_with_config(config.clone());
+    idx.backend = IndexBackend::new_mmap(mmap_path.to_path_buf());
+    let pb = TerminalReporter::create_progress(scale as u64, "Inserting vectors (mmap backend)");
+    let t0 = Instant::now();
+
+    for (id, vec) in scale_base.iter().enumerate() {
+        idx.add(
+            id as u64,
+            u128::MAX,
+            VectorRepresentations::Full(vec.clone()),
+            0,
+        );
+        pb.inc(1);
+    }
+    pb.finish_and_clear();
+
+    idx.sync_to_mmap()
+        .expect("mmap sync failed during benchmark setup");
+    let loaded = CPIndex::load_from_file(mmap_path, false).expect("mmap cold load failed");
+    (loaded, t0.elapsed().as_secs_f64())
+}
 
 #[test]
 fn sift1m_competitive_benchmark() {
+    assert_release_profile();
+
     let base_path = Path::new("datasets/sift/sift_base.fvecs");
     let query_path = Path::new("datasets/sift/sift_query.fvecs");
     let gt_path = Path::new("datasets/sift/sift_groundtruth.ivecs");
 
     if !base_path.exists() {
-        println!("⚠️  SIFT dataset not found at datasets/sift/. Skipping.");
-        println!("   Download from: http://corpus-texmex.irisa.fr/");
+        println!("SIFT dataset not found at datasets/sift/. Skipping.");
+        println!("Download from: http://corpus-texmex.irisa.fr/");
         return;
     }
 
     let mut harness = VantaHarness::new("SIFT1M_Competitive");
 
-    // ── Load Dataset ─────────────────────────────────────────────────────
     let base_vectors = harness.execute("Load SIFT Base (1M × 128D)", || {
         read_fvecs(base_path).expect("Failed to read sift_base.fvecs")
     });
@@ -100,150 +185,142 @@ fn sift1m_competitive_benchmark() {
         read_ivecs(gt_path).expect("Failed to read sift_groundtruth.ivecs")
     });
 
-    // Integrity gate
     assert_eq!(base_vectors[0].len(), 128);
     assert_eq!(query_vectors[0].len(), 128);
     println!(
         "\n  {} Dataset: {} base, {} queries, {} GT entries",
-        style("✓").green().bold(),
+        style("OK").green().bold(),
         base_vectors.len(),
         query_vectors.len(),
         groundtruth.len()
     );
 
-    // ── Benchmark Scenarios ──────────────────────────────────────────────
-    // SIFT uses L2 distance, but our engine uses cosine sim.
-    // We test recall against the official ground truth anyway —
-    // lower recall is expected since we're not matching metric.
-    // This is the honest, no-bullshit measurement.
-
-    let scales: Vec<usize> = vec![10_000, 100_000];
     let k = 10;
-
-    struct ScenarioResult {
-        scale: usize,
-        config_name: String,
-        recall: f64,
-        p50_us: f64,
-        p95_us: f64,
-        _p99_us: f64,
-        qps: f64,
-        build_secs: f64,
-    }
-
     let mut all_results: Vec<ScenarioResult> = Vec::new();
 
-    for &scale in &scales {
+    let balanced_cos = HnswConfig {
+        m: 16,
+        m_max0: 32,
+        ef_construction: 200,
+        ef_search: 100,
+        ml: 1.0 / (16_f64).ln(),
+        distance_metric: DistanceMetric::Cosine,
+    };
+    let high_recall_cos = HnswConfig {
+        m: 32,
+        m_max0: 64,
+        ef_construction: 400,
+        ef_search: 200,
+        ml: 1.0 / (32_f64).ln(),
+        distance_metric: DistanceMetric::Cosine,
+    };
+    let balanced_l2 = HnswConfig {
+        m: 16,
+        m_max0: 32,
+        ef_construction: 200,
+        ef_search: 100,
+        ml: 1.0 / (16_f64).ln(),
+        distance_metric: DistanceMetric::Euclidean,
+    };
+    let high_recall_l2 = HnswConfig {
+        m: 32,
+        m_max0: 64,
+        ef_construction: 400,
+        ef_search: 200,
+        ml: 1.0 / (32_f64).ln(),
+        distance_metric: DistanceMetric::Euclidean,
+    };
+
+    for &scale in &[10_000usize, 100_000] {
         let scale_base = &base_vectors[..scale];
 
-        let configs = vec![
+        let scenarios: Vec<(&str, ScenarioClass, HnswConfig)> = vec![
             (
                 "Balanced Cos",
-                HnswConfig {
-                    m: 16,
-                    m_max0: 32,
-                    ef_construction: 200,
-                    ef_search: 100,
-                    ml: 1.0 / (16_f64).ln(),
-                    distance_metric: vantadb::node::DistanceMetric::Cosine,
-                },
+                ScenarioClass::ProductCosine,
+                balanced_cos.clone(),
             ),
             (
                 "High Recall Cos",
-                HnswConfig {
-                    m: 32,
-                    m_max0: 64,
-                    ef_construction: 400,
-                    ef_search: 200,
-                    ml: 1.0 / (32_f64).ln(),
-                    distance_metric: vantadb::node::DistanceMetric::Cosine,
-                },
+                ScenarioClass::ProductCosine,
+                high_recall_cos.clone(),
             ),
-            (
-                "Balanced L2",
-                HnswConfig {
-                    m: 16,
-                    m_max0: 32,
-                    ef_construction: 200,
-                    ef_search: 100,
-                    ml: 1.0 / (16_f64).ln(),
-                    distance_metric: vantadb::node::DistanceMetric::Euclidean,
-                },
-            ),
+            ("Balanced L2", ScenarioClass::StressL2, balanced_l2.clone()),
             (
                 "High Recall L2",
-                HnswConfig {
-                    m: 32,
-                    m_max0: 64,
-                    ef_construction: 400,
-                    ef_search: 200,
-                    ml: 1.0 / (32_f64).ln(),
-                    distance_metric: vantadb::node::DistanceMetric::Euclidean,
-                },
+                ScenarioClass::StressL2,
+                high_recall_l2.clone(),
             ),
         ];
 
-        for (config_name, config) in configs {
+        for (config_name, class, config) in scenarios {
             let block_name = format!("SIFT {}K — {}", scale / 1000, config_name);
-
             let (index, build_secs) = harness.execute(&block_name, || {
-                let mut idx = CPIndex::new_with_config(config.clone());
-                let pb = TerminalReporter::create_progress(scale as u64, "Inserting vectors");
-                let t0 = Instant::now();
-
-                for (id, vec) in scale_base.iter().enumerate() {
-                    idx.add(
-                        id as u64,
-                        u128::MAX,
-                        VectorRepresentations::Full(vec.clone()),
-                        0,
-                    );
-                    pb.inc(1);
-                }
-                pb.finish_and_clear();
-                let elapsed = t0.elapsed().as_secs_f64();
-                (idx, elapsed)
+                build_in_memory_index(&config, scale_base, scale)
             });
 
-            // Recall against ground truth
             let recall = calculate_recall(&index, &query_vectors, &groundtruth, k);
-
-            // Latency
             let (p50, p95, p99, qps) = measure_latency(&index, &query_vectors, k);
 
             all_results.push(ScenarioResult {
                 scale,
                 config_name: config_name.to_string(),
+                class,
                 recall,
                 p50_us: p50,
-                p95_us: p95,
-                _p99_us: p99,
+                _p95_us: p95,
+                p99_us: p99,
+                qps,
+                build_secs,
+            });
+        }
+
+        if scale == 100_000 {
+            let tmp = TempDir::new().expect("temp dir for mmap benchmark");
+            let mmap_path = tmp.path().join("sift_100k_mmap.bin");
+            let block_name = "SIFT 100K — High Recall L2 Mmap";
+            let (index, build_secs) = harness.execute(block_name, || {
+                build_mmap_index(&high_recall_l2, scale_base, scale, &mmap_path)
+            });
+
+            let recall = calculate_recall(&index, &query_vectors, &groundtruth, k);
+            let (p50, p95, p99, qps) = measure_latency(&index, &query_vectors, k);
+
+            all_results.push(ScenarioResult {
+                scale,
+                config_name: "High Recall L2 Mmap".to_string(),
+                class: ScenarioClass::StressL2Mmap,
+                recall,
+                p50_us: p50,
+                _p95_us: p95,
+                p99_us: p99,
                 qps,
                 build_secs,
             });
         }
     }
 
-    // ── Print Report ─────────────────────────────────────────────────────
     println!("\n");
-    TerminalReporter::block_header("SIFT1M NON-COMPARABLE BENCHMARK RESULTS");
+    TerminalReporter::block_header("SIFT1M BENCHMARK RESULTS");
 
     println!(
         "  {}",
-        style("╭──────────┬──────────────────┬──────────┬────────────┬────────────┬────────────┬──────────╮").dim()
+        style("╭──────────┬──────────────────┬───────────────┬──────────┬────────────┬────────────┬────────────┬──────────╮").dim()
     );
     println!(
-        "  {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+        "  {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
         style("│").dim(),
         style(" Scale   ").bold(),
         style("│").dim(),
         style("    Config      ").bold(),
         style("│").dim(),
+        style("   Class    ").bold(),
+        style("│").dim(),
         style("Recall@10").bold(),
         style("│").dim(),
         style(" p50 (µs)  ").bold(),
         style("│").dim(),
-        style(" p95 (µs)  ").bold(),
+        style(" p99 (µs)  ").bold(),
         style("│").dim(),
         style("   QPS     ").bold(),
         style("│").dim(),
@@ -252,7 +329,7 @@ fn sift1m_competitive_benchmark() {
     );
     println!(
         "  {}",
-        style("├──────────┼──────────────────┼──────────┼────────────┼────────────┼────────────┼──────────┤").dim()
+        style("├──────────┼──────────────────┼───────────────┼──────────┼────────────┼────────────┼────────────┼──────────┤").dim()
     );
 
     for r in &all_results {
@@ -265,17 +342,19 @@ fn sift1m_competitive_benchmark() {
         };
 
         println!(
-            "  {} {:>7}K {} {:^16} {} {} {} {:>9.1} {} {:>9.1} {} {:>9.0} {} {:>7.1} {}",
+            "  {} {:>7}K {} {:^16} {} {:^13} {} {} {} {:>9.1} {} {:>9.1} {} {:>9.0} {} {:>7.1} {}",
             style("│").dim(),
             r.scale / 1000,
             style("│").dim(),
             r.config_name,
             style("│").dim(),
+            r.class.label(),
+            style("│").dim(),
             recall_styled,
             style("│").dim(),
             r.p50_us,
             style("│").dim(),
-            r.p95_us,
+            r.p99_us,
             style("│").dim(),
             r.qps,
             style("│").dim(),
@@ -286,28 +365,26 @@ fn sift1m_competitive_benchmark() {
 
     println!(
         "  {}",
-        style("╰──────────┴──────────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
+        style("╰──────────┴──────────────────┴───────────────┴──────────┴────────────┴────────────┴────────────┴──────────╯").dim()
     );
 
     println!(
-        "\n  {} Dataset: SIFT1M (128D, L2 ground truth)",
-        style("ℹ").blue()
+        "\n  {} product-cosine: shipped Cosine metric (SIFT L2 GT not comparable)",
+        style("i").blue()
     );
     println!(
-        "  {} VantaDB uses cosine similarity — recall gap vs L2 GT is expected.",
-        style("ℹ").blue()
+        "  {} stress-l2 / stress-l2-mmap: honest L2 path against SIFT ground truth",
+        style("i").blue()
     );
     println!(
-        "  {} Treat this output as stress/recovery evidence, not competitive parity.",
-        style("ℹ").blue()
+        "  {} Run only with: cargo test --test competitive_bench --release -- --nocapture",
+        style("i").blue()
     );
 
-    // ── Sanity Assertions ────────────────────────────────────────────────
-    // We don't fail on recall (metric mismatch), but we fail on crashes.
     for r in &all_results {
         assert!(r.recall > 0.0, "Zero recall indicates a broken search path");
         assert!(r.qps > 0.0, "Zero QPS indicates search is hanging");
     }
 
-    TerminalReporter::success("SIFT1M stress benchmark completed without parity claims.");
+    TerminalReporter::success("SIFT1M benchmark completed.");
 }

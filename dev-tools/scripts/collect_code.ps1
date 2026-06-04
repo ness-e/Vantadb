@@ -6,11 +6,11 @@ $scriptName = $MyInvocation.MyCommand.Name
 $excludedPatterns = @(
     '\.git', 'target', 'node_modules', 'venv', '\.venv', '__pycache__',
     '\.idea', '\.vscode', 'dist', 'build', '\.pytest_cache', 'vanta_snapshots',
-    'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents', '\.cargo',
+    'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents',
     'vanta-web', 'vantadb_data',
     'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
     'docs[\\/]snapshots', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
-    '\.trash_docker', 'dev-tools'
+    '\.trash_docker'
 )
 
 # Extensiones a incluir (whitelist)
@@ -62,7 +62,7 @@ $files = Get-ChildItem -File -Recurse | Where-Object {
     $name = $_.Name.ToLower()
     foreach ($p in $includedPatterns) { if ($ext -eq $p.ToLower() -or $name -eq $p.ToLower()) { return $true } }
     return $false
-} | Sort-Object LastWriteTime -Descending
+} | Sort-Object FullName
 
 $totalFiles = ($files | Measure-Object).Count
 $current = 0

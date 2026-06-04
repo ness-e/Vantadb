@@ -237,6 +237,22 @@ VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01*
 
 *Hardware profile: 12-core CPU @ 3.5GHz, AVX2 enabled, Windows 11 / Ubuntu 22.04 LTS.*
 
+### SIFT1M Competitive Benchmarks & Speedups (Fase 2)
+
+El motor HNSW de VantaDB ha sido optimizado en su Fase 2 mediante prefetch estático, eliminación del cálculo de la raíz cuadrada Euclidiana en el recorrido caliente del grafo, cálculo puramente SIMD para similitud coseno y la **optimización O(M²) de select_neighbors** (que cachea referencias para erradicar las consultas en HashMap durante el bucle de diversidad).
+
+Los resultados de rendimiento certificados sobre el dataset estándar SIFT en modo optimizado son:
+
+| Escala (Vectores) | Configuración HNSW | Métrica | Tiempo de Construcción (Antes) | Tiempo de Construcción (Ahora) | Aceleración (Speedup) | p99 Latencia de Búsqueda | QPS Promedio |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **100K** | Balanced Cos | Cosine | 139.4s | **63.7s** | **2.18x** | 441.2 µs | 3,636 |
+| **100K** | High Recall Cos | Cosine | 390.8s | **182.2s** | **2.14x** | 1,231.8 µs | 1,379 |
+| **100K** | Balanced L2 | Euclidean | 191.4s | **68.4s** | **2.80x** | 671.4 µs | 3,270 |
+| **100K** | High Recall L2 | Euclidean | 462.2s | **194.5s** | **2.37x** | 1,183.6 µs | 1,353 |
+| **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
+
+*Certificación en hardware: AMD Ryzen 12-Core @ 3.5GHz, compilación con `-C target-cpu=native`.*
+
 ### Running the Local Benchmark Suite
 
 To measure performance baseline on your local hardware:

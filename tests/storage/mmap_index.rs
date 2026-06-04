@@ -22,8 +22,22 @@ fn build_test_index(node_count: u64) -> CPIndex {
 
 #[test]
 fn mmap_vector_index_certification() {
-    TerminalReporter::suite_banner("MMAP VECTOR INDEX STORAGE CERTIFICATION", 5);
+    TerminalReporter::suite_banner("MMAP VECTOR INDEX STORAGE CERTIFICATION", 6);
     let mut harness = VantaHarness::new("STORAGE LAYER (MMAP VECTOR INDEX)");
+
+    harness.execute("Serialization: BFS layout preserves search results", || {
+        let index = build_test_index(50);
+        let query = vec![0.25f32, 0.35, 0.45, 0.55];
+        let before = index.search_nearest(&query, None, None, 0, 5, None);
+
+        let bytes = index.serialize_to_bytes();
+        let restored =
+            CPIndex::deserialize_from_bytes(&bytes, true).expect("Deserialization failed");
+        let after = restored.search_nearest(&query, None, None, 0, 5, None);
+
+        assert_eq!(before, after);
+        TerminalReporter::success("BFS serialization order is search-equivalent.");
+    });
 
     harness.execute("Serialization: Byte Roundtrip Integrity", || {
         let index = build_test_index(50);

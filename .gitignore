@@ -26,14 +26,23 @@ benches_db/
 tests_graph_db/
 tests_server_db/
 
-# Python bindings artifacts
+# Python bindings and general Python artifacts
 vantadb-python/target/
-vantadb-python/venv/
-vantadb-python/.venv/
-vantadb-python/__pycache__/
 .release-venv/
 *.py[cod]
-.pytest_cache/
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+**/venv/
+**/.mypy_cache/
+**/.ruff_cache/
+**/build/
+**/dist/
+**/*.egg-info/
+**/.ipynb_checkpoints/
+**/.coverage
+**/htmlcov/
+**/.cache/
 
 # Quickstart local artifacts
 quickstart_data/
@@ -66,8 +75,6 @@ vantadb_data*/
 vanta.db*
 
 # Local development environments, tests, and temporary logs
-.venv/
-venv/
 apruba/
 release_test/
 .trash_docker/
