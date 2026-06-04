@@ -2,11 +2,12 @@
 
 #[cfg(feature = "cli")]
 use console::{style, Emoji};
+use fs2::FileExt;
 #[cfg(feature = "cli")]
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Read, Seek, Write};
 use std::sync::Mutex;
 #[cfg(feature = "cli")]
 use std::sync::OnceLock;
@@ -43,6 +44,12 @@ pub struct TestMetric {
     pub memory_source: String,
     pub memory_confidence: String,
     pub timestamp: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TestRunReport {
+    pub timestamp: String,
+    pub metrics: std::collections::HashMap<String, TestMetric>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -355,16 +362,213 @@ impl VantaHarness {
     fn log_metric(&self, metric: TestMetric) {
         let report_file =
             std::env::var(Self::REPORT_FILE_ENV).unwrap_or_else(|_| Self::REPORT_FILE.to_string());
-        if let Ok(json) = serde_json::to_string(&metric) {
-            if let Ok(mut file) = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(report_file)
-            {
-                let _ = writeln!(file, "{}", json);
+
+        let mut file = match OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&report_file)
+        {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+
+        if file.lock_exclusive().is_err() {
+            return;
+        }
+
+        let mut content = String::new();
+        let read_success = file.read_to_string(&mut content).is_ok();
+
+        let reports = if read_success && !content.trim().is_empty() {
+            match serde_json::from_str::<Vec<TestRunReport>>(&content) {
+                Ok(mut parsed_reports) => {
+                    let should_create_new = match parsed_reports.last() {
+                        None => true,
+                        Some(last_report) => {
+                            let last_time_str = last_report
+                                .metrics
+                                .values()
+                                .map(|m| &m.timestamp)
+                                .max()
+                                .unwrap_or(&last_report.timestamp);
+
+                            match (
+                                chrono::DateTime::parse_from_rfc3339(last_time_str),
+                                chrono::DateTime::parse_from_rfc3339(&metric.timestamp),
+                            ) {
+                                (Ok(t1), Ok(t2)) => {
+                                    let diff = t2.signed_duration_since(t1);
+                                    diff.num_seconds().abs() >= 300
+                                }
+                                _ => true,
+                            }
+                        }
+                    };
+
+                    if should_create_new {
+                        let mut map = std::collections::HashMap::new();
+                        map.insert(metric.block_name.clone(), metric.clone());
+                        parsed_reports.push(TestRunReport {
+                            timestamp: metric.timestamp.clone(),
+                            metrics: map,
+                        });
+                    } else {
+                        parsed_reports
+                            .last_mut()
+                            .unwrap()
+                            .metrics
+                            .insert(metric.block_name.clone(), metric);
+                    }
+                    parsed_reports
+                }
+                Err(_) => {
+                    let mut all_metrics = parse_all_metrics_resilient(&content);
+                    all_metrics.push(metric);
+                    group_metrics_into_reports(all_metrics)
+                }
             }
+        } else {
+            let mut map = std::collections::HashMap::new();
+            map.insert(metric.block_name.clone(), metric.clone());
+            vec![TestRunReport {
+                timestamp: metric.timestamp.clone(),
+                metrics: map,
+            }]
+        };
+
+        if let Ok(serialized) = serde_json::to_string_pretty(&reports) {
+            let _ = file.set_len(0);
+            let _ = file.seek(std::io::SeekFrom::Start(0));
+            let _ = file.write_all(serialized.as_bytes());
+            let _ = file.sync_all();
+        }
+
+        let _ = file.unlock();
+    }
+}
+
+fn parse_all_metrics_resilient(content: &str) -> Vec<TestMetric> {
+    let mut metrics = Vec::new();
+
+    if let Ok(reports) = serde_json::from_str::<Vec<TestRunReport>>(content) {
+        for report in reports {
+            metrics.extend(report.metrics.into_values());
+        }
+        return metrics;
+    }
+
+    if let Ok(old_metrics) = serde_json::from_str::<Vec<TestMetric>>(content) {
+        return old_metrics;
+    }
+
+    #[derive(Deserialize)]
+    struct TestRunReportLegacy {
+        metrics: Vec<TestMetric>,
+    }
+
+    if let Ok(reports) = serde_json::from_str::<Vec<TestRunReportLegacy>>(content) {
+        for report in reports {
+            metrics.extend(report.metrics);
+        }
+        return metrics;
+    }
+
+    let bytes = content.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            let start = i;
+            let mut depth = 1;
+            let mut in_string = false;
+            let mut escape = false;
+            i += 1;
+            while i < bytes.len() && depth > 0 {
+                let c = bytes[i];
+                if escape {
+                    escape = false;
+                } else if c == b'\\' {
+                    escape = true;
+                } else if c == b'"' {
+                    in_string = !in_string;
+                } else if !in_string {
+                    if c == b'{' {
+                        depth += 1;
+                    } else if c == b'}' {
+                        depth -= 1;
+                    }
+                }
+                i += 1;
+            }
+            if depth == 0 {
+                if let Some(chunk) = content.get(start..i) {
+                    if let Ok(metric) = serde_json::from_str::<TestMetric>(chunk) {
+                        metrics.push(metric);
+                    } else if let Ok(report) = serde_json::from_str::<TestRunReport>(chunk) {
+                        metrics.extend(report.metrics.into_values());
+                    } else if let Ok(report) = serde_json::from_str::<TestRunReportLegacy>(chunk) {
+                        metrics.extend(report.metrics);
+                    }
+                }
+            }
+        } else {
+            i += 1;
         }
     }
+
+    metrics
+}
+
+fn group_metrics_into_reports(mut metrics: Vec<TestMetric>) -> Vec<TestRunReport> {
+    if metrics.is_empty() {
+        return Vec::new();
+    }
+
+    metrics.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+    let mut reports: Vec<TestRunReport> = Vec::new();
+
+    for metric in metrics {
+        let should_create_new = match reports.last() {
+            None => true,
+            Some(last_report) => {
+                let last_time_str = last_report
+                    .metrics
+                    .values()
+                    .map(|m| &m.timestamp)
+                    .max()
+                    .unwrap_or(&last_report.timestamp);
+
+                match (
+                    chrono::DateTime::parse_from_rfc3339(last_time_str),
+                    chrono::DateTime::parse_from_rfc3339(&metric.timestamp),
+                ) {
+                    (Ok(t1), Ok(t2)) => {
+                        let diff = t2.signed_duration_since(t1);
+                        diff.num_seconds().abs() >= 300
+                    }
+                    _ => true,
+                }
+            }
+        };
+
+        if should_create_new {
+            let mut map = std::collections::HashMap::new();
+            map.insert(metric.block_name.clone(), metric.clone());
+            reports.push(TestRunReport {
+                timestamp: metric.timestamp.clone(),
+                metrics: map,
+            });
+        } else {
+            reports
+                .last_mut()
+                .unwrap()
+                .metrics
+                .insert(metric.block_name.clone(), metric);
+        }
+    }
+
+    reports
 }
 
 // ─── Atomic VantaSession (To prevent Interleaving) ───────────

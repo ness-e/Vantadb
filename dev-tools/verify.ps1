@@ -54,22 +54,12 @@ try {
     Run-Command "Cargo Deny Check" @("cargo", "deny", "check")
 
     # 6. Workspace Tests
-    # NOTE: --all-features triggers a rustc stack overflow (STATUS_STACK_BUFFER_OVERRUN) on Windows
-    # when linking the test binary for hybrid_retrieval_quality. We use --features=default to run
-    # all functional tests safely. The --all-features compile check in step 2 covers feature correctness.
-    Write-Header "Unit & Integration Tests"
+    Write-Header "Unit & Integration Tests (audit profile)"
+    $env:RUST_MIN_STACK = "16777216"
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-        Write-Host "cargo-nextest detected! Running accelerated tests..." -ForegroundColor Gray
-        Run-Command "Rust Tests (Nextest)" @(
-            "cargo", "nextest", "run", "--workspace", "-j", "2", "--",
-            "--skip", "benchmark",
-            "--skip", "competitive",
-            "--skip", "recall",
-            "--skip", "sift",
-            "--skip", "chaos",
-            "--skip", "hnsw_hard_validation",
-            "--skip", "stress_protocol",
-            "--skip", "vector_scale"
+        Write-Host "cargo-nextest detected! Running audit profile with --build-jobs 2..." -ForegroundColor Gray
+        Run-Command "Rust Tests (Nextest audit)" @(
+            "cargo", "nextest", "run", "--profile", "audit", "--workspace", "--build-jobs", "2"
         )
     } else {
         Write-Host "cargo-nextest not found. Falling back to standard cargo test..." -ForegroundColor Gray
@@ -85,18 +75,23 @@ try {
             "--skip", "vector_scale"
         )
     }
+    $env:RUST_MIN_STACK = $null
 
     # Restore env vars before release build
     $env:RUSTFLAGS = $null
     $env:RUST_MIN_STACK = $null
 
-    # 7. Python Bindings — Maturin Build
-    Write-Header "Python Bindings (Maturin)"
-    if (Get-Command "maturin" -ErrorAction SilentlyContinue) {
-        Run-Command "Maturin Python SDK Build" @("maturin", "build", "--manifest-path", "./vantadb-python/Cargo.toml", "--release")
+    # 7. Python Bindings — audit venv + SDK validation
+    Write-Header "Python Bindings (Audit Venv)"
+    $SetupScript = Join-Path $ProjectRoot "dev-tools\setup_venv.ps1"
+    $ValidateScript = Join-Path $ProjectRoot "dev-tools\scripts\validate_python_sdk.ps1"
+    if (Test-Path $SetupScript) {
+        Run-Command "Setup Audit Venv" @("powershell", "-ExecutionPolicy", "Bypass", "-File", $SetupScript)
+    }
+    if (Test-Path $ValidateScript) {
+        Run-Command "Python SDK Validation" @("powershell", "-ExecutionPolicy", "Bypass", "-File", $ValidateScript)
     } else {
-        Write-Host "WARNING: 'maturin' executable not found in PATH." -ForegroundColor Yellow
-        Write-Host "Skipping local Python SDK wheel build check. (Install via 'pip install maturin' if needed)" -ForegroundColor Gray
+        Write-Host "WARNING: validate_python_sdk.ps1 not found; skipping Python SDK tests." -ForegroundColor Yellow
     }
 
     Write-Host "`n=============================================" -ForegroundColor Green

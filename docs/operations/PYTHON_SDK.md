@@ -106,17 +106,24 @@ python -c "import vantadb_py; print(vantadb_py.__name__)"
 
 ## Local Validation
 
-Use the validation scripts to build, install, and test the SDK end-to-end:
+Use the hermetic audit venv at `target/audit-venv` so local tests never hit a stale global install.
+
+```powershell
+# Windows — one-time (or after core changes) setup
+powershell -ExecutionPolicy Bypass -File dev-tools/setup_venv.ps1
+
+# Full wheel build + pytest in audit venv
+.\dev-tools\scripts\validate_python_sdk.ps1
+
+# Reuse editable install only (faster)
+.\dev-tools\scripts\validate_python_sdk.ps1 -SkipBuild
+```
+
+`setup_venv.ps1` sets `VIRTUAL_ENV` before `maturin develop` so the extension installs into `target/audit-venv` (not system Python).
 
 ```bash
 # Unix/macOS
-./dev-tools/validate_python_sdk.sh
-
-# Windows PowerShell
-.\dev-tools\validate_python_sdk.ps1
-
-# Skip the wheel build and reuse an existing wheel
-.\dev-tools\validate_python_sdk.ps1 -SkipBuild
+./dev-tools/scripts/validate_python_sdk.sh
 ```
 
 ## Explicitly Deferred

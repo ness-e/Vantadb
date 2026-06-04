@@ -9,7 +9,25 @@ workflow, testing requirements, and specialized tooling like fuzzing.
 
 - **Rust stable** (see `rust-toolchain.toml`)
 - **cargo-nextest**: `cargo install cargo-nextest`
-- **maturin** (for Python SDK): `pip install maturin`
+- **Python 3.8+** with `venv` support
+
+### Python SDK (hermetic audit venv)
+
+Local Python work must use `target/audit-venv` so tests never pick up a stale global `vantadb-py` install:
+
+```powershell
+# Windows — create venv and install bindings in develop mode
+powershell -ExecutionPolicy Bypass -File dev-tools/setup_venv.ps1
+
+# Run SDK tests
+target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py -v
+```
+
+```bash
+# Unix/macOS — equivalent
+./dev-tools/setup_venv.sh
+target/audit-venv/bin/python -m pytest vantadb-python/tests/test_sdk.py -v
+```
 
 ---
 
@@ -17,10 +35,11 @@ workflow, testing requirements, and specialized tooling like fuzzing.
 
 ```bash
 # Full test suite (audit profile — used for CI and release validation)
-cargo nextest run --profile audit --workspace
+# On Windows, limit build jobs to avoid MSVC stack overflows during test linking:
+cargo nextest run --profile audit --workspace --build-jobs 2
 
-# Experimental tests (parser, executor — require nightly or feature flags)
-cargo nextest run --profile experimental --workspace
+# Experimental tests (parser, executor). Pass features on the CLI:
+cargo nextest run --profile experimental --workspace --features experimental-lisp,experimental-governance --build-jobs 2
 ```
 
 ---
@@ -112,5 +131,5 @@ docs/             ← project documentation
 1. `cargo fmt --check` — zero formatting issues
 2. `cargo clippy --workspace --all-targets -- -D warnings` — zero warnings
 3. `cargo nextest run --profile audit --workspace` — all tests pass
-4. `dev-tools/validate_python_sdk.ps1` (Windows) or `validate_python_sdk.sh` (Linux/macOS)
+4. `dev-tools/setup_venv.ps1` then `dev-tools/scripts/validate_python_sdk.ps1` (Windows) or `validate_python_sdk.sh` (Linux/macOS)
 5. Update `CHANGELOG.md` and bump version in `Cargo.toml`
