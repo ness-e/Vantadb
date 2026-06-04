@@ -9,7 +9,7 @@ use crate::node::{DiskNodeHeader, UnifiedNode};
 use fs2::FileExt;
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -897,6 +897,12 @@ impl StorageEngine {
 
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
+
+        // ── Paso 1: Flush del WAL antes de reubicar físicamente los offsets ──
+        // Si no hacemos flush, los registros del WAL que referencian offsets anteriores
+        // quedarán inconsistentes con el nuevo layout compactado.
+        self.flush()?;
+
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
             let hnsw = self.hnsw.read();
@@ -916,6 +922,265 @@ impl StorageEngine {
         crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
 
         Ok(report)
+    }
+
+    /// Compacta el VantaFile (`vector_store.vanta`) reescribiendo los nodos en orden
+    /// BFS (Breadth-First Search) del grafo HNSW desde el entry point.
+    ///
+    /// ## Objetivo
+    /// Los nodos más conectados del HNSW (hubs y capas superiores) quedan ubicados
+    /// en las páginas virtuales iniciales del archivo. Una búsqueda semántica
+    /// accede primero a esos nodos, por lo que tras la compactación reduce
+    /// drásticamente los page-faults en accesos MMap.
+    ///
+    /// ## Garantías
+    /// - WAL debe estar vacío/flushed antes de llamar a esta función.
+    /// - Los `storage_offset` de todos los nodos en el `DashMap` del HNSW se
+    ///   actualizan atómicamente al finalizar el swap.
+    /// - Los nodos no alcanzados por el BFS (aislados / sin vector) se añaden
+    ///   al final, preservando la reachability total del índice.
+    /// - Si el índice está vacío, la función retorna sin error.
+    pub fn compact_layout_bfs(&self) -> Result<u64> {
+        self.ensure_writable()?;
+
+        // ── Flush previo del WAL para garantizar consistencia ────────────────
+        self.flush()?;
+
+        let started = Instant::now();
+
+        // ── Adquirir locks exclusivos en orden determinista (evita deadlock) ──
+        // Orden: vector_store → hnsw  (siempre el mismo en todo el codebase)
+        let mut vstore = self.vector_store.write();
+        let hnsw = self.hnsw.write();
+
+        let entry_point_id = match hnsw.get_entry_point() {
+            Some(ep) => ep,
+            None => {
+                // Índice vacío: nada que compactar
+                info!("compact_layout_bfs: índice vacío, skip");
+                return Ok(0);
+            }
+        };
+
+        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
+
+        // ── BFS sobre la capa 0 del HNSW (contiene TODOS los nodos) ─────────
+        // Recolectamos el orden BFS: entry_point primero (hub de mayor nivel),
+        // luego sus vecinos en capa 0, y así sucesivamente.
+        let total_nodes = hnsw.nodes.len();
+        let mut bfs_order: Vec<u64> = Vec::with_capacity(total_nodes);
+        let mut visited: HashSet<u64> = HashSet::with_capacity(total_nodes);
+        let mut queue: VecDeque<u64> = VecDeque::with_capacity(total_nodes.min(1024));
+
+        queue.push_back(entry_point_id);
+        visited.insert(entry_point_id);
+
+        while let Some(node_id) = queue.pop_front() {
+            bfs_order.push(node_id);
+            // Usar la capa 0 (contiene todos los vecinos del grafo base)
+            if let Some(node_ref) = hnsw.nodes.get(&node_id) {
+                if let Some(layer0_neighbors) = node_ref.neighbors.first() {
+                    for &neighbor_id in layer0_neighbors {
+                        if visited.insert(neighbor_id) {
+                            queue.push_back(neighbor_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Añadir nodos aislados (no alcanzados por BFS) al final
+        for entry in hnsw.nodes.iter() {
+            let node_id = *entry.key();
+            if visited.insert(node_id) {
+                bfs_order.push(node_id);
+            }
+        }
+
+        // ── Calcular tamaño total del nuevo archivo ──────────────────────────
+        let mut new_file_size: u64 = 64; // Primeros 64B reservados para el write_cursor
+        for &node_id in &bfs_order {
+            if let Some(node_ref) = hnsw.nodes.get(&node_id) {
+                let old_offset = node_ref.storage_offset;
+                if let Some(old_header) = vstore.read_header(old_offset) {
+                    let vec_size = (old_header.vector_len as u64 * 4 + 63) & !63;
+                    new_file_size += header_size + vec_size;
+                }
+                // Nodos sin header en vstore (sin vector) solo ocupan header_size
+                // pero no los añadiremos al nuevo archivo si no tienen header válido.
+            }
+        }
+        // Redondear a múltiplo de 4096 para alineación de página
+        new_file_size = (new_file_size + 4095) & !4095;
+
+        // ── Crear archivo temporal ───────────────────────────────────────────
+        let vstore_path = vstore.path.clone();
+        // Construir el path del tmp usando with_file_name para preservar la extensión .vanta
+        // (with_extension remplazaría "vanta" → "vanta.tmp", perdiendo la extensión original)
+        let tmp_filename = format!(
+            "{}.tmp",
+            vstore_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("vector_store.vanta")
+        );
+        let tmp_path = vstore_path.with_file_name(tmp_filename);
+
+        let tmp_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp_path)
+            .map_err(VantaError::IoError)?;
+        tmp_file
+            .set_len(new_file_size)
+            .map_err(VantaError::IoError)?;
+
+        let mut tmp_mmap = unsafe {
+            MmapOptions::new()
+                .map_mut(&tmp_file)
+                .map_err(VantaError::IoError)?
+        };
+
+        // ── Copiar nodos en orden BFS al archivo temporal ────────────────────
+        // new_offset_map: node_id → nuevo storage_offset en el archivo compactado
+        let mut new_offset_map: HashMap<u64, u64> = HashMap::with_capacity(total_nodes);
+        let mut write_cursor: u64 = 64; // El primer u64 del archivo es el write_cursor
+
+        for &node_id in &bfs_order {
+            if let Some(node_ref) = hnsw.nodes.get(&node_id) {
+                let old_offset = node_ref.storage_offset;
+                // Intentar leer el header del VantaFile actual
+                // SAFETY: leemos con borrow de `vstore` que ya tenemos en lock exclusivo.
+                let old_header = match vstore.read_header(old_offset) {
+                    Some(h) => *h,    // clone del header (64B, stack)
+                    None => continue, // sin header válido: skip
+                };
+
+                // Saltar tombstones: no los copiamos al nuevo layout
+                if (old_header.flags & 0x8) != 0 {
+                    continue;
+                }
+
+                let vec_len = old_header.vector_len as u64;
+                let vec_size_raw = vec_len * 4;
+                let vec_size_aligned = (vec_size_raw + 63) & !63;
+
+                let new_node_offset = write_cursor;
+                let new_vec_offset = new_node_offset + header_size;
+
+                // Verificar que el nuevo header + vector caben en el archivo tmp
+                let end = new_vec_offset + vec_size_aligned;
+                if end > new_file_size {
+                    warn!(
+                        node_id = node_id,
+                        end = end,
+                        file_size = new_file_size,
+                        "compact_layout_bfs: offset fuera de rango, expandiendo archivo tmp"
+                    );
+                    drop(tmp_mmap);
+                    tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
+                    tmp_mmap = unsafe {
+                        MmapOptions::new()
+                            .map_mut(&tmp_file)
+                            .map_err(VantaError::IoError)?
+                    };
+                    new_file_size = end + 4096;
+                }
+
+                // Construir nuevo header con vector_offset actualizado
+                let mut new_header = old_header;
+                new_header.vector_offset = new_vec_offset;
+
+                // Escribir header en tmp_mmap
+                let header_bytes = new_header.as_bytes();
+                tmp_mmap[new_node_offset as usize..(new_node_offset + header_size) as usize]
+                    .copy_from_slice(header_bytes);
+
+                // Copiar datos del vector desde el VantaFile original
+                if vec_len > 0 {
+                    let old_vec_start = old_header.vector_offset as usize;
+                    let old_vec_end = old_vec_start + vec_size_raw as usize;
+                    if old_vec_end <= vstore.size as usize {
+                        let vec_src = &vstore.mmap_bytes()[old_vec_start..old_vec_end];
+                        tmp_mmap[new_vec_offset as usize..(new_vec_offset + vec_size_raw) as usize]
+                            .copy_from_slice(vec_src);
+                    }
+                }
+
+                new_offset_map.insert(node_id, new_node_offset);
+                write_cursor = new_vec_offset + vec_size_aligned;
+            }
+        }
+
+        // Persistir el write_cursor al inicio del archivo tmp (primeros 8 bytes)
+        let cursor_bytes = write_cursor.to_le_bytes();
+        tmp_mmap[0..8].copy_from_slice(&cursor_bytes);
+
+        // Flush del archivo temporal
+        tmp_mmap.flush().map_err(VantaError::IoError)?;
+        drop(tmp_mmap);
+        drop(tmp_file);
+
+        // ── Swap: tmp → vanta (portable Windows/Unix) ───────────────────
+        // En Unix: rename es atómico incluso con el MMap del origen abierto.
+        // En Windows: rename con un MMap abierto sobre el origen puede fallar.
+        //   Usamos fs::copy (no requiere cerrar el Mmap del origen) seguido de
+        //   remove_file para limpiar el tmp.
+        //
+        // Paso 1: Liberar el handle del vstore original (vstore_path).
+        //   Reasignamos *vstore al tmp; el drop del VantaFile antiguo cierra
+        //   su Mmap y File handle sobre vstore_path.
+        vstore.flush().ok();
+        *vstore = VantaFile::open(tmp_path.clone(), new_file_size)?;
+        // vstore_path ahora sin handles. tmp_path tiene un Mmap (el nuevo *vstore).
+
+        // Paso 2: Hacer el swap según el OS.
+        #[cfg(windows)]
+        {
+            // En Windows usamos copia en lugar de rename para evitar el problema del Mmap.
+            std::fs::copy(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
+            let new_vstore = VantaFile::open(vstore_path, new_file_size)?;
+            *vstore = new_vstore;
+            // Limpiar el tmp después de que *vstore ya apunta al archivo definitivo.
+            let _ = std::fs::remove_file(&tmp_path);
+        }
+        #[cfg(not(windows))]
+        {
+            // En Unix: rename atómico funciona incluso con Mmap abierto sobre el origen.
+            std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
+            let new_vstore = VantaFile::open(vstore_path, new_file_size)?;
+            *vstore = new_vstore;
+        }
+
+        let nodes_compacted = new_offset_map.len() as u64;
+
+        // ── Actualizar storage_offset en el DashMap del HNSW ────────────────
+        // Hacemos esto DESPUÉS del swap para que la actualización del índice
+        // y el archivo físico sean coherentes.
+        for (node_id, new_offset) in &new_offset_map {
+            if let Some(mut node_ref) = hnsw.nodes.get_mut(node_id) {
+                node_ref.storage_offset = *new_offset;
+            }
+        }
+
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        info!(
+            nodes_compacted = nodes_compacted,
+            new_file_size = new_file_size,
+            elapsed_ms = elapsed_ms,
+            "compact_layout_bfs: VantaFile compactado en orden BFS"
+        );
+
+        // Persistir el índice HNSW actualizado
+        // Liberamos los locks antes de llamar a save_vector_index para evitar re-lock
+        drop(hnsw);
+        drop(vstore);
+
+        self.save_vector_index();
+
+        Ok(nodes_compacted)
     }
 
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
