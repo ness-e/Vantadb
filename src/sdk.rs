@@ -2207,7 +2207,7 @@ impl VantaEmbedded {
             let score = match distance_metric {
                 DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
                 DistanceMetric::Euclidean => {
-                    -crate::index::euclidean_distance_squared_f32(query_vector, vector).sqrt()
+                    -crate::index::euclidean_distance_squared_f32(query_vector, vector)
                 }
             };
 
@@ -2220,6 +2220,12 @@ impl VantaEmbedded {
 
         Self::sort_memory_hits(&mut hits);
         hits.truncate(top_k);
+
+        if distance_metric == DistanceMetric::Euclidean {
+            for hit in hits.iter_mut() {
+                hit.score = -(-hit.score).max(0.0).sqrt();
+            }
+        }
         Ok(hits)
     }
 
