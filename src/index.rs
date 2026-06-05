@@ -563,8 +563,27 @@ impl CPIndex {
                                 )
                             };
                             match metric {
-                                DistanceMetric::Cosine | DistanceMetric::Euclidean => {
-                                    f32_slice_similarity(query_vec, query_norm, f32_vec, metric)
+                                DistanceMetric::Cosine => {
+                                    if let Some(q_inv_norm) = query_inv_norm {
+                                        let node_inv_norm = node.inv_cached_norm;
+                                        if node_inv_norm > f32::EPSILON {
+                                            cosine_sim_cached_norms(
+                                                query_vec,
+                                                q_inv_norm,
+                                                f32_vec,
+                                                node_inv_norm,
+                                            )
+                                        } else {
+                                            f32_slice_similarity(
+                                                query_vec, query_norm, f32_vec, metric,
+                                            )
+                                        }
+                                    } else {
+                                        f32_slice_similarity(query_vec, query_norm, f32_vec, metric)
+                                    }
+                                }
+                                DistanceMetric::Euclidean => {
+                                    -euclidean_distance_squared_f32(query_vec, f32_vec)
                                 }
                             }
                         }
@@ -666,10 +685,30 @@ impl CPIndex {
                                             )
                                         };
                                         match metric {
-                                            DistanceMetric::Cosine | DistanceMetric::Euclidean => {
-                                                f32_slice_similarity(
-                                                    query_vec, query_norm, f32_v, metric,
-                                                )
+                                            DistanceMetric::Cosine => {
+                                                if let Some(q_inv_norm) = query_inv_norm {
+                                                    let neighbor_inv_norm =
+                                                        neighbor.inv_cached_norm;
+                                                    if neighbor_inv_norm > f32::EPSILON {
+                                                        cosine_sim_cached_norms(
+                                                            query_vec,
+                                                            q_inv_norm,
+                                                            f32_v,
+                                                            neighbor_inv_norm,
+                                                        )
+                                                    } else {
+                                                        f32_slice_similarity(
+                                                            query_vec, query_norm, f32_v, metric,
+                                                        )
+                                                    }
+                                                } else {
+                                                    f32_slice_similarity(
+                                                        query_vec, query_norm, f32_v, metric,
+                                                    )
+                                                }
+                                            }
+                                            DistanceMetric::Euclidean => {
+                                                -euclidean_distance_squared_f32(query_vec, f32_v)
                                             }
                                         }
                                     }
