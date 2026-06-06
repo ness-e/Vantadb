@@ -42,7 +42,7 @@ fn mmap_vector_index_certification() {
     harness.execute("Serialization: Byte Roundtrip Integrity", || {
         let index = build_test_index(50);
         let bytes = index.serialize_to_bytes();
-        assert_eq!(&bytes[0..8], b"VNTHNSW1");
+        assert_eq!(&bytes[0..8], &[b'V', b'N', b'D', b'X', 4, 0, 0, 0]);
 
         let restored =
             CPIndex::deserialize_from_bytes(&bytes, true).expect("Deserialization failed");
