@@ -127,3 +127,30 @@ La búsqueda por lotes (`search_batch()`) en el SDK amortiza los costos de front
 
 *Nota: Estos resultados demuestran la paridad con el escalado multinúcleo en CPUs de desarrollo estándar, permitiendo que aplicaciones RAG o LLM con alto volumen de consultas concurrentes no se bloqueen por el GIL.*
 
+
+
+
+
+
+
+## 🚀 7. Competitive Benchmark vs LanceDB & Chroma
+Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB** en ingesta, latencias, precisión (Recall) y huella de memoria en reposo.
+
+* **Fecha de ejecución**: 2026-06-06 14:02:21
+* **Configuración del Dataset**:
+  * **Nombre**: `synthetic`
+  * **Tamaño Ingestado**: 5000 registros
+  * **Dimensión de Vectores**: 128
+  * **Consultas Evaluadas**: 100
+  * **Métrica**: `euclidean`
+  * **Vecinos (Top-K)**: 10
+
+### Tabla Comparativa
+
+| Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
+|----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
+| VantaDB  |        635.3 | 7017.3            |        57   |             17.118 |             23.72  | 100.00%     |           229.2 |             84.2 |
+| LanceDB  |      78555.2 | 326.2             |       323   |              2.823 |              4.69  | 19.00%      |           252.6 |              8   |
+| ChromaDB |       4820.7 | N/A (Inc)         |      1098.2 |              0.861 |              2.058 | 90.60%      |           236   |             40.4 |
+
+*Nota: LanceDB e incremental-HNSW de ChromaDB usan sus wrappers de C/C++ nativos integrados en Python. VantaDB corre a través de sus bindings FFI de PyO3 (`vantadb_py`) consumiendo el core de Rust mapeado en memoria (`mmap`).*
