@@ -1542,6 +1542,15 @@ impl CPIndex {
     }
 
     pub fn persist_to_file(&self, path: &Path) -> std::io::Result<()> {
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("hnsw_serialize_fail", |_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Injected HNSW persist serialization failure",
+                ))
+            });
+        }
         let data = self.serialize_to_bytes();
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
@@ -1622,6 +1631,15 @@ impl CPIndex {
     }
 
     pub fn sync_to_mmap(&mut self) -> std::io::Result<()> {
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("hnsw_serialize_fail", |_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Injected HNSW sync mmap serialization failure",
+                ))
+            });
+        }
         let path = match &self.backend {
             IndexBackend::MMapFile { path, .. } => path.clone(),
             _ => return Ok(()),

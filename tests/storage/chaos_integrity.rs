@@ -125,7 +125,7 @@ fn chaos_integrity_certification() {
 fn chaos_integrity_failpoints_certification() {
     #[cfg(feature = "failpoints")]
     {
-        TerminalReporter::suite_banner("FAILPOINT INJECTION & RESILIENCE AXIOMS", 1);
+        TerminalReporter::suite_banner("FAILPOINT INJECTION & RESILIENCE AXIOMS", 4);
 
         let _scenario = vantadb::FailScenario::setup();
 
@@ -136,10 +136,11 @@ fn chaos_integrity_failpoints_certification() {
         let storage = Arc::new(StorageEngine::open(db_path).unwrap());
         let executor = Executor::new(&storage);
 
-        // 2. Activar inyección de fallo en WAL
+        // ─── ESCENARIO 1: wal_append_fail ───
+        // Activar inyección de fallo en WAL
         vantadb::cfg_failpoint("wal_append_fail", "return").unwrap();
 
-        // 3. Comprobar que la base de datos rechaza la operación limpiamente
+        // Comprobar que la base de datos rechaza la operación limpiamente
         let result = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 42,
             node_type: "Chaos".to_string(),
@@ -155,7 +156,7 @@ fn chaos_integrity_failpoints_certification() {
         // Desactivar inyección
         vantadb::remove_failpoint("wal_append_fail");
 
-        // 4. Comprobar auto-recuperación y escrituras posteriores
+        // Comprobar auto-recuperación y escrituras posteriores
         let recovery_result = executor.execute_statement(Statement::Insert(InsertStatement {
             node_id: 42,
             node_type: "Chaos".to_string(),
@@ -164,7 +165,86 @@ fn chaos_integrity_failpoints_certification() {
         }));
         assert!(
             recovery_result.is_ok(),
-            "El motor debería recuperarse tras desactivar el failpoint"
+            "El motor debería recuperarse tras desactivar el failpoint de WAL"
+        );
+
+        // ─── ESCENARIO 2: storage_insert_fail ───
+        // Activar inyección de fallo en Storage Insert
+        vantadb::cfg_failpoint("storage_insert_fail", "return").unwrap();
+
+        let result_storage = executor.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 43,
+            node_type: "ChaosStorage".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }));
+        assert!(
+            result_storage.is_err(),
+            "Se esperaba error debido a inyección de fallo en el storage insert"
+        );
+
+        // Desactivar inyección
+        vantadb::remove_failpoint("storage_insert_fail");
+
+        let recovery_storage = executor.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 43,
+            node_type: "ChaosStorage".to_string(),
+            fields: std::collections::BTreeMap::new(),
+            vector: None,
+        }));
+        assert!(
+            recovery_storage.is_ok(),
+            "El motor debería recuperarse tras desactivar el failpoint de storage insert"
+        );
+
+        // ─── ESCENARIO 3: mmap_flush_fail ───
+        // Activar inyección de fallo en mmap flush
+        vantadb::cfg_failpoint("mmap_flush_fail", "return").unwrap();
+
+        // El flush del almacenamiento (a través de VantaFile) debería fallar
+        let result_flush = storage.flush();
+        assert!(
+            result_flush.is_err(),
+            "Se esperaba error en flush debido a inyección de mmap_flush_fail"
+        );
+
+        // Desactivar inyección
+        vantadb::remove_failpoint("mmap_flush_fail");
+
+        let recovery_flush = storage.flush();
+        assert!(
+            recovery_flush.is_ok(),
+            "El motor debería poder realizar flush tras desactivar el failpoint de mmap flush"
+        );
+
+        // ─── ESCENARIO 4: hnsw_serialize_fail ───
+        // Probar persist_to_file (in-memory backend)
+        let mut index = vantadb::index::CPIndex::new();
+        vantadb::cfg_failpoint("hnsw_serialize_fail", "return").unwrap();
+
+        let temp_index_path = dir.path().join("test_vector_index.bin");
+        let result_serialize = index.persist_to_file(&temp_index_path);
+        assert!(
+            result_serialize.is_err(),
+            "Se esperaba error en la persistencia del índice HNSW debido a hnsw_serialize_fail"
+        );
+
+        // Probar sync_to_mmap (mmap backend)
+        let mmap_index_path = dir.path().join("mmap_vector_index.bin");
+        index.backend = vantadb::index::IndexBackend::new_mmap(mmap_index_path);
+        let result_mmap_serialize = index.sync_to_mmap();
+        assert!(
+            result_mmap_serialize.is_err(),
+            "Se esperaba error al sincronizar mmap de HNSW debido a hnsw_serialize_fail"
+        );
+
+        // Desactivar inyección
+        vantadb::remove_failpoint("hnsw_serialize_fail");
+
+        let recovery_serialize = index.persist_to_file(&temp_index_path);
+        assert!(
+            recovery_serialize.is_ok(),
+            "La persistencia del índice HNSW debería tener éxito tras desactivar el failpoint"
         );
 
         TerminalReporter::print_certification_summary();

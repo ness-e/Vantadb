@@ -285,7 +285,7 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [Memory Telemetry](docs/operations/MEMORY_TELEMETRY.md) | Process-memory metrics contract and interpretation guidelines. |
 | [Python SDK Status](docs/operations/PYTHON_SDK.md) | Stable boundary, current binding surface, and distribution policy. |
 | [Python Release Policy](docs/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
-| [Reliability Gate](docs/operations/RELIABILITY_GATE.md) | Allowed claims, trusted metrics, and validation evidence. |
+| [Reliability Gate](docs/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
 | [Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md) | Implemented memory surface, derived state, and explicit limits. |
 | [Experimental Features](docs/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
 | [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
