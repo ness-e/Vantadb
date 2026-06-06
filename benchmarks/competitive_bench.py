@@ -293,10 +293,17 @@ def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     if len(train_vectors) >= 512:
         # Create IVF-PQ index. Partitions and sub-vectors based on dataset scale.
         num_partitions = min(256, max(16, len(train_vectors) // 64))
+        dim = train_vectors.shape[1]
+        num_sub_vectors = 8
+        if dim % 8 != 0:
+            for d in [4, 5, 10, 2, 20, 25, 50]:
+                if dim % d == 0:
+                    num_sub_vectors = d
+                    break
         tbl.create_index(
             metric="cosine" if metric == "cosine" else "l2",
             num_partitions=num_partitions,
-            num_sub_vectors=8
+            num_sub_vectors=num_sub_vectors
         )
     index_time = time.perf_counter() - start_index
     rss_after_index = get_current_rss()
