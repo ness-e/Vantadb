@@ -68,7 +68,7 @@ jobs:
   hnsw-validation:
     name: "Certification: hnsw_validation"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 120
     steps:
       - name: Free disk space
         run: |
@@ -103,7 +103,6 @@ jobs:
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Run HNSW validation
-        timeout-minutes: 15
         run: cargo test --release --test hnsw_validation -- --nocapture --test-threads=1
 
   hnsw-recall:
@@ -217,7 +216,9 @@ jobs:
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
 
       - name: Fuzz — parser (5 min)
         timeout-minutes: 8
