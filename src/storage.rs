@@ -390,6 +390,15 @@ impl VantaFile {
 
     /// Synchronizes changes to disk
     pub fn flush(&self) -> Result<()> {
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("mmap_flush_fail", |_| {
+                Err(VantaError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Injected mmap flush failure",
+                )))
+            });
+        }
         self.mmap.flush()
     }
 
@@ -1547,6 +1556,7 @@ impl StorageEngine {
     pub fn flush(&self) -> Result<()> {
         self.ensure_writable()?;
         self.backend.flush()?;
+        self.vector_store.read().flush()?;
 
         let current_wal_seq = {
             let wal_guard = self.wal.lock();
