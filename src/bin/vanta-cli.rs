@@ -11,6 +11,10 @@ use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "custom-allocator")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use vantadb::cli::{Cli, Commands, Shell};
 use vantadb::config::VantaConfig;
 use vantadb::error::Result;

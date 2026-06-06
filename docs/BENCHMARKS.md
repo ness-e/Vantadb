@@ -111,3 +111,19 @@ Este benchmark documenta el rendimiento y los tiempos de construcción en base a
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
 *Certificación en hardware: AMD Ryzen 12-Core @ 3.5GHz, compilación con `-C target-cpu=native`.*
+
+---
+
+## 🚀 6. Rendimiento de Búsqueda por Lotes (`search_batch`) en Python SDK
+
+La búsqueda por lotes (`search_batch()`) en el SDK amortiza los costos de frontera FFI de PyO3 al realizar la transferencia en una sola llamada desde el entorno Python, liberando de forma eager el **GIL** y ejecutando la travesía del índice HNSW en paralelo a nivel multinúcleo con **Rayon**.
+
+### Resultados del Micro-Benchmark Comparativo (5,000 registros, 128d, Batch Size: 100)
+
+| Modo de Búsqueda | Tiempo Total (100 consultas) | Latencia Media por Consulta | Factor de Aceleración (Speedup) | Reducción de Latencia |
+| :--- | :---: | :---: | :---: | :---: |
+| **Secuencial (`db.search()`)** | 973.68 ms | 9.73 ms | *Línea Base* | *N/A* |
+| **Por Lotes (`db.search_batch()`)** | **243.01 ms** | **2.43 ms** | **4.01x más rápido** | **75.0%** |
+
+*Nota: Estos resultados demuestran la paridad con el escalado multinúcleo en CPUs de desarrollo estándar, permitiendo que aplicaciones RAG o LLM con alto volumen de consultas concurrentes no se bloqueen por el GIL.*
+

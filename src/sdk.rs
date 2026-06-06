@@ -2829,6 +2829,16 @@ impl VantaEmbedded {
     }
 
     pub fn operational_metrics(&self) -> VantaOperationalMetrics {
+        if let Ok(engine) = self.engine_handle() {
+            let stats = engine.get_memory_stats();
+            crate::metrics::record_memory_breakdown(
+                stats.node_count,
+                stats.logical_bytes,
+                stats.physical_rss,
+                stats.cache_entries as u64,
+                0,
+            );
+        }
         crate::metrics::operational_metrics_snapshot().into()
     }
 
