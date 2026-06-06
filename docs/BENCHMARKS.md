@@ -139,6 +139,8 @@ La búsqueda por lotes (`search_batch()`) en el SDK amortiza los costos de front
 
 
 
+
+
 ## 🚀 7. Competitive Benchmark vs LanceDB & Chroma
 
 Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB** en ingesta, latencias, precisión (Recall) y huella de memoria en reposo.
@@ -148,17 +150,18 @@ Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB*
   * **Tamaño Ingestado**: 10,000 registros
   * **Consultas Evaluadas**: 100
   * **Vecinos (Top-K)**: 10
-  * *Nota: Ante la restricción de descarga HTTP de ann-benchmarks.com (403 Forbidden), los datasets se evaluaron bajo su fallback sintético certificado equivalente.*
 
 ### 7.1. Dataset: `glove-100-angular` (100d, Cosine)
+* *Nota: Cargado desde el dataset real HDF5 de ann-benchmarks.*
 
 | Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
 |----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
-| VantaDB  |        550.0 | 16709.7           |        26.9 |             36.866 |             46.648 | **100.00%** |           296.3 |            151.5 |
-| LanceDB  |     120906.0 | 574.6             |       336.6 |              2.672 |              4.400 | 8.20%       |           328.5 |              9.2 |
-| ChromaDB |       4627.4 | N/A (Inc)         |      1075.8 |              0.855 |              1.524 | 82.90%      |           257.8 |             25.2 |
+| VantaDB  |        632.5 | 14552.1           |        26.7 |             37.073 |             46.122 | **24.50%**  |           294.3 |            149.7 |
+| LanceDB  |     110697.0 | 586.6             |       327.3 |              2.743 |              4.520 | 14.50%      |           326.7 |              8.8 |
+| ChromaDB |       4842.6 | N/A (Inc)         |      1058.1 |              0.888 |              1.574 | 23.90%      |           253.6 |             23.4 |
 
 ### 7.2. Dataset: `sift-128-euclidean` (128d, Euclidean)
+* *Nota: Cargado desde fallback sintético certificado.*
 
 | Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
 |----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
