@@ -96,7 +96,10 @@ async fn hardware_certification_full() {
             (20_000, 80_000)
         };
 
-        TerminalReporter::sub_step(&format!("Warming up database with {} vectors...", warmup_count));
+        TerminalReporter::sub_step(&format!(
+            "Warming up database with {} vectors...",
+            warmup_count
+        ));
         for i in 0..warmup_count {
             let mut node = vantadb::node::UnifiedNode::new(i as u64);
             node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
@@ -115,7 +118,10 @@ async fn hardware_certification_full() {
         );
         let rss_warm = vantadb::metrics::memory_breakdown_snapshot().process_rss_bytes;
 
-        TerminalReporter::sub_step(&format!("Inserting {} additional vectors...", additional_count));
+        TerminalReporter::sub_step(&format!(
+            "Inserting {} additional vectors...",
+            additional_count
+        ));
         for i in warmup_count..(warmup_count + additional_count) {
             let mut node = vantadb::node::UnifiedNode::new(i as u64);
             node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
@@ -134,9 +140,18 @@ async fn hardware_certification_full() {
         );
         let rss_final = vantadb::metrics::memory_breakdown_snapshot().process_rss_bytes;
 
-        println!("\n  {}", style("RSS STABILITY STATISTICS").bold().underlined());
-        println!("  RSS Warmup:  {:.2} MB", rss_warm as f64 / (1024.0 * 1024.0));
-        println!("  RSS Final:   {:.2} MB", rss_final as f64 / (1024.0 * 1024.0));
+        println!(
+            "\n  {}",
+            style("RSS STABILITY STATISTICS").bold().underlined()
+        );
+        println!(
+            "  RSS Warmup:  {:.2} MB",
+            rss_warm as f64 / (1024.0 * 1024.0)
+        );
+        println!(
+            "  RSS Final:   {:.2} MB",
+            rss_final as f64 / (1024.0 * 1024.0)
+        );
 
         if rss_warm > 0 {
             let drift = rss_final as f64 / rss_warm as f64;
