@@ -85,4 +85,65 @@ async fn hardware_certification_full() {
 
         TerminalReporter::success("Mathematical consistency verified.");
     });
+
+    // BLOCK 4: RSS Stability Under Load (ST2.2.2)
+    harness.execute("RSS Stability Under Load", || {
+        let storage = temp_storage();
+
+        let (warmup_count, additional_count) = if cfg!(debug_assertions) {
+            (2_000, 8_000)
+        } else {
+            (20_000, 80_000)
+        };
+
+        TerminalReporter::sub_step(&format!("Warming up database with {} vectors...", warmup_count));
+        for i in 0..warmup_count {
+            let mut node = vantadb::node::UnifiedNode::new(i as u64);
+            node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
+            node.tier = vantadb::node::NodeTier::Cold;
+            storage.insert(&node).unwrap();
+        }
+        storage.flush().unwrap();
+
+        let stats_warm = storage.get_memory_stats();
+        vantadb::metrics::record_memory_breakdown(
+            stats_warm.node_count,
+            stats_warm.logical_bytes,
+            stats_warm.physical_rss,
+            stats_warm.cache_entries as u64,
+            0,
+        );
+        let rss_warm = vantadb::metrics::memory_breakdown_snapshot().process_rss_bytes;
+
+        TerminalReporter::sub_step(&format!("Inserting {} additional vectors...", additional_count));
+        for i in warmup_count..(warmup_count + additional_count) {
+            let mut node = vantadb::node::UnifiedNode::new(i as u64);
+            node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
+            node.tier = vantadb::node::NodeTier::Cold;
+            storage.insert(&node).unwrap();
+        }
+        storage.flush().unwrap();
+
+        let stats_final = storage.get_memory_stats();
+        vantadb::metrics::record_memory_breakdown(
+            stats_final.node_count,
+            stats_final.logical_bytes,
+            stats_final.physical_rss,
+            stats_final.cache_entries as u64,
+            0,
+        );
+        let rss_final = vantadb::metrics::memory_breakdown_snapshot().process_rss_bytes;
+
+        println!("\n  {}", style("RSS STABILITY STATISTICS").bold().underlined());
+        println!("  RSS Warmup:  {:.2} MB", rss_warm as f64 / (1024.0 * 1024.0));
+        println!("  RSS Final:   {:.2} MB", rss_final as f64 / (1024.0 * 1024.0));
+
+        if rss_warm > 0 {
+            let drift = rss_final as f64 / rss_warm as f64;
+            println!("  Memory Drift Ratio: {:.2}%", (drift - 1.0) * 100.0);
+            assert!(drift <= 4.0, "Memory drift ratio too high: {:.2}", drift);
+        }
+
+        TerminalReporter::success("RSS stability and drift under control.");
+    });
 }
