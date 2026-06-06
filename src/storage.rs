@@ -263,18 +263,19 @@ impl VantaFile {
         };
 
         let mut current_size = file.metadata().map_err(VantaError::IoError)?.len();
-        if current_size < 8 {
+        let min_header_size = 64u64;
+        if current_size < min_header_size {
             if read_only {
                 return Err(VantaError::Execution(format!(
                     "VantaFile {} is too small for read-only open",
                     path.display()
                 )));
             }
-            current_size = initial_size.max(8);
+            current_size = initial_size.max(min_header_size);
             file.set_len(current_size).map_err(VantaError::IoError)?;
         }
 
-        let mmap = if read_only {
+        let mut mmap = if read_only {
             VantaFileMap::ReadOnly(unsafe {
                 MmapOptions::new().map(&file).map_err(VantaError::IoError)?
             })
@@ -286,8 +287,23 @@ impl VantaFile {
             })
         };
 
-        // The first u64 of the mmap is our persistent write_cursor
-        let write_cursor = u64::from_le_bytes(mmap.as_slice()[0..8].try_into().unwrap());
+        if !read_only && current_size >= min_header_size {
+            let has_magic = &mmap.as_slice()[0..4] == b"VFLE";
+            if !has_magic {
+                let header = crate::binary_header::VantaHeader::new(*b"VFLE", 1, 0);
+                mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
+                let initial_cursor = 64u64.to_le_bytes();
+                mmap.as_mut_slice()?[16..24].copy_from_slice(&initial_cursor);
+                mmap.flush()?;
+            }
+        }
+
+        // Validate the binary header
+        let header = crate::binary_header::VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
+        header.validate(*b"VFLE", 1, "VantaFile format mismatch")?;
+
+        // The write_cursor of the mmap is stored in 16..24
+        let write_cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().unwrap());
         let write_cursor = if write_cursor < 64 || write_cursor > current_size {
             64
         } else {
@@ -308,7 +324,7 @@ impl VantaFile {
     /// Saves the current cursor in the file for persistence between restarts
     pub fn save_cursor(&mut self) -> Result<()> {
         let write_cursor = self.write_cursor.to_le_bytes();
-        self.mmap.as_mut_slice()?[0..8].copy_from_slice(&write_cursor);
+        self.mmap.as_mut_slice()?[16..24].copy_from_slice(&write_cursor);
         Ok(())
     }
 

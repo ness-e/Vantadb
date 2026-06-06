@@ -43,41 +43,28 @@ pub enum WalRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
-    pub magic: [u8; 8], // b"VANTAWAL"
-    pub version: u32,   // >= 1
-    pub flags: u32,     // 0
-    pub crc: u32,       // CRC32C Castagnoli de los primeros 16 bytes
+    pub base: crate::binary_header::VantaHeader, // 16 bytes: magic = b"VWAL", version = 1, schema = 0, timestamp
+    pub crc: u32,                                // 4 bytes: CRC32C de la cabecera base
 }
 
 impl WalHeader {
     pub const SIZE: usize = 20;
 
     pub fn new(version: u32) -> Self {
-        let magic = *b"VANTAWAL";
-        let flags = 0u32;
-        let mut header = Self {
-            magic,
-            version,
-            flags,
-            crc: 0,
-        };
+        let base = crate::binary_header::VantaHeader::new(*b"VWAL", version as u16, 0);
+        let mut header = Self { base, crc: 0 };
         header.crc = header.compute_crc();
         header
     }
 
     pub fn compute_crc(&self) -> u32 {
-        let mut bytes = [0u8; 16];
-        bytes[0..8].copy_from_slice(&self.magic);
-        bytes[8..12].copy_from_slice(&self.version.to_le_bytes());
-        bytes[12..16].copy_from_slice(&self.flags.to_le_bytes());
+        let bytes = self.base.serialize();
         crc32c(&bytes)
     }
 
     pub fn serialize(&self) -> [u8; Self::SIZE] {
         let mut bytes = [0u8; Self::SIZE];
-        bytes[0..8].copy_from_slice(&self.magic);
-        bytes[8..12].copy_from_slice(&self.version.to_le_bytes());
-        bytes[12..16].copy_from_slice(&self.flags.to_le_bytes());
+        bytes[0..16].copy_from_slice(&self.base.serialize());
         bytes[16..20].copy_from_slice(&self.crc.to_le_bytes());
         bytes
     }
@@ -90,25 +77,21 @@ impl WalHeader {
                 bytes.len()
             )));
         }
-        let mut magic = [0u8; 8];
-        magic.copy_from_slice(&bytes[0..8]);
-        if &magic != b"VANTAWAL" {
-            return Err(VantaError::WALVersionMismatch {
-                expected: 1,
-                found: 0,
+
+        let base = crate::binary_header::VantaHeader::deserialize(&bytes[0..16])?;
+        if &base.magic != b"VWAL" {
+            return Err(VantaError::IncompatibleFormat {
+                expected_magic: *b"VWAL",
+                expected_version: 1,
+                found_magic: base.magic,
+                found_version: base.format_version,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
             });
         }
-        let version = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
-        let flags = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+
         let crc = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
 
-        let header = Self {
-            magic,
-            version,
-            flags,
-            crc,
-        };
+        let header = Self { base, crc };
 
         let computed_crc = header.compute_crc();
         if computed_crc != crc {
@@ -118,10 +101,10 @@ impl WalHeader {
             )));
         }
 
-        if version < 1 {
+        if header.base.format_version < 1 {
             return Err(VantaError::WALVersionMismatch {
                 expected: 1,
-                found: version,
+                found: header.base.format_version as u32,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
             });
         }
@@ -621,17 +604,19 @@ mod tests {
         }
 
         {
-            // Intentar abrir el WAL debe lanzar error WALVersionMismatch
+            // Intentar abrir el WAL debe lanzar error IncompatibleFormat
             let r = WalReader::open(&dir);
             assert!(r.is_err());
             match r.err().unwrap() {
-                VantaError::WALVersionMismatch {
-                    expected, found, ..
+                VantaError::IncompatibleFormat {
+                    expected_magic,
+                    expected_version,
+                    ..
                 } => {
-                    assert_eq!(expected, 1);
-                    assert_eq!(found, 0);
+                    assert_eq!(expected_magic, *b"VWAL");
+                    assert_eq!(expected_version, 1);
                 }
-                other => panic!("Expected WALVersionMismatch, got {:?}", other),
+                other => panic!("Expected IncompatibleFormat, got {:?}", other),
             }
         }
 
