@@ -452,7 +452,7 @@ def main():
     parser.add_argument("--size", type=int, default=10000, help="Number of database vectors to load/generate")
     parser.add_argument("--queries", type=int, default=100, help="Number of query vectors")
     parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
-    parser.add_argument("--dataset-dir", type=str, default="./benchmarks/datasets", help="Path to HDF5 dataset folder")
+    parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
     args = parser.parse_args()
