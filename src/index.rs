@@ -1545,8 +1545,7 @@ impl CPIndex {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("hnsw_serialize_fail", |_| {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(std::io::Error::other(
                     "Injected HNSW persist serialization failure",
                 ))
             });
@@ -1634,8 +1633,7 @@ impl CPIndex {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("hnsw_serialize_fail", |_| {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(std::io::Error::other(
                     "Injected HNSW sync mmap serialization failure",
                 ))
             });
