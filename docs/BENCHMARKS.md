@@ -141,32 +141,26 @@ La búsqueda por lotes (`search_batch()`) en el SDK amortiza los costos de front
 
 
 
-## 🚀 7. Competitive Benchmark vs LanceDB & Chroma
 
+
+## 🚀 7. Competitive Benchmark vs LanceDB & Chroma
 Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB** en ingesta, latencias, precisión (Recall) y huella de memoria en reposo.
 
-* **Fecha de ejecución**: 2026-06-06
-* **Configuración de los Datasets**:
-  * **Tamaño Ingestado**: 10,000 registros
+* **Fecha de ejecución**: 2026-06-06 15:43:40
+* **Configuración del Dataset**:
+  * **Nombre**: `glove-100-angular`
+  * **Tamaño Ingestado**: 10000 registros
+  * **Dimensión de Vectores**: 100
   * **Consultas Evaluadas**: 100
+  * **Métrica**: `cosine`
   * **Vecinos (Top-K)**: 10
 
-### 7.1. Dataset: `glove-100-angular` (100d, Cosine)
-* *Nota: Cargado desde el dataset real HDF5 de ann-benchmarks.*
+### Tabla Comparativa
 
 | Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
 |----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
-| VantaDB  |        632.5 | 14552.1           |        26.7 |             37.073 |             46.122 | **24.50%**  |           294.3 |            149.7 |
-| LanceDB  |     110697.0 | 586.6             |       327.3 |              2.743 |              4.520 | 14.50%      |           326.7 |              8.8 |
-| ChromaDB |       4842.6 | N/A (Inc)         |      1058.1 |              0.888 |              1.574 | 23.90%      |           253.6 |             23.4 |
-
-### 7.2. Dataset: `sift-128-euclidean` (128d, Euclidean)
-* *Nota: Cargado desde fallback sintético certificado.*
-
-| Engine   |   Ingest QPS | Index Time (ms)   |   Query QPS |   Latency p50 (ms) |   Latency p99 (ms) | Recall@10   |   Peak RSS (MB) |   Delta RSS (MB) |
-|----------|--------------|-------------------|-------------|--------------------|--------------------|-------------|-----------------|------------------|
-| VantaDB  |        542.2 | 17037.8           |        27.1 |             36.565 |             50.323 | **100.00%** |           242.4 |            103.6 |
-| LanceDB  |      94487.3 | 806.3             |       319.7 |              2.837 |              5.258 | 15.00%      |           275.7 |            124.2 |
-| ChromaDB |       4580.2 | N/A (Inc)         |      1008.0 |              0.933 |              1.938 | 81.60%      |           273.3 |             43.7 |
+| VantaDB  |        598.3 | 16039.9           |        24.3 |             39.74  |             58.245 | 24.50%      |           236.5 |             91.7 |
+| LanceDB  |     114583   | 602.2             |       320.5 |              2.653 |              6.98  | 13.90%      |           344.2 |             97.2 |
+| ChromaDB |       3886   | N/A (Inc)         |       978.6 |              0.941 |              3.349 | 24.10%      |           253.5 |             39.1 |
 
 *Nota: LanceDB e incremental-HNSW de ChromaDB usan sus wrappers de C/C++ nativos integrados en Python. VantaDB corre a través de sus bindings FFI de PyO3 (`vantadb_py`) consumiendo el core de Rust mapeado en memoria (`mmap`).*
