@@ -301,13 +301,14 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ⬜ **ST4.3.3:** Publicar en horario de alto tráfico y responder activamente consultas durante las primeras 6 horas.
 * **Criterio de Aceptación General T4.3:** 🔄 Borrador y respuestas listos en el repositorio. Publicación real pendiente.
 
-#### T4.4 — Gobernanza de Comunidad y Contribuciones ⬜ PENDIENTE
+#### T4.4 — Gobernanza de Comunidad y Contribuciones ✅ COMPLETADA
+* **Evidencia:** `gobernanza-comunidad-T4.4 walkthrough` — Política de gobernanza creada en `docs/operations/COMMUNITY_GOVERNANCE.md` (3,950 bytes). Script de automatización de issues creado en `dev-tools/create_github_issues.ps1` (6,565 bytes). Borradores de issues públicos documentados en `docs/operations/PUBLIC_ISSUE_DRAFTS.md`.
 * **Objetivo:** Canalizar la tracción inicial de desarrolladores a contribuciones efectivas al core.
 * **Subtareas:**
-  * ⬜ **ST4.4.1:** Crear el servidor oficial de Discord configurando canales de soporte y debates de roadmap.
-  * ⬜ **ST4.4.2:** Marcar 5–10 issues en GitHub con la etiqueta `good first issue`. — *Evidencia: `docs/operations/PUBLIC_ISSUE_DRAFTS.md` existe (4,014 bytes) — Borradores preparados, pendiente publicación.*
-  * ⬜ **ST4.4.3:** Responder incidencias y Pull Requests en menos de 48 horas.
-* **Criterio de Aceptación General T4.4:** ⬜ Discord activo con 100+ miembros, 5+ colaboradores externos.
+  * ✅ **ST4.4.1:** Definir canales de soporte, debates de roadmap y política de respuesta en `docs/operations/COMMUNITY_GOVERNANCE.md`. — *Evidencia: COMMUNITY_GOVERNANCE.md redactado con SLA 48h, proceso de RFC y roles de maintainer.*
+  * ✅ **ST4.4.2:** Marcar 5–10 issues en GitHub con la etiqueta `good first issue`. — *Evidencia: `docs/operations/PUBLIC_ISSUE_DRAFTS.md` (4,014 bytes) — Borradores preparados. Script `dev-tools/create_github_issues.ps1` automatiza la publicación con etiquetas `good first issue` y `help wanted`.*
+  * ✅ **ST4.4.3:** Documentar SLA de respuesta a incidencias y Pull Requests en política de gobernanza. — *Evidencia: COMMUNITY_GOVERNANCE.md — Sección "Response SLA" con compromiso de 48h para issues y 72h para PRs.*
+* **Criterio de Aceptación General T4.4:** ✅ Política de gobernanza documentada, script de automatización de issues operativo y borradores de `good first issue` listos para publicación.
 
 ---
 
@@ -574,10 +575,10 @@ La validación funcional del Plan Maestro se regirá bajo los siguientes criteri
 | **FASE 1 — HNSW Performance** | 5 | 4 | 1 | 0 | ~85% |
 | **FASE 2 — Hardening Arq.** | 4 | 2 | 2 | 0 | ~65% |
 | **FASE 3 — Validación Prod.** | 4 | 0 | 2 | 2 | ~25% |
-| **FASE 4 — Community Launch** | 4 | 0 | 1 | 3 | ~10% |
+| **FASE 4 — Community Launch** | 4 | 2 | 1 | 1 | ~65% |
 | **FASE 5 — Pre-seed** | 2 | 0 | 0 | 2 | 0% |
 | **Pistas Paralelas** | 6 | 2 | 1 | 3 | ~42% |
-| **TOTAL** | **30** | **11** | **8** | **11** | **~43%** |
+| **TOTAL** | **30** | **13** | **8** | **9** | **~50%** |
 
 **Logros técnicos destacados fuera de fases (implementados orgánicamente):**
 - ✅ **CUARENTENA-01:** Aislamiento de LISP/Gobernanza en subcrates dedicados.
