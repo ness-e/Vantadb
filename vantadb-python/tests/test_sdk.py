@@ -131,6 +131,36 @@ class TestVectorSearch:
         # Results are (node_id, distance) tuples
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results)
 
+    def test_search_batch(self):
+        """Batch search should yield equivalent results to individual searches in parallel."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+
+        # Insert some vectors
+        for i in range(10):
+            vec = [float(i) * 0.1] * 384
+            db.insert(i + 1, f"Node {i}", vec)
+
+        query_vectors = [
+            [0.0] * 384,
+            [0.5] * 384,
+            [0.9] * 384,
+        ]
+
+        # Individual searches
+        individual_results = []
+        for q in query_vectors:
+            individual_results.append(db.search(q, top_k=3))
+
+        # Batch search
+        batch_results = db.search_batch(query_vectors, top_k=3)
+
+        assert len(batch_results) == len(query_vectors)
+        for i in range(len(query_vectors)):
+            assert len(batch_results[i]) == len(individual_results[i])
+            for j in range(len(batch_results[i])):
+                assert batch_results[i][j][0] == individual_results[i][j][0]
+                assert abs(batch_results[i][j][1] - individual_results[i][j][1]) < 1e-5
+
 
 class TestPersistentMemoryApi:
     """Namespace-scoped persistent memory API tests."""
@@ -308,11 +338,15 @@ class TestHardwareIntrospection:
         assert caps["persistence"] is True
 
     def test_hardware_profile_alias(self):
-        """hardware_profile remains as a backward-compatible alias."""
+        """hardware_profile remains as a backward-compatible alias with memory telemetry."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         hw = db.hardware_profile()
         assert "profile" in hw
         assert "vector_search" in hw
+        assert "process_rss_bytes" in hw
+        assert "hnsw_logical_bytes" in hw
+        assert "hnsw_nodes_count" in hw
+        assert hw["process_rss_bytes"] > 0
 
 
 class TestEdgeManagement:

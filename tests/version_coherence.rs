@@ -68,4 +68,52 @@ fn public_surfaces_report_same_version() {
         mcp.contains("metadata::reported_version()"),
         "MCP serverInfo.version must use vantadb::metadata::reported_version()"
     );
+
+    let mcp_cargo = read(root.join("vantadb-mcp").join("Cargo.toml"));
+    assert_eq!(
+        extract_cargo_version(&mcp_cargo),
+        version,
+        "vantadb-mcp/Cargo.toml must match root Cargo.toml version {}",
+        version
+    );
+
+    let server_cargo = read(root.join("vantadb-server").join("Cargo.toml"));
+    assert_eq!(
+        extract_cargo_version(&server_cargo),
+        version,
+        "vantadb-server/Cargo.toml must match root Cargo.toml version {}",
+        version
+    );
+
+    let langchain_pyproject = read(
+        root.join("packages")
+            .join("langchain-vantadb")
+            .join("pyproject.toml"),
+    );
+    assert!(
+        langchain_pyproject.contains(&format!("version = \"{}\"", version)),
+        "packages/langchain-vantadb/pyproject.toml must match Cargo.toml version {}",
+        version
+    );
+    assert!(
+        langchain_pyproject.contains(&format!("\"vantadb-py>={}\"", version)),
+        "packages/langchain-vantadb/pyproject.toml must require vantadb-py >= {}",
+        version
+    );
+
+    let llamaindex_pyproject = read(
+        root.join("packages")
+            .join("llamaindex-vantadb")
+            .join("pyproject.toml"),
+    );
+    assert!(
+        llamaindex_pyproject.contains(&format!("version = \"{}\"", version)),
+        "packages/llamaindex-vantadb/pyproject.toml must match Cargo.toml version {}",
+        version
+    );
+    assert!(
+        llamaindex_pyproject.contains(&format!("\"vantadb-py>={}\"", version)),
+        "packages/llamaindex-vantadb/pyproject.toml must require vantadb-py >= {}",
+        version
+    );
 }
