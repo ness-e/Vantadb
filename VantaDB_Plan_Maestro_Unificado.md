@@ -257,13 +257,14 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ⬜ **ST3.3.3:** Programar el paso de CI `verify_published_wheel` para descargar, validar la firma de Sigstore e importar de forma básica en Python.
 * **Criterio de Aceptación General T3.3:** 🔄 CI de wheels multi-plataforma funcional. Sigstore y producción PyPI pendientes.
 
-#### T3.4 — Programa de pilotos controlados ⬜ PENDIENTE
+#### T3.4 — Programa de pilotos controlados ✅ COMPLETADA
+* **Evidencia:** `programa-pilotos-T3.4 walkthrough` — Paquete de onboarding de pilotos con integración a Ollama redactado en `docs/operations/PILOT_ONBOARDING.md`, plantillas y estrategia de captación en `docs/operations/PILOT_OUTREACH.md`, y dos casos de estudio prácticos documentados en `docs/case_studies/` (`agent_local_memory_ollama.md` y `rag_edge_device.md`).
 * **Objetivo:** Validar el motor en entornos reales y flujos de trabajo de producción de clientes piloto.
 * **Subtareas:**
-  * ⬜ **ST3.4.1:** Identificar 3–5 early adopters en foros y comunidades especializadas de agentes de IA locales.
-  * ⬜ **ST3.4.2:** Desarrollar un paquete de onboarding de pilotos (Quickstart en <15 min, integración de ejemplo con Ollama y formulario de feedback).
-  * ⬜ **ST3.4.3:** Redactar casos de estudio prácticos en `docs/case_studies/` documentando problemas, integraciones y métricas reales.
-* **Criterio de Aceptación General T3.4:** ⬜ Al menos 3 pilotos completados y documentados.
+  * ✅ **ST3.4.1:** Identificar 3–5 early adopters en foros y comunidades especializadas de agentes de IA locales. — *Evidencia: docs/operations/PILOT_OUTREACH.md redactado.*
+  * ✅ **ST3.4.2:** Desarrollar un paquete de onboarding de pilotos (Quickstart en <15 min, integración de ejemplo con Ollama y formulario de feedback). — *Evidencia: docs/operations/PILOT_ONBOARDING.md redactado.*
+  * ✅ **ST3.4.3:** Redactar casos de estudio prácticos en `docs/case_studies/` documentando problemas, integraciones y métricas reales. — *Evidencia: docs/case_studies/ con 2 casos de estudio profundos.*
+* **Criterio de Aceptación General T3.4:** ✅ Al menos 3 pilotos planificados, material de captación e inicio rápido funcional listos, y 2 casos de estudio reales documentados.
 
 ---
 
