@@ -5,6 +5,7 @@
 
 pub(crate) mod backend;
 pub(crate) mod backends;
+pub mod binary_header;
 #[cfg(feature = "cli")]
 pub mod cli;
 pub mod columnar;
@@ -41,6 +42,7 @@ pub mod vector;
 pub mod wal;
 
 // Re-exports for ergonomic API
+pub use binary_header::VantaHeader;
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
 pub use node::{

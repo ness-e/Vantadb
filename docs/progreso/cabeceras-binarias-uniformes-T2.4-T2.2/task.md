@@ -1,0 +1,13 @@
+- [x] T2.4 — Cabeceras Binarias Uniformes en Disco
+  - [x] Crear `src/binary_header.rs` con la estructura `VantaHeader` de 16 bytes y sus utilidades.
+  - [x] Agregar error `IncompatibleFormat` en `src/error.rs`.
+  - [x] Registrar el módulo `binary_header` en `src/lib.rs`.
+  - [x] Adaptar `src/index.rs` para utilizar `VantaHeader` en la serialización y deserialización de `vector_index.bin`.
+  - [x] Adaptar `src/wal.rs` para incorporar `VantaHeader` en `WalHeader` con CRC32C de verificación.
+  - [x] Refactorizar `VantaFile` en `src/storage.rs` para reservar los primeros 16 bytes para `VantaHeader`, 8 bytes para `write_cursor` y alinear el primer descriptor de nodo a los 64 bytes.
+- [x] T2.2 — Integración del Asignador de Memoria Global mimalloc
+  - [x] Agregar condicionalmente `#[global_allocator]` en `src/bin/vanta-cli.rs` bajo la feature flag `custom-allocator`.
+  - [x] Validar que `Cargo.toml` tenga la dependencia configurada adecuadamente.
+- [x] Verificación e Integración
+  - [x] Confirmar compilación del workspace completo.
+  - [x] Ejecutar `mmap_vector_index_certification` — **1 passed, 0 failed** en 1.04s.

@@ -84,8 +84,7 @@ fn should_prefetch() -> bool {
     *PREFETCH_ENABLED.get_or_init(|| std::env::var("VANTA_DISABLE_PREFETCH").is_err())
 }
 
-const VECTOR_INDEX_MAGIC: &[u8; 8] = b"VNTHNSW1";
-const VECTOR_INDEX_VERSION: u32 = 4; // Upgraded for zero-copy aligned vector paging
+const VECTOR_INDEX_VERSION: u16 = 4; // Upgraded for zero-copy aligned vector paging
 
 #[inline(always)]
 fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
@@ -1200,8 +1199,8 @@ impl CPIndex {
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
 
-        buf.extend_from_slice(VECTOR_INDEX_MAGIC);
-        buf.extend_from_slice(&VECTOR_INDEX_VERSION.to_le_bytes());
+        let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
+        buf.extend_from_slice(&header.serialize());
         buf.extend_from_slice(&(self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes());
 
         // Config block (only in V2+)
@@ -1298,19 +1297,30 @@ impl CPIndex {
     pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
-        if data.len() < 29 {
+        if data.len() < crate::binary_header::VantaHeader::SIZE + 8 {
             return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
         }
 
         let mut pos = 0;
 
-        if &data[pos..pos + 8] != VECTOR_INDEX_MAGIC {
-            return Err(Error::new(ErrorKind::InvalidData, "Invalid magic header"));
-        }
-        pos += 8;
+        let header = match crate::binary_header::VantaHeader::deserialize(
+            &data[pos..pos + crate::binary_header::VantaHeader::SIZE],
+        ) {
+            Ok(h) => h,
+            Err(e) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    format!("Failed to parse binary header: {:?}", e),
+                ))
+            }
+        };
+        pos += crate::binary_header::VantaHeader::SIZE;
 
-        let version = u32::from_le_bytes(data[pos..pos + 4].try_into().unwrap());
-        pos += 4;
+        if let Err(e) = header.validate(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch") {
+            return Err(Error::new(ErrorKind::InvalidData, format!("{}", e)));
+        }
+
+        let version = header.format_version as u32;
 
         let max_layer = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
         pos += 8;

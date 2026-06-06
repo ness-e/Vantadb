@@ -28,6 +28,15 @@ pub enum VantaError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
+    #[error("Incompatible binary format: expected magic {expected_magic:?}, version {expected_version}, found magic {found_magic:?}, version {found_version}. Hint: {hint}")]
+    IncompatibleFormat {
+        expected_magic: [u8; 4],
+        expected_version: u16,
+        found_magic: [u8; 4],
+        found_version: u16,
+        hint: String,
+    },
+
     #[error("Engine not initialized")]
     NotInitialized,
 
