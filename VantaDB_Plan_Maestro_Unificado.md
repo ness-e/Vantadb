@@ -238,15 +238,15 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ✅ **ST3.1.3:** Publicar y documentar los resultados en `docs/operations/RELIABILITY_GATE.md`. — *Evidencia: RELIABILITY_GATE.md expandido y enlazado desde README.*
 * **Criterio de Aceptación General T3.1:** ✅ 100% de éxito en loop de caos y failpoints documentados e integrados en el pipeline.
 
-#### T3.2 — Benchmark competitivo vs LanceDB y Chroma ⬜ PENDIENTE
-* **Nota:** BENCHMARKS.md contiene benchmarks propios de VantaDB pero NO comparativas externas vs LanceDB/Chroma todavía.
+#### T3.2 — Benchmark competitivo vs LanceDB y Chroma ✅ COMPLETADA
+* **Evidencia:** `competitive-bench-T3.2 walkthrough` — Resultados oficiales de los datasets `glove-100-angular` y `sift-128-euclidean` agregados a `docs/BENCHMARKS.md` a escala de 10K. VantaDB muestra un **100% de Recall** bajo condiciones comparativas versus LanceDB y ChromaDB.
 * **Objetivo:** Proveer comparaciones de rendimiento honestas utilizando frameworks de la industria.
 * **Subtareas:**
-  * ⬜ **ST3.2.1:** Desarrollar el conector de VantaDB para el framework `ann-benchmarks` e integrar los datasets estándar `glove-100-angular` y `sift-128-euclidean`.
+  * ✅ **ST3.2.1:** Desarrollar el conector de VantaDB para el framework `ann-benchmarks` e integrar los datasets estándar `glove-100-angular` y `sift-128-euclidean`. — *Evidencia: benchmarks/competitive_bench.py implementado y robustecido.*
     * *Criterio de Aceptación:* El conector procesa las consultas y exporta métricas sin errores de tipos.
-  * ⬜ **ST3.2.2:** Medir ingesta, latencias p50/p95/p99, recall, memoria en reposo y bajo carga para VantaDB, LanceDB y Chroma.
-  * ⬜ **ST3.2.3:** Redactar y publicar los resultados en `docs/BENCHMARKS.md`.
-* **Criterio de Aceptación General T3.2:** ⬜ Benchmark transparente publicado con scripts reproducibles de un solo paso.
+  * ✅ **ST3.2.2:** Medir ingesta, latencias p50/p95/p99, recall, memoria en reposo y bajo carga para VantaDB, LanceDB y Chroma. — *Evidencia: Medición exitosa ejecutada y validada en terminal.*
+  * ✅ **ST3.2.3:** Redactar y publicar los resultados en `docs/BENCHMARKS.md`. — *Evidencia: Secciones 7.1 y 7.2 redactadas e integradas.*
+* **Criterio de Aceptación General T3.2:** ✅ Benchmark transparente publicado con scripts reproducibles de un solo paso.
 
 #### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) ✅ COMPLETADA
 * **Evidencia:** `wheels-pipeline-T3.3 walkthrough` — Jobs `verify-testpypi-install` y `verify-pypi-install` implementados en `python_wheels.yml`. `PYTHON_RELEASE_POLICY.md` actualizado para documentar GitHub Attestations SLSA Level 2 como mecanismo canónico de signing (sustituyendo las referencias obsoletas a `sigstore/gh-action-sigstore-python`). Pipeline completo: build → attest → publish → verify CDN → `gh attestation verify`.
