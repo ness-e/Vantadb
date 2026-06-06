@@ -720,6 +720,41 @@ impl VantaDB {
         })
     }
 
+    /// K-NN vector search for a batch of vectors.
+    ///
+    /// GIL Policy: RELEASED eager, runs search in parallel using Rayon.
+    ///
+    /// Args:
+    ///     vectors: List of query embedding vectors.
+    ///     top_k: Number of nearest neighbors to return per vector.
+    #[pyo3(signature = (vectors, top_k=10))]
+    fn search_batch(
+        &self,
+        py: Python,
+        vectors: Vec<Vec<f32>>,
+        top_k: usize,
+    ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            use rayon::prelude::*;
+            vectors
+                .into_par_iter()
+                .map(|vector| {
+                    engine
+                        .search_vector(&vector, top_k)
+                        .map(|hits| {
+                            hits.into_iter()
+                                .map(|hit| (hit.node_id, hit.distance))
+                                .collect()
+                        })
+                        .map_err(|e| {
+                            PyRuntimeError::new_err(format!("Batch search error: {:?}", e))
+                        })
+                })
+                .collect::<Result<Vec<Vec<(u64, f32)>>, _>>()
+        })
+    }
+
     /// Execute an IQL or LISP query string. Returns a formatted result string.
     ///
     /// GIL Policy: RELEASED during Tokio execution — allows other Python
@@ -754,9 +789,33 @@ impl VantaDB {
         capabilities_to_pydict(py, &capabilities)
     }
 
-    /// Backward-compatible alias for the stable capabilities surface.
+    /// Return capabilities and system memory telemetry.
     fn hardware_profile(&self, py: Python) -> PyResult<PyObject> {
-        self.capabilities(py)
+        let caps_obj = self.capabilities(py)?;
+        let metrics_obj = self.operational_metrics(py)?;
+
+        let caps_dict = caps_obj.bind(py).downcast::<PyDict>()?;
+        let metrics_dict = metrics_obj.bind(py).downcast::<PyDict>()?;
+
+        let merged_dict = caps_dict.clone();
+
+        let memory_keys = [
+            "process_rss_bytes",
+            "process_virtual_bytes",
+            "hnsw_nodes_count",
+            "hnsw_logical_bytes",
+            "mmap_resident_bytes",
+            "volatile_cache_entries",
+            "volatile_cache_cap_bytes",
+        ];
+
+        for &key in &memory_keys {
+            if let Some(val) = metrics_dict.get_item(key)? {
+                merged_dict.set_item(key, val)?;
+            }
+        }
+
+        Ok(merged_dict.unbind().into())
     }
 
     /// Add a labeled edge between two nodes.

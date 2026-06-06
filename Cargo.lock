@@ -3462,6 +3462,7 @@ name = "vantadb_py"
 version = "0.1.4"
 dependencies = [
  "pyo3",
+ "rayon",
  "serde_json",
  "vantadb",
 ]
