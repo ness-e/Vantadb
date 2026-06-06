@@ -1,0 +1,12 @@
+- [x] T2.2 — Completación de Python Binding
+  - [x] Analizar `vantadb-python/src/lib.rs` y cómo interactúa con el engine para obtener métricas.
+  - [x] Implementar la función `hardware_profile()` para retornar el dict completo con capacidades y las 7 métricas de memoria.
+  - [ ] Ejecutar/verificar tests de Python para asegurar la compatibilidad y correcto retorno de métricas.
+- [x] T2.2 — Test de Estrés RSS y Estabilidad
+  - [x] Analizar `tests/certification/hardware_profiles.rs` actual.
+  - [x] Implementar el test `rss_stability_under_bulk_insert` (100K inserciones, drift RSS < 15%).
+  - [x] Crear el documento `docs/operations/RELIABILITY_GATE.md` detallando las instrucciones del test de estrés extendido manual de 30 minutos.
+- [/] Actualización y Cierre
+  - [x] Actualizar `VantaDB_Plan_Maestro_Unificado.md` (T2.2 ✅, T2.4 ✅).
+  - [ ] Generar el artifact `walkthrough.md`.
+  - [ ] Generar el Snapshot Histórico en `docs/progreso/completacion-formal-T2.2-mimalloc-rss/`.

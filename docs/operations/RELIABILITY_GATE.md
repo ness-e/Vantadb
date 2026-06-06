@@ -1,96 +1,92 @@
-# Reliability Gate
+# Reliability Gate: Test de Estrés RSS Extendido (30 Minutos)
 
-This note closes the current repo-alignment cycle.
+Este documento detalla el procedimiento operativo para ejecutar el test de estrés manual de 30 minutos requerido para certificar la estabilidad de la memoria física (RSS) de VantaDB bajo cargas sostenidas (Criterio de Aceptación ST2.2.2).
 
-## Allowed claims now
+## Propósito del Test
 
-- Embedded persistent memory engine
-- WAL-backed recovery
-- HNSW vector retrieval using cosine similarity
-- Structured metadata stored with records
-- Derived ANN reconstruction from canonical persisted state
-- Manual ANN rebuild from canonical VantaFile/storage state
-- JSONL export/import for persistent memory records
-- Namespace-scoped list/search with persisted derived indexes for namespace and equality metadata filters
-- Prefix-scan-backed derived index lookups
-- Persistent inverted text index for memory payload postings, derived from canonical records
-- BM25 lexical retrieval for text-only memory `text_query`
-- Hybrid Retrieval v1 for memory search using simple planner + RRF over BM25 and vector rankings
-- Basic quoted phrase queries using persisted token positions in the derived text index
-- Debug-only search explanation for snippets from canonical payloads, BM25 term contributions, matched phrases, and RRF ranks
-- Operational metrics for startup, WAL replay, rebuild, text-index rebuild/repair, lexical text queries, hybrid queries, planner routes, export, import, and import errors
-- Debug-only planner/RRF certification for route, budget, candidate counts, and fused identities
-- Read-only structural and deep text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index --deep`
-- Explicit text-index repair through Rust SDK, Python SDK, and `vanta-cli repair-text-index`
-- Stale/corrupt derived-index state repair on open
-- Stale/corrupt text-index state repair on writable open
-- PyPI wheel release workflow with manual TestPyPI staging, tag-gated production publishing, OIDC, and Sigstore signing
-- Source-install Python binding through a stable embedded boundary
+El test rápido de CI valida la ausencia de fugas catastróficas en caliente. Sin embargo, para certificar formalmente que el asignador de memoria global `mimalloc` mitiga la fragmentación del heap a largo plazo bajo el ciclo de vida del motor de almacenamiento, se requiere una ejecución continua durante **30 minutos**.
 
-## Claims intentionally deferred
+## Requisitos Previos
 
-- Universal multimodel database
-- Advanced hybrid ranking, learned fusion, public ranking explanation APIs, or competitive hybrid-search parity claims
-- Competitive parity claims on SIFT1M while cosine-only
-- Actual PyPI publication from this repository until Trusted Publisher/secrets
-  and a release tag are configured and exercised externally
-- Enterprise, HA, RBAC, or managed-cloud positioning
+- Compilación del motor con la feature `custom-allocator` habilitada para activar `mimalloc`:
+  ```bash
+  cargo build --release --features custom-allocator
+  ```
 
-## Trusted metrics now
+## Script de Prueba Manual
 
-- Process-scoped certification memory using the explicit telemetry contract
-- Logical HNSW estimate reported by benchmark code
-- Recall and latency on synthetic cosine-based validation datasets
-- Recovery and reconstruction pass/fail behavior
+El script ejecuta un bucle continuo de inserciones y lecturas sobre `VantaDB` a través del SDK Python o de la utilidad CLI para evaluar el comportamiento del heap del proceso.
 
-## Metrics that remain non-decision-grade for marketing
+### Código del Test (Python)
 
-- SIFT1M recall as a competitive benchmark
-- Any single process-memory number interpreted as total engine footprint
-- mmap/page-cache behavior presented as minimal RAM without extra validation
+Guarda este código en un script (ej. `tests/stress_rss_30m.py`):
 
-## Next cycle cut
+```python
+import time
+import os
+import psutil
+import vantadb_py as vanta
 
-The product-building cycle no longer starts with the memory MVP primitives,
-text-index persistence substrate, BM25 text-only retrieval, or simple RRF
-hybrid retrieval; those are implemented in the repo. The next product cycle can
-focus on search quality and distribution without inflating public claims.
+def run_stress_test(duration_minutes=30):
+    print(f"Iniciando test de estrés RSS por {duration_minutes} minutos...")
+    
+    # Inicializar DB en directorio temporal
+    db_path = "./temp_stress_db"
+    if not os.path.exists(db_path):
+        os.makedirs(db_path)
+        
+    db = vanta.VantaDB(db_path)
+    
+    # RSS Inicial
+    process = psutil.Process(os.getpid())
+    rss_initial = process.memory_info().rss
+    print(f"RSS Inicial: {rss_initial / 1024 / 1024:.2f} MB")
+    
+    start_time = time.time()
+    end_time = start_time + (duration_minutes * 60)
+    
+    count = 0
+    while time.time() < end_time:
+        # Insertar lote de 1,000 vectores de 128 dims
+        for i in range(1000):
+            vector = [1.0] * 128
+            db.insert(count, f"content_{count}", vector)
+            count += 1
+            
+        # flush periódico para persistir y actualizar telemetría
+        db.flush()
+        
+        # Consultar métricas de perfil hardware en caliente
+        profile = db.hardware_profile()
+        current_rss = profile["process_rss_bytes"]
+        
+        elapsed = (time.time() - start_time) / 60
+        print(f"[{elapsed:.2f} min] RSS actual: {current_rss / 1024 / 1024:.2f} MB | Nodos insertados: {count}")
+        
+        time.sleep(1) # pausa breve para regular flujo
+        
+    # RSS Final
+    rss_final = process.memory_info().rss
+    drift = (rss_final / rss_initial) - 1.0
+    
+    print("\n" + "="*40)
+    print("TEST FINALIZADO")
+    print(f"RSS Inicial: {rss_initial / 1024 / 1024:.2f} MB")
+    print(f"RSS Final: {rss_final / 1024 / 1024:.2f} MB")
+    print(f"Drift Residual de RSS: {drift * 100:.2f}%")
+    print("="*40)
+    
+    # Criterio de Aceptación ST2.2.2: drift < 10%
+    if drift < 0.10:
+        print("✅ Certificación Exitosa: Crecimiento residual de RSS inferior al 10%.")
+    else:
+        print("❌ Certificación Fallida: Fuga o fragmentación excesiva detectada.")
 
-Euclidean support remains a benchmark-enabling task, not a public product claim.
+if __name__ == "__main__":
+    run_stress_test(30)
+```
 
-## Current execution state
+## Criterios de Aceptación (Gating)
 
-- Canonical memory records are represented as SDK-level types, not as public `UnifiedNode`.
-- Namespaces are first-class at the SDK boundary via `namespace + key`.
-- The embedded SDK exposes `put`, `get`, `delete`, `list`, `search`, and `list_namespaces`.
-- Python exposes memory-specific methods while preserving legacy node methods.
-- Manual rebuild is exposed as `rebuild_index` in Rust/Python and `vanta-cli rebuild-index`.
-- JSONL export/import is exposed in Rust/Python and `vanta-cli export/import`.
-- Derived namespace and payload indexes are persisted and rebuilt from canonical records.
-- Derived namespace and payload lookups use backend prefix scans.
-- Derived-index state is validated on open and repaired from canonical records when missing, corrupt, or stale.
-- Text-index postings are persisted in a dedicated backend partition and rebuilt from canonical payloads.
-- Text-index postings store TF, token positions, and small derived BM25 stats for DF, document length, and namespace corpus length.
-- Text-index state is validated on writable open and repaired from canonical records when missing, corrupt, incompatible, or count-stale.
-- Text-only `text_query` executes BM25 lexical retrieval with metadata filters and deterministic ordering.
-- Quoted phrase `text_query` filters lexical candidates through exact consecutive token positions.
-- Hybrid `text_query + query_vector` executes both rankings and fuses them with RRF under a minimal planner.
-- Hybrid certification uses a small deterministic test corpus; it is not a marketing benchmark.
-- `hybrid_retrieval_quality` certifies text-only, vector-only, hybrid, phrase, namespace/filter behavior over a small local corpus.
-- `benches/hybrid_queries.rs` now uses a small deterministic embedded-memory corpus instead of synthetic mock operations.
-- Operational metrics are exposed through Rust/Python SDK.
-- The CLI is embedded-first for `put/get/list/rebuild-index/export/import` and no longer requires a local server for the first useful memory flow.
-- The CLI exposes `audit-index --deep --json` as a read-only diagnostic path for text-index drift; repair remains explicit through `repair-text-index` or `rebuild-index`.
-- Public text-only `text_query` and simple hybrid text+vector retrieval are enabled.
-
-## Current validation evidence
-
-- `cargo test --test memory_api --test memory_export_import --test derived_indexes`
-- `cargo test --test derived_index_prefix_scan --test derived_index_recovery --test operational_metrics`
-- `cargo test text_index --lib`
-- `cargo test --test text_index_recovery`
-- `cargo test --test hybrid_retrieval_quality`
-- `vanta-cli audit-index --db <path> [--namespace <ns>] [--json] [--deep]` and `vanta-cli repair-text-index --db <path>` are covered by the text-index recovery suite.
-- `cargo test --test memory_brutality -- --nocapture`
-- `python -m pytest vantadb-python/tests/test_sdk.py -v`
-- `memory_brutality` includes recovery without explicit flush, vector-index deletion plus manual rebuild, JSONL export/import, and a 10K-record namespace/filter/export/import smoke.
+1. **Drift de RSS < 10%** entre el minuto 5 (cuando la memoria se estabiliza tras el cold-start) y el minuto 30.
+2. **Estabilidad de fragmentación:** La memoria lógica de HNSW (`hnsw_logical_bytes`) y el RSS física (`process_rss_bytes`) deben mostrar una correlación lineal y estable.
