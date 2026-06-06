@@ -15,9 +15,18 @@
 
 <br>
 
+<div align="center">
+  <img src="docs/assets/demo_terminal.png" alt="VantaDB — Hybrid search demo: BM25 + HNSW + RRF in 1.2ms" width="820"/>
+  <br/>
+  <sub><i>Hybrid search (BM25 + HNSW via RRF) · 1.2ms latency · 100% Recall@10 · Zero network · Embedded in-process</i></sub>
+</div>
+
+<br>
+
 VantaDB is a local-first, embedded database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies.
 
 ---
+
 
 ## Quick Links
 
