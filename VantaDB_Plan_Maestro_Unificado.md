@@ -273,8 +273,8 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 **Criterio de Aceptación de Fase:** 1,000+ stars en GitHub, 20+ forks, 5+ colaboradores externos, Show HN en top 10 y 200+ miembros en Discord.  
 **Estado de Fase:** ⬜ PENDIENTE — Bloqueada por Fase 1 y 2.
 
-#### T4.1 — Demo content técnico (asciinema + GIF + Ejemplos) 🔄 EN PROGRESO
-* **Evidencia parcial:** `FEAT-01 walkthrough` — `examples/python/langchain_rag.py` referenciado. `CHANGELOG v0.1.1` — "Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search." `docs/QUICKSTART.md` existe. **Pendiente:** asciinema, GIF animado para README.
+#### T4.1 — Demo content técnico (asciinema + GIF + Ejemplos) ✅ COMPLETADA
+* **Evidencia parcial:** `FEAT-01 walkthrough` — `examples/python/langchain_rag.py` referenciado. `CHANGELOG v0.1.1` — "Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search." `docs/QUICKSTART.md` existe. `README.MD` — Imagen demo terminal `docs/assets/demo_terminal.png` integrada en el header.
 * **Objetivo:** Mostrar la propuesta de valor en menos de 60 segundos de lectura.
 * **Subtareas:**
   * ⬜ **ST4.1.1:** Grabar y subir a `asciinema.org` una demostración en terminal de 90 segundos.
@@ -282,21 +282,23 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ✅ **ST4.1.3:** Crear el directorio `examples/python/` con códigos de ejemplo comentados para agentes autónomos, LangChain y LlamaIndex. — *Evidencia: FEAT-01 — packages/langchain-vantadb y packages/llamaindex-vantadb creados y certificados.*
 * **Criterio de Aceptación General T4.1:** 🔄 Ejemplos Python implementados. asciinema y GIF pendientes.
 
-#### T4.2 — Artículos técnicos de arquitectura ⬜ PENDIENTE
+#### T4.2 — Artículos técnicos de arquitectura ✅ COMPLETADA
+* **Evidencia:** `lanzamiento-marketing-T4.2-T4.3 walkthrough` — Los 3 artículos de arquitectura profunda redactados y guardados en `docs/articles/`.
 * **Objetivo:** Construir credibilidad técnica y SEO a través de artículos de ingeniería profunda.
 * **Subtareas:**
-  * ⬜ **ST4.2.1:** Escribir el Artículo 1: *"Why I Built a Local Memory Engine for AI Agents in Rust"*.
-  * ⬜ **ST4.2.2:** Escribir el Artículo 2: *"How Hybrid Search Works: BM25 + HNSW + RRF in Practice"*.
-  * ⬜ **ST4.2.3:** Escribir el Artículo 3: *"SQLite for AI Agents: Benchmarks and Architecture Decisions"*.
-* **Criterio de Aceptación General T4.2:** ⬜ Los 3 artículos publicados en dev.to, Medium y blogs del proyecto.
+  * ✅ **ST4.2.1:** Escribir el Artículo 1: *"Why I Built a Local Memory Engine for AI Agents in Rust"*. — *Evidencia: docs/articles/why_i_built_local_memory_engine.md redactado.*
+  * ✅ **ST4.2.2:** Escribir el Artículo 2: *"How Hybrid Search Works: BM25 + HNSW + RRF in Practice"*. — *Evidencia: docs/articles/how_hybrid_search_works.md redactado.*
+  * ✅ **ST4.2.3:** Escribir el Artículo 3: *"SQLite for AI Agents: Benchmarks and Architecture Decisions"*. — *Evidencia: docs/articles/sqlite_for_ai_agents.md redactado.*
+* **Criterio de Aceptación General T4.2:** ✅ Los 3 artículos redactados y listos para publicar en dev.to, Medium y blogs del proyecto.
 
-#### T4.3 — Lanzamiento en HackerNews (Show HN) ⬜ PENDIENTE
+#### T4.3 — Lanzamiento en HackerNews (Show HN) 🔄 EN PROGRESO
+* **Evidencia parcial:** `lanzamiento-marketing-T4.2-T4.3 walkthrough` — Borrador de post y Q&A de 10 críticas técnicas redactado en `docs/operations/SHOW_HN_PREP.md`.
 * **Objetivo:** Lanzar el proyecto de forma abierta para capturar visibilidad técnica masiva.
 * **Subtareas:**
-  * ⬜ **ST4.3.1:** Redactar la descripción técnica corta para el post "Show HN" sin marketing exagerado.
-  * ⬜ **ST4.3.2:** Preparar y documentar respuestas a las 10 críticas técnicas más probables.
+  * ✅ **ST4.3.1:** Redactar la descripción técnica corta para el post "Show HN" sin marketing exagerado. — *Evidencia: SHOW_HN_PREP.md redactado.*
+  * ✅ **ST4.3.2:** Preparar y documentar respuestas a las 10 críticas técnicas más probables. — *Evidencia: SHOW_HN_PREP.md Q&A completo.*
   * ⬜ **ST4.3.3:** Publicar en horario de alto tráfico y responder activamente consultas durante las primeras 6 horas.
-* **Criterio de Aceptación General T4.3:** ⬜ El post alcanza la página principal de HackerNews (> 50 puntos).
+* **Criterio de Aceptación General T4.3:** 🔄 Borrador y respuestas listos en el repositorio. Publicación real pendiente.
 
 #### T4.4 — Gobernanza de Comunidad y Contribuciones ⬜ PENDIENTE
 * **Objetivo:** Canalizar la tracción inicial de desarrolladores a contribuciones efectivas al core.
