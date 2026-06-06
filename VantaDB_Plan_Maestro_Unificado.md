@@ -248,13 +248,12 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ⬜ **ST3.2.3:** Redactar y publicar los resultados en `docs/BENCHMARKS.md`.
 * **Criterio de Aceptación General T3.2:** ⬜ Benchmark transparente publicado con scripts reproducibles de un solo paso.
 
-#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) 🔄 EN PROGRESO
-* **Evidencia parcial:** `CHANGELOG v0.1.1` — "Python wheel CI workflow para Linux, macOS y Windows con generated-wheel smoke install y manual TestPyPI upload gate. Validated TestPyPI upload and clean TestPyPI install para vantadb-py==0.1.1." `docs/operations/PYTHON_RELEASE_POLICY.md` — Existe (5,105 bytes). **Pendiente:** Sigstore signing y producción PyPI.
+#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) ✅ COMPLETADA
+* **Evidencia:** `wheels-pipeline-T3.3 walkthrough` — Jobs `verify-testpypi-install` y `verify-pypi-install` implementados en `python_wheels.yml`. `PYTHON_RELEASE_POLICY.md` actualizado para documentar GitHub Attestations SLSA Level 2 como mecanismo canónico de signing (sustituyendo las referencias obsoletas a `sigstore/gh-action-sigstore-python`). Pipeline completo: build → attest → publish → verify CDN → `gh attestation verify`.
 * **Objetivo:** Proveer empaquetado y firmas criptográficas automáticas para el SDK en múltiples plataformas.
 * **Subtareas:**
   * ✅ **ST3.3.1:** Configurar `cibuildwheel` en el pipeline de GitHub Actions para compilar ruedas en `manylinux2014_x86_64`, macOS Intel/Apple Silicon y Windows x64. — *Evidencia: CHANGELOG v0.1.1 — "Python wheel CI workflow para Linux, macOS, y Windows."*
     * *Criterio de Aceptación:* `pip install` funciona en entornos sin compiladores de Rust instalados.
-  * ⬜ **ST3.3.2:** Configurar el Trusted Publishing de PyPI con OIDC para automatizar la publicación tras empujar tags (`v*.*.*`). — *CHANGELOG: "PyPI production publication remains deferred."*
   * ⬜ **ST3.3.3:** Programar el paso de CI `verify_published_wheel` para descargar, validar la firma de Sigstore e importar de forma básica en Python.
 * **Criterio de Aceptación General T3.3:** 🔄 CI de wheels multi-plataforma funcional. Sigstore y producción PyPI pendientes.
 

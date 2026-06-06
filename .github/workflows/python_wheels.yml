@@ -169,3 +169,115 @@ jobs:
         with:
           packages-dir: dist/
           verbose: true
+
+  verify-testpypi-install:
+    name: Verify TestPyPI install
+    runs-on: ubuntu-latest
+    needs: publish-testpypi
+    timeout-minutes: 10
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true')
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Extract version from tag or Cargo.toml
+        id: pkg_version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            version=$(grep '^version' vantadb-python/Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for TestPyPI CDN propagation
+        run: sleep 30
+
+      - name: Install from TestPyPI
+        run: |
+          python -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            "vantadb-py==${{ steps.pkg_version.outputs.version }}"
+
+      - name: Smoke test — import and version
+        run: |
+          python -c "
+          import vantadb_py
+          print(f'vantadb_py version: {vantadb_py.__version__}')
+          expected = '${{ steps.pkg_version.outputs.version }}'
+          assert vantadb_py.__version__ == expected, \
+            f'Version mismatch: got {vantadb_py.__version__!r}, expected {expected!r}'
+          print('TestPyPI install smoke test: PASSED')
+          "
+
+  verify-pypi-install:
+    name: Verify PyPI production install + Attest provenance
+    runs-on: ubuntu-latest
+    needs: publish-pypi
+    timeout-minutes: 15
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      id-token: write
+      attestations: read
+
+    steps:
+      - name: Checkout (for attestation verification)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Extract version from tag
+        id: pkg_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for PyPI CDN propagation
+        run: |
+          echo "Waiting 90 seconds for PyPI CDN propagation..."
+          sleep 90
+
+      - name: Install from PyPI (clean environment)
+        run: |
+          python -m pip install --no-cache-dir \
+            "vantadb-py==${{ steps.pkg_version.outputs.version }}"
+
+      - name: Smoke test — import and version
+        run: |
+          python -c "
+          import vantadb_py
+          print(f'vantadb_py version: {vantadb_py.__version__}')
+          expected = '${{ steps.pkg_version.outputs.version }}'
+          assert vantadb_py.__version__ == expected, \
+            f'Version mismatch: got {vantadb_py.__version__!r}, expected {expected!r}'
+          print('PyPI production install smoke test: PASSED')
+          "
+
+      - name: Verify build provenance (GitHub Attestations)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Download the wheel that was just installed to verify its provenance
+          pip download --no-deps --dest /tmp/verify_whl \
+            "vantadb-py==${{ steps.pkg_version.outputs.version }}"
+          wheel_file=$(ls /tmp/verify_whl/vantadb_py-*.whl | head -1)
+          echo "Verifying provenance for: ${wheel_file}"
+          gh attestation verify "${wheel_file}" \
+            --repo "${{ github.repository }}" \
+            --format json | python -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          verifications = data if isinstance(data, list) else [data]
+          assert len(verifications) > 0, 'No attestation found'
+          print(f'Attestations verified: {len(verifications)}')
+          print('Build provenance attestation: VALID')
+          "
+          echo "Supply-chain integrity: VERIFIED"
