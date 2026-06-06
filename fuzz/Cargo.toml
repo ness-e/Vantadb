@@ -30,3 +30,7 @@ name = "fuzz_node_deserialize"
 path = "fuzz_targets/fuzz_node_deserialize.rs"
 test = false
 doc = false
+
+[workspace]
+# Empty workspace block keeps cargo-fuzz isolated from the root workspace
+
