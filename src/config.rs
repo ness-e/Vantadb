@@ -38,6 +38,27 @@ pub struct VantaConfig {
     pub backend_kind: BackendKind,
     pub max_blocking_threads: usize,
     pub sync_mode: SyncMode,
+    /// Optional Bearer token for HTTP API authentication.
+    ///
+    /// When set via `VANTADB_API_KEY`, the server requires
+    /// `Authorization: Bearer <token>` on all protected endpoints.
+    /// If `None`, the server runs without authentication (development mode).
+    pub api_key: Option<String>,
+    /// Maximum HTTP requests per minute per remote IP for the rate limiter.
+    ///
+    /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
+    /// limiting entirely (useful for tests and embedded-local usage).
+    pub rate_limit_rpm: u32,
+    /// Path to the PEM-encoded TLS certificate file.
+    ///
+    /// Requires the `tls` feature. Configured via `VANTADB_TLS_CERT`.
+    /// If `None` while the `tls` feature is active, the server falls back
+    /// to plain HTTP and logs a warning.
+    pub tls_cert_path: Option<String>,
+    /// Path to the PEM-encoded TLS private key file.
+    ///
+    /// Requires the `tls` feature. Configured via `VANTADB_TLS_KEY`.
+    pub tls_key_path: Option<String>,
 }
 
 impl Default for VantaConfig {
@@ -67,6 +88,13 @@ impl Default for VantaConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(16),
             sync_mode: SyncMode::default(),
+            api_key: env::var("VANTADB_API_KEY").ok(),
+            rate_limit_rpm: env::var("VANTADB_RATE_LIMIT_RPM")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(100),
+            tls_cert_path: env::var("VANTADB_TLS_CERT").ok(),
+            tls_key_path: env::var("VANTADB_TLS_KEY").ok(),
         }
     }
 }
@@ -116,6 +144,31 @@ impl VantaConfig {
     /// Sets the sync mode.
     pub fn with_sync_mode(mut self, sync_mode: SyncMode) -> Self {
         self.sync_mode = sync_mode;
+        self
+    }
+
+    /// Sets the API key for Bearer token authentication.
+    ///
+    /// When `None`, the server runs in unauthenticated mode.
+    pub fn with_api_key(mut self, key: Option<String>) -> Self {
+        self.api_key = key;
+        self
+    }
+
+    /// Sets the rate limit in requests per minute per IP.
+    ///
+    /// Use `0` to disable rate limiting.
+    pub fn with_rate_limit_rpm(mut self, rpm: u32) -> Self {
+        self.rate_limit_rpm = rpm;
+        self
+    }
+
+    /// Sets the TLS certificate and key paths for HTTPS.
+    ///
+    /// Requires the `tls` feature to have any effect.
+    pub fn with_tls(mut self, cert_path: String, key_path: String) -> Self {
+        self.tls_cert_path = Some(cert_path);
+        self.tls_key_path = Some(key_path);
         self
     }
 }

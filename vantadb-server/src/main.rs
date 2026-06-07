@@ -75,31 +75,116 @@ async fn main() {
     if is_mcp {
         vantadb_mcp::run_stdio_server(storage).await;
     } else {
+        // ── Log active security mode ─────────────────────────────────────
+        log_security_mode(&config);
+
+        let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_blocking_threads));
         let state = Arc::new(ServerState {
             storage: storage.clone(),
             semaphore,
+            api_key,
         });
-        let router = app(state);
 
+        let rpm = config.rate_limit_rpm;
+        let router = app(state, rpm);
         let addr = format!("{}:{}", config.host, config.port);
 
-        let listener = match TcpListener::bind(&addr).await {
-            Ok(l) => {
-                console::ok("TCP listener bound", Some(&addr));
-                l
+        serve_http_or_tls(router, addr, &config).await;
+    }
+}
+
+/// Logs the active security configuration to the console at startup.
+fn log_security_mode(config: &vantadb::config::VantaConfig) {
+    let auth_status = if config.api_key.is_some() {
+        "Bearer token auth ✓"
+    } else {
+        "No auth (dev mode)"
+    };
+
+    let rate_status = if config.rate_limit_rpm == 0 {
+        "Rate limit disabled".to_string()
+    } else {
+        format!("Rate limit {} req/min", config.rate_limit_rpm)
+    };
+
+    let tls_status = {
+        #[cfg(feature = "tls")]
+        {
+            if config.tls_cert_path.is_some() && config.tls_key_path.is_some() {
+                "TLS ✓ (rustls)"
+            } else {
+                "TLS feature active but no cert/key configured — falling back to plain HTTP"
             }
+        }
+        #[cfg(not(feature = "tls"))]
+        "Plain HTTP"
+    };
+
+    console::ok(
+        "Security",
+        Some(&format!("{} | {} | {}", auth_status, rate_status, tls_status)),
+    );
+}
+
+/// Binds and serves the router over plain TCP or TLS depending on the feature
+/// flag and runtime configuration.
+#[cfg_attr(not(feature = "tls"), allow(unused_variables))]
+async fn serve_http_or_tls(
+    router: axum::Router,
+    addr: String,
+    config: &vantadb::config::VantaConfig,
+) {
+    // ── TLS path (requires --features tls AND cert/key paths) ───────────────
+    #[cfg(feature = "tls")]
+    if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
+        use axum_server::tls_rustls::RustlsConfig;
+
+        let tls_config = match RustlsConfig::from_pem_file(cert, key).await {
+            Ok(c) => c,
             Err(e) => {
-                console::error("Failed to bind port", Some(&e.to_string()));
+                console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
                 std::process::exit(1);
             }
         };
 
-        console::print_ready(&addr);
+        let socket_addr: std::net::SocketAddr = match addr.parse() {
+            Ok(a) => a,
+            Err(e) => {
+                console::error("Invalid bind address", Some(&e.to_string()));
+                std::process::exit(1);
+            }
+        };
 
-        if let Err(e) = axum::serve(listener, router).await {
-            console::error("Server terminated unexpectedly", Some(&e.to_string()));
+        console::print_ready(&format!("https://{}", addr));
+
+        if let Err(e) = axum_server::bind_rustls(socket_addr, tls_config)
+            .serve(router.into_make_service())
+            .await
+        {
+            console::error("TLS server terminated unexpectedly", Some(&e.to_string()));
             std::process::exit(1);
         }
+
+        return;
+    }
+
+    // ── Plain HTTP path (default) ────────────────────────────────────────────
+    let listener = match TcpListener::bind(&addr).await {
+        Ok(l) => {
+            console::ok("TCP listener bound", Some(&addr));
+            l
+        }
+        Err(e) => {
+            console::error("Failed to bind port", Some(&e.to_string()));
+            std::process::exit(1);
+        }
+    };
+
+    console::print_ready(&addr);
+
+    if let Err(e) = axum::serve(listener, router).await {
+        console::error("Server terminated unexpectedly", Some(&e.to_string()));
+        std::process::exit(1);
     }
 }
