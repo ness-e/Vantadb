@@ -2205,14 +2205,8 @@ impl VantaEmbedded {
         let budget = (top_k.saturating_mul(10)).min(500).max(top_k);
         let hnsw = engine.hnsw.read();
         let vs = engine.vector_store.read();
-        let candidates = hnsw.search_nearest(
-            query_vector,
-            None,
-            None,
-            u128::MAX,
-            budget,
-            Some(&*vs),
-        );
+        let candidates =
+            hnsw.search_nearest(query_vector, None, None, u128::MAX, budget, Some(&*vs));
         drop(vs);
         drop(hnsw);
 
@@ -2902,9 +2896,9 @@ impl VantaEmbedded {
         let vs = engine.vector_store.read();
         let results = hnsw.search_nearest(
             vector,
-            None,       // q_1bit: no aplica para búsqueda de alta precisión
-            None,       // q_3bit: no aplica
-            u128::MAX,  // query_mask: sin filtro de bitset — retornar todos
+            None,      // q_1bit: no aplica para búsqueda de alta precisión
+            None,      // q_3bit: no aplica
+            u128::MAX, // query_mask: sin filtro de bitset — retornar todos
             top_k,
             Some(&*vs), // vector_store para MMap path
         );
