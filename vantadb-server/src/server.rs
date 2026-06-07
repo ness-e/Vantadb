@@ -115,6 +115,7 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .merge(public)
         .merge(protected)
         .layer(Extension(auth_state))
+        .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(state)
 }
 

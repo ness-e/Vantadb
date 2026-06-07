@@ -25,8 +25,9 @@ async fn api_server_certification() {
             let state = Arc::new(ServerState {
                 storage,
                 semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+                api_key: None,
             });
-            let app = app(state);
+            let app = app(state, 100);
 
             TerminalReporter::sub_step("Dispatching oneshot request to /health...");
             let response = app

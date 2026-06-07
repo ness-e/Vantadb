@@ -110,6 +110,7 @@ impl<'a> Executor<'a> {
         self.storage.insert(node)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
@@ -124,6 +125,7 @@ impl<'a> Executor<'a> {
         }
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
         // ── Memory Pressure Check ──
         {
@@ -514,6 +516,7 @@ impl<'a> Executor<'a> {
     }
 
     /// Evaluates the Logical Plan over the underlying storage engine
+    #[tracing::instrument(skip(self), err)]
     pub fn execute_plan(&self, mut plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
         use crate::governor::ResourceGovernor;
 
