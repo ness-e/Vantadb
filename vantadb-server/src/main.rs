@@ -2,12 +2,12 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+use clap::Parser;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use vantadb::console;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
-use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(name = "vantadb-server")]
@@ -17,7 +17,6 @@ struct ServerCli {
     #[arg(long)]
     mcp: bool,
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -133,7 +132,10 @@ fn log_security_mode(config: &vantadb::config::VantaConfig) {
 
     console::ok(
         "Security",
-        Some(&format!("{} | {} | {}", auth_status, rate_status, tls_status)),
+        Some(&format!(
+            "{} | {} | {}",
+            auth_status, rate_status, tls_status
+        )),
     );
 }
 
@@ -193,7 +195,12 @@ async fn serve_http_or_tls(
 
     console::print_ready(&addr);
 
-    if let Err(e) = axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>()).await {
+    if let Err(e) = axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    {
         console::error("Server terminated unexpectedly", Some(&e.to_string()));
         std::process::exit(1);
     }
@@ -202,9 +209,11 @@ async fn serve_http_or_tls(
 /// Initializes structured JSON logging and OpenTelemetry OTLP tracing based on configuration.
 fn init_telemetry(is_mcp: bool) {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
-    
+
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let use_json = std::env::var("VANTADB_LOG_JSON").map(|v| v == "1" || v == "true").unwrap_or(false);
+    let use_json = std::env::var("VANTADB_LOG_JSON")
+        .map(|v| v == "1" || v == "true")
+        .unwrap_or(false);
 
     #[cfg(feature = "opentelemetry")]
     {
@@ -224,7 +233,7 @@ fn init_telemetry(is_mcp: bool) {
             .with_resource(
                 opentelemetry_sdk::Resource::builder_empty()
                     .with_service_name("vantadb-server")
-                    .build()
+                    .build(),
             )
             .build();
 
@@ -235,16 +244,32 @@ fn init_telemetry(is_mcp: bool) {
         if use_json {
             let fmt_layer = tracing_subscriber::fmt::layer().json();
             if is_mcp {
-                Registry::default().with(env_filter).with(telemetry).with(fmt_layer.with_writer(std::io::stderr)).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(telemetry)
+                    .with(fmt_layer.with_writer(std::io::stderr))
+                    .init();
             } else {
-                Registry::default().with(env_filter).with(telemetry).with(fmt_layer).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(telemetry)
+                    .with(fmt_layer)
+                    .init();
             }
         } else {
             let fmt_layer = tracing_subscriber::fmt::layer();
             if is_mcp {
-                Registry::default().with(env_filter).with(telemetry).with(fmt_layer.with_writer(std::io::stderr)).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(telemetry)
+                    .with(fmt_layer.with_writer(std::io::stderr))
+                    .init();
             } else {
-                Registry::default().with(env_filter).with(telemetry).with(fmt_layer).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(telemetry)
+                    .with(fmt_layer)
+                    .init();
             }
         }
     }
@@ -254,14 +279,20 @@ fn init_telemetry(is_mcp: bool) {
         if use_json {
             let fmt_layer = tracing_subscriber::fmt::layer().json();
             if is_mcp {
-                Registry::default().with(env_filter).with(fmt_layer.with_writer(std::io::stderr)).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(fmt_layer.with_writer(std::io::stderr))
+                    .init();
             } else {
                 Registry::default().with(env_filter).with(fmt_layer).init();
             }
         } else {
             if is_mcp {
                 let fmt_layer = tracing_subscriber::fmt::layer();
-                Registry::default().with(env_filter).with(fmt_layer.with_writer(std::io::stderr)).init();
+                Registry::default()
+                    .with(env_filter)
+                    .with(fmt_layer.with_writer(std::io::stderr))
+                    .init();
             } else {
                 vantadb::console::init_logging();
             }
