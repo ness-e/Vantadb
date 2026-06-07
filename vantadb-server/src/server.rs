@@ -5,12 +5,16 @@
 
 use axum::{
     extract::State,
+    middleware,
     routing::{get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use vantadb::storage::StorageEngine;
+
+use crate::middleware::{auth_middleware, AuthState};
 
 #[derive(Serialize, Deserialize)]
 pub struct QueryRequest {
@@ -48,15 +52,69 @@ impl From<&vantadb::node::UnifiedNode> for NodeDTO {
     }
 }
 
+/// Shared server state injected into all route handlers.
 pub struct ServerState {
     pub storage: Arc<StorageEngine>,
     pub semaphore: Arc<tokio::sync::Semaphore>,
+    /// Optional API key for Bearer token authentication.
+    ///
+    /// Mirrors `VantaConfig::api_key`. `None` means the server runs without
+    /// authentication (development / embedded-local mode).
+    pub api_key: Option<Arc<str>>,
 }
 
-pub fn app(state: Arc<ServerState>) -> Router {
+/// Builds the Axum router with the full security middleware stack.
+///
+/// # Security stack applied to `/api/v2/query` (outermost → innermost)
+/// 1. `GovernorLayer` — per-IP rate limiting (only when `rpm > 0`)
+/// 2. `auth_middleware` — Bearer token validation (no-op when `api_key` is `None`)
+/// 3. Route handler
+///
+/// `/health` is always accessible without auth or rate-limit restrictions.
+pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
+    let auth_state = AuthState::new(state.api_key.as_ref().map(|k| k.to_string()));
+
+    // ── Public route: exempt from auth and rate-limit ────────────────────────
+    let public = Router::new().route("/health", get(health_check));
+
+    // ── Protected route: auth middleware applied ─────────────────────────────
+    // Auth middleware wraps the query route. The /health exemption is handled
+    // inside auth_middleware itself, but keeping it on a separate sub-router
+    // makes the intent explicit and avoids any accidental layer bleed-through.
+    let protected = Router::new()
+        .route("/api/v2/query", post(execute_query))
+        .layer(middleware::from_fn(auth_middleware));
+
+    // ── Apply rate limiting when configured ──────────────────────────────────
+    //
+    // GovernorConfigBuilder uses a `&mut self` builder pattern. The period is
+    // expressed as "seconds between token replenishments". For RPM-based config:
+    //   period_ms = 60_000 / rpm  → tokens replenish at rpm/min rate
+    //   burst_size = rpm/10       → allows short bursts (min 1)
+    //
+    // Both branches produce an `axum::Router`, so Rust resolves the types
+    // correctly without needing `Either` or dynamic dispatch.
+    let protected = if rpm > 0 {
+        let period_ms = (60_000u64 / rpm as u64).max(1);
+        let burst_size = (rpm / 10).max(1);
+
+        let governor_config = GovernorConfigBuilder::default()
+            .per_millisecond(period_ms)
+            .burst_size(burst_size)
+            .finish()
+            .expect("GovernorConfig build failed: rpm must be > 0 and period > 0");
+
+        protected.layer(GovernorLayer::new(governor_config))
+    } else {
+        // rpm == 0 → rate limiting disabled (tests, embedded-local usage)
+        protected
+    };
+
+    // ── Merge routes and attach shared state ────────────────────────────────
     Router::new()
-        .route("/health", get(health_check))
-        .route("/api/v2/query", post(execute_query)) // Upgraded to v2 to reflect NodeDTO changes
+        .merge(public)
+        .merge(protected)
+        .layer(Extension(auth_state))
         .with_state(state)
 }
 

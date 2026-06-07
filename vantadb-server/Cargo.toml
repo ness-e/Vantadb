@@ -11,13 +11,18 @@ vantadb-mcp = { path = "../vantadb-mcp" }
 experimental-governance = { path = "../packages/experimental-governance", optional = true }
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+tower_governor = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 
+# TLS support (optional) — activated with --features tls
+axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
+rustls-pemfile = { version = "2", optional = true }
+
 [dev-dependencies]
 fs2 = "0.4"
-tower = { version = "0.4", features = ["util"] }
 futures = "0.3"
 tempfile = "3"
 sysinfo = "0.30"
@@ -30,6 +35,8 @@ governance = ["vantadb/governance", "dep:experimental-governance"]
 custom-allocator = ["mimalloc"]
 # Exposed solely for test harness compatibility with tests/common/mod.rs
 cli = ["vantadb/cli"]
+# Optional TLS support via axum-server + rustls
+tls = ["dep:axum-server", "dep:rustls-pemfile"]
 
 [dependencies.mimalloc]
 version = "0.1"
