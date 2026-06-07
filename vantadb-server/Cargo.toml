@@ -11,6 +11,7 @@ vantadb-mcp = { path = "../vantadb-mcp" }
 experimental-governance = { path = "../packages/experimental-governance", optional = true }
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 axum = "0.8"
+clap = { version = "4", features = ["derive"] }
 tower = { version = "0.5", features = ["util"] }
 tower_governor = "0.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -20,6 +21,13 @@ tracing = "0.1"
 # TLS support (optional) — activated with --features tls
 axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
 rustls-pemfile = { version = "2", optional = true }
+tower-http = { version = "0.6.11", features = ["trace"] }
+tracing-opentelemetry = { version = "0.33.0", optional = true }
+opentelemetry = { version = "0.32.0", optional = true }
+opentelemetry_sdk = { version = "0.32.1", optional = true }
+opentelemetry-otlp = { version = "0.32.0", optional = true, features = ["grpc-tonic", "trace"] }
+
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 [dev-dependencies]
 fs2 = "0.4"
@@ -37,6 +45,9 @@ custom-allocator = ["mimalloc"]
 cli = ["vantadb/cli"]
 # Optional TLS support via axum-server + rustls
 tls = ["dep:axum-server", "dep:rustls-pemfile"]
+# OpenTelemetry Tracing
+opentelemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "opentelemetry_sdk/rt-tokio"]
+
 
 [dependencies.mimalloc]
 version = "0.1"

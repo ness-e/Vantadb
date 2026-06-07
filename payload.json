@@ -1,0 +1,3 @@
+{
+  "query": "INSERT NODE# 123 TYPE TestType { nombre: \"Prueba\" }"
+}

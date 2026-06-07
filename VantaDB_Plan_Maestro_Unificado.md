@@ -339,7 +339,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 
 Estas tareas corren en paralelo al desarrollo principal del core y no bloquean el flujo de desarrollo de las fases:
 
-* **MP1 — Seguridad Avanzada del Servidor (Semanas 12):** ⬜ Implementar cifrado de transporte forzado en el servidor HTTP con `rustls` y rate limiting básico (100 req/min por IP) usando `tower-governor`.
+* **MP1 — Seguridad Avanzada del Servidor (Semanas 12):** ✅ COMPLETADA — Implementado cifrado TLS (`rustls`), Bearer Auth y rate limiting (`tower-governor`) en `vantadb-server`.
 * **MP2 — OpenTelemetry y Logging Estructurado (Semanas 14):** ⬜ Instrumentar los hot-paths de consultas con `tracing-opentelemetry` y `tracing-subscriber` para exportar trazas structured JSON correlacionadas con `trace_id` a Jaeger/Grafana.
 * **MP3 — Tokenizador Avanzado (Semanas 18):** ⬜ Integrar `tantivy-tokenizer` como dependencia opcional (feature flag `advanced-tokenizer`) para habilitar soporte multilingüe en la indexación BM25. — *Deferred en CHANGELOG v0.1.1: "Stemming, stopwords, Unicode folding, and tokenizer evolution beyond lowercase-ascii-alnum."*
 * **MP4 — Phrase Queries y Snippets (Semanas 20):** 🔄 Búsquedas de frases exactas implementadas (BM25 phrase positions v3). Snippets/highlighting deferred. — *Evidencia: CHANGELOG v0.1.1 — "Text-index schema v3 con persisted token positions y basic quoted phrase query support."*
