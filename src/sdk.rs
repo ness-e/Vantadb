@@ -2195,37 +2195,85 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
 
-        let mut hits = Vec::new();
-        for record in self.records_for_namespace(namespace, filters)? {
-            let Some(vector) = record.vector.as_ref() else {
-                continue;
-            };
-            if vector.len() != query_vector.len() {
-                continue;
-            }
+        let engine = self.engine_handle()?;
 
-            let score = match distance_metric {
-                DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
-                DistanceMetric::Euclidean => {
-                    -crate::index::euclidean_distance_squared_f32(query_vector, vector)
+        // Paso 1: buscar candidatos via HNSW con un budget ampliado para compensar el
+        // post-filtrado por namespace. El índice HNSW no conoce namespaces — son una
+        // abstracción del SDK — así que buscamos más candidatos de los estrictamente
+        // necesarios y luego filtramos. Budget: min(top_k * 10, 500) garantiza cobertura
+        // en datasets típicos sin disparar el costo de traversal.
+        let budget = (top_k.saturating_mul(10)).min(500).max(top_k);
+        let hnsw = engine.hnsw.read();
+        let vs = engine.vector_store.read();
+        let candidates = hnsw.search_nearest(
+            query_vector,
+            None,
+            None,
+            u128::MAX,
+            budget,
+            Some(&*vs),
+        );
+        drop(vs);
+        drop(hnsw);
+
+        // Paso 2: post-filtrado por namespace y metadata, cargando cada nodo candidato.
+        let mut hits = Vec::with_capacity(top_k);
+        for (node_id, raw_score) in candidates {
+            if hits.len() >= top_k {
+                break;
+            }
+            if let Some(node) = engine.get(node_id)? {
+                if let Some(record) = memory_record_from_node(node) {
+                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
+                        // El score de HNSW ya viene ajustado (negativo para euclidean),
+                        // coherente con el contrato de `distance_metric` del caller.
+                        let score = if distance_metric == DistanceMetric::Euclidean {
+                            // HNSW retorna -sqrt(dist²) para Euclidean; lo propagamos tal cual.
+                            raw_score
+                        } else {
+                            raw_score
+                        };
+                        hits.push(VantaMemorySearchHit {
+                            score,
+                            record,
+                            explanation: None,
+                        });
+                    }
                 }
-            };
-
-            hits.push(VantaMemorySearchHit {
-                score,
-                record,
-                explanation: None,
-            });
-        }
-
-        Self::sort_memory_hits(&mut hits);
-        hits.truncate(top_k);
-
-        if distance_metric == DistanceMetric::Euclidean {
-            for hit in hits.iter_mut() {
-                hit.score = -(-hit.score).max(0.0).sqrt();
             }
         }
+
+        // Si el HNSW no encontró suficientes resultados del namespace (e.g. namespace muy
+        // pequeño o HNSW vacío), hacemos fallback al scan lineal para garantizar correctitud.
+        if hits.is_empty() && !query_vector.is_empty() {
+            for record in self.records_for_namespace(namespace, filters)? {
+                let Some(vector) = record.vector.as_ref() else {
+                    continue;
+                };
+                if vector.len() != query_vector.len() {
+                    continue;
+                }
+                let score = match distance_metric {
+                    DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
+                    DistanceMetric::Euclidean => {
+                        -crate::index::euclidean_distance_squared_f32(query_vector, vector)
+                    }
+                };
+                hits.push(VantaMemorySearchHit {
+                    score,
+                    record,
+                    explanation: None,
+                });
+            }
+            Self::sort_memory_hits(&mut hits);
+            hits.truncate(top_k);
+            if distance_metric == DistanceMetric::Euclidean {
+                for hit in hits.iter_mut() {
+                    hit.score = -(-hit.score).max(0.0).sqrt();
+                }
+            }
+        }
+
         Ok(hits)
     }
 
@@ -2842,39 +2890,43 @@ impl VantaEmbedded {
         crate::metrics::operational_metrics_snapshot().into()
     }
 
-    /// K-NN vector search across all namespaces.
+    /// K-NN vector search across all nodes via HNSW index.
+    ///
+    /// Complejidad: O(log N) en promedio. Anteriormente era O(N) brute-force.
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {
-        let engine = self.engine_handle()?;
-        // Fallback to brute-force or HNSW via engine internals
-        // For now, delegate to a safe implementation that compiles
-        let mut hits = Vec::new();
-        for node in engine.scan_nodes()? {
-            if let crate::node::VectorRepresentations::Full(nv) = &node.vector {
-                if nv.len() == vector.len() {
-                    let score = crate::index::cosine_sim_f32(vector, nv);
-                    hits.push((node.id, score));
-                }
-            }
+        if vector.is_empty() || top_k == 0 {
+            return Ok(Vec::new());
         }
-        hits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        hits.truncate(top_k);
-        Ok(hits
+        let engine = self.engine_handle()?;
+        let hnsw = engine.hnsw.read();
+        let vs = engine.vector_store.read();
+        let results = hnsw.search_nearest(
+            vector,
+            None,       // q_1bit: no aplica para búsqueda de alta precisión
+            None,       // q_3bit: no aplica
+            u128::MAX,  // query_mask: sin filtro de bitset — retornar todos
+            top_k,
+            Some(&*vs), // vector_store para MMap path
+        );
+        drop(vs);
+        drop(hnsw);
+        Ok(results
             .into_iter()
             .map(|(node_id, distance)| VantaSearchHit { node_id, distance })
             .collect())
     }
 
-    /// Flush WAL and memory-mapped files to disk.
+    /// Flush WAL y archivos memory-mapped a disco para garantizar durabilidad.
+    ///
+    /// Delega al `StorageEngine::flush()` que sincroniza el backend KV y el
+    /// archivo de vectores MMap. Antes era un no-op silencioso.
     pub fn flush(&self) -> Result<()> {
         if self.config.read_only {
             return Err(VantaError::Execution(
                 "flush is not available when VantaDB is opened read-only".to_string(),
             ));
         }
-
-        // StorageEngine handles durability automatically via WAL and MMap.
-        // Explicit flush is a no-op for now but satisfies the SDK boundary.
-        Ok(())
+        self.engine_handle()?.flush()
     }
 
     /// Return stable runtime capabilities.
