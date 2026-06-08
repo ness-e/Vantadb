@@ -1207,6 +1207,7 @@ impl StorageEngine {
         Ok(nodes_compacted)
     }
 
+    #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         // Si el nodo ya existía, decrementamos sus estadísticas previas para mantener la consistencia
         if let Ok(Some(existing_node)) = self.get(node.id) {
@@ -1379,6 +1380,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
         self.touch_activity();
 
@@ -1451,6 +1453,7 @@ impl StorageEngine {
         Ok(Some(node))
     }
 
+    #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
         if let Ok(Some(node)) = self.get(id) {
             let mut stats = self.cardinality_stats.write();
@@ -1552,6 +1555,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self), level = "info", err)]
     pub fn flush(&self) -> Result<()> {
         self.ensure_writable()?;
         self.backend.flush()?;
