@@ -205,7 +205,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: llvm-tools-preview rustfmt
-          targets: x86_64-unknown-linux-musl
+          targets: x86_64-unknown-linux-gnu
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -215,7 +215,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev musl-tools musl-dev
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
@@ -225,8 +225,6 @@ jobs:
       - name: Fuzz — parser (5 min)
         timeout-minutes: 8
         working-directory: fuzz
-        env:
-          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cargo +nightly fuzz run fuzz_parser -- \
             -max_total_time=300 \
@@ -235,8 +233,6 @@ jobs:
       - name: Fuzz — node deserialization (5 min)
         timeout-minutes: 8
         working-directory: fuzz
-        env:
-          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cargo +nightly fuzz run fuzz_node_deserialize -- \
             -max_total_time=300 \
