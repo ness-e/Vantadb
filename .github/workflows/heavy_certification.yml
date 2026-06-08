@@ -215,7 +215,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          sudo apt-get install -y libclang-dev clang librocksdb-dev musl-tools
 
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@v2
