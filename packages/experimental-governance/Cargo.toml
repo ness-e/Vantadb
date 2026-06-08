@@ -11,7 +11,7 @@ serde = { version = "1", features = ["derive"] }
 chrono = "0.4"
 bincode = "1.3"
 tracing = "0.1"
-rand = "0.8"
+rand = "0.9"
 
 [features]
 remote-inference = ["vantadb/remote-inference"]
