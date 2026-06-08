@@ -1305,6 +1305,38 @@ impl CPIndex {
     pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
+        #[inline]
+        fn take_bytes<'a>(
+            data: &'a [u8],
+            pos: &mut usize,
+            n: usize,
+            field: &str,
+        ) -> std::io::Result<&'a [u8]> {
+            if *pos + n > data.len() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    format!("Truncated {field}"),
+                ));
+            }
+            let slice = &data[*pos..*pos + n];
+            *pos += n;
+            Ok(slice)
+        }
+
+        #[inline]
+        fn read_le_u64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u64> {
+            Ok(u64::from_le_bytes(
+                take_bytes(data, pos, 8, field)?.try_into().unwrap(),
+            ))
+        }
+
+        #[inline]
+        fn read_le_f64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<f64> {
+            Ok(f64::from_le_bytes(
+                take_bytes(data, pos, 8, field)?.try_into().unwrap(),
+            ))
+        }
+
         if data.len() < crate::binary_header::VantaHeader::SIZE + 8 {
             return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
         }
@@ -1330,175 +1362,126 @@ impl CPIndex {
 
         let version = header.format_version as u32;
 
-        let max_layer = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-        pos += 8;
+        let max_layer = read_le_u64(data, &mut pos, "max_layer")? as usize;
 
         let mut config = HnswConfig::default();
         if version >= 2 {
-            config.m = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
-            config.m_max0 = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
+            config.m = read_le_u64(data, &mut pos, "config.m")? as usize;
+            config.m_max0 = read_le_u64(data, &mut pos, "config.m_max0")? as usize;
             config.ef_construction =
-                u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
-            config.ef_search = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
-            config.ml = f64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
-            pos += 8;
+                read_le_u64(data, &mut pos, "config.ef_construction")? as usize;
+            config.ef_search = read_le_u64(data, &mut pos, "config.ef_search")? as usize;
+            config.ml = read_le_f64(data, &mut pos, "config.ml")?;
         }
         // V3+: distance metric byte
         if version >= 3 && pos < data.len() {
-            config.distance_metric = match data[pos] {
+            config.distance_metric = match take_bytes(data, &mut pos, 1, "distance_metric")?[0] {
                 1 => DistanceMetric::Euclidean,
                 _ => DistanceMetric::Cosine,
             };
-            pos += 1;
         }
 
-        if pos >= data.len() {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated EP"));
-        }
-        let ep_exists = data[pos];
-        pos += 1;
-        if pos + 8 > data.len() {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated EP ID"));
-        }
-        let ep_id = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
-        pos += 8;
+        let ep_exists = take_bytes(data, &mut pos, 1, "ep_exists")?[0];
+        let ep_id = read_le_u64(data, &mut pos, "ep_id")?;
         let entry_point = if ep_exists == 1 { Some(ep_id) } else { None };
 
-        if pos + 8 > data.len() {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated node count"));
+        let node_count = read_le_u64(data, &mut pos, "node_count")? as usize;
+
+        // Sanity: each node needs at least 49 bytes (id + bitset + offset + type + vec_len + layer_count).
+        const MIN_BYTES_PER_NODE: usize = 8 + 16 + 8 + 1 + 8 + 8;
+        let remaining = data.len().saturating_sub(pos);
+        if node_count > remaining / MIN_BYTES_PER_NODE {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "node_count ({node_count}) exceeds plausible limit for {remaining} remaining bytes",
+                ),
+            ));
         }
-        let node_count = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-        pos += 8;
 
         let nodes = DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
 
         for _ in 0..node_count {
-            if pos + 8 > data.len() {
-                return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated node id"));
-            }
-            let id = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
-            pos += 8;
+            let id = read_le_u64(data, &mut pos, "node id")?;
 
-            if pos + 16 > data.len() {
-                return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated bitset"));
-            }
-            let bitset = u128::from_le_bytes(data[pos..pos + 16].try_into().unwrap());
-            pos += 16;
+            let bitset_bytes = take_bytes(data, &mut pos, 16, "bitset")?;
+            let bitset = u128::from_le_bytes(bitset_bytes.try_into().unwrap());
 
-            if pos + 8 > data.len() {
-                return Err(Error::new(
-                    ErrorKind::UnexpectedEof,
-                    "Truncated storage offset",
-                ));
-            }
-            let storage_offset = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap());
-            pos += 8;
+            let storage_offset = read_le_u64(data, &mut pos, "storage_offset")?;
 
-            if pos + 1 > data.len() {
-                return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated vec type"));
-            }
-            let vec_type = data[pos];
-            pos += 1;
+            let vec_type = take_bytes(data, &mut pos, 1, "vec_type")?[0];
 
-            if pos + 8 > data.len() {
-                return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated vec len"));
-            }
-            let vec_len = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
+            let vec_len = read_le_u64(data, &mut pos, "vec_len")? as usize;
 
             let vec_data = match vec_type {
                 1 => {
-                    let byte_len = vec_len * 4;
+                    let byte_len = vec_len.checked_mul(4).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, "vec_len overflow (f32)")
+                    })?;
                     if version >= 4 {
                         let padding = (4 - (pos % 4)) % 4;
                         pos += padding;
                     }
-                    if pos + byte_len > data.len() {
-                        return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated f32 vec"));
-                    }
+                    let vec_bytes = take_bytes(data, &mut pos, byte_len, "f32 vec")?;
                     if force_copy {
                         let mut v = Vec::with_capacity(vec_len);
                         for i in 0..vec_len {
-                            let start = pos + i * 4;
+                            let start = i * 4;
                             v.push(f32::from_le_bytes(
-                                data[start..start + 4].try_into().unwrap(),
+                                vec_bytes[start..start + 4].try_into().unwrap(),
                             ));
                         }
-                        pos += byte_len;
                         VectorRepresentations::Full(v)
                     } else {
-                        // ZERO-COPY
-                        let ptr = data[pos..pos + byte_len].as_ptr() as *const f32;
-                        pos += byte_len;
+                        let ptr = vec_bytes.as_ptr() as *const f32;
                         VectorRepresentations::MmapFull(SendPtr(ptr), vec_len)
                     }
                 }
                 2 => {
-                    let byte_len = vec_len * 8;
-                    if pos + byte_len > data.len() {
-                        return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated binary vec"));
-                    }
+                    let byte_len = vec_len.checked_mul(8).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidData, "vec_len overflow (binary)")
+                    })?;
+                    let vec_bytes = take_bytes(data, &mut pos, byte_len, "binary vec")?;
                     let mut v = Vec::with_capacity(vec_len);
                     for i in 0..vec_len {
-                        let start = pos + i * 8;
+                        let start = i * 8;
                         v.push(u64::from_le_bytes(
-                            data[start..start + 8].try_into().unwrap(),
+                            vec_bytes[start..start + 8].try_into().unwrap(),
                         ));
                     }
-                    pos += byte_len;
                     VectorRepresentations::Binary(v.into_boxed_slice())
                 }
                 3 => {
-                    if pos + vec_len > data.len() {
-                        return Err(Error::new(ErrorKind::UnexpectedEof, "Truncated turbo vec"));
-                    }
-                    let v = data[pos..pos + vec_len].to_vec();
-                    pos += vec_len;
-                    VectorRepresentations::Turbo(v.into_boxed_slice())
+                    let vec_bytes = take_bytes(data, &mut pos, vec_len, "turbo vec")?;
+                    VectorRepresentations::Turbo(vec_bytes.to_vec().into_boxed_slice())
                 }
                 _ => VectorRepresentations::None,
             };
 
-            if pos + 8 > data.len() {
+            let layer_count = read_le_u64(data, &mut pos, "layer_count")? as usize;
+            let layer_remaining = data.len().saturating_sub(pos);
+            if layer_count > layer_remaining / 8 {
                 return Err(Error::new(
-                    ErrorKind::UnexpectedEof,
-                    "Truncated neighbor layers",
+                    ErrorKind::InvalidData,
+                    format!("layer_count ({layer_count}) exceeds remaining data"),
                 ));
             }
-            let layer_count = u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-            pos += 8;
 
             let mut neighbors = Vec::with_capacity(layer_count);
             for _ in 0..layer_count {
-                if pos + 8 > data.len() {
-                    return Err(Error::new(
-                        ErrorKind::UnexpectedEof,
-                        "Truncated neighbor count",
-                    ));
-                }
-                let neighbor_count =
-                    u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()) as usize;
-                pos += 8;
+                let neighbor_count = read_le_u64(data, &mut pos, "neighbor_count")? as usize;
 
-                let byte_len = neighbor_count * 8;
-                if pos + byte_len > data.len() {
-                    return Err(Error::new(
-                        ErrorKind::UnexpectedEof,
-                        "Truncated neighbor ids",
-                    ));
-                }
+                let byte_len = neighbor_count
+                    .checked_mul(8)
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "neighbor_count overflow"))?;
+                let nbr_bytes = take_bytes(data, &mut pos, byte_len, "neighbor ids")?;
                 let mut layer_neighbors = Vec::with_capacity(neighbor_count);
                 for i in 0..neighbor_count {
-                    let start = pos + i * 8;
+                    let start = i * 8;
                     layer_neighbors.push(u64::from_le_bytes(
-                        data[start..start + 8].try_into().unwrap(),
+                        nbr_bytes[start..start + 8].try_into().unwrap(),
                     ));
                 }
-                pos += byte_len;
                 neighbors.push(layer_neighbors);
             }
 
@@ -2000,5 +1983,75 @@ mod tests {
             hnsw.nodes.len(),
             "Not all nodes are reachable from the entry point!"
         );
+    }
+
+    fn build_small_test_index() -> CPIndex {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 64,
+            ef_search: 32,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+        });
+        for i in 0..16u64 {
+            let raw = [
+                (i as f32 * 0.01).sin(),
+                (i as f32 * 0.02).cos(),
+                (i as f32 * 0.03).sin(),
+                (i as f32 * 0.04).cos(),
+            ];
+            let norm = f32_l2_norm(&raw);
+            let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
+            index.add(i + 1, 0, VectorRepresentations::Full(normalized), 0);
+        }
+        index
+    }
+
+    #[test]
+    fn deserialize_truncated_never_panics() {
+        let index = build_small_test_index();
+        let bytes = index.serialize_to_bytes();
+        for len in 0..bytes.len() {
+            let result = CPIndex::deserialize_from_bytes(&bytes[..len], true);
+            assert!(
+                result.is_err(),
+                "Expected Err for truncated input at {len}/{} bytes, got Ok",
+                bytes.len()
+            );
+        }
+        let full = CPIndex::deserialize_from_bytes(&bytes, true);
+        assert!(
+            full.is_ok(),
+            "Full bytes must deserialize: {:?}",
+            full.err()
+        );
+    }
+
+    #[test]
+    fn deserialize_garbage_after_valid_header() {
+        let mut garbage = vec![0u8; 512];
+        let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
+        let hdr = header.serialize();
+        garbage[..hdr.len()].copy_from_slice(&hdr);
+        let result = CPIndex::deserialize_from_bytes(&garbage, true);
+        assert!(result.is_err() || result.unwrap().nodes.is_empty());
+    }
+
+    #[test]
+    fn deserialize_absurd_node_count() {
+        let index = build_small_test_index();
+        let mut bytes = index.serialize_to_bytes();
+
+        let header_size = crate::binary_header::VantaHeader::SIZE;
+        // max_layer(8) + config v2 (m, m_max0, ef_construction, ef_search, ml = 5*8=40)
+        // + distance_metric(1) + ep_exists(1) + ep_id(8) = 58 bytes after header
+        let node_count_offset = header_size + 8 + 40 + 1 + 1 + 8;
+        if node_count_offset + 8 <= bytes.len() {
+            bytes[node_count_offset..node_count_offset + 8]
+                .copy_from_slice(&u64::MAX.to_le_bytes());
+            let result = CPIndex::deserialize_from_bytes(&bytes, true);
+            assert!(result.is_err(), "Absurd node_count must return Err");
+        }
     }
 }
