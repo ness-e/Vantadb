@@ -116,7 +116,7 @@ jobs:
           Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value "$hash_server  vantadb-server-windows-amd64.exe"
 
       - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         if: startsWith(github.ref, 'refs/tags/')
         with:
           subject-path: 'target/release/vanta-*'
