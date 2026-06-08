@@ -16,9 +16,9 @@
 <br>
 
 <div align="center">
-  <img src="docs/assets/demo_terminal.png" alt="VantaDB — Hybrid search demo: BM25 + HNSW + RRF in 1.2ms" width="820"/>
+  <img src="docs/assets/demo.gif" alt="VantaDB CLI demo: store durable memory, list, get, rebuild index, status, export" width="820"/>
   <br/>
-  <sub><i>Hybrid search (BM25 + HNSW via RRF) · 1.2ms latency · 100% Recall@10 · Zero network · Embedded in-process</i></sub>
+  <sub><i>Live <code>vanta-cli</code> demo · durable local memory + hybrid retrieval · Zero network · Embedded in-process</i></sub>
 </div>
 
 <br>
