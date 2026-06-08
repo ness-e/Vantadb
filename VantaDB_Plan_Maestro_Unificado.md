@@ -171,7 +171,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 **Duración:** Semanas 5–12 | **Prioridad:** P0 para T2.1 y T2.2, P1 para el resto  
 **Objetivo de Fase:** Eliminar bloqueos síncronos en Tokio, resolver la fragmentación de memoria y construir el optimizador del planificador.  
 **Criterio de Aceptación de Fase:** `cargo test --test chaos_integrity --features failpoints` pasa 100% en 1,000 iteraciones. Ninguna consulta síncrona de E/S bloquea el reactor asíncrono.  
-**Estado de Fase:** 🔄 EN PROGRESO — T2.1 y T2.3 completadas, T2.2 y T2.4 pendientes.
+**Estado de Fase:** ✅ COMPLETADA — T2.1–T2.4 completadas (Tokio desacoplado del core, asignador global mimalloc, planner Volcano/CBO, versionado del formato binario vía VantaHeader).
 
 #### T2.1 — Eliminar bloqueos síncronos en el runtime de Tokio ✅ COMPLETADA
 * **Evidencia:** `desacoplamiento-tokio-y-red-serv-01 walkthrough` — "Se eliminó la dependencia tokio del core de producción. 0 runtimes de Tokio en producción. El core compila ahora como una biblioteca nativa síncrona ultra ligera." `motor-consultas-volcano-cbo walkthrough` — "Se eliminó la dependencia tokio del core de producción, manteniéndola en [dev-dependencies] para pruebas de integración."
@@ -195,7 +195,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
     * *Criterio de Aceptación:* El incremento residual de RSS entre el inicio y el fin del proceso es inferior al 10% (drift de memoria bajo carga controlada).
   * ✅ **ST2.2.3:** Unificar las métricas en `src/metrics.rs` para reportar por separado: RSS físico del OS, memoria lógica estimada del HNSW y páginas residentes en mmap (vía `mincore` en Linux / `QueryWorkingSetEx` en Windows). — *Evidencia: `db.hardware_profile()` en PyO3 SDK devuelve las 7 métricas de memoria diferenciadas mapeadas desde `VantaOperationalMetrics`.*
     * *Criterio de Aceptación:* `db.hardware_profile()` retorna las tres métricas por separado en un JSON estructurado.
-* **Criterio de Aceptación General T2.2:** ⬜ La memoria RSS es estable (< 15% drift) en 30 minutos de estrés.
+* **Criterio de Aceptación General T2.2:** ✅ La memoria RSS es estable (< 15% drift) en 30 minutos de estrés (test `hardware_profiles.rs` + `docs/operations/RELIABILITY_GATE.md`).
 
 #### T2.3 — Planner con Pipeline AST / LogicalPlan / PhysicalPlan ✅ COMPLETADA
 * **Evidencia:** `motor-consultas-volcano-cbo walkthrough` — "Definición del trait central PhysicalOperator con open/next/close. PhysicalScan, PhysicalFilter, PhysicalVectorSearch, PhysicalVectorRefine, PhysicalProject, PhysicalLimit, PhysicalSort implementados. Regla CBO: selectividad < 0.1 usa Scan+Filter+Refine; > 0.1 usa VectorSearch+PostFilter."
@@ -225,7 +225,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 **Duración:** Semanas 10–16 | **Prioridad:** P1  
 **Objetivo de Fase:** Demostrar consistencia de producción bajo caos, certificar el rendimiento en benchmarks de la industria y distribuir binarios firmados.  
 **Criterio de Aceptación de Fase:** Comparativa publicada vs LanceDB y Chroma en `docs/BENCHMARKS.md`. 3 clientes piloto activos con SLA p99 < 10ms. Wheels automatizadas.  
-**Estado de Fase:** 🔄 EN PROGRESO — T3.1 base implementada (WAL chaos), resto pendiente.
+**Estado de Fase:** 🔄 EN PROGRESO — T3.1, T3.2 y T3.4 completadas (chaos/durabilidad, benchmark competitivo vs LanceDB/Chroma, programa de pilotos); T3.3 (wheels) parcial: CI multiplataforma funcional, publicación a PyPI de producción pendiente.
 
 #### T3.1 — Chaos testing expandido y validación de durabilidad ✅ COMPLETADA
 * **Evidencia:** `chaos-testing-T3.1 walkthrough` — Suite de caos expandida con 4 escenarios de failpoints (`wal_append_fail`, `storage_insert_fail`, `mmap_flush_fail`, `hnsw_serialize_fail`). Script `dev-tools/chaos_loop.ps1` implementado y certificado (100% de éxito en 1,000 iteraciones de estrés). Documento `RELIABILITY_GATE.md` expandido y enlazado desde el `README.MD`.
@@ -248,7 +248,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ✅ **ST3.2.3:** Redactar y publicar los resultados en `docs/BENCHMARKS.md`. — *Evidencia: Secciones 7.1 y 7.2 redactadas e integradas.*
 * **Criterio de Aceptación General T3.2:** ✅ Benchmark transparente publicado con scripts reproducibles de un solo paso.
 
-#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) ✅ COMPLETADA
+#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) 🔄 EN PROGRESO
 * **Evidencia:** `wheels-pipeline-T3.3 walkthrough` — Jobs `verify-testpypi-install` y `verify-pypi-install` implementados en `python_wheels.yml`. `PYTHON_RELEASE_POLICY.md` actualizado para documentar GitHub Attestations SLSA Level 2 como mecanismo canónico de signing (sustituyendo las referencias obsoletas a `sigstore/gh-action-sigstore-python`). Pipeline completo: build → attest → publish → verify CDN → `gh attestation verify`.
 * **Objetivo:** Proveer empaquetado y firmas criptográficas automáticas para el SDK en múltiples plataformas.
 * **Subtareas:**
@@ -269,12 +269,12 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 ---
 
 ### FASE 4: Community Launch
-**Duración:** Semanas 14–20 | **Prioridad:** P1 (Bloqueado por Fase 1 y 2)  
+**Duración:** Semanas 14–20 | **Prioridad:** P1 (Desbloqueada: Fases 1 y 2 completas)  
 **Objetivo de Fase:** Impulsar la adopción orgánica del proyecto, logrando tracción en foros especializados y atrayendo colaboradores.  
 **Criterio de Aceptación de Fase:** 1,000+ stars en GitHub, 20+ forks, 5+ colaboradores externos, Show HN en top 10 y 200+ miembros en Discord.  
-**Estado de Fase:** ⬜ PENDIENTE — Bloqueada por Fase 1 y 2.
+**Estado de Fase:** 🔄 EN PROGRESO — T4.2 y T4.4 completadas; T4.1 (asciinema/GIF) y T4.3 (publicación real del Show HN) en progreso.
 
-#### T4.1 — Demo content técnico (asciinema + GIF + Ejemplos) ✅ COMPLETADA
+#### T4.1 — Demo content técnico (asciinema + GIF + Ejemplos) 🔄 EN PROGRESO
 * **Evidencia parcial:** `FEAT-01 walkthrough` — `examples/python/langchain_rag.py` referenciado. `CHANGELOG v0.1.1` — "Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search." `docs/QUICKSTART.md` existe. `README.MD` — Imagen demo terminal `docs/assets/demo_terminal.png` integrada en el header.
 * **Objetivo:** Mostrar la propuesta de valor en menos de 60 segundos de lectura.
 * **Subtareas:**
@@ -571,14 +571,14 @@ La validación funcional del Plan Maestro se regirá bajo los siguientes criteri
 
 | Fase | Tareas Totales | Completadas | En Progreso | Pendientes | % Completado |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **FASE 0 — Estabilización** | 5 | 3 | 1 | 1 | ~70% |
+| **FASE 0 — Estabilización** | 5 | 5 | 0 | 0 | 100% |
 | **FASE 1 — HNSW Performance** | 5 | 5 | 0 | 0 | 100% |
-| **FASE 2 — Hardening Arq.** | 4 | 2 | 2 | 0 | ~65% |
-| **FASE 3 — Validación Prod.** | 4 | 0 | 2 | 2 | ~25% |
-| **FASE 4 — Community Launch** | 4 | 2 | 1 | 1 | ~65% |
+| **FASE 2 — Hardening Arq.** | 4 | 4 | 0 | 0 | 100% |
+| **FASE 3 — Validación Prod.** | 4 | 3 | 1 | 0 | ~88% |
+| **FASE 4 — Community Launch** | 4 | 2 | 2 | 0 | ~75% |
 | **FASE 5 — Pre-seed** | 2 | 0 | 0 | 2 | 0% |
-| **Pistas Paralelas** | 6 | 2 | 1 | 3 | ~42% |
-| **TOTAL** | **30** | **13** | **8** | **9** | **~50%** |
+| **Pistas Paralelas** | 6 | 3 | 1 | 2 | ~58% |
+| **TOTAL** | **30** | **22** | **4** | **4** | **~80%** |
 
 **Logros técnicos destacados fuera de fases (implementados orgánicamente):**
 - ✅ **CUARENTENA-01:** Aislamiento de LISP/Gobernanza en subcrates dedicados.
