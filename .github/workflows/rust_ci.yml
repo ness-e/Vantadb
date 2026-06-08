@@ -122,4 +122,70 @@ jobs:
     - name: Clippy (Windows)
       run: cargo clippy --workspace -- -D warnings
 
+  coverage:
+    name: Code Coverage (cargo-llvm-cov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
 
+    - uses: actions/checkout@v6
+
+    - name: Add swap space (prevent OOM linker crash)
+      run: |
+        sudo swapoff /swapfile || true
+        sudo rm -f /swapfile
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: "1.94.1"
+        components: llvm-tools-preview
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-bin: "false"
+
+    - name: Install system dependencies (RocksDB + Clang)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
+
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@nextest
+
+    # Run workspace tests with coverage instrumentation.
+    # Uses the audit nextest profile to skip heavy certification tests.
+    # Generates both an LCOV report (for tooling) and a text summary (for logs).
+    - name: Run tests with coverage
+      timeout-minutes: 25
+      run: |
+        cargo llvm-cov nextest \
+          --profile audit \
+          --workspace \
+          --lcov --output-path lcov.info \
+          --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
+          2>&1
+        echo "--- Coverage Summary ---"
+        cargo llvm-cov report \
+          --ignore-filename-regex '(tests/|benches/|packages/experimental)'
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-lcov
+        path: lcov.info
+        if-no-files-found: warn
