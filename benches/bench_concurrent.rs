@@ -11,7 +11,7 @@ use vantadb::storage::StorageEngine;
 fn generate_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(seed);
     (0..count)
-        .map(|_| (0..dim).map(|_| rng.gen::<f32>()).collect())
+        .map(|_| (0..dim).map(|_| rng.random::<f32>()).collect())
         .collect()
 }
 
@@ -183,7 +183,7 @@ fn run_mixed_bench(
 
             while !stop_signal.load(Ordering::Relaxed) {
                 // Generate random vector
-                let vec: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>()).collect();
+                let vec: Vec<f32> = (0..dim).map(|_| rng.random::<f32>()).collect();
                 let mut node = UnifiedNode::new(current_id);
                 node.vector = VectorRepresentations::Full(vec);
 

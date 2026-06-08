@@ -988,7 +988,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
- "rand 0.8.6",
+ "rand 0.9.4",
  "serde",
  "tracing",
  "vantadb",
@@ -999,7 +999,7 @@ name = "experimental-lisp"
 version = "0.1.0"
 dependencies = [
  "nom",
- "rand 0.8.6",
+ "rand 0.9.4",
  "serde",
  "vantadb",
 ]
@@ -3801,7 +3801,7 @@ dependencies = [
  "prometheus",
  "proptest",
  "pyo3",
- "rand 0.8.6",
+ "rand 0.9.4",
  "rayon",
  "reqwest",
  "rocksdb",

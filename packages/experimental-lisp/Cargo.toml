@@ -9,4 +9,4 @@ publish = false
 vantadb = { path = "../.." }
 nom = "7"
 serde = { version = "1", features = ["derive"] }
-rand = "0.8"
+rand = "0.9"
