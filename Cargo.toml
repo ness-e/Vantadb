@@ -42,7 +42,7 @@ fs2 = "0.4"
 
 # ── Console UX ──
 indicatif = { version = "0.17", optional = true }
-console = { version = "0.15", optional = true }
+console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
 rayon = "1.12"
@@ -97,7 +97,7 @@ tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
 http = "1"
 futures = "0.3"
-console = "0.15"
+console = "0.16"
 indicatif = "0.17"
 proptest = "1" # ← Añadido: Property-based testing para fuzzing cross-platform
 
