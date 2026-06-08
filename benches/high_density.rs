@@ -7,8 +7,8 @@ use vantadb::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
 fn generate_random_vector(dim: usize) -> Vec<f32> {
-    let mut rng = rand::thread_rng();
-    let mut vec: Vec<f32> = (0..dim).map(|_| rng.gen_range(-1.0..1.0)).collect();
+    let mut rng = rand::rng();
+    let mut vec: Vec<f32> = (0..dim).map(|_| rng.random_range(-1.0..1.0)).collect();
     // Normalize
     let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
     if norm > 0.0 {
