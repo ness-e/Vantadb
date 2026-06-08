@@ -76,7 +76,7 @@ jobs:
         with:
           command: build
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
-          manylinux: auto
+          manylinux: 2_28
           before-script-linux: |
             yum install -y clang clang-devel
 
