@@ -41,7 +41,7 @@ memmap2 = "0.9"
 fs2 = "0.4"
 
 # ── Console UX ──
-indicatif = { version = "0.17", optional = true }
+indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
@@ -98,7 +98,7 @@ tower = { version = "0.4", features = ["util"] }
 http = "1"
 futures = "0.3"
 console = "0.16"
-indicatif = "0.17"
+indicatif = "0.18"
 proptest = "1" # ← Añadido: Property-based testing para fuzzing cross-platform
 
 [[bench]]
