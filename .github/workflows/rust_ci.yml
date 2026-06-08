@@ -14,6 +14,9 @@ on:
       - '.github/workflows/rust_ci.yml'
       - 'deny.toml'
       - 'rust-toolchain.toml'
+      - 'vantadb-server/**'
+      - 'vantadb-mcp/**'
+      - 'packages/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -27,6 +30,9 @@ on:
       - '.github/workflows/rust_ci.yml'
       - 'deny.toml'
       - 'rust-toolchain.toml'
+      - 'vantadb-server/**'
+      - 'vantadb-mcp/**'
+      - 'packages/**'
   workflow_dispatch:
 
 env:
@@ -85,7 +91,7 @@ jobs:
       run: cargo fmt --check
 
     - name: Clippy Lints
-      run: cargo clippy -p vantadb --all-targets -- -D warnings
+      run: cargo clippy --workspace --all-targets -- -D warnings
 
     # ── Fast Gate: Unified execution via nextest ─────────────────────
     # Benchmarks no se ejecutan aquí; clippy --all-targets ya los verifica sintácticamente.
@@ -93,7 +99,7 @@ jobs:
     # exclusivamente en heavy_certification.yml (semanal / manual).
     - name: Run fast gate tests (Audit profile)
       timeout-minutes: 20
-      run: cargo nextest run --profile audit -p vantadb
+      run: cargo nextest run --profile audit --workspace
 
     - name: Security Audit
       run: cargo audit
@@ -112,8 +118,8 @@ jobs:
         toolchain: "1.94.1"
         components: clippy
     - name: Cargo check (Windows smoke test)
-      run: cargo check -p vantadb
+      run: cargo check --workspace
     - name: Clippy (Windows)
-      run: cargo clippy -p vantadb -- -D warnings
+      run: cargo clippy --workspace -- -D warnings
 
 
