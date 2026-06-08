@@ -589,4 +589,43 @@ La validación funcional del Plan Maestro se regirá bajo los siguientes criteri
 - ✅ **MMAP-02b:** sqrt() deferral, SIMD Euclidean, MMap > in-memory QPS.
 - ✅ **SERV-01/PLANNER-02:** Tokio desacoplado del core, Volcano/CBO implementado.
 - ✅ **CLI-01:** Autocompletado multi-shell (Bash/Zsh/Fish/PowerShell).
+
+---
+
+## 🔧 15. Issues de Infraestructura Pendientes (v0.2.1)
+
+### 15.1. Fuzzing (Security Testing) - TEMPORALMENTE DESHABILITADO
+
+**Fecha de identificación:** 2025-06-08  
+**Severidad:** Media (P2) - No bloqueante para desarrollo, pero importante para seguridad  
+**Estado:** ⬜ DESHABILITADO TEMPORALMENTE PARA INVESTIGACIÓN
+
+**Problema:**
+El job de fuzzing en el workflow `heavy_certification.yml` falla debido a incompatibilidad entre AddressSanitizer (ASAN) y los targets de Rust. 
+
+**Intentos de solución realizados:**
+1. ❌ Target `x86_64-unknown-linux-musl` con RUSTFLAGS `-C target-feature=-crt-static` → Error: "sanitizer is incompatible with statically linked libc"
+2. ❌ Instalación de `musl-tools` y `musl-dev` → Error: "failed to find tool x86_64-linux-musl-g++"
+3. ❌ Target `x86_64-unknown-linux-gnu` → Sigue fallando con otros errores de compilación
+
+**Configuración actual:**
+- Job `fuzz_resilience` deshabilitado con `if: false` en `.github/workflows/heavy_certification.yml`
+- Comentario agregado en el workflow explicando el problema temporal
+- Los demás jobs de certificación funcionan correctamente sin fuzzing
+
+**Propósito del fuzzing:**
+- Prueba de seguridad automatizada para detectar bugs en parsers y deserializadores
+- Ejercita `fuzz_parser.rs` (parsers LISP, query planner, statement) y `fuzz_node_deserialize.rs` (deserialización de nodos)
+- Usa libFuzzer + AddressSanitizer para detectar panics, memory leaks y buffer overflows
+
+**Próximos pasos recomendados:**
+1. ⬜ Investigar configuración alternativa de cargo-fuzz (posiblemente sin ASAN o con flags específicos)
+2. ⬜ Considerar simplificación de targets (usar solo el target nativo sin cross-compilación)
+3. ⬜ Consultar documentación actual de cargo-fuzz/libFuzzer para compatibilidad con ASAN en CI
+4. ⬜ Evaluar alternativas como AFL++ o Google OSS-Fuzz si el problema persiste
+
+**Referencias:**
+- Workflow: `.github/workflows/heavy_certification.yml` (líneas 189-246)
+- Fuzz targets: `fuzz/fuzz_targets/fuzz_parser.rs`, `fuzz/fuzz_targets/fuzz_node_deserialize.rs`
+- Documentación cargo-fuzz: https://github.com/rust-fuzz/cargo-fuzz
 - ✅ **FEAT-01:** LangChain + LlamaIndex + MCP crate desacoplado.
