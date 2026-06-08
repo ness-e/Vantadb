@@ -462,7 +462,7 @@ impl CPIndex {
 
     fn random_layer(&self) -> usize {
         let mut rng = self.rng.lock();
-        let r: f64 = rng.gen_range(0.0001..1.0);
+        let r: f64 = rng.random_range(0.0001..1.0);
         (-r.ln() * self.config.ml).floor() as usize
     }
 
@@ -1874,14 +1874,14 @@ mod tests {
             let stop = stop.clone();
             let insert_mutex = insert_mutex.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 let start_id = t * 1000;
                 for i in 0..1000 {
                     if stop.load(Ordering::Relaxed) {
                         break;
                     }
                     let id = start_id + i;
-                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
                     let vec: Vec<f32> = if norm > 0.0 {
                         raw_vec.iter().map(|v| v / norm).collect()
@@ -1901,9 +1901,9 @@ mod tests {
             let index = index.clone();
             let stop = stop.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 while !stop.load(Ordering::Relaxed) {
-                    let query: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let query: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&query);
                     let q_vec = if norm > 0.0 {
                         query.iter().map(|v| v / norm).collect()
@@ -1947,11 +1947,11 @@ mod tests {
         for t in 0..4 {
             let storage = storage.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 let start_id = t * 500 + 1; // Evitar ID 0 que a veces es entry point
                 for i in 0..500 {
                     let id = start_id + i;
-                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.gen::<f32>()).collect();
+                    let raw_vec: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
                     let vec: Vec<f32> = if norm > 0.0 {
                         raw_vec.iter().map(|v| v / norm).collect()

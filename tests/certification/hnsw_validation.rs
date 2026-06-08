@@ -27,7 +27,7 @@ fn generate_vectors_seeded(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>
     for _ in 0..count {
         let mut vec = Vec::with_capacity(dims);
         for _ in 0..dims {
-            vec.push(rng.gen_range(-1.0..1.0));
+            vec.push(rng.random_range(-1.0..1.0));
         }
         let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
         if norm > 0.0 {

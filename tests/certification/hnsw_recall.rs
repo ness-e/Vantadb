@@ -8,18 +8,18 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use console::style;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
 use vantadb::node::DistanceMetric;
 
 fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut vectors = Vec::with_capacity(count);
     for _ in 0..count {
         let mut vec = Vec::with_capacity(dims);
         for _ in 0..dims {
-            vec.push(rng.gen_range(-1.0..1.0));
+            vec.push(rng.random_range(-1.0..1.0));
         }
         let norm: f32 = vec.iter().map(|v| v * v).sum::<f32>().sqrt();
         if norm > 0.0 {
