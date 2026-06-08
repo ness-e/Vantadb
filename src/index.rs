@@ -870,6 +870,7 @@ impl CPIndex {
         final_selected
     }
 
+    #[tracing::instrument(skip(self, vec_data), level = "debug")]
     pub fn add(&self, id: u64, bitset: u128, vec_data: VectorRepresentations, storage_offset: u64) {
         if let Some(mut node) = self.nodes.get_mut(&id) {
             node.bitset = bitset;
@@ -1085,6 +1086,7 @@ impl CPIndex {
         }
     }
 
+    #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
     pub fn search_nearest(
         &self,
         query_vec: &[f32],
@@ -1100,15 +1102,21 @@ impl CPIndex {
         };
 
         let ef_search = self.config.ef_search.max(top_k);
-        let (query_norm, query_inv_norm) = match self.config.distance_metric {
+        // When Cosine metric is configured but the query vector is zero-norm
+        // (no defined direction), fall back to Euclidean for this query.
+        // Returning empty results for a zero-vector query breaks practical
+        // use-cases where callers use [0.0]*N as a "find all nearest" probe.
+        let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
                 let norm = f32_l2_norm(query_vec);
                 if norm < f32::EPSILON {
-                    return Vec::new();
+                    // Zero-norm fallback: use Euclidean without norm info
+                    (DistanceMetric::Euclidean, None, None)
+                } else {
+                    (DistanceMetric::Cosine, Some(norm), Some(1.0 / norm))
                 }
-                (Some(norm), Some(1.0 / norm))
             }
-            DistanceMetric::Euclidean => (None, None),
+            DistanceMetric::Euclidean => (DistanceMetric::Euclidean, None, None),
         };
         let mut curr_entry_points = vec![ep];
 
@@ -1123,7 +1131,7 @@ impl CPIndex {
                 layer,
                 u128::MAX,
                 vector_store,
-                self.config.distance_metric,
+                effective_metric,
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
@@ -1139,7 +1147,7 @@ impl CPIndex {
             0,
             query_mask,
             vector_store,
-            self.config.distance_metric,
+            effective_metric,
         );
 
         let mut result = w.into_sorted_vec();
@@ -1149,7 +1157,7 @@ impl CPIndex {
 
         let mut final_results = Vec::with_capacity(result.len());
         for NodeSimMin(score, id) in result {
-            let adjusted_score = match self.config.distance_metric {
+            let adjusted_score = match effective_metric {
                 DistanceMetric::Euclidean => -(-score).max(0.0).sqrt(),
                 DistanceMetric::Cosine => score,
             };

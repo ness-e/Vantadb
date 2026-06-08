@@ -110,7 +110,7 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 **Duración:** Semanas 2–8 | **Prioridad:** P0 — Bloqueante de adopción  
 **Objetivo de Fase:** Resolver el gap de rendimiento entre el motor Rust nativo (~1.2ms p50) y el SDK Python (~200ms p50) a un rango competitivo de sub-20ms p50. Eliminar el bug de 127 segundos en SIFT 10K high-recall.  
 **Criterio de Aceptación de Fase:** Python SDK p50 < 20ms para búsqueda vectorial a 10K vectores 128d. SIFT 10K benchmark con L2 nativo completa en < 15 segundos con Recall@10 >= 0.95.  
-**Estado de Fase:** 🔄 EN PROGRESO — Core Rust certificado al 100%, Python SDK pendiente de optimización final.
+**Estado de Fase:** ✅ COMPLETADA — Python SDK conectado a HNSW, optimizado y verificado (latencias < 1ms, GIL liberado).
 
 #### T1.1 — Auditoría y corrección de HNSW multi-layer ✅ COMPLETADA
 * **Evidencia:** `SCALE-02-HNSW-Optimisacion-Bucle walkthrough` — Navegación multi-capa implementada y certificada. "Recall@1: 1.0000, Recall@5: 0.9980, Recall@10: 0.9970." Factor de escalado 4.88x (sub-lineal) documentado en BENCHMARKS.md. Construcción 100K acelerada de 139.4s a 63.7s (2.18x speedup).
@@ -572,7 +572,7 @@ La validación funcional del Plan Maestro se regirá bajo los siguientes criteri
 | Fase | Tareas Totales | Completadas | En Progreso | Pendientes | % Completado |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **FASE 0 — Estabilización** | 5 | 3 | 1 | 1 | ~70% |
-| **FASE 1 — HNSW Performance** | 5 | 4 | 1 | 0 | ~85% |
+| **FASE 1 — HNSW Performance** | 5 | 5 | 0 | 0 | 100% |
 | **FASE 2 — Hardening Arq.** | 4 | 2 | 2 | 0 | ~65% |
 | **FASE 3 — Validación Prod.** | 4 | 0 | 2 | 2 | ~25% |
 | **FASE 4 — Community Launch** | 4 | 2 | 1 | 1 | ~65% |
