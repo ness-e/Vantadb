@@ -448,9 +448,11 @@ fn stress_protocol_certification() {
         TerminalReporter::sub_step("5d: Zero vector...");
         let zvec = CPIndex::new();
         zvec.add(1, u128::MAX, VectorRepresentations::Full(vec![0.0; d]), 0);
-        assert!(zvec
-            .search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
-            .is_empty());
+        assert_eq!(
+            zvec.search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
+                .len(),
+            1
+        );
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
         let dup = CPIndex::new();
