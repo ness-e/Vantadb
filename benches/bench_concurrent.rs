@@ -111,7 +111,7 @@ fn run_read_only_bench(
                     let vstore = storage.vector_store.read();
                     let _results =
                         hnsw.search_nearest(query, None, None, u128::MAX, 10, Some(&vstore));
-                    criterion::black_box(_results);
+                    std::hint::black_box(_results);
                 }
 
                 let elapsed = q_start.elapsed().as_micros() as u64;
@@ -222,7 +222,7 @@ fn run_mixed_bench(
                     let vstore = storage.vector_store.read();
                     let _results =
                         hnsw.search_nearest(query, None, None, u128::MAX, 10, Some(&vstore));
-                    criterion::black_box(_results);
+                    std::hint::black_box(_results);
                 }
 
                 let elapsed = q_start.elapsed().as_micros() as u64;
