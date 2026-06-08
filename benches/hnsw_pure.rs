@@ -68,7 +68,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
         b.iter(|| {
             for query in &queries {
-                criterion::black_box(index.search_nearest(query, None, None, u128::MAX, 10, None));
+                std::hint::black_box(index.search_nearest(query, None, None, u128::MAX, 10, None));
             }
         });
     });
