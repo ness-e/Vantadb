@@ -1,3 +1,11 @@
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+unmaintained = "transitive"
+yanked = "deny"
+ignore = [
+    "RUSTSEC-2025-0119"
+]
+
 [licenses]
 allow = [
     "MIT",
@@ -8,13 +16,6 @@ allow = [
     "Zlib",
     "Unicode-3.0",
     "CC0-1.0",
-    "BSL-1.0"
-]
-
-[advisories]
-db-urls = ["https://github.com/rustsec/advisory-db"]
-unmaintained = "transitive"
-yanked = "deny"
-ignore = [
-    "RUSTSEC-2025-0119"
+    "BSL-1.0",
+    "0BSD"
 ]
