@@ -225,6 +225,8 @@ jobs:
       - name: Fuzz — parser (5 min)
         timeout-minutes: 8
         working-directory: fuzz
+        env:
+          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cargo +nightly fuzz run fuzz_parser -- \
             -max_total_time=300 \
@@ -233,6 +235,8 @@ jobs:
       - name: Fuzz — node deserialization (5 min)
         timeout-minutes: 8
         working-directory: fuzz
+        env:
+          RUSTFLAGS: "-C target-feature=-crt-static"
         run: |
           cargo +nightly fuzz run fuzz_node_deserialize -- \
             -max_total_time=300 \
