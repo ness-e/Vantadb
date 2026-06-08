@@ -35,7 +35,7 @@ futures = "0.3"
 tempfile = "3"
 sysinfo = "0.30"
 chrono = "0.4"
-console = "0.15"
+console = "0.16"
 indicatif = "0.17"
 
 [features]
