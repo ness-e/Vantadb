@@ -77,6 +77,8 @@ jobs:
           command: build
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
           manylinux: auto
+          before-script-linux: |
+            yum install -y clang clang-devel
 
       - name: Install wheel smoke test (Unix)
         if: matrix.os != 'windows-latest'
