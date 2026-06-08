@@ -117,6 +117,10 @@ jobs:
       with:
         toolchain: "1.94.1"
         components: clippy
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-bin: "false"
     - name: Cargo check (Windows smoke test)
       run: cargo check --workspace
     - name: Clippy (Windows)
