@@ -42,7 +42,7 @@ fn gen_vectors(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
         .into_par_iter() // Parallel generation
         .map(|i| {
             let mut rng = StdRng::seed_from_u64(seed + i as u64); // Distinct seed per vector
-            let mut v: Vec<f32> = (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect();
+            let mut v: Vec<f32> = (0..dims).map(|_| rng.random_range(-1.0..1.0)).collect();
             let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
             if norm > f32::EPSILON {
                 v.iter_mut().for_each(|x| *x /= norm);
