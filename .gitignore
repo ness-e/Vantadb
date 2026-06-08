@@ -84,3 +84,12 @@ job*_logs/
 *db/
 tests_*/
 
+# Local run artifacts and scratch scripts
+chaos_results.json
+payload.json
+test_gil.py
+
+# Coverage reports
+lcov.info
+*.profraw
+
