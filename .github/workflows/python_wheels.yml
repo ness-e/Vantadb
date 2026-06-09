@@ -207,16 +207,10 @@ jobs:
             --extra-index-url https://pypi.org/simple/ \
             "vantadb-py==${{ steps.pkg_version.outputs.version }}"
 
-      - name: Smoke test — import and version
-        run: |
-          python -c "
-          import vantadb_py
-          print(f'vantadb_py version: {vantadb_py.__version__}')
-          expected = '${{ steps.pkg_version.outputs.version }}'
-          assert vantadb_py.__version__ == expected, \
-            f'Version mismatch: got {vantadb_py.__version__!r}, expected {expected!r}'
-          print('TestPyPI install smoke test: PASSED')
-          "
+      - name: Functional smoke test - verify published wheel
+        env:
+          VANTADB_EXPECTED_VERSION: ${{ steps.pkg_version.outputs.version }}
+        run: python vantadb-python/verify_published_wheel.py
 
   verify-pypi-install:
     name: Verify PyPI production install + Attest provenance
@@ -251,16 +245,10 @@ jobs:
           python -m pip install --no-cache-dir \
             "vantadb-py==${{ steps.pkg_version.outputs.version }}"
 
-      - name: Smoke test — import and version
-        run: |
-          python -c "
-          import vantadb_py
-          print(f'vantadb_py version: {vantadb_py.__version__}')
-          expected = '${{ steps.pkg_version.outputs.version }}'
-          assert vantadb_py.__version__ == expected, \
-            f'Version mismatch: got {vantadb_py.__version__!r}, expected {expected!r}'
-          print('PyPI production install smoke test: PASSED')
-          "
+      - name: Functional smoke test - verify published wheel
+        env:
+          VANTADB_EXPECTED_VERSION: ${{ steps.pkg_version.outputs.version }}
+        run: python vantadb-python/verify_published_wheel.py
 
       - name: Verify build provenance (GitHub Attestations)
         env:
