@@ -248,14 +248,14 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
   * ✅ **ST3.2.3:** Redactar y publicar los resultados en `docs/BENCHMARKS.md`. — *Evidencia: Secciones 7.1 y 7.2 redactadas e integradas.*
 * **Criterio de Aceptación General T3.2:** ✅ Benchmark transparente publicado con scripts reproducibles de un solo paso.
 
-#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + Sigstore) 🔄 EN PROGRESO
+#### T3.3 — Pipeline de wheels para distribución (cibuildwheel + GitHub Attestations) 🔄 EN PROGRESO
 * **Evidencia:** `wheels-pipeline-T3.3 walkthrough` — Jobs `verify-testpypi-install` y `verify-pypi-install` implementados en `python_wheels.yml`. `PYTHON_RELEASE_POLICY.md` actualizado para documentar GitHub Attestations SLSA Level 2 como mecanismo canónico de signing (sustituyendo las referencias obsoletas a `sigstore/gh-action-sigstore-python`). Pipeline completo: build → attest → publish → verify CDN → `gh attestation verify`.
 * **Objetivo:** Proveer empaquetado y firmas criptográficas automáticas para el SDK en múltiples plataformas.
 * **Subtareas:**
   * ✅ **ST3.3.1:** Configurar `cibuildwheel` en el pipeline de GitHub Actions para compilar ruedas en `manylinux2014_x86_64`, macOS Intel/Apple Silicon y Windows x64. — *Evidencia: CHANGELOG v0.1.1 — "Python wheel CI workflow para Linux, macOS, y Windows."*
     * *Criterio de Aceptación:* `pip install` funciona en entornos sin compiladores de Rust instalados.
-  * ⬜ **ST3.3.3:** Programar el paso de CI `verify_published_wheel` para descargar, validar la firma de Sigstore e importar de forma básica en Python.
-* **Criterio de Aceptación General T3.3:** 🔄 CI de wheels multi-plataforma funcional. Sigstore y producción PyPI pendientes.
+  * ✅ **ST3.3.3:** Paso de CI `verify_published_wheel` que descarga el wheel publicado, valida su procedencia y lo ejercita funcionalmente en Python. — *Evidencia: PR #47 — `vantadb-python/verify_published_wheel.py` ejecutado por los jobs `verify-testpypi-install` y `verify-pypi-install`: import + assert de versión, y flujo end-to-end (put, get, list, búsqueda vectorial, capabilities, durabilidad tras reapertura). El job de PyPI mantiene la verificación de procedencia con `gh attestation verify` (GitHub Attestations SLSA L2, sustituyendo a Sigstore).*
+* **Criterio de Aceptación General T3.3:** 🔄 CI de wheels multi-plataforma + verificación funcional post-publicación operativa. Solo queda la publicación a PyPI de producción.
 
 #### T3.4 — Programa de pilotos controlados ✅ COMPLETADA
 * **Evidencia:** `programa-pilotos-T3.4 walkthrough` — Paquete de onboarding de pilotos con integración a Ollama redactado en `docs/operations/PILOT_ONBOARDING.md`, plantillas y estrategia de captación en `docs/operations/PILOT_OUTREACH.md`, y dos casos de estudio prácticos documentados en `docs/case_studies/` (`agent_local_memory_ollama.md` y `rag_edge_device.md`).
