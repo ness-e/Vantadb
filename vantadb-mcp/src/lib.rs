@@ -125,8 +125,14 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                     Err(_) => error_code(-32603, "Internal error: semaphore closed"),
                 }
             }
-            "prompts/list" => handle_prompts_list(),
-            "prompts/get" => handle_prompts_get(),
+            "prompts/list" => {
+                // Placeholder: prompts/list handler not yet implemented
+                error_code(-32601, "Method not found: prompts/list")
+            },
+            "prompts/get" => {
+                // Placeholder: prompts/get handler not yet implemented
+                error_code(-32601, "Method not found: prompts/get")
+            },
             _ => error_code(-32601, "Method not found"),
         };
 
