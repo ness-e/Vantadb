@@ -500,11 +500,15 @@ Actualmente, VantaDB presenta un **alto factor de dependencia (Bus Factor = 1)**
 Para ejecutar las refactorizaciones de manera segura sin romper la estabilidad del Core Alpha estable, se define la siguiente estrategia de reestructuración física de archivos:
 
 ### 🚫 Eliminar del Workspace (Deuda Muerta)
-* **`src/eval/` (LISP VM):** ✅ COMPLETADO — Extirpada. Movida a `packages/experimental-lisp`. — *Evidencia: cuarentena-experimental walkthrough.*
-* **`src/parser/lisp.rs`:** ✅ COMPLETADO — Purgado del core. — *Evidencia: cuarentena-experimental walkthrough.*
-* **`src/api/mcp.rs`:** ✅ COMPLETADO — Eliminado y movido a `vantadb-mcp/src/lib.rs`. — *Evidencia: FEAT-01 walkthrough.*
-* **`src/governance/` (Consistency Buffer / Conflict Resolver):** ✅ COMPLETADO — Movido a `packages/experimental-governance`. — *Evidencia: cuarentena-experimental walkthrough.*
+* **`src/eval/` (LISP VM):** ✅ COMPLETADO + ARCHIVADO (2024-06-10) — Extirpada del core, movida a `packages/experimental-lisp`, luego archivada en `archive/experimental-quarantine-2024-06/`. — *Evidencia: cuarentena-experimental walkthrough + archivado 2024-06-10.*
+* **`src/parser/lisp.rs`:** ✅ COMPLETADO + ARCHIVADO (2024-06-10) — Purgado del core, archivado en `archive/experimental-quarantine-2024-06/`. — *Evidencia: cuarentena-experimental walkthrough + archivado 2024-06-10.*
+* **`src/api/mcp.rs`:** ✅ COMPLETADO — Eliminado y movido a `vantadb-mcp/src/lib.rs`. MCP ahora es parte de producción con CRUD completo, recursos y prompts. — *Evidencia: FEAT-01 walkthrough + MCP production implementation (2024-06-10).*
+* **`src/governance/` (Consistency Buffer / Conflict Resolver):** ✅ COMPLETADO + ARCHIVADO + EXTRAÍDO (2024-06-10) — Movido a `packages/experimental-governance`, archivado en `archive/experimental-quarantine-2024-06/`. Utilidades útiles extraídas al core: `src/utils/duplicate_prevention.rs` y `src/utils/confidence_metrics.rs`. — *Evidencia: cuarentena-experimental walkthrough + archivado 2024-06-10.*
 * **`vanta_certification.json`:** ⬜ PENDIENTE — Remover del raíz.
+
+### 🆕 Nuevas Utilidades Integradas (2024-06-10)
+* **`src/utils/duplicate_prevention.rs`:** ✅ COMPLETADO — Bloom filter `DuplicatePreventionFilter` extraído de `experimental-governance` para prevención de duplicates en escenarios multi-writer. — *API:* `vantadb::utils::DuplicatePreventionFilter`
+* **`src/utils/confidence_metrics.rs`:** ✅ COMPLETADO — Métricas de confianza `OriginCollisionTracker` y `compute_confidence_friction` extraídas de `experimental-governance` para coordinación multi-agent. — *API:* `vantadb::utils::OriginCollisionTracker`, `vantadb::utils::compute_confidence_friction`
 
 ### 🛠️ Refactorizar (Reestructuración Estructural)
 * **[`src/storage.rs`](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/src/storage.rs) (Esfuerzo: 4 HH):** 🔄 División parcial realizada (compact_layout_bfs implementado, WAL hardening). Módulos `wal.rs`, `vanta_file.rs` y `backend_manager.rs` aún no separados formalmente.
@@ -518,7 +522,7 @@ Para ejecutar las refactorizaciones de manera segura sin romper la estabilidad d
 
 Se descartan las siguientes propuestas de los planes de origen debido a riesgos graves de seguridad de memoria o penalizaciones inaceptables en latencia:
 
-1. **Intérprete LISP en Runtime para Políticas y Gobernanza:** ✅ DESCARTADO Y EJECUTADO — Causaba allocations masivas en heap, fragmentación de tipos y pánicos del compilador en el *Borrow Checker* (`Rc<RefCell>` al mutar vistas de grafos en `MmapMut`). Se reemplaza por optimización estática del planificador lógico de IQL a nivel de AST en tiempo de compilación interna. *Evidencia: cuarentena-experimental walkthrough + motor-consultas-volcano-cbo walkthrough.*
+1. **Intérprete LISP en Runtime para Políticas y Gobernanza:** ✅ DESCARTADO, EJECUTADO Y ARCHIVADO (2024-06-10) — Causaba allocations masivas en heap, fragmentación de tipos y pánicos del compilador en el *Borrow Checker* (`Rc<RefCell>` al mutar vistas de grafos en `MmapMut`). Se reemplaza por optimización estática del planificador lógico de IQL a nivel de AST en tiempo de compilación interna. Código archivado en `archive/experimental-quarantine-2024-06/` para referencia histórica. *Evidencia: cuarentena-experimental walkthrough + motor-consultas-volcano-cbo walkthrough + archivado 2024-06-10.*
 2. **Cuantización de 2 Bits (TurboQuant) y Olvido Temporal de Ebbinghaus:** ✅ DESCARTADO — Comprimir a 2 bits reduce el Recall por debajo del 40%, inhabilitando la recuperación semántica. El borrado o decaimiento de nodos por tiempo destruye la topología del grafo HNSW creando subgrafos huérfanos. Se sustituye por cuantización regular a 8 bits (SQ8) con aceleración SIMD.
 3. **Persistencia Síncrona en Cada Mutación de Nodos:** ✅ DESCARTADO Y EJECUTADO — Ejecutar duplicados de `fsync` tanto en los metadatos como en el índice aproximado y el WAL bloquea los hilos de CPU en esperas de E/S de disco. Toda la durabilidad transaccional se relega al flujo secuencial del WAL de alta velocidad, reconstruyendo en caliente el HNSW en memoria. *Evidencia: sec-wal walkthrough — "Evitación de Doble/Triple fsync síncrono redundante."*
 

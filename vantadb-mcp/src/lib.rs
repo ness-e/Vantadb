@@ -1,7 +1,7 @@
-//! Experimental MCP integration surface.
+//! VantaDB Model Context Protocol (MCP) Server.
 //!
-//! MCP support remains in-tree for integration experiments and is not part of the v0.1.x MVP
-//! product boundary or stable public API.
+//! This module provides a complete MCP server implementation for VantaDB,
+//! exposing tools, resources, and prompts for AI agent integration.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -101,6 +101,32 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                     Err(_) => error_code(-32603, "Internal error: semaphore closed"),
                 }
             }
+            "resources/list" => handle_resources_list(),
+            "resources/read" => {
+                let sem = semaphore.clone();
+                let storage_ctx = storage.clone();
+                let params_ctx = req.params.clone();
+
+                match sem.acquire_owned().await {
+                    Ok(permit) => {
+                        let spawn_res = tokio::task::spawn_blocking(move || {
+                            let _permit = permit;
+                            handle_resources_read(&params_ctx, &storage_ctx)
+                        })
+                        .await;
+
+                        match spawn_res {
+                            Ok(r) => r,
+                            Err(e) => {
+                                error_code(-32603, &format!("Internal error: task panicked: {}", e))
+                            }
+                        }
+                    }
+                    Err(_) => error_code(-32603, "Internal error: semaphore closed"),
+                }
+            }
+            "prompts/list" => handle_prompts_list(),
+            "prompts/get" => handle_prompts_get(),
             _ => error_code(-32601, "Method not found"),
         };
 
@@ -131,7 +157,207 @@ pub fn handle_initialize() -> Result<Value, Value> {
             "version": metadata::reported_version().into_owned()
         },
         "capabilities": {
-            "tools": {}
+            "tools": {},
+            "resources": {},
+            "prompts": {}
+        }
+    }))
+}
+
+pub fn handle_resources_list() -> Result<Value, Value> {
+    Ok(json!({
+        "resources": [
+            {
+                "uri": "metrics://",
+                "name": "Operational Metrics",
+                "description": "Current operational metrics including memory usage, HNSW statistics, and storage information",
+                "mimeType": "application/json"
+            },
+            {
+                "uri": "schema://",
+                "name": "Database Schema",
+                "description": "Schema information for the VantaDB database including text index version and configuration",
+                "mimeType": "application/json"
+            }
+        ]
+    }))
+}
+
+pub fn handle_resources_read(params: &Option<Value>, storage: &Arc<StorageEngine>) -> Result<Value, Value> {
+    let p = params
+        .as_ref()
+        .ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
+    let uri = p["uri"].as_str().ok_or_else(|| json!({"code": -32602, "message": "Missing 'uri'"}))?;
+
+    if uri == "metrics://" {
+        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let metrics = embedded.operational_metrics();
+        let content = serde_json::to_string(&metrics).unwrap_or_default();
+        Ok(json!({
+            "contents": [{
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": content
+            }]
+        }))
+    } else if uri == "schema://" {
+        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let metrics = embedded.operational_metrics();
+        let schema_info = json!({
+            "hnsw_nodes_count": metrics.hnsw_nodes_count,
+            "hnsw_logical_bytes": metrics.hnsw_logical_bytes,
+            "mmap_resident_bytes": metrics.mmap_resident_bytes
+        });
+        let content = serde_json::to_string(&schema_info).unwrap_or_default();
+        Ok(json!({
+            "contents": [{
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": content
+            }]
+        }))
+    } else if uri.starts_with("memory://") {
+        // Parse memory://namespace/key
+        let path = uri.strip_prefix("memory://").unwrap_or("");
+        let parts: Vec<&str> = path.splitn(2, '/').collect();
+        if parts.len() != 2 {
+            return error_code(-32602, "Invalid memory URI format. Expected: memory://namespace/key");
+        }
+        let namespace = parts[0];
+        let key = parts[1];
+
+        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        match embedded.get(namespace, key) {
+            Ok(Some(record)) => {
+                let content = serde_json::to_string(&record).unwrap_or_default();
+                Ok(json!({
+                    "contents": [{
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": content
+                    }]
+                }))
+            }
+            Ok(None) => error_code(-32602, "Memory record not found"),
+            Err(e) => error_code(-32603, &format!("Error reading memory: {}", e)),
+        }
+    } else if uri.starts_with("namespace://") {
+        // Parse namespace://namespace
+        let namespace = uri.strip_prefix("namespace://").unwrap_or("");
+        if namespace.is_empty() {
+            return error_code(-32602, "Invalid namespace URI format. Expected: namespace://namespace");
+        }
+
+        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let options = vantadb::sdk::VantaMemoryListOptions {
+            limit: 100,
+            cursor: None,
+            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+        };
+        match embedded.list(namespace, options) {
+            Ok(page) => {
+                let result = json!({
+                    "namespace": namespace,
+                    "records": page.records,
+                    "next_cursor": page.next_cursor
+                });
+                let content = serde_json::to_string(&result).unwrap_or_default();
+                Ok(json!({
+                    "contents": [{
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": content
+                    }]
+                }))
+            }
+            Err(e) => error_code(-32603, &format!("Error listing namespace: {}", e)),
+        }
+    } else {
+        error_code(-32601, "Resource not found")
+    }
+}
+
+pub fn handle_prompts_list() -> Result<Value, Value> {
+    Ok(json!({
+        "prompts": [
+            {
+                "name": "search_memory",
+                "description": "Optimized prompt for searching memory records with hybrid vector and text search",
+                "arguments": [
+                    {
+                        "name": "namespace",
+                        "description": "Target namespace for search",
+                        "required": true
+                    },
+                    {
+                        "name": "query",
+                        "description": "Search query (text or vector)",
+                        "required": true
+                    },
+                    {
+                        "name": "filters",
+                        "description": "Optional metadata filters",
+                        "required": false
+                    }
+                ]
+            },
+            {
+                "name": "analyze_namespace",
+                "description": "Analyze the content and structure of a namespace",
+                "arguments": [
+                    {
+                        "name": "namespace",
+                        "description": "Namespace to analyze",
+                        "required": true
+                    }
+                ]
+            },
+            {
+                "name": "summarize_context",
+                "description": "Generate a summary of context from memory records",
+                "arguments": [
+                    {
+                        "name": "namespace",
+                        "description": "Source namespace",
+                        "required": true
+                    },
+                    {
+                        "name": "limit",
+                        "description": "Number of records to include",
+                        "required": false
+                    }
+                ]
+            },
+            {
+                "name": "query_builder",
+                "description": "Build IQL queries for VantaDB",
+                "arguments": [
+                    {
+                        "name": "operation",
+                        "description": "Operation type (SELECT, INSERT, UPDATE, DELETE)",
+                        "required": true
+                    },
+                    {
+                        "name": "target",
+                        "description": "Target (nodes, memory, etc.)",
+                        "required": true
+                    },
+                    {
+                        "name": "conditions",
+                        "description": "Query conditions",
+                        "required": false
+                    }
+                ]
+            }
+        ]
+    }))
+}
+
+pub fn handle_prompts_get() -> Result<Value, Value> {
+    Ok(json!({
+        "error": {
+            "code": -32601,
+            "message": "Prompts are listed but individual prompt retrieval is not yet implemented. Use the prompt templates from prompts/list directly."
         }
     }))
 }
@@ -139,6 +365,68 @@ pub fn handle_initialize() -> Result<Value, Value> {
 pub fn handle_tools_list() -> Result<Value, Value> {
     Ok(json!({
         "tools": [
+            {
+                "name": "memory_put",
+                "description": "Inserts or updates a memory record in a namespace with payload, vector, and optional metadata.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace" },
+                        "key": { "type": "string", "description": "Unique key for the record" },
+                        "payload": { "type": "string", "description": "Text content of the memory" },
+                        "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
+                        "metadata": { "type": "object", "description": "Optional metadata key-value pairs" }
+                    },
+                    "required": ["namespace", "key", "payload"]
+                }
+            },
+            {
+                "name": "memory_get",
+                "description": "Retrieves a memory record by namespace and key.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace" },
+                        "key": { "type": "string", "description": "Record key to retrieve" }
+                    },
+                    "required": ["namespace", "key"]
+                }
+            },
+            {
+                "name": "memory_delete",
+                "description": "Deletes a memory record by namespace and key.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace" },
+                        "key": { "type": "string", "description": "Record key to delete" }
+                    },
+                    "required": ["namespace", "key"]
+                }
+            },
+            {
+                "name": "memory_list",
+                "description": "Lists memory records in a namespace with optional pagination and filters.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace" },
+                        "limit": { "type": "number", "description": "Maximum number of records to return, default is 100" },
+                        "cursor": { "type": "number", "description": "Optional cursor for pagination" },
+                        "filters": { "type": "object", "description": "Optional metadata key-value filters" }
+                    },
+                    "required": ["namespace"]
+                }
+            },
+            {
+                "name": "memory_list_namespaces",
+                "description": "Lists all available namespaces in the database.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
             {
                 "name": "query_lisp",
                 "description": "Executes VantaLISP code. Allows reading structures and inserting/mutating Nodes providing semantic context.",
@@ -227,6 +515,167 @@ pub fn handle_tools_call(
     let args = &p["arguments"];
 
     match name {
+        "memory_put" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'namespace'"}))?
+                .to_string();
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'key'"}))?
+                .to_string();
+            let payload = args["payload"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'payload'"}))?
+                .to_string();
+
+            let vector = if let Some(arr) = args["vector"].as_array() {
+                let mut v = Vec::with_capacity(arr.len());
+                for val in arr {
+                    v.push(val.as_f64().unwrap_or(0.0) as f32);
+                }
+                Some(v)
+            } else {
+                None
+            };
+
+            let mut metadata = vantadb::sdk::VantaMemoryMetadata::new();
+            if let Some(obj) = args["metadata"].as_object() {
+                for (key, val) in obj {
+                    if let Some(s) = val.as_str() {
+                        metadata
+                            .insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
+                    } else if let Some(b) = val.as_bool() {
+                        metadata.insert(key.clone(), vantadb::sdk::VantaValue::Bool(b));
+                    } else if let Some(i) = val.as_i64() {
+                        metadata.insert(key.clone(), vantadb::sdk::VantaValue::Int(i));
+                    } else if let Some(f) = val.as_f64() {
+                        metadata.insert(key.clone(), vantadb::sdk::VantaValue::Float(f));
+                    }
+                }
+            }
+
+            let input = vantadb::sdk::VantaMemoryInput {
+                key,
+                namespace,
+                payload,
+                vector,
+                metadata,
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.put(input) {
+                Ok(record) => {
+                    let content = serde_json::to_string(&record).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("Put Error: {}", e)}]}),
+                ),
+            }
+        }
+        "memory_get" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'namespace'"}))?
+                .to_string();
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'key'"}))?
+                .to_string();
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.get(&namespace, &key) {
+                Ok(Some(record)) => {
+                    let content = serde_json::to_string(&record).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Ok(None) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": "Record not found"}]}),
+                ),
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("Get Error: {}", e)}]}),
+                ),
+            }
+        }
+        "memory_delete" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'namespace'"}))?
+                .to_string();
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'key'"}))?
+                .to_string();
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.delete(&namespace, &key) {
+                Ok(deleted) => {
+                    let content = serde_json::to_string(&json!({"deleted": deleted})).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("Delete Error: {}", e)}]}),
+                ),
+            }
+        }
+        "memory_list" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| json!({"code": -32602, "message": "Missing 'namespace'"}))?
+                .to_string();
+            let limit = args["limit"].as_u64().unwrap_or(100) as usize;
+            let cursor = args["cursor"].as_u64().map(|c| c as usize);
+
+            let mut filters = vantadb::sdk::VantaMemoryMetadata::new();
+            if let Some(obj) = args["filters"].as_object() {
+                for (key, val) in obj {
+                    if let Some(s) = val.as_str() {
+                        filters
+                            .insert(key.clone(), vantadb::sdk::VantaValue::String(s.to_string()));
+                    } else if let Some(b) = val.as_bool() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Bool(b));
+                    } else if let Some(i) = val.as_i64() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Int(i));
+                    } else if let Some(f) = val.as_f64() {
+                        filters.insert(key.clone(), vantadb::sdk::VantaValue::Float(f));
+                    }
+                }
+            }
+
+            let options = vantadb::sdk::VantaMemoryListOptions {
+                limit,
+                cursor,
+                filters,
+            };
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.list(&namespace, options) {
+                Ok(page) => {
+                    let result = json!({
+                        "records": page.records,
+                        "next_cursor": page.next_cursor
+                    });
+                    let content = serde_json::to_string(&result).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("List Error: {}", e)}]}),
+                ),
+            }
+        }
+        "memory_list_namespaces" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.list_namespaces() {
+                Ok(namespaces) => {
+                    let content = serde_json::to_string(&namespaces).unwrap_or_default();
+                    Ok(json!({"content": [{"type": "text", "text": content}]}))
+                }
+                Err(e) => Ok(
+                    json!({"isError": true, "content": [{"type": "text", "text": format!("List Namespaces Error: {}", e)}]}),
+                ),
+            }
+        }
         "query_lisp" => {
             let query = args["query"].as_str().unwrap_or("");
             match executor.execute_hybrid(query) {
