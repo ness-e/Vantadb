@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Integration tests in `src/text_index.rs` for advanced tokenizer validation.
 - Benchmark suite in `benches/tokenizer_bench.rs` for performance comparison.
 - Documentation in `docs/ADVANCED_TOKENIZER.md` for usage and configuration.
+- Snippet generation with HTML highlighting of matched terms in search results.
+- `VantaEmbedded::generate_snippet()` public API method for snippet generation with optional highlighting.
+- `generate_snippet_with_highlighting()` internal method for snippet generation with term highlighting.
+- `highlight_terms()` internal method for adding HTML `<strong>` tags to matched terms.
+- Test `snippet_with_highlighting()` in `tests/memory_api.rs` for snippet functionality validation.
 
 ### Changed
 
