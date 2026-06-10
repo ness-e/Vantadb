@@ -13,6 +13,10 @@
   [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg)](https://www.rust-lang.org/)
 </div>
 
+<div align="center">
+  <a href="README_ES.md">🇪🇸 Español</a>
+</div>
+
 <br>
 
 <div align="center">
@@ -246,13 +250,13 @@ VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01*
 
 *Hardware profile: 12-core CPU @ 3.5GHz, AVX2 enabled, Windows 11 / Ubuntu 22.04 LTS.*
 
-### SIFT1M Competitive Benchmarks & Speedups (Fase 2)
+### SIFT1M Competitive Benchmarks & Speedups (Phase 2)
 
-El motor HNSW de VantaDB ha sido optimizado en su Fase 2 mediante prefetch estático, eliminación del cálculo de la raíz cuadrada Euclidiana en el recorrido caliente del grafo, cálculo puramente SIMD para similitud coseno y la **optimización O(M²) de select_neighbors** (que cachea referencias para erradicar las consultas en HashMap durante el bucle de diversidad).
+VantaDB's HNSW engine has been optimized in Phase 2 through static prefetch, elimination of Euclidean square root calculation in hot graph traversal, pure SIMD calculation for cosine similarity, and the **O(M²) select_neighbors optimization** (which caches references to eradicate HashMap queries during the diversity loop).
 
-Los resultados de rendimiento certificados sobre el dataset estándar SIFT en modo optimizado son:
+The certified performance results on the standard SIFT dataset in optimized mode are:
 
-| Escala (Vectores) | Configuración HNSW | Métrica | Tiempo de Construcción (Antes) | Tiempo de Construcción (Ahora) | Aceleración (Speedup) | p99 Latencia de Búsqueda | QPS Promedio |
+| Scale (Vectors) | HNSW Configuration | Metric | Construction Time (Before) | Construction Time (Now) | Speedup | p99 Search Latency | Average QPS |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **100K** | Balanced Cos | Cosine | 139.4s | **63.7s** | **2.18x** | 441.2 µs | 3,636 |
 | **100K** | High Recall Cos | Cosine | 390.8s | **182.2s** | **2.14x** | 1,231.8 µs | 1,379 |
@@ -260,7 +264,7 @@ Los resultados de rendimiento certificados sobre el dataset estándar SIFT en mo
 | **100K** | High Recall L2 | Euclidean | 462.2s | **194.5s** | **2.37x** | 1,183.6 µs | 1,353 |
 | **100K** | High Recall L2 Mmap | Mmap Euclidean | 411.2s | **189.8s** | **2.16x** | 1,094.8 µs | 1,438 |
 
-*Certificación en hardware: AMD Ryzen 12-Core @ 3.5GHz, compilación con `-C target-cpu=native`.*
+*Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
 
 ### Running the Local Benchmark Suite
 
