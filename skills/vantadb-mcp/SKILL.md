@@ -9,6 +9,16 @@ VantaDB provides a complete MCP (Model Context Protocol) server implementation f
 
 ## Quick Start
 
+### Installation
+
+Run the setup script to install VantaDB:
+
+```bash
+bash scripts/setup-vantadb.sh
+```
+
+This installs VantaDB and creates default configuration.
+
 ### Starting the MCP Server
 
 The VantaDB MCP server runs as a stdio JSON-RPC server:
@@ -30,6 +40,28 @@ Configure your MCP client to connect to VantaDB:
     }
   }
 }
+```
+
+**Pre-configured templates available in assets/:**
+- `assets/claude-desktop-config.json` - Claude Desktop configuration
+- `assets/cursor-config.json` - Cursor workspace configuration
+- `assets/config-template.json` - VantaDB configuration template
+
+### Testing
+
+Test the MCP server:
+
+```bash
+python scripts/test-mcp.py
+```
+
+### Namespace Management
+
+Create namespaces for isolation:
+
+```bash
+python scripts/create-namespace.py create agent/session-001
+python scripts/create-namespace.py list
 ```
 
 ## Available MCP Tools
@@ -173,4 +205,19 @@ Supported editors:
 **Permission errors**: Ensure database path is writable
 **Memory issues**: Configure appropriate memory limits
 
-For detailed documentation, see [docs/MCP.md](../../docs/MCP.md).
+## Detailed Reference
+
+For comprehensive documentation, see the reference files:
+
+- **[references/mcp-protocol.md](references/mcp-protocol.md)** - Complete MCP protocol specification
+- **[references/api-reference.md](references/api-reference.md)** - Full VantaDB API reference (Python and Rust)
+- **[references/configuration.md](references/configuration.md)** - Advanced configuration guide
+
+These files provide in-depth technical details for:
+- MCP protocol methods and error handling
+- Complete API methods and data structures
+- HNSW parameter tuning
+- Performance optimization
+- Security configuration
+
+For general documentation, see [docs/MCP.md](../../docs/MCP.md).

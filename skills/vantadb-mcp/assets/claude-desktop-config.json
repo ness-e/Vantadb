@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-server",
+      "args": [
+        "--mcp",
+        "--path",
+        "~/.vantadb"
+      ],
+      "env": {
+        "VANTADB_PATH": "~/.vantadb",
+        "VANTADB_MEMORY_LIMIT": "512000000"
+      }
+    }
+  }
+}
