@@ -5,7 +5,10 @@
 //! It is only available when the `advanced-tokenizer` feature is enabled.
 
 #[cfg(feature = "advanced-tokenizer")]
-use tantivy::tokenizer::{Language, SimpleTokenizer, Tokenizer, TokenStream};
+use tantivy::tokenizer::{
+    AsciiFoldingFilter, Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer,
+    StopWordFilter, TextAnalyzer, TokenStream,
+};
 
 #[cfg(feature = "advanced-tokenizer")]
 const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
@@ -39,22 +42,66 @@ impl Default for AdvancedTokenizerConfig {
 /// Tokenize text using the advanced Tantivy tokenizer
 #[cfg(feature = "advanced-tokenizer")]
 pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<String> {
-    let mut tokenizer = SimpleTokenizer::default();
+    // Build the tokenizer with appropriate filters based on configuration
+    let mut tokenizer = if config.apply_stemming && config.remove_stopwords {
+        // Both stemming and stopwords
+        if let Some(stopword_filter) = StopWordFilter::new(config.language) {
+            TextAnalyzer::builder(SimpleTokenizer::default())
+                .filter(RemoveLongFilter::limit(config.max_token_length))
+                .filter(LowerCaser)
+                .filter(AsciiFoldingFilter)
+                .filter(Stemmer::new(config.language))
+                .filter(stopword_filter)
+                .build()
+        } else {
+            // Stemming only (stopwords not available for this language)
+            TextAnalyzer::builder(SimpleTokenizer::default())
+                .filter(RemoveLongFilter::limit(config.max_token_length))
+                .filter(LowerCaser)
+                .filter(AsciiFoldingFilter)
+                .filter(Stemmer::new(config.language))
+                .build()
+        }
+    } else if config.apply_stemming {
+        // Stemming only
+        TextAnalyzer::builder(SimpleTokenizer::default())
+            .filter(RemoveLongFilter::limit(config.max_token_length))
+            .filter(LowerCaser)
+            .filter(AsciiFoldingFilter)
+            .filter(Stemmer::new(config.language))
+            .build()
+    } else if config.remove_stopwords {
+        // Stopwords only
+        if let Some(stopword_filter) = StopWordFilter::new(config.language) {
+            TextAnalyzer::builder(SimpleTokenizer::default())
+                .filter(RemoveLongFilter::limit(config.max_token_length))
+                .filter(LowerCaser)
+                .filter(AsciiFoldingFilter)
+                .filter(stopword_filter)
+                .build()
+        } else {
+            // No stopwords available, use basic tokenizer
+            TextAnalyzer::builder(SimpleTokenizer::default())
+                .filter(RemoveLongFilter::limit(config.max_token_length))
+                .filter(LowerCaser)
+                .filter(AsciiFoldingFilter)
+                .build()
+        }
+    } else {
+        // Basic tokenizer without stemming or stopwords
+        TextAnalyzer::builder(SimpleTokenizer::default())
+            .filter(RemoveLongFilter::limit(config.max_token_length))
+            .filter(LowerCaser)
+            .filter(AsciiFoldingFilter)
+            .build()
+    };
+
     let mut stream = tokenizer.token_stream(text);
     
     let mut tokens = Vec::new();
     
     while let Some(token) = stream.next() {
-        let token_text = token.text.to_string();
-        
-        // Apply length filter
-        if token_text.len() > config.max_token_length {
-            continue;
-        }
-        
-        // For now, just use the basic tokenization from Tantivy
-        // Advanced features like stemming and stopwords require more complex setup
-        tokens.push(token_text);
+        tokens.push(token.text.to_string());
     }
 
     tokens
@@ -83,8 +130,53 @@ mod tests {
         
         // Should tokenize
         assert!(!tokens.is_empty());
-        // Should contain common words
-        assert!(tokens.contains(&"quick".to_string()) || tokens.contains(&"brown".to_string()));
+        // Should contain common words (may be stemmed)
+        assert!(tokens.iter().any(|t| t.contains("quick") || t.contains("brown")));
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_stemming() {
+        let config = AdvancedTokenizerConfig {
+            apply_stemming: true,
+            remove_stopwords: false,
+            ..Default::default()
+        };
+        
+        let text = "The jumping fox runs quickly";
+        let tokens = tokenize_advanced(text, &config);
+        
+        // "jumping" should be stemmed to "jump"
+        assert!(tokens.iter().any(|t| t == "jump" || t.contains("jump")));
+        // "quickly" should be stemmed to "quickli" or similar
+        assert!(tokens.iter().any(|t| t.contains("quick")));
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_stopwords() {
+        let config_with_stopwords = AdvancedTokenizerConfig {
+            remove_stopwords: true,
+            apply_stemming: false,
+            ..Default::default()
+        };
+        
+        let config_without_stopwords = AdvancedTokenizerConfig {
+            remove_stopwords: false,
+            apply_stemming: false,
+            ..Default::default()
+        };
+        
+        let text = "The quick brown fox jumps over the lazy dog";
+        let tokens_with = tokenize_advanced(text, &config_with_stopwords);
+        let tokens_without = tokenize_advanced(text, &config_without_stopwords);
+        
+        // With stopwords removed, should have fewer tokens
+        assert!(tokens_with.len() < tokens_without.len());
+        
+        // Common stopwords like "the", "and", "is" should be removed
+        assert!(!tokens_with.iter().any(|t| t == "the"));
+        assert!(!tokens_with.iter().any(|t| t == "is"));
     }
 
     #[cfg(feature = "advanced-tokenizer")]
@@ -99,6 +191,9 @@ mod tests {
         let tokens = tokenize_advanced(text, &config);
         
         assert!(!tokens.is_empty());
+        // Spanish stopwords like "el", "sobre" should be removed
+        assert!(!tokens.iter().any(|t| t == "el"));
+        assert!(!tokens.iter().any(|t| t == "sobre"));
     }
 
     #[cfg(feature = "advanced-tokenizer")]
@@ -157,12 +252,35 @@ mod tests {
 
     #[cfg(feature = "advanced-tokenizer")]
     #[test]
-    fn test_advanced_tokenizer_unicode() {
+    fn test_advanced_tokenizer_unicode_folding() {
         let text = "Café naïve résumé";
         let tokens = tokenize_advanced_default(text);
         
-        // Should handle Unicode characters
+        // Should handle Unicode characters and fold them to ASCII
         assert!(!tokens.is_empty());
+        // "café" should become "cafe" or similar
+        assert!(tokens.iter().any(|t| t.contains("cafe")));
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_combined_features() {
+        let config = AdvancedTokenizerConfig {
+            apply_stemming: true,
+            remove_stopwords: true,
+            ..Default::default()
+        };
+        
+        let text = "The jumping fox runs quickly and the lazy dog";
+        let tokens = tokenize_advanced(text, &config);
+        
+        // Should have fewer tokens due to stopwords removal
+        assert!(!tokens.is_empty());
+        // Should not contain stopwords
+        assert!(!tokens.iter().any(|t| t == "the"));
+        assert!(!tokens.iter().any(|t| t == "and"));
+        // Should contain stemmed words
+        assert!(tokens.iter().any(|t| t.contains("jump")));
     }
 
     #[test]
