@@ -1,7 +1,6 @@
 //! Historical parser surface.
 //!
-//! DQL/LISP parsing remains in-tree for compatibility and future work, but it is not part of the
-//! v0.1.x MVP product boundary. The stable embedded memory API lives in `src/sdk.rs`.
+//! The stable embedded memory API lives in `src/sdk.rs`.
 
 use nom::{
     branch::alt,

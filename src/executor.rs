@@ -103,7 +103,6 @@ impl<'a> Executor<'a> {
     }
 
     /// Inserts a pre-built UnifiedNode directly into storage.
-    /// Used by the LISP sandbox to inject Node rules.
     pub fn insert_node(&self, node: &crate::node::UnifiedNode) -> crate::error::Result<()> {
         self.storage.insert(node)
     }
