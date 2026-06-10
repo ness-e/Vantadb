@@ -1,6 +1,4 @@
 use crate::error::{Result, VantaError};
-#[cfg(feature = "governance")]
-use crate::governance::{ConfidenceArbiter, ResolutionResult};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::parse_statement;
 use crate::query::{LogicalOperator, LogicalPlan, Statement};
@@ -129,21 +127,10 @@ impl<'a> Executor<'a> {
     pub fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
         // ── Memory Pressure Check ──
         {
-            use crate::governor::{AllocationStatus, ResourceGovernor};
+            use crate::governor::ResourceGovernor;
             let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
             let probe_cost = 0;
-            if let Ok(AllocationStatus::GrantedWithPressure) =
-                governor.request_allocation(probe_cost)
-            {
-                #[cfg(feature = "governance")]
-                {
-                    println!("🚨 [ResourceGovernor] High memory pressure (>90%) detected. Triggering emergency flush.");
-                    if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                        println!("    └─ Priority record preserved: {}", winner.id);
-                        let _ = self.storage.insert(&winner);
-                    }
-                }
-            }
+            let _ = governor.request_allocation(probe_cost);
         }
 
         match statement {
@@ -201,62 +188,6 @@ impl<'a> Executor<'a> {
                     }
                 }
 
-                // ── Admission Filter Check ──
-                #[cfg(feature = "governance")]
-                if let Some(crate::node::FieldValue::String(role)) =
-                    node.relational.get("_owner_role")
-                {
-                    if self.storage.admission_filter.is_role_blocked(role) {
-                        return Err(VantaError::Execution(format!(
-                            "Admission Policy: agent '{}' has Confidence Score 0.0 (blocked)",
-                            role
-                        )));
-                    }
-                }
-                #[cfg(not(feature = "governance"))]
-                {
-                    // Governance disabled: skip admission filtering
-                }
-
-                // Conflict Resolution
-                #[cfg(feature = "governance")]
-                if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                    if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                        let nearest = {
-                            let index = self.storage.hnsw.read();
-                            let vs = self.storage.vector_store.read();
-                            index.search_nearest(vec, None, None, 0, 1, Some(&vs))
-                        };
-
-                        if let Some((existing_id, _)) = nearest.first() {
-                            if *existing_id != node.id {
-                                if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self
-                                        .storage
-                                        .conflict_resolver
-                                        .evaluate_conflict(&existing, &node)
-                                    {
-                                        ResolutionResult::Reject(reason) => {
-                                            return Err(VantaError::Execution(format!(
-                                                "Consistency Violation: {}",
-                                                reason
-                                            )));
-                                        }
-                                        ResolutionResult::Superposition(record) => {
-                                            self.storage.consistency_buffer.insert_record(record);
-                                            return Ok(ExecutionResult::Write {
-                                                affected_nodes: 1,
-                                                message: format!("Node {} moved to ConsistencyBuffer (Pending Resolution).", node.id),
-                                                node_id: Some(node.id),
-                                            });
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
                 self.storage.insert(&node)?;
                 Ok(ExecutionResult::Write {
@@ -281,57 +212,6 @@ impl<'a> Executor<'a> {
                 if let Some(vec) = update.vector {
                     node.vector = VectorRepresentations::Full(vec);
                     node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
-                }
-                // ── Admission Filter Check ──
-                #[cfg(feature = "governance")]
-                if let Some(crate::node::FieldValue::String(role)) =
-                    node.relational.get("_owner_role")
-                {
-                    if self.storage.admission_filter.is_role_blocked(role) {
-                        return Err(VantaError::Execution(
-                            format!("Admission Policy (Update): agent '{}' has Confidence Score 0.0 (blocked)", role)
-                        ));
-                    }
-                }
-
-                // Conflict Resolution
-                #[cfg(feature = "governance")]
-                if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
-                    if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                        let nearest = {
-                            let index = self.storage.hnsw.read();
-                            let vs = self.storage.vector_store.read();
-                            index.search_nearest(vec, None, None, 0, 1, Some(&vs))
-                        };
-
-                        if let Some((existing_id, _)) = nearest.first() {
-                            if *existing_id != node.id {
-                                if let Some(existing) = self.storage.get(*existing_id)? {
-                                    match self
-                                        .storage
-                                        .conflict_resolver
-                                        .evaluate_conflict(&existing, &node)
-                                    {
-                                        ResolutionResult::Reject(reason) => {
-                                            return Err(VantaError::Execution(format!(
-                                                "Consistency Violation (Update): {}",
-                                                reason
-                                            )));
-                                        }
-                                        ResolutionResult::Superposition(record) => {
-                                            self.storage.consistency_buffer.insert_record(record);
-                                            return Ok(ExecutionResult::Write {
-                                                affected_nodes: 1,
-                                                message: format!("Node {} update entered ConsistencyBuffer (Pending Resolution).", node.id),
-                                                node_id: Some(node.id),
-                                            });
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
 
                 self.storage.insert(&node)?;
@@ -436,82 +316,6 @@ impl<'a> Executor<'a> {
                     node_id: Some(msg_id),
                 })
             }
-            #[cfg(feature = "governance")]
-            Statement::Collapse(collapse) => {
-                {
-                    let mut buffer = self.storage.consistency_buffer.records.write();
-                    if let Some(mut record) = buffer.remove(&collapse.zone_id) {
-                        if collapse.index < record.candidates.len() {
-                            let winner = record.candidates.remove(collapse.index);
-
-                            // Remaining candidates to archive
-                            let mut losers_to_archive = Vec::new();
-                            for cand in record.candidates {
-                                losers_to_archive.push((
-                                    cand.id,
-                                    "Manual Resolution: Candidate discarded by administrator"
-                                        .to_string(),
-                                    0u64, // Placeholder for hash
-                                ));
-                            }
-
-                            // ── Resolution ──
-                            let mut final_node = winner;
-                            final_node
-                                .flags
-                                .set(crate::node::NodeFlags::CONFLICT_RESOLVED);
-                            self.storage.insert(&final_node)?;
-
-                            // ── Consistency Logging ──
-                            self.storage
-                                .consistency_buffer
-                                .stats
-                                .pending_to_resolved
-                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            drop(buffer);
-
-                            if !losers_to_archive.is_empty() {
-                                use crate::backend::BackendPartition;
-                                use crate::governance::AuditableTombstone;
-                                for (id, reason, hash) in losers_to_archive {
-                                    let tomb = AuditableTombstone::new(id, reason, hash);
-                                    let key = id.to_le_bytes();
-                                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
-                                        let _ = self.storage.put_to_partition(
-                                            BackendPartition::TombstoneStorage,
-                                            &key,
-                                            &tomb_val,
-                                        );
-                                    }
-                                }
-                            }
-
-                            Ok(ExecutionResult::Write {
-                                affected_nodes: 1,
-                                message: format!(
-                                    "Consistency record {} resolved. Candidate {} prevailed.",
-                                    collapse.zone_id, collapse.index
-                                ),
-                                node_id: Some(collapse.zone_id),
-                            })
-                        } else {
-                            Err(VantaError::Execution(format!(
-                                "Candidate index {} out of bounds for record {}",
-                                collapse.index, collapse.zone_id
-                            )))
-                        }
-                    } else {
-                        Err(VantaError::Execution(format!(
-                            "Consistency record {} not found in buffer",
-                            collapse.zone_id
-                        )))
-                    }
-                }
-            }
-            #[cfg(not(feature = "governance"))]
-            Statement::Collapse(_) => Err(VantaError::Execution(
-                "Governance feature disabled: Collapse statement not supported.".to_string(),
-            )),
         }
     }
 
@@ -524,44 +328,17 @@ impl<'a> Executor<'a> {
         governor.apply_temperature_limits(&mut plan);
 
         let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
-        match governor.request_allocation(estimated_mem_cost)? {
-            crate::governor::AllocationStatus::GrantedWithPressure => {
-                #[cfg(feature = "governance")]
-                {
-                    println!("🚨 [ResourceGovernor] High memory pressure detected. Triggering emergency flush.");
-                    if let Some(winner) = self.storage.consistency_buffer.force_flush() {
-                        println!("    └─ Priority record preserved: {}", winner.id);
-                        let _ = self.storage.insert(&winner);
-                    }
-                }
-            }
-            crate::governor::AllocationStatus::Granted => {}
-        }
+        let _ = governor.request_allocation(estimated_mem_cost)?;
 
         // Intercept Conflict entity scan for experimental governance immediately
         for op in &plan.operators {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
-                    #[cfg(feature = "governance")]
-                    {
-                        if let Some(id_str) = entity.split('#').nth(1) {
-                            if let Ok(id) = id_str.parse::<u64>() {
-                                let buffer = self.storage.consistency_buffer.records.read();
-                                if let Some(record) = buffer.get(&id) {
-                                    governor.free_allocation(estimated_mem_cost);
-                                    return Ok(record.candidates.clone());
-                                }
-                            }
-                        }
-                    }
-                    #[cfg(not(feature = "governance"))]
-                    {
-                        governor.free_allocation(estimated_mem_cost);
-                        return Err(VantaError::Execution(
-                            "Governance feature disabled: Conflict entity scan not supported."
-                                .to_string(),
-                        ));
-                    }
+                    governor.free_allocation(estimated_mem_cost);
+                    return Err(VantaError::Execution(
+                        "Conflict entity scan requires the experimental-governance extension/crate."
+                            .to_string(),
+                    ));
                 }
             }
         }

@@ -485,12 +485,6 @@ pub struct StorageEngine {
     /// neighbor update races. Searches acquire hnsw.read() freely.
     insert_lock: parking_lot::Mutex<()>,
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
-    #[cfg(feature = "governance")]
-    pub admission_filter: crate::governance::admission_filter::AdmissionFilter,
-    #[cfg(feature = "governance")]
-    pub consistency_buffer: crate::governance::consistency::ConsistencyBuffer,
-    #[cfg(feature = "governance")]
-    pub conflict_resolver: crate::governance::conflict_resolver::ConflictResolver,
     pub last_query_timestamp: AtomicU64,
     pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
     /// Path to the data directory
@@ -683,13 +677,6 @@ impl StorageEngine {
             Some(crate::wal::WalWriter::open(&wal_path, config.sync_mode)?)
         };
 
-        #[cfg(feature = "governance")]
-        let admission_filter = crate::governance::admission_filter::AdmissionFilter::new(100_000);
-        #[cfg(feature = "governance")]
-        let consistency_buffer = crate::governance::consistency::ConsistencyBuffer::new();
-        #[cfg(feature = "governance")]
-        let conflict_resolver = crate::governance::conflict_resolver::ConflictResolver::new();
-
         crate::metrics::record_startup(
             startup_started.elapsed().as_millis() as u64,
             wal_replay_ms,
@@ -713,12 +700,6 @@ impl StorageEngine {
             hnsw: RwLock::new(hnsw),
             insert_lock: parking_lot::Mutex::new(()),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
-            #[cfg(feature = "governance")]
-            admission_filter,
-            #[cfg(feature = "governance")]
-            consistency_buffer,
-            #[cfg(feature = "governance")]
-            conflict_resolver,
             last_query_timestamp: AtomicU64::new(0),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
@@ -1255,13 +1236,6 @@ impl StorageEngine {
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });
-        #[cfg(feature = "governance")]
-        if self.admission_filter.is_blocked(node.id) {
-            return Err(VantaError::Execution(format!(
-                "Node {} is blocked by AdmissionFilter (recently rejected)",
-                node.id
-            )));
-        }
 
         self.touch_activity();
 

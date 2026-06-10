@@ -16,8 +16,6 @@ pub mod engine;
 pub mod error;
 pub mod executor;
 pub mod gc;
-#[cfg(feature = "governance")]
-pub mod governance;
 pub mod governor;
 pub mod graph;
 pub mod hardware;

@@ -39,7 +39,6 @@ console = "0.16"
 indicatif = "0.18"
 
 [features]
-governance = ["vantadb/governance", "dep:experimental-governance"]
 custom-allocator = ["mimalloc"]
 # Exposed solely for test harness compatibility with tests/common/mod.rs
 cli = ["vantadb/cli"]
