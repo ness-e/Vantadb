@@ -49,37 +49,6 @@ async fn main() {
         }
     };
 
-    // ── Bootstrap Invalidation Dispatcher ──────────────────────────────────
-    #[cfg(feature = "governance")]
-    let invalidation_tx = {
-        let mut dispatcher = experimental_governance::InvalidationDispatcher::new(256);
-        let tx = dispatcher.sender();
-        if let Some(rx) = dispatcher.take_receiver() {
-            std::thread::spawn(move || {
-                experimental_governance::invalidations::invalidation_listener(rx);
-            });
-        }
-        tx
-    };
-
-    // ── Background maintenance worker ───────────────────────────────────────
-    #[cfg(feature = "governance")]
-    {
-        let maintenance_storage_ctx = storage.clone();
-        let _maintenance_handle = experimental_governance::MaintenanceWorker::start(
-            maintenance_storage_ctx,
-            invalidation_tx.clone(),
-        );
-    }
-
-    #[cfg(feature = "governance")]
-    if !is_mcp {
-        console::ok(
-            "Background workers started",
-            Some("maintenance_worker · invalidations"),
-        );
-    }
-
     // ── Serve MCP or HTTP ───────────────────────────────────────────────────
     if is_mcp {
         vantadb_mcp::run_stdio_server(storage).await;
