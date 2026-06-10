@@ -1,0 +1,31 @@
+{
+  "storage_path": "~/.vantadb/data",
+  "memory_limit_bytes": 512000000,
+  "max_blocking_threads": 4,
+  "read_only": false,
+  "hnsw": {
+    "dim": 1536,
+    "m": 16,
+    "ef_construction": 200,
+    "ef_search": 50
+  },
+  "wal": {
+    "enabled": true,
+    "sync_mode": "fsync",
+    "max_size_bytes": 104857600
+  },
+  "text_index": {
+    "tokenizer": "default",
+    "stemming": true,
+    "stopwords": true
+  },
+  "metrics": {
+    "enable_hnsw_stats": true,
+    "enable_storage_stats": true,
+    "enable_query_stats": true
+  },
+  "namespaces": {
+    "default_namespace": "default",
+    "auto_create": true
+  }
+}
