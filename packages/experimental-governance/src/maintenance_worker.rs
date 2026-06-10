@@ -1,5 +1,8 @@
 use crate::invalidations::{InvalidationDispatcher, InvalidationEvent};
-use crate::{admission_filter::AdmissionFilter, conflict_resolver::ConflictResolver, consistency::ConsistencyBuffer};
+use crate::{
+    admission_filter::AdmissionFilter, conflict_resolver::ConflictResolver,
+    consistency::ConsistencyBuffer,
+};
 #[cfg(feature = "remote-inference")]
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;

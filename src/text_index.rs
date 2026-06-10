@@ -11,6 +11,9 @@ use crate::tokenizer::tokenize_advanced_default;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 4;
+#[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
 pub(crate) const TOKENIZER_NAME: &str = "lowercase-ascii-alnum";
 pub(crate) const TOKENIZER_VERSION: u32 = 1;
@@ -61,9 +64,14 @@ pub(crate) struct TextIndexSpec {
 
 impl Default for TextIndexSpec {
     fn default() -> Self {
+        #[cfg(feature = "advanced-tokenizer")]
+        let tokenizer = TextTokenizerSpec::advanced();
+        #[cfg(not(feature = "advanced-tokenizer"))]
+        let tokenizer = TextTokenizerSpec::default();
+
         Self {
             schema_version: TEXT_INDEX_SCHEMA_VERSION,
-            tokenizer: TextTokenizerSpec::default(),
+            tokenizer,
             key_format: KEY_FORMAT,
         }
     }
@@ -142,7 +150,12 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
 
 pub(crate) fn token_counts(text: &str) -> BTreeMap<String, u32> {
     let mut counts = BTreeMap::new();
-    for token in tokenize(text) {
+    #[cfg(feature = "advanced-tokenizer")]
+    let tokens = tokenize_advanced_default(text);
+    #[cfg(not(feature = "advanced-tokenizer"))]
+    let tokens = tokenize(text);
+
+    for token in tokens {
         counts
             .entry(token)
             .and_modify(|count: &mut u32| *count = count.saturating_add(1))
@@ -152,6 +165,9 @@ pub(crate) fn token_counts(text: &str) -> BTreeMap<String, u32> {
 }
 
 pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
+    #[cfg(feature = "advanced-tokenizer")]
+    let tokens = tokenize_advanced_default(payload);
+    #[cfg(not(feature = "advanced-tokenizer"))]
     let tokens = tokenize(payload);
     let doc_len = tokens.len().min(u32::MAX as usize) as u32;
     let mut token_counts = BTreeMap::new();
@@ -183,6 +199,9 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
+                #[cfg(feature = "advanced-tokenizer")]
+                let phrase = tokenize_advanced_default(&quoted);
+                #[cfg(not(feature = "advanced-tokenizer"))]
                 let phrase = tokenize(&quoted);
                 if !phrase.is_empty() {
                     terms.extend(phrase.iter().cloned());
@@ -191,6 +210,9 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
                 quoted.clear();
                 in_quote = false;
             } else {
+                #[cfg(feature = "advanced-tokenizer")]
+                terms.extend(tokenize_advanced_default(&outside));
+                #[cfg(not(feature = "advanced-tokenizer"))]
                 terms.extend(tokenize(&outside));
                 outside.clear();
                 in_quote = true;
@@ -205,6 +227,9 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
     if in_quote {
         outside.push_str(&quoted);
     }
+    #[cfg(feature = "advanced-tokenizer")]
+    terms.extend(tokenize_advanced_default(&outside));
+    #[cfg(not(feature = "advanced-tokenizer"))]
     terms.extend(tokenize(&outside));
 
     TextQueryPlan { terms, phrases }
@@ -507,6 +532,53 @@ mod tests {
             vec!["alpha", "beta", "delta", "gamma"]
         );
         assert_eq!(plan.phrases, vec![vec!["beta", "gamma"]]);
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_integration_record_terms() {
+        let payload = "The quick brown fox jumps over the lazy dog";
+        let terms = record_terms(payload);
+
+        // Should tokenize with advanced features (stopwords removal, stemming)
+        assert!(!terms.token_counts.is_empty());
+        // With stopwords removal, should have fewer tokens than the full text
+        assert!(terms.token_counts.len() < 9); // "The quick brown fox jumps over the lazy dog" has 9 words
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_integration_query_plan() {
+        let query = "The jumping fox runs quickly";
+        let plan = query_plan(query);
+
+        // Should tokenize query with advanced features
+        assert!(!plan.terms.is_empty());
+        // Stopwords like "the" should be removed
+        assert!(!plan.terms.iter().any(|t| t == "the"));
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_integration_token_counts() {
+        let text = "The quick brown fox jumps over the lazy dog";
+        let counts = token_counts(text);
+
+        // Should have fewer tokens due to stopwords removal
+        assert!(!counts.is_empty());
+        assert!(counts.len() < 9);
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_advanced_tokenizer_integration_unicode() {
+        let text = "Café naïve résumé";
+        let counts = token_counts(text);
+
+        // Should handle Unicode with folding
+        assert!(!counts.is_empty());
+        // "café" should be folded to "cafe" or similar
+        assert!(counts.keys().any(|k| k.contains("cafe")));
     }
 
     #[test]
