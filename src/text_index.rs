@@ -7,7 +7,7 @@
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 #[cfg(feature = "advanced-tokenizer")]
-use crate::tokenizer::tokenize_advanced_default;
+use crate::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -114,16 +114,18 @@ pub(crate) struct TextQueryPlan {
     pub phrases: Vec<Vec<String>>,
 }
 
+#[allow(dead_code)]
 pub(crate) fn tokenize(text: &str) -> Vec<String> {
     tokenize_with_spec(&TextTokenizerSpec::default(), text)
 }
 
+#[allow(dead_code)]
 pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<String> {
     #[cfg(feature = "advanced-tokenizer")]
     {
         if spec.name == ADVANCED_TOKENIZER_NAME {
             debug_assert_eq!(spec.version, ADVANCED_TOKENIZER_VERSION);
-            return tokenize_advanced_default(text);
+            return crate::tokenizer::tokenize_advanced_default(text);
         }
     }
 
@@ -149,11 +151,20 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
 }
 
 pub(crate) fn token_counts(text: &str) -> BTreeMap<String, u32> {
+    token_counts_with_config(text, None)
+}
+
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) fn token_counts_with_config(
+    text: &str,
+    config: Option<&AdvancedTokenizerConfig>,
+) -> BTreeMap<String, u32> {
     let mut counts = BTreeMap::new();
-    #[cfg(feature = "advanced-tokenizer")]
-    let tokens = tokenize_advanced_default(text);
-    #[cfg(not(feature = "advanced-tokenizer"))]
-    let tokens = tokenize(text);
+    let tokens = if let Some(cfg) = config {
+        tokenize_advanced(text, cfg)
+    } else {
+        crate::tokenizer::tokenize_advanced_default(text)
+    };
 
     for token in tokens {
         counts
@@ -164,11 +175,28 @@ pub(crate) fn token_counts(text: &str) -> BTreeMap<String, u32> {
     counts
 }
 
+#[cfg(not(feature = "advanced-tokenizer"))]
+pub(crate) fn token_counts_with_config(
+    text: &str,
+    _config: Option<&()>,
+) -> BTreeMap<String, u32> {
+    token_counts(text)
+}
+
 pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
-    #[cfg(feature = "advanced-tokenizer")]
-    let tokens = tokenize_advanced_default(payload);
-    #[cfg(not(feature = "advanced-tokenizer"))]
-    let tokens = tokenize(payload);
+    record_terms_with_config(payload, None)
+}
+
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) fn record_terms_with_config(
+    payload: &str,
+    config: Option<&AdvancedTokenizerConfig>,
+) -> TextRecordTerms {
+    let tokens = if let Some(cfg) = config {
+        tokenize_advanced(payload, cfg)
+    } else {
+        crate::tokenizer::tokenize_advanced_default(payload)
+    };
     let doc_len = tokens.len().min(u32::MAX as usize) as u32;
     let mut token_counts = BTreeMap::new();
     let mut token_positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
@@ -189,7 +217,23 @@ pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
     }
 }
 
+#[cfg(not(feature = "advanced-tokenizer"))]
+pub(crate) fn record_terms_with_config(
+    payload: &str,
+    _config: Option<&()>,
+) -> TextRecordTerms {
+    record_terms(payload)
+}
+
 pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
+    query_plan_with_config(query, None)
+}
+
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) fn query_plan_with_config(
+    query: &str,
+    config: Option<&AdvancedTokenizerConfig>,
+) -> TextQueryPlan {
     let mut terms = BTreeSet::new();
     let mut phrases = Vec::new();
     let mut outside = String::new();
@@ -199,10 +243,11 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
-                #[cfg(feature = "advanced-tokenizer")]
-                let phrase = tokenize_advanced_default(&quoted);
-                #[cfg(not(feature = "advanced-tokenizer"))]
-                let phrase = tokenize(&quoted);
+                let phrase = if let Some(cfg) = config {
+                    tokenize_advanced(&quoted, cfg)
+                } else {
+                    crate::tokenizer::tokenize_advanced_default(&quoted)
+                };
                 if !phrase.is_empty() {
                     terms.extend(phrase.iter().cloned());
                     phrases.push(phrase);
@@ -210,10 +255,12 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
                 quoted.clear();
                 in_quote = false;
             } else {
-                #[cfg(feature = "advanced-tokenizer")]
-                terms.extend(tokenize_advanced_default(&outside));
-                #[cfg(not(feature = "advanced-tokenizer"))]
-                terms.extend(tokenize(&outside));
+                let outside_tokens = if let Some(cfg) = config {
+                    tokenize_advanced(&outside, cfg)
+                } else {
+                    crate::tokenizer::tokenize_advanced_default(&outside)
+                };
+                terms.extend(outside_tokens);
                 outside.clear();
                 in_quote = true;
             }
@@ -227,12 +274,22 @@ pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
     if in_quote {
         outside.push_str(&quoted);
     }
-    #[cfg(feature = "advanced-tokenizer")]
-    terms.extend(tokenize_advanced_default(&outside));
-    #[cfg(not(feature = "advanced-tokenizer"))]
-    terms.extend(tokenize(&outside));
+    let outside_tokens = if let Some(cfg) = config {
+        tokenize_advanced(&outside, cfg)
+    } else {
+        crate::tokenizer::tokenize_advanced_default(&outside)
+    };
+    terms.extend(outside_tokens);
 
     TextQueryPlan { terms, phrases }
+}
+
+#[cfg(not(feature = "advanced-tokenizer"))]
+pub(crate) fn query_plan_with_config(
+    query: &str,
+    _config: Option<&()>,
+) -> TextQueryPlan {
+    query_plan(query)
 }
 
 pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
@@ -581,12 +638,54 @@ mod tests {
         assert!(counts.keys().any(|k| k.contains("cafe")));
     }
 
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_token_counts_with_config_none() {
+        let text = "The jumping fox runs quickly";
+        
+        // Test with None config (should use default)
+        let counts = token_counts_with_config(text, None);
+        
+        assert!(!counts.is_empty());
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_record_terms_with_config_none() {
+        let payload = "The quick brown fox jumps over the lazy dog";
+        
+        // Test with None config (should use default)
+        let terms = record_terms_with_config(payload, None);
+        
+        assert!(!terms.token_counts.is_empty());
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_query_plan_with_config_none() {
+        let query = "The jumping fox runs quickly";
+        
+        // Test with None config (should use default)
+        let plan = query_plan_with_config(query, None);
+        
+        assert!(!plan.terms.is_empty());
+    }
+
     #[test]
     fn spec_declares_phrase_ready_text_index_v3() {
         let spec = TextIndexSpec::default();
-        assert_eq!(spec.schema_version, 3);
-        assert_eq!(spec.tokenizer.name, "lowercase-ascii-alnum");
-        assert_eq!(spec.tokenizer.version, 1);
+        #[cfg(feature = "advanced-tokenizer")]
+        {
+            assert_eq!(spec.schema_version, 4);
+            assert_eq!(spec.tokenizer.name, "tantivy-multilingual");
+            assert_eq!(spec.tokenizer.version, 1);
+        }
+        #[cfg(not(feature = "advanced-tokenizer"))]
+        {
+            assert_eq!(spec.schema_version, 3);
+            assert_eq!(spec.tokenizer.name, "lowercase-ascii-alnum");
+            assert_eq!(spec.tokenizer.version, 1);
+        }
         assert_eq!(spec.key_format, "namespace\\0token\\0key");
     }
 }

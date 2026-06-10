@@ -9,12 +9,6 @@ use tantivy::tokenizer::{
     AsciiFoldingFilter, Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer,
     StopWordFilter, TextAnalyzer, TokenStream,
 };
-
-#[cfg(feature = "advanced-tokenizer")]
-const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
-#[cfg(feature = "advanced-tokenizer")]
-const ADVANCED_TOKENIZER_VERSION: u32 = 1;
-
 /// Advanced tokenizer configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdvancedTokenizerConfig {

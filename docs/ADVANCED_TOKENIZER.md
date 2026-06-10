@@ -39,6 +39,73 @@ db.put_memory("agent/main", "memory-001", "The quick brown fox jumps over the la
 let results = db.search_memory("agent/main", "jumping fox", None, 5);
 ```
 
+### Runtime Configuration
+
+You can configure the advanced tokenizer at runtime using `VantaConfig`:
+
+```rust
+use vantadb::{VantaDB, VantaConfig};
+use vantadb::tokenizer::{AdvancedTokenizerConfig, Language};
+
+let config = VantaConfig::default()
+    .with_advanced_tokenizer_config(Some(AdvancedTokenizerConfig {
+        language: Language::Spanish,
+        apply_stemming: true,
+        remove_stopwords: true,
+        ..Default::default()
+    }));
+
+let db = VantaDB::open_with_config("./vanta_data", Some(config)).unwrap();
+```
+
+### Advanced Configuration Options
+
+The `AdvancedTokenizerConfig` struct allows you to customize:
+
+- **language**: Language for stemming and stopwords (English, Spanish, French, German, etc.)
+- **apply_stemming**: Whether to reduce words to their root form (default: true)
+- **remove_stopwords**: Whether to filter out common words (default: true)
+- **max_token_length**: Maximum token length in characters (default: 40)
+
+```rust
+use vantadb::tokenizer::{AdvancedTokenizerConfig, Language};
+
+// Custom configuration for Spanish text
+let config = AdvancedTokenizerConfig {
+    language: Language::Spanish,
+    apply_stemming: true,
+    remove_stopwords: true,
+    max_token_length: 50,
+};
+
+// Disable stemming but keep stopwords removal
+let config = AdvancedTokenizerConfig {
+    language: Language::English,
+    apply_stemming: false,
+    remove_stopwords: true,
+    ..Default::default()
+};
+```
+
+### Programmatic Tokenization
+
+You can also use the tokenizer functions directly for custom text processing:
+
+```rust
+use vantadb::text_index::{token_counts_with_config, record_terms_with_config, query_plan_with_config};
+use vantadb::tokenizer::{AdvancedTokenizerConfig, Language};
+
+let config = AdvancedTokenizerConfig {
+    language: Language::English,
+    ..Default::default()
+};
+
+// Tokenize with custom configuration
+let counts = token_counts_with_config("The jumping fox", Some(&config));
+let terms = record_terms_with_config("The quick brown fox", Some(&config));
+let plan = query_plan_with_config("jumping fox", Some(&config));
+```
+
 ### Configuration
 
 The advanced tokenizer uses sensible defaults:

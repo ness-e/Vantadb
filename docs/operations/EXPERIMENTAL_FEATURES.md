@@ -37,12 +37,24 @@ These surfaces may exist in the repository, but they are not stable product clai
 
 | Area | Boundary |
 | --- | --- |
-| IQL/LISP/DQL parser, evaluator, and executor paths | Historical or experimental |
+| IQL/LISP/DQL parser, evaluator, and executor paths | **Archived (2024-06-10)** - Runtime LISP evaluation abandoned due to borrow checker issues and GIL blocking. See `archive/experimental-quarantine-2024-06/` |
 | MCP API | Experimental integration surface |
 | LLM/Ollama integration | External optional integration, not core dependency |
-| Governance and maintenance semantics | Internal or future-facing infrastructure |
+| Governance and maintenance semantics | **Archived (2024-06-10)** - Runtime governance framework incompatible with compile-time governance via IQL AST Pass. Useful utilities extracted to `src/utils/` |
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim |
 | Docker/Ollama examples | Experimental development examples |
+
+## Extracted Utilities (Production-Ready)
+
+The following utilities were extracted from experimental governance and are now part of the core API:
+
+| Utility | Purpose | API Location |
+| --- | --- | --- |
+| DuplicatePreventionFilter | Bloom filter for duplicate prevention in multi-writer scenarios | `vantadb::utils::DuplicatePreventionFilter` |
+| OriginCollisionTracker | Collision tracking and friction metrics for multi-agent coordination | `vantadb::utils::OriginCollisionTracker` |
+| compute_confidence_friction | Functional friction metric computation for conflict analysis | `vantadb::utils::compute_confidence_friction` |
+
+These utilities are stateless, well-tested, and suitable for production use in multi-writer and multi-agent scenarios.
 
 Visible in-tree examples and docs must carry the same boundary:
 

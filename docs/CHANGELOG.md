@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Integration tests in `src/text_index.rs` for advanced tokenizer validation.
 - Benchmark suite in `benches/tokenizer_bench.rs` for performance comparison.
 - Documentation in `docs/ADVANCED_TOKENIZER.md` for usage and configuration.
+- Runtime configuration support for advanced tokenizer in `VantaConfig`.
+- `token_counts_with_config()`, `record_terms_with_config()`, `query_plan_with_config()` functions for custom tokenizer configuration.
+- `StorageEngine::advanced_tokenizer_config()` method to access tokenizer configuration.
+- Tests for runtime configuration functions in `src/text_index.rs`.
 - Snippet generation with HTML highlighting of matched terms in search results.
 - `VantaEmbedded::generate_snippet()` public API method for snippet generation with optional highlighting.
 - `generate_snippet_with_highlighting()` internal method for snippet generation with term highlighting.
@@ -34,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Enhanced tokenizer implementation to use TextAnalyzer::builder() with proper filter chaining.
 - Updated text index schema version to v4 when `advanced-tokenizer` feature is enabled (v3 without feature).
 - Integrated advanced tokenizer in `token_counts()`, `record_terms()`, and `query_plan()` functions.
+- Added runtime configuration field `advanced_tokenizer_config` to `VantaConfig` (conditional compilation).
+- Added `with_advanced_tokenizer_config()` builder method to `VantaConfig`.
+- Updated `src/text_index.rs` test to handle schema version differences based on feature flag.
+- Fixed syntax error in `src/utils/confidence_metrics.rs` (missing parenthesis in closure).
 
 ### Removed
 

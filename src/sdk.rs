@@ -3607,7 +3607,7 @@ impl VantaEmbedded {
                 let term_chars: Vec<char> = term.chars().collect();
                 if i + term_chars.len() <= chars.len() {
                     let slice: String = chars[i..i + term_chars.len()].iter().collect();
-                    if slice.to_ascii_lowercase() == term.to_ascii_lowercase() {
+                    if slice.eq_ignore_ascii_case(term) {
                         result.push_str("<strong>");
                         result.push_str(&slice);
                         result.push_str("</strong>");
