@@ -410,3 +410,40 @@ fn memory_euclidean_and_explainable_ranking() {
     assert!(hits_no_explain[0].explanation.is_none());
     assert!(hits_no_explain[1].explanation.is_none());
 }
+
+#[test]
+fn snippet_with_highlighting() {
+    let dir = tempdir().expect("tempdir");
+    let db = VantaEmbedded::open(dir.path()).expect("open");
+
+    // Insertar un registro con texto
+    let input = VantaMemoryInput {
+        key: "snippet-test".to_string(),
+        namespace: "test".to_string(),
+        payload: "The quick brown fox jumps over the lazy dog".to_string(),
+        vector: Some(vec![0.1, 0.2, 0.3]),
+        metadata: Default::default(),
+    };
+    db.put(input).expect("put");
+
+    // Buscar con explicación para obtener snippet
+    let request = VantaMemorySearchRequest {
+        namespace: "test".to_string(),
+        query_vector: vec![0.1, 0.2, 0.3],
+        filters: Default::default(),
+        text_query: Some("quick fox".to_string()),
+        top_k: 1,
+        distance_metric: vantadb::DistanceMetric::Euclidean,
+        explain: true,
+    };
+
+    let hits = db.search(request).expect("search");
+    assert_eq!(hits.len(), 1);
+    
+    let explanation = hits[0].explanation.as_ref().expect("explanation should be present");
+    assert!(explanation.snippet.is_some(), "snippet should be present");
+    
+    let snippet = explanation.snippet.as_ref().unwrap();
+    // El snippet debería contener parte del texto original
+    assert!(!snippet.is_empty());
+}

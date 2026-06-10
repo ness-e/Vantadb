@@ -1,4 +1,6 @@
 use crate::backend::BackendKind;
+#[cfg(feature = "advanced-tokenizer")]
+use crate::tokenizer::AdvancedTokenizerConfig;
 use std::env;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

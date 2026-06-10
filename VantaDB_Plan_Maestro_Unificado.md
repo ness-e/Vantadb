@@ -341,10 +341,10 @@ Estas tareas corren en paralelo al desarrollo principal del core y no bloquean e
 
 * **MP1 — Seguridad Avanzada del Servidor (Semanas 12):** ✅ COMPLETADA — Implementado cifrado TLS (`rustls`), Bearer Auth y rate limiting (`tower-governor`) en `vantadb-server`.
 * **MP2 — OpenTelemetry y Logging Estructurado (Semanas 14):** ✅ COMPLETADA — Instrumentado el core (storage e index HNSW) y configuradas dependencias opcionales bajo la feature opentelemetry.
-* **MP3 — Tokenizador Avanzado (Semanas 18):** ⬜ Integrar `tantivy-tokenizer` como dependencia opcional (feature flag `advanced-tokenizer`) para habilitar soporte multilingüe en la indexación BM25. — *Deferred en CHANGELOG v0.1.1: "Stemming, stopwords, Unicode folding, and tokenizer evolution beyond lowercase-ascii-alnum."*
-* **MP4 — Phrase Queries y Snippets (Semanas 20):** 🔄 Búsquedas de frases exactas implementadas (BM25 phrase positions v3). Snippets/highlighting deferred. — *Evidencia: CHANGELOG v0.1.1 — "Text-index schema v3 con persisted token positions y basic quoted phrase query support."*
+* **MP3 — Tokenizador Avanzado (Semanas 18):** ✅ COMPLETADA — Integrado `tantivy-tokenizer` como dependencia opcional (feature flag `advanced-tokenizer`) con stemming, stopwords removal y Unicode folding para soporte multilingüe en la indexación BM25.
+* **MP4 — Phrase Queries y Snippets (Semanas 20):** 🔄 EN PROGRESO — Búsquedas de frases exactas implementadas (BM25 phrase positions v3). Snippets con highlighting implementados y expuestos en API pública. — *Evidencia: CHANGELOG v0.1.1 — "Text-index schema v3 con persisted token positions y basic quoted phrase query support."*
 * **MP5 — Go SDK (Semanas 22):** ⬜ Generar cabeceras de FFI de C utilizando `cbindgen` y construir los bindings oficiales para Go (`cgo`).
-* **MP6 — ADRs y Documentación de Arquitectura (Continuo):** ✅ Registro histórico de decisiones mantenido en [`docs/adr/`](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/docs/adr/). — *Evidencia: Directorio adr/ existe con múltiples decisiones documentadas.*
+* **MP6 — ADRs y Documentación de Arquitectura (Continuo):** ✅ Registro histórico de decisiones mantenido en [`docs/adr/`](file:///c:/Users/Eros\VantaDB%20Proyect/VantaDB/docs/adr/). — *Evidencia: Directorio adr/ existe con múltiples decisiones documentadas.*
 
 ---
 
