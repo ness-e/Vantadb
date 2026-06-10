@@ -176,10 +176,7 @@ pub(crate) fn token_counts_with_config(
 }
 
 #[cfg(not(feature = "advanced-tokenizer"))]
-pub(crate) fn token_counts_with_config(
-    text: &str,
-    _config: Option<&()>,
-) -> BTreeMap<String, u32> {
+pub(crate) fn token_counts_with_config(text: &str, _config: Option<&()>) -> BTreeMap<String, u32> {
     token_counts(text)
 }
 
@@ -218,10 +215,7 @@ pub(crate) fn record_terms_with_config(
 }
 
 #[cfg(not(feature = "advanced-tokenizer"))]
-pub(crate) fn record_terms_with_config(
-    payload: &str,
-    _config: Option<&()>,
-) -> TextRecordTerms {
+pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> TextRecordTerms {
     record_terms(payload)
 }
 
@@ -285,10 +279,7 @@ pub(crate) fn query_plan_with_config(
 }
 
 #[cfg(not(feature = "advanced-tokenizer"))]
-pub(crate) fn query_plan_with_config(
-    query: &str,
-    _config: Option<&()>,
-) -> TextQueryPlan {
+pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQueryPlan {
     query_plan(query)
 }
 
@@ -642,10 +633,10 @@ mod tests {
     #[test]
     fn test_token_counts_with_config_none() {
         let text = "The jumping fox runs quickly";
-        
+
         // Test with None config (should use default)
         let counts = token_counts_with_config(text, None);
-        
+
         assert!(!counts.is_empty());
     }
 
@@ -653,10 +644,10 @@ mod tests {
     #[test]
     fn test_record_terms_with_config_none() {
         let payload = "The quick brown fox jumps over the lazy dog";
-        
+
         // Test with None config (should use default)
         let terms = record_terms_with_config(payload, None);
-        
+
         assert!(!terms.token_counts.is_empty());
     }
 
@@ -664,10 +655,10 @@ mod tests {
     #[test]
     fn test_query_plan_with_config_none() {
         let query = "The jumping fox runs quickly";
-        
+
         // Test with None config (should use default)
         let plan = query_plan_with_config(query, None);
-        
+
         assert!(!plan.terms.is_empty());
     }
 

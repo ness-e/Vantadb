@@ -13,11 +13,11 @@ use std::collections::HashMap;
 /// # Example
 /// ```no_run
 /// use vantadb::utils::confidence_metrics::OriginCollisionTracker;
-/// 
+///
 /// let mut tracker = OriginCollisionTracker::new();
 /// tracker.record_collision("agent_alpha", 0.95);
 /// tracker.record_collision("agent_beta", 0.80);
-/// 
+///
 /// let friction = tracker.compute_friction();
 /// println!("Total friction: {}", friction);
 /// ```
@@ -119,7 +119,7 @@ mod tests {
         let mut tracker = OriginCollisionTracker::new();
         tracker.record_collision("agent_a", 0.9);
         tracker.record_collision("agent_a", 0.85);
-        
+
         assert_eq!(tracker.unique_origins(), 1);
     }
 
@@ -128,7 +128,7 @@ mod tests {
         let mut tracker = OriginCollisionTracker::new();
         tracker.record_collision("agent_a", 1.0);
         tracker.record_collision("agent_b", 0.5);
-        
+
         let friction = tracker.compute_friction();
         assert!(friction > 0.0);
     }
@@ -137,7 +137,7 @@ mod tests {
     fn test_slashing() {
         let mut tracker = OriginCollisionTracker::new();
         tracker.record_collision("bad_agent", 0.9);
-        
+
         assert!(!tracker.is_slashed("bad_agent"));
         tracker.slash_origin("bad_agent");
         assert!(tracker.is_slashed("bad_agent"));
@@ -148,7 +148,7 @@ mod tests {
         let mut origins = HashMap::new();
         origins.insert("agent_a".to_string(), (2, 0.9));
         origins.insert("agent_b".to_string(), (1, 0.5));
-        
+
         let friction = compute_confidence_friction(&origins);
         assert!(friction > 0.0);
     }
@@ -158,7 +158,7 @@ mod tests {
         let mut tracker = OriginCollisionTracker::new();
         tracker.record_collision("agent_a", 0.9);
         tracker.reset();
-        
+
         assert_eq!(tracker.unique_origins(), 0);
         assert_eq!(tracker.compute_friction(), 0.0);
     }
