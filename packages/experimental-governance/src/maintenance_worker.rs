@@ -1,4 +1,5 @@
 use crate::invalidations::{InvalidationDispatcher, InvalidationEvent};
+use crate::{admission_filter::AdmissionFilter, conflict_resolver::ConflictResolver, consistency::ConsistencyBuffer};
 #[cfg(feature = "remote-inference")]
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -22,15 +23,28 @@ const MAX_COMPRESSION_DURATION_MS: u128 = 8_000;
 #[cfg(feature = "remote-inference")]
 const MIN_GROUP_WEIGHT_FOR_COMPRESSION: u32 = 3;
 
-pub struct MaintenanceWorker;
+pub struct MaintenanceWorker {
+    consistency_buffer: Arc<ConsistencyBuffer>,
+    admission_filter: Arc<AdmissionFilter>,
+    conflict_resolver: Arc<ConflictResolver>,
+}
 
 impl MaintenanceWorker {
+    pub fn new() -> Self {
+        Self {
+            consistency_buffer: Arc::new(ConsistencyBuffer::new()),
+            admission_filter: Arc::new(AdmissionFilter::new(100_000)),
+            conflict_resolver: Arc::new(ConflictResolver::new()),
+        }
+    }
+
     /// Starts the background maintenance worker loop in a dedicated OS thread.
     /// Returns the thread JoinHandle to allow graceful shutdown coordination if needed.
     pub fn start(
         storage: Arc<StorageEngine>,
         invalidation_tx: mpsc::Sender<InvalidationEvent>,
     ) -> std::thread::JoinHandle<()> {
+        let worker = Self::new();
         std::thread::spawn(move || {
             let cycle_duration = Duration::from_secs(10);
             let inactivity_threshold_ms = 5000;
@@ -44,7 +58,7 @@ impl MaintenanceWorker {
                     storage
                         .emergency_maintenance_trigger
                         .store(false, Ordering::Release);
-                    Self::run_maintenance_cycle(&storage, &invalidation_tx);
+                    Self::run_maintenance_cycle(&storage, &invalidation_tx, &worker);
                 }
 
                 std::thread::sleep(cycle_duration);
@@ -56,7 +70,7 @@ impl MaintenanceWorker {
                 let last_activity = storage.last_query_timestamp.load(Ordering::Acquire);
 
                 if now - last_activity > inactivity_threshold_ms {
-                    Self::run_maintenance_cycle(&storage, &invalidation_tx);
+                    Self::run_maintenance_cycle(&storage, &invalidation_tx, &worker);
                 }
             }
         })
@@ -65,6 +79,7 @@ impl MaintenanceWorker {
     fn run_maintenance_cycle(
         storage: &Arc<StorageEngine>,
         invalidation_tx: &mpsc::Sender<InvalidationEvent>,
+        worker: &MaintenanceWorker,
     ) {
         tracing::trace!("🌙 [Maintenance] Starting maintenance cycle (Memory cleanup)...");
 
@@ -74,14 +89,14 @@ impl MaintenanceWorker {
 
         {
             // ── Stage 0: ConsistencyBuffer Decay ──
-            let stats = &storage.consistency_buffer.stats;
+            let stats = &worker.consistency_buffer.stats;
             let resolved = stats.pending_to_resolved.load(Ordering::Relaxed) as f64;
             let decayed = stats.pending_to_decayed.load(Ordering::Relaxed) as f64;
             let total = resolved + decayed;
 
             let _shrinks_deadline = total > 10.0 && (decayed / total) > 0.7;
 
-            let mut buffer = storage.consistency_buffer.records.write();
+            let mut buffer = worker.consistency_buffer.records.write();
             let mut keys_to_resolve = Vec::new();
             let mut keys_to_purge = Vec::new();
 
@@ -115,7 +130,7 @@ impl MaintenanceWorker {
 
             let discarded = keys_to_purge.len() as u64;
             if discarded > 0 {
-                storage
+                worker
                     .consistency_buffer
                     .stats
                     .pending_to_decayed
@@ -127,7 +142,7 @@ impl MaintenanceWorker {
 
             for id in keys_to_purge {
                 if let Some(purged) = buffer.remove(&id) {
-                    storage.admission_filter.block_record(id);
+                    worker.admission_filter.block_record(id);
                     for cand in purged.candidates {
                         if cand.importance > 0.8 {
                             losers_to_log.push((
@@ -142,7 +157,7 @@ impl MaintenanceWorker {
 
             for id in keys_to_resolve {
                 if let Some(mut record) = buffer.remove(&id) {
-                    storage
+                    worker
                         .consistency_buffer
                         .stats
                         .pending_to_resolved
@@ -288,10 +303,10 @@ impl MaintenanceWorker {
             if *is_invalidated {
                 if let Some(role) = slashed_role {
                     {
-                        let mut tracker = storage.conflict_resolver.collision_tracker.write();
+                        let mut tracker = worker.conflict_resolver.collision_tracker.write();
                         tracker.slash_origin(role);
                     }
-                    storage.admission_filter.block_role(role);
+                    worker.admission_filter.block_role(role);
                     tracing::warn!("🔥 [Maintenance] Origin Slashing: agent '{}' blocked → ConfidenceScore=0.0", role);
                 }
 

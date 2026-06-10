@@ -9,13 +9,6 @@ pub enum Statement {
     Delete(DeleteStatement),
     Relate(RelateStatement),
     InsertMessage(InsertMessageStatement), // Conversational Primitive
-    Collapse(CollapseStatement),           // Phase 32B: Consistency Records
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CollapseStatement {
-    pub zone_id: u64,
-    pub index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]

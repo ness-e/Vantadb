@@ -1,7 +1,13 @@
-use crate::ResolutionResult;
-use vantadb::node::{AccessTracker, UnifiedNode};
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use vantadb::node::{AccessTracker, UnifiedNode};
+
+#[derive(Debug, Clone)]
+pub enum ResolutionResult {
+    Accept,
+    Reject(String),
+    Superposition(crate::consistency::ConsistencyRecord),
+}
 
 // ─── Conflict Resolver (Legacy: Devil's Advocate) ─────────────────────────────
 

@@ -1,20 +1,20 @@
 //! Experimental and future-facing governance primitives.
 //!
-//! This crate depends on `vantadb` with the `governance` feature enabled,
-//! which provides the core data structures (`AdmissionFilter`, `ConsistencyBuffer`,
-//! `ConflictResolver`). This crate adds the operational logic that is not yet
-//! stable enough for the core: maintenance workers, invalidation dispatch, etc.
+//! This crate is self-contained and provides all governance data structures
+//! and operational logic that is not yet stable enough for the core:
+//! admission control, conflict resolution, consistency buffers, maintenance workers,
+//! and invalidation dispatch.
 
-// Re-export core governance types for convenience
-pub use vantadb::governance::admission_filter;
-pub use vantadb::governance::conflict_resolver;
-pub use vantadb::governance::consistency;
+// Core governance modules (moved from vantadb core)
+pub mod admission_filter;
+pub mod conflict_resolver;
+pub mod consistency;
 
-pub use vantadb::governance::admission_filter::AdmissionFilter;
-pub use vantadb::governance::conflict_resolver::{
+pub use admission_filter::AdmissionFilter;
+pub use conflict_resolver::{
     ConfidenceArbiter, ConflictResolver, ResolutionResult,
 };
-pub use vantadb::governance::consistency::{ConsistencyBuffer, ConsistencyRecord};
+pub use consistency::{ConsistencyBuffer, ConsistencyRecord, AuditableTombstone};
 
 // Experimental-only modules
 pub mod invalidations;
@@ -22,5 +22,3 @@ pub mod maintenance_worker;
 
 pub use invalidations::InvalidationDispatcher;
 pub use maintenance_worker::MaintenanceWorker;
-
-pub use vantadb::governance::AuditableTombstone;

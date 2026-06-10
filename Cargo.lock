@@ -987,9 +987,11 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "parking_lot",
  "rand 0.9.4",
  "serde",
  "tracing",
+ "twox-hash",
  "vantadb",
 ]
 
