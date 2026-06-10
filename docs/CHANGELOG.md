@@ -18,12 +18,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Stopwords removal using Tantivy's StopWordFilter with language-specific stopword lists.
 - Unicode folding using Tantivy's AsciiFoldingFilter for improved multilingual search.
 - Comprehensive tests for stemming, stopwords, Unicode folding, and combined features.
+- Integration tests in `src/text_index.rs` for advanced tokenizer validation.
+- Benchmark suite in `benches/tokenizer_bench.rs` for performance comparison.
+- Documentation in `docs/ADVANCED_TOKENIZER.md` for usage and configuration.
 
 ### Changed
 
 - Updated `Cargo.toml` to include `tantivy` as optional dependency under `advanced-tokenizer` feature with `stopwords` feature enabled.
 - Modified `src/text_index.rs` to support both basic and advanced tokenizers via feature flags.
 - Enhanced tokenizer implementation to use TextAnalyzer::builder() with proper filter chaining.
+- Updated text index schema version to v4 when `advanced-tokenizer` feature is enabled (v3 without feature).
+- Integrated advanced tokenizer in `token_counts()`, `record_terms()`, and `query_plan()` functions.
+
+### Removed
+
+- Removed conditional compilation blocks for experimental features from core (governance, lisp).
+- Removed `#[cfg(feature = "experimental")] pub mod mcp;` from `src/api/mod.rs` (feature did not exist).
+- Cleaned up LISP-related comments from `src/executor.rs` and `src/parser/mod.rs`.
+
+### Fixed
+
+- Fixed compilation errors in `experimental-governance` by defining missing types locally.
+- Refactored `maintenance_worker.rs` to use local governance instances instead of core fields.
+- Removed governance-related conditional compilation from `vantadb-server/src/main.rs`.
 
 ## [v0.1.1] - 2026-05-13
 

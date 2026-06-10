@@ -2970,6 +2970,24 @@ impl VantaEmbedded {
         Ok(result.into())
     }
 
+    /// Generate a text snippet with optional highlighting of matched terms.
+    ///
+    /// # Arguments
+    /// * `payload` - The original text content
+    /// * `text_query` - The search query used to find matches
+    /// * `with_highlighting` - Whether to add HTML highlighting to matched terms
+    ///
+    /// # Returns
+    /// * `Option<String>` - The snippet with optional highlighting, or None if no match found
+    pub fn generate_snippet(
+        &self,
+        payload: &str,
+        text_query: &str,
+        with_highlighting: bool,
+    ) -> Option<String> {
+        Self::generate_snippet_with_highlighting(payload, text_query, with_highlighting)
+    }
+
     #[cfg(debug_assertions)]
     #[doc(hidden)]
     pub fn debug_memory_breakdown(&self) -> serde_json::Value {
@@ -3502,9 +3520,30 @@ impl VantaEmbedded {
     }
 
     fn debug_snippet(payload: &str, text_query: &str) -> Option<String> {
+        Self::generate_snippet_with_highlighting(payload, text_query, false)
+    }
+
+    /// Generate a text snippet with optional highlighting of matched terms.
+    ///
+    /// # Arguments
+    /// * `payload` - The original text content
+    /// * `text_query` - The search query used to find matches
+    /// * `with_highlighting` - Whether to add HTML highlighting to matched terms
+    ///
+    /// # Returns
+    /// * `Option<String>` - The snippet with optional highlighting, or None if no match found
+    fn generate_snippet_with_highlighting(
+        payload: &str,
+        text_query: &str,
+        with_highlighting: bool,
+    ) -> Option<String> {
         let query_plan = crate::text_index::query_plan(text_query);
         let first_token = query_plan.terms.iter().next()?;
+        
         if payload.len() <= 120 {
+            if with_highlighting {
+                return Some(Self::highlight_terms(payload, &query_plan.terms));
+            }
             return Some(payload.to_string());
         }
 
@@ -3522,15 +3561,70 @@ impl VantaEmbedded {
             end += 1;
         }
 
-        let mut snippet = String::new();
-        if start > 0 {
-            snippet.push_str("...");
+        let snippet_text = payload[start..end].trim();
+        
+        if with_highlighting {
+            let highlighted = Self::highlight_terms(snippet_text, &query_plan.terms);
+            let mut snippet = String::new();
+            if start > 0 {
+                snippet.push_str("...");
+            }
+            snippet.push_str(&highlighted);
+            if end < payload.len() {
+                snippet.push_str("...");
+            }
+            Some(snippet)
+        } else {
+            let mut snippet = String::new();
+            if start > 0 {
+                snippet.push_str("...");
+            }
+            snippet.push_str(snippet_text);
+            if end < payload.len() {
+                snippet.push_str("...");
+            }
+            Some(snippet)
         }
-        snippet.push_str(payload[start..end].trim());
-        if end < payload.len() {
-            snippet.push_str("...");
+    }
+
+    /// Add HTML highlighting to matched terms in text.
+    ///
+    /// # Arguments
+    /// * `text` - The text to highlight
+    /// * `terms` - The terms to highlight
+    ///
+    /// # Returns
+    /// * `String` - The text with HTML highlighting markers
+    fn highlight_terms(text: &str, terms: &std::collections::BTreeSet<String>) -> String {
+        let mut result = String::new();
+        let mut i = 0;
+        let chars: Vec<char> = text.chars().collect();
+        
+        while i < chars.len() {
+            let mut matched = false;
+            
+            for term in terms {
+                let term_chars: Vec<char> = term.chars().collect();
+                if i + term_chars.len() <= chars.len() {
+                    let slice: String = chars[i..i + term_chars.len()].iter().collect();
+                    if slice.to_ascii_lowercase() == term.to_ascii_lowercase() {
+                        result.push_str("<strong>");
+                        result.push_str(&slice);
+                        result.push_str("</strong>");
+                        i += term_chars.len();
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            
+            if !matched {
+                result.push(chars[i]);
+                i += 1;
+            }
         }
-        Some(snippet)
+        
+        result
     }
 }
 
