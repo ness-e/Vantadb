@@ -6,7 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+
+- Advanced tokenizer with multilingual support using Tantivy (feature flag `advanced-tokenizer`).
+- `src/tokenizer.rs` module with `AdvancedTokenizerConfig` for language-specific tokenization.
+- Integration of advanced tokenizer in `src/text_index.rs` with `TextTokenizerSpec::advanced()`.
+- Multilingual tests for Spanish, French, and German tokenization in `src/tokenizer.rs`.
+- Unicode character support and length filtering in advanced tokenizer.
+- Tantivy 0.22 as optional dependency for advanced tokenization features.
+
+### Changed
+
+- Updated `Cargo.toml` to include `tantivy` as optional dependency under `advanced-tokenizer` feature.
+- Modified `src/text_index.rs` to support both basic and advanced tokenizers via feature flags.
 
 ## [v0.1.1] - 2026-05-13
 

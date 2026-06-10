@@ -36,6 +36,8 @@ pub mod sdk;
 
 pub mod storage;
 pub(crate) mod text_index;
+#[cfg(feature = "advanced-tokenizer")]
+pub mod tokenizer;
 pub mod vector;
 pub mod wal;
 
