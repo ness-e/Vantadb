@@ -511,6 +511,17 @@ impl StorageEngine {
         Self::open_with_config(path, None)
     }
 
+    /// Returns the advanced tokenizer configuration if available.
+    #[cfg(feature = "advanced-tokenizer")]
+    pub fn advanced_tokenizer_config(&self) -> Option<&crate::tokenizer::AdvancedTokenizerConfig> {
+        self.config.advanced_tokenizer_config.as_ref()
+    }
+
+    #[cfg(not(feature = "advanced-tokenizer"))]
+    pub fn advanced_tokenizer_config(&self) -> Option<()> {
+        None
+    }
+
     /// Open with explicit configuration for memory budgets and mode overrides.
     pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
         let startup_started = Instant::now();

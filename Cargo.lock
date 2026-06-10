@@ -1037,30 +1037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "experimental-governance"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "chrono",
- "parking_lot",
- "rand 0.9.4",
- "serde",
- "tracing",
- "twox-hash",
- "vantadb",
-]
-
-[[package]]
-name = "experimental-lisp"
-version = "0.1.0"
-dependencies = [
- "nom",
- "rand 0.9.4",
- "serde",
- "vantadb",
-]
-
-[[package]]
 name = "fail"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4258,7 +4234,6 @@ dependencies = [
  "chrono",
  "clap",
  "console",
- "experimental-governance",
  "fs2",
  "futures",
  "indicatif",

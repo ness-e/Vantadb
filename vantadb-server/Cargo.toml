@@ -8,7 +8,8 @@ description = "Optional local server wrapper and MCP interface for VantaDB"
 [dependencies]
 vantadb = { path = "..", features = ["cli"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
-experimental-governance = { path = "../packages/experimental-governance", optional = true }
+# REMOVED (2024-06-10): experimental-governance dependency (moved to archive)
+# If needed, use vantadb::utils::DuplicatePreventionFilter and vantadb::utils::OriginCollisionTracker instead
 tokio = { version = "1", features = ["full", "rt-multi-thread"] }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }

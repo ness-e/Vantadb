@@ -35,6 +35,7 @@ pub mod query;
 pub mod sdk;
 
 pub mod storage;
+pub mod utils;
 pub(crate) mod text_index;
 #[cfg(feature = "advanced-tokenizer")]
 pub mod tokenizer;
@@ -58,6 +59,7 @@ pub use sdk::{
     VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::BackendKind;
+pub use utils::{compute_confidence_friction, DuplicatePreventionFilter, OriginCollisionTracker};
 pub use wal::{WalReader, WalRecord, WalWriter};
 
 #[cfg(feature = "failpoints")]

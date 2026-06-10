@@ -339,8 +339,10 @@ members = [
     "vantadb-python",
     "vantadb-server",
     "vantadb-mcp",
-    "packages/experimental-lisp",
-    "packages/experimental-governance",
+    # REMOVED (2024-06-10): Experimental crates moved to archive/experimental-quarantine-2024-06/
+    # - packages/experimental-lisp (runtime LISP evaluation abandoned)
+    # - packages/experimental-governance (runtime governance framework incompatible with compile-time approach)
+    # See: archive/experimental-quarantine-2024-06/README.md for context
 ]
 exclude = ["fuzz"]
 # fuzz/ is intentionally outside the workspace: cargo-fuzz requires nightly + Linux sanitizers.
