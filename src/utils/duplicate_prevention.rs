@@ -11,17 +11,17 @@ const DEFAULT_BLOOM_BITS: usize = 100_000;
 const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1E1E1E];
 
 /// Bloom filter for preventing duplicate record ingestion.
-/// 
+///
 /// Useful in multi-writer concurrent scenarios where multiple agents
 /// may attempt to insert the same record simultaneously.
-/// 
+///
 /// # Example
 /// ```no_run
 /// use vantadb::utils::duplicate_prevention::DuplicatePreventionFilter;
-/// 
+///
 /// let filter = DuplicatePreventionFilter::new(100_000);
 /// let record_id = 12345u64;
-/// 
+///
 /// if !filter.is_duplicate(record_id) {
 ///     filter.mark_processed(record_id);
 ///     // Proceed with insert
@@ -34,7 +34,7 @@ pub struct DuplicatePreventionFilter {
 
 impl DuplicatePreventionFilter {
     /// Create a new bloom filter with capacity hint for expected number of records.
-    /// 
+    ///
     /// # Arguments
     /// * `capacity_hint` - Expected number of unique records
     pub fn new(capacity_hint: usize) -> Self {
@@ -98,7 +98,7 @@ impl DuplicatePreventionFilter {
     }
 
     /// Check if a record ID has already been processed.
-    /// 
+    ///
     /// Returns `true` if the record is likely a duplicate (false positives possible).
     pub fn is_duplicate(&self, record_id: u64) -> bool {
         let idxs = self.calculate_hashes_u64(record_id);

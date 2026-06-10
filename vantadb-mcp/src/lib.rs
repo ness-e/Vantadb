@@ -128,11 +128,11 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             "prompts/list" => {
                 // Placeholder: prompts/list handler not yet implemented
                 error_code(-32601, "Method not found: prompts/list")
-            },
+            }
             "prompts/get" => {
                 // Placeholder: prompts/get handler not yet implemented
                 error_code(-32601, "Method not found: prompts/get")
-            },
+            }
             _ => error_code(-32601, "Method not found"),
         };
 
@@ -189,11 +189,16 @@ pub fn handle_resources_list() -> Result<Value, Value> {
     }))
 }
 
-pub fn handle_resources_read(params: &Option<Value>, storage: &Arc<StorageEngine>) -> Result<Value, Value> {
+pub fn handle_resources_read(
+    params: &Option<Value>,
+    storage: &Arc<StorageEngine>,
+) -> Result<Value, Value> {
     let p = params
         .as_ref()
         .ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
-    let uri = p["uri"].as_str().ok_or_else(|| json!({"code": -32602, "message": "Missing 'uri'"}))?;
+    let uri = p["uri"]
+        .as_str()
+        .ok_or_else(|| json!({"code": -32602, "message": "Missing 'uri'"}))?;
 
     if uri == "metrics://" {
         let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
@@ -227,7 +232,10 @@ pub fn handle_resources_read(params: &Option<Value>, storage: &Arc<StorageEngine
         let path = uri.strip_prefix("memory://").unwrap_or("");
         let parts: Vec<&str> = path.splitn(2, '/').collect();
         if parts.len() != 2 {
-            return error_code(-32602, "Invalid memory URI format. Expected: memory://namespace/key");
+            return error_code(
+                -32602,
+                "Invalid memory URI format. Expected: memory://namespace/key",
+            );
         }
         let namespace = parts[0];
         let key = parts[1];
@@ -251,7 +259,10 @@ pub fn handle_resources_read(params: &Option<Value>, storage: &Arc<StorageEngine
         // Parse namespace://namespace
         let namespace = uri.strip_prefix("namespace://").unwrap_or("");
         if namespace.is_empty() {
-            return error_code(-32602, "Invalid namespace URI format. Expected: namespace://namespace");
+            return error_code(
+                -32602,
+                "Invalid namespace URI format. Expected: namespace://namespace",
+            );
         }
 
         let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
@@ -617,7 +628,8 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.delete(&namespace, &key) {
                 Ok(deleted) => {
-                    let content = serde_json::to_string(&json!({"deleted": deleted})).unwrap_or_default();
+                    let content =
+                        serde_json::to_string(&json!({"deleted": deleted})).unwrap_or_default();
                     Ok(json!({"content": [{"type": "text", "text": content}]}))
                 }
                 Err(e) => Ok(

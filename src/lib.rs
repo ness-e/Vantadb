@@ -35,10 +35,10 @@ pub mod query;
 pub mod sdk;
 
 pub mod storage;
-pub mod utils;
 pub(crate) mod text_index;
 #[cfg(feature = "advanced-tokenizer")]
 pub mod tokenizer;
+pub mod utils;
 pub mod vector;
 pub mod wal;
 
