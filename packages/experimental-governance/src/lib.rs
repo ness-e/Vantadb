@@ -11,10 +11,8 @@ pub mod conflict_resolver;
 pub mod consistency;
 
 pub use admission_filter::AdmissionFilter;
-pub use conflict_resolver::{
-    ConfidenceArbiter, ConflictResolver, ResolutionResult,
-};
-pub use consistency::{ConsistencyBuffer, ConsistencyRecord, AuditableTombstone};
+pub use conflict_resolver::{ConfidenceArbiter, ConflictResolver, ResolutionResult};
+pub use consistency::{AuditableTombstone, ConsistencyBuffer, ConsistencyRecord};
 
 // Experimental-only modules
 pub mod invalidations;

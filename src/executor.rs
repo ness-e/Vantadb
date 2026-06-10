@@ -187,7 +187,6 @@ impl<'a> Executor<'a> {
                     }
                 }
 
-
                 self.storage.insert(&node)?;
                 Ok(ExecutionResult::Write {
                     affected_nodes: 1,

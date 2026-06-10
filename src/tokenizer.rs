@@ -97,9 +97,9 @@ pub fn tokenize_advanced(text: &str, config: &AdvancedTokenizerConfig) -> Vec<St
     };
 
     let mut stream = tokenizer.token_stream(text);
-    
+
     let mut tokens = Vec::new();
-    
+
     while let Some(token) = stream.next() {
         tokens.push(token.text.to_string());
     }
@@ -127,11 +127,13 @@ mod tests {
     fn test_advanced_tokenizer_basic() {
         let text = "The quick brown fox jumps over the lazy dog";
         let tokens = tokenize_advanced_default(text);
-        
+
         // Should tokenize
         assert!(!tokens.is_empty());
         // Should contain common words (may be stemmed)
-        assert!(tokens.iter().any(|t| t.contains("quick") || t.contains("brown")));
+        assert!(tokens
+            .iter()
+            .any(|t| t.contains("quick") || t.contains("brown")));
     }
 
     #[cfg(feature = "advanced-tokenizer")]
@@ -142,10 +144,10 @@ mod tests {
             remove_stopwords: false,
             ..Default::default()
         };
-        
+
         let text = "The jumping fox runs quickly";
         let tokens = tokenize_advanced(text, &config);
-        
+
         // "jumping" should be stemmed to "jump"
         assert!(tokens.iter().any(|t| t == "jump" || t.contains("jump")));
         // "quickly" should be stemmed to "quickli" or similar
@@ -160,20 +162,20 @@ mod tests {
             apply_stemming: false,
             ..Default::default()
         };
-        
+
         let config_without_stopwords = AdvancedTokenizerConfig {
             remove_stopwords: false,
             apply_stemming: false,
             ..Default::default()
         };
-        
+
         let text = "The quick brown fox jumps over the lazy dog";
         let tokens_with = tokenize_advanced(text, &config_with_stopwords);
         let tokens_without = tokenize_advanced(text, &config_without_stopwords);
-        
+
         // With stopwords removed, should have fewer tokens
         assert!(tokens_with.len() < tokens_without.len());
-        
+
         // Common stopwords like "the", "and", "is" should be removed
         assert!(!tokens_with.iter().any(|t| t == "the"));
         assert!(!tokens_with.iter().any(|t| t == "is"));
@@ -186,10 +188,10 @@ mod tests {
             language: Language::Spanish,
             ..Default::default()
         };
-        
+
         let text = "El perro rápido salta sobre el perro perezoso";
         let tokens = tokenize_advanced(text, &config);
-        
+
         assert!(!tokens.is_empty());
         // Spanish stopwords like "el", "sobre" should be removed
         assert!(!tokens.iter().any(|t| t == "el"));
@@ -203,10 +205,10 @@ mod tests {
             language: Language::French,
             ..Default::default()
         };
-        
+
         let text = "Le chien rapide saute par-dessus le chien paresseux";
         let tokens = tokenize_advanced(text, &config);
-        
+
         assert!(!tokens.is_empty());
     }
 
@@ -217,10 +219,10 @@ mod tests {
             language: Language::German,
             ..Default::default()
         };
-        
+
         let text = "Der schnelle Hund springt über den faulen Hund";
         let tokens = tokenize_advanced(text, &config);
-        
+
         assert!(!tokens.is_empty());
     }
 
@@ -231,10 +233,10 @@ mod tests {
             max_token_length: 5,
             ..Default::default()
         };
-        
+
         let text = "The quick brown fox jumps over the lazy dog";
         let tokens = tokenize_advanced(text, &config);
-        
+
         // All tokens should be <= 5 characters
         for token in &tokens {
             assert!(token.len() <= 5);
@@ -246,7 +248,7 @@ mod tests {
     fn test_advanced_tokenizer_empty_text() {
         let text = "";
         let tokens = tokenize_advanced_default(text);
-        
+
         assert!(tokens.is_empty());
     }
 
@@ -255,7 +257,7 @@ mod tests {
     fn test_advanced_tokenizer_unicode_folding() {
         let text = "Café naïve résumé";
         let tokens = tokenize_advanced_default(text);
-        
+
         // Should handle Unicode characters and fold them to ASCII
         assert!(!tokens.is_empty());
         // "café" should become "cafe" or similar
@@ -270,10 +272,10 @@ mod tests {
             remove_stopwords: true,
             ..Default::default()
         };
-        
+
         let text = "The jumping fox runs quickly and the lazy dog";
         let tokens = tokenize_advanced(text, &config);
-        
+
         // Should have fewer tokens due to stopwords removal
         assert!(!tokens.is_empty());
         // Should not contain stopwords
