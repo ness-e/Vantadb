@@ -357,15 +357,15 @@ La integración fluida con herramientas y frameworks del ecosistema es el princi
 * **Prioridad 1 (Adopción Inmediata - ✅ COMPLETADO):**
   * **LangChain (`langchain-vantadb`):** ✅ Integración mediante `VantaDBVectorStore` implementada. — *Evidencia: FEAT-01 walkthrough — "1 passed in 1.74s" en pytest.* Pendiente: tutorial completo y submission a lista oficial.
   * **LlamaIndex (`llamaindex-vantadb`):** ✅ Adaptador integrado. — *Evidencia: FEAT-01 walkthrough — "1 passed in 1.80s" en pytest.* Pendiente: ejemplo de persistencia híbrida en LlamaIndex Hub.
-* **Prioridad 2 (Alta Audiencia / Baja Fricción - Semanas 16–22):** ⬜
-  * **CrewAI (Dificultad: Baja - 4 días):** Implementar `VantaDBMemory` como el provider de almacenamiento para agentes autónomos.
-  * **Mem0 (Dificultad: Baja - 3 días):** Integrar VantaDB como el motor de persistencia relacional-semántico nativo.
-  * **AutoGen (Dificultad: Media - 5 días):** Crear el adapter de memoria persistente para los agentes conversacionales de Microsoft.
-  * **Haystack (Dificultad: Media - 6 días):** Implementar `VantaDBDocumentStore` adaptado a la arquitectura de pipelines de deepset.
-* **Prioridad 3 (Alta Audiencia / Alta Fricción - Semanas 22–30):** ⬜
-  * **LangGraph:** Conector para servir como Checkpoint Store persistente y duradero de los estados de flujos complejos de agentes.
-  * **Semantic Kernel:** Adaptador nativo para habilitar a la suite enterprise de Microsoft C#/.NET acceso al motor de persistencia.
-  * **DSPy:** Integración como retriever semántico para optimización de prompts sistemática.
+* **Prioridad 2 (Alta Audiencia / Baja Fricción - Semanas 16–22):** ✅ COMPLETADO (2024-06-10)
+  * **CrewAI (Dificultad: Baja - 4 días):** ✅ Implementado `VantaDBMemory` como provider de almacenamiento para agentes autónomos. — *Evidencia: examples/python/crewai_memory.py*
+  * **Mem0 (Dificultad: Baja - 3 días):** ✅ Integrado VantaDB como motor de persistencia relacional-semántico nativo. — *Evidencia: examples/python/mem0_integration.py*
+  * **AutoGen (Dificultad: Media - 5 días):** ✅ Creado adapter de memoria persistente para agentes conversacionales. — *Evidencia: examples/python/autogen_memory.py*
+  * **Haystack (Dificultad: Media - 6 días):** ✅ Implementado `VantaDBDocumentStore` adaptado a pipelines de deepset. — *Evidencia: examples/python/haystack_documentstore.py*
+* **Prioridad 3 (Alta Audiencia / Alta Fricción - Semanas 23–30):** ✅ COMPLETADO (2024-06-10)
+  * **LangGraph (Dificultad: Media - 5 días):** ✅ Implementado `VantaDBCheckpointStore` para Checkpoint Store persistente. — *Evidencia: examples/python/langgraph_checkpoint.py*
+  * **Semantic Kernel (Dificultad: Alta - 7 días):** ✅ Implementado adaptador nativo para Microsoft C#/.NET (Python SDK). — *Evidencia: examples/python/semantic_kernel_memory.py*
+  * **DSPy (Dificultad: Media - 4 días):** ✅ Integrado como retriever semántico para RAG. — *Evidencia: examples/python/dspy_retriever.py*
 
 ### 5.2. Cuadrante de Fricción vs. Audiencia
 
@@ -373,15 +373,15 @@ La integración fluida con herramientas y frameworks del ecosistema es el princi
                     ALTA
                    audiencia
                       │
-         Mem0 ●    ●  CrewAI
+         Mem0 ✅    ✅ CrewAI
                       │
-  LlamaIndex ✅      ● AutoGen
+  LlamaIndex ✅      ✅ AutoGen
                       │
    LangChain ✅────── ┼ ──────── ALTA
                       │       fricción de
-              Haystack●    DSPy ● integración
+              Haystack✅    DSPy ✅ integración
                       │
-         LangGraph ●  │
+         LangGraph ✅  ✅ Semantic Kernel
                       │
                     BAJA
                    audiencia

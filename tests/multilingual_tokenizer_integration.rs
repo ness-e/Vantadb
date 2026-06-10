@@ -8,12 +8,12 @@
 #[test]
 fn test_advanced_tokenizer_not_available() {
     // Placeholder test - actual integration tests require SDK API review
-    assert!(true);
+    // This test ensures the module compiles with the feature enabled
 }
 
 #[cfg(not(feature = "advanced-tokenizer"))]
 #[test]
 fn test_advanced_tokenizer_not_available() {
     // This test ensures the module compiles without the feature
-    assert!(true);
+    // No assertion needed - compilation success is the test
 }
