@@ -61,6 +61,8 @@ pub struct VantaConfig {
     ///
     /// Requires the `tls` feature. Configured via `VANTADB_TLS_KEY`.
     pub tls_key_path: Option<String>,
+    #[cfg(feature = "advanced-tokenizer")]
+    pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
 
 impl Default for VantaConfig {
@@ -97,6 +99,8 @@ impl Default for VantaConfig {
                 .unwrap_or(100),
             tls_cert_path: env::var("VANTADB_TLS_CERT").ok(),
             tls_key_path: env::var("VANTADB_TLS_KEY").ok(),
+            #[cfg(feature = "advanced-tokenizer")]
+            advanced_tokenizer_config: None,
         }
     }
 }
@@ -171,6 +175,18 @@ impl VantaConfig {
     pub fn with_tls(mut self, cert_path: String, key_path: String) -> Self {
         self.tls_cert_path = Some(cert_path);
         self.tls_key_path = Some(key_path);
+        self
+    }
+
+    /// Sets the advanced tokenizer configuration for multilingual text processing.
+    ///
+    /// Requires the `advanced-tokenizer` feature to have any effect.
+    #[cfg(feature = "advanced-tokenizer")]
+    pub fn with_advanced_tokenizer_config(
+        mut self,
+        config: Option<AdvancedTokenizerConfig>,
+    ) -> Self {
+        self.advanced_tokenizer_config = config;
         self
     }
 }

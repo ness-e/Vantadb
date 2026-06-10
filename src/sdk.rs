@@ -3539,7 +3539,7 @@ impl VantaEmbedded {
     ) -> Option<String> {
         let query_plan = crate::text_index::query_plan(text_query);
         let first_token = query_plan.terms.iter().next()?;
-        
+
         if payload.len() <= 120 {
             if with_highlighting {
                 return Some(Self::highlight_terms(payload, &query_plan.terms));
@@ -3562,7 +3562,7 @@ impl VantaEmbedded {
         }
 
         let snippet_text = payload[start..end].trim();
-        
+
         if with_highlighting {
             let highlighted = Self::highlight_terms(snippet_text, &query_plan.terms);
             let mut snippet = String::new();
@@ -3599,10 +3599,10 @@ impl VantaEmbedded {
         let mut result = String::new();
         let mut i = 0;
         let chars: Vec<char> = text.chars().collect();
-        
+
         while i < chars.len() {
             let mut matched = false;
-            
+
             for term in terms {
                 let term_chars: Vec<char> = term.chars().collect();
                 if i + term_chars.len() <= chars.len() {
@@ -3617,13 +3617,13 @@ impl VantaEmbedded {
                     }
                 }
             }
-            
+
             if !matched {
                 result.push(chars[i]);
                 i += 1;
             }
         }
-        
+
         result
     }
 }

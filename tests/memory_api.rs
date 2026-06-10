@@ -439,10 +439,13 @@ fn snippet_with_highlighting() {
 
     let hits = db.search(request).expect("search");
     assert_eq!(hits.len(), 1);
-    
-    let explanation = hits[0].explanation.as_ref().expect("explanation should be present");
+
+    let explanation = hits[0]
+        .explanation
+        .as_ref()
+        .expect("explanation should be present");
     assert!(explanation.snippet.is_some(), "snippet should be present");
-    
+
     let snippet = explanation.snippet.as_ref().unwrap();
     // El snippet debería contener parte del texto original
     assert!(!snippet.is_empty());
