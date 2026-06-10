@@ -6,12 +6,18 @@
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
+#[cfg(feature = "advanced-tokenizer")]
+use crate::tokenizer::tokenize_advanced_default;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
 pub(crate) const TOKENIZER_NAME: &str = "lowercase-ascii-alnum";
 pub(crate) const TOKENIZER_VERSION: u32 = 1;
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) const ADVANCED_TOKENIZER_VERSION: u32 = 1;
 pub(crate) const KEY_FORMAT: &str = "namespace\\0token\\0key";
 pub(crate) const BM25_K1: f32 = 1.2;
 pub(crate) const BM25_B: f32 = 0.75;
@@ -32,6 +38,16 @@ impl Default for TextTokenizerSpec {
         Self {
             name: TOKENIZER_NAME,
             version: TOKENIZER_VERSION,
+        }
+    }
+}
+
+#[cfg(feature = "advanced-tokenizer")]
+impl TextTokenizerSpec {
+    pub(crate) fn advanced() -> Self {
+        Self {
+            name: ADVANCED_TOKENIZER_NAME,
+            version: ADVANCED_TOKENIZER_VERSION,
         }
     }
 }
@@ -95,6 +111,14 @@ pub(crate) fn tokenize(text: &str) -> Vec<String> {
 }
 
 pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<String> {
+    #[cfg(feature = "advanced-tokenizer")]
+    {
+        if spec.name == ADVANCED_TOKENIZER_NAME {
+            debug_assert_eq!(spec.version, ADVANCED_TOKENIZER_VERSION);
+            return tokenize_advanced_default(text);
+        }
+    }
+
     debug_assert_eq!(spec.name, TOKENIZER_NAME);
     debug_assert_eq!(spec.version, TOKENIZER_VERSION);
 
