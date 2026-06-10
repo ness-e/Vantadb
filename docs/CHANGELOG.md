@@ -14,11 +14,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Multilingual tests for Spanish, French, and German tokenization in `src/tokenizer.rs`.
 - Unicode character support and length filtering in advanced tokenizer.
 - Tantivy 0.22 as optional dependency for advanced tokenization features.
+- Stemming support using Tantivy's Stemmer for multiple languages.
+- Stopwords removal using Tantivy's StopWordFilter with language-specific stopword lists.
+- Unicode folding using Tantivy's AsciiFoldingFilter for improved multilingual search.
+- Comprehensive tests for stemming, stopwords, Unicode folding, and combined features.
 
 ### Changed
 
-- Updated `Cargo.toml` to include `tantivy` as optional dependency under `advanced-tokenizer` feature.
+- Updated `Cargo.toml` to include `tantivy` as optional dependency under `advanced-tokenizer` feature with `stopwords` feature enabled.
 - Modified `src/text_index.rs` to support both basic and advanced tokenizers via feature flags.
+- Enhanced tokenizer implementation to use TextAnalyzer::builder() with proper filter chaining.
 
 ## [v0.1.1] - 2026-05-13
 
