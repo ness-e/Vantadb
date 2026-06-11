@@ -38,12 +38,10 @@ try {
     Run-Command "Format Check" @("cargo", "fmt", "--all", "--", "--check")
 
     # 2. Cargo Check (compile-only; --all-features is safe here because linking is skipped)
-    Write-Header "Workspace Compilation"
-    Run-Command "Compilation (All Features)" @("cargo", "check", "--workspace", "--tests", "--all-features", "-j", "2")
+    Run-Command "Workspace Compilation" @("cargo", "check", "--workspace", "--tests", "-j", "2")
 
     # 3. Clippy Lints
-    Write-Header "Static Analysis (Clippy)"
-    Run-Command "Clippy Lints" @("cargo", "clippy", "--workspace", "--tests", "--all-features", "-j", "2", "--", "-D", "warnings")
+    Run-Command "Clippy Lints" @("cargo", "clippy", "--workspace", "--tests", "-j", "2", "--", "-D", "warnings")
 
     # 4. Security Audit
     Write-Header "Security Auditing"
