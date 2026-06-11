@@ -1,0 +1,26 @@
+# Tareas de Auditoría de Código Estático de VantaDB
+
+- [x] Auditoría del Núcleo (Core) y Persistencia
+  - [x] Analizar `src/storage.rs` y la implementación de almacenamiento de registros.
+  - [x] Analizar `src/wal.rs`, los checksums CRC32C y replay.
+  - [x] Analizar `src/backend.rs` y el uso condicional de Fjall y RocksDB.
+  - [x] Analizar `src/error.rs` y el mapeo de tipos de error.
+- [x] Auditoría de los Índices (Vectorial HNSW y Léxico BM25)
+  - [x] Analizar `src/index.rs` y la navegación multicapa y compactación BFS.
+  - [x] Analizar `src/text_index.rs`, tokenización y parseo de frases.
+  - [x] Analizar optimizaciones SIMD y distancia Euclidiana (L2).
+- [x] Auditoría del Optimizador de Consultas y Planificación
+  - [x] Analizar `src/planner/` (Logical/Physical plans) y `src/executor.rs`.
+  - [x] Comprobar estimación de selectividad de CBO y predicate pushdown.
+- [x] Auditoría de la frontera FFI (Python SDK y PyO3)
+  - [x] Analizar `vantadb-python/src/lib.rs` (GIL, parallel search_batch, conversión de tipos).
+- [x] Auditoría de Interfaces y Satélites (Server, MCP, CLI)
+  - [x] Analizar `vantadb-server/` (Axum backend, rate limit, TLS).
+  - [x] Analizar `vantadb-mcp/` y `build.rs` (CLI completions).
+- [x] Auditoría de Adaptadores del Ecosistema y Ejemplos
+  - [x] Analizar adaptadores en `packages/` (LangChain, LlamaIndex).
+  - [x] Analizar scripts en `examples/`.
+- [x] Auditoría de CI/CD y Build Config
+  - [x] Analizar `.github/workflows/` y manifiestos `Cargo.toml`.
+- [x] Consolidación del Reporte Técnico de Auditoría
+  - [x] Escribir `docs/operations/PROJECT_STATUS_AUDIT.md`.
