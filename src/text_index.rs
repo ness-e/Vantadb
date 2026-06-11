@@ -177,7 +177,17 @@ pub(crate) fn token_counts_with_config(
 
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn token_counts_with_config(text: &str, _config: Option<&()>) -> BTreeMap<String, u32> {
-    token_counts(text)
+    // Simple token counting without advanced tokenizer support
+    let mut counts = BTreeMap::new();
+    let tokens = tokenize(text);
+
+    for token in tokens {
+        counts
+            .entry(token)
+            .and_modify(|count: &mut u32| *count = count.saturating_add(1))
+            .or_insert(1);
+    }
+    counts
 }
 
 pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
@@ -216,7 +226,24 @@ pub(crate) fn record_terms_with_config(
 
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> TextRecordTerms {
-    record_terms(payload)
+    // Simple record terms without advanced tokenizer support
+    let tokens = tokenize(payload);
+    let mut token_counts = BTreeMap::new();
+    let mut token_positions = BTreeMap::new();
+
+    for (position, token) in (0_u32..).zip(tokens.iter()) {
+        *token_counts.entry(token.clone()).or_insert(0) += 1;
+        token_positions
+            .entry(token.clone())
+            .or_insert_with(Vec::new)
+            .push(position);
+    }
+
+    TextRecordTerms {
+        token_counts,
+        token_positions,
+        doc_len: tokens.len() as u32,
+    }
 }
 
 pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
@@ -280,7 +307,52 @@ pub(crate) fn query_plan_with_config(
 
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQueryPlan {
-    query_plan(query)
+    // Simple query plan without advanced tokenizer support
+    let mut terms = BTreeSet::new();
+    let mut phrases = Vec::new();
+    let mut outside = String::new();
+    let mut quoted = String::new();
+    let mut in_quote = false;
+
+    for ch in query.chars() {
+        if ch == '"' {
+            if in_quote {
+                let phrase: Vec<String> = quoted
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                if !phrase.is_empty() {
+                    terms.extend(phrase.iter().cloned());
+                    phrases.push(phrase);
+                }
+                quoted.clear();
+                in_quote = false;
+            } else {
+                let outside_tokens: Vec<String> = outside
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                terms.extend(outside_tokens);
+                outside.clear();
+                in_quote = true;
+            }
+        } else if in_quote {
+            quoted.push(ch);
+        } else {
+            outside.push(ch);
+        }
+    }
+
+    if in_quote {
+        outside.push_str(&quoted);
+    }
+    let outside_tokens: Vec<String> = outside
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect();
+    terms.extend(outside_tokens);
+
+    TextQueryPlan { terms, phrases }
 }
 
 pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
