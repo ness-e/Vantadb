@@ -275,13 +275,13 @@ Marketing                              ↑PRE             ↑LAUNCH       ↑AMP
 **Estado de Fase:** 🔄 EN PROGRESO — T4.2 y T4.4 completadas; T4.1 (asciinema/GIF) y T4.3 (publicación real del Show HN) en progreso.
 
 #### T4.1 — Demo content técnico (asciinema + GIF + Ejemplos) 🔄 EN PROGRESO
-* **Evidencia parcial:** `FEAT-01 walkthrough` — `examples/python/langchain_rag.py` referenciado. `CHANGELOG v0.1.1` — "Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search." `docs/QUICKSTART.md` existe. `README.MD` — Imagen demo terminal `docs/assets/demo_terminal.png` integrada en el header.
+* **Evidencia parcial:** `FEAT-01 walkthrough` — `examples/python/langchain_rag.py` referenciado. `CHANGELOG v0.1.1` — "Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search." `docs/QUICKSTART.md` existe. `README.MD` — GIF animado del demo `vanta-cli` (`docs/assets/demo.gif`) integrado en el header; `.cast` fuente y `demo_driver.sh` versionados en `docs/assets/`.
 * **Objetivo:** Mostrar la propuesta de valor en menos de 60 segundos de lectura.
 * **Subtareas:**
-  * ⬜ **ST4.1.1:** Grabar y subir a `asciinema.org` una demostración en terminal de 90 segundos.
-  * ⬜ **ST4.1.2:** Crear un GIF de 30s de alta visibilidad para el encabezado del README.
+  * 🔄 **ST4.1.1:** Grabar y subir a `asciinema.org` una demostración en terminal de 90 segundos. — *Cast grabado y versionado (`docs/assets/demo.cast`); falta la subida a `asciinema.org` (requiere cuenta del autor).*
+  * ✅ **ST4.1.2:** Crear un GIF de 30s de alta visibilidad para el encabezado del README. — *Evidencia: `docs/assets/demo.gif` generado con `agg` e integrado en el header del `README.MD`.*
   * ✅ **ST4.1.3:** Crear el directorio `examples/python/` con códigos de ejemplo comentados para agentes autónomos, LangChain y LlamaIndex. — *Evidencia: FEAT-01 — packages/langchain-vantadb y packages/llamaindex-vantadb creados y certificados.*
-* **Criterio de Aceptación General T4.1:** 🔄 Ejemplos Python implementados. asciinema y GIF pendientes.
+* **Criterio de Aceptación General T4.1:** 🔄 Ejemplos Python y GIF del README completados; solo resta subir el cast a `asciinema.org` (acción manual del autor).
 
 #### T4.2 — Artículos técnicos de arquitectura ✅ COMPLETADA
 * **Evidencia:** `lanzamiento-marketing-T4.2-T4.3 walkthrough` — Los 3 artículos de arquitectura profunda redactados y guardados en `docs/articles/`.
