@@ -1,0 +1,5 @@
+- [x] Diseñar e implementar el test `test_wal_selective_crc_corruption_recovery` en [tests/storage/wal_resilience.rs](file:///c:/Users/Eros/VantaDB%20Proyect/VantaDB/tests/storage/wal_resilience.rs)
+- [x] Ejecutar compilación y test unitario para confirmar la correcta detección del CRC alterado y recuperación mediante Scan-Forward
+- [x] Comprobar el paso de todos los tests del workspace para verificar que no hay regresiones
+- [x] Crear informe de progreso en `./docs/progreso/checksum-wal/`
+- [/] Crear el commit de Git para documentar la Fase 4 completada

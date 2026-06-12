@@ -5,7 +5,9 @@
 
 use axum::{
     extract::State,
+    http::StatusCode,
     middleware,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Extension, Json, Router,
 };
@@ -75,7 +77,9 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
     let auth_state = AuthState::new(state.api_key.as_ref().map(|k| k.to_string()));
 
     // ── Public route: exempt from auth and rate-limit ────────────────────────
-    let public = Router::new().route("/health", get(health_check));
+    let public = Router::new()
+        .route("/health", get(health_check))
+        .route("/metrics", get(metrics_endpoint));
 
     // ── Protected route: auth middleware applied ─────────────────────────────
     // Auth middleware wraps the query route. The /health exemption is handled
@@ -126,6 +130,20 @@ async fn health_check() -> Json<QueryResponse> {
         node_id: None,
         nodes: None,
     })
+}
+
+/// Endpoint /metrics para exportar métricas Prometheus (TSK-06)
+///
+/// Retorna métricas en formato Prometheus text format para scraping por
+/// Prometheus u otros sistemas de monitoreo. Este endpoint es público
+/// y no requiere autenticación.
+async fn metrics_endpoint() -> impl IntoResponse {
+    let metrics_text = vantadb::metrics::export_metrics_text();
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/plain; version=0.0.4")
+        .body(metrics_text)
+        .unwrap()
 }
 
 async fn execute_query(
