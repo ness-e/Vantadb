@@ -159,6 +159,21 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(server)
+_arguments "${_arguments_options[@]}" : \
+'-p+[Port for the HTTP server]:PORT:_default' \
+'--port=[Port for the HTTP server]:PORT:_default' \
+'--host=[Host for the HTTP server]:HOST:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--http[Start HTTP server wrapper (default)]' \
+'--mcp[Start MCP server wrapper over stdio]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_vanta-cli__subcmd__help_commands" \
@@ -215,6 +230,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(server)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -242,6 +261,7 @@ _vanta-cli_commands() {
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
 'completions:Generate shell completion scripts' \
+'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli commands' commands "$@"
@@ -280,6 +300,7 @@ _vanta-cli__subcmd__help_commands() {
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
 'completions:Generate shell completion scripts' \
+'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli help commands' commands "$@"
@@ -339,6 +360,11 @@ _vanta-cli__subcmd__help__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help repair-text-index commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__server_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__server_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help server commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__status_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
@@ -373,6 +399,11 @@ _vanta-cli__subcmd__rebuild-index_commands() {
 _vanta-cli__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli repair-text-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__server_commands] )) ||
+_vanta-cli__subcmd__server_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli server commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__status_commands] )) ||
 _vanta-cli__subcmd__status_commands() {

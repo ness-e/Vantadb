@@ -49,6 +49,9 @@ _vanta-cli() {
             vanta__cli,repair-text-index)
                 cmd="vanta__cli__subcmd__repair__subcmd__text__subcmd__index"
                 ;;
+            vanta__cli,server)
+                cmd="vanta__cli__subcmd__server"
+                ;;
             vanta__cli,status)
                 cmd="vanta__cli__subcmd__status"
                 ;;
@@ -85,6 +88,9 @@ _vanta-cli() {
             vanta__cli__subcmd__help,repair-text-index)
                 cmd="vanta__cli__subcmd__help__subcmd__repair__subcmd__text__subcmd__index"
                 ;;
+            vanta__cli__subcmd__help,server)
+                cmd="vanta__cli__subcmd__help__subcmd__server"
+                ;;
             vanta__cli__subcmd__help,status)
                 cmd="vanta__cli__subcmd__help__subcmd__status"
                 ;;
@@ -95,7 +101,7 @@ _vanta-cli() {
 
     case "${cmd}" in
         vanta__cli)
-            opts="-d -v -h -V --db --verbose --help --version put get list rebuild-index audit-index repair-text-index export import query status completions help"
+            opts="-d -v -h -V --db --verbose --help --version put get list rebuild-index audit-index repair-text-index export import query status completions server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -229,7 +235,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help)
-            opts="put get list rebuild-index audit-index repair-text-index export import query status completions help"
+            opts="put get list rebuild-index audit-index repair-text-index export import query status completions server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -383,6 +389,20 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help__subcmd__repair__subcmd__text__subcmd__index)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__server)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -559,6 +579,40 @@ _vanta-cli() {
                 return 0
             fi
             case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__server)
+            opts="-p -d -v -h --http --mcp --port --host --db --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --port)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -p)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --host)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --db)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

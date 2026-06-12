@@ -40,6 +40,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
+            [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -158,6 +159,20 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
+        'vanta-cli;server' {
+            [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Port for the HTTP server')
+            [CompletionResult]::new('--port', '--port', [CompletionResultType]::ParameterName, 'Port for the HTTP server')
+            [CompletionResult]::new('--host', '--host', [CompletionResultType]::ParameterName, 'Host for the HTTP server')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--http', '--http', [CompletionResultType]::ParameterName, 'Start HTTP server wrapper (default)')
+            [CompletionResult]::new('--mcp', '--mcp', [CompletionResultType]::ParameterName, 'Start MCP server wrapper over stdio')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
         'vanta-cli;help' {
             [CompletionResult]::new('put', 'put', [CompletionResultType]::ParameterValue, 'Save a key-value pair to persistent memory')
             [CompletionResult]::new('get', 'get', [CompletionResultType]::ParameterValue, 'Retrieve a value from persistent memory')
@@ -170,6 +185,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
+            [CompletionResult]::new('server', 'server', [CompletionResultType]::ParameterValue, 'Start the HTTP or MCP server wrapper')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -204,6 +220,9 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;completions' {
+            break
+        }
+        'vanta-cli;help;server' {
             break
         }
         'vanta-cli;help;help' {
