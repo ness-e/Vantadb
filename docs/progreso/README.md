@@ -290,6 +290,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 * **`TSK-20` (skills):** Corrección de dependencias de scripts Python en skills (`vantadb_py` -> `vantadb`).
 * **`TSK-21` (skills):** Rectificación del script de instalación automatizado `setup-vantadb.sh` para soportar instalaciones locales estables.
 * **`TSK-22` (skills):** Corrección de URLs de documentación rotas apuntando a recursos locales y oficiales válidos.
+* **`TSK-24` (CLI):** Comando `server` integrado en la CLI (`vanta-cli server`) para gestionar la ejecución de servidores HTTP y MCP.
 * **`TSK-31` (Core / Query):** DateTime nativo con Chrono: soporte para DateTime (RFC 3339) con indexación y queries de rangos.
 * **`TSK-32` (Core / Index):** Flat Arrays homogéneos: soporte para arrays planos (`ListString`, `ListInt`, etc.) e indexación de contención.
 * **`TSK-33` (Core / Graph):** Primitivas de ejecución de DAG (cycle detection DFS, topological sort Kahn, y niveles paralelos de ejecución).
