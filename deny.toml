@@ -21,3 +21,6 @@ allow = [
     "BSL-1.0",
     "0BSD"
 ]
+
+[bans]
+multiple-versions = "allow"

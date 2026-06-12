@@ -5,7 +5,7 @@ use crate::executor::{ExecutionResult, Executor};
 // use crate::hardware::{HardwareCapabilities, HardwareProfile}; // Temporarily commented out to fix unused_imports warning in CI
 use crate::index::cosine_sim_f32;
 use crate::node::{DistanceMetric, FieldValue, UnifiedNode, VectorRepresentations};
-use crate::storage::{BackendKind, IndexRebuildReport, StorageEngine};
+use crate::storage::{IndexRebuildReport, StorageEngine};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -66,11 +66,15 @@ pub enum VantaValue {
 impl VantaValue {
     pub fn to_index_values(&self) -> Vec<VantaValue> {
         match self {
-            VantaValue::ListString(vec) => vec.iter().map(|s| VantaValue::String(s.clone())).collect(),
+            VantaValue::ListString(vec) => {
+                vec.iter().map(|s| VantaValue::String(s.clone())).collect()
+            }
             VantaValue::ListInt(vec) => vec.iter().map(|&i| VantaValue::Int(i)).collect(),
             VantaValue::ListFloat(vec) => vec.iter().map(|&f| VantaValue::Float(f)).collect(),
             VantaValue::ListBool(vec) => vec.iter().map(|&b| VantaValue::Bool(b)).collect(),
-            VantaValue::ListDateTime(vec) => vec.iter().map(|&dt| VantaValue::DateTime(dt)).collect(),
+            VantaValue::ListDateTime(vec) => {
+                vec.iter().map(|&dt| VantaValue::DateTime(dt)).collect()
+            }
             other => vec![other.clone()],
         }
     }
@@ -610,14 +614,17 @@ fn encoded_scalar_value(value: &VantaValue) -> Vec<u8> {
         }
         VantaValue::DateTime(dt) => {
             let mut encoded = b"d:".to_vec();
-            encoded.extend_from_slice(dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true).as_bytes());
+            encoded.extend_from_slice(
+                dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+                    .as_bytes(),
+            );
             encoded
         }
-        VantaValue::ListString(_) |
-        VantaValue::ListInt(_) |
-        VantaValue::ListFloat(_) |
-        VantaValue::ListBool(_) |
-        VantaValue::ListDateTime(_) => {
+        VantaValue::ListString(_)
+        | VantaValue::ListInt(_)
+        | VantaValue::ListFloat(_)
+        | VantaValue::ListBool(_)
+        | VantaValue::ListDateTime(_) => {
             panic!("Cannot encode list value directly as scalar");
         }
         VantaValue::Null => b"n:".to_vec(),
@@ -802,8 +809,7 @@ impl VantaEmbedded {
     }
 
     pub fn open_with_config(config: VantaConfig) -> Result<Self> {
-        let mut final_config = config.clone();
-        final_config.backend_kind = BackendKind::Fjall;
+        let final_config = config.clone();
 
         let engine = StorageEngine::open_with_config(
             &final_config.storage_path,

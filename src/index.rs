@@ -71,6 +71,45 @@ fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     let _ = (mmap_ptr, offset, len);
 }
 
+/// Libera páginas de memoria del mmap para nodos fríos (Cold tier).
+/// Usa madvise(MADV_DONTNEED) para indicar al kernel que estas páginas
+/// pueden ser liberadas de RAM, reduciendo el RSS sin invalidar el mmap.
+///
+/// El rango `[offset, offset+len)` debe estar dentro del mmap mapeado.
+#[inline(always)]
+#[allow(unused_variables)]
+pub fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
+    #[cfg(unix)]
+    {
+        // POSIX: madvise(MADV_DONTNEED) — indica al kernel que estas páginas
+        // no son necesarias y pueden ser liberadas de RAM. El mmap sigue válido,
+        // pero las páginas se cargarán bajo demanda desde disco cuando se accedan.
+        // Disponible en Linux y macOS. No bloquea el hilo llamante.
+        unsafe {
+            // SAFETY: mmap_ptr es un puntero activo al mmap; offset+len está validado por
+            // el caller. madvise falla silenciosamente si el rango es inválido.
+            libc::madvise(
+                mmap_ptr.add(offset) as *mut libc::c_void,
+                len,
+                libc::MADV_DONTNEED,
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        // Windows: No hay equivalente directo a MADV_DONTNEED.
+        // VirtualUnlock puede liberar páginas del working set, pero requiere
+        // que las páginas estén bloqueadas primero. Para simplicidad, no-op.
+        let _ = (mmap_ptr, offset, len);
+    }
+
+    // Fallback no-op para plataformas sin soporte (e.g., WASM, Tier-3).
+    // El compilador elimina este bloque vacío en release.
+    #[cfg(not(any(unix, windows)))]
+    let _ = (mmap_ptr, offset, len);
+}
+
 /// Controla dinámicamente si el prefetch predictivo está activo.
 /// Lee la variable de entorno `VANTA_DISABLE_PREFETCH` en cada invocación.
 /// El overhead de `std::env::var` (~1µs) es despreciable frente al cómputo
@@ -1635,13 +1674,14 @@ impl CPIndex {
         };
 
         let data = self.serialize_to_bytes();
+        let temp_path = path.with_extension("bin.tmp");
 
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&path)?;
+            .open(&temp_path)?;
         file.set_len(data.len() as u64)?;
 
         let mut mapped = unsafe { MmapMut::map_mut(&file)? };
@@ -1657,7 +1697,11 @@ impl CPIndex {
             *mmap = Some(mapped);
         }
 
-        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced & zero-copy pointers re-mapped");
+        // Swap atómico de archivos: temp -> final
+        drop(file);
+        std::fs::rename(&temp_path, &path)?;
+
+        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced & zero-copy pointers re-mapped via atomic rename");
         Ok(())
     }
 }

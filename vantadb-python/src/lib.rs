@@ -41,7 +41,11 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
             }
             return Ok(VantaValue::ListBool(vec));
         }
-        if first.extract::<chrono::DateTime<chrono::Utc>>().is_ok() || first.extract::<chrono::DateTime<chrono::FixedOffset>>().is_ok() {
+        if first.extract::<chrono::DateTime<chrono::Utc>>().is_ok()
+            || first
+                .extract::<chrono::DateTime<chrono::FixedOffset>>()
+                .is_ok()
+        {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
                 if let Ok(dt) = item.extract::<chrono::DateTime<chrono::Utc>>() {
@@ -49,7 +53,9 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
                 } else if let Ok(dt) = item.extract::<chrono::DateTime<chrono::FixedOffset>>() {
                     vec.push(dt.with_timezone(&chrono::Utc));
                 } else {
-                    return Err(PyTypeError::new_err("List elements must be consistent datetime objects."));
+                    return Err(PyTypeError::new_err(
+                        "List elements must be consistent datetime objects.",
+                    ));
                 }
             }
             return Ok(VantaValue::ListDateTime(vec));
@@ -109,7 +115,7 @@ fn set_python_value(
         VantaValue::ListFloat(value) => dict.set_item(key, value),
         VantaValue::ListBool(value) => dict.set_item(key, value),
         VantaValue::ListDateTime(value) => {
-            let py_list = pyo3::types::PyList::new(py, value.iter().map(|dt| dt))?;
+            let py_list = pyo3::types::PyList::new(py, value.iter())?;
             dict.set_item(key, py_list)
         }
         VantaValue::Null => dict.set_item(key, py.None()),
@@ -456,17 +462,24 @@ impl VantaDB {
     ///     read_only: If True, opens the DB in read-only mode. Safe for multi-process
     ///         access when another process holds the write lock.
     #[new]
-    #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false))]
+    #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false, backend=None))]
     fn new(
         py: Python<'_>,
         db_path: &str,
         memory_limit_bytes: Option<u64>,
         read_only: bool,
+        backend: Option<&str>,
     ) -> PyResult<Self> {
+        let backend_kind = match backend {
+            Some("rocksdb") => vantadb::BackendKind::RocksDb,
+            Some("memory") => vantadb::BackendKind::InMemory,
+            _ => vantadb::BackendKind::Fjall,
+        };
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             memory_limit: memory_limit_bytes,
             read_only,
+            backend_kind,
             ..Default::default()
         };
         let engine = py

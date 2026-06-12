@@ -125,8 +125,15 @@ impl RocksDbBackend {
             rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
         ];
 
-        let db = DB::open_cf_descriptors(&opts, path, cf_descriptors)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+        let db = if config.read_only {
+            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false).map_err(
+                |e: rocksdb::Error| VantaError::IoError(std::io::Error::other(e.to_string())),
+            )?
+        } else {
+            DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e: rocksdb::Error| {
+                VantaError::IoError(std::io::Error::other(e.to_string()))
+            })?
+        };
 
         Ok(Self { db })
     }
