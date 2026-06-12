@@ -170,3 +170,104 @@ fn test_wal_middle_corruption_auto_healing() {
     session.success("WAL middle corruption scan-forward auto-healing successfully certified.");
     session.finish(true);
 }
+
+#[test]
+fn test_wal_selective_crc_corruption_recovery() {
+    TerminalReporter::suite_banner("WAL SELECTIVE CRC32C CORRUPTION & INTEGRITY CERTIFICATION", 1);
+    let mut session = VantaSession::begin("WAL Selective CRC Corruption Resilience");
+
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    let config = VantaConfig {
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    };
+
+    session.step("Seeding database with 3 valid nodes under WAL");
+    let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
+    storage.insert(&UnifiedNode::new(301)).unwrap();
+    storage.insert(&UnifiedNode::new(302)).unwrap();
+    storage.insert(&UnifiedNode::new(303)).unwrap();
+    drop(storage);
+
+    // Ubicar y leer el archivo WAL
+    session.step("Locating records and corrupting ONLY the CRC field of the 2nd record");
+    let wal_path = dir.path().join("data").join("vanta.wal");
+    let mut file_content = Vec::new();
+    {
+        use std::io::Read;
+        let mut file = File::open(&wal_path).unwrap();
+        file.read_to_end(&mut file_content).unwrap();
+    }
+
+    // Parsear la estructura del WAL para encontrar el CRC del segundo registro
+    // WalHeader::SIZE = 20
+    let mut offset = 20;
+    let mut records = Vec::new();
+    while offset + 8 <= file_content.len() {
+        let len_bytes = &file_content[offset..offset + 4];
+        let len = u32::from_le_bytes(len_bytes.try_into().unwrap()) as usize;
+        let payload_start = offset + 4;
+        let crc_start = payload_start + len;
+        let record_end = crc_start + 4;
+
+        if record_end > file_content.len() {
+            break;
+        }
+
+        records.push((offset, payload_start, crc_start, record_end));
+        offset = record_end;
+    }
+
+    assert_eq!(records.len(), 3, "Deberíamos tener exactamente 3 registros en el WAL");
+
+    // Corromper selectivamente el campo CRC del segundo registro (índice 1)
+    let (_, _, crc_start, _) = records[1];
+    // Modificamos el CRC original haciendo un XOR con 0xFFFFFFFF
+    for i in 0..4 {
+        file_content[crc_start + i] ^= 0xFF;
+    }
+
+    // Escribir el WAL modificado al disco
+    {
+        use std::io::Write;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(&wal_path)
+            .unwrap();
+        file.write_all(&file_content).unwrap();
+    }
+
+    // Borrar el vector store y el índice en disco para forzar recuperación a través de WAL
+    let vector_store_path = dir.path().join("data").join("vector_store.vanta");
+    let index_path = dir.path().join("data").join("vector_index.bin");
+    let _ = std::fs::remove_file(vector_store_path);
+    let _ = std::fs::remove_file(index_path);
+
+    // Abrir la base de datos de nuevo.
+    // Durante la recuperación, el replay del WAL debe detectar el fallo de CRC32C en el registro del nodo 302,
+    // descartarlo a pesar de tener un payload deserializable consistente, y usar Scan-Forward
+    // para recuperar exitosamente el nodo 303 que está intacto después.
+    session.step("Opening database: Verifying selective skip and forward-recovery");
+    let storage2 = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
+    let hnsw = storage2.hnsw.load();
+
+    assert!(
+        hnsw.nodes.contains_key(&301),
+        "WAL recovery should retrieve node 301 before the corrupted record"
+    );
+    assert!(
+        !hnsw.nodes.contains_key(&302),
+        "Node 302 MUST be skipped because its record-level CRC is corrupt"
+    );
+    assert!(
+        hnsw.nodes.contains_key(&303),
+        "WAL recovery MUST scan forward and recover node 303 after the corrupted record"
+    );
+
+    session.success("Selective CRC32C corruption detection and recovery certified.");
+    session.finish(true);
+}
+
