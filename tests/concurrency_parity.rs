@@ -165,6 +165,74 @@ fn test_interleaved_read_write_parity() {
     session.finish(true);
 }
 
+// ─── TEST 4: Concurrency & RCU Rebuild Validation (AUD-03) ───
+
+#[test]
+fn test_concurrency_rebuild_rcu() {
+    let mut session = VantaSession::begin("RCU Index Rebuild Concurrency");
+    let dir = tempdir().unwrap();
+    let engine = Arc::new(open_engine(
+        dir.path().to_str().unwrap(),
+        BackendKind::Fjall,
+    ));
+
+    // Seed inicial con vectores
+    session.step("Seeding initial nodes with vectors");
+    for i in 0..100 {
+        let mut node = UnifiedNode::new(i);
+        node.vector = vantadb::node::VectorRepresentations::Full(vec![i as f32 * 0.01; 128]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine.insert(&node).unwrap();
+    }
+    engine.flush().unwrap();
+
+    // Hilo lector: hace consultas vectoriales concurrentes en caliente
+    session.step("Launching concurrent readers and continuous queries");
+    let engine_read = Arc::clone(&engine);
+    let reader_handle = thread::spawn(move || {
+        let mut query_success = 0;
+        let query_vector = vec![0.5; 128];
+        for _ in 0..500 {
+            let hnsw = engine_read.hnsw.load();
+            let vs = engine_read.vector_store.read();
+            let results = hnsw.search_nearest(&query_vector, None, None, 0, 5, Some(&vs));
+            if !results.is_empty() {
+                query_success += 1;
+            }
+            thread::yield_now();
+        }
+        query_success
+    });
+
+    // Hilo escritor/mantenimiento: ejecuta rebuild de índice y compactaciones en paralelo
+    session.step("Executing rebuild_vector_index in parallel");
+    let engine_write = Arc::clone(&engine);
+    let writer_handle = thread::spawn(move || {
+        // Ejecutar rebuild_vector_index a mitad de las consultas de lectura
+        engine_write.rebuild_vector_index().unwrap();
+        // Insertar un nuevo nodo de control post-rebuild
+        let mut node = UnifiedNode::new(999);
+        node.vector = vantadb::node::VectorRepresentations::Full(vec![0.9; 128]);
+        node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
+        engine_write.insert(&node).unwrap();
+    });
+
+    writer_handle.join().unwrap();
+    let successful_queries = reader_handle.join().unwrap();
+
+    session.step(&format!(
+        "Concurrent readers completed: {} successful queries during rebuild",
+        successful_queries
+    ));
+
+    // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
+    let hnsw = engine.hnsw.load();
+    assert!(hnsw.nodes.contains_key(&999), "Mitigación A-01: El nodo 999 se perdió tras el rebuild!");
+
+    session.success("RCU rebuild lock-free swap and consistency certified successfully.");
+    session.finish(true);
+}
+
 // ─── SUMMARY ──────────────────────────────────────────────────
 
 #[test]

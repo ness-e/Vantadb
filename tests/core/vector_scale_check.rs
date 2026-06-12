@@ -39,7 +39,7 @@ async fn vector_scale_performance_certification() {
                 "Executing greedy beam search over 128-dimensional space...",
             );
             let results = {
-                let index = storage.hnsw.read();
+                let index = storage.hnsw.load();
                 index.search_nearest(&query_vec, None, None, 0, 5, None)
             };
 

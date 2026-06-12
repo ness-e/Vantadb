@@ -125,13 +125,10 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                     Err(_) => error_code(-32603, "Internal error: semaphore closed"),
                 }
             }
-            "prompts/list" => {
-                // Placeholder: prompts/list handler not yet implemented
-                error_code(-32601, "Method not found: prompts/list")
-            }
+            "prompts/list" => handle_prompts_list(),
             "prompts/get" => {
-                // Placeholder: prompts/get handler not yet implemented
-                error_code(-32601, "Method not found: prompts/get")
+                let p = req.params.as_ref();
+                handle_prompts_get(p)
             }
             _ => error_code(-32601, "Method not found"),
         };
@@ -370,13 +367,114 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
     }))
 }
 
-pub fn handle_prompts_get() -> Result<Value, Value> {
-    Ok(json!({
-        "error": {
-            "code": -32601,
-            "message": "Prompts are listed but individual prompt retrieval is not yet implemented. Use the prompt templates from prompts/list directly."
+pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
+    let p = params
+        .ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
+    let name = p["name"]
+        .as_str()
+        .ok_or_else(|| json!({"code": -32602, "message": "Missing 'name'"}))?;
+
+    let args = p.get("arguments");
+
+    match name {
+        "search_memory" => {
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
+            let query = args
+                .and_then(|a| a["query"].as_str())
+                .unwrap_or("");
+
+            Ok(json!({
+                "description": "Optimized prompt for searching memory records with hybrid vector and text search",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": format!(
+                                "Search the VantaDB memory in namespace '{}' for: '{}'. Use hybrid search combining vector similarity and lexical matching. Apply any specified filters and return the top K results with confidence scores.",
+                                namespace, query
+                            )
+                        }
+                    }
+                ]
+            }))
         }
-    }))
+        "analyze_namespace" => {
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
+
+            Ok(json!({
+                "description": "Analyze the content and structure of a namespace",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": format!(
+                                "Analyze the VantaDB namespace '{}'. List all records, examine metadata patterns, identify clusters, and provide insights about the namespace structure and content distribution.",
+                                namespace
+                            )
+                        }
+                    }
+                ]
+            }))
+        }
+        "summarize_context" => {
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
+            let limit = args
+                .and_then(|a| a["limit"].as_u64())
+                .unwrap_or(10);
+
+            Ok(json!({
+                "description": "Generate a summary of context from memory records",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": format!(
+                                "Retrieve the last {} records from namespace '{}' and generate a comprehensive summary of the context, identifying key themes, relationships, and important information.",
+                                limit, namespace
+                            )
+                        }
+                    }
+                ]
+            }))
+        }
+        "query_builder" => {
+            let operation = args
+                .and_then(|a| a["operation"].as_str())
+                .unwrap_or("SELECT");
+            let target = args
+                .and_then(|a| a["target"].as_str())
+                .unwrap_or("nodes");
+            let conditions = args
+                .and_then(|a| a["conditions"].as_str())
+                .unwrap_or("");
+
+            Ok(json!({
+                "description": "Build IQL queries for VantaDB",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": format!(
+                                "Build an IQL query for VantaDB. Operation: {}, Target: {}, Conditions: {}. Ensure the query follows VantaLISP/IQL syntax and is properly formatted.",
+                                operation, target, conditions
+                            )
+                        }
+                    }
+                ]
+            }))
+        }
+        _ => error_code(-32602, &format!("Prompt not found: {}", name)),
+    }
 }
 
 pub fn handle_tools_list() -> Result<Value, Value> {
@@ -803,7 +901,7 @@ pub fn handle_tools_call(
             let k = args["k"].as_i64().unwrap_or(5) as usize;
 
             let mut results = Vec::new();
-            let index = storage.hnsw.read();
+            let index = storage.hnsw.load();
             let vs = storage.vector_store.read();
             let neighbors = index.search_nearest(&vector, None, None, 0, k, Some(&vs));
             for (id, distance) in neighbors {

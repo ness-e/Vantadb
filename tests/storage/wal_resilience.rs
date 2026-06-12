@@ -65,7 +65,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     let storage2 = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
 
     // Validamos que el nodo 104 está presente en el índice reconstruido
-    let hnsw = storage2.hnsw.read();
+    let hnsw = storage2.hnsw.load();
     assert!(
         hnsw.nodes.contains_key(&104),
         "WAL replay should recover un-flushed node 104"
@@ -149,7 +149,7 @@ fn test_wal_middle_corruption_auto_healing() {
     session.step("Opening database and checking recovered nodes");
     let storage2 = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
 
-    let hnsw = storage2.hnsw.read();
+    let hnsw = storage2.hnsw.load();
     assert!(
         hnsw.nodes.contains_key(&201),
         "WAL recovery should retrieve node 201 before corruption"

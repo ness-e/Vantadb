@@ -1998,7 +1998,7 @@ mod tests {
         }
 
         // Validar integridad
-        let hnsw = storage.hnsw.read();
+        let hnsw = storage.hnsw.load();
         assert!(hnsw.validate_index().is_ok());
 
         // Validar que todos los nodos sean alcanzables BFS desde el entry point

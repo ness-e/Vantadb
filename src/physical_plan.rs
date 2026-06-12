@@ -220,9 +220,11 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         }
 
         if let Some(vec) = vector {
-            let index = self.storage.hnsw.read();
-            let vs = self.storage.vector_store.read();
-            let neighbors = index.search_nearest(&vec, None, None, 0, 5, Some(&vs));
+            let neighbors = {
+                let index = self.storage.hnsw.load();
+                let vs = self.storage.vector_store.read();
+                index.search_nearest(&vec, None, None, 0, 5, Some(&vs))
+            };
             for (id, score) in neighbors {
                 if score >= self.min_score {
                     self.results.push(id);

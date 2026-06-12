@@ -30,7 +30,7 @@ fn raw_ann_layers_from_vantafile_exclude_tombstoned_neighbors() {
     engine.delete(100, "test tombstone for ANN").unwrap();
     engine.flush().unwrap();
 
-    let hnsw = engine.hnsw.read();
+    let hnsw = engine.hnsw.load();
     let vs = engine.vector_store.read();
     let hits = hnsw.search_nearest(&query, None, None, 0u128, 8, Some(&vs));
 

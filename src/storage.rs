@@ -8,6 +8,7 @@ use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
+use arc_swap::ArcSwap;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -479,7 +480,7 @@ pub struct StorageEngine {
     pub config: VantaConfig,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
-    pub hnsw: RwLock<CPIndex>,
+    pub hnsw: ArcSwap<CPIndex>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     insert_lock: parking_lot::Mutex<()>,
@@ -754,7 +755,7 @@ impl StorageEngine {
         Ok(Self {
             config: config.clone(),
             read_only: config.read_only,
-            hnsw: RwLock::new(hnsw),
+            hnsw: ArcSwap::from_pointee(hnsw),
             insert_lock: parking_lot::Mutex::new(()),
             volatile_cache: RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: AtomicU64::new(0),
@@ -960,14 +961,15 @@ impl StorageEngine {
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
 
+        // Mitigación A-01: Serializar escrituras/rebuild adquiriendo insert_lock
+        let _guard = self.insert_lock.lock();
+
         // ── Paso 1: Flush del WAL antes de reubicar físicamente los offsets ──
-        // Si no hacemos flush, los registros del WAL que referencian offsets anteriores
-        // quedarán inconsistentes con el nuevo layout compactado.
         self.flush()?;
 
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
-            let hnsw = self.hnsw.read();
+            let hnsw = self.hnsw.load();
             Self::fresh_index_like(&hnsw, index_path.clone())
         };
 
@@ -976,11 +978,17 @@ impl StorageEngine {
             Self::rebuild_hnsw_from_vstore(&mut rebuilt, &vstore, index_path)?
         };
 
-        {
-            let mut hnsw = self.hnsw.write();
-            *hnsw = rebuilt;
+        // Mitigación A-03: Persistencia en disco previa al swap en memoria (Atomicidad)
+        if rebuilt.backend.is_mmap() {
+            rebuilt.sync_to_mmap().map_err(|e| VantaError::IoError(e))?;
+        } else {
+            rebuilt.persist_to_file(&rebuilt.backend.mmap_path().unwrap_or(&self.data_dir.join("vector_index.bin")))
+                .map_err(|e| VantaError::IoError(e))?;
         }
-        self.save_vector_index();
+
+        // Swap atómico del Arc en memoria (RCU)
+        self.hnsw.store(Arc::new(rebuilt));
+
         crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
 
         Ok(report)
@@ -1005,6 +1013,9 @@ impl StorageEngine {
     pub fn compact_layout_bfs(&self) -> Result<u64> {
         self.ensure_writable()?;
 
+        // Mitigación A-01: Serializar mutaciones adquiriendo insert_lock
+        let _guard_insert = self.insert_lock.lock();
+
         // ── Flush previo del WAL para garantizar consistencia ────────────────
         self.flush()?;
 
@@ -1013,7 +1024,7 @@ impl StorageEngine {
         // ── Adquirir locks exclusivos en orden determinista (evita deadlock) ──
         // Orden: vector_store → hnsw  (siempre el mismo en todo el codebase)
         let mut vstore = self.vector_store.write();
-        let hnsw = self.hnsw.write();
+        let hnsw = self.hnsw.load();
 
         let entry_point_id = match hnsw.get_entry_point() {
             Some(ep) => ep,
@@ -1227,6 +1238,9 @@ impl StorageEngine {
             }
         }
 
+        // Descartar guard de hnsw de forma explícita tan pronto como terminamos de mutar sus offsets
+        drop(hnsw);
+
         let elapsed_ms = started.elapsed().as_millis() as u64;
         info!(
             nodes_compacted = nodes_compacted,
@@ -1236,8 +1250,7 @@ impl StorageEngine {
         );
 
         // Persistir el índice HNSW actualizado
-        // Liberamos los locks antes de llamar a save_vector_index para evitar re-lock
-        drop(hnsw);
+        // Liberamos el lock de vstore antes de persistir
         drop(vstore);
 
         self.save_vector_index();
@@ -1312,7 +1325,7 @@ impl StorageEngine {
 
         {
             let _guard = self.insert_lock.lock();
-            let hnsw = self.hnsw.read();
+            let hnsw = self.hnsw.load();
             hnsw.add(
                 active_node.id,
                 active_node.bitset,
@@ -1346,7 +1359,7 @@ impl StorageEngine {
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
                 let _guard = self.insert_lock.lock();
-                let index = self.hnsw.read();
+                let index = self.hnsw.load();
                 index.add(
                     node.id,
                     node.bitset,
@@ -1374,7 +1387,7 @@ impl StorageEngine {
 
         // Consolidate doesn't change the vector store offset if already present
         let offset = {
-            let hnsw = self.hnsw.read();
+            let hnsw = self.hnsw.load();
             hnsw.nodes
                 .get(&node.id)
                 .map(|n| n.storage_offset)
@@ -1452,7 +1465,7 @@ impl StorageEngine {
         let metadata: NodeMetadata = bincode::deserialize(&metadata_res)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
 
-        let hnsw = self.hnsw.read();
+        let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
             Some(n) => n,
             None => return Ok(None),
@@ -1521,7 +1534,7 @@ impl StorageEngine {
             wal_writer.append(&crate::wal::WalRecord::Delete { id })?;
         }
 
-        let hnsw = self.hnsw.read();
+        let hnsw = self.hnsw.load();
         if let Some(index_node) = hnsw.nodes.get(&id) {
             let offset = index_node.storage_offset;
 
@@ -1569,7 +1582,7 @@ impl StorageEngine {
 
     pub fn trigger_compaction(&self) -> Result<()> {
         let vstore = self.vector_store.write();
-        let hnsw = self.hnsw.read();
+        let hnsw = self.hnsw.load();
 
         let tombstone_count = hnsw
             .nodes
@@ -1624,7 +1637,7 @@ impl StorageEngine {
         self.save_vector_index();
 
         // Update memory breakdown after flush
-        let hnsw = self.hnsw.read();
+        let hnsw = self.hnsw.load();
         let vector_store = self.vector_store.read();
         crate::metrics::record_memory_breakdown(
             hnsw.nodes.len() as u64,
@@ -1638,14 +1651,51 @@ impl StorageEngine {
 
     fn save_vector_index(&self) {
         let index_path = self.data_dir.join("vector_index.bin");
-        let mut index = self.hnsw.write();
+        let current = self.hnsw.load();
 
-        if index.backend.is_mmap() {
-            if let Err(e) = index.sync_to_mmap() {
-                warn!(err = %e, "Failed to sync MMap vector index");
+        if current.backend.is_mmap() {
+            // Mitigación A-03: RCU para MMap (Atomicidad y Transaccionalidad)
+            let data = current.serialize_to_bytes();
+            let temp_path = index_path.with_extension("bin.tmp");
+
+            let result = (|| -> std::io::Result<Arc<CPIndex>> {
+                let file = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&temp_path)?;
+                file.set_len(data.len() as u64)?;
+
+                let mut mapped = unsafe { MmapMut::map_mut(&file)? };
+                mapped.copy_from_slice(&data);
+                mapped.flush()?;
+
+                let mut new_index = CPIndex::deserialize_from_bytes(&mapped, false)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+
+                new_index.backend = IndexBackend::MMapFile {
+                    path: index_path.clone(),
+                    mmap: Some(mapped),
+                };
+
+                drop(file);
+                // Intercambio atómico en disco
+                std::fs::rename(&temp_path, &index_path)?;
+                Ok(Arc::new(new_index))
+            })();
+
+            match result {
+                Ok(new_hnsw) => {
+                    self.hnsw.store(new_hnsw);
+                }
+                Err(e) => {
+                    warn!(err = %e, "Failed to sync MMap vector index via RCU");
+                }
             }
         } else {
-            if let Err(e) = index.persist_to_file(&index_path) {
+            // InMemory no requiere re-mapeo, sólo persistencia
+            if let Err(e) = current.persist_to_file(&index_path) {
                 warn!(err = %e, "Failed to persist vector index to file");
             }
         }
@@ -1832,7 +1882,7 @@ impl StorageEngine {
     /// }
     /// ```
     pub fn get_memory_stats(&self) -> MemoryStats {
-        let hnsw = self.hnsw.read();
+        let hnsw = self.hnsw.load();
         let vector_store = self.vector_store.read();
         let cache = self.volatile_cache.read();
 
@@ -1901,7 +1951,7 @@ impl StorageEngine {
         value: &crate::node::FieldValue,
     ) -> f32 {
         let stats = self.cardinality_stats.read();
-        let total_nodes = self.hnsw.read().nodes.len();
+        let total_nodes = self.hnsw.load().nodes.len();
         if total_nodes == 0 {
             return 1.0;
         }
