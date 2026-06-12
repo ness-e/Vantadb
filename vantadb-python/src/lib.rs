@@ -20,6 +20,63 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     if let Ok(boolean) = value.extract::<bool>() {
         return Ok(VantaValue::Bool(boolean));
     }
+    if let Ok(dt) = value.extract::<chrono::DateTime<chrono::Utc>>() {
+        return Ok(VantaValue::DateTime(dt));
+    }
+    if let Ok(dt) = value.extract::<chrono::DateTime<chrono::FixedOffset>>() {
+        return Ok(VantaValue::DateTime(dt.with_timezone(&chrono::Utc)));
+    }
+    if let Ok(py_list) = value.downcast::<pyo3::types::PyList>() {
+        if py_list.is_empty() {
+            return Ok(VantaValue::ListString(Vec::new()));
+        }
+        let first = py_list.get_item(0)?;
+        if first.is_none() {
+            return Err(PyTypeError::new_err("List elements cannot be None."));
+        }
+        if first.extract::<bool>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                vec.push(item.extract::<bool>()?);
+            }
+            return Ok(VantaValue::ListBool(vec));
+        }
+        if first.extract::<chrono::DateTime<chrono::Utc>>().is_ok() || first.extract::<chrono::DateTime<chrono::FixedOffset>>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                if let Ok(dt) = item.extract::<chrono::DateTime<chrono::Utc>>() {
+                    vec.push(dt);
+                } else if let Ok(dt) = item.extract::<chrono::DateTime<chrono::FixedOffset>>() {
+                    vec.push(dt.with_timezone(&chrono::Utc));
+                } else {
+                    return Err(PyTypeError::new_err("List elements must be consistent datetime objects."));
+                }
+            }
+            return Ok(VantaValue::ListDateTime(vec));
+        }
+        if first.extract::<i64>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                vec.push(item.extract::<i64>()?);
+            }
+            return Ok(VantaValue::ListInt(vec));
+        }
+        if first.extract::<f64>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                vec.push(item.extract::<f64>()?);
+            }
+            return Ok(VantaValue::ListFloat(vec));
+        }
+        if first.extract::<String>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                vec.push(item.extract::<String>()?);
+            }
+            return Ok(VantaValue::ListString(vec));
+        }
+        return Err(PyTypeError::new_err("Unsupported list element type."));
+    }
     if let Ok(string) = value.extract::<String>() {
         return Ok(VantaValue::String(string));
     }
@@ -31,7 +88,7 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     }
 
     Err(PyTypeError::new_err(
-        "Unsupported field value. Use str, int, float, bool, or None.",
+        "Unsupported field value. Use str, int, float, bool, datetime, list, or None.",
     ))
 }
 
@@ -46,6 +103,15 @@ fn set_python_value(
         VantaValue::Int(value) => dict.set_item(key, value),
         VantaValue::Float(value) => dict.set_item(key, value),
         VantaValue::Bool(value) => dict.set_item(key, value),
+        VantaValue::DateTime(value) => dict.set_item(key, value),
+        VantaValue::ListString(value) => dict.set_item(key, value),
+        VantaValue::ListInt(value) => dict.set_item(key, value),
+        VantaValue::ListFloat(value) => dict.set_item(key, value),
+        VantaValue::ListBool(value) => dict.set_item(key, value),
+        VantaValue::ListDateTime(value) => {
+            let py_list = pyo3::types::PyList::new(py, value.iter().map(|dt| dt))?;
+            dict.set_item(key, py_list)
+        }
         VantaValue::Null => dict.set_item(key, py.None()),
     }
 }
@@ -865,6 +931,59 @@ impl VantaDB {
             caps.vector_search,
             caps.persistence
         )
+    }
+
+    /// Breadth-First-Search starting from a designated set of root IDs,
+    /// up to a maximum depth, returning the discovered distinct Node IDs.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
+    #[pyo3(signature = (roots, max_depth=999999))]
+    fn graph_bfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .graph_bfs(&roots, max_depth)
+                .map_err(|e| PyRuntimeError::new_err(format!("BFS error: {:?}", e)))
+        })
+    }
+
+    /// Depth-First-Search starting from a designated set of root IDs,
+    /// up to a maximum depth, returning the discovered distinct Node IDs.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
+    #[pyo3(signature = (roots, max_depth=999999))]
+    fn graph_dfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .graph_dfs(&roots, max_depth)
+                .map_err(|e| PyRuntimeError::new_err(format!("DFS error: {:?}", e)))
+        })
+    }
+
+    /// Performs a topological sort on the subgraph reachable from the given roots.
+    /// Returns an error if a cycle is detected.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during topological sort.
+    fn graph_topological_sort(&self, py: Python, roots: Vec<u64>) -> PyResult<Vec<u64>> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .graph_topological_sort(&roots)
+                .map_err(|e| PyRuntimeError::new_err(format!("Topological sort error: {:?}", e)))
+        })
+    }
+
+    /// Checks if the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
+    fn graph_is_dag(&self, py: Python, roots: Vec<u64>) -> PyResult<bool> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .graph_is_dag(&roots)
+                .map_err(|e| PyRuntimeError::new_err(format!("DAG check error: {:?}", e)))
+        })
     }
 }
 

@@ -195,6 +195,12 @@ pub enum FieldValue {
     Int(i64),
     Float(f64),
     Bool(bool),
+    DateTime(chrono::DateTime<chrono::Utc>),
+    ListString(Vec<String>),
+    ListInt(Vec<i64>),
+    ListFloat(Vec<f64>),
+    ListBool(Vec<bool>),
+    ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
     Null,
 }
 
@@ -215,6 +221,24 @@ impl FieldValue {
         match self {
             FieldValue::Bool(b) => Some(*b),
             _ => None,
+        }
+    }
+    
+    /// Returns a list of string representations of the values.
+    /// This is used for indexing and cardinality tracking.
+    pub fn to_cardinality_keys(&self) -> Vec<String> {
+        match self {
+            FieldValue::String(s) => vec![s.clone()],
+            FieldValue::Int(i) => vec![i.to_string()],
+            FieldValue::Float(f) => vec![f.to_string()],
+            FieldValue::Bool(b) => vec![b.to_string()],
+            FieldValue::DateTime(dt) => vec![dt.to_rfc3339()],
+            FieldValue::ListString(vec) => vec.clone(),
+            FieldValue::ListInt(vec) => vec.iter().map(|i| i.to_string()).collect(),
+            FieldValue::ListFloat(vec) => vec.iter().map(|f| f.to_string()).collect(),
+            FieldValue::ListBool(vec) => vec.iter().map(|b| b.to_string()).collect(),
+            FieldValue::ListDateTime(vec) => vec.iter().map(|dt| dt.to_rfc3339()).collect(),
+            FieldValue::Null => vec!["null".to_string()],
         }
     }
 }
