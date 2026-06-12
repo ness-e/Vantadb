@@ -1,8 +1,0 @@
-- [x] T0.3 — Coherencia de versiones en el workspace
-    - [x] Modificar `tests/version_coherence.rs` para auditar `vantadb-server/Cargo.toml`, `packages/langchain-vantadb/pyproject.toml` y `packages/llamaindex-vantadb/pyproject.toml`.
-    - [x] Solicitar al usuario que ejecute `cargo test --test version_coherence` y verificar que pase.
-- [x] T1.4 — search_batch() en Python SDK
-    - [x] Agregar `rayon = "1.12"` a `vantadb-python/Cargo.toml`.
-    - [x] Implementar `search_batch()` en `vantadb-python/src/lib.rs` (liberando GIL y usando paralelizador Rayon).
-    - [x] Agregar test `test_search_batch` a `vantadb-python/tests/test_sdk.py`.
-    - [x] Solicitar al usuario que compile (`maturin develop`) y ejecute `pytest tests/test_sdk.py`.
