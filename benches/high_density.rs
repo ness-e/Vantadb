@@ -75,7 +75,7 @@ fn high_density_benchmark(c: &mut Criterion) {
                 rt.block_on(async {
                     let results = storage
                         .hnsw
-                        .read()
+                        .load()
                         .search_nearest(&query_vec, None, None, 0, 10, None);
                     // Force materialization to prevent optimization drop
                     assert!(results.len() <= 10);

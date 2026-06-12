@@ -36,7 +36,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
 
     // 3. Validar que el error sea explícito y contenga información de lock.
     match engine2_res.err().unwrap() {
-        VantaError::Execution(msg) => {
+        VantaError::DatabaseBusy(msg) => {
             assert!(
                 msg.contains("locked by another process"),
                 "Expected 'locked by another process' in error message, got: {}",
@@ -44,7 +44,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
             );
         }
         other => panic!(
-            "Expected VantaError::Execution for lock failure, got: {:?}",
+            "Expected VantaError::DatabaseBusy for lock failure, got: {:?}",
             other
         ),
     }
@@ -108,14 +108,14 @@ fn test_exclusive_writer_lock_prevents_second_writer_multi_process() {
         engine_res.is_err(),
         "Current process should NOT be able to open the database while P1 holds the lock"
     );
-    if let Err(VantaError::Execution(msg)) = engine_res {
+    if let Err(VantaError::DatabaseBusy(msg)) = engine_res {
         assert!(
             msg.contains("locked by another process"),
             "Expected lock failure message, got: {}",
             msg
         );
     } else {
-        panic!("Expected VantaError::Execution for lock failure");
+        panic!("Expected VantaError::DatabaseBusy for lock failure");
     }
 
     // 4. Lanzamos un segundo lock_helper (Proceso P2) sobre el mismo directorio.

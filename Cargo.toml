@@ -97,6 +97,7 @@ tokio = { version = "1", features = [
 criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
 tempfile = "3"
 tower = { version = "0.4", features = ["util"] }
+proptest = "1.5"
 http = "1"
 futures = "0.3"
 console = "0.16"
@@ -132,6 +133,11 @@ required-features = ["cli"]
 [[bin]]
 name = "lock_helper"
 path = "src/bin/lock_helper.rs"
+test = false
+
+[[bin]]
+name = "crash_helper"
+path = "src/bin/crash_helper.rs"
 test = false
 
 # ── Integration Tests ─────────────────────────────────────────────
@@ -313,6 +319,10 @@ path = "tests/benchmark_internal.rs"
 [[test]]
 name = "multi_process_lock"
 path = "tests/storage/multi_process_lock.rs"
+
+[[test]]
+name = "crash_injection"
+path = "tests/storage/crash_injection.rs"
 
 [profile.release]
 lto = "thin"

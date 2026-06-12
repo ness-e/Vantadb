@@ -280,5 +280,6 @@ jobs:
         run: |
           cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
           cargo nextest run --test wal_resilience --test-threads=1
+          cargo nextest run --test crash_injection --test-threads=1
 
 
