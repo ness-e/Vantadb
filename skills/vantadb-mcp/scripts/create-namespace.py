@@ -9,9 +9,9 @@ import os
 import argparse
 
 try:
-    import vantadb_py as vantadb
+    import vantadb as vantadb
 except ImportError:
-    print("❌ VantaDB Python SDK not found. Install with: pip install vantadb-py")
+    print("❌ VantaDB Python SDK not found. Install with: pip install vantadb")
     sys.exit(1)
 
 def create_namespace(db_path, namespace, description=None):

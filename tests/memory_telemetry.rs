@@ -136,7 +136,7 @@ fn memory_telemetry_contract() {
 
     harness.execute("Restart: Index reload remains queryable", || {
         let reopened = open_fjall(db_path);
-        let results = reopened.hnsw.read().search_nearest(
+        let results = reopened.hnsw.load().search_nearest(
             &[1.0, 1.0, 2.0, 3.0],
             None,
             None,

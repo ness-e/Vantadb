@@ -141,7 +141,7 @@ fn test_vector_index_cold_recovery() {
         // Al abrir, el HNSW leerá el archivo con los offsets correctos
         let engine = open_fjall(db_path);
 
-        let hnsw = engine.hnsw.read();
+        let hnsw = engine.hnsw.load();
         let vs = engine.vector_store.read();
 
         // Hacemos una búsqueda directamente contra el índice y VantaFile

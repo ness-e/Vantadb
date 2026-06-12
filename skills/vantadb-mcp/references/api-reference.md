@@ -226,6 +226,8 @@ pub enum VantaError {
 
 ## More Information
 
-- Full documentation: https://docs.vantadb.io
-- API docs: https://docs.vantadb.io/api
-- Examples: https://github.com/your-org/vantadb/tree/main/examples
+- Full documentation: See ../../docs/
+- API documentation: See ../../docs/api/
+- Examples: See ../../examples/python/
+- MCP Protocol: See mcp-protocol.md
+- Configuration: See configuration.md

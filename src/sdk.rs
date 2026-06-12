@@ -2244,12 +2244,11 @@ impl VantaEmbedded {
         // necesarios y luego filtramos. Budget: min(top_k * 10, 500) garantiza cobertura
         // en datasets típicos sin disparar el costo de traversal.
         let budget = (top_k.saturating_mul(10)).min(500).max(top_k);
-        let hnsw = engine.hnsw.read();
-        let vs = engine.vector_store.read();
-        let candidates =
-            hnsw.search_nearest(query_vector, None, None, u128::MAX, budget, Some(&*vs));
-        drop(vs);
-        drop(hnsw);
+        let candidates = {
+            let hnsw = engine.hnsw.load();
+            let vs = engine.vector_store.read();
+            hnsw.search_nearest(query_vector, None, None, u128::MAX, budget, Some(&*vs))
+        };
 
         // Paso 2: post-filtrado por namespace y metadata, cargando cada nodo candidato.
         let mut hits = Vec::with_capacity(top_k);
@@ -2933,18 +2932,18 @@ impl VantaEmbedded {
             return Ok(Vec::new());
         }
         let engine = self.engine_handle()?;
-        let hnsw = engine.hnsw.read();
-        let vs = engine.vector_store.read();
-        let results = hnsw.search_nearest(
-            vector,
-            None,      // q_1bit: no aplica para búsqueda de alta precisión
-            None,      // q_3bit: no aplica
-            u128::MAX, // query_mask: sin filtro de bitset — retornar todos
-            top_k,
-            Some(&*vs), // vector_store para MMap path
-        );
-        drop(vs);
-        drop(hnsw);
+        let results = {
+            let hnsw = engine.hnsw.load();
+            let vs = engine.vector_store.read();
+            hnsw.search_nearest(
+                vector,
+                None,      // q_1bit: no aplica para búsqueda de alta precisión
+                None,      // q_3bit: no aplica
+                u128::MAX, // query_mask: sin filtro de bitset — retornar todos
+                top_k,
+                Some(&*vs), // vector_store para MMap path
+            )
+        };
         Ok(results
             .into_iter()
             .map(|(node_id, distance)| VantaSearchHit { node_id, distance })
