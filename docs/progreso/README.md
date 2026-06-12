@@ -18,6 +18,7 @@
 8. [Integraciones y Ecosistema](#8-integraciones-y-ecosistema)
 9. [Benchmarks y Certificación](#9-benchmarks-y-certificación)
 10. [Documentación, Planificación y Gobernanza](#10-documentación-planificación-y-gobernanza)
+11. [Tareas de Rectificación y Hardening Completadas (Sprint v0.2.0)](#11-tareas-de-rectificación-y-hardening-completadas-sprint-v020)
 
 ---
 
@@ -268,6 +269,27 @@
 ### project-code-status-audit — Auditoría Técnica Estática
 - **Objetivo:** Auditoría completa del código base mediante análisis estático y pasivo.
 - **Resultado:** Informe exhaustivo de la estructura real del motor, identificación de la vulnerabilidad RUSTSEC bloqueante.
+
+---
+
+## 11. Tareas de Rectificación y Hardening Completadas (Sprint v0.2.0)
+
+Listado de tareas técnicas legítimas completadas correspondientes al backlog de rectificación y preparación de release para la versión `v0.2.0`:
+
+* **`TSK-01` (Python SDK):** Exposición de la API completa (`list_namespaces`, `rebuild_index`, `search_hybrid`, `get_node`, `delete_node`) en `vantadb-python/src/lib.rs`.
+* **`TSK-02` (Python SDK):** Liberación del GIL en operaciones de larga duración (>10ms) usando `py.allow_threads()` de forma sistemática en todos los métodos del SDK de Python.
+* **`TSK-03` (Python SDK):** Reemplazo de pánicos y llamadas a `.expect()` por manejo seguro de errores con tipo `PyResult` en la integración FFI.
+* **`TSK-04` (Storage):** Implementación de `madvise(MADV_DONTNEED)` para liberar dinámicamente páginas físicas de nodos fríos de memoria mmap.
+* **`TSK-05` (Storage):** Adición de control de señales para la detección de errores de bus `SIGBUS` en entornos Unix cuando el archivo de almacenamiento se trunca externamente.
+* **`TSK-06` (Observabilidad):** Habilitación del endpoint de Prometheus `/metrics` en el servidor y exportación estructurada de métricas operacionales.
+* **`TSK-07` (Testing):** Implementación de property-based testing con la crate `proptest` para validar la resiliencia de la persistencia y durabilidad del WAL.
+* **`TSK-08` (Memory):** Corrección de la telemetría de memoria física real (RSS) consultando las APIs nativas del sistema operativo en lugar de reportar erróneamente páginas mapeadas virtuales (mmap).
+* **`TSK-10` (vantadb-mcp):** Implementación del handler del método `prompts/list` en la integración MCP para permitir listar prompts disponibles a agentes de IA.
+* **`TSK-11` (vantadb-mcp):** Implementación del handler del método `prompts/get` para retornar prompts formateados con inputs de usuario específicos.
+* **`TSK-12` (vantadb-mcp):** Corrección de error de compilación en MCP reemplazando la llamada ArcSwap obsoleta `hnsw.read()` por `hnsw.load()`.
+* **`TSK-20` (skills):** Corrección de dependencias de scripts Python en skills (`vantadb_py` -> `vantadb`).
+* **`TSK-21` (skills):** Rectificación del script de instalación automatizado `setup-vantadb.sh` para soportar instalaciones locales estables.
+* **`TSK-22` (skills):** Corrección de URLs de documentación rotas apuntando a recursos locales y oficiales válidos.
 
 ---
 
