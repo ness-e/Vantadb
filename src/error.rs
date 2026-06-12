@@ -45,6 +45,9 @@ pub enum VantaError {
 
     #[error("Execution error: {0}")]
     Execution(String),
+
+    #[error("Database busy: {0}")]
+    DatabaseBusy(String),
 }
 
 /// Crate-wide Result alias

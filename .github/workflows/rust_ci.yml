@@ -102,7 +102,13 @@ jobs:
       run: cargo nextest run --profile audit --workspace
 
     - name: Security Audit
-      run: cargo audit
+      # DEBT NOTE: Ignoring pyo3 advisories RUSTSEC-2026-0176 and RUSTSEC-2026-0177
+      # Code audit confirmed vantadb-python does NOT use affected APIs:
+      # - PyList::nth() / PyTuple::nth_back() (out-of-bounds read)
+      # - PyCFunction::new_closure (missing Sync bound)
+      # Only safe PyList methods used: is_empty(), get_item(), iter(), len(), new(), empty(), append()
+      # Pyo3 upgrade to >=0.29.0 planned in future roadmap (major version requiring extensive testing)
+      run: cargo audit --allow RUSTSEC-2026-0176 --allow RUSTSEC-2026-0177
 
     - name: Dependency Policy Check
       run: cargo deny check

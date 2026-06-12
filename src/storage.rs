@@ -6,7 +6,6 @@ use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
-use fs2::FileExt;
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -537,27 +536,74 @@ impl StorageEngine {
                 base_path.display()
             )));
         }
-        let lock_file = if !config.read_only {
-            std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
+        let lock_file = {
             let lock_path = base_path.join(".vanta.lock");
-            let file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .open(&lock_path)
-                .map_err(VantaError::IoError)?;
+            if !config.read_only {
+                std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
+            }
 
-            file.try_lock_exclusive().map_err(|_| {
-                VantaError::Execution(format!(
-                    "Database at '{}' is locked by another process. \
-                     Only one VantaDB instance can open a database directory at a time.",
-                    base_path.display()
-                ))
-            })?;
+            let file_result = OpenOptions::new()
+                .read(true)
+                .write(!config.read_only)
+                .create(!config.read_only)
+                .open(&lock_path);
+
+            let file = match file_result {
+                Ok(f) => f,
+                Err(e) => {
+                    if config.read_only {
+                        return Err(VantaError::Execution(format!(
+                            "Database at '{}' cannot be opened read-only: lock file does not exist. \
+                             Verify that the database directory is initialized.",
+                            base_path.display()
+                        )));
+                    } else {
+                        return Err(VantaError::IoError(e));
+                    }
+                }
+            };
+
+            // Intentar adquirir el bloqueo con reintentos y backoff exponencial (timeout total ~1000ms)
+            let mut delay = std::time::Duration::from_millis(5);
+            let total_limit = std::time::Duration::from_millis(1000);
+            let start_time = std::time::Instant::now();
+            let mut acquired = false;
+
+            while start_time.elapsed() < total_limit {
+                let lock_res = if config.read_only {
+                    fs2::FileExt::try_lock_shared(&file)
+                } else {
+                    fs2::FileExt::try_lock_exclusive(&file)
+                };
+
+                if lock_res.is_ok() {
+                    acquired = true;
+                    break;
+                }
+
+                // Esperar con backoff exponencial
+                std::thread::sleep(delay);
+                delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
+            }
+
+            if !acquired {
+                let msg = if config.read_only {
+                    format!(
+                        "Database at '{}' is locked exclusively by another process (writer). \
+                         Cannot acquire shared read-only lock within timeout.",
+                        base_path.display()
+                    )
+                } else {
+                    format!(
+                        "Database at '{}' is locked by another process. \
+                         Cannot acquire exclusive writer lock within timeout.",
+                        base_path.display()
+                    )
+                };
+                return Err(VantaError::DatabaseBusy(msg));
+            }
+
             Some(file)
-        } else {
-            None
         };
 
         // ── KV Backend initialization ──
@@ -1336,6 +1382,27 @@ impl StorageEngine {
         };
         self.refresh_index(&persisted, offset);
 
+        // Libera páginas de memoria del vector store para nodos Cold (TSK-04)
+        // Esto reduce el RSS sin invalidar el mmap; las páginas se cargarán bajo demanda
+        if offset > 0 {
+            let vstore = self.vector_store.read();
+            let mmap = vstore.mmap_bytes();
+            // Calcular tamaño del vector desde la representación
+            let vector_size = match &persisted.vector {
+                crate::node::VectorRepresentations::Full(v) => v.len() * 4, // f32 = 4 bytes
+                crate::node::VectorRepresentations::MmapFull(_, len) => *len,
+                crate::node::VectorRepresentations::Binary(b) => b.len() * 8, // u64 = 8 bytes
+                crate::node::VectorRepresentations::Turbo(t) => t.len(),
+                crate::node::VectorRepresentations::None => 0,
+            };
+            // Alinear a 64 bytes (misma alineación que usa el storage)
+            let vector_size_aligned = (vector_size + 63) & !63;
+            let offset_usize = offset as usize;
+            if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
+                crate::index::release_mmap_vector(mmap.as_ptr(), offset_usize, vector_size_aligned);
+            }
+        }
+
         {
             let mut cache = self.volatile_cache.write();
             cache.remove(&node.id);
@@ -1840,7 +1907,10 @@ impl StorageEngine {
         }
 
         let val_keys = value.to_cardinality_keys();
-        let val_key = val_keys.first().cloned().unwrap_or_else(|| "null".to_string());
+        let val_key = val_keys
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "null".to_string());
 
         if let Some(val_map) = stats.get(field) {
             let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;

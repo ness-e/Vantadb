@@ -5,7 +5,7 @@
 
 use crate::error::Result;
 use crate::storage::StorageEngine;
-use std::collections::{HashSet, VecDeque, HashMap};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub struct GraphTraverser<'a> {
     storage: &'a StorageEngine,

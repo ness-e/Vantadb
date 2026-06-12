@@ -223,7 +223,7 @@ impl FieldValue {
             _ => None,
         }
     }
-    
+
     /// Returns a list of string representations of the values.
     /// This is used for indexing and cardinality tracking.
     pub fn to_cardinality_keys(&self) -> Vec<String> {

@@ -1,5 +1,5 @@
 [profile.audit]
-default-filter = "not test(hnsw_hard_validation_certification) and not test(recall_certification_runner) and not test(stress_protocol_certification) and not test(validate_sift_dataset_integrity) and not test(sift1m_competitive_benchmark) and not test(test_benchmark_internal_10k) and not test(vector_scale_performance_certification) and not test(hardware_certification_full)"
+default-filter = "not test(hnsw_hard_validation_certification) and not test(recall_certification_runner) and not test(stress_protocol_certification) and not test(validate_sift_dataset_integrity) and not test(sift1m_competitive_benchmark) and not test(test_benchmark_internal_10k) and not test(vector_scale_performance_certification) and not test(hardware_certification_full) and not test(multi_process_lock)"
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"

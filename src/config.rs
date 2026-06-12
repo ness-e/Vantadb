@@ -86,7 +86,11 @@ impl Default for VantaConfig {
             memory_limit: None,
             read_only: false,
             force_mmap: false,
-            backend_kind: BackendKind::Fjall,
+            backend_kind: match env::var("VANTA_BACKEND").ok().as_deref() {
+                Some("rocksdb") => BackendKind::RocksDb,
+                Some("memory") => BackendKind::InMemory,
+                _ => BackendKind::Fjall,
+            },
             max_blocking_threads: env::var("VANTADB_MAX_BLOCKING_THREADS")
                 .ok()
                 .and_then(|v| v.parse().ok())
