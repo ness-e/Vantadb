@@ -1,103 +1,58 @@
-# Memory Telemetry Contract
+# Telemetría de Memoria, Baselines y Contratos de Datos
 
-This document defines the memory observability contract used by VantaDB
-operational metrics, Prometheus gauges, and certification harnesses.
+Este documento define el contrato de observabilidad de memoria de VantaDB, las métricas operacionales expuestas por Prometheus y el baseline histórico de la persistencia de datos en memoria.
 
-## Per-Subsystem Breakdown
+---
 
-VantaDB now reports memory at two levels: **host-scoped** (from hardware
-detection) and **process-scoped** (from `sysinfo::Process` + engine internals).
+## 📊 1. Desglose de Telemetría por Subsistema
 
-| Metric | Source | Units | Scope |
-| --- | --- | --- | --- |
-| `HardwareCapabilities::total_memory` | `sysinfo::System::total_memory()` | bytes | Host |
-| `process_rss_bytes` | `sysinfo::Process::memory()` | bytes | Process |
-| `process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | bytes | Process |
-| `hnsw_nodes_count` | `CPIndex::nodes.len()` | count | Engine |
-| `hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | bytes | Engine |
-| `mmap_resident_bytes` | Mapped file residency when available | bytes or null | Engine/OS |
-| `volatile_cache_entries` | `volatile_cache.len()` | count | Engine |
-| `volatile_cache_cap_bytes` | Configured max cache capacity | bytes | Engine |
+VantaDB reporta el uso de memoria a nivel del host (hardware total) y a nivel del proceso (internos del motor y RSS del sistema operativo).
 
-### Prometheus Gauges
+| Métrica | Origen en Código | Unidad | Propósito / Alcance |
+| :--- | :--- | :--- | :--- |
+| `HardwareCapabilities::total_memory` | `sysinfo::System::total_memory()` | Bytes | Capacidad de memoria del host. |
+| `process_rss_bytes` | `sysinfo::Process::memory()` | Bytes | Memoria física residente del proceso. |
+| `process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | Bytes | Memoria virtual asignada al proceso. |
+| `hnsw_nodes_count` | `CPIndex::nodes.len()` | Conteo | Nodos cargados en el índice vectorial. |
+| `hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | Bytes | Estimación lógica determinista del grafo. |
+| `mmap_resident_bytes` | Syscalls `mincore` (Unix) / `QueryWorkingSetEx` (Win) | Bytes | Páginas residentes de archivos mapeados. |
+| `volatile_cache_entries` | `volatile_cache.len()` | Conteo | Entradas activas en la caché LRU. |
 
-The following gauges are registered in the `METRICS_REGISTRY` and exported
-via the `/metrics` endpoint:
+### Métricas de Prometheus
 
-- `vanta_process_rss_bytes`
-- `vanta_process_virtual_bytes`
-- `vanta_hnsw_nodes_count`
-- `vanta_hnsw_logical_bytes`
-- `vanta_mmap_resident_bytes`
-- `vanta_volatile_cache_entries`
-- `vanta_volatile_cache_cap_bytes`
+Los siguientes gauges son registrados en `METRICS_REGISTRY` y se exponen en `/metrics` en `vantadb-server`:
+* `vanta_process_rss_bytes`
+* `vanta_process_virtual_bytes`
+* `vanta_hnsw_nodes_count`
+* `vanta_hnsw_logical_bytes`
+* `vanta_mmap_resident_bytes`
 
-These gauges are updated at:
+---
 
-1. **Engine startup** — after WAL replay and index load.
-2. **Flush** — after persisting the HNSW index and backend data.
-3. **Rebuild** — after ANN or text-index rebuilds (future).
+## 🏗️ 2. Contrato de Datos y Estado Derivado
 
-### SDK Access
+VantaDB opera con un contrato estructurado en memoria y disco para asegurar consistencia:
 
-```rust
-let metrics = db.operational_metrics();
-println!("Process RSS: {} bytes", metrics.process_rss_bytes);
-println!("HNSW nodes: {}", metrics.hnsw_nodes_count);
-println!("HNSW logical bytes: {}", metrics.hnsw_logical_bytes);
-println!("MMap resident bytes: {:?}", metrics.mmap_resident_bytes);
-```
+* **Identidad (Keys):** Generada a partir de `namespace + "\0" + key`.
+* **Payload:** Carga útil en formato UTF-8 serializado.
+* **Metadata:** Atributos planos compuestos únicamente por valores del enum `FieldValue` (Strings, Enteros, Flotantes, Booleanos). No se admiten objetos JSON anidados para preservar la eficiencia.
+* **Vectores:** Almacenados opcionalmente en formato contiguo de precisión `f32` dentro de `vector_store.vanta`.
 
-```python
-metrics = db.operational_metrics()
-print(f"Process RSS: {metrics['process_rss_bytes']} bytes")
-print(f"HNSW nodes: {metrics['hnsw_nodes_count']}")
-print(f"HNSW logical bytes: {metrics['hnsw_logical_bytes']}")
-print(f"MMap resident bytes: {metrics['mmap_resident_bytes']}")
-```
+### Índices Derivados en Memoria
+El motor lee el almacenamiento de clave-valor canónico y materializa en frío las siguientes estructuras que pueden ser reconstruidas en su totalidad mediante `rebuild_index`:
+1. **`NamespaceIndex`:** Mapea el prefijo de namespace a identificadores de nodos lógicos.
+2. **`PayloadIndex`:** Mapea campos escalares para búsquedas rápidas con filtrado relacional.
+3. **`TextIndex`:** Índices invertidos del motor BM25 para búsquedas léxicas FTS.
 
-## What these numbers mean
+---
 
-These numbers are useful for:
+## 🧪 3. Verificación de Telemetría de Memoria
 
-- Comparing one certification block against another inside the same process.
-- Catching obvious regressions in runtime memory growth.
-- Understanding whether a scenario triggers materially larger process usage.
-- Tracking HNSW index growth and cache utilization over time.
+Para realizar mediciones de estabilidad locales y perfilado de consumo de memoria bajo inserciones continuas, ejecuta el arnés de control:
 
-## What these numbers do **not** mean
-
-These numbers do **not** directly represent:
-
-- Exact allocator footprint for HNSW internals; `hnsw_logical_bytes` is a
-  deterministic estimate over vectors, nodes, and neighbor lists.
-- Portable MMap residency; `mmap_resident_bytes` is `null` on platforms where
-  residency cannot be measured.
-- OS page cache or backend-specific allocator internals.
-- Full host memory pressure from other processes.
-
-For HNSW-only logical footprint, use `CPIndex::estimate_memory_bytes()`, which
-also backs `VantaOperationalMetrics::hnsw_logical_bytes`.
-
-## Confidence Levels
-
-- `process_only`: Trustworthy as process-scoped runtime telemetry.
-- `untrusted_for_product_claims`: Do not use alone for "low RAM", "better
-  footprint", or competitive marketing claims.
-
-## Controlled Harness
-
-Use the dedicated harness to compare controlled scenarios:
-
-```bash
+```powershell
+# Setear reporte en archivo local
+$env:VANTA_CERT_REPORT="target/memory_telemetry.json"
 cargo test --test memory_telemetry -- --nocapture
 ```
-
-Recommended for local runs:
-
-```bash
-set VANTA_CERT_REPORT=target/memory_telemetry.json
-cargo test --test memory_telemetry -- --nocapture
-```
-
-This avoids appending exploratory runs to the tracked certification log.
+Esto valida que la memoria RSS no sufra fugas y que las páginas MMap se liberen correctamente al vaciar el índice a disco.
