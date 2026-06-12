@@ -10,9 +10,10 @@ name = "vantadb_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.24.1", features = ["extension-module", "abi3-py38"] }
+pyo3 = { version = "0.24.1", features = ["extension-module", "abi3-py38", "chrono"] }
 serde_json = "1.0"
 rayon = "1.12"
+chrono = { version = "0.4", features = ["serde"] }
 
 # In-process reference to the core engine (zero network overhead)
 vantadb = { path = "../", default-features = false }

@@ -54,7 +54,26 @@ pub enum VantaValue {
     Int(i64),
     Float(f64),
     Bool(bool),
+    DateTime(chrono::DateTime<chrono::Utc>),
+    ListString(Vec<String>),
+    ListInt(Vec<i64>),
+    ListFloat(Vec<f64>),
+    ListBool(Vec<bool>),
+    ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
     Null,
+}
+
+impl VantaValue {
+    pub fn to_index_values(&self) -> Vec<VantaValue> {
+        match self {
+            VantaValue::ListString(vec) => vec.iter().map(|s| VantaValue::String(s.clone())).collect(),
+            VantaValue::ListInt(vec) => vec.iter().map(|&i| VantaValue::Int(i)).collect(),
+            VantaValue::ListFloat(vec) => vec.iter().map(|&f| VantaValue::Float(f)).collect(),
+            VantaValue::ListBool(vec) => vec.iter().map(|&b| VantaValue::Bool(b)).collect(),
+            VantaValue::ListDateTime(vec) => vec.iter().map(|&dt| VantaValue::DateTime(dt)).collect(),
+            other => vec![other.clone()],
+        }
+    }
 }
 
 /// Stable relational fields map for external SDKs.
@@ -589,6 +608,18 @@ fn encoded_scalar_value(value: &VantaValue) -> Vec<u8> {
                 b"b:0".to_vec()
             }
         }
+        VantaValue::DateTime(dt) => {
+            let mut encoded = b"d:".to_vec();
+            encoded.extend_from_slice(dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true).as_bytes());
+            encoded
+        }
+        VantaValue::ListString(_) |
+        VantaValue::ListInt(_) |
+        VantaValue::ListFloat(_) |
+        VantaValue::ListBool(_) |
+        VantaValue::ListDateTime(_) => {
+            panic!("Cannot encode list value directly as scalar");
+        }
         VantaValue::Null => b"n:".to_vec(),
     }
 }
@@ -929,11 +960,13 @@ impl VantaEmbedded {
         });
 
         for (field, value) in &record.metadata {
-            ops.push(BackendWriteOp::Put {
-                partition: BackendPartition::PayloadIndex,
-                key: payload_index_key(&record.namespace, field, value, &record.key),
-                value: node_id_bytes(record.node_id),
-            });
+            for val in value.to_index_values() {
+                ops.push(BackendWriteOp::Put {
+                    partition: BackendPartition::PayloadIndex,
+                    key: payload_index_key(&record.namespace, field, &val, &record.key),
+                    value: node_id_bytes(record.node_id),
+                });
+            }
         }
 
         ops
@@ -947,10 +980,12 @@ impl VantaEmbedded {
         });
 
         for (field, value) in &record.metadata {
-            ops.push(BackendWriteOp::Delete {
-                partition: BackendPartition::PayloadIndex,
-                key: payload_index_key(&record.namespace, field, value, &record.key),
-            });
+            for val in value.to_index_values() {
+                ops.push(BackendWriteOp::Delete {
+                    partition: BackendPartition::PayloadIndex,
+                    key: payload_index_key(&record.namespace, field, &val, &record.key),
+                });
+            }
         }
 
         ops
@@ -3626,6 +3661,30 @@ impl VantaEmbedded {
 
         result
     }
+
+    pub fn graph_bfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.bfs_traverse(roots, max_depth)
+    }
+
+    pub fn graph_dfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.dfs_traverse(roots, max_depth)
+    }
+
+    pub fn graph_topological_sort(&self, roots: &[u64]) -> Result<Vec<u64>> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.topological_sort(roots)
+    }
+
+    pub fn graph_is_dag(&self, roots: &[u64]) -> Result<bool> {
+        let engine = self.engine_handle()?;
+        let traverser = crate::graph::GraphTraverser::new(&engine);
+        traverser.is_dag(roots)
+    }
 }
 
 impl From<IndexRebuildReport> for VantaIndexRebuildReport {
@@ -3687,6 +3746,12 @@ impl From<VantaValue> for FieldValue {
             VantaValue::Int(value) => FieldValue::Int(value),
             VantaValue::Float(value) => FieldValue::Float(value),
             VantaValue::Bool(value) => FieldValue::Bool(value),
+            VantaValue::DateTime(value) => FieldValue::DateTime(value),
+            VantaValue::ListString(value) => FieldValue::ListString(value),
+            VantaValue::ListInt(value) => FieldValue::ListInt(value),
+            VantaValue::ListFloat(value) => FieldValue::ListFloat(value),
+            VantaValue::ListBool(value) => FieldValue::ListBool(value),
+            VantaValue::ListDateTime(value) => FieldValue::ListDateTime(value),
             VantaValue::Null => FieldValue::Null,
         }
     }
@@ -3699,6 +3764,12 @@ impl From<FieldValue> for VantaValue {
             FieldValue::Int(value) => VantaValue::Int(value),
             FieldValue::Float(value) => VantaValue::Float(value),
             FieldValue::Bool(value) => VantaValue::Bool(value),
+            FieldValue::DateTime(value) => VantaValue::DateTime(value),
+            FieldValue::ListString(value) => VantaValue::ListString(value),
+            FieldValue::ListInt(value) => VantaValue::ListInt(value),
+            FieldValue::ListFloat(value) => VantaValue::ListFloat(value),
+            FieldValue::ListBool(value) => VantaValue::ListBool(value),
+            FieldValue::ListDateTime(value) => VantaValue::ListDateTime(value),
             FieldValue::Null => VantaValue::Null,
         }
     }

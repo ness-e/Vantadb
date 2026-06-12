@@ -1205,17 +1205,13 @@ impl StorageEngine {
         if let Ok(Some(existing_node)) = self.get(node.id) {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in existing_node.relational {
-                let val_key = match value {
-                    crate::node::FieldValue::String(s) => s,
-                    crate::node::FieldValue::Int(i) => i.to_string(),
-                    crate::node::FieldValue::Float(f) => f.to_string(),
-                    crate::node::FieldValue::Bool(b) => b.to_string(),
-                    crate::node::FieldValue::Null => "null".to_string(),
-                };
+                let val_keys = value.to_cardinality_keys();
                 if let Some(val_map) = stats.get_mut(&field) {
-                    if let Some(count) = val_map.get_mut(&val_key) {
-                        if *count > 0 {
-                            *count -= 1;
+                    for val_key in val_keys {
+                        if let Some(count) = val_map.get_mut(&val_key) {
+                            if *count > 0 {
+                                *count -= 1;
+                            }
                         }
                     }
                     val_map.retain(|_, &mut v| v > 0);
@@ -1226,16 +1222,12 @@ impl StorageEngine {
         {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in &node.relational {
-                let val_key = match value {
-                    crate::node::FieldValue::String(s) => s.clone(),
-                    crate::node::FieldValue::Int(i) => i.to_string(),
-                    crate::node::FieldValue::Float(f) => f.to_string(),
-                    crate::node::FieldValue::Bool(b) => b.to_string(),
-                    crate::node::FieldValue::Null => "null".to_string(),
-                };
+                let val_keys = value.to_cardinality_keys();
                 let val_map = stats.entry(field.clone()).or_default();
-                if val_map.len() < 100 || val_map.contains_key(&val_key) {
-                    *val_map.entry(val_key).or_default() += 1;
+                for val_key in val_keys {
+                    if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                        *val_map.entry(val_key).or_default() += 1;
+                    }
                 }
             }
         }
@@ -1443,17 +1435,13 @@ impl StorageEngine {
         if let Ok(Some(node)) = self.get(id) {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in node.relational {
-                let val_key = match value {
-                    crate::node::FieldValue::String(s) => s,
-                    crate::node::FieldValue::Int(i) => i.to_string(),
-                    crate::node::FieldValue::Float(f) => f.to_string(),
-                    crate::node::FieldValue::Bool(b) => b.to_string(),
-                    crate::node::FieldValue::Null => "null".to_string(),
-                };
+                let val_keys = value.to_cardinality_keys();
                 if let Some(val_map) = stats.get_mut(&field) {
-                    if let Some(count) = val_map.get_mut(&val_key) {
-                        if *count > 0 {
-                            *count -= 1;
+                    for val_key in val_keys {
+                        if let Some(count) = val_map.get_mut(&val_key) {
+                            if *count > 0 {
+                                *count -= 1;
+                            }
                         }
                     }
                     val_map.retain(|_, &mut v| v > 0);
@@ -1825,16 +1813,12 @@ impl StorageEngine {
             for (_key, val) in records {
                 if let Ok(metadata) = bincode::deserialize::<NodeMetadata>(&val) {
                     for (field, value) in metadata.relational {
-                        let val_str = match value {
-                            crate::node::FieldValue::String(s) => s,
-                            crate::node::FieldValue::Int(i) => i.to_string(),
-                            crate::node::FieldValue::Float(f) => f.to_string(),
-                            crate::node::FieldValue::Bool(b) => b.to_string(),
-                            crate::node::FieldValue::Null => "null".to_string(),
-                        };
+                        let val_keys = value.to_cardinality_keys();
                         let val_map = stats.entry(field).or_default();
-                        if val_map.len() < 100 || val_map.contains_key(&val_str) {
-                            *val_map.entry(val_str).or_default() += 1;
+                        for val_key in val_keys {
+                            if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                                *val_map.entry(val_key).or_default() += 1;
+                            }
                         }
                     }
                 }
@@ -1855,13 +1839,8 @@ impl StorageEngine {
             return 1.0;
         }
 
-        let val_key = match value {
-            crate::node::FieldValue::String(s) => s.clone(),
-            crate::node::FieldValue::Int(i) => i.to_string(),
-            crate::node::FieldValue::Float(f) => f.to_string(),
-            crate::node::FieldValue::Bool(b) => b.to_string(),
-            crate::node::FieldValue::Null => "null".to_string(),
-        };
+        let val_keys = value.to_cardinality_keys();
+        let val_key = val_keys.first().cloned().unwrap_or_else(|| "null".to_string());
 
         if let Some(val_map) = stats.get(field) {
             let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
