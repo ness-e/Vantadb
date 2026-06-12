@@ -1175,6 +1175,104 @@ fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     Ok(())
 }
 
+fn cmd_server(
+    db_path: &str,
+    http: bool,
+    mcp: bool,
+    port: Option<u16>,
+    host: Option<String>,
+    _verbose: bool,
+) -> Result<()> {
+    let mcp_mode = mcp && !http;
+
+    let binary_name = "vantadb-server";
+    let exe_name = if cfg!(windows) {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name.to_string()
+    };
+
+    let mut cmd = std::process::Command::new(&exe_name);
+
+    cmd.env("VANTA_DB", db_path);
+    if let Some(p) = port {
+        cmd.env("VANTADB_PORT", p.to_string());
+    }
+    if let Some(ref h) = host {
+        cmd.env("VANTADB_HOST", h);
+    }
+
+    if mcp_mode {
+        cmd.arg("--mcp");
+    }
+
+    cmd.stdin(std::process::Stdio::inherit());
+    cmd.stdout(std::process::Stdio::inherit());
+    cmd.stderr(std::process::Stdio::inherit());
+
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
+            if let Ok(mut current_exe) = std::env::current_exe() {
+                current_exe.set_file_name(&exe_name);
+                if current_exe.exists() {
+                    let mut fallback_cmd = std::process::Command::new(&current_exe);
+                    fallback_cmd.env("VANTA_DB", db_path);
+                    if let Some(p) = port {
+                        fallback_cmd.env("VANTADB_PORT", p.to_string());
+                    }
+                    if let Some(ref h) = host {
+                        fallback_cmd.env("VANTADB_HOST", h);
+                    }
+                    if mcp_mode {
+                        fallback_cmd.arg("--mcp");
+                    }
+                    fallback_cmd.stdin(std::process::Stdio::inherit());
+                    fallback_cmd.stdout(std::process::Stdio::inherit());
+                    fallback_cmd.stderr(std::process::Stdio::inherit());
+
+                    match fallback_cmd.spawn() {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return Err(vantadb::error::VantaError::Execution(format!(
+                                "Failed to start vantadb-server from current directory: {e}"
+                            )));
+                        }
+                    }
+                } else {
+                    return Err(vantadb::error::VantaError::Execution(format!(
+                        "vantadb-server binary not found in PATH or in the same directory as the CLI (expected: {})",
+                        current_exe.display()
+                    )));
+                }
+            } else {
+                return Err(vantadb::error::VantaError::Execution(format!(
+                    "vantadb-server binary not found in PATH and failed to retrieve current executable path"
+                )));
+            }
+        }
+        Err(e) => {
+            return Err(vantadb::error::VantaError::Execution(format!(
+                "Failed to start vantadb-server process: {e}"
+            )));
+        }
+    };
+
+    let status = child.wait().map_err(|e| {
+        vantadb::error::VantaError::Execution(format!("Error waiting for vantadb-server process: {e}"))
+    })?;
+
+    if !status.success() {
+        if let Some(code) = status.code() {
+            std::process::exit(code);
+        } else {
+            std::process::exit(1);
+        }
+    }
+
+    Ok(())
+}
+
 fn cmd_completions(shell: Shell) {
     let mut cmd = Cli::command();
     let shell: clap_complete::Shell = shell.into();
@@ -1231,6 +1329,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Commands::Status => cmd_status(&args.db, args.verbose)?,
 
         Commands::Completions { shell } => cmd_completions(shell),
+
+        Commands::Server {
+            http,
+            mcp,
+            port,
+            host,
+        } => cmd_server(&args.db, http, mcp, port, host, args.verbose)?,
     }
 
     Ok(())

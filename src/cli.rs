@@ -115,6 +115,25 @@ pub enum Commands {
         #[arg(long, value_enum)]
         shell: Shell,
     },
+
+    /// Start the HTTP or MCP server wrapper
+    Server {
+        /// Start HTTP server wrapper (default)
+        #[arg(long)]
+        http: bool,
+
+        /// Start MCP server wrapper over stdio
+        #[arg(long)]
+        mcp: bool,
+
+        /// Port for the HTTP server
+        #[arg(long, short, env = "VANTADB_PORT")]
+        port: Option<u16>,
+
+        /// Host for the HTTP server
+        #[arg(long, env = "VANTADB_HOST")]
+        host: Option<String>,
+    },
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
