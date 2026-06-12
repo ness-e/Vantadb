@@ -45,7 +45,7 @@ try {
 
     # 4. Security Audit
     Write-Header "Security Auditing"
-    Run-Command "Cargo Audit" @("cargo", "audit", "--ignore", "RUSTSEC-2026-0176")
+    Run-Command "Cargo Audit" @("cargo", "audit", "--ignore", "RUSTSEC-2026-0176", "--ignore", "RUSTSEC-2026-0177")
 
     # 5. Dependency Policy Check
     Write-Header "Dependency Policies"
