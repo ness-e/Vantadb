@@ -19,6 +19,7 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 * [Architecture Overview](architecture/ARCHITECTURE.md) — Core architecture principles (Single-crate design, layout alignment, and zero-copy memory mapping).
 * [Text Index Design](architecture/TEXT_INDEX_DESIGN.md) — System design of the inverted text index for BM25 lexical search.
 * [WAL & Mutation Recovery](architecture/MUTATION_RECOVERY_PROTOCOL.md) — WAL specifications, CRC32C validation, and the Scan-Forward Auto-healing protocol.
+* [Advanced Tokenizer](ADVANCED_TOKENIZER.md) — Multilingual text processing, stemming, and Unicode folding based on Tantivy.
 * [Architecture Decision Records (ADRs)](adr/) — Formal record of architectural decisions:
   * [ADR 001: Unified Config and Read-Only Mode](adr/001_unified_config_readonly.md)
   * [ADR 002: WAL CRC32C and Scan-Forward Auto-healing](adr/002_wal_crc32c_autohealing.md)
@@ -61,7 +62,15 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 
 ---
 
-## 📊 Reports & Milestones Closeouts
+## ✍️ Technical Articles & Publications
+
+* [How Hybrid Search Works](articles/how_hybrid_search_works.md) — Deep dive into combining Tantivy lexical search with HNSW vector search.
+* [SQLite for AI Agents](articles/sqlite_for_ai_agents.md) — Why a specialized vector-relational engine is needed instead of traditional SQLite.
+* [Why I Built a Local Memory Engine](articles/why_i_built_local_memory_engine.md) — Engineering rationale behind creating a zero-dependency local vector database.
+
+---
+
+## 📊 Reports, Milestones & Snapshots
 
 * [Project Status Audit](operations/PROJECT_STATUS_AUDIT.md) — Static review report of code status, crates, and workspace structure.
 * [Text Index Phase 1 Closeout](operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md) — Closing metrics for Tantivy integration and lexical capabilities.
@@ -69,6 +78,12 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 * [Repository Checklist](operations/REPO_CHECKLIST.md) — Code hygiene, documentation and packaging check sheets.
 * [Release Notes v0.1.1](operations/RELEASE_V0.1.1.md) — Changelog and assets compilation for stable release v0.1.1.
 * [Milestone v0.2.0](operations/MILESTONE_V0.2.0.md) — Action plans, deadlines, and criteria of completion for the next milestone.
+* [Executive Technical Report](reports/executive-technical-report.md) ([HTML version](reports/executive-technical-report.html)) — Executive summary of architectural review, findings, and remediation.
+* [Lista Maestra de Tareas Consolidada](reports/LISTA_MAESTRA_TAREAS_CONSOLIDADA.md) — Master implementation roadmaps and checklists.
+* [Historical Repository Snapshots](snapshots/) — Full backups of codebase status at key points:
+  * [Snapshot 2026-06-09](snapshots/snapshot_2026-06-09.md)
+  * [Snapshot 2026-06-12](snapshots/snapshot_2026-06-12.md)
+* [Historical Progress Snapshots](progreso/) — Traceability directory of snapshots for every completed feature branch (e.g. `soporte-datetime-listas-y-dag`, `correccion-inconsistencias-docs`).
 * [Historical Audits](audits/) — Technical review logs from early development phases:
   * [2026-05-04 Cleanup Candidates](audits/2026-05-04-cleanup-candidates.md)
   * [2026-05-04 Test Report](audits/2026-05-04-test-report.md)
