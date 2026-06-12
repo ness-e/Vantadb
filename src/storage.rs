@@ -6,9 +6,9 @@ use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
+use arc_swap::ArcSwap;
 use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
-use arc_swap::ArcSwap;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -44,18 +44,19 @@ fn install_sigbus_handler() -> Result<()> {
 
     static INSTALL_ONCE: Once = Once::new();
 
-    INSTALL_ONCE.call_once(|| {
-        unsafe {
-            let mut sa: libc::sigaction = mem::zeroed();
-            sa.sa_sigaction = sigbus_handler as usize;
-            sa.sa_flags = SA_SIGINFO;
-            libc::sigemptyset(&mut sa.sa_mask);
+    INSTALL_ONCE.call_once(|| unsafe {
+        let mut sa: libc::sigaction = mem::zeroed();
+        sa.sa_sigaction = sigbus_handler as usize;
+        sa.sa_flags = SA_SIGINFO;
+        libc::sigemptyset(&mut sa.sa_mask);
 
-            if sigaction(SIGBUS, &sa, std::ptr::null_mut()) != 0 {
-                warn!("Failed to install SIGBUS handler: {}", std::io::Error::last_os_error());
-            } else {
-                info!("SIGBUS handler installed successfully");
-            }
+        if sigaction(SIGBUS, &sa, std::ptr::null_mut()) != 0 {
+            warn!(
+                "Failed to install SIGBUS handler: {}",
+                std::io::Error::last_os_error()
+            );
+        } else {
+            info!("SIGBUS handler installed successfully");
         }
     });
 
@@ -1067,7 +1068,13 @@ impl StorageEngine {
         if rebuilt.backend.is_mmap() {
             rebuilt.sync_to_mmap().map_err(|e| VantaError::IoError(e))?;
         } else {
-            rebuilt.persist_to_file(&rebuilt.backend.mmap_path().unwrap_or(&self.data_dir.join("vector_index.bin")))
+            rebuilt
+                .persist_to_file(
+                    &rebuilt
+                        .backend
+                        .mmap_path()
+                        .unwrap_or(&self.data_dir.join("vector_index.bin")),
+                )
                 .map_err(|e| VantaError::IoError(e))?;
         }
 
@@ -1756,8 +1763,10 @@ impl StorageEngine {
                 mapped.copy_from_slice(&data);
                 mapped.flush()?;
 
-                let mut new_index = CPIndex::deserialize_from_bytes(&mapped, false)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+                let mut new_index =
+                    CPIndex::deserialize_from_bytes(&mapped, false).map_err(|e| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+                    })?;
 
                 new_index.backend = IndexBackend::MMapFile {
                     path: index_path.clone(),

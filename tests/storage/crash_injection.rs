@@ -13,7 +13,10 @@ use vantadb::storage::StorageEngine;
 
 #[test]
 fn test_crash_injection_and_cold_recovery_loop() {
-    TerminalReporter::suite_banner("WAL CRASH-INJECTION & RECOVERY INTEGRITY CERTIFICATION (AUD-02)", 1);
+    TerminalReporter::suite_banner(
+        "WAL CRASH-INJECTION & RECOVERY INTEGRITY CERTIFICATION (AUD-02)",
+        1,
+    );
     let mut session = VantaSession::begin("Crash-Injection Loop (100 Iterations)");
 
     session.step("Building crash_helper binary...");
@@ -30,7 +33,11 @@ fn test_crash_injection_and_cold_recovery_loop() {
 
     assert!(build_status.success(), "Failed to compile crash_helper");
 
-    let exe_name = if cfg!(windows) { "crash_helper.exe" } else { "crash_helper" };
+    let exe_name = if cfg!(windows) {
+        "crash_helper.exe"
+    } else {
+        "crash_helper"
+    };
     let profile = if release_mode { "release" } else { "debug" };
     let helper_path = std::env::current_dir()
         .unwrap()
@@ -38,7 +45,11 @@ fn test_crash_injection_and_cold_recovery_loop() {
         .join(profile)
         .join(exe_name);
 
-    assert!(helper_path.exists(), "crash_helper binary not found at {:?}", helper_path);
+    assert!(
+        helper_path.exists(),
+        "crash_helper binary not found at {:?}",
+        helper_path
+    );
 
     session.step("Running 100 iterations of crash injection...");
 
@@ -64,7 +75,9 @@ fn test_crash_injection_and_cold_recovery_loop() {
         let mut written_nodes = Vec::new();
 
         // Generar un pseudo-random target_writes entre 10 y 80 usando un LCG LITE
-        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let target_writes = 10 + (seed % 70) as usize;
 
         for line in reader.lines() {
@@ -89,12 +102,15 @@ fn test_crash_injection_and_cold_recovery_loop() {
         let _ = child.wait(); // Esperar a que se liberen los recursos del SO
 
         // Validamos la consistencia abriendo la base de datos
-        let engine = StorageEngine::open(db_path)
-            .expect(&format!("Iteration {}: Failed to reopen StorageEngine after crash", i));
+        let engine = StorageEngine::open(db_path).expect(&format!(
+            "Iteration {}: Failed to reopen StorageEngine after crash",
+            i
+        ));
 
         // Verificamos que todos los registros reportados por stdout estén legibles
         for &node_id in &written_nodes {
-            let node = engine.get(node_id)
+            let node = engine
+                .get(node_id)
                 .expect(&format!("Iteration {}: Error getting node {}", i, node_id));
             assert!(
                 node.is_some(),

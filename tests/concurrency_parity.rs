@@ -227,7 +227,10 @@ fn test_concurrency_rebuild_rcu() {
 
     // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
     let hnsw = engine.hnsw.load();
-    assert!(hnsw.nodes.contains_key(&999), "Mitigación A-01: El nodo 999 se perdió tras el rebuild!");
+    assert!(
+        hnsw.nodes.contains_key(&999),
+        "Mitigación A-01: El nodo 999 se perdió tras el rebuild!"
+    );
 
     session.success("RCU rebuild lock-free swap and consistency certified successfully.");
     session.finish(true);

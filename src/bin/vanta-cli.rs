@@ -1259,7 +1259,9 @@ fn cmd_server(
     };
 
     let status = child.wait().map_err(|e| {
-        vantadb::error::VantaError::Execution(format!("Error waiting for vantadb-server process: {e}"))
+        vantadb::error::VantaError::Execution(format!(
+            "Error waiting for vantadb-server process: {e}"
+        ))
     })?;
 
     if !status.success() {
