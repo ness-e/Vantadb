@@ -84,7 +84,7 @@ jobs:
 - [ ] `proptest` pasa en todas las plataformas (Windows/Linux/macOS)
 - [ ] `cargo-fuzz` corre 300s sin crashes en Linux (no-pánico)
 - [ ] 0 memory leaks detectados por LSan/ASan (Linux only)
-- [ ] Cualquier crash encontrado se documenta en `docs/audits/fuzz-crashes.md`
+- [ ] Cualquier crash encontrado se documenta en `docs/architecture/audits/fuzz-crashes.md`
 
 ---
 

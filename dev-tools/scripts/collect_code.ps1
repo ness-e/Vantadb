@@ -1,5 +1,5 @@
 $date = Get-Date -Format "yyyy-MM-dd"
-$outputFile = "docs/snapshots/snapshot_$date.md"
+$outputFile = "docs/operations/snapshots/snapshot_$date.md"
 $scriptName = $MyInvocation.MyCommand.Name
 
 # Directorios a excluir (coincidencia exacta de carpetas y subcarpetas)
@@ -9,7 +9,7 @@ $excludedPatterns = @(
     'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents',
     'vanta-web', 'vantadb_data',
     'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
-    'docs[\\/]snapshots', 'docs[\\/]progreso', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
+    'docs[\\/]operations[\\/]snapshots', 'docs[\\/]progreso', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
     '\.trash_docker', 'vanta_certification\.json'
 )
 

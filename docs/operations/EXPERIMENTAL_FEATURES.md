@@ -58,7 +58,7 @@ These utilities are stateless, well-tested, and suitable for production use in m
 
 Visible in-tree examples and docs must carry the same boundary:
 
-- `docs/api/IQL.md`
+- `docs/experimental/IQL.md`
 - `examples/docker/docker-compose.ollama.yml`
 - `examples/docker/Dockerfile`
 - `examples/docker/start.sh`
