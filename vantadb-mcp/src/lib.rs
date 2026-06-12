@@ -368,8 +368,7 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
 }
 
 pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
-    let p = params
-        .ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
+    let p = params.ok_or_else(|| json!({"code": -32602, "message": "Missing params"}))?;
     let name = p["name"]
         .as_str()
         .ok_or_else(|| json!({"code": -32602, "message": "Missing 'name'"}))?;
@@ -381,9 +380,7 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             let namespace = args
                 .and_then(|a| a["namespace"].as_str())
                 .unwrap_or("default");
-            let query = args
-                .and_then(|a| a["query"].as_str())
-                .unwrap_or("");
+            let query = args.and_then(|a| a["query"].as_str()).unwrap_or("");
 
             Ok(json!({
                 "description": "Optimized prompt for searching memory records with hybrid vector and text search",
@@ -426,9 +423,7 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             let namespace = args
                 .and_then(|a| a["namespace"].as_str())
                 .unwrap_or("default");
-            let limit = args
-                .and_then(|a| a["limit"].as_u64())
-                .unwrap_or(10);
+            let limit = args.and_then(|a| a["limit"].as_u64()).unwrap_or(10);
 
             Ok(json!({
                 "description": "Generate a summary of context from memory records",
@@ -450,12 +445,8 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             let operation = args
                 .and_then(|a| a["operation"].as_str())
                 .unwrap_or("SELECT");
-            let target = args
-                .and_then(|a| a["target"].as_str())
-                .unwrap_or("nodes");
-            let conditions = args
-                .and_then(|a| a["conditions"].as_str())
-                .unwrap_or("");
+            let target = args.and_then(|a| a["target"].as_str()).unwrap_or("nodes");
+            let conditions = args.and_then(|a| a["conditions"].as_str()).unwrap_or("");
 
             Ok(json!({
                 "description": "Build IQL queries for VantaDB",

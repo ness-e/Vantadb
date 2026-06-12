@@ -173,7 +173,10 @@ fn test_wal_middle_corruption_auto_healing() {
 
 #[test]
 fn test_wal_selective_crc_corruption_recovery() {
-    TerminalReporter::suite_banner("WAL SELECTIVE CRC32C CORRUPTION & INTEGRITY CERTIFICATION", 1);
+    TerminalReporter::suite_banner(
+        "WAL SELECTIVE CRC32C CORRUPTION & INTEGRITY CERTIFICATION",
+        1,
+    );
     let mut session = VantaSession::begin("WAL Selective CRC Corruption Resilience");
 
     let dir = tempdir().unwrap();
@@ -220,7 +223,11 @@ fn test_wal_selective_crc_corruption_recovery() {
         offset = record_end;
     }
 
-    assert_eq!(records.len(), 3, "Deberíamos tener exactamente 3 registros en el WAL");
+    assert_eq!(
+        records.len(),
+        3,
+        "Deberíamos tener exactamente 3 registros en el WAL"
+    );
 
     // Corromper selectivamente el campo CRC del segundo registro (índice 1)
     let (_, _, crc_start, _) = records[1];
@@ -270,4 +277,3 @@ fn test_wal_selective_crc_corruption_recovery() {
     session.success("Selective CRC32C corruption detection and recovery certified.");
     session.finish(true);
 }
-
