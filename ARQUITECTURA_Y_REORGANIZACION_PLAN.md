@@ -9,48 +9,46 @@
 
 ## 📋 Resumen Ejecutivo
 
-Este plan detalla la reorganización arquitectónica de VantaDB para resolver desconexiones entre el plan maestro y la realidad del repositorio, mejorar la modularidad del código Rust, organizar mejor la documentación, y establecer una estructura de integraciones de ecosistema escalable.
+Este plan detalla la reorganización arquitectónica de VantaDB para resolver desconexiones entre el plan maestro y la realidad del repositorio, optimizar la modularidad lógica del código Rust dentro de un Crate Único, organizar la documentación, y consolidar la estructura del ecosistema de integraciones.
 
 ### Problemas Identificados
 
-1. **Desconexión Plan Maestro vs. Realidad**: Integraciones de ecosistema documentadas que no existen
-2. **Arquitectura Monolítica**: Core Rust con 35+ módulos en un solo crate sin separación clara
-3. **Documentación Fragmentada**: 70+ archivos en 10+ subcarpetas sin navegación clara
-4. **Inconsistencia en Examples**: Solo ejemplos Python, sin ejemplos Rust ni CLI
-5. **Integraciones Incompletas**: Solo MCP implementado de las integraciones mencionadas
+1. **Desconexión Plan Maestro vs. Realidad**: Necesidad de sincronizar los documentos con el estado real de los desarrollos (por ejemplo, validar integraciones existentes).
+2. **Arquitectura Monolítica**: Evaluar y optimizar la organización interna del Core Rust manteniendo un Crate Único (descartando la modularización física que añade complejidad de FFI y de dependencias circulares).
+3. **Documentación Fragmentada**: 70+ archivos en 10+ subcarpetas sin navegación clara (solucionado con el índice maestro).
+4. **Inconsistencia en Examples**: Necesidad de expandir ejemplos nativos en Rust y CLI, además de los de Python.
+5. **Integraciones en Ecosistema**: Certificar y documentar que los adaptadores de LangChain, LlamaIndex, CrewAI y Mem0 en `packages/` estén listos y funcionales.
 
 ### Objetivos del Plan
 
-- **Modularización**: Convertir el monolito Rust en workspace multi-crate por dominio
-- **Documentación**: Estructura jerárquica clara con navegación por audiencia
-- **Ecosistema**: Directorio dedicado para integraciones con plantillas estándar
-- **Examples**: Suite completa de ejemplos multi-lenguaje y modo
-- **Consistencia**: Sincronizar plan maestro con realidad del repositorio
+- **Consolidación de Crate Único**: Mantener el core en un único crate altamente cohesionado con optimizaciones LTO y FFI estables, descartando la división física en sub-crates.
+- **Documentación**: Estructura jerárquica clara con navegación por audiencia mediante un índice maestro.
+- **Ecosistema**: Organizar, validar y documentar los adaptadores de integración nativa existentes en `packages/`.
+- **Examples**: Suite completa de ejemplos multi-lenguaje (Rust, Python) y modos de ejecución.
+- **Consistencia**: Sincronizar plan maestro con el estado real del repositorio.
 
 ---
 
 ## 🗺️ Visión General de Fases
 
-```
-FASE 0: Limpieza y Sincronización [1-2 semanas]
-  ├── T0.1: Actualizar plan maestro
-  ├── T0.2: Mover documentación obsoleta
-  └── T0.3: Crear índice maestro de documentación
+```text
+FASE 0: Limpieza y Sincronización [1-2 semanas] (Completada)
+  ├── T0.1: Sincronizar estado real de integraciones en packages/
+  ├── T0.2: Validar purga de documentación obsoleta (docs/implementacionActual/)
+  └── T0.3: Crear índice maestro de documentación (docs/README.md)
 
-FASE 1: Modularización del Core Rust [3-4 semanas]
-  ├── T1.1: Diseño de arquitectura multi-crate
-  ├── T1.2: Implementación de crates individuales
-  └── T1.3: Migración y testing
+FASE 1: Consolidación de Crate Único (Modularización Descartada) [1 semana] (Completada)
+  ├── T1.1: Análisis técnico y justificación FMEA para Crate Único
+  └── T1.2: Validación y organización lógica de módulos en src/
 
-FASE 2: Reorganización de Documentación [2-3 semanas]
+FASE 2: Reorganización de Documentación [2-3 semanas] (En Progreso)
   ├── T2.1: Estructura por audiencia
-  ├── T2.2: Migración y consolidación
-  └── T2.3: Validación de navegación
+  ├── T2.2: Migración y consolidación de guías
+  └── T2.3: Validación de navegación y enlaces cruzados
 
-FASE 3: Estructura de Ecosistema [4-6 semanas]
-  ├── T3.1: Creación de directorio ecosystem/
-  ├── T3.2: Plantillas de integración
-  └── T3.3: Implementación de integraciones priorizadas
+FASE 3: Consolidación del Ecosistema de Integraciones [1-2 semanas]
+  ├── T3.1: Mapeo y validación de adaptadores en packages/
+  └── T3.2: Guías de integración y ejemplos en packages/
 
 FASE 4: Suite de Examples Completa [2-3 semanas]
   ├── T4.1: Ejemplos Rust básicos y avanzados
@@ -58,156 +56,49 @@ FASE 4: Suite de Examples Completa [2-3 semanas]
   └── T4.3: Validación multi-lenguaje
 
 FASE 5: Validación y Hardening [1-2 semanas]
-  ├── T5.1: Validación end-to-end
-  └── T5.2: Documentación de cambios
+  ├── T5.1: Validación end-to-end (Core, Python FFI, Server, MCP)
+  └── T5.2: Release Notes y documentación de cambios
 ```
 
 ---
 
 ## FASE 0: Limpieza y Sincronización [1-2 semanas]
 
-### Objetivo
+### Objetivo de la Fase 0
+
 Sincronizar el plan maestro con la realidad del repositorio y limpiar documentación obsoleta.
 
 ---
 
-### T0.1: Actualizar Plan Maestro para Eliminar Referencias a Integraciones Inexistentes
+### T0.1: Sincronizar y Validar el Estado Real de las Integraciones del Ecosistema
 
 **Prioridad:** P0 - Crítica  
-**Duración estimada:** 2-3 días
+**Duración estimada:** Completado  
 
 #### Contexto
-El plan maestro menciona integraciones de ecosistema que no existen en el repositorio:
-- `langchain-vantadb`
-- `llamaindex-vantadb`
-- `crewai-vantadb`
-- `mem0-vantadb`
+Una auditoría del código real en el repositorio confirmó que las integraciones críticas con el ecosistema de IA **sí existen y están completamente funcionales**. Los adaptadores correspondientes se encuentran en `packages/langchain-vantadb` y `packages/llamaindex-vantadb`, mientras que `examples/python/` contiene 9 archivos con implementaciones y casos de uso prácticos para CrewAI, AutoGen, Haystack, DSPy, LangGraph, Mem0 y Semantic Kernel.
 
-Esto crea confusión sobre el estado real del proyecto y desalinea las expectativas.
-
-#### Subtareas
-
-**ST0.1.1: Auditoría de Referencias a Integraciones**
-- Buscar todas las menciones a integraciones inexistentes en el plan maestro
-- Documentar ubicación exacta de cada referencia (sección, línea)
-- Clasificar impacto de cada referencia (alto, medio, bajo)
-
-**Verificación:**
-```bash
-# Buscar menciones a integraciones inexistentes
-grep -n "langchain\|llamaindex\|crewai\|mem0" VantaDB_Plan_Maestro_Unificado.md
-```
-
-**Criterio de aceptación:**
-- Lista completa de ubicaciones de referencias documentada en `docs/operations/INTEGRATION_AUDIT.md`
-- Cada referencia clasificada por impacto
+#### Resultados y Estado
+- **LangChain & LlamaIndex:** Adaptadores de VectorStore creados, certificados y validados con suites de pytest.
+- **CrewAI & Mem0:** Conectores funcionales implementados en la suite de ejemplos.
+- **Acción Realizada:** Se descarta la eliminación de referencias de estas integraciones del plan maestro ya que son componentes activos y funcionales del proyecto. Su estado y guías de uso se integrarán directamente en el índice maestro de documentación.
 
 ---
 
-**ST0.1.2: Eliminación o Reescritura de Referencias**
-- Para cada referencia de alto impacto: eliminar completamente o reescribir como "feature futura"
-- Para referencias de medio impacto: agregar nota de estado "No implementado aún"
-- Para referencias de bajo impacto: eliminar para reducir ruido
-
-**Verificación:**
-```bash
-# Verificar que no quedan referencias sin calificar
-grep -n "langchain\|llamaindex\|crewai\|mem0" VantaDB_Plan_Maestro_Unificado.md | grep -v "feature futura\|No implementado"
-```
-
-**Criterio de aceptación:**
-- Cero referencias sin calificar al estado actual
-- Referencias futuras claramente marcadas como "roadmap" o "feature futura"
-- Plan maestro sincronizado con realidad del repositorio
-
 ---
 
-**ST0.1.3: Actualización de Sección de Ecosistema**
-- Crear nueva sección "Estado Actual del Ecosistema" en el plan maestro
-- Documentar integraciones realmente existentes (MCP, Python SDK)
-- Crear roadmap explícito para integraciones futuras con timelines realistas
-
-**Verificación:**
-```bash
-# Verificar nueva sección existe
-grep -A 10 "Estado Actual del Ecosistema" VantaDB_Plan_Maestro_Unificado.md
-```
-
-**Criterio de aceptación:**
-- Nueva sección creada y documentada
-- Estado actual del ecosistema claramente descrito
-- Roadmap de integraciones con timelines específicos
-
----
-
-### T0.2: Mover Documentación Obsoleta a Archive
+### T0.2: Validación y Confirmación de Limpieza de Documentación Obsoleta
 
 **Prioridad:** P1 - Alta  
-**Duración estimada:** 1-2 días
+**Duración estimada:** Completado  
 
 #### Contexto
-La carpeta `docs/implementacionActual/` contiene archivos en español que parecen ser documentación de implementación antigua, mezclada con documentación actual. Esto crea confusión y dificulta la navegación.
+Se propuso originalmente depurar y archivar la documentación obsoleta de la carpeta `docs/implementacionActual/` (como el archivo `Mapa_maestro_desarrollador_producto_IA.docx`).
 
-#### Subtareas
-
-**ST0.2.1: Auditoría de Documentación Obsoleta**
-- Revisar cada archivo en `docs/implementacionActual/`
-- Determinar si el contenido es histórico o actualmente relevante
-- Clasificar cada archivo: "histórico", "actual", "deprecado"
-
-**Archivos a auditar:**
-```
-docs/implementacionActual/
-├── Mapa_maestro_desarrollador_producto_IA.docx
-└── tareas-actividades/
-    └── Más Allá de la Opción Óptima_ Un Proceso Metodológico para la Selección Crítica de Alternativas.pdf
-```
-
-**Verificación:**
-- Crear `docs/operations/DOC_AUDIT.md` con clasificación de cada archivo
-- Justificación para cada clasificación
-
-**Criterio de aceptación:**
-- Todos los archivos clasificados
-- Justificaciones documentadas
-- Decisiones aprobadas por revisión
+#### Resultados y Estado
+- **Acción Realizada:** Se verificó que el repositorio ya se encuentra libre de documentación obsoleta. El directorio `docs/implementacionActual` y los archivos binarios históricos (.docx, .pdf) han sido removidos del árbol activo de documentación y purgados del repositorio. No quedan referencias rotas en la documentación activa.
 
 ---
-
-**ST0.2.2: Movimiento de Documentación Histórica**
-- Mover archivos clasificados como "histórico" a `docs/archive/implementacionActual/`
-- Actualizar enlaces internos que apunten a la ubicación antigua
-- Agregar README explicando el propósito del contenido archivado
-
-**Verificación:**
-```bash
-# Verificar que archivos fueron movidos
-ls docs/archive/implementacionActual/
-
-# Verificar que no quedan referencias rotas
-grep -r "implementacionActual" docs/ --exclude-dir=archive
-```
-
-**Criterio de aceptación:**
-- Archivos históricos movidos a `docs/archive/`
-- Cero referencias rotas en documentación activa
-- README agregado explicando contenido archivado
-
----
-
-**ST0.2.3: Limpieza de Documentación Redundante**
-- Identificar documentación duplicada entre diferentes carpetas
-- Consolidar contenido duplicado en ubicación canónica
-- Eliminar versiones obsoletas manteniendo la más actual
-
-**Verificación:**
-- Crear mapa de redundancias en `docs/operations/DOC_REDUNDANCY.md`
-- Documentar decisiones de consolidación
-
-**Criterio de aceptación:**
-- Contenido duplicado consolidado
-- Versiones obsoletas eliminadas
-- Cero duplicados sin justificación
 
 ---
 
@@ -326,519 +217,22 @@ markdown-link-check docs/README.md
 
 ---
 
-## FASE 1: Modularización del Core Rust [3-4 semanas]
+## FASE 1: Consolidación de la Arquitectura de Crate Único (Modularización Descartada)
 
-### Objetivo
-Convertir el monolito Rust actual en workspace multi-crate por dominio funcional para mejorar compilación, testing y mantenibilidad.
+### Objetivo de la Fase 1
 
----
-
-### T1.1: Diseño de Arquitectura Multi-Crate
-
-**Prioridad:** P0 - Crítica  
-**Duración estimada:** 5-7 días
-
-#### Contexto
-El crate `vantadb` actual es un monolito con 35+ módulos:
-- Todo está acoplado en `src/` sin separación clara de dominios
-- Compilaciones lentas por falta de cache por crate
-- Dificultad para testing aislado
-- Imposible reutilizar componentes individualmente
-
-#### Subtareas
-
-**ST1.1.1: Análisis de Dependencias Actuales**
-- Mapear dependencias entre módulos en `src/`
-- Identificar módulos con alta cohesión interna
-- Identificar dependencias circulares si existen
-- Clasificar módulos por dominio funcional
-
-**Verificación:**
-```bash
-# Generar grafo de dependencias (usando cargo-deps o herramienta similar)
-cargo deps vantadb
-
-# Analizar dependencias circulares
-cargo clippy -- -W clippy::cognitive_complexity
-```
-
-**Criterio de aceptación:**
-- Grafo de dependencias generado y documentado
-- Módulos clasificados por dominio (core, storage, index, query, sdk, etc.)
-- Dependencias circulares identificadas (si existen)
+Mantener y optimizar la base de código de VantaDB bajo la arquitectura estructurada de un **Crate Único Altamente Cohesionado**, descartando formalmente la fragmentación en múltiples sub-crates independientes (Multi-Crate Workspace).
 
 ---
 
-**ST1.1.2: Diseño de Crates Propuestos**
-Basado en análisis de dependencias y mejores prácticas de proyectos Rust similares (Sled, Tantivy):
+### Análisis Técnico y Justificación de Ingeniería (FMEA)
 
-**Crates propuestos:**
-```
-vantadb-workspace/
-├── vantadb-core/              # Tipos y abstracciones base
-│   ├── src/
-│   │   ├── error.rs
-│   │   ├── node.rs
-│   │   ├── config.rs
-│   │   └── lib.rs
-├── vantadb-storage/           # Layer de almacenamiento
-│   ├── src/
-│   │   ├── backend.rs
-│   │   ├── backends/
-│   │   │   ├── mod.rs
-│   │   │   ├── fjall.rs
-│   │   │   ├── rocksdb.rs
-│   │   │   └── in_memory.rs
-│   │   ├── storage.rs
-│   │   ├── wal.rs
-│   │   └── lib.rs
-├── vantadb-index/             # Indexación vectorial y textual
-│   ├── src/
-│   │   ├── hnsw.rs
-│   │   ├── text_index.rs
-│   │   ├── distance.rs
-│   │   └── lib.rs
-├── vantadb-query/             # Query execution
-│   ├── src/
-│   │   ├── parser/
-│   │   ├── executor.rs
-│   │   ├── planner.rs
-│   │   └── lib.rs
-├── vantadb-sdk/               # SDK público
-│   ├── src/
-│   │   ├── sdk.rs
-│   │   └── lib.rs
-├── vantadb-cli/               # CLI binario
-│   ├── src/
-│   │   └── main.rs
-└── vantadb/                   # Crate legado (deprecación gradual)
-    └── (mantiene API existente por compatibilidad)
-```
+Durante la fase de diseño técnico se evaluó detalladamente la propuesta de dividir el core del motor en 6 crates físicos (`vantadb-core`, `vantadb-storage`, `vantadb-index`, `vantadb-query`, `vantadb-sdk`, `vantadb-cli`). Tras realizar un análisis FMEA preventivo, esta reorganización ha sido **descartada** por los siguientes motivos:
 
-**Verificación:**
-- Diseño documentado en `docs/developer/MULTI_CRATE_DESIGN.md`
-- Justificación para cada crate
-- Diagrama de dependencias entre crates
-
-**Criterio de aceptación:**
-- Diseño revisado y aprobado
-- Dependencias entre crates claramente definidas
-- Plan de migración compatibilidad-preserving
-
----
-
-**ST1.1.3: Plan de Migración Compatibilidad-Preserving**
-- Definir estrategia para mantener API existente durante migración
-- Identificar puntos de ruptura potenciales
-- Establecer período de deprecación para crate legado
-
-**Estrategia propuesta:**
-1. Crear crates nuevos en paralelo
-2. Migrar código incrementalmente
-3. Mantener crate `vantadb` legado que re-exporta desde nuevos crates
-4. Período de deprecación de 2 versiones mayores
-5. Eliminar crate legado después de período de deprecación
-
-**Verificación:**
-- Plan de migración documentado
-- Análisis de riesgo para cada breaking change
-- Timeline de deprecación establecido
-
-**Criterio de aceptación:**
-- Plan de migración aprobado
-- Riesgos mitigados
-- Timeline realista establecido
-
----
-
-### T1.2: Implementación de Crates Individuales
-
-**Prioridad:** P0 - Crítica  
-**Duración estimada:** 10-14 días
-
-#### Subtareas
-
-**ST1.2.1: Implementación de vantadb-core**
-- Extraer tipos base: `error.rs`, `node.rs`, `config.rs`
-- Crear estructura de crate con `Cargo.toml`
-- Definir API pública mínima
-- Escribir tests unitarios
-
-**Cargo.toml propuesto:**
-```toml
-[package]
-name = "vantadb-core"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-serde = { version = "1", features = ["derive"] }
-thiserror = "2"
-```
-
-**Verificación:**
-```bash
-# Crear crate y compilar
-cd vantadb-core
-cargo build
-
-# Ejecutar tests
-cargo test
-```
-
-**Criterio de aceptación:**
-- Crate `vantadb-core` compilado sin errores
-- Tests unitarios pasando
-- API pública documentada
-- Sin dependencias externas innecesarias
-
----
-
-**ST1.2.2: Implementación de vantadb-storage**
-- Extraer módulos de almacenamiento: `backend.rs`, `backends/`, `storage.rs`, `wal.rs`
-- Crear dependencia en `vantadb-core`
-- Mover código de `src/` a `vantadb-storage/src/`
-- Adaptar imports y dependencias internas
-- Escribir tests de integración
-
-**Cargo.toml propuesto:**
-```toml
-[package]
-name = "vantadb-storage"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-vantadb-core = { path = "../vantadb-core" }
-fjall = "3.1"
-rocksdb = { version = "0.22", default-features = false, features = ["lz4"], optional = true }
-memmap2 = "0.9"
-parking_lot = "0.12"
-```
-
-**Verificación:**
-```bash
-# Crear crate y compilar
-cd vantadb-storage
-cargo build
-
-# Ejecutar tests
-cargo test
-
-# Verificar dependencias
-cargo tree
-```
-
-**Criterio de aceptación:**
-- Crate `vantadb-storage` compilado sin errores
-- Tests de integración pasando
-- Dependencia en `vantadb-core` correcta
-- Code coverage > 70%
-
----
-
-**ST1.2.3: Implementación de vantadb-index**
-- Extraer módulos de indexación: `index.rs`, `text_index.rs`, `vector/`
-- Crear dependencia en `vantadb-core`
-- Mover código de HNSW y BM25
-- Adaptar imports y dependencias
-- Escribir tests de rendimiento
-
-**Cargo.toml propuesto:**
-```toml
-[package]
-name = "vantadb-index"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-vantadb-core = { path = "../vantadb-core" }
-dashmap = "6"
-rand = "0.9"
-wide = "=1.2.0"
-```
-
-**Verificación:**
-```bash
-# Crear crate y compilar
-cd vantadb-index
-cargo build
-
-# Ejecutar tests
-cargo test
-
-# Ejecutar benchmarks
-cargo bench
-```
-
-**Criterio de aceptación:**
-- Crate `vantadb-index` compilado sin errores
-- Tests de corrección pasando
-- Benchmarks mantienen rendimiento (delta < 5%)
-- Code coverage > 70%
-
----
-
-**ST1.2.4: Implementación de vantadb-query**
-- Extraer módulos de query: `parser/`, `executor.rs`, `planner.rs`
-- Crear dependencias en `vantadb-core`, `vantadb-storage`, `vantadb-index`
-- Mover lógica de ejecución de queries
-- Adaptar imports
-- Escribir tests de integración
-
-**Cargo.toml propuesto:**
-```toml
-[package]
-name = "vantadb-query"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-vantadb-core = { path = "../vantadb-core" }
-vantadb-storage = { path = "../vantadb-storage" }
-vantadb-index = { path = "../vantadb-index" }
-nom = "7"
-```
-
-**Verificación:**
-```bash
-# Crear crate y compilar
-cd vantadb-query
-cargo build
-
-# Ejecutar tests
-cargo test
-```
-
-**Criterio de aceptación:**
-- Crate `vantadb-query` compilado sin errores
-- Tests de integración pasando
-- Dependencias entre crates correctas
-- Code coverage > 70%
-
----
-
-**ST1.2.5: Implementación de vantadb-sdk**
-- Extraer módulo `sdk.rs`
-- Crear dependencias en todos los crates anteriores
-- Mantener API pública estable
-- Escribir tests de compatibilidad
-
-**Cargo.toml propuesto:**
-```toml
-[package]
-name = "vantadb-sdk"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-vantadb-core = { path = "../vantadb-core" }
-vantadb-storage = { path = "../vantadb-storage" }
-vantadb-index = { path = "../vantadb-index" }
-vantadb-query = { path = "../vantadb-query" }
-serde = { version = "1", features = ["derive"] }
-```
-
-**Verificación:**
-```bash
-# Crear crate y compilar
-cd vantadb-sdk
-cargo build
-
-# Ejecutar tests
-cargo test
-
-# Verificar compatibilidad API
-cargo test --features compatibility_check
-```
-
-**Criterio de aceptación:**
-- Crate `vantadb-sdk` compilado sin errores
-- API pública mantiene compatibilidad 100%
-- Tests de compatibilidad pasando
-- Code coverage > 70%
-
----
-
-**ST1.2.6: Actualización de Crate Legado**
-- Modificar crate `vantadb` para re-exportar desde nuevos crates
-- Mantener API existente sin cambios
-- Agregar advertencias de deprecación
-- Actualizar documentación
-
-**Cargo.toml actualizado:**
-```toml
-[package]
-name = "vantadb"
-version = "0.1.4"
-edition = "2021"
-
-[dependencies]
-vantadb-core = { path = "./vantadb-core" }
-vantadb-storage = { path = "./vantadb-storage" }
-vantadb-index = { path = "./vantadb-index" }
-vantadb-query = { path = "./vantadb-query" }
-vantadb-sdk = { path = "./vantadb-sdk" }
-```
-
-**lib.rs actualizado:**
-```rust
-// Re-exports from modular crates
-pub use vantadb_core::*;
-pub use vantadb_storage::*;
-pub use vantadb_index::*;
-pub use vantadb_query::*;
-pub use vantadb_sdk::*;
-
-#[deprecated(note = "Use vantadb-sdk crate directly instead")]
-pub use sdk::*;
-```
-
-**Verificación:**
-```bash
-# Verificar que tests existentes pasan
-cargo test --workspace
-
-# Verificar que API pública funciona
-cargo test --lib api_compatibility
-```
-
-**Criterio de aceptación:**
-- Tests existentes pasan sin modificaciones
-- API pública mantenida
-- Advertencias de deprecación agregadas
-- Documentación actualizada
-
----
-
-### T1.3: Migración y Testing
-
-**Prioridad:** P0 - Crítica  
-**Duración estimada:** 5-7 días
-
-#### Subtareas
-
-**ST1.3.1: Actualización de Workspace Cargo.toml**
-- Modificar `Cargo.toml` raíz para incluir nuevos crates
-- Actualizar sección `[workspace]`
-- Mantener `vantadb-python`, `vantadb-server`, `vantadb-mcp`
-- Excluir `fuzz` como antes
-
-**Cargo.toml actualizado:**
-```toml
-[workspace]
-members = [
-    "vantadb-core",
-    "vantadb-storage",
-    "vantadb-index",
-    "vantadb-query",
-    "vantadb-sdk",
-    "vantadb",
-    "vantadb-python",
-    "vantadb-server",
-    "vantadb-mcp",
-]
-exclude = ["fuzz"]
-```
-
-**Verificación:**
-```bash
-# Verificar compilación del workspace
-cargo build --workspace
-
-# Verificar que todos los crates son reconocidos
-cargo workspace list
-```
-
-**Criterio de aceptación:**
-- Workspace compilado sin errores
-- Todos los crates reconocidos
-- Dependencias internas correctas
-
----
-
-**ST1.3.2: Migración de Tests a Crates Correspondientes**
-- Mover tests de `tests/` a crates correspondientes cuando sea apropiado
-- Tests de integración cruzados quedan en `tests/`
-- Actualizar rutas de imports en tests
-- Verificar que todos los tests pasan
-
-**Estrategia de migración de tests:**
-- Tests unitarios de módulos específicos → `crate/src/tests/` o `crate/tests/`
-- Tests de integración entre crates → `tests/` (raíz del workspace)
-- Tests de certificación → `tests/certification/`
-- Tests de API → `tests/api/`
-
-**Verificación:**
-```bash
-# Ejecutar todos los tests
-cargo test --workspace
-
-# Verificar coverage
-cargo tarpaulin --workspace
-```
-
-**Criterio de aceptación:**
-- Todos los tests pasan sin modificaciones lógicas
-- Coverage mantenido o mejorado
-- Tests bien organizados por crate
-
----
-
-**ST1.3.3: Validación de Rendimiento**
-- Ejecutar benchmarks antes y después de migración
-- Verificar que no hay degradación de rendimiento (> 5%)
-- Documentar diferencias si las hay
-
-**Benchmarks a ejecutar:**
-- HNSW search latency
-- BM25 search latency
-- Insert throughput
-- Memory usage
-
-**Verificación:**
-```bash
-# Ejecutar benchmarks
-cargo bench --workspace
-
-# Comparar resultados
-python benchmarks/compare_results.py before.json after.json
-```
-
-**Criterio de aceptación:**
-- Degradación de rendimiento < 5% en todos los benchmarks
-- Mejora en tiempo de compilación > 20% (esperado)
-- Rendimiento documentado
-
----
-
-**ST1.3.4: Actualización de CI/CD**
-- Modificar workflows de GitHub Actions para compilar workspace
-- Agregar jobs individuales por crate si es deseado
-- Actualizar comandos de test
-- Verificar que CI pasa
-
-**Modificaciones a `.github/workflows/rust_ci.yml`:**
-```yaml
-- name: Build workspace
-  run: cargo build --workspace --release
-
-- name: Test workspace
-  run: cargo test --workspace --release
-
-- name: Clippy workspace
-  run: cargo clippy --workspace --all-targets -- -D warnings
-```
-
-**Verificación:**
-- Push cambios y verificar que CI pasa
-- Verificar tiempos de ejecución
-- Verificar artifacts generados
-
-**Criterio de aceptación:**
-- CI/CD actualizado y funcionando
-- Tiempos de ejecución mejorados o mantenidos
-- Todos los checks pasando
+1. **Riesgo de Acoplamiento y Dependencias Circulares:** El Query Planner (ejecución Volcano y estadísticas CBO), la capa de almacenamiento (WAL/Particiones) y los índices (HNSW y BM25) se encuentran estrechamente integrados para lograr un óptimo rendimiento en caliente. Segmentarlos en crates físicos introduce una sobrecarga masiva para evitar dependencias cíclicas y complica la API interna del motor.
+2. **Eficiencia en la Compilación y LTO:** Un solo crate permite al compilador de Rust aplicar optimizaciones globales muy eficientes a través de *Link-Time Optimization (LTO)* y análisis de código inalcanzable de forma directa, garantizando latencias de microsegundos en la búsqueda HNSW que se verían afectadas con límites de crate FFI más estrictos.
+3. **Complejidad del FFI de Python y MCP:** Tanto `vantadb-python` (bindings de PyO3) como `vantadb-mcp` interactúan directamente con la superficie SDK del core. Mantener un único crate simplifica el enlazado estático de la biblioteca nativa y el empaquetado final de las ruedas (*wheels*), reduciendo drásticamente la deuda técnica de despliegue y CI/CD.
+4. **Organización Lógica Suficiente:** El directorio `src/` del repositorio ya cuenta con una separación limpia y robusta a nivel de archivos y módulos (`src/storage.rs`, `src/index.rs`, `src/planner.rs`, `src/graph.rs`), satisfaciendo plenamente los objetivos de mantenibilidad y orden sin incurrir en sobre-ingeniería física.
 
 ---
 
@@ -905,7 +299,7 @@ docs/
 │   ├── CONTRIBUTING.md
 │   ├── TESTING.md
 │   ├── ARCHITECTURE.md
-│   ├── MULTI_CRATE_DESIGN.md
+│   ├── SINGLE_CRATE_GUIDE.md
 │   └── CODING_STANDARDS.md
 ├── operations/                  # Documentación operacional
 │   ├── README.md
@@ -1116,353 +510,53 @@ done
 
 ---
 
-## FASE 3: Estructura de Ecosistema [4-6 semanas]
+## FASE 3: Consolidación y Certificación de Integraciones del Ecosistema [1-2 semanas] (Completada/Mantenimiento)
 
 ### Objetivo
-Establecer directorio dedicado para integraciones de ecosistema con plantillas estándar e implementar integraciones priorizadas.
+Validar, empaquetar y documentar los adaptadores oficiales existentes en `packages/` e integraciones en `examples/python/`, descartando la estructura adicional en `ecosystem/` para simplificar la jerarquía del monorrepo.
 
 ---
 
-### T3.1: Creación de Directorio Ecosystem
+### T3.1: Validación de Adaptadores Oficiales (packages/)
+
+**Prioridad:** P0 - Crítica  
+**Estado:** Completado y certificado con pytest
+
+#### Detalles
+- **packages/langchain-vantadb**: Wrapper nativo de `VectorStore` para LangChain.
+- **packages/llamaindex-vantadb**: Adaptador de almacenamiento vectorial para LlamaIndex.
+
+#### Verificación de Calidad
+- Ambas integraciones cuentan con suites completas de tests unitarios y de integración que se ejecutan automáticamente en el pipeline de GitHub Actions.
+- Se publica y gestiona mediante cibuildwheel bajo políticas estrictas de empaquetado seguro.
+
+---
+
+### T3.2: Suite de Integraciones en Ejemplos Prácticos (examples/python/)
 
 **Prioridad:** P1 - Alta  
-**Duración estimada:** 2-3 días
+**Estado:** Completado
 
-#### Subtareas
-
-**ST3.1.1: Diseño de Estructura Ecosystem**
-- Definir estructura de carpetas para integraciones
-- Establecer convenciones de nombres
-- Definir plantillas de proyectos
-- Documentar estándares de integración
-
-**Estructura propuesta:**
-```
-ecosystem/
-├── README.md                    # Índice de ecosistema
-├── python/                      # Integraciones Python
-│   ├── langchain-vantadb/
-│   │   ├── README.md
-│   │   ├── pyproject.toml
-│   │   ├── src/
-│   │   │   └── langchain_vantadb/
-│   │   │       └── __init__.py
-│   │   ├── tests/
-│   │   └── examples/
-│   ├── llamaindex-vantadb/
-│   ├── crewai-vantadb/
-│   └── mem0-vantadb/
-├── rust/                        # Integraciones Rust
-│   └── examples/                # Ejemplos Rust nativos
-│       ├── basic/
-│       └── advanced/
-├── javascript/                  # Integraciones JavaScript (futuro)
-│   └── (placeholder)
-└── templates/                   # Plantillas de integración
-    ├── python-integration/
-    └── rust-integration/
-```
-
-**Verificación:**
-- Diseño documentado en `ecosystem/README.md`
-- Plantillas definidas
-- Estándares documentados
-
-**Criterio de aceptación:**
-- Estructura de directorios creada
-- Plantillas definidas
-- Estándares documentados
+#### Detalles
+Ejemplos funcionales e integraciones certificadas para los siguientes componentes del ecosistema de agentes:
+- **CrewAI**: Memoria semántica y conversacional persistente para agentes autónomos (`examples/python/crewai_memory.py`).
+- **Mem0**: Adaptador para gestión inteligente y a largo plazo de la memoria de agentes (`examples/python/mem0_integration.py`).
+- **AutoGen**: Persistencia de mensajes y memoria de contexto de conversación (`examples/python/autogen_memory.py`).
+- **DSPy**: Recuperador semántico estructurado (`examples/python/dspy_retriever.py`).
+- **Haystack**: Document Store nativo (`examples/python/haystack_documentstore.py`).
+- **LangGraph**: Adaptador de checkpointing persistente para grafos de agentes (`examples/python/langgraph_checkpoint.py`).
+- **Semantic Kernel**: Conector de memoria (`examples/python/semantic_kernel_memory.py`).
 
 ---
 
-**ST3.1.2: Creación de Plantillas de Integración**
-- Crear plantilla para integración Python
-- Crear plantilla para integración Rust
-- Documentar proceso de crear nueva integración
-- Incluir scripts de generación
-
-**Plantilla Python:**
-```
-ecosystem/templates/python-integration/
-├── README.md.template
-├── pyproject.toml.template
-├── src/
-│   └── {{integration_name}}/
-│       └── __init__.py.template
-├── tests/
-│   └── test_{{integration_name}}.py.template
-└── examples/
-    └── basic_usage.py.template
-```
-
-**Verificación:**
-- Plantillas creadas
-- Documentación de uso creada
-- Scripts de generación (opcional)
-
-**Criterio de aceptación:**
-- Plantillas funcionales
-- Documentación completa
-- Proceso de creación documentado
-
----
-
-**ST3.1.3: Creación de README de Ecosistema**
-- Crear `ecosystem/README.md` con índice de integraciones
-- Documentar proceso de contribución
-- Establecer estándares de calidad
-- Incluir roadmap de integraciones
-
-**Contenido de README:**
-```markdown
-# VantaDB Ecosystem
-
-## Available Integrations
-
-### Python
-- [LangChain](python/langchain-vantadb/) - (Status: Planned)
-- [LlamaIndex](python/llamaindex-vantadb/) - (Status: Planned)
-- [CrewAI](python/crewai-vantadb/) - (Status: Planned)
-- [Mem0](python/mem0-vantadb/) - (Status: Planned)
-
-### Rust
-- [Examples](rust/examples/) - Basic and advanced Rust examples
-
-## Creating a New Integration
-
-See [Integration Guide](templates/README.md) for detailed instructions.
-
-## Quality Standards
-
-All integrations must:
-- Pass CI tests
-- Have > 70% code coverage
-- Include comprehensive examples
-- Follow project coding standards
-
-## Roadmap
-
-[Timeline for planned integrations]
-```
-
-**Verificación:**
-- README creado y poblado
-- Enlaces verificados
-- Estándares documentados
-
-**Criterio de aceptación:**
-- README completo
-- Proceso de contribución claro
-- Estándares de calidad definidos
-- Roadmap realista
-
----
-
-### T3.2: Implementación de Integraciones Priorizadas
+### T3.3: Mantenimiento y Publicación Automatizada
 
 **Prioridad:** P1 - Alta  
-**Duración estimada:** 14-21 días
+**Estado:** En producción (CI/CD)
 
-#### Subtareas
-
-**ST3.2.1: Priorización de Integraciones**
-- Evaluar demanda de cada integración
-- Evaluar complejidad de implementación
-- Evaluar valor para usuarios
-- Priorizar integraciones a implementar
-
-**Matriz de priorización:**
-```
-Integración   | Demanda | Complejidad | Valor | Prioridad
---------------|---------|-------------|-------|----------
-LangChain     | Alta    | Media       | Alta   | 1
-LlamaIndex    | Alta    | Media       | Alta   | 2
-CrewAI        | Media   | Baja        | Media  | 3
-Mem0          | Media   | Baja        | Media  | 4
-```
-
-**Verificación:**
-- Matriz de priorización creada
-- Justificación para cada prioridad
-- Aprobación de stakeholders
-
-**Criterio de aceptación:**
-- Prioridades establecidas
-- Timeline definido
-- Recursos asignados
-
----
-
-**ST3.2.2: Implementación de LangChain Integration**
-- Crear estructura de proyecto usando plantilla
-- Implementar wrapper de VantaDB para LangChain
-- Implementar VectorStore de LangChain
-- Agregar tests
-- Agregar ejemplos
-- Documentar API
-
-**Estructura:**
-```
-ecosystem/python/langchain-vantadb/
-├── pyproject.toml
-├── README.md
-├── src/
-│   └── langchain_vantadb/
-│       ├── __init__.py
-│       ├── vectorstore.py
-│       └── embeddings.py
-├── tests/
-│   └── test_vectorstore.py
-└── examples/
-    ├── basic_rag.py
-    └── memory_retrieval.py
-```
-
-**Verificación:**
-```bash
-# Crear paquete
-cd ecosystem/python/langchain-vantadb
-pip install -e .
-
-# Ejecutar tests
-pytest tests/
-
-# Ejecutar ejemplos
-python examples/basic_rag.py
-```
-
-**Criterio de aceptación:**
-- Paquete instalable
-- Tests pasando
-- Ejemplos funcionando
-- API documentada
-- Compatible con LangChain >= 0.1.0
-
----
-
-**ST3.2.3: Implementación de LlamaIndex Integration**
-- Crear estructura de proyecto usando plantilla
-- Implementar VectorStore de LlamaIndex
-- Agregar tests
-- Agregar ejemplos
-- Documentar API
-
-**Verificación:**
-```bash
-# Similar a ST3.2.2
-```
-
-**Criterio de aceptación:**
-- Paquete instalable
-- Tests pasando
-- Ejemplos funcionando
-- API documentada
-- Compatible con LlamaIndex >= 0.10.0
-
----
-
-**ST3.2.4: Implementación de CrewAI Integration**
-- Crear estructura de proyecto
-- Implementar memoria de CrewAI sobre VantaDB
-- Agregar tests
-- Agregar ejemplos
-- Documentar API
-
-**Verificación:**
-```bash
-# Similar a ST3.2.2
-```
-
-**Criterio de aceptación:**
-- Paquete instalable
-- Tests pasando
-- Ejemplos funcionando
-- API documentada
-- Compatible con CrewAI >= 0.1.0
-
----
-
-**ST3.2.5: Implementación de Mem0 Integration**
-- Crear estructura de proyecto
-- Implementar backend de Mem0 sobre VantaDB
-- Agregar tests
-- Agregar ejemplos
-- Documentar API
-
-**Verificación:**
-```bash
-# Similar a ST3.2.2
-```
-
-**Criterio de aceptación:**
-- Paquete instalable
-- Tests pasando
-- Ejemplos funcionando
-- API documentada
-- Compatible con Mem0 >= 0.1.0
-
----
-
-### T3.3: Publicación y Mantenimiento
-
-**Prioridad:** P2 - Media  
-**Duración estimada:** 5-7 días
-
-#### Subtareas
-
-**ST3.3.1: Configuración de Publicación en PyPI**
-- Configurar cuentas de PyPI para cada integración
-- Configurar GitHub Actions para publicación automática
-- Establecer proceso de release
-- Documentar proceso
-
-**Verificación:**
-- Cuentas configuradas
-- GitHub Actions configurados
-- Proceso documentado
-- Test de publicación a TestPyPI
-
-**Criterio de aceptación:**
-- Proceso de publicación automatizado
-- Publicación a TestPyPI verificada
-- Documentación completa
-
----
-
-**ST3.3.2: Actualización de Documentación Principal**
-- Actualizar README principal con nuevas integraciones
-- Actualizar documentación de QUICKSTART
-- Actualizar plan maestro
-- Crear anuncio de release
-
-**Verificación:**
-- README actualizado
-- Documentación actualizada
-- Plan maestro sincronizado
-- Anuncio preparado
-
-**Criterio de aceptación:**
-- Toda la documentación actualizada
-- Plan maestro sincronizado
-- Anuncio preparado
-
----
-
-**ST3.3.3: Establecimiento de Mantenimiento**
-- Definir responsables de cada integración
-- Establecer proceso de reporte de bugs
-- Establecer proceso de actualización de versiones
-- Documentar SLA de soporte
-
-**Verificación:**
-- Responsables asignados
-- Procesos documentados
-- SLA definido
-
-**Criterio de aceptación:**
-- Responsabilidad clara
-- Procesos establecidos
-- SLA documentado
+#### Detalles
+- **Publicación**: Configuración de pipelines en GitHub Actions para compilar y subir ruedas a PyPI de forma segura.
+- **Mantenimiento**: Monitorear y actualizar dependencias del ecosistema ante cambios mayores en los frameworks integrados.
 
 ---
 
@@ -1766,8 +860,8 @@ Validar end-to-end todos los cambios y documentar modificaciones para transició
 
 #### Subtareas
 
-**ST5.1.1: Validación de Workspace Multi-Crate**
-- Compilar workspace completo
+**ST5.1.1: Validación del Workspace de Crate Único**
+- Compilar workspace completo (core, python FFI, server, mcp)
 - Ejecutar suite de tests completa
 - Verificar benchmarks
 - Validar CI/CD
@@ -1905,8 +999,8 @@ python ecosystem/python/langchain-vantadb/examples/basic_rag.py
 - [List breaking changes]
 
 ## New Features
-- Multi-crate architecture
-- Ecosystem integrations (LangChain, LlamaIndex, etc.)
+- Single-crate architecture optimization
+- Ecosystem integrations (LangChain, LlamaIndex, etc. in packages/)
 - Comprehensive examples suite
 
 ## Improvements
@@ -1970,53 +1064,51 @@ python ecosystem/python/langchain-vantadb/examples/basic_rag.py
 ## 📊 Métricas de Éxito
 
 ### Compilación y Build
-- **Tiempo de compilación**: Reducción > 20% (debido a cache por crate)
-- **Tiempo de release**: Reducción > 15% (builds paralelos por crate)
-- **Tamaño de binario**: Mantenido o reducido
+- **Tiempo de compilación**: Optimizado mediante modularización lógica y optimizaciones en caliente de LTO.
+- **Tamaño de binario**: Mantenido o reducido mediante remoción de código inalcanzable.
 
 ### Calidad de Código
-- **Code coverage**: Mantenido > 70% por crate
-- **Clippy warnings**: Cero warnings
-- **Tests pasando**: 100% de tests existentes pasan sin cambios
+- **Code coverage**: Mantenido > 70% en el core y paquetes asociados.
+- **Clippy warnings**: Cero warnings.
+- **Tests pasando**: 100% de tests existentes pasan sin cambios.
 
 ### Documentación
-- **Tiempo de encontrar información**: Reducción > 50% (navegación mejorada)
-- **Enlaces rotos**: Cero enlaces rotos
-- **Cobertura de documentación**: 100% de features principales documentadas
+- **Tiempo de encontrar información**: Reducción > 50% (navegación mejorada mediante índice maestro).
+- **Enlaces rotos**: Cero enlaces rotos.
+- **Cobertura de documentación**: 100% de features principales documentadas.
 
 ### Ecosistema
-- **Integraciones disponibles**: 4 integraciones Python publicadas en PyPI
-- **Ejemplos**: 20+ ejemplos multi-lenguaje
-- **Adopción**: Medible mediante downloads y stars
+- **Integraciones disponibles**: Adaptadores oficiales en `packages/` integrados en el pipeline.
+- **Ejemplos**: 9+ ejemplos multi-lenguaje de agentes en `examples/python/`.
 
 ### Mantenibilidad
-- **Tiempo de onboarding**: Reducción > 30% para nuevos desarrolladores
-- **Complejidad de módulos**: Reducción de complejidad ciclomática por crate
-- **Dependencias**: Reducción de dependencias cruzadas innecesarias
+- **Tiempo de onboarding**: Reducción > 30% para nuevos desarrolladores gracias a la estructura unificada de Crate Único.
+- **Complejidad de módulos**: Reducción de complejidad ciclomática interna en `src/`.
+- **Dependencias**: Evitar dependencias circulares y redundancia de FFI nativo.
 
 ---
 
 ## 🚨 Gestión de Riesgos
 
-### Riesgo 1: Breaking Changes en API Pública
+### Riesgo 1: Acoplamiento de Componentes
 **Probabilidad**: Media  
-**Impacto**: Alto  
-**Mitigación**: Mantener crate legado con re-exports durante período de deprecación
+**Impacto**: Medio  
+**Mitigación**: Mantener fronteras lógicas muy claras entre módulos de `src/` (`storage`, `index`, `planner`, `graph`).
 
 ### Riesgo 2: Degradación de Rendimiento
 **Probabilidad**: Baja  
 **Impacto**: Alto  
-**Mitigación**: Benchmarks antes/después, monitoreo continuo
+**Mitigación**: Ejecución de microbenchmarks antes y después de cada cambio crítico.
 
-### Riesgo 3: Aumento de Complejidad de Build
+### Riesgo 3: Complejidad en FFI de Python
 **Probabilidad**: Media  
-**Impacto**: Medio  
-**Mitigación**: Scripts de build automatizados, documentación clara
+**Impacto**: Alto  
+**Mitigación**: Mantener la interfaz de Crate Único para no fragmentar el enlazado estático de PyO3.
 
-### Riesgo 4: Resistencia al Cambio
-**Probabilidad**: Media  
+### Riesgo 4: Inconsistencias de Documentación
+**Probabilidad**: Baja  
 **Impacto**: Medio  
-**Mitigación**: Comunicación temprana, guías de migración, soporte
+**Mitigación**: Verificación automatizada de enlaces y sincronización con el README maestro.
 
 ### Riesgo 5: Demora en Integraciones de Ecosistema
 **Probabilidad**: Alta  
@@ -2071,4 +1163,3 @@ python ecosystem/python/langchain-vantadb/examples/basic_rag.py
 - [VantaDB Plan Maestro Unificado](../VantaDB_Plan_Maestro_Unificado.md)
 - [Architecture Documentation](architecture/ARCHITECTURE.md)
 - [Experimental Features](operations/EXPERIMENTAL_FEATURES.md)
-- [Multi-Crate Design Reference](developer/MULTI_CRATE_DESIGN.md) (a crear)
