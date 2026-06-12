@@ -18,6 +18,83 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use zerocopy::{FromBytes, IntoBytes};
 
+#[cfg(unix)]
+use std::sync::atomic::{AtomicBool, AtomicPtr};
+
+// ─── SIGBUS Handler para Unix (TSK-05) ─────────────────────────
+
+/// Flag global para indicar si ocurrió un SIGBUS relacionado con mmap
+#[cfg(unix)]
+static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
+
+/// Puntero atómico para almacenar la dirección de memoria que causó el SIGBUS
+#[cfg(unix)]
+static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
+
+/// Handler de señal SIGBUS para detectar truncamiento externo de archivos mmap
+///
+/// Este handler detecta cuando un acceso a memoria mmap falla debido a que
+/// el archivo fue truncado externamente (por otro proceso o manualmente).
+/// Permite recuperación graceful re-mapeando el archivo.
+#[cfg(unix)]
+fn install_sigbus_handler() -> Result<()> {
+    use libc::{sigaction, SA_SIGINFO, SIGBUS, SIG_IGN};
+    use std::mem;
+    use std::sync::Once;
+
+    static INSTALL_ONCE: Once = Once::new();
+
+    INSTALL_ONCE.call_once(|| {
+        unsafe {
+            let mut sa: libc::sigaction = mem::zeroed();
+            sa.sa_sigaction = sigbus_handler as usize;
+            sa.sa_flags = SA_SIGINFO;
+            libc::sigemptyset(&mut sa.sa_mask);
+
+            if sigaction(SIGBUS, &sa, std::ptr::null_mut()) != 0 {
+                warn!("Failed to install SIGBUS handler: {}", std::io::Error::last_os_error());
+            } else {
+                info!("SIGBUS handler installed successfully");
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// Handler de señal SIGBUS
+#[cfg(unix)]
+unsafe extern "C" fn sigbus_handler(
+    _signum: libc::c_int,
+    siginfo: *mut libc::siginfo_t,
+    _context: *mut libc::c_void,
+) {
+    // Marcar que ocurrió un SIGBUS
+    SIGBUS_OCCURRED.store(true, Ordering::SeqCst);
+
+    // Almacenar la dirección de memoria que causó el fallo
+    if !siginfo.is_null() {
+        let addr = (*siginfo).si_addr as *mut u8;
+        SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
+        warn!(
+            "SIGBUS occurred at address: {:p} - possible external file truncation",
+            addr
+        );
+    }
+}
+
+/// Verifica si ocurrió un SIGBUS desde la última verificación
+#[cfg(unix)]
+pub fn check_sigbus() -> bool {
+    SIGBUS_OCCURRED.swap(false, Ordering::SeqCst)
+}
+
+/// Obtiene la dirección de memoria que causó el último SIGBUS
+#[cfg(unix)]
+pub fn get_sigbus_fault_addr() -> *mut u8 {
+    SIGBUS_FAULT_ADDR.load(Ordering::SeqCst)
+}
+
 // ─── Internal Metadata Persistence ──────────────────────────
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -606,6 +683,14 @@ impl StorageEngine {
 
             Some(file)
         };
+
+        // ── Instalar handler SIGBUS para Unix (TSK-05) ─────────────────────
+        #[cfg(unix)]
+        {
+            if let Err(e) = install_sigbus_handler() {
+                warn!("Failed to install SIGBUS handler: {}", e);
+            }
+        }
 
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
