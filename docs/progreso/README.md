@@ -290,6 +290,15 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 * **`TSK-20` (skills):** Corrección de dependencias de scripts Python en skills (`vantadb_py` -> `vantadb`).
 * **`TSK-21` (skills):** Rectificación del script de instalación automatizado `setup-vantadb.sh` para soportar instalaciones locales estables.
 * **`TSK-22` (skills):** Corrección de URLs de documentación rotas apuntando a recursos locales y oficiales válidos.
+* **`TSK-31` (Core / Query):** DateTime nativo con Chrono: soporte para DateTime (RFC 3339) con indexación y queries de rangos.
+* **`TSK-32` (Core / Index):** Flat Arrays homogéneos: soporte para arrays planos (`ListString`, `ListInt`, etc.) e indexación de contención.
+* **`TSK-33` (Core / Graph):** Primitivas de ejecución de DAG (cycle detection DFS, topological sort Kahn, y niveles paralelos de ejecución).
+* **`TSK-39` (Text Index):** Postings con posiciones: schema v3 de postings con posiciones para habilitar phrase queries exactas.
+* **`TSK-40` (Text Index):** Snippets y highlighting: guardado de offsets de tokens para extraer fragmentos relevantes y resaltado HTML.
+* **`TSK-41` (Text Index):** Tokenizer avanzado v3: soporte para Unicode folding, stopwords y stemming en la indexación léxica.
+* **`TSK-42` (Text Index):** Explicabilidad del ranking: reporte estructurado del planner sobre pesos, puntuaciones de RRF e hits.
+* **`TSK-43` (Text Index):** Estadísticas persistentes de BM25: prevención de que la deduplicación de documentos rompa contadores TF/DF y longitud.
+* **`TSK-44` (Text Index):** Budgets de RRF y métricas de expansión: optimización y límites en candidatos procesados por el fusionador.
 
 ---
 
