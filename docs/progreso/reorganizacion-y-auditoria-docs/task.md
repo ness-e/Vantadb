@@ -14,4 +14,4 @@
 ## 3. Entrega y Commits
 - [x] Crear el walkthrough de finalización.
 - [x] Realizar la copia de progreso histórica de entregables.
-- [/] Crear los commits correspondientes en Git.
+- [x] Crear los commits correspondientes en Git.
