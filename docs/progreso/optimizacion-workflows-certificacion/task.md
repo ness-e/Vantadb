@@ -1,9 +1,0 @@
-- [x] Modificar heavy_certification.yml
-  - [x] Ajustar timeout-minutes del job `hnsw-validation` a 120
-  - [x] Remover timeout-minutes del step `Run HNSW validation`
-  - [x] Reemplazar instalación de `cargo-fuzz` en `fuzz-resilience` con `taiki-e/install-action@v2` (con input `tool`)
-- [x] Corregir aserción legacy en `tests/storage/mmap_index.rs`
-- [x] Resolver conflicto del workspace de cargo-fuzz agregando `[workspace]` a `fuzz/Cargo.toml`
-- [x] Optimizar test `hardware_certification_full` para compilación debug/unoptimized
-- [ ] Documentar cambios y crear walkthrough
-- [ ] Generar snapshot histórico en `docs/progreso/optimizacion-workflows-certificacion/`

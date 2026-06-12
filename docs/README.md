@@ -52,7 +52,7 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 * [Repository Checklist](operations/REPO_CHECKLIST.md) — Code hygiene, documentation and packaging check sheets.
 * [Editor Setup Guidelines](operations/EDITOR_INTEGRATIONS.md) — Editor setup guidelines for VS Code and NeoVim.
 * [Agent Guidelines](operations/AGENT_INSTRUCTIONS.md) — Directives and rules of governance for AI coding agents operating in this repository.
-* [Unified Progress History](operations/HISTORIAL_PROGRESO_UNIFICADO.md) — Consolidated summary of all development phases and milestones completed.
+* [Unified Progress History](progreso/README.md) — Consolidated summary of all development phases and milestones completed.
 * [Historical Repository Snapshots](operations/snapshots/) — Full backups of codebase status at key points:
   * [Snapshot 2026-06-09](operations/snapshots/snapshot_2026-06-09.md)
   * [Snapshot 2026-06-12](operations/snapshots/snapshot_2026-06-12.md)
@@ -87,4 +87,4 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 
 ## 📂 Active Checklist & Branch Progress
 
-* [Branch Progress Snapshots](progreso/) — Traceability directory containing snapshot folders for every completed task branch, required by the repository's `progreso.md` rules.
+* [Unified Progress History](progreso/README.md) — Consolidated log of completed phases. Historical subdirectories are deleted after consolidation to keep the repository clean.
