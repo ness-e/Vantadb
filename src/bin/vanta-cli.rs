@@ -1246,9 +1246,9 @@ fn cmd_server(
                     )));
                 }
             } else {
-                return Err(vantadb::error::VantaError::Execution(format!(
-                    "vantadb-server binary not found in PATH and failed to retrieve current executable path"
-                )));
+                return Err(vantadb::error::VantaError::Execution(
+                    "vantadb-server binary not found in PATH and failed to retrieve current executable path".to_string()
+                ));
             }
         }
         Err(e) => {
