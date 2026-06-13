@@ -30,7 +30,7 @@ rocksdb = { version = "0.22", default-features = false, features = ["lz4"] }
 fjall = "3.1"
 
 # ── Async + Integrations + Server ──
-crc32c = "0.5"
+crc32c = "0.6"
 reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
 serde_json = "1.0"
 prometheus = "0.14"
