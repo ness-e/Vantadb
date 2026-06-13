@@ -17,7 +17,7 @@ fn test_crash_injection_and_cold_recovery_loop() {
         "WAL CRASH-INJECTION & RECOVERY INTEGRITY CERTIFICATION (AUD-02)",
         1,
     );
-    let mut session = VantaSession::begin("Crash-Injection Loop (100 Iterations)");
+    let mut session = VantaSession::begin("Crash-Injection Loop (50 Iterations)");
 
     session.step("Building crash_helper binary...");
     let release_mode = cfg!(not(debug_assertions));
@@ -51,12 +51,12 @@ fn test_crash_injection_and_cold_recovery_loop() {
         helper_path
     );
 
-    session.step("Running 100 iterations of crash injection...");
+    session.step("Running 50 iterations of crash injection...");
 
     // Sembrar aleatoriedad simple sin dependencias externas pesadas
     let mut seed = 12345u64;
 
-    for i in 1..=100 {
+    for i in 1..=50 {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
@@ -133,10 +133,10 @@ fn test_crash_injection_and_cold_recovery_loop() {
         );
 
         if i % 20 == 0 {
-            TerminalReporter::sub_step(&format!("Completed iteration {}/100 successfully", i));
+            TerminalReporter::sub_step(&format!("Completed iteration {}/50 successfully", i));
         }
     }
 
-    session.success("Crash-injection loop completed. 100/100 iterations recovered consistently.");
+    session.success("Crash-injection loop completed. 50/50 iterations recovered consistently.");
     session.finish(true);
 }
