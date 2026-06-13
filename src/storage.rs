@@ -38,7 +38,7 @@ static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 /// Permite recuperación graceful re-mapeando el archivo.
 #[cfg(unix)]
 fn install_sigbus_handler() -> Result<()> {
-    use libc::{sigaction, SA_SIGINFO, SIGBUS, SIG_IGN};
+    use libc::{sigaction, SA_SIGINFO, SIGBUS};
     use std::mem;
     use std::sync::Once;
 
@@ -75,7 +75,11 @@ unsafe extern "C" fn sigbus_handler(
 
     // Almacenar la dirección de memoria que causó el fallo
     if !siginfo.is_null() {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        let addr = (*siginfo).si_addr() as *mut u8;
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
         let addr = (*siginfo).si_addr as *mut u8;
+
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
         warn!(
             "SIGBUS occurred at address: {:p} - possible external file truncation",
