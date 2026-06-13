@@ -300,6 +300,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 * **`TSK-42` (Text Index):** Explicabilidad del ranking: reporte estructurado del planner sobre pesos, puntuaciones de RRF e hits.
 * **`TSK-43` (Text Index):** Estadísticas persistentes de BM25: prevención de que la deduplicación de documentos rompa contadores TF/DF y longitud.
 * **`TSK-44` (Text Index):** Budgets de RRF y métricas de expansión: optimización y límites en candidatos procesados por el fusionador.
+* **`TSK-45` (CI/CD / Storage):** Corrección de fallo de compilación en el manejador SIGBUS para Unix (acceso a `si_addr` como método en Linux/Android y campo en macOS/iOS) y configuración de Dependabot para ignorar actualizaciones incompatibles de `sysinfo`.
 
 ---
 
