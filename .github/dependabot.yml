@@ -5,6 +5,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "sysinfo"
+        versions: [">= 0.31"]
     groups:
       rust-dependencies:
         patterns:
