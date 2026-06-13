@@ -102,16 +102,18 @@ fn test_crash_injection_and_cold_recovery_loop() {
         let _ = child.wait(); // Esperar a que se liberen los recursos del SO
 
         // Validamos la consistencia abriendo la base de datos
-        let engine = StorageEngine::open(db_path).expect(&format!(
-            "Iteration {}: Failed to reopen StorageEngine after crash",
-            i
-        ));
+        let engine = StorageEngine::open(db_path).unwrap_or_else(|e| {
+            panic!(
+                "Iteration {}: Failed to reopen StorageEngine after crash: {}",
+                i, e
+            )
+        });
 
         // Verificamos que todos los registros reportados por stdout estén legibles
         for &node_id in &written_nodes {
-            let node = engine
-                .get(node_id)
-                .expect(&format!("Iteration {}: Error getting node {}", i, node_id));
+            let node = engine.get(node_id).unwrap_or_else(|e| {
+                panic!("Iteration {}: Error getting node {}: {}", i, node_id, e)
+            });
             assert!(
                 node.is_some(),
                 "Iteration {}: Node {} was reported as WRITTEN but was not recovered after cold start!",

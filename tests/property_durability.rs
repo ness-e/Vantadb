@@ -32,7 +32,7 @@ fn node_strategy() -> impl Strategy<Value = UnifiedNode> {
     })
 }
 
-/// Propiedad: Los nodos insertados deben ser recuperables después de flush
+// Propiedad: Los nodos insertados deben ser recuperables después de flush
 proptest! {
     #[test]
     fn prop_insert_persist_after_flush(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
@@ -59,8 +59,8 @@ proptest! {
     }
 }
 
-/// Propiedad: El tamaño del archivo vector_store debe ser monótonamente creciente
-/// hasta que se haga compactación
+// Propiedad: El tamaño del archivo vector_store debe ser monótonamente creciente
+// hasta que se haga compactación
 proptest! {
     #[test]
     fn prop_vector_store_monotonic_growth(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
@@ -90,7 +90,7 @@ proptest! {
     }
 }
 
-/// Propiedad: El número de nodos en el índice debe ser consistente con el almacenamiento
+// Propiedad: El número de nodos en el índice debe ser consistente con el almacenamiento
 proptest! {
     #[test]
     fn prop_index_storage_consistency(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
