@@ -37,7 +37,7 @@ prometheus = "0.14"
 pyo3 = { version = "0.24.1", features = ["extension-module", "chrono"], optional = true }
 wide = "=1.2.0"
 cpufeatures = "0.3"
-sysinfo = "0.30"
+sysinfo = "0.39"
 memmap2 = "0.9"
 fs2 = "0.4"
 
