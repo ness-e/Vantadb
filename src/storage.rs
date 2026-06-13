@@ -1066,16 +1066,16 @@ impl StorageEngine {
 
         // Mitigación A-03: Persistencia en disco previa al swap en memoria (Atomicidad)
         if rebuilt.backend.is_mmap() {
-            rebuilt.sync_to_mmap().map_err(|e| VantaError::IoError(e))?;
+            rebuilt.sync_to_mmap().map_err(VantaError::IoError)?;
         } else {
             rebuilt
                 .persist_to_file(
-                    &rebuilt
+                    rebuilt
                         .backend
                         .mmap_path()
                         .unwrap_or(&self.data_dir.join("vector_index.bin")),
                 )
-                .map_err(|e| VantaError::IoError(e))?;
+                .map_err(VantaError::IoError)?;
         }
 
         // Swap atómico del Arc en memoria (RCU)
