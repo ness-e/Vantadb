@@ -18,7 +18,10 @@ fn test_mcp_initialize() {
     assert!(res.is_ok());
     let val = res.unwrap();
     assert_eq!(val["protocolVersion"], "2024-11-05");
-    assert_eq!(val["serverInfo"]["name"], vantadb::metadata::MCP_SERVER_INFO_NAME);
+    assert_eq!(
+        val["serverInfo"]["name"],
+        vantadb::metadata::MCP_SERVER_INFO_NAME
+    );
     assert!(val["capabilities"]["tools"].is_object());
     assert!(val["capabilities"]["resources"].is_object());
     assert!(val["capabilities"]["prompts"].is_object());
@@ -29,13 +32,15 @@ fn test_mcp_resources_list() {
     let res = handle_resources_list();
     assert!(res.is_ok());
     let val = res.unwrap();
-    let resources = val["resources"].as_array().expect("Expected resources array");
-    
+    let resources = val["resources"]
+        .as_array()
+        .expect("Expected resources array");
+
     let uris: Vec<&str> = resources
         .iter()
         .map(|r| r["uri"].as_str().unwrap())
         .collect();
-        
+
     assert!(uris.contains(&"metrics://"));
     assert!(uris.contains(&"schema://"));
 }
@@ -43,7 +48,7 @@ fn test_mcp_resources_list() {
 #[test]
 fn test_mcp_resources_read() {
     let (_dir, storage) = setup_storage();
-    
+
     // Test metrics://
     let res_metrics = handle_resources_read(&Some(json!({"uri": "metrics://"})), &storage);
     assert!(res_metrics.is_ok());
@@ -52,7 +57,7 @@ fn test_mcp_resources_read() {
     assert_eq!(val_metrics["contents"][0]["mimeType"], "application/json");
     let text = val_metrics["contents"][0]["text"].as_str().unwrap();
     assert!(text.contains("hnsw_nodes_count"));
-    
+
     // Test schema://
     let res_schema = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage);
     assert!(res_schema.is_ok());
@@ -60,7 +65,7 @@ fn test_mcp_resources_read() {
     assert_eq!(val_schema["contents"][0]["uri"], "schema://");
     let schema_text = val_schema["contents"][0]["text"].as_str().unwrap();
     assert!(schema_text.contains("hnsw_nodes_count"));
-    
+
     // Test invalid URI
     let res_invalid = handle_resources_read(&Some(json!({"uri": "invalid://"})), &storage);
     assert!(res_invalid.is_err());
@@ -72,12 +77,12 @@ fn test_mcp_prompts_list() {
     assert!(res.is_ok());
     let val = res.unwrap();
     let prompts = val["prompts"].as_array().expect("Expected prompts array");
-    
+
     let names: Vec<&str> = prompts
         .iter()
         .map(|p| p["name"].as_str().unwrap())
         .collect();
-        
+
     assert!(names.contains(&"search_memory"));
     assert!(names.contains(&"analyze_namespace"));
     assert!(names.contains(&"summarize_context"));
@@ -96,7 +101,9 @@ fn test_mcp_prompts_get() {
     })));
     assert!(res_search.is_ok());
     let val_search = res_search.unwrap();
-    let msg = val_search["messages"][0]["content"]["text"].as_str().unwrap();
+    let msg = val_search["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap();
     assert!(msg.contains("agent_mem"));
     assert!(msg.contains("learning rust"));
 
@@ -109,7 +116,9 @@ fn test_mcp_prompts_get() {
     })));
     assert!(res_analyze.is_ok());
     let val_analyze = res_analyze.unwrap();
-    let msg_analyze = val_analyze["messages"][0]["content"]["text"].as_str().unwrap();
+    let msg_analyze = val_analyze["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap();
     assert!(msg_analyze.contains("billing"));
 
     // summarize_context prompt
@@ -149,12 +158,9 @@ fn test_mcp_tools_list() {
     assert!(res.is_ok());
     let val = res.unwrap();
     let tools = val["tools"].as_array().expect("Expected tools array");
-    
-    let names: Vec<&str> = tools
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
-        
+
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+
     assert!(names.contains(&"memory_put"));
     assert!(names.contains(&"memory_get"));
     assert!(names.contains(&"memory_delete"));
@@ -172,7 +178,7 @@ fn test_mcp_tools_list() {
 fn test_mcp_tool_flow_crud() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    
+
     // 1. memory_put
     let put_params = Some(json!({
         "name": "memory_put",
@@ -186,7 +192,7 @@ fn test_mcp_tool_flow_crud() {
             }
         }
     }));
-    
+
     let put_res = handle_tools_call(&put_params, &executor, &storage);
     assert!(put_res.is_ok());
     let put_val = put_res.unwrap();
@@ -194,7 +200,7 @@ fn test_mcp_tool_flow_crud() {
     let put_text = put_val["content"][0]["text"].as_str().unwrap();
     assert!(put_text.contains("user_status"));
     assert!(put_text.contains("test_ns"));
-    
+
     // 2. memory_get
     let get_params = Some(json!({
         "name": "memory_get",
@@ -209,7 +215,7 @@ fn test_mcp_tool_flow_crud() {
     assert!(get_val["isError"].is_null());
     let get_text = get_val["content"][0]["text"].as_str().unwrap();
     assert!(get_text.contains("active and coding in Rust"));
-    
+
     // 3. memory_list
     let list_params = Some(json!({
         "name": "memory_list",
@@ -223,7 +229,7 @@ fn test_mcp_tool_flow_crud() {
     assert!(list_val["isError"].is_null());
     let list_text = list_val["content"][0]["text"].as_str().unwrap();
     assert!(list_text.contains("user_status"));
-    
+
     // 4. memory_list_namespaces
     let ns_params = Some(json!({
         "name": "memory_list_namespaces",
@@ -235,7 +241,7 @@ fn test_mcp_tool_flow_crud() {
     assert!(ns_val["isError"].is_null());
     let ns_text = ns_val["content"][0]["text"].as_str().unwrap();
     assert!(ns_text.contains("test_ns"));
-    
+
     // 5. memory_delete
     let del_params = Some(json!({
         "name": "memory_delete",
@@ -250,7 +256,7 @@ fn test_mcp_tool_flow_crud() {
     assert!(del_val["isError"].is_null());
     let del_text = del_val["content"][0]["text"].as_str().unwrap();
     assert!(del_text.contains("\"deleted\":true"));
-    
+
     // 6. Verify get after delete
     let get_res_after = handle_tools_call(&get_params, &executor, &storage);
     assert!(get_res_after.is_ok());
@@ -262,7 +268,7 @@ fn test_mcp_tool_flow_crud() {
 fn test_mcp_tool_query_iql() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    
+
     // Execute an INSERT via IQL syntax
     let iql_write = Some(json!({
         "name": "query_lisp",
@@ -273,10 +279,19 @@ fn test_mcp_tool_query_iql() {
     let write_res = handle_tools_call(&iql_write, &executor, &storage);
     assert!(write_res.is_ok());
     let write_val = write_res.unwrap();
-    assert!(write_val["isError"].is_null(), "INSERT should not return isError");
+    assert!(
+        write_val["isError"].is_null(),
+        "INSERT should not return isError"
+    );
     let write_text = write_val["content"][0]["text"].as_str().unwrap();
-    assert!(write_text.contains("999"), "Response should contain node_id 999");
-    assert!(write_text.contains("node_id"), "Response should contain 'node_id' key");
+    assert!(
+        write_text.contains("999"),
+        "Response should contain node_id 999"
+    );
+    assert!(
+        write_text.contains("node_id"),
+        "Response should contain 'node_id' key"
+    );
 
     // Execute a READ query via IQL syntax (FROM NODE#id)
     let iql_read = Some(json!({
@@ -288,21 +303,30 @@ fn test_mcp_tool_query_iql() {
     let read_res = handle_tools_call(&iql_read, &executor, &storage);
     assert!(read_res.is_ok());
     let read_val = read_res.unwrap();
-    assert!(read_val["isError"].is_null(), "FROM query should not return isError");
+    assert!(
+        read_val["isError"].is_null(),
+        "FROM query should not return isError"
+    );
     let read_text = read_val["content"][0]["text"].as_str().unwrap();
-    assert!(read_text.contains("999"), "Read result should contain node ID 999");
-    assert!(read_text.contains("Cold"), "Read result should contain tier value 'Cold'");
+    assert!(
+        read_text.contains("999"),
+        "Read result should contain node ID 999"
+    );
+    assert!(
+        read_text.contains("Cold"),
+        "Read result should contain tier value 'Cold'"
+    );
 }
 
 #[test]
 fn test_mcp_tool_search() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    
+
     // Insert some memories with vectors
     let v1 = vec![1.0, 0.0, 0.0];
     let v2 = vec![0.0, 1.0, 0.0];
-    
+
     let put_params_1 = Some(json!({
         "name": "memory_put",
         "arguments": {
@@ -324,7 +348,7 @@ fn test_mcp_tool_search() {
         }
     }));
     handle_tools_call(&put_params_2, &executor, &storage).unwrap();
-    
+
     // Test search_semantic (raw vector index)
     let search_sem_params = Some(json!({
         "name": "search_semantic",

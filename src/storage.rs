@@ -1511,7 +1511,11 @@ impl StorageEngine {
                 // SAFETY: offset and len were bounds-checked above; mmap_ptr is valid for
                 // the entire VantaFile lifetime held by the RwLock read guard.
                 unsafe {
-                    crate::index::release_mmap_vector(mmap.as_ptr(), offset_usize, vector_size_aligned);
+                    crate::index::release_mmap_vector(
+                        mmap.as_ptr(),
+                        offset_usize,
+                        vector_size_aligned,
+                    );
                 }
             }
         }

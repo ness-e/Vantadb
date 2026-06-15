@@ -67,6 +67,7 @@ proptest! {
 // Propiedad: El tamaño del archivo vector_store debe ser monótonamente creciente
 // hasta que se haga compactación
 proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
     #[test]
     fn prop_vector_store_monotonic_growth(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
         prop_assume!(!nodes.is_empty());

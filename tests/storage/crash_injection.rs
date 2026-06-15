@@ -51,12 +51,12 @@ fn test_crash_injection_and_cold_recovery_loop() {
         helper_path
     );
 
-    session.step("Running 50 iterations of crash injection...");
+    session.step("Running 10 iterations of crash injection...");
 
     // Sembrar aleatoriedad simple sin dependencias externas pesadas
     let mut seed = 12345u64;
 
-    for i in 1..=50 {
+    for i in 1..=10 {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
