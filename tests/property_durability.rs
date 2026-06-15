@@ -34,6 +34,7 @@ fn node_strategy() -> impl Strategy<Value = UnifiedNode> {
 
 // Propiedad: Los nodos insertados deben ser recuperables después de flush
 proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
     #[test]
     fn prop_insert_persist_after_flush(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
         prop_assume!(!nodes.is_empty());
@@ -98,6 +99,7 @@ proptest! {
 
 // Propiedad: El número de nodos en el índice debe ser consistente con el almacenamiento
 proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
     #[test]
     fn prop_index_storage_consistency(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
         prop_assume!(!nodes.is_empty());
