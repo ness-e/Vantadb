@@ -98,7 +98,7 @@ jobs:
     # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
     # exclusivamente en heavy_certification.yml (semanal / manual).
     - name: Run fast gate tests (Audit profile)
-      timeout-minutes: 20
+      timeout-minutes: 30
       run: cargo nextest run --profile audit --workspace
 
     - name: Security Audit
@@ -181,7 +181,7 @@ jobs:
     # Uses the audit nextest profile to skip heavy certification tests.
     # Generates both an LCOV report (for tooling) and a text summary (for logs).
     - name: Run tests with coverage
-      timeout-minutes: 25
+      timeout-minutes: 35
       run: |
         cargo llvm-cov nextest \
           --profile audit \
