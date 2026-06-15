@@ -76,9 +76,16 @@ fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
 /// pueden ser liberadas de RAM, reduciendo el RSS sin invalidar el mmap.
 ///
 /// El rango `[offset, offset+len)` debe estar dentro del mmap mapeado.
+///
+/// # Safety
+///
+/// - `mmap_ptr` must be a valid pointer to an active memory-mapped region.
+/// - `offset + len` must not exceed the length of the mapped region.
+/// - The caller must hold a read guard (or equivalent) ensuring the mmap
+///   is not unmapped for the duration of this call.
 #[inline(always)]
 #[allow(unused_variables)]
-pub fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
+pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {
         // POSIX: madvise(MADV_DONTNEED) — indica al kernel que estas páginas
