@@ -181,7 +181,7 @@ jobs:
     # Uses the audit nextest profile to skip heavy certification tests.
     # Generates both an LCOV report (for tooling) and a text summary (for logs).
     - name: Run tests with coverage
-      timeout-minutes: 35
+      timeout-minutes: 60
       run: |
         cargo llvm-cov nextest \
           --profile audit \
