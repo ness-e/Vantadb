@@ -38,6 +38,11 @@ proptest! {
     fn prop_insert_persist_after_flush(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
         prop_assume!(!nodes.is_empty());
 
+        // Proptest puede generar IDs duplicados; el storage los deduplica (last-write-wins).
+        // La cantidad esperada es la de IDs únicos, no el len() del vector crudo.
+        let unique_ids: std::collections::HashSet<u64> = nodes.iter().map(|n| n.id).collect();
+        let expected_count = unique_ids.len();
+
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().to_str().unwrap();
 
@@ -54,7 +59,7 @@ proptest! {
         {
             let engine = StorageEngine::open(db_path).unwrap();
             let all_nodes = engine.scan_nodes().unwrap();
-            assert_eq!(all_nodes.len(), nodes.len());
+            assert_eq!(all_nodes.len(), expected_count);
         }
     }
 }
@@ -96,6 +101,10 @@ proptest! {
     fn prop_index_storage_consistency(nodes in proptest::collection::vec(node_strategy(), 0..10)) {
         prop_assume!(!nodes.is_empty());
 
+        // Deduplicar por ID: el storage hace last-write-wins para IDs repetidos.
+        let unique_ids: std::collections::HashSet<u64> = nodes.iter().map(|n| n.id).collect();
+        let expected_count = unique_ids.len() as u64;
+
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().to_str().unwrap();
 
@@ -119,7 +128,9 @@ proptest! {
             let storage_nodes = engine.scan_nodes().unwrap();
             let storage_count = storage_nodes.len() as u64;
 
-            assert_eq!(index_count, storage_count, "Index and storage counts must match");
+            assert_eq!(index_count, expected_count, "Index count must match unique nodes inserted");
+            assert_eq!(storage_count, expected_count, "Storage count must match unique nodes inserted");
+            assert_eq!(index_count, storage_count, "Index and storage counts must match each other");
         }
     }
 }

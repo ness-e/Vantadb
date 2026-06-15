@@ -8,7 +8,7 @@ import os
 import json
 
 RESULTS_FILE = "benchmark_results.json"
-BENCHMARK_MD = "docs/BENCHMARKS.md"
+BENCHMARK_MD = "docs/operations/BENCHMARKS.md"
 
 START_MARKER = "<!-- BENCHMARK_METRICS_START -->"
 END_MARKER = "<!-- BENCHMARK_METRICS_END -->"

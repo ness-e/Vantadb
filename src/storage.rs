@@ -46,7 +46,7 @@ fn install_sigbus_handler() -> Result<()> {
 
     INSTALL_ONCE.call_once(|| unsafe {
         let mut sa: libc::sigaction = mem::zeroed();
-        sa.sa_sigaction = sigbus_handler as usize;
+        sa.sa_sigaction = sigbus_handler as *const () as usize;
         sa.sa_flags = SA_SIGINFO;
         libc::sigemptyset(&mut sa.sa_mask);
 
@@ -1508,7 +1508,11 @@ impl StorageEngine {
             let vector_size_aligned = (vector_size + 63) & !63;
             let offset_usize = offset as usize;
             if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
-                crate::index::release_mmap_vector(mmap.as_ptr(), offset_usize, vector_size_aligned);
+                // SAFETY: offset and len were bounds-checked above; mmap_ptr is valid for
+                // the entire VantaFile lifetime held by the RwLock read guard.
+                unsafe {
+                    crate::index::release_mmap_vector(mmap.as_ptr(), offset_usize, vector_size_aligned);
+                }
             }
         }
 
