@@ -78,7 +78,7 @@ unsafe extern "C" fn sigbus_handler(
         #[cfg(any(target_os = "linux", target_os = "android"))]
         let addr = (*siginfo).si_addr() as *mut u8;
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
-        let addr = (*siginfo).si_addr as *mut u8;
+        let addr = (*siginfo).si_addr() as *mut u8;
 
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
         warn!(
