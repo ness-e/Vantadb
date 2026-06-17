@@ -307,6 +307,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
  * **`TSK-16` (vantadb-server):** Tests de TLS/HTTPS: 2 tests integrados que generan certificados autofirmados dinámicamente con `rcgen`, inician servidor TLS con `axum-server`/`rustls`, y verifican health, query con auth y query sin auth sobre HTTPS (requiere `--features tls`).
  * **`TSK-17` (vantadb-server):** Tests de concurrencia: 3 tests que verifican 20 requests paralelas, 10 requests con semáforo pequeño (2 permits), y 10 requests concurrentes con autenticación — validan que el semáforo encola correctamente sin errores.
  * **`TSK-19` (vantadb-server):** Tests de integración end-to-end sobre HTTP real: 6 tests que levantan un servidor TCP real (`axum::serve`), se conectan via `reqwest`, y validan el roundtrip completo client->server->storage->response. Cubren: health+metrics, insert+query+delete, auth sobre HTTP real, persistencia tras reinicio del servidor, rate limiting sobre socket real, y errores 400.
+ * **`TSK-18` (vantadb-server):** Performance benchmarks del servidor HTTP: 5 benchmarks que miden latencia serial (p50/p95/p99) en INSERT, Health y Auth middleware, y throughput concurrente en INSERT y Health. Resultados: Health p50=0.81ms, INSERT p50=1.55ms, throughput INSERT ~1008 req/s, throughput Health ~1353 req/s.
  * **CI/CD Fixes (Jun 2026):** Corrección de workflows de GitHub Actions: toolchain unificado a `@stable`, runner `windows-2025-vs2026` → `windows-latest`, eliminación de `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` obsoleto, push mejorado con `GITHUB_TOKEN` en bench.yml, y exclusión de `crash_injection` del profile audit en nextest.
 
 ---
@@ -324,6 +325,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Python SDK | 2 | search_batch paralelo, pipeline de wheels SLSA L2 |
 | CLI/API | 3 | CLI embebida, consola premium, adaptadores LangChain/LlamaIndex |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
-| Benchmarks/CI | 2 | Benchmark competitivo GloVe/SIFT, optimización de workflows |
+| Benchmarks/CI | 3 | Benchmark competitivo GloVe/SIFT, optimización de workflows, benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
-| **Total** | **46** | — |
+| E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
+| **Total** | **47** | — |
