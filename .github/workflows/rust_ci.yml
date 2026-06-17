@@ -64,9 +64,8 @@ jobs:
         free -h
 
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: "1.94.1"
         components: rustfmt, clippy
 
     - name: Rust Cache
@@ -119,9 +118,8 @@ jobs:
     steps:
     - uses: actions/checkout@v6
     - name: Set up Rust (Windows)
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: "1.94.1"
         components: clippy
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
@@ -156,9 +154,8 @@ jobs:
         sudo swapon /swapfile
 
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@master
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: "1.94.1"
         components: llvm-tools-preview
 
     - name: Rust Cache
