@@ -285,8 +285,7 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
                 ));
             }
 
-            if let Some(crate::node::FieldValue::Int(version)) =
-                node.relational.get(FIELD_VERSION)
+            if let Some(crate::node::FieldValue::Int(version)) = node.relational.get(FIELD_VERSION)
             {
                 let _ = term.write_line(&format!(
                     "{} {}",
@@ -519,9 +518,7 @@ pub fn cmd_audit_index(
         println!(
             "{}",
             serde_json::to_string_pretty(&report).map_err(|err| {
-                crate::error::VantaError::Execution(format!(
-                    "failed to encode audit report: {err}"
-                ))
+                crate::error::VantaError::Execution(format!("failed to encode audit report: {err}"))
             })?
         );
     } else {
@@ -776,8 +773,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     // Read and parse JSON
     let count_spinner = create_spinner("Reading import file...");
-    let content =
-        std::fs::read_to_string(input_path).map_err(crate::error::VantaError::IoError)?;
+    let content = std::fs::read_to_string(input_path).map_err(crate::error::VantaError::IoError)?;
     count_spinner.finish_and_clear();
 
     // Simple JSON parsing (expects array of objects with namespace, key, payload)
@@ -805,10 +801,8 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
                     FIELD_NAMESPACE.to_string(),
                     crate::node::FieldValue::String(ns),
                 );
-                node.relational.insert(
-                    FIELD_KEY.to_string(),
-                    crate::node::FieldValue::String(key),
-                );
+                node.relational
+                    .insert(FIELD_KEY.to_string(), crate::node::FieldValue::String(key));
                 node.relational.insert(
                     FIELD_PAYLOAD.to_string(),
                     crate::node::FieldValue::String(
@@ -1294,14 +1288,17 @@ pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> 
             query,
             namespace,
             hits.len(),
-            if hits.len() < limit && !hits.is_empty() { " max" } else { "" }
+            if hits.len() < limit && !hits.is_empty() {
+                " max"
+            } else {
+                ""
+            }
         ))
     ));
     let _ = term.write_line(&format!(
         "{}",
-        header_style().apply_to(
-            "├──────────────────────────────────────────────────────────────────┤"
-        )
+        header_style()
+            .apply_to("├──────────────────────────────────────────────────────────────────┤")
     ));
 
     if hits.is_empty() {
@@ -1339,9 +1336,8 @@ pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> 
 
     let _ = term.write_line(&format!(
         "{}",
-        header_style().apply_to(
-            "╰──────────────────────────────────────────────────────────────────╯"
-        )
+        header_style()
+            .apply_to("╰──────────────────────────────────────────────────────────────────╯")
     ));
 
     Ok(())
@@ -1480,11 +1476,7 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
             warning_style().apply_to("│  (empty)                                   │")
         ));
     } else {
-        let total_payload: usize = page
-            .records
-            .iter()
-            .map(|r| r.payload.len())
-            .sum();
+        let total_payload: usize = page.records.iter().map(|r| r.payload.len()).sum();
         let _ = term.write_line(&format!(
             "{}",
             info_style().apply_to(format!("│  Total payload: {} bytes", total_payload))

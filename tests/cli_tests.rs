@@ -93,7 +93,11 @@ fn test_list_empty_namespace() {
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
-    assert!(result.is_ok(), "list on empty namespace should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "list on empty namespace should succeed: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -173,7 +177,11 @@ fn test_search_no_results() {
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
-    assert!(result.is_ok(), "search with no match should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "search with no match should succeed: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -368,7 +376,11 @@ fn test_cmd_query_empty_db() {
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
-    assert!(result.is_ok(), "query on empty db should succeed: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "query on empty db should succeed: {:?}",
+        result
+    );
 }
 
 // ─── verbose mode ─────────────────────────────────────────────

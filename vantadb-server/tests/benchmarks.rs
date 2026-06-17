@@ -4,12 +4,12 @@
 //! under load and print results for manual inspection or CI aggregation.
 //! Run with: cargo test --features tls --test benchmarks -- --nocapture
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::net::TcpListener;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
-use tokio::net::TcpListener;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -22,9 +22,7 @@ struct BenchContext {
 
 async fn setup_bench(concurrency: usize) -> BenchContext {
     let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(
-        StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap(),
-    );
+    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
@@ -37,9 +35,12 @@ async fn setup_bench(concurrency: usize) -> BenchContext {
     let base = format!("http://{}", addr);
 
     let handle = tokio::spawn(async move {
-        axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
-            .await
-            .unwrap();
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap();
     });
 
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -58,7 +59,10 @@ fn next_id(counter: &AtomicU64) -> u64 {
 
 fn make_insert_body(counter: &AtomicU64) -> String {
     let id = next_id(counter);
-    format!(r#"{{"query":"INSERT NODE#{} TYPE Bench {{ value: \"benchmark\" }}"}}"#, id)
+    format!(
+        r#"{{"query":"INSERT NODE#{} TYPE Bench {{ value: \"benchmark\" }}"}}"#,
+        id
+    )
 }
 
 fn percentiles(mut d: Vec<f64>) -> (f64, f64, f64, f64, f64) {
@@ -172,7 +176,10 @@ async fn bench_throughput_concurrent_inserts() {
     let elapsed = start.elapsed().as_secs_f64();
 
     print_separator();
-    println!("  BENCH: Throughput ({} concurrent × {} req)", CONCURRENCY, REQS_PER_TASK);
+    println!(
+        "  BENCH: Throughput ({} concurrent × {} req)",
+        CONCURRENCY, REQS_PER_TASK
+    );
     print_separator();
     println!("  total:     {} requests", TOTAL);
     println!("  elapsed:   {:.3} s", elapsed);
@@ -216,7 +223,10 @@ async fn bench_throughput_health_endpoint() {
     let elapsed = start.elapsed().as_secs_f64();
 
     print_separator();
-    println!("  BENCH: Health endpoint throughput ({} concurrent)", CONCURRENCY);
+    println!(
+        "  BENCH: Health endpoint throughput ({} concurrent)",
+        CONCURRENCY
+    );
     print_separator();
     println!("  total:     {} requests", TOTAL);
     println!("  elapsed:   {:.3} s", elapsed);
@@ -266,9 +276,7 @@ async fn bench_latency_health_serial() {
 #[tokio::test]
 async fn bench_latency_with_auth() {
     let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(
-        StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap(),
-    );
+    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(100)),
@@ -281,9 +289,12 @@ async fn bench_latency_with_auth() {
     let base = format!("http://{}", addr);
 
     let _handle = tokio::spawn(async move {
-        axum::serve(listener, router.into_make_service_with_connect_info::<std::net::SocketAddr>())
-            .await
-            .unwrap();
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap();
     });
     tokio::time::sleep(Duration::from_millis(200)).await;
 

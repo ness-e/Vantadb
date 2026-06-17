@@ -49,12 +49,7 @@ fn main() -> Result<()> {
             namespace,
             json,
             deep,
-        } => cli_handlers::cmd_audit_index(
-            &args.db,
-            namespace.as_deref(),
-            json,
-            deep,
-        )?,
+        } => cli_handlers::cmd_audit_index(&args.db, namespace.as_deref(), json, deep)?,
 
         Commands::RepairTextIndex => cli_handlers::cmd_repair_text_index(&args.db)?,
 
