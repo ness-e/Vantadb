@@ -312,6 +312,11 @@ name = "version_coherence"
 path = "tests/version_coherence.rs"
 
 [[test]]
+name = "cli_tests"
+path = "tests/cli_tests.rs"
+required-features = ["cli"]
+
+[[test]]
 name = "benchmark_internal"
 path = "tests/benchmark_internal.rs"
 

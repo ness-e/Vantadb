@@ -8,6 +8,8 @@ pub(crate) mod backends;
 pub mod binary_header;
 #[cfg(feature = "cli")]
 pub mod cli;
+#[cfg(feature = "cli")]
+pub mod cli_handlers;
 pub mod columnar;
 pub mod config;
 #[cfg(feature = "cli")]
