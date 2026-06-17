@@ -159,6 +159,102 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(search)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace to search within]:NAMESPACE:_default' \
+'--query=[Text query for semantic/hybrid search]:QUERY:_default' \
+'--limit=[Maximum number of results]:LIMIT:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+'--namespace=[Namespace of the record]:NAMESPACE:_default' \
+'--key=[Key of the record to delete]:KEY:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(namespace)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_vanta-cli__subcmd__namespace_commands" \
+"*::: :->namespace" \
+&& ret=0
+
+    case $state in
+    (namespace)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-namespace-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(info)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':namespace -- Namespace to inspect:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__namespace__subcmd__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-namespace-help-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 '-p+[Port for the HTTP server]:PORT:_default' \
@@ -230,6 +326,38 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(search)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(delete)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(namespace)
+_arguments "${_arguments_options[@]}" : \
+":: :_vanta-cli__subcmd__help__subcmd__namespace_commands" \
+"*::: :->namespace" \
+&& ret=0
+
+    case $state in
+    (namespace)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:vanta-cli-help-namespace-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(info)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
 (server)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -261,6 +389,9 @@ _vanta-cli_commands() {
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
 'completions:Generate shell completion scripts' \
+'search:Search records semantically across a namespace' \
+'delete:Delete a record by namespace and key' \
+'namespace:Manage namespaces' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -275,6 +406,11 @@ _vanta-cli__subcmd__audit-index_commands() {
 _vanta-cli__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli completions commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__delete_commands] )) ||
+_vanta-cli__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli delete commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__export_commands() {
@@ -300,6 +436,9 @@ _vanta-cli__subcmd__help_commands() {
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
 'completions:Generate shell completion scripts' \
+'search:Search records semantically across a namespace' \
+'delete:Delete a record by namespace and key' \
+'namespace:Manage namespaces' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
@@ -314,6 +453,11 @@ _vanta-cli__subcmd__help__subcmd__audit-index_commands() {
 _vanta-cli__subcmd__help__subcmd__completions_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help completions commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__delete_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__delete_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help delete commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__export_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__export_commands() {
@@ -340,6 +484,24 @@ _vanta-cli__subcmd__help__subcmd__list_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help list commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__help__subcmd__namespace_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__namespace_commands() {
+    local commands; commands=(
+'list:List all namespaces' \
+'info:Show record count and details for a namespace' \
+    )
+    _describe -t commands 'vanta-cli help namespace commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__namespace__subcmd__info_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__namespace__subcmd__info_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help namespace info commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__namespace__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__namespace__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help namespace list commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__put_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__put_commands() {
     local commands; commands=()
@@ -359,6 +521,11 @@ _vanta-cli__subcmd__help__subcmd__rebuild-index_commands() {
 _vanta-cli__subcmd__help__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help repair-text-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__search_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help search commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__server_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__server_commands() {
@@ -380,6 +547,49 @@ _vanta-cli__subcmd__list_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli list commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__namespace_commands] )) ||
+_vanta-cli__subcmd__namespace_commands() {
+    local commands; commands=(
+'list:List all namespaces' \
+'info:Show record count and details for a namespace' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli namespace commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__help_commands() {
+    local commands; commands=(
+'list:List all namespaces' \
+'info:Show record count and details for a namespace' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'vanta-cli namespace help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__help__subcmd__help_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__help__subcmd__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli namespace help help commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__help__subcmd__info_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__help__subcmd__info_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli namespace help info commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__help__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__help__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli namespace help list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__info_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__info_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli namespace info commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__namespace__subcmd__list_commands] )) ||
+_vanta-cli__subcmd__namespace__subcmd__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli namespace list commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__put_commands] )) ||
 _vanta-cli__subcmd__put_commands() {
     local commands; commands=()
@@ -399,6 +609,11 @@ _vanta-cli__subcmd__rebuild-index_commands() {
 _vanta-cli__subcmd__repair-text-index_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli repair-text-index commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__search_commands] )) ||
+_vanta-cli__subcmd__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli search commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__server_commands] )) ||
 _vanta-cli__subcmd__server_commands() {
