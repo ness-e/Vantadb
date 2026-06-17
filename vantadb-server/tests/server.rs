@@ -9,8 +9,8 @@ use axum::{
     extract::ConnectInfo,
     http::{Request, StatusCode},
 };
-use std::net::SocketAddr;
 use common::{TerminalReporter, VantaHarness};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tower::ServiceExt;
 use vantadb::storage::StorageEngine;
@@ -37,7 +37,12 @@ fn build_context(api_key: Option<&str>, concurrency: usize) -> TestContext {
 
 fn add_addr(req: Request<Body>) -> Request<Body> {
     let (mut parts, body) = req.into_parts();
-    parts.extensions.insert(ConnectInfo::<SocketAddr>(SocketAddr::from(([127, 0, 0, 1], 54321))));
+    parts
+        .extensions
+        .insert(ConnectInfo::<SocketAddr>(SocketAddr::from((
+            [127, 0, 0, 1],
+            54321,
+        ))));
     Request::from_parts(parts, body)
 }
 
@@ -60,10 +65,12 @@ async fn post_query(app: &mut axum::Router, auth_token: Option<&str>) -> StatusC
     if let Some(token) = auth_token {
         req = req.header("Authorization", &format!("Bearer {}", token));
     }
-    app.oneshot(add_addr(req.body(Body::from(r#"{"query":"test"}"#)).unwrap()))
-        .await
-        .unwrap()
-        .status()
+    app.oneshot(add_addr(
+        req.body(Body::from(r#"{"query":"test"}"#)).unwrap(),
+    ))
+    .await
+    .unwrap()
+    .status()
 }
 
 // ─── TSK-14: Authentication (Bearer Token) ────────────────────────────────
@@ -187,7 +194,10 @@ async fn post_query_owned(router: axum::Router) -> StatusCode {
         .into_parts();
     parts
         .extensions
-        .insert(ConnectInfo::<SocketAddr>(SocketAddr::from(([127, 0, 0, 1], 54321))));
+        .insert(ConnectInfo::<SocketAddr>(SocketAddr::from((
+            [127, 0, 0, 1],
+            54321,
+        ))));
     router
         .oneshot(Request::from_parts(parts, body))
         .await
@@ -240,9 +250,12 @@ async fn test_concurrency_with_auth() {
                 .body(Body::from(r#"{"query":"test"}"#))
                 .unwrap()
                 .into_parts();
-            parts.extensions.insert(ConnectInfo::<SocketAddr>(
-                SocketAddr::from(([127, 0, 0, 1], 54321)),
-            ));
+            parts
+                .extensions
+                .insert(ConnectInfo::<SocketAddr>(SocketAddr::from((
+                    [127, 0, 0, 1],
+                    54321,
+                ))));
             r.oneshot(Request::from_parts(parts, body))
                 .await
                 .unwrap()
@@ -283,9 +296,11 @@ async fn test_tls_config_loading() {
     let dir = tempfile::tempdir().unwrap();
     let (cert_path, key_path) = generate_test_cert(dir.path());
 
-    let result =
-        axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path).await;
-    assert!(result.is_ok(), "RustlsConfig should load from valid PEM files");
+    let result = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path).await;
+    assert!(
+        result.is_ok(),
+        "RustlsConfig should load from valid PEM files"
+    );
 }
 
 #[cfg(feature = "tls")]
@@ -295,14 +310,11 @@ async fn test_tls_server_health_and_query() {
     let dir = tempfile::tempdir().unwrap();
     let (cert_path, key_path) = generate_test_cert(dir.path());
 
-    let tls_config =
-        axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
-            .await
-            .unwrap();
+    let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
+        .await
+        .unwrap();
 
-    let storage = Arc::new(
-        StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap(),
-    );
+    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(10)),

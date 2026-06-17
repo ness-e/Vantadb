@@ -8,25 +8,25 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::net::TcpListener;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
-use tokio::net::TcpListener;
 
 /// Bind a real TCP listener on a random port, spawn the real server,
 /// and return the base URL + join handle.
-async fn spawn_server(
-    state: Arc<ServerState>,
-    rpm: u32,
-) -> (String, tokio::task::JoinHandle<()>) {
+async fn spawn_server(state: Arc<ServerState>, rpm: u32) -> (String, tokio::task::JoinHandle<()>) {
     let router = app(state, rpm);
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let base = format!("http://{}", addr);
 
     let handle = tokio::spawn(async move {
-        axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
-            .await
-            .unwrap();
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .unwrap();
     });
 
     // Brief pause to let the server start accepting connections
@@ -36,11 +36,12 @@ async fn spawn_server(
 }
 
 /// Build a test context (temp dir + ServerState) shared across E2E tests.
-fn build_e2e_context(api_key: Option<&str>, concurrency: usize) -> (tempfile::TempDir, Arc<ServerState>) {
+fn build_e2e_context(
+    api_key: Option<&str>,
+    concurrency: usize,
+) -> (tempfile::TempDir, Arc<ServerState>) {
     let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(
-        StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap(),
-    );
+    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
     let state = Arc::new(ServerState {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
@@ -57,11 +58,7 @@ async fn test_e2e_health_and_metrics() {
     let client = reqwest::Client::new();
 
     // Health endpoint
-    let resp = client
-        .get(format!("{}/health", base))
-        .send()
-        .await
-        .unwrap();
+    let resp = client.get(format!("{}/health", base)).send().await.unwrap();
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["success"], true);
@@ -100,7 +97,11 @@ async fn test_e2e_insert_and_query() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["success"].as_bool().unwrap(), "Insert failed: {:?}", body);
+    assert!(
+        body["success"].as_bool().unwrap(),
+        "Insert failed: {:?}",
+        body
+    );
     assert_eq!(body["node_id"].as_u64(), Some(101));
 
     // 2. Query for the node
@@ -113,7 +114,11 @@ async fn test_e2e_insert_and_query() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["success"].as_bool().unwrap(), "Query failed: {:?}", body);
+    assert!(
+        body["success"].as_bool().unwrap(),
+        "Query failed: {:?}",
+        body
+    );
 
     // 3. Delete the node
     let resp = client
@@ -125,7 +130,11 @@ async fn test_e2e_insert_and_query() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["success"].as_bool().unwrap(), "Delete failed: {:?}", body);
+    assert!(
+        body["success"].as_bool().unwrap(),
+        "Delete failed: {:?}",
+        body
+    );
 }
 
 #[tokio::test]
@@ -202,9 +211,7 @@ async fn test_e2e_persistence_across_restart() {
     tokio::time::sleep(Duration::from_millis(300)).await;
 
     // Second server, same storage directory
-    let storage2 = Arc::new(
-        StorageEngine::open(&storage_path).unwrap(),
-    );
+    let storage2 = Arc::new(StorageEngine::open(&storage_path).unwrap());
     let state2 = Arc::new(ServerState {
         storage: storage2,
         semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
@@ -222,7 +229,11 @@ async fn test_e2e_persistence_across_restart() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
-    assert!(body["success"].as_bool().unwrap(), "Persistence query failed: {:?}", body);
+    assert!(
+        body["success"].as_bool().unwrap(),
+        "Persistence query failed: {:?}",
+        body
+    );
 
     // Clean shutdown
     handle2.abort();
