@@ -107,7 +107,7 @@ async fn test_auth_missing_header() {
 #[tokio::test]
 async fn test_auth_wrong_scheme() {
     let ctx = build_context(Some("valid-key"), 10);
-    let mut router = app(ctx.state, 0);
+    let router = app(ctx.state, 0);
 
     let req = add_addr(
         Request::builder()
@@ -172,6 +172,203 @@ async fn test_rate_limit_health_unaffected() {
 
     let status = get(&mut router, "/health", None).await;
     assert_eq!(status, StatusCode::OK);
+}
+
+// ─── TSK-17: Concurrent Requests ──────────────────────────────────────────
+
+/// Helper: sends a POST /api/v2/query on an owned router (one clone per call).
+async fn post_query_owned(router: axum::Router) -> StatusCode {
+    let (mut parts, body) = Request::builder()
+        .uri("/api/v2/query")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"query":"test"}"#))
+        .unwrap()
+        .into_parts();
+    parts
+        .extensions
+        .insert(ConnectInfo::<SocketAddr>(SocketAddr::from(([127, 0, 0, 1], 54321))));
+    router
+        .oneshot(Request::from_parts(parts, body))
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn test_concurrency_parallel_requests() {
+    let ctx = build_context(None, 10);
+    let router = app(ctx.state, 0);
+
+    let mut handles = Vec::new();
+    for _ in 0..20 {
+        handles.push(tokio::spawn(post_query_owned(router.clone())));
+    }
+    for (i, h) in handles.into_iter().enumerate() {
+        assert_eq!(h.await.unwrap(), StatusCode::OK, "request {}", i);
+    }
+}
+
+#[tokio::test]
+async fn test_concurrency_batch_with_small_semaphore() {
+    let ctx = build_context(None, 2);
+    let router = app(ctx.state, 0);
+
+    let mut handles = Vec::new();
+    for _ in 0..10 {
+        handles.push(tokio::spawn(post_query_owned(router.clone())));
+    }
+    for (i, h) in handles.into_iter().enumerate() {
+        assert_eq!(h.await.unwrap(), StatusCode::OK, "request {}", i);
+    }
+}
+
+#[tokio::test]
+async fn test_concurrency_with_auth() {
+    let ctx = build_context(Some("shared-key"), 5);
+    let router = app(ctx.state, 0);
+
+    let mut handles = Vec::new();
+    for _ in 0..10 {
+        let r = router.clone();
+        handles.push(tokio::spawn(async move {
+            let (mut parts, body) = Request::builder()
+                .uri("/api/v2/query")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header("Authorization", "Bearer shared-key")
+                .body(Body::from(r#"{"query":"test"}"#))
+                .unwrap()
+                .into_parts();
+            parts.extensions.insert(ConnectInfo::<SocketAddr>(
+                SocketAddr::from(([127, 0, 0, 1], 54321)),
+            ));
+            r.oneshot(Request::from_parts(parts, body))
+                .await
+                .unwrap()
+                .status()
+        }));
+    }
+    for (i, h) in handles.into_iter().enumerate() {
+        assert_eq!(h.await.unwrap(), StatusCode::OK, "request {}", i);
+    }
+}
+
+// ─── TSK-16: TLS/HTTPS (requires --features tls) ─────────────────────────
+
+#[cfg(feature = "tls")]
+fn setup_tls() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
+#[cfg(feature = "tls")]
+fn generate_test_cert(dir: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    use rcgen::{CertificateParams, KeyPair};
+
+    let key_pair = KeyPair::generate().unwrap();
+    let params = CertificateParams::new(vec!["localhost".to_string()]).unwrap();
+    let cert = params.self_signed(&key_pair).unwrap();
+
+    let cert_path = dir.join("cert.pem");
+    let key_path = dir.join("key.pem");
+    std::fs::write(&cert_path, cert.pem()).unwrap();
+    std::fs::write(&key_path, key_pair.serialize_pem()).unwrap();
+    (cert_path, key_path)
+}
+
+#[cfg(feature = "tls")]
+#[tokio::test]
+async fn test_tls_config_loading() {
+    setup_tls();
+    let dir = tempfile::tempdir().unwrap();
+    let (cert_path, key_path) = generate_test_cert(dir.path());
+
+    let result =
+        axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path).await;
+    assert!(result.is_ok(), "RustlsConfig should load from valid PEM files");
+}
+
+#[cfg(feature = "tls")]
+#[tokio::test]
+async fn test_tls_server_health_and_query() {
+    setup_tls();
+    let dir = tempfile::tempdir().unwrap();
+    let (cert_path, key_path) = generate_test_cert(dir.path());
+
+    let tls_config =
+        axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
+            .await
+            .unwrap();
+
+    let storage = Arc::new(
+        StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap(),
+    );
+    let state = Arc::new(ServerState {
+        storage,
+        semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
+        api_key: Some(Arc::from("tls-key")),
+    });
+    let router = app(state, 0);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    drop(listener);
+
+    tokio::spawn(async move {
+        if let Err(e) = axum_server::bind_rustls(addr, tls_config)
+            .serve(router.into_make_service_with_connect_info::<std::net::SocketAddr>())
+            .await
+        {
+            eprintln!("TLS server exited with error: {}", e);
+        }
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .unwrap();
+
+    // Health (no auth required)
+    let resp = client
+        .get(format!("https://{}/health", addr))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Query with valid auth
+    let resp = client
+        .post(format!("https://{}/api/v2/query", addr))
+        .header("Authorization", "Bearer tls-key")
+        .header("content-type", "application/json")
+        .body(r#"{"query":"test"}"#)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Query without auth (rejected)
+    let resp = client
+        .post(format!("https://{}/api/v2/query", addr))
+        .header("content-type", "application/json")
+        .body(r#"{"query":"test"}"#)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+    // Query with invalid auth (rejected)
+    let resp = client
+        .post(format!("https://{}/api/v2/query", addr))
+        .header("Authorization", "Bearer wrong-key")
+        .header("content-type", "application/json")
+        .body(r#"{"query":"test"}"#)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 // ─── Existing test ────────────────────────────────────────────────────────

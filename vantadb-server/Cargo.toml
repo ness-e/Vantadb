@@ -38,6 +38,9 @@ sysinfo = "0.30"
 chrono = "0.4"
 console = "0.16"
 indicatif = "0.18"
+rcgen = "0.13"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+rustls = { version = "0.23", features = ["ring"] }
 
 [features]
 custom-allocator = ["mimalloc"]
