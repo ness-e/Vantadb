@@ -302,6 +302,8 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 * **`TSK-44` (Text Index):** Budgets de RRF y métricas de expansión: optimización y límites en candidatos procesados por el fusionador.
 * **`TSK-45` (CI/CD / Storage):** Corrección de fallo de compilación en el manejador SIGBUS para Unix (acceso a `si_addr` como método en Linux/Android y campo en macOS/iOS) y configuración de Dependabot para ignorar actualizaciones incompatibles de `sysinfo`.
 * **`TSK-13` (vantadb-mcp):** Suite de tests unitarios para handlers MCP: 9 tests cubriendo initialize, resources, prompts, tools list, CRUD flow, IQL queries y semantic search.
+* **`TSK-14` (vantadb-server):** Tests de autenticación Bearer token: 6 escenarios (no auth, valid token, invalid token, missing header, wrong scheme, health exempt).
+* **`TSK-15` (vantadb-server):** Tests de rate limiting: RPM=0 pasa 10 requests, RPM>0 limita tras burst, health no afectado por rate limit.
 * **CI/CD Fixes (Jun 2026):** Corrección de workflows de GitHub Actions: toolchain unificado a `@stable`, runner `windows-2025-vs2026` → `windows-latest`, eliminación de `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` obsoleto, push mejorado con `GITHUB_TOKEN` en bench.yml, y exclusión de `crash_injection` del profile audit en nextest.
 
 ---
