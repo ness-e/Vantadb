@@ -116,6 +116,33 @@ pub enum Commands {
         shell: Shell,
     },
 
+    /// Search records semantically across a namespace
+    Search {
+        /// Namespace to search within
+        #[arg(long)]
+        namespace: String,
+        /// Text query for semantic/hybrid search
+        #[arg(long)]
+        query: String,
+        /// Maximum number of results
+        #[arg(long, default_value = "10")]
+        limit: usize,
+    },
+
+    /// Delete a record by namespace and key
+    Delete {
+        /// Namespace of the record
+        #[arg(long)]
+        namespace: String,
+        /// Key of the record to delete
+        #[arg(long)]
+        key: String,
+    },
+
+    /// Manage namespaces
+    #[command(subcommand)]
+    Namespace(NamespaceCommand),
+
     /// Start the HTTP or MCP server wrapper
     Server {
         /// Start HTTP server wrapper (default)
@@ -133,6 +160,17 @@ pub enum Commands {
         /// Host for the HTTP server
         #[arg(long, env = "VANTADB_HOST")]
         host: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum NamespaceCommand {
+    /// List all namespaces
+    List,
+    /// Show record count and details for a namespace
+    Info {
+        /// Namespace to inspect
+        namespace: String,
     },
 }
 

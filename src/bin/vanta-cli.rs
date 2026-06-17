@@ -1281,6 +1281,253 @@ fn cmd_completions(shell: Shell) {
     clap_complete::generate(shell, &mut cmd, "vanta-cli", &mut std::io::stdout());
 }
 
+fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, true)?;
+    spinner.set_message("Searching...");
+
+    let request = vantadb::sdk::VantaMemorySearchRequest {
+        namespace: namespace.to_string(),
+        query_vector: vec![],
+        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+        text_query: Some(query.to_string()),
+        top_k: limit,
+        distance_metric: vantadb::node::DistanceMetric::Cosine,
+        explain: false,
+    };
+
+    let hits = db.search(request)?;
+    spinner.finish_and_clear();
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(format!(
+            "╭──────────────────────────────────────────────────────────────────╮"
+        ))
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(format!(
+            "│  Search results for \"{}\" in namespace \"{}\" ({}{}) │",
+            query,
+            namespace,
+            hits.len(),
+            if hits.len() < limit && !hits.is_empty() { " max" } else { "" }
+        ))
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(
+            "├──────────────────────────────────────────────────────────────────┤"
+        )
+    ));
+
+    if hits.is_empty() {
+        let _ = term.write_line(&format!(
+            "{}",
+            warning_style().apply_to("│  No results found                                   │")
+        ));
+    } else {
+        for (i, hit) in hits.iter().enumerate() {
+            let _ = term.write_line(&format!(
+                "{}",
+                info_style().apply_to(format!(
+                    "│  #{:<3} │ Score: {:<8} │ {}:{}",
+                    i + 1,
+                    format!("{:.6}", hit.score),
+                    hit.record.namespace,
+                    hit.record.key
+                ))
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                info_style().apply_to(format!(
+                    "│       │ Payload:  {}",
+                    &hit.record.payload[..hit.record.payload.len().min(80)]
+                ))
+            ));
+            if i < hits.len() - 1 {
+                let _ = term.write_line(&format!(
+                    "{}",
+                    info_style().apply_to("│       │           │")
+                ));
+            }
+        }
+    }
+
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(
+            "╰──────────────────────────────────────────────────────────────────╯"
+        )
+    ));
+
+    Ok(())
+}
+
+fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, false)?;
+    spinner.set_message("Deleting record...");
+
+    let deleted = db.delete(namespace, key)?;
+    spinner.finish_and_clear();
+
+    if deleted {
+        print_success(&format!("Record deleted: {}:{}", namespace, key));
+        if verbose {
+            let node_id = memory_node_id(namespace, key);
+            print_info(&format!("Node ID: {}", node_id));
+        }
+    } else {
+        print_warning(&format!("Record not found: {}:{}", namespace, key));
+    }
+
+    Ok(())
+}
+
+fn cmd_namespace_list(db_path: &str) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, true)?;
+    spinner.set_message("Listing namespaces...");
+    let namespaces = db.list_namespaces()?;
+    spinner.finish_and_clear();
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╭─────────────────────────────────────────╮")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(format!(
+            "│  Namespaces ({})                          │",
+            namespaces.len()
+        ))
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("├─────────────────────────────────────────┤")
+    ));
+
+    if namespaces.is_empty() {
+        let _ = term.write_line(&format!(
+            "{}",
+            warning_style().apply_to("│  No namespaces found                     │")
+        ));
+    } else {
+        for ns in &namespaces {
+            let _ = term.write_line(&format!(
+                "{}",
+                info_style().apply_to(format!("│  • {}", ns))
+            ));
+        }
+    }
+
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╰─────────────────────────────────────────╯")
+    ));
+
+    Ok(())
+}
+
+fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let db = open_embedded(db_path, true)?;
+    spinner.set_message("Scanning namespace...");
+
+    let options = vantadb::sdk::VantaMemoryListOptions {
+        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+        limit: usize::MAX,
+        cursor: None,
+    };
+    let page = db.list(namespace, options)?;
+    spinner.finish_and_clear();
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╭─────────────────────────────────────────╮")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(format!("│  Namespace: {}", namespace))
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("├─────────────────────────────────────────┤")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to(format!("│  Records: {}", page.records.len()))
+    ));
+
+    if page.records.is_empty() {
+        let _ = term.write_line(&format!(
+            "{}",
+            warning_style().apply_to("│  (empty)                                   │")
+        ));
+    } else {
+        let total_payload: usize = page
+            .records
+            .iter()
+            .map(|r| r.payload.len())
+            .sum();
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to(format!("│  Total payload: {} bytes", total_payload))
+        ));
+    }
+
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╰─────────────────────────────────────────╯")
+    ));
+
+    Ok(())
+}
+
 // ─── Main Entry Point ────────────────────────────────────────
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -1327,6 +1574,23 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Commands::Import { input } => cmd_import(&args.db, &input, args.verbose)?,
 
         Commands::Query { query, limit } => cmd_query(&args.db, &query, limit, args.verbose)?,
+
+        Commands::Search {
+            namespace,
+            query,
+            limit,
+        } => cmd_search(&args.db, &namespace, &query, limit)?,
+
+        Commands::Delete { namespace, key } => {
+            cmd_delete(&args.db, &namespace, &key, args.verbose)?
+        }
+
+        Commands::Namespace(cmd) => match cmd {
+            vantadb::cli::NamespaceCommand::List => cmd_namespace_list(&args.db)?,
+            vantadb::cli::NamespaceCommand::Info { namespace } => {
+                cmd_namespace_info(&args.db, &namespace)?
+            }
+        },
 
         Commands::Status => cmd_status(&args.db, args.verbose)?,
 

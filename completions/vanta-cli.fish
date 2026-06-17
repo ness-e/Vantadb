@@ -39,6 +39,9 @@ complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "import" -d 'Imp
 complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "query" -d 'Execute a structured query (IQL/hybrid)'
 complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "status" -d 'Display database health diagnostics and system status'
 complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "completions" -d 'Generate shell completion scripts'
+complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "search" -d 'Search records semantically across a namespace'
+complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "delete" -d 'Delete a record by namespace and key'
+complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "namespace" -d 'Manage namespaces'
 complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "server" -d 'Start the HTTP or MCP server wrapper'
 complete -c vanta-cli -n "__fish_vanta_cli_needs_command" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand put" -l namespace -d 'Namespace for the key' -r
@@ -93,6 +96,32 @@ powershell\t''"
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand completions" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand completions" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand completions" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l namespace -d 'Namespace to search within' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l query -d 'Text query for semantic/hybrid search' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l limit -d 'Maximum number of results' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -l namespace -d 'Namespace of the record' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -l key -d 'Key of the record to delete' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -f -a "list" -d 'List all namespaces'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -f -a "info" -d 'Show record count and details for a namespace'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from list" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from list" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from list" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from info" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from info" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from info" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from help" -f -a "list" -d 'List all namespaces'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from help" -f -a "info" -d 'Show record count and details for a namespace'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s p -l port -d 'Port for the HTTP server' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l host -d 'Host for the HTTP server' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
@@ -100,16 +129,21 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l http -d '
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l mcp -d 'Start MCP server wrapper over stdio'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s h -l help -d 'Print help'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "put" -d 'Save a key-value pair to persistent memory'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "get" -d 'Retrieve a value from persistent memory'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "list" -d 'List keys and values in a namespace'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "rebuild-index" -d 'Rebuild all database indexes (HNSW, text index, derived indexes)'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "audit-index" -d 'Validate text index integrity without repairing'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "repair-text-index" -d 'Repair text index if inconsistencies are detected'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "export" -d 'Export records to a JSON file'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "import" -d 'Import records from a JSON file'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "query" -d 'Execute a structured query (IQL/hybrid)'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "status" -d 'Display database health diagnostics and system status'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "completions" -d 'Generate shell completion scripts'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "server" -d 'Start the HTTP or MCP server wrapper'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions server help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "put" -d 'Save a key-value pair to persistent memory'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "get" -d 'Retrieve a value from persistent memory'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "list" -d 'List keys and values in a namespace'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "rebuild-index" -d 'Rebuild all database indexes (HNSW, text index, derived indexes)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "audit-index" -d 'Validate text index integrity without repairing'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "repair-text-index" -d 'Repair text index if inconsistencies are detected'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "export" -d 'Export records to a JSON file'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "import" -d 'Import records from a JSON file'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "query" -d 'Execute a structured query (IQL/hybrid)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "status" -d 'Display database health diagnostics and system status'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "completions" -d 'Generate shell completion scripts'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "search" -d 'Search records semantically across a namespace'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "delete" -d 'Delete a record by namespace and key'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "namespace" -d 'Manage namespaces'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "server" -d 'Start the HTTP or MCP server wrapper'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete namespace server help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from namespace" -f -a "list" -d 'List all namespaces'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from namespace" -f -a "info" -d 'Show record count and details for a namespace'
