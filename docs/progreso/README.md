@@ -311,6 +311,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
  * **`TSK-25` (CLI):** Comando `search` para búsqueda semántica híbrida por namespace desde CLI. Usa `VantaEmbedded::search()` con `VantaMemorySearchRequest` (text_query + top_k + default filters). Muestra resultados formateados con score y payload truncado.
  * **`TSK-26` (CLI):** Comando `delete` para eliminación de registros por namespace y key desde CLI. Usa `VantaEmbedded::delete()` con feedback de éxito/not-found. Soporta flag `--verbose` para mostrar node ID.
  * **`TSK-27` (CLI):** Comando `namespace` con subcomandos `list` (enumera todos los namespaces via `VantaEmbedded::list_namespaces()`) e `info` (recuento de registros y payload total via `VantaEmbedded::list()` con `limit=usize::MAX`).
+ * **`TSK-29` (CLI):** Suite de 33 tests de integración CLI extraídos a tests dedicados. Se refactorizaron los handlers del binary (`src/bin/vanta-cli.rs`) a `src/cli_handlers.rs` como módulo público de la library crate (`vantadb::cli_handlers`) detrás de `#[cfg(feature = "cli")]`, haciendo los handlers testables desde tests de integración. Se agregó `[[test]]` en `Cargo.toml` con `required-features = ["cli"]`. Se corrigieron 3 tests que fallaban inicialmente: (1) `cmd_query` usaba `SELECT *` (IQL no soportado) → `FROM Persona`, (2) `cmd_search` fallaba sin text index BM25 → uso de `seed_embedded` con `VantaEmbedded::put()` para construir índices derivados. Todos los tests usan `tempfile::TempDir` para bases de datos aisladas y se ejecutan con `cargo test --test cli_tests`.
  * **CI/CD Fixes (Jun 2026):** Corrección de workflows de GitHub Actions: toolchain unificado a `@stable`, runner `windows-2025-vs2026` → `windows-latest`, eliminación de `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` obsoleto, push mejorado con `GITHUB_TOKEN` en bench.yml, y exclusión de `crash_injection` del profile audit en nextest.
 
 ---
@@ -326,9 +327,9 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
 | Python SDK | 2 | search_batch paralelo, pipeline de wheels SLSA L2 |
-| CLI/API | 3 | CLI embebida, consola premium, adaptadores LangChain/LlamaIndex |
+| CLI/API | 4 | CLI embebida, consola premium, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
 | Benchmarks/CI | 3 | Benchmark competitivo GloVe/SIFT, optimización de workflows, benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| **Total** | **47** | — |
+| **Total** | **48** | — |
