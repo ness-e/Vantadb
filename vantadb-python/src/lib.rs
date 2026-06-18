@@ -1,6 +1,8 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods};
+use pyo3::types::{
+    PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods,
+};
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
@@ -117,6 +119,39 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     Err(PyTypeError::new_err(
         "Unsupported field value. Use str, int, float, bool, datetime, list, or None.",
     ))
+}
+
+/// Extract a `Vec<f32>` from a Python object using the buffer protocol
+/// (NumPy, `array.array`, `memoryview`, `bytes`, `bytearray`) for zero-copy,
+/// with fallback to Python list extraction.
+fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec<f32>> {
+    // Attempt zero-copy via buffer protocol (requires Python 3.11+)
+    if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
+        if buf.is_c_contiguous() {
+            if let Some(slice) = buf.as_slice(py) {
+                return Ok(slice.iter().map(|cell| cell.get()).collect());
+            }
+        }
+        // Non-contiguous or as_slice failed: use to_vec as fallback
+        if let Ok(v) = buf.to_vec(py) {
+            return Ok(v);
+        }
+    }
+    // Try f64 buffer (common in NumPy) and downcast to f32
+    if let Ok(buf) = pyo3::buffer::PyBuffer::<f64>::get(obj) {
+        if buf.is_c_contiguous() {
+            if let Ok(v) = buf.to_vec(py) {
+                return Ok(v.into_iter().map(|x| x as f32).collect());
+            }
+        }
+    }
+    // Fallback: PyO3 native Vec<f32> extraction
+    obj.extract::<Vec<f32>>().map_err(|e| {
+        PyTypeError::new_err(format!(
+            "Expected a list of floats or a NumPy array (buffer protocol). Got: {}",
+            e
+        ))
+    })
 }
 
 fn set_python_value(
@@ -527,12 +562,13 @@ impl VantaDB {
         py: Python,
         id: u64,
         content: &str,
-        vector: Vec<f32>,
+        vector: &Bound<'_, PyAny>,
         fields: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
         let mut input = VantaNodeInput::new(id);
         input.content = Some(content.to_string());
-        input.vector = (!vector.is_empty()).then_some(vector);
+        let v = extract_vector(vector, py)?;
+        input.vector = (!v.is_empty()).then_some(v);
 
         if let Some(extra) = fields {
             for (key, value) in extra.iter() {
@@ -560,11 +596,17 @@ impl VantaDB {
         key: &str,
         payload: &str,
         metadata: Option<&Bound<'_, PyDict>>,
-        vector: Option<Vec<f32>>,
+        vector: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyObject> {
         let mut input = VantaMemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
-        input.vector = vector.filter(|v| !v.is_empty());
+        input.vector = match vector {
+            Some(v) => {
+                let vec = extract_vector(v, py)?;
+                (!vec.is_empty()).then_some(vec)
+            }
+            None => None,
+        };
 
         let engine = self.engine.clone();
         let record = py.allow_threads(move || {
@@ -646,7 +688,7 @@ impl VantaDB {
         &self,
         py: Python,
         namespace: &str,
-        query_vector: Vec<f32>,
+        query_vector: &Bound<'_, PyAny>,
         filters: Option<&Bound<'_, PyDict>>,
         text_query: Option<String>,
         top_k: usize,
@@ -660,7 +702,7 @@ impl VantaDB {
 
         let request = VantaMemorySearchRequest {
             namespace: namespace.to_string(),
-            query_vector,
+            query_vector: extract_vector(query_vector, py)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k,
@@ -806,11 +848,12 @@ impl VantaDB {
     ///     vector: Query embedding vector.
     ///     top_k: Number of nearest neighbors to return.
     #[pyo3(signature = (vector, top_k=10))]
-    fn search(&self, py: Python, vector: Vec<f32>, top_k: usize) -> PyResult<Vec<(u64, f32)>> {
+    fn search(&self, py: Python, vector: &Bound<'_, PyAny>, top_k: usize) -> PyResult<Vec<(u64, f32)>> {
+        let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
         py.allow_threads(move || {
             engine
-                .search_vector(&vector, top_k)
+                .search_vector(&v, top_k)
                 .map(|hits| {
                     hits.into_iter()
                         .map(|hit| (hit.node_id, hit.distance))
@@ -831,13 +874,15 @@ impl VantaDB {
     fn search_batch(
         &self,
         py: Python,
-        vectors: Vec<Vec<f32>>,
+        vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
     ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+        let parsed: PyResult<Vec<Vec<f32>>> = vectors.iter().map(|v| extract_vector(v, py)).collect();
+        let parsed = parsed?;
         let engine = self.engine.clone();
         py.allow_threads(move || {
             use rayon::prelude::*;
-            vectors
+            parsed
                 .into_par_iter()
                 .map(|vector| {
                     engine

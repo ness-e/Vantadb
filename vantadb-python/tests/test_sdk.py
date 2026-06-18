@@ -370,6 +370,65 @@ class TestEdgeManagement:
         assert edge[1] == "relates_to"  # label
 
 
+class TestNumPyIntegration:
+    """Zero-copy NumPy array support."""
+
+    def test_insert_with_numpy_vector(self):
+        """Insert with numpy array should work identically to list."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vec = np.ones(384, dtype=np.float32)
+        db.insert(1, "numpy test", vec)
+        node = db.get(1)
+        assert node is not None
+        assert node["vector_dims"] == 384
+
+    def test_search_with_numpy_vector(self):
+        """Search with numpy array should return results."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        for i in range(5):
+            db.insert(i + 1, f"Node {i}", np.full(384, float(i) * 0.1, dtype=np.float32))
+        results = db.search(np.zeros(384, dtype=np.float32), top_k=3)
+        assert len(results) > 0
+        assert all(isinstance(r, tuple) and len(r) == 2 for r in results)
+
+    def test_memory_put_with_numpy_vector(self):
+        """Memory put with numpy array should work."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        record = db.put("ns", "k", "payload", vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+        assert record["namespace"] == "ns"
+        assert record["key"] == "k"
+
+    def test_memory_search_with_numpy_vector(self):
+        """Memory search with numpy array should work."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "k1", "hello", vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+        hits = db.search_memory("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=3)
+        assert len(hits) == 1
+        assert hits[0]["record"]["key"] == "k1"
+
+    def test_numpy_f64_auto_downcast(self):
+        """f64 numpy arrays should auto-downcast to f32."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vec_f64 = np.ones(128, dtype=np.float64)
+        db.insert(1, "f64 test", vec_f64)
+        node = db.get(1)
+        assert node is not None
+        assert node["vector_dims"] == 128
+
+    def test_list_fallback_still_works(self):
+        """Regular Python lists should still work after buffer protocol changes."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.insert(1, "list test", [0.5] * 128)
+        node = db.get(1)
+        assert node is not None
+        assert node["vector_dims"] == 128
+
+
 class TestMemoryBoundary:
     """Memory budget isolation tests."""
 

@@ -324,6 +324,17 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 
 ---
 
+### TSK-68 — Zero-copy NumPy FFI (Buffer Protocol)
+
+- **Objetivo:** Eliminar el overhead de conversión Python→Rust (~62ms) aceptando `numpy.ndarray` y cualquier objeto buffer protocol mediante `PyBuffer::<f32>::get()` de PyO3, evitando la iteración elemento por elemento de Python lists.
+- **Implementación:**
+  - `extract_vector()` helper que intenta buffer protocol (NumPy, array.array, memoryview, bytes) primero, cae a `Vec<f32>`.
+  - Soporte f64 con downcast automático a f32.
+  - `abi3-py38` → `abi3-py311` para habilitar `pyo3::buffer`.
+  - Todos los métodos actualizados: `insert`, `put`, `search`, `search_memory`, `search_batch`.
+- **Tests:** 6 nuevos tests NumPy: insert, search, memory_put, memory_search, f64 downcast, list fallback.
+- **Resultado:** 22/22 tests Python pasan. Backward compat total (lists funcionan igual).
+
 ### TSK-52 — SIGTERM Shutdown Handler (Flush WAL + Fjall)
 
 - **Objetivo:** Implementar manejador de señales SIGTERM (Unix) y Ctrl+C (Windows) que realice un graceful shutdown completo: drenar conexiones activas → flush del storage engine (WAL, backend KV, HNSW) → salida limpia.
