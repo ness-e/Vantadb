@@ -323,6 +323,34 @@ impl WalWriter {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    /// Rotate the WAL: flush, close, archive as `vanta.wal.<timestamp>`,
+    /// then create a fresh empty WAL at the original path.
+    ///
+    /// Returns a new `WalWriter` with `record_count = 0` and `bytes_written = 0`.
+    pub fn rotate(mut self, sync_mode: crate::config::SyncMode) -> Result<Self> {
+        self.sync()?;
+        let old_path = self.path.clone();
+        drop(self);
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let archive_name = format!(
+            "{}.{}",
+            old_path.file_name().unwrap_or_default().to_string_lossy(),
+            now
+        );
+        let archive_path = old_path.with_file_name(&archive_name);
+
+        if archive_path.exists() {
+            std::fs::remove_file(&archive_path)?;
+        }
+        std::fs::rename(&old_path, &archive_path)?;
+
+        Self::open(&old_path, sync_mode)
+    }
 }
 
 // ─── WAL Reader ────────────────────────────────────────────
