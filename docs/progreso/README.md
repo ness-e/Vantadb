@@ -324,6 +324,22 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 
 ---
 
+## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
+
+- **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
+- **Cambios:**
+  - Restauradas **10 tareas ROAD** (Roadmap v2: Web UI, Bulk Import, Multi-model Hooks, etc.)
+  - Restauradas **14 tareas DIST** (Distribuido: Raft, Sharding, Auto-Indexing, CDC, etc.)
+  - Restauradas **10 tareas LISP** (VantaLISP: Bytecode JIT, CRDTs, Fuel 2.0, etc.)
+  - Restaurados **HAZ/LOW** descartados con razones exactas
+  - Restaurados **DISC-06→11** completados con sus resoluciones
+  - Restaurada tabla de **Veredicto** (estado del proyecto por módulo)
+  - Restaurada sección **No Hacer** con argumentos
+  - Nuevo formato: Icebox al final, tareas activas por FASE 3/4/5, DISC completados visibles
+- **Resultado:** Backlog.md contiene todo — activo, postergado, descartado, completado, veredicto. Cero pérdida de datos.
+
+---
+
 ## Resumen Ejecutivo
 
 | Categoría | Fases | Logros Clave |
