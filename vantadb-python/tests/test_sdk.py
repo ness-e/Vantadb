@@ -401,6 +401,48 @@ class TestNumPyIntegration:
         assert record["namespace"] == "ns"
         assert record["key"] == "k"
 
+    def test_put_batch_parallel(self):
+        """put_batch should insert multiple records in parallel and return them in order."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        entries = [
+            ("ns1", "a", "alpha", None, None),
+            ("ns1", "b", "beta", {"type": "greek"}, None),
+            ("ns2", "c", "gamma", None, [1.0, 0.0, 0.0]),
+            ("ns1", "d", "delta", {"rank": "4"}, [0.0, 1.0, 0.0]),
+        ]
+        records = db.put_batch(entries)
+        assert len(records) == 4
+
+        assert records[0]["namespace"] == "ns1"
+        assert records[0]["key"] == "a"
+        assert records[0]["payload"] == "alpha"
+        assert records[0]["version"] == 1
+
+        assert records[1]["metadata"]["type"] == "greek"
+        assert len(records[2]["vector"]) == 3
+        assert records[3]["metadata"]["rank"] == "4"
+
+        # verify persisted
+        fetched = db.get_memory("ns1", "d")
+        assert fetched["payload"] == "delta"
+
+    def test_put_batch_empty(self):
+        """put_batch with empty list should return empty list."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        records = db.put_batch([])
+        assert records == []
+
+    def test_put_batch_numpy_vectors(self):
+        """put_batch should accept numpy arrays as vectors."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vec = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        records = db.put_batch([
+            ("ns", "x", "numpy entry", None, vec),
+        ])
+        assert len(records) == 1
+        assert records[0]["key"] == "x"
+
     def test_memory_search_with_numpy_vector(self):
         """Memory search with numpy array should work."""
         import numpy as np

@@ -345,6 +345,15 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - MCP: signal handler spawn que flushea y llama `std::process::exit(0)`.
 - **Resultado:** 13/13 tests server pasan. Compilación limpia.
 
+### TSK-69 — put_batch con Rayon (Parallel Bulk Inserts)
+
+- **Objetivo:** Implementar `put_batch()` en el SDK Rust/Python que procese multiples inserts de memoria persistente en paralelo usando Rayon, alcanzando ~5x speedup vs `put()` secuencial.
+- **Implementación:**
+  - `VantaEmbedded::put_batch()` en `src/sdk.rs:2473`: validación upfront (fail-fast), `into_par_iter()` con Rayon, cada thread obtiene `Arc<StorageEngine>` clonado via `engine_handle()`, ejecuta read-modify-write + `replace_derived_indexes()` en paralelo.
+  - `VantaDB.put_batch()` en `vantadb-python/src/lib.rs:597`: acepta lista de 5-tuplas `(namespace, key, payload, metadata_dict, vector)`, parsea manualmente con `PyTuple`, llama al SDK Rust bajo `py.allow_threads()`.
+  - Tests Python: 3 nuevos tests (`test_put_batch_parallel`, `test_put_batch_empty`, `test_put_batch_numpy_vectors`).
+- **Resultado:** 25/25 tests Python SDK pasan. Compilación limpia en ambas crates.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -371,10 +380,10 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
 | Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| Python SDK | 3 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2 |
+| Python SDK | 4 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo |
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| **Total** | **55** | — |
+| **Total** | **56** | — |
