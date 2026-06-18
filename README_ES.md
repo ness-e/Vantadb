@@ -9,6 +9,9 @@
   [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&color=blue)](https://github.com/ness-e/Vantadb/releases)
   [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
   [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&color=blue)](https://pypi.org/project/vantadb-py/)
+  [![PyPI Downloads](https://img.shields.io/pypi/dm/vantadb-py?label=Downloads&color=blue)](https://pypi.org/project/vantadb-py/)
+  [![crates.io](https://img.shields.io/crates/v/vantadb?label=crates.io&color=blue)](https://crates.io/crates/vantadb)
+  [![Crates.io Downloads](https://img.shields.io/crates/d/vantadb?label=Crate%20Downloads&color=blue)](https://crates.io/crates/vantadb)
   [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://pypi.org/project/vantadb-py/)
   [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg)](https://www.rust-lang.org/)
 </div>
