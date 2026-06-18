@@ -1,6 +1,7 @@
-use prometheus::{Histogram, IntCounter, IntGauge, Registry};
+use prometheus::{exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
+use std::time::Instant;
 
 // Ensure singleton metrics registry across the binary
 pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
@@ -362,6 +363,53 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
         .expect("FATAL: Failed to register VOLATILE_CACHE_CAP_BYTES");
     gauge
 });
+
+// ── HTTP request metrics (middleware in cli_server) ─────────────────────
+
+fn http_buckets() -> Vec<f64> {
+    exponential_buckets(0.5, 2.0, 12).expect("FATAL: http_buckets")
+}
+
+pub static HTTP_REQUEST_DURATION_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
+    let hist = HistogramVec::new(
+        prometheus::HistogramOpts::new(
+            "vanta_http_request_duration_ms",
+            "HTTP request latency in ms by method and route",
+        )
+        .buckets(http_buckets()),
+        &["method", "route"],
+    )
+    .expect("FATAL: Failed to create HTTP_REQUEST_DURATION_MS");
+    METRICS_REGISTRY
+        .register(Box::new(hist.clone()))
+        .expect("FATAL: Failed to register HTTP_REQUEST_DURATION_MS");
+    hist
+});
+
+pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    let counter = IntCounterVec::new(
+        prometheus::Opts::new(
+            "vanta_http_requests_total",
+            "Total HTTP requests by method, route, and status",
+        ),
+        &["method", "route", "status"],
+    )
+    .expect("FATAL: Failed to create HTTP_REQUESTS_TOTAL");
+    METRICS_REGISTRY
+        .register(Box::new(counter.clone()))
+        .expect("FATAL: Failed to register HTTP_REQUESTS_TOTAL");
+    counter
+});
+
+pub fn record_http_request(method: &str, route: &str, status: u16, start: Instant) {
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+    HTTP_REQUEST_DURATION_MS
+        .with_label_values(&[method, route])
+        .observe(elapsed_ms);
+    HTTP_REQUESTS_TOTAL
+        .with_label_values(&[method, route, &status.to_string()])
+        .inc();
+}
 
 static LAST_STARTUP_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_REPLAY_MS: AtomicU64 = AtomicU64::new(0);

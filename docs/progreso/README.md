@@ -405,6 +405,18 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `docs/operations/DURABILITY_GUARANTEES.md`: 9 secciones cubriendo el write path, flush & checkpoint, crash recovery, tabla de garantías vs no-garantías, 7 escenarios de fallo detallados, trade-offs de SyncMode, y recomendaciones de backup.
 - **Resultado:** Documentación de referencia para adopción enterprise. Referencia a 5 suites de tests existentes que verifican las garantías.
 
+### TSK-93 — Prometheus Completo: Histogramas HTTP con p50/p95/p99
+
+- **Objetivo:** Agregar métricas HTTP al endpoint `/metrics` con histogramas de latencia y contadores por endpoint/status, permitiendo cálculo de p50/p95/p99 en herramientas como Grafana.
+- **Implementación:**
+  - `HTTP_REQUEST_DURATION_MS` (HistogramVec con buckets exponenciales 0.5→1024ms, labels method+route) — latencia por endpoint y método HTTP.
+  - `HTTP_REQUESTS_TOTAL` (CounterVec con labels method+route+status) — conteo de requests por endpoint, método y código de estado.
+  - `record_http_request()` — función para registrar timing y status desde middleware.
+  - `request_metrics_middleware` en `cli_server.rs` — middleware axum que captura `Instant::now()` antes de procesar el request y registra la duración + status después. Aplicada al router externo (cubre /health, /metrics y /api/v2/query).
+  - Fix en `vantadb-mcp/src/lib.rs`: campo `ttl_ms: None` agregado a `VantaMemoryInput`.
+- **Tests:** 6/6 tests E2E del servidor HTTP pasan (incluyen verificación de /metrics).
+- **Resultado:** `/metrics` ahora expone latencia por endpoint. Total: 62 tareas completadas.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -433,7 +445,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
 | Python SDK | 6 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo, AsyncVantaDB (asyncio), type stubs .pyi |
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
-| Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
+| Observabilidad | 4 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99) |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 7 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees doc |
-| **Total** | **61** | — |
+| **Total** | **62** | — |
