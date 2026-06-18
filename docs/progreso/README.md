@@ -398,6 +398,13 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 - **Tests:** 4 tests: `test_put_with_ttl`, `test_put_without_ttl`, `test_lazy_eviction`, `test_purge_expired`.
 - **Resultado:** 34/34 tests Python pasan. Backward compat total (records sin TTL tienen `expires_at_ms=None`).
 
+### TSK-70 — Documento de Garantías de Durabilidad
+
+- **Objetivo:** Documentar exhaustivamente las garantías de durabilidad de VantaDB — qué sucede en cada escenario de fallo (crash, power loss, disk full, corrupción WAL, SIGTERM, concurrencia multi-proceso).
+- **Archivo creado:**
+  - `docs/operations/DURABILITY_GUARANTEES.md`: 9 secciones cubriendo el write path, flush & checkpoint, crash recovery, tabla de garantías vs no-garantías, 7 escenarios de fallo detallados, trade-offs de SyncMode, y recomendaciones de backup.
+- **Resultado:** Documentación de referencia para adopción enterprise. Referencia a 5 suites de tests existentes que verifican las garantías.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -428,5 +435,5 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
-| Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
-| **Total** | **60** | — |
+| Documentación | 7 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees doc |
+| **Total** | **61** | — |
