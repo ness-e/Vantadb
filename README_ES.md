@@ -6,14 +6,14 @@
   [![Python Wheels](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml)
   [![Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml)
   [![Benchmarks](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml)
-  [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&color=blue)](https://github.com/ness-e/Vantadb/releases)
+  [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=blue)](https://github.com/ness-e/Vantadb/releases)
   [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-  [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&color=blue)](https://pypi.org/project/vantadb-py/)
-  [![PyPI Downloads](https://img.shields.io/pypi/dm/vantadb-py?label=Downloads&color=blue)](https://pypi.org/project/vantadb-py/)
-  [![crates.io](https://img.shields.io/crates/v/vantadb?label=crates.io&color=blue)](https://crates.io/crates/vantadb)
-  [![Crates.io Downloads](https://img.shields.io/crates/d/vantadb?label=Crate%20Downloads&color=blue)](https://crates.io/crates/vantadb)
-  [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://pypi.org/project/vantadb-py/)
-  [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg)](https://www.rust-lang.org/)
+  [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/vantadb-py/)
+  [![PyPI Downloads](https://img.shields.io/pypi/dm/vantadb-py?label=Downloads&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/vantadb-py/)
+  [![crates.io](https://img.shields.io/crates/v/vantadb?label=crates.io&logo=rust&logoColor=white&color=blue)](https://crates.io/crates/vantadb)
+  [![Crates.io Downloads](https://img.shields.io/crates/d/vantadb?label=Crate%20Downloads&logo=rust&logoColor=white&color=blue)](https://crates.io/crates/vantadb)
+  [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python&logoColor=white)](https://pypi.org/project/vantadb-py/)
+  [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 </div>
 
 <div align="center">
