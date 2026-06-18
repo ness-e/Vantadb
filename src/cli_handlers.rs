@@ -26,18 +26,6 @@ pub fn create_spinner(message: &str) -> ProgressBar {
     pb
 }
 
-pub fn create_progress_bar(len: u64, message: &str) -> ProgressBar {
-    let pb = ProgressBar::new(len);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .expect("valid progress template")
-            .progress_chars("█▓▒░"),
-    );
-    pb.set_message(message.to_string());
-    pb
-}
-
 fn success_style() -> Style {
     Style::new().green().bold()
 }
@@ -648,73 +636,14 @@ pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
 
 pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> Result<()> {
     let spinner = create_spinner("Opening database...");
-
-    let engine = open_database(db_path, true)?;
-    spinner.set_message("Scanning records...");
-
-    let nodes = engine.scan_nodes()?;
-
-    // Filter by namespace if specified
-    let filtered: Vec<_> = if let Some(ns) = namespace {
-        nodes
-            .into_iter()
-            .filter(|n| {
-                n.relational
-                    .get(FIELD_NAMESPACE)
-                    .map(|v| matches!(v, crate::node::FieldValue::String(s) if s == ns))
-                    .unwrap_or(false)
-            })
-            .collect()
-    } else {
-        nodes
-    };
-
-    spinner.set_message("Exporting records...");
-
-    // Simple JSON export format
-    let mut output = String::from("[\n");
-    for (i, node) in filtered.iter().enumerate() {
-        if i > 0 {
-            output.push_str(",\n");
-        }
-        let namespace = node
-            .relational
-            .get(FIELD_NAMESPACE)
-            .and_then(|v| match v {
-                crate::node::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            })
-            .unwrap_or_default();
-        let key = node
-            .relational
-            .get(FIELD_KEY)
-            .and_then(|v| match v {
-                crate::node::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            })
-            .unwrap_or_default();
-        let payload = node
-            .relational
-            .get(FIELD_PAYLOAD)
-            .and_then(|v| match v {
-                crate::node::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            })
-            .unwrap_or_default();
-
-        output.push_str(&format!(
-            r#"  {{"namespace": "{}", "key": "{}", "payload": "{}", "node_id": {}}}"#,
-            namespace.replace('"', "\\\""),
-            key.replace('"', "\\\""),
-            payload.replace('"', "\\\"").replace('\n', "\\n"),
-            node.id
-        ));
-    }
-    output.push_str("\n]");
-
-    std::fs::write(output_path, output).map_err(crate::error::VantaError::IoError)?;
-
+    let embedded = open_embedded(db_path, true)?;
     spinner.finish_and_clear();
+
+    let report = if let Some(ns) = namespace {
+        embedded.export_namespace(output_path, ns)?
+    } else {
+        embedded.export_all(output_path)?
+    };
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -730,7 +659,10 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
         "{}",
         header_style().apply_to("├─────────────────────────────────────────┤")
     ));
-    let _ = term.write_line(&format!("│  Records exported:   {:<18} │", filtered.len()));
+    let _ = term.write_line(&format!(
+        "│  Records exported:   {:<18} │",
+        report.records_exported
+    ));
     let _ = term.write_line(&format!("│  Output file:        {:<18} │", output_path));
     let _ = term.write_line(&format!(
         "{}",
@@ -757,7 +689,6 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
     ));
     let _ = term.write_line("");
 
-    // Validate input file exists
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
         return Err(crate::error::VantaError::Execution(format!(
@@ -767,77 +698,12 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
     }
 
     let spinner = create_spinner("Opening database...");
-    let engine = open_database(db_path, false)?;
+    let embedded = open_embedded(db_path, false)?;
     spinner.finish_and_clear();
     print_success("Database opened");
 
-    // Read and parse JSON
-    let count_spinner = create_spinner("Reading import file...");
-    let content = std::fs::read_to_string(input_path).map_err(crate::error::VantaError::IoError)?;
-    count_spinner.finish_and_clear();
-
-    // Simple JSON parsing (expects array of objects with namespace, key, payload)
-    let start = Instant::now();
-    let mut inserted = 0u64;
-    let mut errors = 0u64;
-
-    // Very basic JSON parsing - look for patterns in the export format
-    let pb = create_progress_bar(content.lines().count() as u64, "Importing...");
-
-    for line in content.lines() {
-        pb.inc(1);
-        let line = line.trim();
-        if line.starts_with('{') {
-            // Try to extract namespace, key, payload from the line
-            if let (Some(ns), Some(key), Some(payload)) = (
-                extract_json_field(line, "namespace"),
-                extract_json_field(line, "key"),
-                extract_json_field(line, "payload"),
-            ) {
-                let node_id = memory_node_id(&ns, &key);
-                let mut node = crate::node::UnifiedNode::new(node_id);
-
-                node.relational.insert(
-                    FIELD_NAMESPACE.to_string(),
-                    crate::node::FieldValue::String(ns),
-                );
-                node.relational
-                    .insert(FIELD_KEY.to_string(), crate::node::FieldValue::String(key));
-                node.relational.insert(
-                    FIELD_PAYLOAD.to_string(),
-                    crate::node::FieldValue::String(
-                        payload.replace("\\n", "\n").replace("\\\"", "\""),
-                    ),
-                );
-
-                let now_ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64;
-
-                node.relational.insert(
-                    FIELD_CREATED_AT_MS.to_string(),
-                    crate::node::FieldValue::Int(now_ms as i64),
-                );
-                node.flags.set(crate::node::NodeFlags::ACTIVE);
-
-                match engine.insert(&node) {
-                    Ok(_) => inserted += 1,
-                    Err(_) => errors += 1,
-                }
-            } else {
-                errors += 1;
-            }
-        }
-    }
-
-    pb.finish_and_clear();
-
-    let flush_spinner = create_spinner("Flushing changes...");
-    engine.flush()?;
-    flush_spinner.finish_and_clear();
-
-    let duration = start.elapsed();
+    let report = embedded.import_file(input_path)?;
+    embedded.flush()?;
 
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
@@ -852,18 +718,22 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
         "{}",
         header_style().apply_to("├─────────────────────────────────────────┤")
     ));
-    let _ = term.write_line(&format!("│  Inserted:           {:<18} │", inserted));
+    let _ = term.write_line(&format!("│  Inserted:           {:<18} │", report.inserted));
 
-    if errors > 0 {
+    if report.updated > 0 {
+        let _ = term.write_line(&format!("│  Updated:            {:<18} │", report.updated));
+    }
+
+    if report.errors > 0 {
         let _ = term.write_line(&format!(
             "{}",
-            error_style().apply_to(format!("│  Errors:             {:<18} │", errors))
+            error_style().apply_to(format!("│  Errors:             {:<18} │", report.errors))
         ));
     }
 
     let _ = term.write_line(&format!(
         "│  Duration:           {:<18} │",
-        format!("{:?}", duration)
+        format!("{:?}", std::time::Duration::from_millis(report.duration_ms))
     ));
     let _ = term.write_line(&format!(
         "{}",
@@ -871,19 +741,6 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
     ));
 
     Ok(())
-}
-
-/// Extract a string field value from a simple JSON object line
-fn extract_json_field(line: &str, field: &str) -> Option<String> {
-    let pattern = format!("\"{}\": \"", field);
-    if let Some(start) = line.find(&pattern) {
-        let value_start = start + pattern.len();
-        let rest = &line[value_start..];
-        if let Some(end) = rest.find('"') {
-            return Some(rest[..end].to_string());
-        }
-    }
-    None
 }
 
 pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Result<()> {
