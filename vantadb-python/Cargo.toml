@@ -6,7 +6,7 @@ description = "VantaDB Python SDK: source-installed embedded persistent memory b
 license = "Apache-2.0"
 
 [lib]
-name = "vantadb_py"
+name = "vantadb_native"
 crate-type = ["cdylib"]
 
 [dependencies]

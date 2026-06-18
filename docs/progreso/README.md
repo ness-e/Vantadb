@@ -354,6 +354,24 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - Tests Python: 3 nuevos tests (`test_put_batch_parallel`, `test_put_batch_empty`, `test_put_batch_numpy_vectors`).
 - **Resultado:** 25/25 tests Python SDK pasan. Compilación limpia en ambas crates.
 
+### TSK-73 — Async Python API (asyncio: search_memory, get_memory, list_memory)
+
+- **Objetivo:** Proporcionar API asíncrona nativa de Python para operaciones de consulta, liberando el GIL durante operaciones de I/O y cómputo en el motor Rust. Cubre los 3 métodos de query: `search_memory`, `get_memory`, `list_memory`.
+- **Implementación:**
+  - Reestructuración del package: Rust crate renombrado a `vantadb_native`, nueva carpeta `vantadb_py/` como package Python mixto.
+  - `vantadb_py/__init__.py`: clase `AsyncVantaDB` con async context manager y métodos async usando `asyncio.to_thread()` + `functools.partial`. Incluye `put`, `delete_memory`, `flush` como async por completitud.
+  - `vantadb_py/vantadb_native.pyi`: type stubs completos para toda la API nativa (30 métodos tipados).
+  - `vantadb_py/.gitignore` para excluir `*.pyd` y `__pycache__/`.
+- **Tests:** 3 tests async (`test_async_basic_crud`, `test_async_list_memory`, `test_async_delete_and_flush`).
+- **Resultado:** 28/28 tests Python pasan. Backward compat total (`import vantadb_py as vanta` sigue funcionando).
+
+### TSK-74 — Python Type Stubs (.pyi)
+
+- **Objetivo:** Proveer tipos completos para autocompletado (IDE), type checking (mypy/pyright) y documentación inline de la SDK Python.
+- **Implementación:**
+  - `vantadb_py/vantadb_native.pyi`: 30 métodos tipados de `VantaDB`, incluyendo parámetros con defaults, tipos complejos (`list[tuple[int, float]]`, `dict | None`), y docstrings.
+- **Resultado:** Cobertura de tipos al 100% para toda la API pública expuesta por el módulo nativo.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -380,10 +398,10 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
 | Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| Python SDK | 4 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo |
+| Python SDK | 6 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo, AsyncVantaDB (asyncio), type stubs .pyi |
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| **Total** | **56** | — |
+| **Total** | **58** | — |
