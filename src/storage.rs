@@ -1772,11 +1772,8 @@ impl StorageEngine {
 
         // Reset checkpoint_seq to 0 since the new WAL is empty.
         let zero: [u8; 8] = 0u64.to_le_bytes();
-        self.backend.put(
-            BackendPartition::InternalMetadata,
-            b"checkpoint_seq",
-            &zero,
-        )?;
+        self.backend
+            .put(BackendPartition::InternalMetadata, b"checkpoint_seq", &zero)?;
         self.backend.flush()?;
 
         Ok(())

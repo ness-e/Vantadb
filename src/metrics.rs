@@ -1,4 +1,6 @@
-use prometheus::{exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry};
+use prometheus::{
+    exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry,
+};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::Instant;

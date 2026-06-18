@@ -11,17 +11,21 @@ pub struct ClientEngine {
 
 impl Default for ClientEngine {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("ClientEngine::default() failed to open StorageEngine")
     }
 }
 
 #[pymethods]
 impl ClientEngine {
     #[new]
-    pub fn new() -> Self {
-        ClientEngine {
-            _storage: StorageEngine::open("vantadb_data").expect("Failed to open StorageEngine"),
-        }
+    pub fn new() -> PyResult<Self> {
+        Ok(ClientEngine {
+            _storage: StorageEngine::open("vantadb_data").map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to open StorageEngine: {e}"
+                ))
+            })?,
+        })
     }
 
     /// High level query mapping directly traversing the execution plan.

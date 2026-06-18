@@ -1,7 +1,8 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple, PyTupleMethods,
+    PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
+    PyTupleMethods,
 };
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
@@ -74,9 +75,7 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
             for item in py_list.iter() {
                 let val: f64 = item.extract()?;
                 if val.is_nan() {
-                    return Err(PyTypeError::new_err(
-                        "ListFloat elements cannot be NaN.",
-                    ));
+                    return Err(PyTypeError::new_err("ListFloat elements cannot be NaN."));
                 }
                 if val.is_infinite() {
                     return Err(PyTypeError::new_err(
@@ -104,9 +103,7 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     }
     if let Ok(float) = value.extract::<f64>() {
         if float.is_nan() {
-            return Err(PyTypeError::new_err(
-                "Float field value cannot be NaN.",
-            ));
+            return Err(PyTypeError::new_err("Float field value cannot be NaN."));
         }
         if float.is_infinite() {
             return Err(PyTypeError::new_err(
@@ -599,11 +596,7 @@ impl VantaDB {
     /// Returns a list of record dicts in the same order as inputs.
     /// Up to ~5x faster than sequential `put()` calls for large batches.
     #[pyo3(signature = (entries))]
-    fn put_batch(
-        &self,
-        py: Python,
-        entries: &Bound<'_, PyAny>,
-    ) -> PyResult<Vec<PyObject>> {
+    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<PyObject>> {
         let mut inputs = Vec::with_capacity(entries.len().unwrap_or(0));
         for entry in entries.try_iter()? {
             let entry = entry?.downcast::<PyTuple>()?.clone();
@@ -621,15 +614,19 @@ impl VantaDB {
             } else {
                 None
             };
-            let vector_obj: Option<Bound<'_, PyAny>> = if entry.len() > 4 && !entry.get_item(4)?.is_none() {
-                Some(entry.get_item(4)?)
-            } else {
-                None
-            };
+            let vector_obj: Option<Bound<'_, PyAny>> =
+                if entry.len() > 4 && !entry.get_item(4)?.is_none() {
+                    Some(entry.get_item(4)?)
+                } else {
+                    None
+                };
             let ttl_ms: Option<u64> = if entry.len() > 5 {
                 let item = entry.get_item(5)?;
-                if item.is_none() { None }
-                else { Some(item.extract()?) }
+                if item.is_none() {
+                    None
+                } else {
+                    Some(item.extract()?)
+                }
             } else {
                 None
             };
@@ -923,7 +920,12 @@ impl VantaDB {
     ///     vector: Query embedding vector.
     ///     top_k: Number of nearest neighbors to return.
     #[pyo3(signature = (vector, top_k=10))]
-    fn search(&self, py: Python, vector: &Bound<'_, PyAny>, top_k: usize) -> PyResult<Vec<(u64, f32)>> {
+    fn search(
+        &self,
+        py: Python,
+        vector: &Bound<'_, PyAny>,
+        top_k: usize,
+    ) -> PyResult<Vec<(u64, f32)>> {
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
         py.allow_threads(move || {
@@ -952,7 +954,8 @@ impl VantaDB {
         vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
     ) -> PyResult<Vec<Vec<(u64, f32)>>> {
-        let parsed: PyResult<Vec<Vec<f32>>> = vectors.iter().map(|v| extract_vector(v, py)).collect();
+        let parsed: PyResult<Vec<Vec<f32>>> =
+            vectors.iter().map(|v| extract_vector(v, py)).collect();
         let parsed = parsed?;
         let engine = self.engine.clone();
         py.allow_threads(move || {

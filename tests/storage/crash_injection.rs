@@ -143,10 +143,7 @@ fn test_crash_injection_and_cold_recovery_loop() {
 
 #[test]
 fn test_crash_during_active_writes_with_tight_loop() {
-    TerminalReporter::suite_banner(
-        "ACTIVE-WRITE CRASH INJECTION & RECOVERY (AUD-03)",
-        1,
-    );
+    TerminalReporter::suite_banner("ACTIVE-WRITE CRASH INJECTION & RECOVERY (AUD-03)", 1);
     let mut session = VantaSession::begin("Active-Write Crash Loop (20 Iterations)");
 
     session.step("Building crash_helper binary...");
@@ -162,7 +159,11 @@ fn test_crash_during_active_writes_with_tight_loop() {
         .expect("Failed to build crash_helper");
     assert!(build_status.success(), "Failed to compile crash_helper");
 
-    let exe_name = if cfg!(windows) { "crash_helper.exe" } else { "crash_helper" };
+    let exe_name = if cfg!(windows) {
+        "crash_helper.exe"
+    } else {
+        "crash_helper"
+    };
     let profile = if release_mode { "release" } else { "debug" };
     let helper_path = std::env::current_dir()
         .unwrap()
@@ -250,6 +251,8 @@ fn test_crash_during_active_writes_with_tight_loop() {
         }
     }
 
-    session.success("Active-write crash-injection loop completed. 20/20 iterations recovered consistently.");
+    session.success(
+        "Active-write crash-injection loop completed. 20/20 iterations recovered consistently.",
+    );
     session.finish(true);
 }
