@@ -429,12 +429,12 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `vantadb-mcp/src/lib.rs:670`: `ttl_ms: None` agregado a `VantaMemoryInput`.
 - **Resultado:** 0 panics activables por runtime en producción. `cargo check --all-features`: 0 warnings/errors. `cargo clippy`: 0 warnings. 48 pruebas Rust lib, 33 CLI, 7 memory_api, 6 E2E server pasan. Total: 63 tareas completadas.
 
-### TSK-81 — README Badges (CI, PyPI, Downloads, License)
+### TSK-81 — README Badges con iconos de marca y estilo CI
 
-- **Objetivo:** Agregar badges faltantes al README para mejorar la presentación profesional del proyecto en GitHub.
+- **Objetivo:** Mejorar la presentación profesional del README con badges con iconos de marca (PyPI, Python, Rust, GitHub), colores corporativos y organización por categorías.
 - **Cambios:**
-  - `README.md` y `README_ES.md`: agregados 3 nuevos badges — PyPI Downloads (`pypi/dm`), crates.io version, crates.io downloads.
-- **Resultado:** 12 badges total (CI×4, Release, License, PyPI, PyPI Downloads, crates.io, crate downloads, Python version, Rust version). Total: 64 tareas completadas.
+  - `README.md` y `README_ES.md`: badges shields.io con `logo=` (github, pypi, python, rust), colores de marca (PyPI `#3775A9`, GitHub `#181717`, Python `#3776AB`, Rust `#000000`), layout en 2 filas (CI ×4 + Project ×5). Eliminados badges rotos (PyPI Downloads rate-limited, crates.io no publicado).
+- **Resultado:** 9 badges funcionales con iconos de marca, matching visual con los badges nativos de GitHub Actions. Total: 64 tareas completadas.
 
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
