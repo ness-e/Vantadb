@@ -91,6 +91,7 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
     Router::new()
         .merge(public)
         .merge(protected)
+        .layer(middleware::from_fn(request_metrics_middleware))
         .layer(Extension(auth_state))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(state)
@@ -161,6 +162,19 @@ async fn metrics_endpoint() -> impl IntoResponse {
         .header("Content-Type", "text/plain; version=0.0.4")
         .body(metrics_text)
         .unwrap()
+}
+
+pub async fn request_metrics_middleware(
+    req: axum::extract::Request,
+    next: middleware::Next,
+) -> Response {
+    let start = std::time::Instant::now();
+    let method = req.method().to_string();
+    let route = req.uri().path().to_string();
+    let res = next.run(req).await;
+    let status = res.status();
+    metrics::record_http_request(&method, &route, status.as_u16(), start);
+    res
 }
 
 async fn execute_query(

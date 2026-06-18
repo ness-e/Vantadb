@@ -667,6 +667,7 @@ pub fn handle_tools_call(
                 payload,
                 vector,
                 metadata,
+                ttl_ms: None,
             };
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
