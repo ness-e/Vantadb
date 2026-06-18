@@ -41,6 +41,17 @@ sysinfo = "0.30"
 memmap2 = "0.9"
 fs2 = "0.4"
 
+# ── HTTP Server (optional, behind feature = "server") ──
+tokio = { version = "1", features = ["full", "rt-multi-thread"], optional = true }
+axum = { version = "0.8", optional = true }
+tower = { version = "0.5", features = ["util"], optional = true }
+tower_governor = { version = "0.8", optional = true }
+tower-http = { version = "0.6.11", features = ["trace"], optional = true }
+axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
+rustls-pemfile = { version = "2", optional = true }
+opentelemetry_sdk = { version = "0.32.1", optional = true }
+opentelemetry-otlp = { version = "0.32.0", optional = true, features = ["grpc-tonic", "trace"] }
+
 # ── Console UX ──
 indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
@@ -48,7 +59,7 @@ clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
 rayon = "1.12"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 twox-hash = "2.1.2"
 fail = { version = "0.5", optional = true, features = ["failpoints"] }
 opentelemetry = { version = "0.32.0", optional = true }
@@ -62,8 +73,23 @@ failpoints = ["dep:fail"]
 remote-inference = ["reqwest"]
 python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
-opentelemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry"]
+opentelemetry = [
+    "dep:opentelemetry",
+    "dep:tracing-opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+    "opentelemetry_sdk/rt-tokio",
+]
 advanced-tokenizer = ["dep:tantivy"]
+server = [
+    "cli",
+    "dep:tokio",
+    "dep:axum",
+    "dep:tower",
+    "dep:tower_governor",
+    "dep:tower-http",
+]
+tls = ["dep:axum-server", "dep:rustls-pemfile"]
 
 [dependencies.mimalloc]
 version = "0.1"

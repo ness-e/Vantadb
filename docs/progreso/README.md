@@ -312,7 +312,15 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
  * **`TSK-26` (CLI):** Comando `delete` para eliminación de registros por namespace y key desde CLI. Usa `VantaEmbedded::delete()` con feedback de éxito/not-found. Soporta flag `--verbose` para mostrar node ID.
  * **`TSK-27` (CLI):** Comando `namespace` con subcomandos `list` (enumera todos los namespaces via `VantaEmbedded::list_namespaces()`) e `info` (recuento de registros y payload total via `VantaEmbedded::list()` con `limit=usize::MAX`).
  * **`TSK-29` (CLI):** Suite de 33 tests de integración CLI extraídos a tests dedicados. Se refactorizaron los handlers del binary (`src/bin/vanta-cli.rs`) a `src/cli_handlers.rs` como módulo público de la library crate (`vantadb::cli_handlers`) detrás de `#[cfg(feature = "cli")]`, haciendo los handlers testables desde tests de integración. Se agregó `[[test]]` en `Cargo.toml` con `required-features = ["cli"]`. Se corrigieron 3 tests que fallaban inicialmente: (1) `cmd_query` usaba `SELECT *` (IQL no soportado) → `FROM Persona`, (2) `cmd_search` fallaba sin text index BM25 → uso de `seed_embedded` con `VantaEmbedded::put()` para construir índices derivados. Todos los tests usan `tempfile::TempDir` para bases de datos aisladas y se ejecutan con `cargo test --test cli_tests`.
+ * **`TSK-28` (CLI/Import-Export):** Migración de import/export CLI a SDK `serde_json`. Reemplazó el parser manual `extract_json_field` por `VantaEmbedded::export_namespace()` / `import_file()`. Neto -143 líneas netas de código eliminado. Commit `620d714`.
+ * **`TSK-30` (CLI/Server):** Fusión del binario `vantadb-server` dentro de `vanta-cli` como subcomando `server` in-process. La lógica HTTP (axum + tokio + tower-governor + middleware auth) se movió a `vantadb::cli_server` bajo `#[cfg(feature = "server")]`. `vantadb-server` se convirtió en wrapper delgado. MCP (`--mcp`) mantiene subproceso externo (`vantadb-server --mcp`). `cmd_server` ejecuta HTTP in-process vs subproceso anterior. Dependencias pesadas (tokio, axum, tower, tower-governor, tower-http) son opcionales detrás de `feature = "server"`. Tests: 33 CLI + 13 server unit + 6 E2E HTTP real pasan. `cargo fmt --check` pasa.
  * **CI/CD Fixes (Jun 2026):** Corrección de workflows de GitHub Actions: toolchain unificado a `@stable`, runner `windows-2025-vs2026` → `windows-latest`, eliminación de `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` obsoleto, push mejorado con `GITHUB_TOKEN` en bench.yml, y exclusión de `crash_injection` del profile audit en nextest.
+ * **DISC-01 (Jun 2026):** Verificación de todos los consumidores de `ExecutionResult` (3 variants: Read, Write, StaleContext) en `python.rs`, `sdk.rs`, `cli_handlers.rs`, `cli_server.rs`, `vantadb-mcp/lib.rs`. Ningún panic posible — todos los match arms están cubiertos.
+ * **TSK-23 (Jun 2026):** Corrección de scripts skills: `test-mcp.py` (binary name `vanta-server` → `vantadb-server`), `setup-vantadb.sh` (3 usos de `vanta-server` + ruta `cargo install`), `create-namespace.py` (import `vantadb` → `vantadb_py`, emojis → texto ASCII para Windows).
+ * **TSK-53 (Jun 2026):** Validación NaN/Inf en metadata FFI Python. `py_any_to_value()` en `vantadb-python/src/lib.rs` rechaza `float('nan')`, `float('inf')`, `float('-inf')` con `PyTypeError` en Float escalar y ListFloat elemento a elemento. 16 tests Python pasan.
+ * **TSK-36 (Jun 2026):** Auditoría estructural del text index (src/text_index.rs, sdk.rs, planner.rs, metrics.rs). No se encontraron issues críticos de concurrencia o integridad. Observaciones menores: sin rate limit en lexical search, TOCTOU benigno en cache.
+ * **TSK-38 (Jun 2026):** Corpus interno de evaluación extendido. Nuevo test `extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace` con 10 documentos (namespace A) + 4 (namespace B). Valida: ranking TF saturation, phrase query exacta, empty/sin-match queries, namespace isolation, filtro+text intersection, top_k clamping. Ambos tests de certificación pasan.
+ * **DISC-04 (Jun 2026):** Extensión de crash injection con kill -9 durante writes activos. Nuevo test `test_crash_during_active_writes_with_tight_loop`: helper `crash_helper` con modo `tight` (sin sleep entre writes); se mata el proceso inmediatamente tras el primer write confirmado. 20 iteraciones. Verifica: DB reabre, nodo confirmado presente, HNSW estructuralmente válido. Ambos tests de crash injection pasan (AUD-02 + AUD-03).
 
 ---
 
@@ -322,14 +330,14 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 |---|:---:|---|
 | Rendimiento HNSW | 9 | 2.22x aceleración, latencia p50 200ms→0.17ms, RCU lock-free |
 | Almacenamiento/WAL | 4 | CRC32C, headers uniformes, mimalloc, tipos DateTime/Listas |
-| Seguridad/Resiliencia | 8 | Crash-injection 100/100, chaos testing, advisory locks, TLS/Auth, cert-managed TLS tests |
+| Seguridad/Resiliencia | 11 | Crash-injection 30/30 (AUD-02/03), chaos testing, advisory locks, TLS/Auth, text index audit, ExecutionResult verification |
 | Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
 | Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| Python SDK | 2 | search_batch paralelo, pipeline de wheels SLSA L2 |
-| CLI/API | 4 | CLI embebida, consola premium, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
+| Python SDK | 3 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2 |
+| CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
-| Benchmarks/CI | 3 | Benchmark competitivo GloVe/SIFT, optimización de workflows, benchmarks latencia/throughput del servidor |
+| Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| **Total** | **48** | — |
+| **Total** | **55** | — |
