@@ -429,6 +429,13 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `vantadb-mcp/src/lib.rs:670`: `ttl_ms: None` agregado a `VantaMemoryInput`.
 - **Resultado:** 0 panics activables por runtime en producción. `cargo check --all-features`: 0 warnings/errors. `cargo clippy`: 0 warnings. 48 pruebas Rust lib, 33 CLI, 7 memory_api, 6 E2E server pasan. Total: 63 tareas completadas.
 
+### TSK-81 — README Badges (CI, PyPI, Downloads, License)
+
+- **Objetivo:** Agregar badges faltantes al README para mejorar la presentación profesional del proyecto en GitHub.
+- **Cambios:**
+  - `README.md` y `README_ES.md`: agregados 3 nuevos badges — PyPI Downloads (`pypi/dm`), crates.io version, crates.io downloads.
+- **Resultado:** 12 badges total (CI×4, Release, License, PyPI, PyPI Downloads, crates.io, crate downloads, Python version, Rust version). Total: 64 tareas completadas.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -460,4 +467,4 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Observabilidad | 4 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99) |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 7 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees doc |
-| **Total** | **63** | — |
+| **Total** | **64** | — |
