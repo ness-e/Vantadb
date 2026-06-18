@@ -1134,9 +1134,9 @@ pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> 
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
         "{}",
-        header_style().apply_to(format!(
+        header_style().apply_to(
             "╭──────────────────────────────────────────────────────────────────╮"
-        ))
+        )
     ));
     let _ = term.write_line(&format!(
         "{}",
