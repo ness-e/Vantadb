@@ -484,5 +484,58 @@ class TestMemoryBoundary:
         assert hw is not None
 
 
+class TestAsyncVantaDB:
+    """Async wrapper for query methods."""
+
+    def test_async_basic_crud(self):
+        """AsyncVantaDB should support put/get_memory/search_memory."""
+        import asyncio
+
+        async def run():
+            async with vanta.AsyncVantaDB(
+                _unique_path(), memory_limit_bytes=128 * 1024 * 1024
+            ) as db:
+                await db.put("ns", "k", "hello", metadata={"tag": "test"})
+                record = await db.get_memory("ns", "k")
+                assert record is not None
+                assert record["payload"] == "hello"
+                assert record["metadata"]["tag"] == "test"
+
+                results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+                assert isinstance(results, list)
+
+        asyncio.run(run())
+
+    def test_async_list_memory(self):
+        """AsyncVantaDB.list_memory should work."""
+        import asyncio
+
+        async def run():
+            async with vanta.AsyncVantaDB(
+                _unique_path(), memory_limit_bytes=128 * 1024 * 1024
+            ) as db:
+                await db.put("ns", "a", "alpha")
+                await db.put("ns", "b", "beta")
+                page = await db.list_memory("ns")
+                assert len(page["records"]) == 2
+
+        asyncio.run(run())
+
+    def test_async_delete_and_flush(self):
+        """AsyncVantaDB.delete_memory and flush should work."""
+        import asyncio
+
+        async def run():
+            async with vanta.AsyncVantaDB(
+                _unique_path(), memory_limit_bytes=128 * 1024 * 1024
+            ) as db:
+                await db.put("ns", "x", "to-delete")
+                deleted = await db.delete_memory("ns", "x")
+                assert deleted is True
+                await db.flush()
+
+        asyncio.run(run())
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
