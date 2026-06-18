@@ -2,18 +2,25 @@
   <h1>VantaDB</h1>
   <p><b>Motor embebido en Rust para memoria local duradera y recuperación híbrida de vectores.</b></p>
 
-  [![CI](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml)
-  [![Python Wheels](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml)
-  [![Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml)
-  [![Benchmarks](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml)
-  [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=blue)](https://github.com/ness-e/Vantadb/releases)
-  [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-  [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/vantadb-py/)
-  [![PyPI Downloads](https://img.shields.io/pypi/dm/vantadb-py?label=Downloads&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/vantadb-py/)
-  [![crates.io](https://img.shields.io/crates/v/vantadb?label=crates.io&logo=rust&logoColor=white&color=blue)](https://crates.io/crates/vantadb)
-  [![Crates.io Downloads](https://img.shields.io/crates/d/vantadb?label=Crate%20Downloads&logo=rust&logoColor=white&color=blue)](https://crates.io/crates/vantadb)
-  [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python&logoColor=white)](https://pypi.org/project/vantadb-py/)
-  [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+  <br>
+
+  <!-- CI workflows (GitHub-native badges) -->
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg" alt="Python Wheels"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg" alt="Heavy Certification"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg" alt="Benchmarks"></a>
+
+  <br><br>
+
+  <!-- Distribution & metadata (shields.io for-the-badge) -->
+  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?style=for-the-badge&label=RELEASE&logo=github&logoColor=white&color=181717" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-APACHE_2.0-181717?style=for-the-badge" alt="License"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?style=for-the-badge&label=PYPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/dm/vantadb-py?style=for-the-badge&label=DOWNLOADS&logo=pypi&logoColor=white&color=3775A9" alt="PyPI Downloads"></a>
+  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/v/vantadb?style=for-the-badge&label=CRATES.IO&logo=rust&logoColor=white&color=000000" alt="crates.io"></a>
+  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/d/vantadb?style=for-the-badge&label=DOWNLOADS&logo=rust&logoColor=white&color=000000" alt="Crate Downloads"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/PYTHON-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/RUST-1.94.1%2B-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust"></a>
 </div>
 
 <div align="center">
