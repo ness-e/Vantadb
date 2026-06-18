@@ -366,6 +366,7 @@ mod tests {
                 metadata: VantaMemoryMetadata::new(),
                 created_at_ms: 0,
                 updated_at_ms: 0,
+                expires_at_ms: Some(0),
                 version: 0,
                 node_id,
                 vector: None,

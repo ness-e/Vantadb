@@ -36,7 +36,14 @@ fn search_keys(
     query_vector: Vec<f32>,
     top_k: usize,
 ) -> Vec<String> {
-    search_keys_with_filters(db, "cert/main", text_query, query_vector, top_k, Some(keep_filter()))
+    search_keys_with_filters(
+        db,
+        "cert/main",
+        text_query,
+        query_vector,
+        top_k,
+        Some(keep_filter()),
+    )
 }
 
 fn search_keys_with_namespace(
@@ -122,16 +129,16 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
     // ── Namespace A: varied term frequencies ──
     for i in 0..10 {
         let payload = match i {
-            0 => "machine learning",                           // rare term
-            1 => "machine machine learning",                   // high TF for "machine"
-            2 => "deep neural networks for machine learning",  // long doc, matches
-            3 => "data science python",                        // no match
-            4 => "machine learning machine learning",          // repeated phrase
-            5 => "quantum computing",                          // no match
-            6 => "machine",                                    // single term match
-            7 => "machine learning deep learning",             // multi-term, avg len
-            8 => "machines learn differently",                 // stem: machine → machin
-            9 => "irrelevant topic here",                      // no match
+            0 => "machine learning",                          // rare term
+            1 => "machine machine learning",                  // high TF for "machine"
+            2 => "deep neural networks for machine learning", // long doc, matches
+            3 => "data science python",                       // no match
+            4 => "machine learning machine learning",         // repeated phrase
+            5 => "quantum computing",                         // no match
+            6 => "machine",                                   // single term match
+            7 => "machine learning deep learning",            // multi-term, avg len
+            8 => "machines learn differently",                // stem: machine → machin
+            9 => "irrelevant topic here",                     // no match
             _ => unreachable!(),
         };
         let mut input = VantaMemoryInput::new("bm25/a", &format!("doc_{}", i), payload);
@@ -238,14 +245,8 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
     // ── Test 5: Filter + text query intersection ──
     let mut filter = VantaMemoryMetadata::new();
     filter.insert("group".to_string(), field_string("first_half"));
-    let first_half: Vec<String> = search_keys_with_filters(
-        &db,
-        "bm25/a",
-        Some("machine"),
-        Vec::new(),
-        10,
-        Some(filter),
-    );
+    let first_half: Vec<String> =
+        search_keys_with_filters(&db, "bm25/a", Some("machine"), Vec::new(), 10, Some(filter));
     for key in &first_half {
         let idx: usize = key.strip_prefix("doc_").unwrap().parse().unwrap();
         assert!(
@@ -273,12 +274,16 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
     assert!(!phrase_results.contains(&"doc_3".to_string()));
 
     // ── Test 8: Vector-only search across namespaces ──
-    let vec_ns_a =
-        search_keys_with_namespace(&db, "bm25/a", None, vec![0.5, 0.0], 10);
-    assert!(!vec_ns_a.is_empty(), "Vector search in namespace A should return results");
-    let vec_ns_b =
-        search_keys_with_namespace(&db, "bm25/b", None, vec![0.5, 0.0], 10);
-    assert!(!vec_ns_b.is_empty(), "Vector search in namespace B should return results");
+    let vec_ns_a = search_keys_with_namespace(&db, "bm25/a", None, vec![0.5, 0.0], 10);
+    assert!(
+        !vec_ns_a.is_empty(),
+        "Vector search in namespace A should return results"
+    );
+    let vec_ns_b = search_keys_with_namespace(&db, "bm25/b", None, vec![0.5, 0.0], 10);
+    assert!(
+        !vec_ns_b.is_empty(),
+        "Vector search in namespace B should return results"
+    );
     // Results should be disjoint across namespaces
     for key in &vec_ns_b {
         assert!(

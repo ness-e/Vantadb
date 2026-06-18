@@ -30,6 +30,7 @@ fn seed_embedded(db_path: &str, namespace: &str, key: &str, payload: &str) {
         payload: payload.to_string(),
         metadata: vantadb::sdk::VantaMemoryMetadata::new(),
         vector: None,
+        ttl_ms: None,
     })
     .expect("seed embedded put failed");
 }

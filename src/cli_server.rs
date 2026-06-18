@@ -445,8 +445,8 @@ async fn serve_http_or_tls(
 ) {
     #[cfg(feature = "tls")]
     if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
-        use std::time::Duration;
         use axum_server::tls_rustls::RustlsConfig;
+        use std::time::Duration;
 
         let tls_config = match RustlsConfig::from_pem_file(cert, key).await {
             Ok(c) => c,

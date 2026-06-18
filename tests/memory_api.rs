@@ -423,6 +423,7 @@ fn snippet_with_highlighting() {
         payload: "The quick brown fox jumps over the lazy dog".to_string(),
         vector: Some(vec![0.1, 0.2, 0.3]),
         metadata: Default::default(),
+        ttl_ms: None,
     };
     db.put(input).expect("put");
 

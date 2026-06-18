@@ -273,7 +273,7 @@ impl<'a> Executor<'a> {
                 // Normally we'd use a UUID generator, but for MVP we use a timestamp-based ID or random
                 let msg_id = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_default()
                     .as_micros() as u64;
                 let mut node = UnifiedNode::new(msg_id);
                 node.set_field(
