@@ -396,15 +396,42 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let router = app(state, rpm);
     let addr = format!("{}:{}", config.host, config.port);
 
-    serve_http_or_tls(router, addr, &config).await;
+    serve_http_or_tls(router, addr, &config, storage.clone()).await;
 
     Ok(())
 }
 
+pub async fn wait_for_shutdown_signal() {
+    let ctrl_c = tokio::signal::ctrl_c();
+    #[cfg(unix)]
+    let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+    {
+        Ok(s) => s,
+        Err(e) => {
+            console::error("Failed to install SIGTERM handler", Some(&e.to_string()));
+            return;
+        }
+    };
+
+    #[cfg(unix)]
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = sigterm.recv() => {},
+    }
+    #[cfg(not(unix))]
+    let _ = ctrl_c.await;
+}
+
 #[cfg_attr(not(feature = "tls"), allow(unused_variables))]
-async fn serve_http_or_tls(router: axum::Router, addr: String, config: &VantaConfig) {
+async fn serve_http_or_tls(
+    router: axum::Router,
+    addr: String,
+    config: &VantaConfig,
+    storage: Arc<crate::storage::StorageEngine>,
+) {
     #[cfg(feature = "tls")]
     if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
+        use std::time::Duration;
         use axum_server::tls_rustls::RustlsConfig;
 
         let tls_config = match RustlsConfig::from_pem_file(cert, key).await {
@@ -425,7 +452,22 @@ async fn serve_http_or_tls(router: axum::Router, addr: String, config: &VantaCon
 
         console::print_ready(&format!("https://{}", addr));
 
+        let handle = axum_server::Handle::new();
+        let handle_clone = handle.clone();
+        let storage_clone = storage.clone();
+        tokio::spawn(async move {
+            wait_for_shutdown_signal().await;
+            console::warn("Shutting down TLS server gracefully...", None);
+            if let Err(e) = storage_clone.flush() {
+                console::error("Flush failed during shutdown", Some(&e.to_string()));
+            } else {
+                console::ok("Storage flushed", None);
+            }
+            handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
+        });
+
         if let Err(e) = axum_server::bind_rustls(socket_addr, tls_config)
+            .handle(handle)
             .serve(router.into_make_service_with_connect_info::<std::net::SocketAddr>())
             .await
         {
@@ -449,13 +491,31 @@ async fn serve_http_or_tls(router: axum::Router, addr: String, config: &VantaCon
 
     console::print_ready(&addr);
 
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let storage_clone = storage.clone();
+    tokio::spawn(async move {
+        wait_for_shutdown_signal().await;
+        console::warn("Shutting down HTTP server gracefully...", None);
+        let _ = shutdown_tx.send(());
+    });
+
     if let Err(e) = axum::serve(
         listener,
         router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
+    .with_graceful_shutdown(async {
+        let _ = shutdown_rx.await;
+    })
     .await
     {
         console::error("Server terminated unexpectedly", Some(&e.to_string()));
         std::process::exit(1);
+    }
+
+    console::warn("Flushing storage after graceful drain...", None);
+    if let Err(e) = storage_clone.flush() {
+        console::error("Flush failed during shutdown", Some(&e.to_string()));
+    } else {
+        console::ok("Storage flushed successfully", None);
     }
 }
