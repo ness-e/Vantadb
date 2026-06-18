@@ -417,6 +417,18 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 - **Tests:** 6/6 tests E2E del servidor HTTP pasan (incluyen verificación de /metrics).
 - **Resultado:** `/metrics` ahora expone latencia por endpoint. Total: 62 tareas completadas.
 
+### TSK-97 — Hardening: Eliminación de panics en producción
+
+- **Objetivo:** Eliminar todos los `panic!` y `.unwrap()`/`.expect()` en código de producción que pudieran ser activados por input del usuario o condiciones de runtime.
+- **Cambios:**
+  - `src/executor.rs:276`: `duration_since(UNIX_EPOCH).unwrap()` → `unwrap_or_default()` — activado en cada `InsertMessage`, seguro ahora si el reloj está antes de 1970.
+  - `src/python.rs:23`: `StorageEngine::open(...).expect(...)` → `PyResult` con error propagado a Python como `RuntimeError`.
+  - `src/sdk.rs:638`: `panic!` en `encoded_scalar_value()` → `Err(VantaError::Execution(...))`. Cadena completa (`payload_index_prefix`, `payload_index_key`, `derived_put_ops`, `derived_delete_ops`, `replace_derived_indexes`) ahora retorna `Result`.
+  - `src/planner.rs:362`: `VantaMemoryRecord` inicializaba sin `expires_at_ms` — agregado `expires_at_ms: Some(0)` en test helper.
+  - `tests/cli_tests.rs:27`, `tests/memory_api.rs:420`: `VantaMemoryInput` sin `ttl_ms` — agregado `ttl_ms: None`.
+  - `vantadb-mcp/src/lib.rs:670`: `ttl_ms: None` agregado a `VantaMemoryInput`.
+- **Resultado:** 0 panics activables por runtime en producción. `cargo check --all-features`: 0 warnings/errors. `cargo clippy`: 0 warnings. 48 pruebas Rust lib, 33 CLI, 7 memory_api, 6 E2E server pasan. Total: 63 tareas completadas.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -448,4 +460,4 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Observabilidad | 4 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99) |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 7 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees doc |
-| **Total** | **62** | — |
+| **Total** | **63** | — |
