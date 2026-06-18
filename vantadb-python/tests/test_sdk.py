@@ -537,5 +537,82 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
 
+class TestWALCompaction:
+    """TSK-75: WAL compaction / rotate."""
+
+    def test_compact_wal(self):
+        """compact_wal should flush and rotate WAL without data loss."""
+        path = _unique_path()
+        db = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "a", "alpha")
+        db.put("ns", "b", "beta")
+        db.compact_wal()
+
+        # data still readable after compaction
+        assert db.get_memory("ns", "a")["payload"] == "alpha"
+        assert db.get_memory("ns", "b")["payload"] == "beta"
+        db.close()
+
+        # reopen — data from rotated WAL still intact
+        db2 = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        assert db2.get_memory("ns", "a")["payload"] == "alpha"
+        db2.close()
+
+    def test_compact_wal_read_only_raises(self):
+        """compact_wal in read-only mode should raise."""
+        path = _unique_path()
+        db = vanta.VantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        db.close()
+        ro = vanta.VantaDB(path, read_only=True, memory_limit_bytes=128 * 1024 * 1024)
+        import pytest
+        with pytest.raises(Exception):
+            ro.compact_wal()
+        ro.close()
+
+
+class TestTTL:
+    """TSK-76: Time-To-Live on memory records."""
+
+    def test_put_with_ttl(self):
+        """put() with ttl_ms should store expires_at_ms on the record."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        record = db.put("ns", "k", "hello", ttl_ms=86_400_000)  # 1 day
+        assert record["key"] == "k"
+        assert record["expires_at_ms"] is not None
+        assert record["expires_at_ms"] > 0
+
+    def test_put_without_ttl(self):
+        """put() without ttl_ms should have expires_at_ms = None."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        record = db.put("ns", "k", "hello")
+        assert record["expires_at_ms"] is None
+
+    def test_lazy_eviction(self):
+        """Records with past TTL should be invisible on read."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        # ttl_ms=1 means expires in 1ms — by the time we read, it's gone
+        record = db.put("ns", "k", "gone", ttl_ms=1)
+        import time
+        time.sleep(0.01)  # ensure 1ms has passed
+        assert db.get_memory("ns", "k") is None
+        # list should also exclude it
+        page = db.list_memory("ns")
+        assert len(page["records"]) == 0
+
+    def test_purge_expired(self):
+        """purge_expired should physically remove expired records."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "keep", "alive")
+        db.put("ns", "gone", "dead", ttl_ms=1)
+        import time
+        time.sleep(0.01)
+        purged = db.purge_expired()
+        assert purged >= 1
+        # keep is still there
+        assert db.get_memory("ns", "keep")["payload"] == "alive"
+        # gone is gone
+        assert db.get_memory("ns", "gone") is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -24,6 +24,7 @@ const FIELD_PAYLOAD: &str = "__vanta_payload";
 const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
 const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
 const FIELD_VERSION: &str = "__vanta_version";
+const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
@@ -94,6 +95,10 @@ pub struct VantaMemoryInput {
     pub payload: String,
     pub metadata: VantaMemoryMetadata,
     pub vector: Option<Vec<f32>>,
+    /// Time-to-live in milliseconds from now.  The system computes
+    /// ``expires_at_ms = now_ms() + ttl_ms`` server-side during ``put()``.
+    /// ``None`` means the record never expires.
+    pub ttl_ms: Option<u64>,
 }
 
 impl VantaMemoryInput {
@@ -108,6 +113,7 @@ impl VantaMemoryInput {
             payload: payload.into(),
             metadata: VantaMemoryMetadata::new(),
             vector: None,
+            ttl_ms: None,
         }
     }
 }
@@ -124,6 +130,9 @@ pub struct VantaMemoryRecord {
     pub version: u64,
     pub node_id: u64,
     pub vector: Option<Vec<f32>>,
+    /// Absolute Unix-ms timestamp after which the record is considered
+    /// expired.  ``None`` means the record never expires.
+    pub expires_at_ms: Option<u64>,
 }
 
 /// Stable list options for namespace-scoped memory records.
@@ -426,6 +435,7 @@ struct VantaMemoryExportLine {
     created_at_ms: u64,
     updated_at_ms: u64,
     version: u64,
+    expires_at_ms: Option<u64>,
 }
 
 /// Stable graph edge representation for external SDKs.
@@ -693,6 +703,7 @@ fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
     let created_at_ms = get_u64_field(&fields, FIELD_CREATED_AT_MS)?;
     let updated_at_ms = get_u64_field(&fields, FIELD_UPDATED_AT_MS)?;
     let version = get_u64_field(&fields, FIELD_VERSION)?;
+    let expires_at_ms = get_u64_field(&fields, FIELD_EXPIRES_AT_MS);
 
     fields.remove(FIELD_NAMESPACE);
     fields.remove(FIELD_KEY);
@@ -700,6 +711,18 @@ fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
     fields.remove(FIELD_CREATED_AT_MS);
     fields.remove(FIELD_UPDATED_AT_MS);
     fields.remove(FIELD_VERSION);
+    fields.remove(FIELD_EXPIRES_AT_MS);
+
+    // Lazy TTL eviction: if expires_at_ms is set and the deadline
+    // has passed, the record is treated as if it no longer exists.
+    if let Some(deadline) = expires_at_ms {
+        if deadline > 0 {
+            let now = now_ms();
+            if now > deadline {
+                return None;
+            }
+        }
+    }
 
     let vector = match node.vector {
         VectorRepresentations::Full(vector) => Some(vector),
@@ -716,6 +739,7 @@ fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
         version,
         node_id: node.id,
         vector,
+        expires_at_ms,
     })
 }
 
@@ -736,6 +760,10 @@ fn memory_record_to_node(record: &VantaMemoryRecord) -> UnifiedNode {
         FieldValue::Int(record.updated_at_ms as i64),
     );
     node.set_field(FIELD_VERSION, FieldValue::Int(record.version as i64));
+
+    if let Some(expires_at) = record.expires_at_ms {
+        node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at as i64));
+    }
 
     for (key, value) in record.metadata.clone() {
         node.set_field(key, value.into());
@@ -760,6 +788,7 @@ fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
         created_at_ms: record.created_at_ms,
         updated_at_ms: record.updated_at_ms,
         version: record.version,
+        expires_at_ms: record.expires_at_ms,
     }
 }
 
@@ -782,6 +811,7 @@ fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemoryRec
         version: line.version,
         node_id,
         vector: line.vector,
+        expires_at_ms: line.expires_at_ms,
     })
 }
 
@@ -2511,6 +2541,7 @@ impl VantaEmbedded {
                     .as_ref()
                     .map(|record| record.version.saturating_add(1))
                     .unwrap_or(1);
+                let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
 
                 let record = VantaMemoryRecord {
                     namespace: input.namespace,
@@ -2522,6 +2553,7 @@ impl VantaEmbedded {
                     version,
                     node_id,
                     vector: input.vector.filter(|v| !v.is_empty()),
+                    expires_at_ms,
                 };
                 let node = memory_record_to_node(&record);
                 engine.insert(&node)?;
@@ -2545,12 +2577,8 @@ impl VantaEmbedded {
                 Some(record) if record.namespace == input.namespace && record.key == input.key => {
                     Some(record)
                 }
-                _ => {
-                    return Err(VantaError::Execution(format!(
-                        "node id collision for namespace='{}' key='{}'",
-                        input.namespace, input.key
-                    )));
-                }
+                // TTL-expired or stale node — treat as non-existing.
+                _ => None,
             },
             None => None,
         };
@@ -2558,12 +2586,13 @@ impl VantaEmbedded {
         let timestamp = now_ms();
         let created_at_ms = existing
             .as_ref()
-            .map(|record| record.created_at_ms)
+            .map(|r| r.created_at_ms)
             .unwrap_or(timestamp);
         let version = existing
             .as_ref()
-            .map(|record| record.version.saturating_add(1))
+            .map(|r| r.version.saturating_add(1))
             .unwrap_or(1);
+        let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
 
         let record = VantaMemoryRecord {
             namespace: input.namespace,
@@ -2574,7 +2603,8 @@ impl VantaEmbedded {
             updated_at_ms: timestamp,
             version,
             node_id,
-            vector: input.vector.filter(|vector| !vector.is_empty()),
+            vector: input.vector.filter(|v| !v.is_empty()),
+            expires_at_ms,
         };
         let node = memory_record_to_node(&record);
         engine.insert(&node)?;
@@ -2594,10 +2624,11 @@ impl VantaEmbedded {
 
         match memory_record_from_node(node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
-            _ => Err(VantaError::Execution(format!(
+            Some(record) => Err(VantaError::Execution(format!(
                 "node id collision for namespace='{}' key='{}'",
                 namespace, key
             ))),
+            None => Ok(None),
         }
     }
 
@@ -3029,6 +3060,64 @@ impl VantaEmbedded {
             ));
         }
         self.engine_handle()?.flush()
+    }
+
+    /// Compact the WAL: flush, archive the current WAL file as
+    /// ``vanta.wal.<timestamp>``, and start a fresh WAL.
+    ///
+    /// Safe to call at any time.  Archived WALs can be removed
+    /// once no longer needed for crash recovery.
+    pub fn compact_wal(&self) -> Result<()> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "compact_wal is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
+        self.engine_handle()?.compact_wal()
+    }
+
+    /// Scan all memory records and physically delete those whose
+    /// ``expires_at_ms`` deadline has passed.  Returns the number
+    /// of records purged.
+    pub fn purge_expired(&self) -> Result<u64> {
+        if self.config.read_only {
+            return Err(VantaError::Execution(
+                "purge_expired is not available when VantaDB is opened read-only".to_string(),
+            ));
+        }
+        let engine = self.engine_handle()?;
+        let now = now_ms();
+        let mut to_delete: Vec<(String, String, u64)> = Vec::new();
+
+        // Scan all nodes without TTL filtering (scan directly from engine).
+        for node in engine.scan_nodes()? {
+            if !node.is_alive() {
+                continue;
+            }
+            let namespace = match node.get_field(FIELD_NAMESPACE) {
+                Some(crate::node::FieldValue::String(ns)) => ns.clone(),
+                _ => continue,
+            };
+            let key = match node.get_field(FIELD_KEY) {
+                Some(crate::node::FieldValue::String(k)) => k.clone(),
+                _ => continue,
+            };
+            let expires = match node.get_field(FIELD_EXPIRES_AT_MS) {
+                Some(crate::node::FieldValue::Int(ms)) if *ms > 0 => *ms as u64,
+                _ => continue,
+            };
+            if now > expires {
+                to_delete.push((namespace, key, node.id));
+            }
+        }
+
+        let count = to_delete.len() as u64;
+        for (namespace, key, node_id) in &to_delete {
+            engine.delete(*node_id, "purge_expired")?;
+            self.replace_derived_indexes(&engine, None, None)?;
+        }
+
+        Ok(count)
     }
 
     /// Return stable runtime capabilities.

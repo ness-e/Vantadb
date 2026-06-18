@@ -1753,6 +1753,35 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Compact the WAL: flush all data, archive the current WAL file
+    /// (``vanta.wal.<timestamp>``), reset ``checkpoint_seq`` to 0,
+    /// and start a fresh WAL.
+    ///
+    /// Archived WALs can be safely removed once the application
+    /// confirms no crash-recovery data is needed from them.
+    #[tracing::instrument(skip(self), level = "info", err)]
+    pub fn compact_wal(&self) -> Result<()> {
+        self.flush()?;
+
+        let mut wal_guard = self.wal.lock();
+        if let Some(writer) = wal_guard.take() {
+            let sync_mode = writer.sync_mode;
+            let new_writer = writer.rotate(sync_mode)?;
+            *wal_guard = Some(new_writer);
+        }
+
+        // Reset checkpoint_seq to 0 since the new WAL is empty.
+        let zero: [u8; 8] = 0u64.to_le_bytes();
+        self.backend.put(
+            BackendPartition::InternalMetadata,
+            b"checkpoint_seq",
+            &zero,
+        )?;
+        self.backend.flush()?;
+
+        Ok(())
+    }
+
     fn save_vector_index(&self) {
         let index_path = self.data_dir.join("vector_index.bin");
         let current = self.hnsw.load();

@@ -97,6 +97,12 @@ class AsyncVantaDB:
     async def delete_memory(self, namespace: str, key: str) -> bool:
         return await _to_thread(self._sync.delete_memory, namespace, key)
 
+    async def compact_wal(self):
+        return await _to_thread(self._sync.compact_wal)
+
+    async def purge_expired(self) -> int:
+        return await _to_thread(self._sync.purge_expired)
+
     async def flush(self):
         return await _to_thread(self._sync.flush)
 

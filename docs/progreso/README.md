@@ -372,6 +372,32 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `vantadb_py/vantadb_native.pyi`: 30 métodos tipados de `VantaDB`, incluyendo parámetros con defaults, tipos complejos (`list[tuple[int, float]]`, `dict | None`), y docstrings.
 - **Resultado:** Cobertura de tipos al 100% para toda la API pública expuesta por el módulo nativo.
 
+### TSK-75 — WAL Compaction (Log Rotate)
+
+- **Objetivo:** Implementar compactación del Write-Ahead Log para rotar el archivo WAL activo y resetear el checkpoint, eliminando registros redundantes.
+- **Implementación:**
+  - `WalWriter::rotate()` en `src/wal.rs`: flush + cierra el archivo actual, lo renombra a `vanta.wal.<timestamp_ms>`, crea un nuevo WAL vacío con cabecera fresca.
+  - `StorageEngine::compact_wal()` en `src/storage.rs`: flush de datos pendientes + rotate WAL + reset `checkpoint_seq` a 0 para que el nuevo WAL vacío se reproduzca correctamente en crash recovery.
+  - `VantaEmbedded::compact_wal()` en `src/sdk.rs`: expuesto como método público del SDK.
+  - Python binding `compact_wal()` en `vantadb-python/src/lib.rs`.
+  - Validación de bloqueo en read-only mode.
+- **Tests:** 2 tests: `test_compact_wal` (persistencia post-compactación) y `test_compact_wal_read_only_raises`.
+- **Resultado:** WAL rotado sin pérdida de datos. Reapertura desde WAL archivado funcional.
+
+### TSK-76 — TTL en Records de Memoria Persistente
+
+- **Objetivo:** Permitir que los registros de memoria tengan un tiempo de vida (TTL) tras el cual son evadidos lazy al leer o purgeados físicamente.
+- **Implementación:**
+  - `expires_at_ms: Option<u64>` en `VantaMemoryRecord` y `VantaMemoryInput`.
+  - `ttl_ms: Option<u64>` en `VantaMemoryInput`: convertido server-side a `expires_at_ms` absoluto.
+  - `FIELD_EXPIRES_AT_MS = "__vanta_expires_at_ms"` como campo reservado, serializado como `FieldValue::Int`.
+  - Lazy eviction en `memory_record_from_node()`: retorna `None` si `now_ms() > expires_at_ms`.
+  - `put()` trata nodos expirados como inexistentes (permite re-insertar en el mismo namespace/key).
+  - `purge_expired()` en `VantaEmbedded`: scan físico de nodos, filtra por `expires_at_ms`, elimina en backend sin pasar por lazy eviction.
+  - Python bindings: `ttl_ms` en `put()` y `put_batch()`, `purge_expired()` retorna conteo.
+- **Tests:** 4 tests: `test_put_with_ttl`, `test_put_without_ttl`, `test_lazy_eviction`, `test_purge_expired`.
+- **Resultado:** 34/34 tests Python pasan. Backward compat total (records sin TTL tienen `expires_at_ms=None`).
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -393,7 +419,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Categoría | Fases | Logros Clave |
 |---|:---:|---|
 | Rendimiento HNSW | 9 | 2.22x aceleración, latencia p50 200ms→0.17ms, RCU lock-free |
-| Almacenamiento/WAL | 4 | CRC32C, headers uniformes, mimalloc, tipos DateTime/Listas |
+| Almacenamiento/WAL | 6 | CRC32C, headers uniformes, mimalloc, tipos DateTime/Listas, WAL compaction (log rotate), TTL en records |
 | Seguridad/Resiliencia | 11 | Crash-injection 30/30 (AUD-02/03), chaos testing, advisory locks, TLS/Auth, text index audit, ExecutionResult verification |
 | Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
 | Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
@@ -403,5 +429,4 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Observabilidad | 3 | OpenTelemetry, OTLP, compatibilidad MCP |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 6 | Plan Maestro unificado, auditoría técnica, gobernanza |
-| E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| **Total** | **58** | — |
+| **Total** | **60** | — |

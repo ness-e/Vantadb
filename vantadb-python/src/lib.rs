@@ -295,6 +295,11 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
         None => dict.set_item("vector", py.None())?,
     }
 
+    match record.expires_at_ms {
+        Some(ts) => dict.set_item("expires_at_ms", ts)?,
+        None => dict.set_item("expires_at_ms", py.None())?,
+    }
+
     let metadata = PyDict::new(py);
     for (key, value) in &record.metadata {
         set_python_value(py, &metadata, key, value)?;
@@ -621,9 +626,17 @@ impl VantaDB {
             } else {
                 None
             };
+            let ttl_ms: Option<u64> = if entry.len() > 5 {
+                let item = entry.get_item(5)?;
+                if item.is_none() { None }
+                else { Some(item.extract()?) }
+            } else {
+                None
+            };
 
             let mut input = VantaMemoryInput::new(namespace, key, payload);
             input.metadata = py_dict_to_metadata(dict.as_ref())?;
+            input.ttl_ms = ttl_ms;
             input.vector = match &vector_obj {
                 Some(v) => {
                     let vec = extract_vector(v, py)?;
@@ -648,7 +661,7 @@ impl VantaDB {
     }
 
     /// Put or update a namespace-scoped persistent memory record.
-    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None))]
+    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None))]
     fn put(
         &self,
         py: Python,
@@ -657,9 +670,11 @@ impl VantaDB {
         payload: &str,
         metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<&Bound<'_, PyAny>>,
+        ttl_ms: Option<u64>,
     ) -> PyResult<PyObject> {
         let mut input = VantaMemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
+        input.ttl_ms = ttl_ms;
         input.vector = match vector {
             Some(v) => {
                 let vec = extract_vector(v, py)?;
@@ -985,6 +1000,30 @@ impl VantaDB {
             engine
                 .flush()
                 .map_err(|e| PyRuntimeError::new_err(format!("Flush error: {:?}", e)))
+        })
+    }
+
+    /// Compact the WAL: flush, archive ``vanta.wal`` as
+    /// ``vanta.wal.<timestamp>``, and start a fresh WAL.
+    #[pyo3(signature = ())]
+    fn compact_wal(&self, py: Python) -> PyResult<()> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .compact_wal()
+                .map_err(|e| PyRuntimeError::new_err(format!("Compact WAL error: {:?}", e)))
+        })
+    }
+
+    /// Scan all memory records and physically delete expired ones.
+    /// Returns the number of records purged.
+    #[pyo3(signature = ())]
+    fn purge_expired(&self, py: Python) -> PyResult<u64> {
+        let engine = self.engine.clone();
+        py.allow_threads(move || {
+            engine
+                .purge_expired()
+                .map_err(|e| PyRuntimeError::new_err(format!("Purge expired error: {:?}", e)))
         })
     }
 
