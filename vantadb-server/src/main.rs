@@ -21,6 +21,19 @@ async fn main() {
             }
         };
 
+        // Install SIGTERM handler for MCP mode
+        let storage_clone = storage.clone();
+        tokio::spawn(async move {
+            vantadb::cli_server::wait_for_shutdown_signal().await;
+            eprintln!("[vantadb-server MCP] Shutdown signal received, flushing storage...");
+            if let Err(e) = storage_clone.flush() {
+                eprintln!("[vantadb-server MCP] Flush failed: {e}");
+            } else {
+                eprintln!("[vantadb-server MCP] Storage flushed");
+            }
+            std::process::exit(0);
+        });
+
         vantadb::cli_server::init_telemetry(true);
         vantadb_mcp::run_stdio_server(storage).await;
     } else {

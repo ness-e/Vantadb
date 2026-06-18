@@ -324,6 +324,16 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 
 ---
 
+### TSK-52 — SIGTERM Shutdown Handler (Flush WAL + Fjall)
+
+- **Objetivo:** Implementar manejador de señales SIGTERM (Unix) y Ctrl+C (Windows) que realice un graceful shutdown completo: drenar conexiones activas → flush del storage engine (WAL, backend KV, HNSW) → salida limpia.
+- **Implementación:**
+  - `wait_for_shutdown_signal()` en `cli_server.rs`: captura SIGTERM vía `tokio::signal::unix` y Ctrl+C vía `tokio::signal::ctrl_c`.
+  - HTTP: `axum::serve().with_graceful_shutdown()` con oneshot channel → flush post-drain.
+  - TLS: `axum_server::Handle` con `graceful_shutdown(Duration::from_secs(10))` → flush pre-shutdown.
+  - MCP: signal handler spawn que flushea y llama `std::process::exit(0)`.
+- **Resultado:** 13/13 tests server pasan. Compilación limpia.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
