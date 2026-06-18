@@ -14,9 +14,9 @@
 
   <!-- Package managers -->
   <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/dm/vantadb-py?label=Downloads&logo=pypi&logoColor=white&color=3775A9" alt="PyPI Downloads"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/dm/vantadb-py?label=PyPI%20Downloads&logo=pypi&logoColor=white&color=3775A9" alt="PyPI Downloads"></a>
   <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/v/vantadb?label=crates.io&logo=rust&logoColor=white&color=000000" alt="crates.io"></a>
-  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/d/vantadb?label=Downloads&logo=rust&logoColor=white&color=000000" alt="Crate Downloads"></a>
+  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/d/vantadb?label=Crate%20Downloads&logo=rust&logoColor=white&color=000000" alt="Crate Downloads"></a>
 
   <br>
 
