@@ -12,15 +12,15 @@
 
   <br><br>
 
-  <!-- Distribution & metadata (shields.io for-the-badge) -->
-  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?style=for-the-badge&label=RELEASE&logo=github&logoColor=white&color=181717" alt="Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-APACHE_2.0-181717?style=for-the-badge" alt="License"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?style=for-the-badge&label=PYPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/dm/vantadb-py?style=for-the-badge&label=DOWNLOADS&logo=pypi&logoColor=white&color=3775A9" alt="PyPI Downloads"></a>
-  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/v/vantadb?style=for-the-badge&label=CRATES.IO&logo=rust&logoColor=white&color=000000" alt="crates.io"></a>
-  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/d/vantadb?style=for-the-badge&label=DOWNLOADS&logo=rust&logoColor=white&color=000000" alt="Crate Downloads"></a>
-  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/PYTHON-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/RUST-1.94.1%2B-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust"></a>
+  <!-- Distribution & metadata (shields.io flat-square) -->
+  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?style=flat-square&label=Release&logo=github&logoColor=white&color=181717" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181717?style=flat-square" alt="License"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?style=flat-square&label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/dm/vantadb-py?style=flat-square&label=Downloads&logo=pypi&logoColor=white&color=3775A9" alt="PyPI Downloads"></a>
+  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/v/vantadb?style=flat-square&label=crates.io&logo=rust&logoColor=white&color=000000" alt="crates.io"></a>
+  <a href="https://crates.io/crates/vantadb"><img src="https://img.shields.io/crates/d/vantadb?style=flat-square&label=Downloads&logo=rust&logoColor=white&color=000000" alt="Crate Downloads"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.1%2B-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust"></a>
 </div>
 
 <div align="center">
