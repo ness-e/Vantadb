@@ -70,7 +70,18 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
         if first.extract::<f64>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
-                vec.push(item.extract::<f64>()?);
+                let val: f64 = item.extract()?;
+                if val.is_nan() {
+                    return Err(PyTypeError::new_err(
+                        "ListFloat elements cannot be NaN.",
+                    ));
+                }
+                if val.is_infinite() {
+                    return Err(PyTypeError::new_err(
+                        "ListFloat elements cannot be Infinity.",
+                    ));
+                }
+                vec.push(val);
             }
             return Ok(VantaValue::ListFloat(vec));
         }
@@ -90,6 +101,16 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
         return Ok(VantaValue::Int(integer));
     }
     if let Ok(float) = value.extract::<f64>() {
+        if float.is_nan() {
+            return Err(PyTypeError::new_err(
+                "Float field value cannot be NaN.",
+            ));
+        }
+        if float.is_infinite() {
+            return Err(PyTypeError::new_err(
+                "Float field value cannot be Infinity.",
+            ));
+        }
         return Ok(VantaValue::Float(float));
     }
 

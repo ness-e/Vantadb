@@ -12,7 +12,7 @@ import os
 def send_rpc_request(request):
     """Send a JSON-RPC request to the MCP server"""
     process = subprocess.Popen(
-        ["vanta-server", "--mcp", "--path", os.path.expanduser("~/.vantadb")],
+        ["vantadb-server", "--mcp", "--path", os.path.expanduser("~/.vantadb")],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -1,4 +1,4 @@
-//! Crash-injection verification test suite (AUD-02)
+//! Crash-injection verification test suite (AUD-02, AUD-03)
 //! Runs a helper subprocess writing to a database, terminates it via SIGKILL/TerminateProcess,
 //! and verifies cold-start recovery integrity.
 
@@ -138,5 +138,118 @@ fn test_crash_injection_and_cold_recovery_loop() {
     }
 
     session.success("Crash-injection loop completed. 50/50 iterations recovered consistently.");
+    session.finish(true);
+}
+
+#[test]
+fn test_crash_during_active_writes_with_tight_loop() {
+    TerminalReporter::suite_banner(
+        "ACTIVE-WRITE CRASH INJECTION & RECOVERY (AUD-03)",
+        1,
+    );
+    let mut session = VantaSession::begin("Active-Write Crash Loop (20 Iterations)");
+
+    session.step("Building crash_helper binary...");
+    let release_mode = cfg!(not(debug_assertions));
+    let mut build_args = vec!["build", "--bin", "crash_helper"];
+    if release_mode {
+        build_args.push("--release");
+    }
+
+    let build_status = Command::new("cargo")
+        .args(&build_args)
+        .status()
+        .expect("Failed to build crash_helper");
+    assert!(build_status.success(), "Failed to compile crash_helper");
+
+    let exe_name = if cfg!(windows) { "crash_helper.exe" } else { "crash_helper" };
+    let profile = if release_mode { "release" } else { "debug" };
+    let helper_path = std::env::current_dir()
+        .unwrap()
+        .join("target")
+        .join(profile)
+        .join(exe_name);
+    assert!(
+        helper_path.exists(),
+        "crash_helper binary not found at {:?}",
+        helper_path
+    );
+
+    session.step("Running 20 iterations of tight-loop crash injection...");
+
+    for i in 1..=20 {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().to_str().unwrap();
+
+        // Spawn helper in tight mode (no sleep) — kills while writes are in-flight
+        let mut child = Command::new(&helper_path)
+            .arg(db_path)
+            .arg("500")
+            .arg("tight")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn crash_helper (tight)");
+
+        let stdout = child.stdout.take().expect("Failed to open stdout");
+        let reader = BufReader::new(stdout);
+
+        let mut written_nodes = Vec::new();
+        for line in reader.lines() {
+            if let Ok(l) = line {
+                if l.starts_with("WRITTEN:") {
+                    if let Some(id_str) = l.strip_prefix("WRITTEN:") {
+                        if let Ok(id) = id_str.parse::<u64>() {
+                            written_nodes.push(id);
+                            // Kill immediately after the first confirmed write,
+                            // while the helper is still in its tight loop (active write).
+                            break;
+                        }
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        child.kill().expect("Failed to kill crash_helper process");
+        let _ = child.wait();
+
+        let engine = StorageEngine::open(db_path).unwrap_or_else(|e| {
+            panic!(
+                "Iteration {}: Failed to reopen StorageEngine after active-write crash: {}",
+                i, e
+            )
+        });
+
+        // At minimum, the one confirmed write must survive
+        for &node_id in &written_nodes {
+            let node = engine.get(node_id).unwrap_or_else(|e| {
+                panic!("Iteration {}: Error getting node {}: {}", i, node_id, e)
+            });
+            assert!(
+                node.is_some(),
+                "Iteration {}: Node {} was reported WRITTEN but not recovered after active-write crash!",
+                i,
+                node_id
+            );
+            let n = node.unwrap();
+            assert_eq!(n.id, node_id, "Iteration {}: Node ID mismatch", i);
+        }
+
+        // HNSW index must be structurally valid despite ungraceful shutdown
+        let hnsw = engine.hnsw.load();
+        assert!(
+            hnsw.validate_index().is_ok(),
+            "Iteration {}: HNSW structural validation failed post-crash during active writes",
+            i
+        );
+
+        if i % 10 == 0 {
+            TerminalReporter::sub_step(&format!("Completed iteration {}/20 successfully", i));
+        }
+    }
+
+    session.success("Active-write crash-injection loop completed. 20/20 iterations recovered consistently.");
     session.finish(true);
 }

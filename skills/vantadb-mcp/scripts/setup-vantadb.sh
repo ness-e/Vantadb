@@ -14,9 +14,9 @@ echo "🚀 Setting up VantaDB MCP server..."
 mkdir -p "${INSTALL_DIR}"
 
 # Check if VantaDB is already installed
-if command -v vanta-server &> /dev/null; then
+if command -v vantadb-server &> /dev/null; then
     echo "✅ VantaDB is already installed"
-    vanta-server --version
+    vantadb-server --version
 else
     echo "📦 Installing VantaDB from local repository..."
     # Install via cargo from local path if Rust is available
@@ -26,7 +26,7 @@ else
         VANTADB_REPO="$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
 
         echo "   Installing from: ${VANTADB_REPO}"
-        cargo install --path "${VANTADB_REPO}"
+        cargo install --path "${VANTADB_REPO}/vantadb-server"
     else
         echo "❌ Rust/Cargo not found. Please install Rust first:"
         echo "   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
@@ -61,6 +61,6 @@ echo "   Config file: ${CONFIG_FILE}"
 echo "   Data directory: ${INSTALL_DIR}/data"
 echo ""
 echo "🎯 To start the MCP server:"
-echo "   vanta-server --mcp --path ${INSTALL_DIR}"
+echo "   vantadb-server --mcp --path ${INSTALL_DIR}"
 echo ""
 echo "📚 For more information, see the documentation in the docs/ directory of the VantaDB repository."

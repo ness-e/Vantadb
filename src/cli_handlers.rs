@@ -1007,6 +1007,43 @@ pub fn cmd_server(
 ) -> Result<()> {
     let mcp_mode = mcp && !http;
 
+    if mcp_mode {
+        return cmd_server_mcp(db_path, port, host);
+    }
+
+    #[cfg(feature = "server")]
+    {
+        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+            crate::error::VantaError::Execution(format!("Failed to start tokio runtime: {e}"))
+        })?;
+
+        rt.block_on(cmd_server_http(db_path, port, host))
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        Err(crate::error::VantaError::Execution(
+            "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server"
+                .to_string(),
+        ))
+    }
+}
+
+#[cfg(feature = "server")]
+async fn cmd_server_http(db_path: &str, port: Option<u16>, host: Option<String>) -> Result<()> {
+    let config = VantaConfig {
+        storage_path: db_path.to_string(),
+        port: port.unwrap_or(8080),
+        host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
+        ..Default::default()
+    };
+
+    crate::cli_server::run(config).await
+}
+
+fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Result<()> {
+    use crate::error::VantaError;
+
     let binary_name = "vantadb-server";
     let exe_name = if cfg!(windows) {
         format!("{}.exe", binary_name)
@@ -1024,9 +1061,7 @@ pub fn cmd_server(
         cmd.env("VANTADB_HOST", h);
     }
 
-    if mcp_mode {
-        cmd.arg("--mcp");
-    }
+    cmd.arg("--mcp");
 
     cmd.stdin(std::process::Stdio::inherit());
     cmd.stdout(std::process::Stdio::inherit());
@@ -1046,9 +1081,7 @@ pub fn cmd_server(
                     if let Some(ref h) = host {
                         fallback_cmd.env("VANTADB_HOST", h);
                     }
-                    if mcp_mode {
-                        fallback_cmd.arg("--mcp");
-                    }
+                    fallback_cmd.arg("--mcp");
                     fallback_cmd.stdin(std::process::Stdio::inherit());
                     fallback_cmd.stdout(std::process::Stdio::inherit());
                     fallback_cmd.stderr(std::process::Stdio::inherit());
@@ -1056,34 +1089,32 @@ pub fn cmd_server(
                     match fallback_cmd.spawn() {
                         Ok(c) => c,
                         Err(e) => {
-                            return Err(crate::error::VantaError::Execution(format!(
+                            return Err(VantaError::Execution(format!(
                                 "Failed to start vantadb-server from current directory: {e}"
                             )));
                         }
                     }
                 } else {
-                    return Err(crate::error::VantaError::Execution(format!(
+                    return Err(VantaError::Execution(format!(
                         "vantadb-server binary not found in PATH or in the same directory as the CLI (expected: {})",
                         current_exe.display()
                     )));
                 }
             } else {
-                return Err(crate::error::VantaError::Execution(
+                return Err(VantaError::Execution(
                     "vantadb-server binary not found in PATH and failed to retrieve current executable path".to_string()
                 ));
             }
         }
         Err(e) => {
-            return Err(crate::error::VantaError::Execution(format!(
+            return Err(VantaError::Execution(format!(
                 "Failed to start vantadb-server process: {e}"
             )));
         }
     };
 
     let status = child.wait().map_err(|e| {
-        crate::error::VantaError::Execution(format!(
-            "Error waiting for vantadb-server process: {e}"
-        ))
+        VantaError::Execution(format!("Error waiting for vantadb-server process: {e}"))
     })?;
 
     if !status.success() {

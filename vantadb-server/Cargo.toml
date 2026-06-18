@@ -6,31 +6,16 @@ publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
 
 [dependencies]
-vantadb = { path = "..", features = ["cli"] }
+vantadb = { path = "..", features = ["cli", "server"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
-# REMOVED (2024-06-10): experimental-governance dependency (moved to archive)
-# If needed, use vantadb::utils::DuplicatePreventionFilter and vantadb::utils::OriginCollisionTracker instead
-tokio = { version = "1", features = ["full", "rt-multi-thread"] }
-axum = "0.8"
-clap = { version = "4", features = ["derive"] }
-tower = { version = "0.5", features = ["util"] }
-tower_governor = "0.8"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tracing = "0.1"
-
-# TLS support (optional) — activated with --features tls
-axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
-rustls-pemfile = { version = "2", optional = true }
-tower-http = { version = "0.6.11", features = ["trace"] }
-tracing-opentelemetry = { version = "0.33.0", optional = true }
-opentelemetry = { version = "0.32.0", optional = true }
-opentelemetry_sdk = { version = "0.32.1", optional = true }
-opentelemetry-otlp = { version = "0.32.0", optional = true, features = ["grpc-tonic", "trace"] }
-
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal"] }
 
 [dev-dependencies]
+axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4", features = ["derive"] }
 fs2 = "0.4"
 futures = "0.3"
 tempfile = "3"
@@ -41,15 +26,14 @@ indicatif = "0.18"
 rcgen = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 rustls = { version = "0.23", features = ["ring"] }
+tokio = { version = "1", features = ["full", "rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 
 [features]
 custom-allocator = ["mimalloc"]
-# Exposed solely for test harness compatibility with tests/common/mod.rs
 cli = ["vantadb/cli"]
-# Optional TLS support via axum-server + rustls
-tls = ["dep:axum-server", "dep:rustls-pemfile"]
-# OpenTelemetry Tracing
-opentelemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "opentelemetry_sdk/rt-tokio"]
+tls = ["vantadb/tls"]
+opentelemetry = ["vantadb/opentelemetry"]
 
 
 [dependencies.mimalloc]

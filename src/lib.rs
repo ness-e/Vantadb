@@ -10,6 +10,8 @@ pub mod binary_header;
 pub mod cli;
 #[cfg(feature = "cli")]
 pub mod cli_handlers;
+#[cfg(feature = "server")]
+pub mod cli_server;
 pub mod columnar;
 pub mod config;
 #[cfg(feature = "cli")]
