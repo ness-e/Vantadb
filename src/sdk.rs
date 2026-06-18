@@ -606,20 +606,20 @@ fn namespace_index_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
-fn encoded_scalar_value(value: &VantaValue) -> Vec<u8> {
+fn encoded_scalar_value(value: &VantaValue) -> Result<Vec<u8>> {
     match value {
         VantaValue::String(value) => {
             let mut encoded = b"s:".to_vec();
             encoded.extend_from_slice(value.as_bytes());
-            encoded
+            Ok(encoded)
         }
-        VantaValue::Int(value) => format!("i:{value}").into_bytes(),
-        VantaValue::Float(value) => format!("f:{:016x}", value.to_bits()).into_bytes(),
+        VantaValue::Int(value) => Ok(format!("i:{value}").into_bytes()),
+        VantaValue::Float(value) => Ok(format!("f:{:016x}", value.to_bits()).into_bytes()),
         VantaValue::Bool(value) => {
             if *value {
-                b"b:1".to_vec()
+                Ok(b"b:1".to_vec())
             } else {
-                b"b:0".to_vec()
+                Ok(b"b:0".to_vec())
             }
         }
         VantaValue::DateTime(dt) => {
@@ -628,21 +628,21 @@ fn encoded_scalar_value(value: &VantaValue) -> Vec<u8> {
                 dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
                     .as_bytes(),
             );
-            encoded
+            Ok(encoded)
         }
         VantaValue::ListString(_)
         | VantaValue::ListInt(_)
         | VantaValue::ListFloat(_)
         | VantaValue::ListBool(_)
-        | VantaValue::ListDateTime(_) => {
-            panic!("Cannot encode list value directly as scalar");
-        }
-        VantaValue::Null => b"n:".to_vec(),
+        | VantaValue::ListDateTime(_) => Err(VantaError::Execution(
+            "Cannot encode list value as scalar index key".to_string(),
+        )),
+        VantaValue::Null => Ok(b"n:".to_vec()),
     }
 }
 
-fn payload_index_prefix(namespace: &str, field: &str, value: &VantaValue) -> Vec<u8> {
-    let encoded = encoded_scalar_value(value);
+fn payload_index_prefix(namespace: &str, field: &str, value: &VantaValue) -> Result<Vec<u8>> {
+    let encoded = encoded_scalar_value(value)?;
     let mut prefix = Vec::with_capacity(namespace.len() + field.len() + encoded.len() + 3);
     prefix.extend_from_slice(namespace.as_bytes());
     prefix.push(0);
@@ -650,13 +650,13 @@ fn payload_index_prefix(namespace: &str, field: &str, value: &VantaValue) -> Vec
     prefix.push(0);
     prefix.extend_from_slice(&encoded);
     prefix.push(0);
-    prefix
+    Ok(prefix)
 }
 
-fn payload_index_key(namespace: &str, field: &str, value: &VantaValue, key: &str) -> Vec<u8> {
-    let mut index_key = payload_index_prefix(namespace, field, value);
+fn payload_index_key(namespace: &str, field: &str, value: &VantaValue, key: &str) -> Result<Vec<u8>> {
+    let mut index_key = payload_index_prefix(namespace, field, value)?;
     index_key.extend_from_slice(key.as_bytes());
-    index_key
+    Ok(index_key)
 }
 
 fn node_id_bytes(node_id: u64) -> Vec<u8> {
@@ -987,7 +987,7 @@ impl VantaEmbedded {
         Ok((namespace_entries, payload_entries))
     }
 
-    fn derived_put_ops(record: &VantaMemoryRecord) -> Vec<BackendWriteOp> {
+    fn derived_put_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWriteOp>> {
         let mut ops = Vec::new();
         ops.push(BackendWriteOp::Put {
             partition: BackendPartition::NamespaceIndex,
@@ -999,16 +999,16 @@ impl VantaEmbedded {
             for val in value.to_index_values() {
                 ops.push(BackendWriteOp::Put {
                     partition: BackendPartition::PayloadIndex,
-                    key: payload_index_key(&record.namespace, field, &val, &record.key),
+                    key: payload_index_key(&record.namespace, field, &val, &record.key)?,
                     value: node_id_bytes(record.node_id),
                 });
             }
         }
 
-        ops
+        Ok(ops)
     }
 
-    fn derived_delete_ops(record: &VantaMemoryRecord) -> Vec<BackendWriteOp> {
+    fn derived_delete_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWriteOp>> {
         let mut ops = Vec::new();
         ops.push(BackendWriteOp::Delete {
             partition: BackendPartition::NamespaceIndex,
@@ -1019,12 +1019,12 @@ impl VantaEmbedded {
             for val in value.to_index_values() {
                 ops.push(BackendWriteOp::Delete {
                     partition: BackendPartition::PayloadIndex,
-                    key: payload_index_key(&record.namespace, field, &val, &record.key),
+                    key: payload_index_key(&record.namespace, field, &val, &record.key)?,
                 });
             }
         }
 
-        ops
+        Ok(ops)
     }
 
     fn load_text_term_stats(
@@ -1249,10 +1249,10 @@ impl VantaEmbedded {
     ) -> Result<()> {
         let mut ops = Vec::new();
         if let Some(previous) = previous {
-            ops.extend(Self::derived_delete_ops(previous));
+            ops.extend(Self::derived_delete_ops(previous)?);
         }
         if let Some(current) = current {
-            ops.extend(Self::derived_put_ops(current));
+            ops.extend(Self::derived_put_ops(current)?);
         }
         let (text_ops, text_report) = Self::text_index_ops_for_replace(engine, previous, current)?;
         ops.extend(text_ops);
@@ -1540,7 +1540,7 @@ impl VantaEmbedded {
                 record_count += 1;
                 namespace_entries += 1;
                 payload_entries += record.metadata.len() as u64;
-                ops.extend(Self::derived_put_ops(&record));
+                ops.extend(Self::derived_put_ops(&record)?);
             }
         }
 
@@ -2038,7 +2038,7 @@ impl VantaEmbedded {
         field: &str,
         value: &VantaValue,
     ) -> Result<(Vec<u64>, bool)> {
-        let prefix = payload_index_prefix(namespace, field, value);
+        let prefix = payload_index_prefix(namespace, field, value)?;
         let entries = engine.scan_partition_prefix(BackendPartition::PayloadIndex, &prefix)?;
         let mut ids = Vec::new();
         let has_index_entries = Self::load_derived_index_state(engine)?.is_some();
@@ -2517,8 +2517,7 @@ impl VantaEmbedded {
                 let existing = match engine.get(node_id)? {
                     Some(node) => match memory_record_from_node(node) {
                         Some(record)
-                            if record.namespace == input.namespace
-                                && record.key == input.key =>
+                            if record.namespace == input.namespace && record.key == input.key =>
                         {
                             Some(record)
                         }
@@ -2624,7 +2623,7 @@ impl VantaEmbedded {
 
         match memory_record_from_node(node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
-            Some(record) => Err(VantaError::Execution(format!(
+            Some(_record) => Err(VantaError::Execution(format!(
                 "node id collision for namespace='{}' key='{}'",
                 namespace, key
             ))),
@@ -3112,7 +3111,7 @@ impl VantaEmbedded {
         }
 
         let count = to_delete.len() as u64;
-        for (namespace, key, node_id) in &to_delete {
+        for (_, _, node_id) in &to_delete {
             engine.delete(*node_id, "purge_expired")?;
             self.replace_derived_indexes(&engine, None, None)?;
         }
