@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 
-from .vantadb_native import VantaDB, __version__
+from .vantadb_py import VantaDB, __version__
 
 __all__ = ["VantaDB", "AsyncVantaDB", "__version__"]
 

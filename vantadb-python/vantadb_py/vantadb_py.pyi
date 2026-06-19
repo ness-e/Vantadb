@@ -1,4 +1,4 @@
-"""Type stubs for the Rust-native ``vantadb_native`` module."""
+"""Type stubs for the Rust-native ``vantadb_py`` module."""
 
 from __future__ import annotations
 
