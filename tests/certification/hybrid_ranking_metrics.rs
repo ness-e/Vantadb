@@ -13,11 +13,7 @@ fn ndcg_at_k(ranked: &[String], relevant: &[String], k: usize) -> f64 {
     }
     let mut dcg = 0.0;
     for (i, key) in ranked.iter().enumerate().take(k) {
-        let rel = if relevant.contains(key) {
-            1.0
-        } else {
-            0.0
-        };
+        let rel = if relevant.contains(key) { 1.0 } else { 0.0 };
         dcg += (2.0f64.powf(rel) - 1.0) / (i as f64 + 2.0).log2();
     }
     let mut idcg = 0.0;
