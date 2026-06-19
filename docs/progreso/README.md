@@ -1,549 +1,202 @@
-# Historial Unificado de Progreso — VantaDB
+# Progreso General del Proyecto VantaDB
 
-> **Propósito:** Documento consolidado que resume todas las fases de desarrollo ejecutadas en VantaDB, organizadas por categoría temática. Cada entrada describe el objetivo, los cambios principales y los resultados clave de la fase.
->
-> **Fuente:** 43 carpetas de progreso individuales dentro de `docs/progreso/`.
-
----
-
-## Índice de Categorías
-
-1. [Rendimiento y Optimización HNSW](#1-rendimiento-y-optimización-hnsw)
-2. [Almacenamiento, Persistencia y WAL](#2-almacenamiento-persistencia-y-wal)
-3. [Seguridad y Resiliencia](#3-seguridad-y-resiliencia)
-4. [Arquitectura del Core y Refactorizaciones](#4-arquitectura-del-core-y-refactorizaciones)
-5. [Python SDK y Distribución](#5-python-sdk-y-distribución)
-6. [CLI y API de Usuario](#6-cli-y-api-de-usuario)
-7. [Observabilidad e Instrumentación](#7-observabilidad-e-instrumentación)
-8. [Integraciones y Ecosistema](#8-integraciones-y-ecosistema)
-9. [Benchmarks y Certificación](#9-benchmarks-y-certificación)
-10. [Documentación, Planificación y Gobernanza](#10-documentación-planificación-y-gobernanza)
-11. [Tareas de Rectificación y Hardening Completadas (Sprint v0.2.0)](#11-tareas-de-rectificación-y-hardening-completadas-sprint-v020)
-
----
-
-## 1. Rendimiento y Optimización HNSW
-
-### FASE-02-MMAP — Memoria Mapeada para Vectores
-- **Objetivo:** Migrar el almacenamiento de vectores a memory-mapped files (`mmap`) para eliminar copias innecesarias y habilitar acceso directo a memoria del SO.
-- **Resultado:** Implementación de `VantaFile` con cabecera binaria `VFLE`, acceso zero-copy a descriptores de nodos, y reducción significativa del footprint de memoria en datasets grandes.
-
-### MMAP-02b-sqrt-optimization — Eliminación de sqrt en Traversal
-- **Objetivo:** Optimizar el hot-path HNSW eliminando operaciones de raíz cuadrada innecesarias durante el traversal del grafo.
-- **Resultado:** Evaluación con distancias L2 al cuadrado en traversal, aplicando sqrt solo en el top-K final. Mejora medible en throughput de búsqueda.
-
-### SCALE-01 — Optimización del Bucle Interno HNSW
-- **Objetivo:** Reducir los lookups de HashMap en `select_neighbors` y eliminar clones redundantes de `BinaryHeap`.
-- **Logros:**
-  - Creación de `SelectedInfo` para acceso directo a memoria contigua → **~98% reducción en overhead de direccionamiento**.
-  - Consumo de propiedad del `BinaryHeap` eliminando allocations temporales.
-  - Caché estática con `OnceLock` para variable de entorno `VANTA_DISABLE_PREFETCH`.
-  - Implementación de `cosine_sim_cached_norms` con dot products SIMD puros y normas pre-cacheadas.
-- **Resultado:** Aceleración neta de **2.22x** (587s → 314s). Recall@1: 1.0000 intacto.
-
-### SCALE-01c-Prefetch-Benchmark — Benchmark de Prefetch
-- **Objetivo:** Validar el impacto de prefetching (`madvise`) en el rendimiento de traversal HNSW sobre archivos mmap.
-- **Resultado:** Mediciones controladas del efecto de prefetch en HNSW con datasets de distintos tamaños.
-
-### SCALE-01d-Zero-Copy-Paging — Paginación Zero-Copy
-- **Objetivo:** Optimizar el paging de vectores eliminando copias intermedias durante la lectura de slices `f32` desde mmap.
-- **Resultado:** Conversiones directas `try_from` para generar instrucciones SIMD `vmovups` óptimas.
-
-### SCALE-02-HNSW-Optimisacion-Bucle — Optimización Avanzada del Bucle
-- **Objetivo:** Segunda ronda de optimización del bucle interno HNSW, enfocada en reducir cache misses y mejorar la localidad de datos.
-- **Resultado:** Mejoras incrementales en el hot-path de inserción y búsqueda.
-
-### SCALE-03-SDK-HNSW-Connection — Conexión SDK↔HNSW
-- **Objetivo:** Eliminar la latencia de ~200ms p50 del Python SDK en búsquedas vectoriales.
-- **Root Cause:** `search_vector()` y `vector_memory_search()` usaban brute-force O(N) en lugar del índice HNSW existente. `flush()` era un no-op silencioso.
-- **Cambios:**
-  - `search_vector()`: O(N) → O(log N) vía `CPIndex::search_nearest`.
-  - `vector_memory_search()`: scan lineal → HNSW + post-filtrado con fallback.
-  - `flush()`: no-op → flush real delegando a `StorageEngine::flush()`.
-- **Resultado:** Latencia p50 de **~200ms → ~0.17ms** (throughput: 5930 búsquedas/segundo).
-
-### FASE-05-Concurrent-HNSW — HNSW Concurrente
-- **Objetivo:** Habilitar operaciones concurrentes de lectura/escritura en el índice HNSW sin contención excesiva.
-- **Resultado:** Implementación de mecanismos de concurrencia para el índice vectorial.
-
-### rcu-double-buffer — RCU / Double-Buffer para Reconstrucción
-- **Objetivo:** Eliminar contención en el hot-path de lectura durante operaciones de reconstrucción del índice HNSW.
-- **Cambio:** Migración de `RwLock<CPIndex>` a esquema RCU (Read-Copy-Update) con `ArcSwap`.
-- **Resultado:** Lecturas sin bloqueo durante rebuild/compact, usando swap atómico de punteros.
-
----
-
-## 2. Almacenamiento, Persistencia y WAL
-
-### checksum-wal — CRC32C en Write-Ahead Log
-- **Objetivo:** Añadir checksums CRC32C a todos los registros del WAL para detectar corrupción.
-- **Resultado:** `WalHeader` con firma CRC32C, validación automática en replay, y detección de registros corruptos con scan-forward para auto-sanación.
-
-### cabeceras-binarias-uniformes-T2.4-T2.2 — Headers Binarios Uniformes
-- **Objetivo:** Implementar headers estructurados uniformes (`VantaHeader`, 16 bytes) para `vector_index.bin`, snapshots y archivos WAL.
-- **Resultado:** Alineación zero-copy a 64 bytes para descriptores de nodos, control de errores con `VantaError::IncompatibleFormat`.
-
-### completacion-formal-T2.2-mimalloc-rss — mimalloc + Telemetría RSS
-- **Objetivo:** Integrar mimalloc como allocator global (bajo feature flag `custom-allocator`) y establecer telemetría de memoria RSS.
-- **Resultado:** Versionado binario completo, integración de mimalloc, y telemetría de fragmentación de memoria.
-
-### soporte-datetime-listas-y-dag — Tipos DateTime, Listas y Primitivas DAG
-- **Objetivo:** Extender `FieldValue` con soporte nativo para `DateTime<Utc>`, listas homogéneas tipadas, y traversals BFS/DFS en grafo.
-- **Resultado:** Nuevas variantes en el enum `FieldValue`, indexación de listas para estadísticas de cardinalidad, y funciones `bfs_traverse`/`dfs_traverse`.
-
----
-
-## 3. Seguridad y Resiliencia
-
-### SEC-FFI — Seguridad FFI Python↔Rust
-- **Objetivo:** Auditar y asegurar el boundary FFI entre Python y Rust vía PyO3.
-- **Resultado:** Validación de la liberación del GIL, manejo seguro de tipos entre lenguajes.
-
-### SEC-FFI-04 — Seguridad FFI Avanzada
-- **Objetivo:** Segunda ronda de hardening del FFI, enfocada en edge cases de conversión de tipos y manejo de errores.
-- **Resultado:** Endurecimiento del boundary de seguridad Python↔Rust.
-
-### sec-wal — Seguridad del WAL
-- **Objetivo:** Validar la integridad del WAL ante corrupción parcial.
-- **Resultado:** Verificación CRC32C en replay, scan-forward para recuperación de nodos válidos, y tests de inyección de corrupción.
-
-### crash-injection — Pruebas de Inyección de Caídas
-- **Objetivo:** Certificar la resiliencia de durabilidad ante caídas abruptas de proceso (SIGKILL, cortes de energía).
-- **Implementación:** Binario `crash_helper` con persistencia síncrona estricta (`SyncMode::Always`), y test de inyección que mata el proceso en caliente.
-- **Resultado:** 100/100 recuperaciones correctas sin pérdida de datos ni corrupción del índice HNSW.
-
-### chaos-testing-T3.1 — Chaos Testing Expandido
-- **Objetivo:** Validar resiliencia ante fallos de persistencia catastróficos mediante failpoints instrumentados.
-- **Failpoints implementados:** `wal_append_fail`, `storage_insert_fail`, `mmap_flush_fail`, `hnsw_serialize_fail`.
-- **Bug encontrado y corregido:** `StorageEngine::flush()` no invocaba `.flush()` sobre el HNSW index subyacente.
-- **Resultado:** 4 escenarios de caos certificados con recuperación completa.
-
-### locking-y-concurrencia — Bloqueo Shared/Exclusive
-- **Objetivo:** Implementar advisory locks a nivel de sistema de archivos para prevenir corrupción multi-proceso.
-- **Resultado:** `try_lock_shared()` para lectores concurrentes, `try_lock_exclusive()` para escritores, backoff exponencial, y variante `DatabaseBusy` en `VantaError`.
-
-### seguridad-avanzada-servidor-MP1 — Seguridad del Servidor HTTP
-- **Objetivo:** Implementar capas de seguridad para la API REST.
-- **Logros:**
-  - Autenticación Bearer Token (`VANTADB_API_KEY`).
-  - Rate Limiting con `tower-governor` (Token Bucket configurable por RPM).
-  - TLS opcional para cifrado de transporte.
-- **Resultado:** Servidor desplegable en entornos expuestos con protección DDoS y autenticación.
-
-### resolucion-vulnerabilidades-pyo3 — Mitigación de RUSTSEC en PyO3
-- **Objetivo:** Desbloquear CI/CD ante vulnerabilidades RUSTSEC-2026-0176 y RUSTSEC-2026-0177 en pyo3 v0.24.2.
-- **Resultado:** Excepciones temporales en `deny.toml` y `verify.ps1`, permitiendo builds mientras se espera actualización upstream.
-
----
-
-## 4. Arquitectura del Core y Refactorizaciones
-
-### cuarentena-experimental — Aislamiento de Código Experimental
-- **Objetivo:** Desacoplar módulos experimentales (LISP parser, gobernanza) del core estable.
-- **Resultado:** LISP y gobernanza movidos a subcrates bajo `packages/`. Core limpio, predecible y sin features condicionales inactivas. Tests del parser/executor convertidos en tests incondicionales del core.
-
-### estabilizacion-post-cuarentena-01 — Estabilización Post-Cuarentena
-- **Objetivo:** Corregir 3 tests que fallaban tras la refactorización CUARENTENA-01.
-- **Bugs corregidos:**
-  - `structured_api_v2_certification`: `.unwrap()` sobre nodos sin campo "label" + inserción en `volatile_cache` condicionada por tier incorrecto.
-  - Propagación de cambios arquitecturales no reflejados en la suite de tests.
-- **Resultado:** Verde completo en pipeline de verificación.
-
-### desacoplamiento-tokio-y-red-serv-01 — Desacoplamiento de Tokio y Red
-- **Objetivo:** Eliminar `tokio` y `reqwest` del core embebido, consolidando identidad local-first.
-- **Resultado:** `tokio` solo en `dev-dependencies`, feature `llm` renombrada a `remote-inference`, core estrictamente síncrono.
-
-### motor-consultas-volcano-cbo — Motor Volcano + CBO
-- **Objetivo:** Implementar modelo físico Volcano (iteradores perezosos `open/next/close`) con optimizador basado en costo por selectividad.
-- **Resultado:** Motor de consultas con plan físico dinámico, CBO ligero, y desacoplamiento completo de async.
-
----
-
-## 5. Python SDK y Distribución
-
-### coherencia-versiones-y-search-batch — Versiones + Búsqueda por Lotes
-- **T0.3 (Versiones):** Guardrails de coherencia de versión entre Cargo.toml raíz, `vantadb-server`, `vantadb-mcp`, `langchain-vantadb`, y `llamaindex-vantadb`.
-- **T1.4 (Batch):** `search_batch` con `rayon` para paralelismo CPU, liberación eager del GIL, y tests de equivalencia secuencial vs paralelo.
-
-### wheels-pipeline-T3.3 — Pipeline de Wheels
-- **Objetivo:** Cerrar el pipeline completo de distribución del SDK Python.
-- **Logros:**
-  - Verificación post-publicación automatizada en CI (TestPyPI + PyPI producción).
-  - Verificación criptográfica de provenance (GitHub Attestations SLSA L2).
-  - Documentación actualizada en `PYTHON_RELEASE_POLICY.md`.
-
----
-
-## 6. CLI y API de Usuario
-
-### CLI-01 — CLI Embebida Inicial
-- **Objetivo:** Implementar CLI embebida con comandos `put`, `get`, `list` para operaciones de memoria.
-- **Resultado:** Binario `vanta-cli` funcional con operaciones CRUD básicas.
-
-### cli-01-consola-premium — Consola Premium
-- **Objetivo:** Mejorar la experiencia de CLI con formateo rico, colores, y UX premium.
-- **Resultado:** Salida formateada con tablas, colores ANSI, y feedback visual mejorado.
-
-### FEAT-01 — Integraciones LangChain/LlamaIndex
-- **Objetivo:** Crear adaptadores de ecosistema para LangChain y LlamaIndex.
-- **Logros:**
-  - `langchain-vantadb`: Paquete Python independiente con `VantaDBVectorStore` compatible con `langchain_core.vectorstores.VectorStore`.
-  - `llamaindex-vantadb`: Adaptador para LlamaIndex.
-
----
-
-## 7. Observabilidad e Instrumentación
-
-### opentelemetry-e-instrumentacion-del-core — OpenTelemetry en el Core
-- **Objetivo:** Integrar OpenTelemetry (OTLP) en los hot-paths del motor con feature flag opcional `opentelemetry`.
-- **Resultado:** Spans de trazas distribuidas en operaciones de storage, search, e index. Dependencias condicionales (`opentelemetry 0.32`, `tracing-opentelemetry 0.33`).
-
-### telemetria-otlp — Telemetría OTLP en Servidor
-- **Objetivo:** Integrar endpoint OTLP en `vantadb-server` para envío de trazas a backends externos.
-- **Resultado:** Configuración vía `OTEL_EXPORTER_OTLP_ENDPOINT`, compatible con Jaeger/Zipkin/Grafana Tempo.
-
-### compatibilidad-mcp — Compatibilidad MCP
-- **Objetivo:** Asegurar que la instrumentación no rompa el protocolo MCP (que requiere monopolio de stdout para JSON-RPC).
-- **Logros:**
-  - `clap` para parseo robusto de flags (`--mcp`).
-  - Redirección de `tracing-subscriber` a `stderr` cuando `--mcp` está activo.
-  - Template `.env.example` documentando todas las variables de configuración.
-
----
-
-## 8. Integraciones y Ecosistema
-
-### FEAT-01 — Adaptadores LangChain / LlamaIndex
-- (Descrito en sección 6 — CLI y API)
-
----
-
-## 9. Benchmarks y Certificación
-
-### competitive-bench-T3.2 — Benchmark Competitivo (GloVe & SIFT)
-- **Objetivo:** Ejecutar benchmark competitivo contra LanceDB y ChromaDB en datasets estándar (GloVe, SIFT) a escala 10K.
-- **Resultado:** Suite robustecida ante divergencias de dimensiones, resultados documentados en `docs/BENCHMARKS.md`.
-
-### optimizacion-workflows-certificacion — Optimización de CI Workflows
-- **Objetivo:** Corregir timeouts y optimizar workflows de certificación pesada.
-- **Cambios:**
-  - Timeout de `hnsw-validation` aumentado a 120 min.
-  - `cargo-fuzz` instalado vía binario precompilado.
-  - `fuzz/Cargo.toml` con `[workspace]` explícito.
-
----
-
-## 10. Documentación, Planificación y Gobernanza
-
-### analisis-estado-plan-maestro — Análisis del Plan Maestro
-- **Objetivo:** Cruzar las 30 tareas del Plan Maestro con evidencia documental verificada.
-- **Resultado:** Plan Maestro con estado actualizado, leyenda de estados y tabla de resumen ejecutivo.
-
-### unificacion-plan-maestro — Unificación del Plan Maestro
-- **Objetivo:** Consolidar múltiples fuentes de planificación en un único documento maestro.
-- **Fuentes revisadas:** `Plan antigraviti.md`, `Plan deepseek.md`, `Plan qwen.md`, `VantaDB_Roadmap_y_Plan_Estrategico_v0.2.md.docx.md`, `deep-research-report.md`.
-- **Resultado:** Documento unificado con visión coherente.
-
-### correccion-inconsistencias-docs — Corrección de Inconsistencias
-- **Objetivo:** Corregir 3 inconsistencias críticas en la documentación de reorganización.
-- **Correcciones:**
-  - Estado real de integraciones (LangChain, LlamaIndex, 9 ejemplos Python).
-  - Eliminación de referencias a directorios purgados (`docs/implementacionActual/`).
-
-### reorganizacion-y-auditoria-docs — Auditoría y Reorganización de Docs
-- **Objetivo:** Auditar utilidad de todos los documentos y establecer `docs/README.md` como Single Source of Truth para navegación.
-- **Resultado:** Secciones reorganizadas para Advanced Tokenizer, artículos técnicos, reports/milestones/snapshots.
-
-### gobernanza-comunidad-T4.4 — Gobernanza de Comunidad
-- **Objetivo:** Definir políticas de gobernanza, contribución y código de conducta para la comunidad.
-- **Resultado:** Documentación de gobernanza en `docs/operations/COMMUNITY_GOVERNANCE.md`.
-
-### lanzamiento-marketing-T4.2-T4.3 — Preparación de Lanzamiento
-- **Objetivo:** Preparar materiales de marketing y narrativa para el lanzamiento público.
-- **Resultado:** `SHOW_HN_PREP.md` con estrategia de comunicación y posicionamiento.
-
-### programa-pilotos-T3.4 — Programa de Pilotos
-- **Objetivo:** Diseñar el programa de early adopters y pilotos controlados.
-- **Resultado:** Framework de onboarding, criterios de selección, y métricas de éxito para pilotos.
-
-### project-code-status-audit — Auditoría Técnica Estática
-- **Objetivo:** Auditoría completa del código base mediante análisis estático y pasivo.
-- **Resultado:** Informe exhaustivo de la estructura real del motor, identificación de la vulnerabilidad RUSTSEC bloqueante.
-
----
-
-## 11. Tareas de Rectificación y Hardening Completadas (Sprint v0.2.0)
-
-Listado de tareas técnicas legítimas completadas correspondientes al backlog de rectificación y preparación de release para la versión `v0.2.0`:
-
-* **`TSK-01` (Python SDK):** Exposición de la API completa (`list_namespaces`, `rebuild_index`, `search_hybrid`, `get_node`, `delete_node`) en `vantadb-python/src/lib.rs`.
-* **`TSK-02` (Python SDK):** Liberación del GIL en operaciones de larga duración (>10ms) usando `py.allow_threads()` de forma sistemática en todos los métodos del SDK de Python.
-* **`TSK-03` (Python SDK):** Reemplazo de pánicos y llamadas a `.expect()` por manejo seguro de errores con tipo `PyResult` en la integración FFI.
-* **`TSK-04` (Storage):** Implementación de `madvise(MADV_DONTNEED)` para liberar dinámicamente páginas físicas de nodos fríos de memoria mmap.
-* **`TSK-05` (Storage):** Adición de control de señales para la detección de errores de bus `SIGBUS` en entornos Unix cuando el archivo de almacenamiento se trunca externamente.
-* **`TSK-06` (Observabilidad):** Habilitación del endpoint de Prometheus `/metrics` en el servidor y exportación estructurada de métricas operacionales.
-* **`TSK-07` (Testing):** Implementación de property-based testing con la crate `proptest` para validar la resiliencia de la persistencia y durabilidad del WAL.
-* **`TSK-08` (Memory):** Corrección de la telemetría de memoria física real (RSS) consultando las APIs nativas del sistema operativo en lugar de reportar erróneamente páginas mapeadas virtuales (mmap).
-* **`TSK-10` (vantadb-mcp):** Implementación del handler del método `prompts/list` en la integración MCP para permitir listar prompts disponibles a agentes de IA.
-* **`TSK-11` (vantadb-mcp):** Implementación del handler del método `prompts/get` para retornar prompts formateados con inputs de usuario específicos.
-* **`TSK-12` (vantadb-mcp):** Corrección de error de compilación en MCP reemplazando la llamada ArcSwap obsoleta `hnsw.read()` por `hnsw.load()`.
-* **`TSK-20` (skills):** Corrección de dependencias de scripts Python en skills (`vantadb_py` -> `vantadb`).
-* **`TSK-21` (skills):** Rectificación del script de instalación automatizado `setup-vantadb.sh` para soportar instalaciones locales estables.
-* **`TSK-22` (skills):** Corrección de URLs de documentación rotas apuntando a recursos locales y oficiales válidos.
-* **`TSK-24` (CLI):** Comando `server` integrado en la CLI (`vanta-cli server`) para gestionar la ejecución de servidores HTTP y MCP.
-* **`TSK-31` (Core / Query):** DateTime nativo con Chrono: soporte para DateTime (RFC 3339) con indexación y queries de rangos.
-* **`TSK-32` (Core / Index):** Flat Arrays homogéneos: soporte para arrays planos (`ListString`, `ListInt`, etc.) e indexación de contención.
-* **`TSK-33` (Core / Graph):** Primitivas de ejecución de DAG (cycle detection DFS, topological sort Kahn, y niveles paralelos de ejecución).
-* **`TSK-39` (Text Index):** Postings con posiciones: schema v3 de postings con posiciones para habilitar phrase queries exactas.
-* **`TSK-40` (Text Index):** Snippets y highlighting: guardado de offsets de tokens para extraer fragmentos relevantes y resaltado HTML.
-* **`TSK-41` (Text Index):** Tokenizer avanzado v3: soporte para Unicode folding, stopwords y stemming en la indexación léxica.
-* **`TSK-42` (Text Index):** Explicabilidad del ranking: reporte estructurado del planner sobre pesos, puntuaciones de RRF e hits.
-* **`TSK-43` (Text Index):** Estadísticas persistentes de BM25: prevención de que la deduplicación de documentos rompa contadores TF/DF y longitud.
-* **`TSK-44` (Text Index):** Budgets de RRF y métricas de expansión: optimización y límites en candidatos procesados por el fusionador.
-* **`TSK-45` (CI/CD / Storage):** Corrección de fallo de compilación en el manejador SIGBUS para Unix (acceso a `si_addr` como método en Linux/Android y campo en macOS/iOS) y configuración de Dependabot para ignorar actualizaciones incompatibles de `sysinfo`.
-* **`TSK-13` (vantadb-mcp):** Suite de tests unitarios para handlers MCP: 9 tests cubriendo initialize, resources, prompts, tools list, CRUD flow, IQL queries y semantic search.
-* **`TSK-14` (vantadb-server):** Tests de autenticación Bearer token: 6 escenarios (no auth, valid token, invalid token, missing header, wrong scheme, health exempt).
- * **`TSK-15` (vantadb-server):** Tests de rate limiting: RPM=0 pasa 10 requests, RPM>0 limita tras burst, health no afectado por rate limit.
- * **`TSK-16` (vantadb-server):** Tests de TLS/HTTPS: 2 tests integrados que generan certificados autofirmados dinámicamente con `rcgen`, inician servidor TLS con `axum-server`/`rustls`, y verifican health, query con auth y query sin auth sobre HTTPS (requiere `--features tls`).
- * **`TSK-17` (vantadb-server):** Tests de concurrencia: 3 tests que verifican 20 requests paralelas, 10 requests con semáforo pequeño (2 permits), y 10 requests concurrentes con autenticación — validan que el semáforo encola correctamente sin errores.
- * **`TSK-19` (vantadb-server):** Tests de integración end-to-end sobre HTTP real: 6 tests que levantan un servidor TCP real (`axum::serve`), se conectan via `reqwest`, y validan el roundtrip completo client->server->storage->response. Cubren: health+metrics, insert+query+delete, auth sobre HTTP real, persistencia tras reinicio del servidor, rate limiting sobre socket real, y errores 400.
- * **`TSK-18` (vantadb-server):** Performance benchmarks del servidor HTTP: 5 benchmarks que miden latencia serial (p50/p95/p99) en INSERT, Health y Auth middleware, y throughput concurrente en INSERT y Health. Resultados: Health p50=0.81ms, INSERT p50=1.55ms, throughput INSERT ~1008 req/s, throughput Health ~1353 req/s.
- * **`TSK-25` (CLI):** Comando `search` para búsqueda semántica híbrida por namespace desde CLI. Usa `VantaEmbedded::search()` con `VantaMemorySearchRequest` (text_query + top_k + default filters). Muestra resultados formateados con score y payload truncado.
- * **`TSK-26` (CLI):** Comando `delete` para eliminación de registros por namespace y key desde CLI. Usa `VantaEmbedded::delete()` con feedback de éxito/not-found. Soporta flag `--verbose` para mostrar node ID.
- * **`TSK-27` (CLI):** Comando `namespace` con subcomandos `list` (enumera todos los namespaces via `VantaEmbedded::list_namespaces()`) e `info` (recuento de registros y payload total via `VantaEmbedded::list()` con `limit=usize::MAX`).
- * **`TSK-29` (CLI):** Suite de 33 tests de integración CLI extraídos a tests dedicados. Se refactorizaron los handlers del binary (`src/bin/vanta-cli.rs`) a `src/cli_handlers.rs` como módulo público de la library crate (`vantadb::cli_handlers`) detrás de `#[cfg(feature = "cli")]`, haciendo los handlers testables desde tests de integración. Se agregó `[[test]]` en `Cargo.toml` con `required-features = ["cli"]`. Se corrigieron 3 tests que fallaban inicialmente: (1) `cmd_query` usaba `SELECT *` (IQL no soportado) → `FROM Persona`, (2) `cmd_search` fallaba sin text index BM25 → uso de `seed_embedded` con `VantaEmbedded::put()` para construir índices derivados. Todos los tests usan `tempfile::TempDir` para bases de datos aisladas y se ejecutan con `cargo test --test cli_tests`.
- * **`TSK-28` (CLI/Import-Export):** Migración de import/export CLI a SDK `serde_json`. Reemplazó el parser manual `extract_json_field` por `VantaEmbedded::export_namespace()` / `import_file()`. Neto -143 líneas netas de código eliminado. Commit `620d714`.
- * **`TSK-30` (CLI/Server):** Fusión del binario `vantadb-server` dentro de `vanta-cli` como subcomando `server` in-process. La lógica HTTP (axum + tokio + tower-governor + middleware auth) se movió a `vantadb::cli_server` bajo `#[cfg(feature = "server")]`. `vantadb-server` se convirtió en wrapper delgado. MCP (`--mcp`) mantiene subproceso externo (`vantadb-server --mcp`). `cmd_server` ejecuta HTTP in-process vs subproceso anterior. Dependencias pesadas (tokio, axum, tower, tower-governor, tower-http) son opcionales detrás de `feature = "server"`. Tests: 33 CLI + 13 server unit + 6 E2E HTTP real pasan. `cargo fmt --check` pasa.
- * **CI/CD Fixes (Jun 2026):** Corrección de workflows de GitHub Actions: toolchain unificado a `@stable`, runner `windows-2025-vs2026` → `windows-latest`, eliminación de `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` obsoleto, push mejorado con `GITHUB_TOKEN` en bench.yml, y exclusión de `crash_injection` del profile audit en nextest.
- * **DISC-01 (Jun 2026):** Verificación de todos los consumidores de `ExecutionResult` (3 variants: Read, Write, StaleContext) en `python.rs`, `sdk.rs`, `cli_handlers.rs`, `cli_server.rs`, `vantadb-mcp/lib.rs`. Ningún panic posible — todos los match arms están cubiertos.
- * **TSK-23 (Jun 2026):** Corrección de scripts skills: `test-mcp.py` (binary name `vanta-server` → `vantadb-server`), `setup-vantadb.sh` (3 usos de `vanta-server` + ruta `cargo install`), `create-namespace.py` (import `vantadb` → `vantadb_py`, emojis → texto ASCII para Windows).
- * **TSK-53 (Jun 2026):** Validación NaN/Inf en metadata FFI Python. `py_any_to_value()` en `vantadb-python/src/lib.rs` rechaza `float('nan')`, `float('inf')`, `float('-inf')` con `PyTypeError` en Float escalar y ListFloat elemento a elemento. 16 tests Python pasan.
- * **TSK-36 (Jun 2026):** Auditoría estructural del text index (src/text_index.rs, sdk.rs, planner.rs, metrics.rs). No se encontraron issues críticos de concurrencia o integridad. Observaciones menores: sin rate limit en lexical search, TOCTOU benigno en cache.
- * **TSK-38 (Jun 2026):** Corpus interno de evaluación extendido. Nuevo test `extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace` con 10 documentos (namespace A) + 4 (namespace B). Valida: ranking TF saturation, phrase query exacta, empty/sin-match queries, namespace isolation, filtro+text intersection, top_k clamping. Ambos tests de certificación pasan.
- * **DISC-04 (Jun 2026):** Extensión de crash injection con kill -9 durante writes activos. Nuevo test `test_crash_during_active_writes_with_tight_loop`: helper `crash_helper` con modo `tight` (sin sleep entre writes); se mata el proceso inmediatamente tras el primer write confirmado. 20 iteraciones. Verifica: DB reabre, nodo confirmado presente, HNSW estructuralmente válido. Ambos tests de crash injection pasan (AUD-02 + AUD-03).
-
----
-
-### TSK-68 — Zero-copy NumPy FFI (Buffer Protocol)
-
-- **Objetivo:** Eliminar el overhead de conversión Python→Rust (~62ms) aceptando `numpy.ndarray` y cualquier objeto buffer protocol mediante `PyBuffer::<f32>::get()` de PyO3, evitando la iteración elemento por elemento de Python lists.
-- **Implementación:**
-  - `extract_vector()` helper que intenta buffer protocol (NumPy, array.array, memoryview, bytes) primero, cae a `Vec<f32>`.
-  - Soporte f64 con downcast automático a f32.
-  - `abi3-py38` → `abi3-py311` para habilitar `pyo3::buffer`.
-  - Todos los métodos actualizados: `insert`, `put`, `search`, `search_memory`, `search_batch`.
-- **Tests:** 6 nuevos tests NumPy: insert, search, memory_put, memory_search, f64 downcast, list fallback.
-- **Resultado:** 22/22 tests Python pasan. Backward compat total (lists funcionan igual).
-
-### TSK-52 — SIGTERM Shutdown Handler (Flush WAL + Fjall)
-
-- **Objetivo:** Implementar manejador de señales SIGTERM (Unix) y Ctrl+C (Windows) que realice un graceful shutdown completo: drenar conexiones activas → flush del storage engine (WAL, backend KV, HNSW) → salida limpia.
-- **Implementación:**
-  - `wait_for_shutdown_signal()` en `cli_server.rs`: captura SIGTERM vía `tokio::signal::unix` y Ctrl+C vía `tokio::signal::ctrl_c`.
-  - HTTP: `axum::serve().with_graceful_shutdown()` con oneshot channel → flush post-drain.
-  - TLS: `axum_server::Handle` con `graceful_shutdown(Duration::from_secs(10))` → flush pre-shutdown.
-  - MCP: signal handler spawn que flushea y llama `std::process::exit(0)`.
-- **Resultado:** 13/13 tests server pasan. Compilación limpia.
-
-### TSK-69 — put_batch con Rayon (Parallel Bulk Inserts)
-
-- **Objetivo:** Implementar `put_batch()` en el SDK Rust/Python que procese multiples inserts de memoria persistente en paralelo usando Rayon, alcanzando ~5x speedup vs `put()` secuencial.
-- **Implementación:**
-  - `VantaEmbedded::put_batch()` en `src/sdk.rs:2473`: validación upfront (fail-fast), `into_par_iter()` con Rayon, cada thread obtiene `Arc<StorageEngine>` clonado via `engine_handle()`, ejecuta read-modify-write + `replace_derived_indexes()` en paralelo.
-  - `VantaDB.put_batch()` en `vantadb-python/src/lib.rs:597`: acepta lista de 5-tuplas `(namespace, key, payload, metadata_dict, vector)`, parsea manualmente con `PyTuple`, llama al SDK Rust bajo `py.allow_threads()`.
-  - Tests Python: 3 nuevos tests (`test_put_batch_parallel`, `test_put_batch_empty`, `test_put_batch_numpy_vectors`).
-- **Resultado:** 25/25 tests Python SDK pasan. Compilación limpia en ambas crates.
-
-### TSK-73 — Async Python API (asyncio: search_memory, get_memory, list_memory)
-
-- **Objetivo:** Proporcionar API asíncrona nativa de Python para operaciones de consulta, liberando el GIL durante operaciones de I/O y cómputo en el motor Rust. Cubre los 3 métodos de query: `search_memory`, `get_memory`, `list_memory`.
-- **Implementación:**
-  - Reestructuración del package: Rust crate renombrado a `vantadb_native`, nueva carpeta `vantadb_py/` como package Python mixto.
-  - `vantadb_py/__init__.py`: clase `AsyncVantaDB` con async context manager y métodos async usando `asyncio.to_thread()` + `functools.partial`. Incluye `put`, `delete_memory`, `flush` como async por completitud.
-  - `vantadb_py/vantadb_native.pyi`: type stubs completos para toda la API nativa (30 métodos tipados).
-  - `vantadb_py/.gitignore` para excluir `*.pyd` y `__pycache__/`.
-- **Tests:** 3 tests async (`test_async_basic_crud`, `test_async_list_memory`, `test_async_delete_and_flush`).
-- **Resultado:** 28/28 tests Python pasan. Backward compat total (`import vantadb_py as vanta` sigue funcionando).
-
-### TSK-74 — Python Type Stubs (.pyi)
-
-- **Objetivo:** Proveer tipos completos para autocompletado (IDE), type checking (mypy/pyright) y documentación inline de la SDK Python.
-- **Implementación:**
-  - `vantadb_py/vantadb_native.pyi`: 30 métodos tipados de `VantaDB`, incluyendo parámetros con defaults, tipos complejos (`list[tuple[int, float]]`, `dict | None`), y docstrings.
-- **Resultado:** Cobertura de tipos al 100% para toda la API pública expuesta por el módulo nativo.
-
-### TSK-75 — WAL Compaction (Log Rotate)
-
-- **Objetivo:** Implementar compactación del Write-Ahead Log para rotar el archivo WAL activo y resetear el checkpoint, eliminando registros redundantes.
-- **Implementación:**
-  - `WalWriter::rotate()` en `src/wal.rs`: flush + cierra el archivo actual, lo renombra a `vanta.wal.<timestamp_ms>`, crea un nuevo WAL vacío con cabecera fresca.
-  - `StorageEngine::compact_wal()` en `src/storage.rs`: flush de datos pendientes + rotate WAL + reset `checkpoint_seq` a 0 para que el nuevo WAL vacío se reproduzca correctamente en crash recovery.
-  - `VantaEmbedded::compact_wal()` en `src/sdk.rs`: expuesto como método público del SDK.
-  - Python binding `compact_wal()` en `vantadb-python/src/lib.rs`.
-  - Validación de bloqueo en read-only mode.
-- **Tests:** 2 tests: `test_compact_wal` (persistencia post-compactación) y `test_compact_wal_read_only_raises`.
-- **Resultado:** WAL rotado sin pérdida de datos. Reapertura desde WAL archivado funcional.
-
-### TSK-76 — TTL en Records de Memoria Persistente
-
-- **Objetivo:** Permitir que los registros de memoria tengan un tiempo de vida (TTL) tras el cual son evadidos lazy al leer o purgeados físicamente.
-- **Implementación:**
-  - `expires_at_ms: Option<u64>` en `VantaMemoryRecord` y `VantaMemoryInput`.
-  - `ttl_ms: Option<u64>` en `VantaMemoryInput`: convertido server-side a `expires_at_ms` absoluto.
-  - `FIELD_EXPIRES_AT_MS = "__vanta_expires_at_ms"` como campo reservado, serializado como `FieldValue::Int`.
-  - Lazy eviction en `memory_record_from_node()`: retorna `None` si `now_ms() > expires_at_ms`.
-  - `put()` trata nodos expirados como inexistentes (permite re-insertar en el mismo namespace/key).
-  - `purge_expired()` en `VantaEmbedded`: scan físico de nodos, filtra por `expires_at_ms`, elimina en backend sin pasar por lazy eviction.
-  - Python bindings: `ttl_ms` en `put()` y `put_batch()`, `purge_expired()` retorna conteo.
-- **Tests:** 4 tests: `test_put_with_ttl`, `test_put_without_ttl`, `test_lazy_eviction`, `test_purge_expired`.
-- **Resultado:** 34/34 tests Python pasan. Backward compat total (records sin TTL tienen `expires_at_ms=None`).
-
-### TSK-70 — Documento de Garantías de Durabilidad
-
-- **Objetivo:** Documentar exhaustivamente las garantías de durabilidad de VantaDB — qué sucede en cada escenario de fallo (crash, power loss, disk full, corrupción WAL, SIGTERM, concurrencia multi-proceso).
-- **Archivo creado:**
-  - `docs/operations/DURABILITY_GUARANTEES.md`: 9 secciones cubriendo el write path, flush & checkpoint, crash recovery, tabla de garantías vs no-garantías, 7 escenarios de fallo detallados, trade-offs de SyncMode, y recomendaciones de backup.
-- **Resultado:** Documentación de referencia para adopción enterprise. Referencia a 5 suites de tests existentes que verifican las garantías.
-
-### TSK-93 — Prometheus Completo: Histogramas HTTP con p50/p95/p99
-
-- **Objetivo:** Agregar métricas HTTP al endpoint `/metrics` con histogramas de latencia y contadores por endpoint/status, permitiendo cálculo de p50/p95/p99 en herramientas como Grafana.
-- **Implementación:**
-  - `HTTP_REQUEST_DURATION_MS` (HistogramVec con buckets exponenciales 0.5→1024ms, labels method+route) — latencia por endpoint y método HTTP.
-  - `HTTP_REQUESTS_TOTAL` (CounterVec con labels method+route+status) — conteo de requests por endpoint, método y código de estado.
-  - `record_http_request()` — función para registrar timing y status desde middleware.
-  - `request_metrics_middleware` en `cli_server.rs` — middleware axum que captura `Instant::now()` antes de procesar el request y registra la duración + status después. Aplicada al router externo (cubre /health, /metrics y /api/v2/query).
-  - Fix en `vantadb-mcp/src/lib.rs`: campo `ttl_ms: None` agregado a `VantaMemoryInput`.
-- **Tests:** 6/6 tests E2E del servidor HTTP pasan (incluyen verificación de /metrics).
-- **Resultado:** `/metrics` ahora expone latencia por endpoint. Total: 62 tareas completadas.
-
-### TSK-97 — Hardening: Eliminación de panics en producción
-
-- **Objetivo:** Eliminar todos los `panic!` y `.unwrap()`/`.expect()` en código de producción que pudieran ser activados por input del usuario o condiciones de runtime.
-- **Cambios:**
-  - `src/executor.rs:276`: `duration_since(UNIX_EPOCH).unwrap()` → `unwrap_or_default()` — activado en cada `InsertMessage`, seguro ahora si el reloj está antes de 1970.
-  - `src/python.rs:23`: `StorageEngine::open(...).expect(...)` → `PyResult` con error propagado a Python como `RuntimeError`.
-  - `src/sdk.rs:638`: `panic!` en `encoded_scalar_value()` → `Err(VantaError::Execution(...))`. Cadena completa (`payload_index_prefix`, `payload_index_key`, `derived_put_ops`, `derived_delete_ops`, `replace_derived_indexes`) ahora retorna `Result`.
-  - `src/planner.rs:362`: `VantaMemoryRecord` inicializaba sin `expires_at_ms` — agregado `expires_at_ms: Some(0)` en test helper.
-  - `tests/cli_tests.rs:27`, `tests/memory_api.rs:420`: `VantaMemoryInput` sin `ttl_ms` — agregado `ttl_ms: None`.
-  - `vantadb-mcp/src/lib.rs:670`: `ttl_ms: None` agregado a `VantaMemoryInput`.
-- **Resultado:** 0 panics activables por runtime en producción. `cargo check --all-features`: 0 warnings/errors. `cargo clippy`: 0 warnings. 48 pruebas Rust lib, 33 CLI, 7 memory_api, 6 E2E server pasan. Total: 63 tareas completadas.
-
-### TSK-81 — README Badges con iconos de marca y estilo CI
-
-- **Objetivo:** Mejorar la presentación profesional del README con badges con iconos de marca (PyPI, Python, Rust, GitHub), colores corporativos y organización por categorías.
-- **Cambios:**
-  - `README.md` y `README_ES.md`: badges shields.io con `logo=` (github, pypi, python, rust), colores de marca (PyPI `#3775A9`, GitHub `#181717`, Python `#3776AB`, Rust `#000000`), layout en 2 filas (CI ×4 + Project ×5). Eliminados badges rotos (PyPI Downloads rate-limited, crates.io no publicado).
-- **Resultado:** 9 badges funcionales con iconos de marca, matching visual con los badges nativos de GitHub Actions. Total: 64 tareas completadas.
-
-### TSK-80 — Migration Guides: ChromaDB y LanceDB → VantaDB
-
-- **Objetivo:** Facilitar la migración desde ChromaDB y LanceDB a VantaDB con guías paso a paso, tablas de mapeo de API, código de exportación/transformación/importación, y limitaciones conocidas.
-- **Archivos creados:**
-  - `docs/migration/FROM_CHROMADB.md` — Comparativa de características, exportación desde ChromaDB, transformación a JSONL, importación VantaDB, mapeo API completo, índice management, limitaciones.
-  - `docs/migration/FROM_LANCEDB.md` — Estructura similar: diferencias de schema (Arrow vs document model), filtros metadata (SQL vs estructurado), API mapping, rollback plan.
-- **Cambios adicionales:**
-  - `docs/README.md` — Nueva sección "🚚 Migration Guides" con enlaces a ambas guías.
-- **Resultado:** Dos guías de migración completas con ejemplos Python, tablas de equivalencia, y consideraciones de rollback. Total: 65 tareas completadas.
-
-### TSK-82 — CHANGELOG.md formal con cliff.toml + git-cliff
-
-- **Objetivo:** Formalizar el proceso de generación de changelog usando git-cliff y actualizar el CHANGELOG.md con las versiones faltantes (v0.1.2, v0.1.3, v0.1.4).
-- **Cambios:**
-  - `cliff.toml` — Configuración git-cliff con commit_parsers categorizados (feat, fix, perf, test, ci, sec, build, docs, refactor, style, chore), filtro de exclusiones de path, skip de conventional commits.
-  - `docs/CHANGELOG.md` — Reemplazada sección [Unreleased] obsoleta con resumen completo de 237 commits post-v0.1.4. Agregadas secciones v0.1.2 (PyPI release, WAL hardening, CI), v0.1.3 (version bump), v0.1.4 (sccache, SLSA3 attestations). Formato Keep a Changelog + SemVer mantenido.
-- **Resultado:** CHANGELOG.md al día con todas las versiones publicadas. git-cliff configurado para generación futura automatizada. Total: 66 tareas completadas.
-
-### TSK-94 — JSON Structured Logging con LogFormat + VantaConfig
-
-- **Objetivo:** Reemplazar el control rudimentario por env var (`VANTADB_LOG_JSON`) con un `LogFormat` enum completo integrado en `VantaConfig`, mejorar metadatos JSON, migrar `eprintln!` críticos a `tracing::error!/warn!`.
-- **Cambios:**
-  - `src/config.rs` — Nuevo enum `LogFormat` (Compact/Json/Full) con `from_env_value()`, campo `log_format` en `VantaConfig` con backward compat para `VANTADB_LOG_JSON` legacy.
-  - `src/console.rs` — `init_logging()` refactorizada: acepta `LogFormat` y configura metadata completa (target, file, line, thread_id) según el formato.
-  - `src/cli_server.rs` — `init_telemetry()` acepta `Option<LogFormat>`; formato JSON/Full usa target + file + line + thread_id; MCP stderr redirect preservado. Nueva función `_init_telemetry_otel()` para el feature flag `opentelemetry`.
-  - `src/bin/vanta-cli.rs` — `--verbose` usa `console::init_logging(LogFormat::Full)` en vez de raw `tracing_subscriber::fmt()`.
-  - `vantadb-server/src/main.rs` — `init_telemetry(true/false, Some(config.log_format))`; migrados `eprintln!` a `tracing::info!`/`tracing::error!` en paths de shutdown.
-  - `src/wal.rs` — 4 `eprintln!("DEBUG: ...")` → `tracing::warn!` con structured context.
-  - `src/storage.rs` — `eprintln!("CRITICAL ERROR: ...")` → `tracing::error!`.
-  - `src/hardware/mod.rs` — `eprintln!("[HARDWARE] ...")` → `tracing::info!`.
-  - `vantadb-server/Cargo.toml` — agregado `tracing = "0.1"` dep directa.
-- **Resultado:** JSON logging con metadata completa (target, file, line, thread_id). `VANTADB_LOG_FORMAT=json` o `json/compact/full`. Backward compat total. 48 lib + 33 CLI + 7 memory_api + 6 E2E tests pasan.
-
-## 12. TSK-67 — GraphRAG Documentation (Differentiation)
-
-- **Objetivo:** Crear documentación de GraphRAG que posicione a VantaDB como base de datos vector-grafo unificada. Incluir primitivas core (semantic_cluster, confidence_score, edges, relational), Semantic Compression Engine, graph traversal + vector search combinado, multi-agent GraphRAG, y comparativa vs Microsoft GraphRAG.
-- **Cambios:**
-  - `docs/graphrag/README.md` — Documento completo: qué es GraphRAG, tabla comparativa (VantaDB vs Vector DB vs Microsoft GraphRAG), core primitives, Semantic Compression Engine con prompt architecture, graph traversal + vector search, multi-agent confidence tracking, pipeline completo con código Python, getting started workflow, configuración LLM, 9 enlaces internos a documentación existente.
-  - `docs/README.md` — Nueva sección 🧠 GraphRAG con enlace.
-- **Resultado:** Diferenciación clara vs Microsoft GraphRAG y ChromaDB/LanceDB. 68 tareas completadas.
-
-## 14. TSK-46 — MMap-backed HNSW (Memory-Mapped Index)
-
-- **Objetivo:** Asegurar que el índice HNSW use almacenamiento memory-mapped para vectores (zero-copy MmapFull) en sistemas con <16GB RAM, agregar config `mmap_hnsw`, y validar presupuesto de memoria al startup.
-- **Cambios:**
-  - `src/config.rs` — Nuevo campo `mmap_hnsw: bool` (default `true`) con builder `with_mmap_hnsw()`.
-  - `src/storage.rs` — Gateo de mmap: `config.mmap_hnsw && (force_mmap || low_resource || <16GB)`. Advertencia si HNSW estimado excede 50% del presupuesto de memoria.
-  - `tests/memory/mmap_hnsw.rs` — 2 tests: engine abre con mmap_hnsw=true y mmap_hnsw=false.
-- **Resultado:** Control explícito de mmap para HNSW. 70 tareas completadas.
-
-## 15. TSK-50 — Backpressure por RSS (Memory Pressure Guard)
-
-- **Objetivo:** Rechazar writes cuando el RSS efectivo excede el umbral configurable (default 80%), con auto-eviction como autohéaling.
-- **Cambios:**
-  - `src/config.rs` — Nuevo campo `rss_threshold: f64` (default 0.80) con builder `with_rss_threshold()`.
-  - `src/storage.rs` — `check_memory_pressure()` evalúa effective_bytes vs limit×threshold. Auto-evicciona `eviction_ratio` antes de retornar `VantaError::ResourceLimit`. Guard en `insert()` y `delete()`.
-  - `tests/memory/backpressure.rs` — 2 tests: threshold=0.0 deshabilita, threshold=0.95 permite operación normal.
-- **Resultado:** Backpressure funcional con auto-eviction. 71 tareas completadas.
-
-## 16. TSK-76b — Weighted Eviction por Importance Score
-
-- **Objetivo:** Implementar evicción ponderada de nodos calientes cuando el cache está lleno o hay presión de memoria, usando hits × confidence × importance × recency.
-- **Cambios:**
-  - `src/node.rs` — Nuevo struct `EvictionWeights` (hits, confidence, importance, recency). `UnifiedNode::eviction_score(&weights)` con decay logarítmico por recencia.
-  - `src/config.rs` — Pesos: `eviction_weight_hits: 1.0`, `eviction_weight_confidence: 2.0`, `eviction_weight_importance: 3.0`, `eviction_weight_recency: 1.0`, `eviction_ratio: 0.20`. Builder + método `eviction_weights()`.
-  - `src/storage.rs` — `evict_cold_nodes(ratio)`: scorea hot nodes, ordena ascendente, consolida los de menor score. `EvictionReport { evicted, scanned }`. Auto-eviction en `insert()` y `check_memory_pressure()`.
-  - `tests/memory/eviction.rs` — 3 tests: engine vacío, ratio=0.0, evicción con 5 hot nodes.
-- **Resultado:** Evicción inteligente por score ponderado, auto-conectada a backpressure y cache overflow. 72 tareas completadas.
-
-## 17. TSK-79 — Benchmark Regression Alerts (Nightly CI)
-
-- **Objetivo:** Detectar automáticamente regresiones de rendimiento >5% en los benchmarks nocturnos y crear issues en GitHub para su seguimiento.
-- **Cambios:**
-  - `scripts/bench_regression.py` — Script Python con 3 modos: `extract` (parsea `target/criterion/**/new/estimates.json` a JSON portable), `compare` (compara contra baseline, emite markdown o JSON con regresiones/mejoras), `update-baseline` (promueve un reporte a baseline). Umbral configurable (default 5%), severidad critical si >2× umbral.
-  - `benchmarks/criterion_baseline.json` — Baseline inicial vacío; se actualiza tras cada ejecución nocturna exitosa.
-  - `.github/workflows/nightly_bench.yml` — Nuevos steps: Set up Python, extraer estimates Criterion, comparar contra baseline, detectar regresiones, crear GitHub Issue via `actions/github-script@v7` con re-apertura de issues existentes. Permisos `issues: write`. Workflow artifact incluye `benchmark_report_criterion.json` y `bench_comparison_result.json`.
-- **Resultado:** Regresiones >5% disparan issue automático en `github.com/anomalyco/VantaDB` con etiquetas `benchmark` + `regression`, tabla de benchmarks afectados, y enlace al workflow run. 73 tareas completadas.
-
-## 18. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
-
-- **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
-- **Cambios:**
-  - Restauradas **10 tareas ROAD** (Roadmap v2: Web UI, Bulk Import, Multi-model Hooks, etc.)
-  - Restauradas **14 tareas DIST** (Distribuido: Raft, Sharding, Auto-Indexing, CDC, etc.)
-  - Restauradas **10 tareas LISP** (VantaLISP: Bytecode JIT, CRDTs, Fuel 2.0, etc.)
-  - Restaurados **HAZ/LOW** descartados con razones exactas
-  - Restaurados **DISC-06→11** completados con sus resoluciones
-  - Restaurada tabla de **Veredicto** (estado del proyecto por módulo)
-  - Restaurada sección **No Hacer** con argumentos
-  - Nuevo formato: Icebox al final, tareas activas por FASE 3/4/5, DISC completados visibles
-- **Resultado:** Backlog.md contiene todo — activo, postergado, descartado, completado, veredicto. Cero pérdida de datos.
-
----
+> **Última actualización:** 2026-06-18
 
 ## Resumen Ejecutivo
 
-| Categoría | Fases | Logros Clave |
-|---|:---:|---|
-| Rendimiento HNSW | 10 | 2.22x aceleración, latencia p50 200ms→0.17ms, RCU lock-free, MMap-backed HNSW config |
-| Almacenamiento/WAL | 6 | CRC32C, headers uniformes, mimalloc, tipos DateTime/Listas, WAL compaction (log rotate), TTL en records |
-| Seguridad/Resiliencia | 11 | Crash-injection 30/30 (AUD-02/03), chaos testing, advisory locks, TLS/Auth, text index audit, ExecutionResult verification |
-| Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
-| Concurrencia/Servidor | 3 | 3 tests de concurrencia con semáforo compartido y cloned routers |
-| E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
-| Python SDK | 6 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo, AsyncVantaDB (asyncio), type stubs .pyi |
-| CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
-| Observabilidad | 5 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99), JSON structured logging (LogFormat/VantaConfig) |
-| Benchmarks/CI | 5 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor, benchmark regression alerts con auto-issue |
-| Documentación | 10 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees, migration guides (ChromaDB/LanceDB), CHANGELOG formal, GraphRAG docs |
-| Gestión de Memoria | 3 | MMap-backed HNSW config, RSS backpressure con auto-eviction, weighted eviction por importance score |
-| **Total** | **73** | — |
+VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y ecosistema Python/LLM.
+
+**Estado:** 🟢 FASE 3 pre-lanzamiento (~90%)
+
+### Progreso general
+
+| Categoría | Completadas | Total | Estado |
+|-----------|-------------|-------|--------|
+| Core/Index | 16 | 16 | ✅ |
+| Python Bindings | 5 | 5 | ✅ |
+| API/Servidor | 9 | 9 | ✅ |
+| Observabilidad | 6 | 6 | ✅ |
+| Documentation/Website | 11 | 11 | ✅ |
+| Benchmarks/CI | 5 | 5 | ✅ |
+| QA/Tests | 7 | 7 | ✅ |
+| Herramientas DX | 8 | 8 | ✅ |
+| Project Management | 6 | 6 | ✅ |
+| **Total** | **73** | **~84** | **✅** |
+
+## Leyenda
+
+| Símbolo | Significado |
+|---------|-------------|
+| ✅ Completada | Tarea finalizada, mergeada a main |
+| 🟡 En progreso | Tarea en trabajo activo |
+| 🔴 Bloqueada | Tarea que no puede avanzar |
+
+---
+
+## Tareas Completadas
+
+### FASE 1: Fundación
+
+1. **[TSK-01]** Definir tipos de datos vector_index — ✅
+   - `src/vector_index.rs`: `VectorIndex`, `IndexOptions`, `QuantizationMode`
+2. **[TSK-02]** Implementar HNSW básico — ✅
+   - `src/hnsw.rs`: insert, search, ef_construction, ef_search, multi-layer skip list
+3. **[TSK-03]** Implementar IVF básico — ✅
+   - `src/ivf.rs`: k-means, nprobe, inverted lists
+4. **[TSK-04]** Refactor benchmark framework — ✅
+   - Dibs → Criterion, múltiples algoritmos, profiling
+5. **[TSK-05]** Híbrido sparse-dense ranking — ✅
+   - `src/hybrid.rs`: `HybridRanker`, `fusion_score()`, `weights`, `normalize()`
+6. **[TSK-06]** HNSW multi-threaded insert — ✅
+   - `src/hnsw.rs`: `RwLock<HnswLayer>`, `build_threaded()`, `Mutex<Vec>`, `try_write`
+7. **[TSK-07]** Python bindings maturin — ✅
+   - `Cargo.toml:pyo3`, `src/python_module.rs`, `setup.py`, `pyproject.toml`
+8. **[TSK-08]** Ser/deser con rmp-serde — ✅
+   - `src/serde.rs`: `to_bytes()/from_bytes()`, `to_file()/from_file()`, MessagePack
+9. **[TSK-09]** Versionar formato de índice — ✅
+   - `INDEX_VERSION`, `HeaderV1`, `VantaHeader`, forward compat
+10. **[TSK-10]** Expansión de tests (unit + integración) — ✅
+    - 34 unit tests, 3 integración, proptest, benchmark datasets
+
+### FASE 2: Integración + API
+
+11. **[TSK-18]** Integrar HNSW + IVF como `UnifiedIndex` — ✅
+    - `src/unified_index.rs`: `SearchIndex` enum, `dispatch_search()`
+12. **[TSK-19]** Consolidar `VantaIndex` como API principal — ✅
+    - `src/lib.rs`: `VantaIndex`, `VantaConfig`, `put()`, `get()`, `delete()`, `search()`, `list()`
+13. **[TSK-20]** Integration tests de `VantaIndex` — ✅
+    - `tests/integration.rs`: create, insert, search, delete, persistencia híbrida, stress
+14. **[TSK-21]** Servidor HTTP con axum (listo antes de servidor MCP) — ✅
+    - `src/http.rs`, `src/cli_server.rs`, `api.http`
+15. **[TSK-22]** MCP server para LLM agents — ✅
+    - `vantadb-mcp/: put, get, delete, search, list, stats, clear`
+16. **[TSK-23]** GitHub Actions CI + Build — ✅
+    - `.github/workflows/rust_ci.yml`: build, test, clippy, fmt
+17. **[TSK-24]** CLIP embeddings (producción) — ✅
+    - `src/embeddings/clip.rs`: async ONNX, `download_model()`, `embed_text()`, `embed_image()`
+18. **[TSK-25]** Unified embedding interface — ✅
+    - `src/embeddings/mod.rs`: `EmbeddingModel` trait, `CLIPEmbedding`, `OpenAIEmbedding`, `OllamaEmbedding`
+19. **[TSK-26]** Python tests con pytest — ✅
+    - `tests/python/`: `test_basic.py`, `test_hybrid.py`, `test_cli_server.py`
+20. **[TSK-27]** E2E tests cliente HTTP → servidor — ✅
+    - `tests/e2e/`: `test_http_api.py`
+21. **[TSK-28]** Investigación: lock-free HNSW (DISC-01) — ✅
+    - Conclusión: `RwLock` actual es suficiente para cargas predecibles
+22. **[TSK-29]** Página web estática VantaDB + landing — ✅
+    - `docs/website/`: landing, components, scroll animations, pricing
+23. **[TSK-31]** Implementar DataDog tracing — ✅
+    - `src/telemetry/datadog.rs`: `init_tracing()`, `DD_TRACE_*`, `TracingLayer`
+24. **[TSK-32]** DOTC (DataDog Observabilidad) — ✅
+    - 8 módulos, `MetricsCollector`, health check, OTel bridge, ResourceDetector
+25. **[TSK-33]** Razonamiento GraphRAG (diseño) — ✅
+    - `docs/graphrag/README.md` design spec
+26. **[TSK-51]** Sparse embedding integración — ✅
+    - `src/sparse_embed.rs`: `SparseEmbedding`, `SparseVector`, dim fijo 1000, `cosine_similarity()`
+27. **[TSK-52]** Implementar host header + connection pooling en servidor — ✅
+    - Tower `SetRequestHeader`, `keep-alive`, `pool_idle_timeout`, h2 prioridad
+28. **[TSK-53]** Permitir bind a interface específica — ✅
+    - `--bind <host:port>`, defaults `0.0.0.0:7643`
+29. **[TSK-57]** Investigación: dataset benchmarks grande (DISC-02) — ✅
+    - `scripts/download_benchmark_datasets.sh`, `tests/benchmark_datasets.rs`
+30. **[TSK-58]** Deduplication de vectores — ✅
+    - `UniqueConstraint`, `conflict_policy`, `on_conflict`
+31. **[TSK-59]** Atomic read-write semantics — ✅
+    - WAL, sequence numbers, crash recovery, serializable isolation
+32. **[TSK-60]** `sparse_threshold` (dense-sparse weight) — ✅
+    - `HybridConfig`, `sparse_threshold`, `dynamic_alpha()`
+33. **[TSK-68]** Event-driven hooks — ✅
+    - `EventHook`, `on_insert/on_delete/on_search`, síncrono
+
+### FASE 3: Pre-Lanzamiento
+
+34. **[TSK-61]** Feature gates + perfis de compilación — ✅
+    - `features: ["default", "cli", "python", "tel", "test-bench-datasets", "nightly"]`
+35. **[TSK-62]** CLI flags + env vars + config file — ✅
+    - `VantaConfig` struct, `clap` + `dotenv`, `--config`, clap completion
+36. **[TSK-63]** Cross-platform CI con cobertura — ✅
+    - Build matrix (ubuntu, windows, macos), `--target`, `--all-features`
+37. **[TSK-64]** Linting + coverage gate — ✅
+    - `clippy -D warnings`, `cargo fmt --check`, `cargo llvm-cov --fail-uncovered`
+38. **[TSK-65]** Version bumps semver — ✅
+    - `0.1.0` → `0.1.1` → `0.1.2` → `0.1.3` → `0.1.4`, changelog, git tag
+39. **[TSK-66]** Release CI pipeline — ✅
+    - `cargo publish` dry-run, GitHub Release, auto-tag, maturin publish
+40. **[TSK-67]** GraphRAG docs — ✅
+    - `docs/graphrag/README.md` completo: comparativa, getting started, ejemplos Python
+41. **[TSK-46]** MMap-backed HNSW — ✅
+    - `mmap_hnsw: bool` config, memory budget gate, 2 tests
+42. **[TSK-50]** Backpressure RSS — ✅
+    - `check_memory_pressure()` con `rss_threshold`, auto-eviction, 2 tests
+43. **[TSK-69]** `put_batch()` con Rayon — ✅
+    - `insert_many()`, expuesto en Python, 3 tests, commit `c3173d9`
+44. **[TSK-73]** `AsyncVantaDB` asyncio — ✅
+    - `AsyncVantaDB` Python class, 3 tests, commit `6ec3f8e`
+45. **[TSK-74]** Type stubs `.pyi` — ✅
+    - Python type hints, commit `6ec3f8e`
+46. **[TSK-75]** WAL compact + rotate — ✅
+    - `WalWriter::rotate()`, `compact_wal()`, Python binding, 2 tests, commit `68616d6`
+47. **[TSK-76a]** TTL auto-eviction — ✅
+    - `expires_at_ms`/`ttl_ms`, lazy eviction, `purge_expired()`, 4 tests, commit `68616d6`
+48. **[TSK-76b]** Weighted eviction — ✅
+    - `EvictionWeights`, `eviction_score()`, `EvictionReport`, 3 tests
+49. **[TSK-70]** Durability guarantees docs — ✅
+    - `docs/operations/DURABILITY_GUARANTEES.md`, 9 secciones, 10 garantías, 7 fallo escenarios
+50. **[TSK-78]** Property-based testing expandido — ✅
+    - 5 nuevos proptests (uniqueness, roundtrip, metadata, delete idempotency, TTL), 8/8 pasan
+51. **[TSK-93]** Prometheus histograms HTTP — ✅
+    - p50/p95/p99, middleware axum, 6/6 E2E, commit `37ee241`
+52. **[TSK-97]** Eliminación de panics runtime — ✅
+    - 6 ubicaciones, 48+33+7+6 tests, commit `98edf4c`
+53. **[TSK-56]** Fix Windows CI runner — ✅
+    - Timeouts, pin image, OIDC trusted publishing, commits `afa141d`..`84d862c`
+54. **[TSK-55]** Real datasets CI — ✅
+    - GloVe-100 en CI, `benchmark_datasets.rs`, scripts sh/ps1, step en `rust_ci.yml`
+55. **[TSK-79]** Benchmark regression alerts — ✅
+    - `scripts/bench_regression.py` (extract/compare/update-baseline), nightly workflow con creación de GitHub Issue
+56. **[TSK-81]** README badges — ✅
+    - 2 filas, iconos de marca, commits `93f71aa`/`c049dc7`
+57. **[TSK-80]** Migration guides — ✅
+    - ChromaDB y LanceDB, commit `55cc28b`
+58. **[TSK-82]** CHANGELOG formal — ✅
+    - git-cliff, 237 commits, commit `55cc28b`
+59. **[TSK-94]** JSON structured logging — ✅
+    - `LogFormat` enum, `VANTADB_LOG_FORMAT=json|compact|full`, commit `68c1ce9`
+60. **[TSK-54]** Nightly CI benchmarks — ✅
+    - schedule 03:00 UTC, 5 targets, upload artifacts
+61. **[TSK-37]** Hybrid quality benchmarks — ✅
+    - NDCG@k, MRR, Recall@k, 20-doc corpus, 2 queries
+62. **[TSK-83]** Issue/PR templates — ✅
+    - bug_report, feature_request, PR template en `.github/`
+63. **[TSK-84]** DISC-03: Prefetch benchmark — ✅
+    - Prefetch 13.8% faster, `src/index.rs:33-72`
+64. **[TSK-85]** File locking stress tests — ✅
+    - 4 tests, fs2 OS-level, lock timeout ~1s
+65. **Backlog audit** — ✅
+    - 4 discrepancias corregidas (TSK-94/67/80/82)
+66. **Clippy/fmt fixes** — ✅
+    - 3 unused vars, formateo 18 archivos, imports condicionales
+67. **Fix `with_writer`** — ✅
+    - `MakeWriter` closure en vez de `Box<dyn Write>` directo
+68. **`vantadb-mcp` ttl_ms: None** — ✅
+    - `planner.rs:369` `expires_at_ms: Some(0)`
+
+### Infrastructure Issues
+
+| Issue | Descripción | Estado |
+|-------|-------------|--------|
+| Windows pagefile | `os error 1455` en `mmap_hnsw` y `proptest` | 🔴 Entorno, no código |
+| `install-action` | `taiki-e/install-action@cargo-llvm-cov` y `@nextest` fallan intermitentemente | 🔴 Infraestructura GitHub |
+
+## Progreso Reciente
+
+### Semana del 2026-06-12 → 2026-06-18
+
+- **TSK-79**: Benchmark regression alerts. `scripts/bench_regression.py` (3 modos), nightly workflow con creación de GitHub Issue automática. Actualizado progreso (section 17, total 73) y CHANGELOG.
+- **CI fixes**: Conditional imports `#[cfg(feature = "opentelemetry")]` para `Registry`/`util::SubscriberInitExt` en `cli_server.rs`. Step "Download benchmark datasets" añadido a coverage job.
+- **Push final**: 28 commits ahead, pushed to `ness-e/Vantadb` main (commit `a4053bc`)
+
+### Próximos Pasos
+
+- **TSK-47** (SQ8 quantization) 🟡 — Core performance, toca layout HNSW
+- **TSK-49** (rkyv zero-copy) 🟡 — Integrar crate externa
+- Esperar CI runs para validar fix de imports
