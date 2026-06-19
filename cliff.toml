@@ -1,0 +1,65 @@
+# git-cliff configuration for VantaDB
+# See: https://git-cliff.org/docs/configuration
+
+[changelog]
+header = "# Changelog\n\nAll notable changes to VantaDB are documented here.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n"
+body = ""
+footer = ""
+trim = true
+postprocess = ""
+
+[changelog.remote]
+# No remote integration — local git only
+
+[git]
+conventional_commits = false
+commit_parsers = [
+  # Breaking changes
+  { message = "^.*!:", group = "<!-- highlight -->Breaking changes", default_scope = "core" },
+  { message = "^(feat|feature)\\(.*breaking", group = "<!-- highlight -->Breaking changes" },
+  # Features
+  { message = "^feat\\(([^)]+)\\)", group = "### 🚀 Features", scope = "$1" },
+  { message = "^feat", group = "### 🚀 Features" },
+  # Fixes
+  { message = "^fix\\(([^)]+)\\)", group = "### 🐛 Bug Fixes", scope = "$1" },
+  { message = "^fix", group = "### 🐛 Bug Fixes" },
+  # Performance
+  { message = "^perf\\(([^)]+)\\)", group = "### ⚡ Performance", scope = "$1" },
+  { message = "^perf", group = "### ⚡ Performance" },
+  # Tests
+  { message = "^test\\(([^)]+)\\)", group = "### 🧪 Testing", scope = "$1" },
+  { message = "^test", group = "### 🧪 Testing" },
+  # CI
+  { message = "^ci\\(([^)]+)\\)", group = "### 👷 CI/CD", scope = "$1" },
+  { message = "^ci", group = "### 👷 CI/CD" },
+  # Security
+  { message = "^sec\\(([^)]+)\\)", group = "### 🔒 Security", scope = "$1" },
+  { message = "^sec", group = "### 🔒 Security" },
+  # Build
+  { message = "^build\\(([^)]+)\\)", group = "### 📦 Build", scope = "$1" },
+  { message = "^build", group = "### 📦 Build" },
+  # Documentation
+  { message = "^docs?\\(([^)]+)\\)", group = "### 📖 Documentation", scope = "$1" },
+  { message = "^docs?", group = "### 📖 Documentation" },
+  # Refactoring
+  { message = "^refactor\\(([^)]+)\\)", group = "### ♻️ Refactoring", scope = "$1" },
+  { message = "^refactor", group = "### ♻️ Refactoring" },
+  # Style
+  { message = "^style\\(([^)]+)\\)", group = "### 💄 Style", scope = "$1" },
+  { message = "^style", group = "### 💄 Style" },
+  # Chores
+  { message = "^chore\\(([^)]+)\\)", group = "### 🧹 Chores", scope = "$1" },
+  { message = "^chore", group = "### 🧹 Chores" },
+  # Default fallback
+  { message = ".*", group = "### Other", default_scope = "core" },
+]
+
+[git.filter_commits]
+exclude_paths = [
+  "docs/oldHistory/",
+  "docs/snapshots/",
+]
+
+[git.conventional]
+# Not using conventional commits — use commit_parsers instead
+skip_conventional = true

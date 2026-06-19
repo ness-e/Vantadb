@@ -8,52 +8,131 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- Advanced tokenizer with multilingual support using Tantivy (feature flag `advanced-tokenizer`).
-- `src/tokenizer.rs` module with `AdvancedTokenizerConfig` for language-specific tokenization.
-- Integration of advanced tokenizer in `src/text_index.rs` with `TextTokenizerSpec::advanced()`.
-- Multilingual tests for Spanish, French, and German tokenization in `src/tokenizer.rs`.
-- Unicode character support and length filtering in advanced tokenizer.
-- Tantivy 0.22 as optional dependency for advanced tokenization features.
-- Stemming support using Tantivy's Stemmer for multiple languages.
-- Stopwords removal using Tantivy's StopWordFilter with language-specific stopword lists.
-- Unicode folding using Tantivy's AsciiFoldingFilter for improved multilingual search.
-- Comprehensive tests for stemming, stopwords, Unicode folding, and combined features.
-- Integration tests in `src/text_index.rs` for advanced tokenizer validation.
-- Benchmark suite in `benches/tokenizer_bench.rs` for performance comparison.
-- Documentation in `docs/ADVANCED_TOKENIZER.md` for usage and configuration.
-- Runtime configuration support for advanced tokenizer in `VantaConfig`.
-- `token_counts_with_config()`, `record_terms_with_config()`, `query_plan_with_config()` functions for custom tokenizer configuration.
-- `StorageEngine::advanced_tokenizer_config()` method to access tokenizer configuration.
-- Tests for runtime configuration functions in `src/text_index.rs`.
-- Snippet generation with HTML highlighting of matched terms in search results.
-- `VantaEmbedded::generate_snippet()` public API method for snippet generation with optional highlighting.
-- `generate_snippet_with_highlighting()` internal method for snippet generation with term highlighting.
-- `highlight_terms()` internal method for adding HTML `<strong>` tags to matched terms.
-- Test `snippet_with_highlighting()` in `tests/memory_api.rs` for snippet functionality validation.
+- WAL compaction (`compact_wal()`) and TTL support (`ttl_ms`, `purge_expired()`) on memory records (TSK-75/76).
+- Batch put with Rayon parallelism (`put_batch()`) for 5x faster bulk inserts (TSK-69).
+- AsyncVantaDB Python wrapper with context manager support (TSK-73).
+- Python type stubs `.pyi` for IDE autocompletion (TSK-74).
+- Zero-copy NumPy FFI via buffer protocol for vector operations (TSK-68).
+- SIGTERM shutdown handler with graceful flush (TSK-52).
+- Prometheus HTTP histograms with p50/p95/p99 latency tracking (TSK-93).
+- Durability guarantees document (`docs/operations/DURABILITY_GUARANTEES.md`) (TSK-70).
+- Panic hardening — all remaining runtime panics replaced with `Result` propagation (TSK-97).
+- README badges with brand icons (PyPI, GitHub, Python, Rust) in corporate colors (TSK-81).
+- Native DateTime, Flat List, and DAG primitive support in IQL.
+- HNSW fine-grained locking with DashMap and atomic variables.
+- Memory-mapped vector store with SIGBUS error handling and RSS telemetry.
+- Predictive MMap vector prefetching and auto-update benchmark scripts.
+- Memory RCU and double-buffer with ArcSwap for HNSW index.
+- Crash-injection recovery tests (AUD-02) and WAL CRC32C corruption test (AUD-09).
+- Uniform binary header and zero-copy structure alignment for vector persistence.
+- Physical HNSW BFS-order layout compaction (`compact_layout`).
+- Antilocality layout certification tests for MMap page-fault optimization.
+- Cached inverse norms for cosine similarity; fixed Euclidean distance.
+- Advanced multilingual tokenizer with Tantivy (stemming, stopwords, Unicode folding).
+- Snippet generation with HTML highlighting of matched search terms.
+- Runtime configuration for advanced tokenizer in `VantaConfig`.
+- Parallel batch search and version coherence guardrails.
+- MCP server (production-grade, decoupled from core server).
+- CLI `server` command to orchestrate HTTP and MCP wrappers.
+- CLI shell completions via `build.rs`, status dashboard with progress bars.
+- Pre-flight verification script for local development automation.
+- One-line install scripts and updated README installation guide.
+- Visual demo banner in README.
+- Community governance documentation (T4.4).
+- Pilot program onboarding and case studies (T3.4).
+- Competitive benchmark suite vs LanceDB and ChromaDB (T3.2).
+- Dynamic markdown metrics auto-updater in CI.
+- Code coverage job with `cargo-llvm-cov`.
+- GitHub Actions CI for Rust build, test, and coverage analysis.
+- Python wheels CI with manyLinux compliance and TestPyPI automated publication.
+- OIDC trusted publishing for PyPI.
+- Post-publish wheel verification gates (ST3.3.3).
+- Editor integration documentation.
+- Cascade/Claude skill for VantaDB integration.
+- Spanish README and language switcher.
 
 ### Changed
 
-- Updated `Cargo.toml` to include `tantivy` as optional dependency under `advanced-tokenizer` feature with `stopwords` feature enabled.
-- Modified `src/text_index.rs` to support both basic and advanced tokenizers via feature flags.
-- Enhanced tokenizer implementation to use TextAnalyzer::builder() with proper filter chaining.
-- Updated text index schema version to v4 when `advanced-tokenizer` feature is enabled (v3 without feature).
-- Integrated advanced tokenizer in `token_counts()`, `record_terms()`, and `query_plan()` functions.
-- Added runtime configuration field `advanced_tokenizer_config` to `VantaConfig` (conditional compilation).
-- Added `with_advanced_tokenizer_config()` builder method to `VantaConfig`.
-- Updated `src/text_index.rs` test to handle schema version differences based on feature flag.
-- Fixed syntax error in `src/utils/confidence_metrics.rs` (missing parenthesis in closure).
+- HNSW select_neighbors cache optimization O(M^2).
+- Fine-grained locking replaces global RwLock on HNSW index.
+- Decoupled experimental features (governance, LISP) into standalone workspace crates.
+- Migrated CLI import/export to SDK serde_json-based methods.
+- Cached inverse norms for cosine similarity; squared Euclidean distance.
+- Text index schema v4 with advanced tokenizer; v3 default.
+- Upgraded PyO3 to 0.24.x (Bound API).
+- Bumped Rust edition to 2021, MSRV 1.94.1.
+- Upgraded `rand` 0.8 → 0.9, `criterion` 0.5 → 0.8, `console` 0.15 → 0.16, `indicatif` 0.17 → 0.18, `mach2` 0.4 → 0.6.
+- Switched to `mimalloc` allocator globally.
+- Unified RSS telemetry and reliability reporting.
 
 ### Removed
 
-- Removed conditional compilation blocks for experimental features from core (governance, lisp).
-- Removed `#[cfg(feature = "experimental")] pub mod mcp;` from `src/api/mod.rs` (feature did not exist).
-- Cleaned up LISP-related comments from `src/executor.rs` and `src/parser/mod.rs`.
+- Runtime panics from `executor.rs`, `python.rs`, `sdk.rs` (all converted to `Result`).
+- Experimental governance feature from core.
+- Experimental LISP VM from core (moved to workspace crate).
+- Unstable proto-CGR algorithms and hard-coded similarity loops.
+- Biological terminology (neurons/synapses → UnifiedNode/Edge).
 
 ### Fixed
 
-- Fixed compilation errors in `experimental-governance` by defining missing types locally.
-- Refactored `maintenance_worker.rs` to use local governance instances instead of core fields.
-- Removed governance-related conditional compilation from `vantadb-server/src/main.rs`.
+- Infinite recursion in text_index without advanced-tokenizer.
+- Compilation on macOS (libc breaking changes, mincore, mach2 paths).
+- HNSW robust bounds-checking in deserialization.
+- File lock races in multi-process environments.
+- Clippy warnings across workspace (expect_fun_call, useless_format, etc.).
+- indicatif API drift and type inference errors.
+- Progress bar line spam in `cargo test`.
+- Windows CI timeouts and runner image pinning.
+
+## [v0.1.4] - 2026-05-25
+
+### Added
+
+- sccache caching for faster CI builds.
+- SLSA3 provenance attestations for release binaries.
+
+### Changed
+
+- macOS linker flags for cross-platform compatibility.
+
+### Fixed
+
+- Rolled back sccache GitHub Action due to API instability.
+
+## [v0.1.3] - 2026-05-25
+
+### Fixed
+
+- Server experimental feature compilation error.
+
+### Changed
+
+- Version bump to 0.1.3.
+
+## [v0.1.2] - 2026-05-25
+
+### Added
+
+- Python wheels CI with automated TestPyPI publication.
+- Code coverage job (`cargo-llvm-cov`).
+- Mailmap for contributor unification.
+- Tech audit report.
+
+### Changed
+
+- Harden core WAL with file locking and sync.
+- Extract `vantadb-server` as separate package.
+- Isolate experimental features (governance, LISP) into workspace crates.
+- Reorganize documentation structure (5-pillar design system).
+- Upgrade PyO3 to 0.24.x with Bound API migration.
+- Format workspace with `cargo fmt` (96 files).
+- Bump dependencies: `reqwest` 0.12→0.13, `tokio` 1.52.1→1.52.2.
+
+### Fixed
+
+- macOS compilation (libc, mincore, mach2 module paths).
+- CI OIDC trusted publishing and Windows runner configuration.
+- Test progress bar line spam and indicatif API drift.
 
 ## [v0.1.1] - 2026-05-13
 

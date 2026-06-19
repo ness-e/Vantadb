@@ -436,6 +436,24 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `README.md` y `README_ES.md`: badges shields.io con `logo=` (github, pypi, python, rust), colores de marca (PyPI `#3775A9`, GitHub `#181717`, Python `#3776AB`, Rust `#000000`), layout en 2 filas (CI ×4 + Project ×5). Eliminados badges rotos (PyPI Downloads rate-limited, crates.io no publicado).
 - **Resultado:** 9 badges funcionales con iconos de marca, matching visual con los badges nativos de GitHub Actions. Total: 64 tareas completadas.
 
+### TSK-80 — Migration Guides: ChromaDB y LanceDB → VantaDB
+
+- **Objetivo:** Facilitar la migración desde ChromaDB y LanceDB a VantaDB con guías paso a paso, tablas de mapeo de API, código de exportación/transformación/importación, y limitaciones conocidas.
+- **Archivos creados:**
+  - `docs/migration/FROM_CHROMADB.md` — Comparativa de características, exportación desde ChromaDB, transformación a JSONL, importación VantaDB, mapeo API completo, índice management, limitaciones.
+  - `docs/migration/FROM_LANCEDB.md` — Estructura similar: diferencias de schema (Arrow vs document model), filtros metadata (SQL vs estructurado), API mapping, rollback plan.
+- **Cambios adicionales:**
+  - `docs/README.md` — Nueva sección "🚚 Migration Guides" con enlaces a ambas guías.
+- **Resultado:** Dos guías de migración completas con ejemplos Python, tablas de equivalencia, y consideraciones de rollback. Total: 65 tareas completadas.
+
+### TSK-82 — CHANGELOG.md formal con cliff.toml + git-cliff
+
+- **Objetivo:** Formalizar el proceso de generación de changelog usando git-cliff y actualizar el CHANGELOG.md con las versiones faltantes (v0.1.2, v0.1.3, v0.1.4).
+- **Cambios:**
+  - `cliff.toml` — Configuración git-cliff con commit_parsers categorizados (feat, fix, perf, test, ci, sec, build, docs, refactor, style, chore), filtro de exclusiones de path, skip de conventional commits.
+  - `docs/CHANGELOG.md` — Reemplazada sección [Unreleased] obsoleta con resumen completo de 237 commits post-v0.1.4. Agregadas secciones v0.1.2 (PyPI release, WAL hardening, CI), v0.1.3 (version bump), v0.1.4 (sccache, SLSA3 attestations). Formato Keep a Changelog + SemVer mantenido.
+- **Resultado:** CHANGELOG.md al día con todas las versiones publicadas. git-cliff configurado para generación futura automatizada. Total: 66 tareas completadas.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -466,5 +484,5 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 4 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99) |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
-| Documentación | 7 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees doc |
-| **Total** | **64** | — |
+| Documentación | 9 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees, migration guides (ChromaDB/LanceDB), CHANGELOG formal |
+| **Total** | **66** | — |
