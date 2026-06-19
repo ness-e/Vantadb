@@ -467,9 +467,54 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `src/storage.rs` — `eprintln!("CRITICAL ERROR: ...")` → `tracing::error!`.
   - `src/hardware/mod.rs` — `eprintln!("[HARDWARE] ...")` → `tracing::info!`.
   - `vantadb-server/Cargo.toml` — agregado `tracing = "0.1"` dep directa.
-- **Resultado:** JSON logging con metadata completa (target, file, line, thread_id). `VANTADB_LOG_FORMAT=json` o `json/compact/full`. Backward compat total. 48 lib + 33 CLI + 7 memory_api + 6 E2E tests pasan. Total: 67 tareas completadas.
+- **Resultado:** JSON logging con metadata completa (target, file, line, thread_id). `VANTADB_LOG_FORMAT=json` o `json/compact/full`. Backward compat total. 48 lib + 33 CLI + 7 memory_api + 6 E2E tests pasan.
 
-## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
+## 12. TSK-67 — GraphRAG Documentation (Differentiation)
+
+- **Objetivo:** Crear documentación de GraphRAG que posicione a VantaDB como base de datos vector-grafo unificada. Incluir primitivas core (semantic_cluster, confidence_score, edges, relational), Semantic Compression Engine, graph traversal + vector search combinado, multi-agent GraphRAG, y comparativa vs Microsoft GraphRAG.
+- **Cambios:**
+  - `docs/graphrag/README.md` — Documento completo: qué es GraphRAG, tabla comparativa (VantaDB vs Vector DB vs Microsoft GraphRAG), core primitives, Semantic Compression Engine con prompt architecture, graph traversal + vector search, multi-agent confidence tracking, pipeline completo con código Python, getting started workflow, configuración LLM, 9 enlaces internos a documentación existente.
+  - `docs/README.md` — Nueva sección 🧠 GraphRAG con enlace.
+- **Resultado:** Diferenciación clara vs Microsoft GraphRAG y ChromaDB/LanceDB. 68 tareas completadas.
+
+## 14. TSK-46 — MMap-backed HNSW (Memory-Mapped Index)
+
+- **Objetivo:** Asegurar que el índice HNSW use almacenamiento memory-mapped para vectores (zero-copy MmapFull) en sistemas con <16GB RAM, agregar config `mmap_hnsw`, y validar presupuesto de memoria al startup.
+- **Cambios:**
+  - `src/config.rs` — Nuevo campo `mmap_hnsw: bool` (default `true`) con builder `with_mmap_hnsw()`.
+  - `src/storage.rs` — Gateo de mmap: `config.mmap_hnsw && (force_mmap || low_resource || <16GB)`. Advertencia si HNSW estimado excede 50% del presupuesto de memoria.
+  - `tests/memory/mmap_hnsw.rs` — 2 tests: engine abre con mmap_hnsw=true y mmap_hnsw=false.
+- **Resultado:** Control explícito de mmap para HNSW. 70 tareas completadas.
+
+## 15. TSK-50 — Backpressure por RSS (Memory Pressure Guard)
+
+- **Objetivo:** Rechazar writes cuando el RSS efectivo excede el umbral configurable (default 80%), con auto-eviction como autohéaling.
+- **Cambios:**
+  - `src/config.rs` — Nuevo campo `rss_threshold: f64` (default 0.80) con builder `with_rss_threshold()`.
+  - `src/storage.rs` — `check_memory_pressure()` evalúa effective_bytes vs limit×threshold. Auto-evicciona `eviction_ratio` antes de retornar `VantaError::ResourceLimit`. Guard en `insert()` y `delete()`.
+  - `tests/memory/backpressure.rs` — 2 tests: threshold=0.0 deshabilita, threshold=0.95 permite operación normal.
+- **Resultado:** Backpressure funcional con auto-eviction. 71 tareas completadas.
+
+## 16. TSK-76b — Weighted Eviction por Importance Score
+
+- **Objetivo:** Implementar evicción ponderada de nodos calientes cuando el cache está lleno o hay presión de memoria, usando hits × confidence × importance × recency.
+- **Cambios:**
+  - `src/node.rs` — Nuevo struct `EvictionWeights` (hits, confidence, importance, recency). `UnifiedNode::eviction_score(&weights)` con decay logarítmico por recencia.
+  - `src/config.rs` — Pesos: `eviction_weight_hits: 1.0`, `eviction_weight_confidence: 2.0`, `eviction_weight_importance: 3.0`, `eviction_weight_recency: 1.0`, `eviction_ratio: 0.20`. Builder + método `eviction_weights()`.
+  - `src/storage.rs` — `evict_cold_nodes(ratio)`: scorea hot nodes, ordena ascendente, consolida los de menor score. `EvictionReport { evicted, scanned }`. Auto-eviction en `insert()` y `check_memory_pressure()`.
+  - `tests/memory/eviction.rs` — 3 tests: engine vacío, ratio=0.0, evicción con 5 hot nodes.
+- **Resultado:** Evicción inteligente por score ponderado, auto-conectada a backpressure y cache overflow. 72 tareas completadas.
+
+## 17. TSK-79 — Benchmark Regression Alerts (Nightly CI)
+
+- **Objetivo:** Detectar automáticamente regresiones de rendimiento >5% en los benchmarks nocturnos y crear issues en GitHub para su seguimiento.
+- **Cambios:**
+  - `scripts/bench_regression.py` — Script Python con 3 modos: `extract` (parsea `target/criterion/**/new/estimates.json` a JSON portable), `compare` (compara contra baseline, emite markdown o JSON con regresiones/mejoras), `update-baseline` (promueve un reporte a baseline). Umbral configurable (default 5%), severidad critical si >2× umbral.
+  - `benchmarks/criterion_baseline.json` — Baseline inicial vacío; se actualiza tras cada ejecución nocturna exitosa.
+  - `.github/workflows/nightly_bench.yml` — Nuevos steps: Set up Python, extraer estimates Criterion, comparar contra baseline, detectar regresiones, crear GitHub Issue via `actions/github-script@v7` con re-apertura de issues existentes. Permisos `issues: write`. Workflow artifact incluye `benchmark_report_criterion.json` y `bench_comparison_result.json`.
+- **Resultado:** Regresiones >5% disparan issue automático en `github.com/anomalyco/VantaDB` con etiquetas `benchmark` + `regression`, tabla de benchmarks afectados, y enlace al workflow run. 73 tareas completadas.
+
+## 18. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
 - **Cambios:**
@@ -489,7 +534,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 
 | Categoría | Fases | Logros Clave |
 |---|:---:|---|
-| Rendimiento HNSW | 9 | 2.22x aceleración, latencia p50 200ms→0.17ms, RCU lock-free |
+| Rendimiento HNSW | 10 | 2.22x aceleración, latencia p50 200ms→0.17ms, RCU lock-free, MMap-backed HNSW config |
 | Almacenamiento/WAL | 6 | CRC32C, headers uniformes, mimalloc, tipos DateTime/Listas, WAL compaction (log rotate), TTL en records |
 | Seguridad/Resiliencia | 11 | Crash-injection 30/30 (AUD-02/03), chaos testing, advisory locks, TLS/Auth, text index audit, ExecutionResult verification |
 | Arquitectura Core | 4 | Cuarentena experimental, desacoplamiento tokio, motor Volcano/CBO |
@@ -498,6 +543,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | Python SDK | 6 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo, AsyncVantaDB (asyncio), type stubs .pyi |
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
 | Observabilidad | 5 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99), JSON structured logging (LogFormat/VantaConfig) |
-| Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
-| Documentación | 9 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees, migration guides (ChromaDB/LanceDB), CHANGELOG formal |
-| **Total** | **67** | — |
+| Benchmarks/CI | 5 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor, benchmark regression alerts con auto-issue |
+| Documentación | 10 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees, migration guides (ChromaDB/LanceDB), CHANGELOG formal, GraphRAG docs |
+| Gestión de Memoria | 3 | MMap-backed HNSW config, RSS backpressure con auto-eviction, weighted eviction por importance score |
+| **Total** | **73** | — |

@@ -18,6 +18,12 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 
 ---
 
+## 🧠 GraphRAG (Knowledge Graph + Retrieval)
+
+* [GraphRAG on VantaDB](graphrag/README.md) — Unified vector-graph database for GraphRAG: semantic clusters, confidence scoring, graph traversal, semantic compression engine, and multi-agent support.
+
+---
+
 ## 💻 API & SDK Reference (Pillar 1)
 
 * [Python SDK Guide](api/PYTHON_SDK.md) — Integration, GIL release policies, Rayon batching, and PyO3 FFI boundary specs.

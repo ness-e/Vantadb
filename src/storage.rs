@@ -545,6 +545,13 @@ impl MemoryStats {
     }
 }
 
+/// Report returned by eviction operations.
+#[derive(Debug, Clone, Copy)]
+pub struct EvictionReport {
+    pub evicted: usize,
+    pub scanned: usize,
+}
+
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexRebuildReport {
@@ -716,9 +723,10 @@ impl StorageEngine {
         }
         let index_path = data_dir.join("vector_index.bin");
 
-        let use_mmap = config.force_mmap
-            || caps.profile == crate::hardware::HardwareProfile::LowResource
-            || effective_memory < 16 * 1024 * 1024 * 1024;
+        let use_mmap = config.mmap_hnsw
+            && (config.force_mmap
+                || caps.profile == crate::hardware::HardwareProfile::LowResource
+                || effective_memory < 16 * 1024 * 1024 * 1024);
 
         let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
             if use_mmap {
@@ -832,13 +840,23 @@ impl StorageEngine {
         );
 
         // Capture initial memory breakdown after engine is fully open
+        let estimated_hnsw_bytes = hnsw.estimate_memory_bytes() as u64;
         crate::metrics::record_memory_breakdown(
             hnsw.nodes.len() as u64,
-            hnsw.estimate_memory_bytes() as u64,
+            estimated_hnsw_bytes,
             engine_mmap_resident_bytes(&hnsw, &vector_store),
             0, // volatile cache is empty at startup
             0, // cache cap is set later by SDK; 0 until configured
         );
+
+        if hnsw.nodes.len() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
+            tracing::warn!(
+                hnsw_nodes = hnsw.nodes.len(),
+                estimated_mb = estimated_hnsw_bytes / 1024 / 1024,
+                effective_mb = effective_memory / 1024 / 1024,
+                "HNSW index exceeds 50% of memory budget",
+            );
+        }
 
         let cardinality_stats = Self::initialize_cardinality_stats(backend.as_ref());
 
@@ -1356,6 +1374,7 @@ impl StorageEngine {
 
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
+        self.check_memory_pressure()?;
         // Si el nodo ya existía, decrementamos sus estadísticas previas para mantener la consistencia
         if let Ok(Some(existing_node)) = self.get(node.id) {
             let mut stats = self.cardinality_stats.write();
@@ -1442,6 +1461,7 @@ impl StorageEngine {
             if cache.len() > max_nodes {
                 self.emergency_maintenance_trigger
                     .store(true, Ordering::Release);
+                let _ = self.evict_cold_nodes(self.config.eviction_ratio);
             }
         }
 
@@ -1526,6 +1546,54 @@ impl StorageEngine {
         }
 
         Ok(())
+    }
+
+    /// Evict a fraction of hot nodes from the volatile cache by lowest eviction score.
+    /// Nodes are consolidated to cold tier and their mmap pages may be released.
+    pub fn evict_cold_nodes(&self, ratio: f64) -> Result<EvictionReport> {
+        self.ensure_writable()?;
+        let ratio = ratio.clamp(0.0, 1.0);
+        if ratio <= 0.0 {
+            return Ok(EvictionReport { evicted: 0, scanned: 0 });
+        }
+
+        let candidates: Vec<UnifiedNode> = {
+            let cache = self.volatile_cache.read();
+            cache.values()
+                .filter(|n| n.tier == crate::node::NodeTier::Hot)
+                .cloned()
+                .collect()
+        };
+
+        if candidates.is_empty() {
+            return Ok(EvictionReport { evicted: 0, scanned: 0 });
+        }
+
+        let target = (candidates.len() as f64 * ratio).max(1.0) as usize;
+        let scanned = candidates.len();
+        let weights = self.config.eviction_weights();
+
+        let mut scored: Vec<(f64, UnifiedNode)> = candidates
+            .into_iter()
+            .map(|n| {
+                let score = n.eviction_score(&weights);
+                (score, n)
+            })
+            .collect();
+        // Sort ascending — lowest score = best eviction candidate
+        scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut evicted = 0;
+        for (_score, node) in scored.iter().take(target) {
+            if self.consolidate_node(node).is_ok() {
+                evicted += 1;
+            }
+        }
+
+        Ok(EvictionReport {
+            evicted,
+            scanned,
+        })
     }
 
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
@@ -1616,6 +1684,7 @@ impl StorageEngine {
 
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
+        self.check_memory_pressure()?;
         if let Ok(Some(node)) = self.get(id) {
             let mut stats = self.cardinality_stats.write();
             for (field, value) in node.relational {
@@ -2031,6 +2100,36 @@ impl StorageEngine {
             node_count: hnsw.nodes.len() as u64,
             cache_entries: cache.len(),
         }
+    }
+
+    pub fn check_memory_pressure(&self) -> Result<()> {
+        let threshold = self.config.rss_threshold;
+        if threshold <= 0.0 {
+            return Ok(());
+        }
+        let stats = self.get_memory_stats();
+        let effective = stats.effective_bytes();
+        if effective == 0 {
+            return Ok(());
+        }
+        let limit = self.config.memory_limit
+            .unwrap_or_else(|| crate::hardware::HardwareCapabilities::global().total_memory);
+        if (effective as f64) > (limit as f64 * threshold) {
+            tracing::warn!(
+                effective_bytes = effective,
+                threshold_pct = (threshold * 100.0) as u64,
+                "Memory pressure detected — triggering auto-eviction",
+            );
+            let _ = self.evict_cold_nodes(self.config.eviction_ratio);
+            return Err(VantaError::ResourceLimit(format!(
+                "Memory pressure: {} bytes used ({}% of {} limit, threshold {}%)",
+                effective,
+                (effective as f64 / limit as f64 * 100.0) as u64,
+                limit,
+                (threshold * 100.0) as u64,
+            )));
+        }
+        Ok(())
     }
 
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {

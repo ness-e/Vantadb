@@ -168,6 +168,17 @@ pub struct Edge {
     pub weight: f32,
 }
 
+/// Weights for computing per-node eviction scores.
+/// Used by `StorageEngine::evict_cold_nodes()` to decide which nodes
+/// to evict when under memory pressure.
+#[derive(Debug, Clone, Copy)]
+pub struct EvictionWeights {
+    pub hits: f64,
+    pub confidence: f64,
+    pub importance: f64,
+    pub recency: f64,
+}
+
 impl Edge {
     pub fn new(target: u64, label: impl Into<String>) -> Self {
         Self {
@@ -517,6 +528,25 @@ impl UnifiedNode {
     /// Is this node alive (active and not tombstoned)?
     pub fn is_alive(&self) -> bool {
         self.flags.is_active() && !self.flags.is_tombstone()
+    }
+
+    /// Compute a weighted eviction score for memory pressure decisions.
+    /// Higher score = more valuable to keep in cache.
+    pub fn eviction_score(&self, weights: &EvictionWeights) -> f64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let age_secs = if self.last_accessed > 0 {
+            ((now - self.last_accessed) / 1000).max(1)
+        } else {
+            1
+        };
+        let recency_score = 1.0 / (age_secs as f64).ln_1p();
+        self.hits as f64 * weights.hits
+            + self.confidence_score as f64 * weights.confidence
+            + self.importance as f64 * weights.importance
+            + recency_score * weights.recency
     }
 }
 

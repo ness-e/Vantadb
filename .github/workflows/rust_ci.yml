@@ -96,6 +96,10 @@ jobs:
     # Benchmarks no se ejecutan aquí; clippy --all-targets ya los verifica sintácticamente.
     # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
     # exclusivamente en heavy_certification.yml (semanal / manual).
+    - name: Download benchmark datasets
+      run: bash scripts/download_benchmark_datasets.sh
+      shell: bash
+
     - name: Run fast gate tests (Audit profile)
       timeout-minutes: 30
       run: cargo nextest run --profile audit --workspace

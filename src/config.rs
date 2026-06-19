@@ -63,6 +63,26 @@ pub struct VantaConfig {
     pub memory_limit: Option<u64>,
     pub read_only: bool,
     pub force_mmap: bool,
+    /// Whether to use memory-mapped storage for the HNSW index.
+    /// When true, vectors in the HNSW index use zero-copy MmapFull representations
+    /// instead of heap-allocated Full vectors. Enabled automatically on systems
+    /// with <16GB RAM or LowResource profile. Set `force_mmap` to override.
+    pub mmap_hnsw: bool,
+    /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
+    /// When the effective memory usage exceeds this fraction of the memory limit,
+    /// write operations return `VantaError::ResourceLimit`.
+    /// Set to 0.0 to disable backpressure entirely.
+    pub rss_threshold: f64,
+    /// Weight for hit count in eviction scoring (default: 1.0).
+    pub eviction_weight_hits: f64,
+    /// Weight for confidence score in eviction scoring (default: 2.0).
+    pub eviction_weight_confidence: f64,
+    /// Weight for importance score in eviction scoring (default: 3.0).
+    pub eviction_weight_importance: f64,
+    /// Weight for recency (last_accessed) in eviction scoring (default: 1.0).
+    pub eviction_weight_recency: f64,
+    /// Fraction of hot nodes to evict when memory pressure triggers (default: 0.20).
+    pub eviction_ratio: f64,
     pub backend_kind: BackendKind,
     pub max_blocking_threads: usize,
     pub sync_mode: SyncMode,
@@ -116,6 +136,13 @@ impl Default for VantaConfig {
             memory_limit: None,
             read_only: false,
             force_mmap: false,
+            mmap_hnsw: true,
+            rss_threshold: 0.80,
+            eviction_weight_hits: 1.0,
+            eviction_weight_confidence: 2.0,
+            eviction_weight_importance: 3.0,
+            eviction_weight_recency: 1.0,
+            eviction_ratio: 0.20,
             backend_kind: match env::var("VANTA_BACKEND").ok().as_deref() {
                 Some("rocksdb") => BackendKind::RocksDb,
                 Some("memory") => BackendKind::InMemory,
@@ -180,6 +207,50 @@ impl VantaConfig {
     pub fn with_force_mmap(mut self, force: bool) -> Self {
         self.force_mmap = force;
         self
+    }
+
+    /// Sets whether to use memory-mapped HNSW index storage.
+    pub fn with_mmap_hnsw(mut self, val: bool) -> Self {
+        self.mmap_hnsw = val;
+        self
+    }
+
+    /// Sets the RSS threshold that triggers backpressure (0.0–1.0).
+    /// Set to 0.0 to disable.
+    pub fn with_rss_threshold(mut self, threshold: f64) -> Self {
+        self.rss_threshold = threshold.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Sets eviction scoring weights.
+    pub fn with_eviction_weights(
+        mut self,
+        hits: f64,
+        confidence: f64,
+        importance: f64,
+        recency: f64,
+    ) -> Self {
+        self.eviction_weight_hits = hits;
+        self.eviction_weight_confidence = confidence;
+        self.eviction_weight_importance = importance;
+        self.eviction_weight_recency = recency;
+        self
+    }
+
+    /// Sets the fraction of hot nodes to evict when memory pressure triggers.
+    pub fn with_eviction_ratio(mut self, ratio: f64) -> Self {
+        self.eviction_ratio = ratio.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Returns the eviction weights as a struct.
+    pub fn eviction_weights(&self) -> crate::node::EvictionWeights {
+        crate::node::EvictionWeights {
+            hits: self.eviction_weight_hits,
+            confidence: self.eviction_weight_confidence,
+            importance: self.eviction_weight_importance,
+            recency: self.eviction_weight_recency,
+        }
     }
 
     /// Selects the KV backend.
