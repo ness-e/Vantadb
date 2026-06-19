@@ -98,6 +98,12 @@ jobs:
     # Benchmarks no se ejecutan aquí; clippy --all-targets ya los verifica sintácticamente.
     # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
     # exclusivamente en heavy_certification.yml (semanal / manual).
+    - name: Cache benchmark dataset (GloVe 100d)
+      uses: actions/cache@v4
+      with:
+        path: data/benchmark/glove.6B.100d.txt
+        key: glove-100d-v1
+
     - name: Download benchmark datasets
       run: bash scripts/download_benchmark_datasets.sh
       shell: bash
@@ -187,6 +193,12 @@ jobs:
       uses: taiki-e/install-action@v2
       with:
         tool: nextest
+
+    - name: Cache benchmark dataset (GloVe 100d)
+      uses: actions/cache@v4
+      with:
+        path: data/benchmark/glove.6B.100d.txt
+        key: glove-100d-v1
 
     - name: Download benchmark datasets
       run: bash scripts/download_benchmark_datasets.sh

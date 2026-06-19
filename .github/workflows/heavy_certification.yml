@@ -28,38 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - uses: actions/checkout@v6
-
-      - name: Add swap space
-        run: |
-          sudo swapoff /swapfile || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/rust-setup
         with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+          swap-mb: 8192
+          free-disk: true
       - name: Run stress protocol
         timeout-minutes: 150
         run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
@@ -69,38 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - uses: actions/checkout@v6
-
-      - name: Add swap space
-        run: |
-          sudo swapoff /swapfile || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/rust-setup
         with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+          swap-mb: 8192
+          free-disk: true
       - name: Run HNSW validation
         run: cargo test --release --test hnsw_validation -- --nocapture --test-threads=1
 
@@ -109,28 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - uses: actions/checkout@v6
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/rust-setup
         with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+          free-disk: true
       - name: Run HNSW recall certification
         timeout-minutes: 25
         run: cargo test --release --test hnsw_recall_certification -- --nocapture --test-threads=1
@@ -141,21 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+      - uses: ./.github/actions/rust-setup
       - name: Run SIFT validation
         timeout-minutes: 30
         run: cargo test --release --test sift_validation -- --nocapture --test-threads=1
@@ -166,87 +77,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+      - uses: ./.github/actions/rust-setup
       - name: Run competitive benchmark
         timeout-minutes: 30
         run: cargo test --release --test competitive_bench -- --nocapture --test-threads=1
-
-  fuzz-resilience:
-    name: "Certification: fuzz_resilience"
-    # TEMPORARILY DISABLED: ASAN incompatible with musl target, gnu target also has issues
-    # See VantaDB_Plan_Maestro_Unificado.md for details and TODO for investigation
-    if: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    continue-on-error: true  # Fuzzing is non-critical security testing, allow workflow to continue on failure
-    steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - uses: actions/checkout@v6
-
-      - name: Set up Rust (nightly — required by cargo-fuzz/libFuzzer)
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: llvm-tools-preview rustfmt
-          targets: x86_64-unknown-linux-gnu
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
-      - name: Install cargo-fuzz
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-fuzz
-
-      - name: Fuzz — parser (5 min)
-        timeout-minutes: 8
-        working-directory: fuzz
-        run: |
-          cargo +nightly fuzz run fuzz_parser -- \
-            -max_total_time=300 \
-            -artifact_prefix=artifacts/fuzz_parser/
-
-      - name: Fuzz — node deserialization (5 min)
-        timeout-minutes: 8
-        working-directory: fuzz
-        run: |
-          cargo +nightly fuzz run fuzz_node_deserialize -- \
-            -max_total_time=300 \
-            -artifact_prefix=artifacts/fuzz_node_deserialize/
-
-      - name: Upload fuzz artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fuzz-crash-artifacts
-          path: fuzz/artifacts/
-          retention-days: 30
 
   failpoint-tests:
     name: "Certification: failpoint_injections"
@@ -255,26 +89,11 @@ jobs:
       group: failpoints-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
+      - uses: ./.github/actions/rust-setup
       - name: Install nextest
         uses: taiki-e/install-action@v2
         with:
           tool: nextest
-
       - name: Run failpoint tests
         env:
           RUST_BACKTRACE: 1
@@ -282,5 +101,3 @@ jobs:
           cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
           cargo nextest run --test wal_resilience --test-threads=1
           cargo nextest run --test crash_injection --test-threads=1
-
-
