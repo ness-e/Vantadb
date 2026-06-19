@@ -141,7 +141,7 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
             9 => "irrelevant topic here",                     // no match
             _ => unreachable!(),
         };
-        let mut input = VantaMemoryInput::new("bm25/a", &format!("doc_{}", i), payload);
+        let mut input = VantaMemoryInput::new("bm25/a", format!("doc_{}", i), payload);
         input.vector = Some(vec![1.0 - (i as f32) * 0.1, (i as f32) * 0.1]);
         input.metadata.insert(
             "group".to_string(),
@@ -163,7 +163,7 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
             3 => "rust systems programming",
             _ => unreachable!(),
         };
-        let mut input = VantaMemoryInput::new("bm25/b", &format!("b_doc_{}", i), payload);
+        let mut input = VantaMemoryInput::new("bm25/b", format!("b_doc_{}", i), payload);
         input.vector = Some(vec![0.5, 0.5]);
         db.put(input).expect("put ns_b doc");
     }

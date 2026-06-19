@@ -97,12 +97,14 @@ fn test_vanta_lock_file_shared_and_exclusive_os_level() {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .unwrap();
     let f2 = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .unwrap();
 
@@ -122,6 +124,7 @@ fn test_vanta_lock_file_shared_and_exclusive_os_level() {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .unwrap();
     fs2::FileExt::try_lock_exclusive(&f3)
@@ -132,6 +135,7 @@ fn test_vanta_lock_file_shared_and_exclusive_os_level() {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(&lock_path)
         .unwrap();
     let exclusive_while_exclusive = fs2::FileExt::try_lock_exclusive(&f4);

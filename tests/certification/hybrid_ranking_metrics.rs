@@ -12,8 +12,8 @@ fn ndcg_at_k(ranked: &[String], relevant: &[String], k: usize) -> f64 {
         return 0.0;
     }
     let mut dcg = 0.0;
-    for i in 0..k {
-        let rel = if relevant.contains(&ranked[i]) {
+    for (i, key) in ranked.iter().enumerate().take(k) {
+        let rel = if relevant.contains(key) {
             1.0
         } else {
             0.0
@@ -176,11 +176,13 @@ fn test_hybrid_ranking_metrics() {
     .map(String::from)
     .collect();
 
-    let mut req = VantaMemorySearchRequest::default();
-    req.namespace = "metrics".to_string();
-    req.query_vector = vec![0.85, 0.15, 0.10, 0.10];
-    req.text_query = Some("transformer attention".to_string());
-    req.top_k = 10;
+    let req = VantaMemorySearchRequest {
+        namespace: "metrics".to_string(),
+        query_vector: vec![0.85, 0.15, 0.10, 0.10],
+        text_query: Some("transformer attention".to_string()),
+        top_k: 10,
+        ..Default::default()
+    };
     let results = db.search(req).expect("search query 1");
     let ranked_1: Vec<String> = results.into_iter().map(|h| h.record.key).collect();
 
@@ -199,11 +201,13 @@ fn test_hybrid_ranking_metrics() {
         .map(String::from)
         .collect();
 
-    let mut req2 = VantaMemorySearchRequest::default();
-    req2.namespace = "metrics".to_string();
-    req2.query_vector = vec![0.20, 0.80, 0.10, 0.10];
-    req2.text_query = Some("deep learning".to_string());
-    req2.top_k = 10;
+    let req2 = VantaMemorySearchRequest {
+        namespace: "metrics".to_string(),
+        query_vector: vec![0.20, 0.80, 0.10, 0.10],
+        text_query: Some("deep learning".to_string()),
+        top_k: 10,
+        ..Default::default()
+    };
     let results2 = db.search(req2).expect("search query 2");
     let ranked_2: Vec<String> = results2.into_iter().map(|h| h.record.key).collect();
 
