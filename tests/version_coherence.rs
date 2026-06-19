@@ -16,6 +16,9 @@ fn read(path: impl Into<PathBuf>) -> String {
 fn extract_cargo_version(cargo_toml: &str) -> String {
     for line in cargo_toml.lines() {
         let trimmed = line.trim();
+        if trimmed == "version.workspace = true" {
+            continue;
+        }
         if trimmed.starts_with("version") {
             if let Some((_, rhs)) = trimmed.split_once('=') {
                 let v = rhs.trim().trim_matches('"');
