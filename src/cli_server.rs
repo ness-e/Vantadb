@@ -280,40 +280,56 @@ pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
 
     #[cfg(not(feature = "opentelemetry"))]
     {
-        let writer: Box<dyn std::io::Write + Send + Sync> = if is_mcp {
-            Box::new(std::io::stderr())
-        } else {
-            Box::new(std::io::stdout())
-        };
-
         if is_json {
-            tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .json()
-                .with_target(true)
-                .with_thread_ids(true)
-                .with_file(true)
-                .with_line_number(true)
-                .with_ansi(false)
-                .with_writer(writer)
-                .init();
+            if is_mcp {
+                tracing_subscriber::fmt()
+                    .with_env_filter(env_filter)
+                    .json()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_ansi(false)
+                    .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
+                    .init();
+            } else {
+                tracing_subscriber::fmt()
+                    .with_env_filter(env_filter)
+                    .json()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_ansi(false)
+                    .init();
+            }
         } else if is_full {
-            tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .with_target(true)
-                .with_thread_ids(true)
-                .with_file(true)
-                .with_line_number(true)
-                .with_ansi(true)
-                .with_writer(writer)
-                .init();
+            if is_mcp {
+                tracing_subscriber::fmt()
+                    .with_env_filter(env_filter)
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_ansi(true)
+                    .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
+                    .init();
+            } else {
+                tracing_subscriber::fmt()
+                    .with_env_filter(env_filter)
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true)
+                    .with_ansi(true)
+                    .init();
+            }
         } else if is_mcp {
             tracing_subscriber::fmt()
                 .with_env_filter(env_filter)
-                .with_writer(Box::new(std::io::stderr()))
+                .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
                 .init();
         } else {
-            // Compact + not MCP → use console init (ANSI-compact)
             crate::console::init_logging(LogFormat::Compact);
         }
     }

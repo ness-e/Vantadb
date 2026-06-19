@@ -1,0 +1,10 @@
+{
+  "metadata": {
+    "created": "2026-06-18T00:00:00Z",
+    "commit": "initial",
+    "workflow": "manual",
+    "run_id": "0",
+    "description": "Initial baseline for nightly benchmark regression detection. Update via `python scripts/bench_regression.py update-baseline <report.json>` after first CI run."
+  },
+  "benchmarks": {}
+}

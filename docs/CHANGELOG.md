@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Benchmark regression alerts — nightly CI auto-creates GitHub issues when criterion benchmarks regress >5% (TSK-79).
 - WAL compaction (`compact_wal()`) and TTL support (`ttl_ms`, `purge_expired()`) on memory records (TSK-75/76).
 - Batch put with Rayon parallelism (`put_batch()`) for 5x faster bulk inserts (TSK-69).
 - AsyncVantaDB Python wrapper with context manager support (TSK-73).

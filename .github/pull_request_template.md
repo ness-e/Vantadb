@@ -1,29 +1,32 @@
-## Summary
+## Description
 
-Describe what changed and why.
+Please include a summary of the change and which issue is fixed.
 
-## Scope
+Fixes # (issue)
 
-- [ ] Product code
-- [ ] Tests
-- [ ] Documentation
-- [ ] CI / release tooling
-- [ ] Packaging
+## Type of change
 
-## Validation
+- [ ] Bug fix (non-breaking change fixing an issue)
+- [ ] New feature (non-breaking change adding functionality)
+- [ ] Breaking change (fix or feature that breaks existing API)
+- [ ] Documentation update
+- [ ] Performance improvement
+- [ ] Refactor (no functional changes)
 
-List the commands or workflows used to validate this change.
+## How Has This Been Tested?
 
-```text
-cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo nextest run --profile audit --workspace
-```
+- [ ] `cargo test --lib` — all lib tests pass
+- [ ] `cargo check --all-features` — no warnings/errors
+- [ ] `cargo clippy --all-features` — no warnings
+- [ ] `cargo fmt --check` — formatting is correct
 
-## Risk
+## Checklist:
 
-Describe compatibility, data, performance, or release risks. If none are expected, say why.
+- [ ] My code follows the existing code style of this project
+- [ ] I have added tests that prove my fix is effective or my feature works
+- [ ] I have updated the documentation accordingly
+- [ ] My changes generate no new warnings or errors
 
-## Notes
+## Additional context
 
-Mention any follow-up work, deferred checks, or heavy certification runs.
+Add any other context about the PR here.

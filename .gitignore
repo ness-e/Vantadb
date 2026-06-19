@@ -43,7 +43,9 @@ vantadb-python/target/
 **/.coverage
 **/htmlcov/
 **/.cache/
-
+/_test_import/
+/_test_async/
+/_test_listfmt/
 # Quickstart local artifacts
 quickstart_data/
 quickstart-agent-main.jsonl

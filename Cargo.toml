@@ -241,6 +241,11 @@ name = "mmap_index"
 path = "tests/storage/mmap_index.rs"
 
 [[test]]
+name = "mmap_hnsw"
+path = "tests/memory/mmap_hnsw.rs"
+required-features = ["cli"]
+
+[[test]]
 name = "antilocality_layout"
 path = "tests/storage/antilocality_layout.rs"
 
@@ -268,6 +273,11 @@ path = "tests/certification/competitive_bench.rs"
 [[test]]
 name = "hybrid_retrieval_quality"
 path = "tests/certification/hybrid_retrieval_quality.rs"
+
+[[test]]
+name = "hybrid_ranking_metrics"
+path = "tests/certification/hybrid_ranking_metrics.rs"
+required-features = ["cli"]
 
 [[test]]
 name = "backend_tests"
@@ -343,8 +353,18 @@ path = "tests/cli_tests.rs"
 required-features = ["cli"]
 
 [[test]]
+name = "file_locking_stress"
+path = "tests/file_locking_stress.rs"
+required-features = ["cli"]
+
+[[test]]
 name = "benchmark_internal"
 path = "tests/benchmark_internal.rs"
+
+[[test]]
+name = "prefetch_benchmark"
+path = "tests/prefetch_benchmark.rs"
+required-features = ["cli"]
 
 [[test]]
 name = "multi_process_lock"
@@ -353,6 +373,19 @@ path = "tests/storage/multi_process_lock.rs"
 [[test]]
 name = "crash_injection"
 path = "tests/storage/crash_injection.rs"
+
+[[test]]
+name = "benchmark_datasets"
+path = "tests/benchmark_datasets.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "memory"
+path = "tests/memory/backpressure.rs"
+
+[[test]]
+name = "memory_eviction"
+path = "tests/memory/eviction.rs"
 
 [profile.release]
 lto = "thin"
