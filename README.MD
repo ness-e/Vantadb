@@ -2,15 +2,22 @@
   <h1>VantaDB</h1>
   <p><b>Embedded Rust engine for durable local memory and hybrid vector retrieval.</b></p>
 
-  [![CI](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml)
-  [![Python Wheels](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml)
-  [![Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml)
-  [![Benchmarks](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg)](https://github.com/ness-e/Vantadb/actions/workflows/bench.yml)
-  [![Release](https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&color=blue)](https://github.com/ness-e/Vantadb/releases)
-  [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-  [![PyPI](https://img.shields.io/pypi/v/vantadb-py?label=PyPI&color=blue)](https://pypi.org/project/vantadb-py/)
-  [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://pypi.org/project/vantadb-py/)
-  [![Rust](https://img.shields.io/badge/Rust-1.94.1+-orange.svg)](https://www.rust-lang.org/)
+  <br>
+
+  <!-- CI -->
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg" alt="Python Wheels"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg" alt="Heavy Certification"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg" alt="Benchmarks"></a>
+
+  <br>
+
+  <!-- Project -->
+  <a href="https://github.com/ness-e/Vantadb/releases"><img src="https://img.shields.io/github/v/release/ness-e/Vantadb?label=Release&logo=github&logoColor=white&color=181717" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181717" alt="License"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
+  <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.1%2B-000000?logo=rust&logoColor=white" alt="Rust"></a>
 </div>
 
 <div align="center">

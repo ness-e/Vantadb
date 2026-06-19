@@ -5,6 +5,8 @@ use clap::Parser;
 
 use vantadb::cli::{Cli, Commands};
 use vantadb::cli_handlers;
+use vantadb::config::LogFormat;
+use vantadb::console;
 use vantadb::error::Result;
 
 #[cfg(feature = "custom-allocator")]
@@ -15,9 +17,7 @@ fn main() -> Result<()> {
     let args = Cli::parse();
 
     if args.verbose {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
+        console::init_logging(LogFormat::Full);
     }
 
     match args.command {

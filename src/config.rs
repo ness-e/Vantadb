@@ -4,6 +4,32 @@ use crate::tokenizer::AdvancedTokenizerConfig;
 use std::env;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LogFormat {
+    /// Compact human-readable output (default for CLI). No targets, thread IDs,
+    /// or file/line info. ANSI colors enabled for terminals.
+    #[default]
+    Compact,
+    /// JSON-structured output (default for server). Full metadata: ISO 8601
+    /// timestamp, level, target, file, line, thread_id. Suitable for log
+    /// aggregators (Datadog, ELK, Grafana Loki).
+    Json,
+    /// Full human-readable format with targets, file/line, thread IDs, ANSI
+    /// colors. Useful for debugging.
+    Full,
+}
+
+impl LogFormat {
+    /// Parse from an env var value (case-insensitive).
+    pub fn from_env_value(s: &str) -> Self {
+        match s.trim().to_lowercase().as_str() {
+            "json" | "1" | "true" => LogFormat::Json,
+            "full" | "verbose" => LogFormat::Full,
+            _ => LogFormat::Compact,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SyncMode {
     /// Forces fsync/fdatasync on every write operation to the WAL and storage backend.
     ///
@@ -61,6 +87,10 @@ pub struct VantaConfig {
     ///
     /// Requires the `tls` feature. Configured via `VANTADB_TLS_KEY`.
     pub tls_key_path: Option<String>,
+    /// Log output format. Configured via `VANTADB_LOG_FORMAT` env var.
+    /// Values: `compact` (default), `json`, `full`.
+    /// Also respects legacy `VANTADB_LOG_JSON=1/true` for backward compat.
+    pub log_format: LogFormat,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
@@ -103,6 +133,19 @@ impl Default for VantaConfig {
                 .unwrap_or(100),
             tls_cert_path: env::var("VANTADB_TLS_CERT").ok(),
             tls_key_path: env::var("VANTADB_TLS_KEY").ok(),
+            log_format: {
+                let legacy = env::var("VANTADB_LOG_JSON")
+                    .map(|v| v == "1" || v == "true")
+                    .unwrap_or(false);
+                if legacy {
+                    LogFormat::Json
+                } else {
+                    env::var("VANTADB_LOG_FORMAT")
+                        .ok()
+                        .map(|v| LogFormat::from_env_value(&v))
+                        .unwrap_or_default()
+                }
+            },
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
         }
@@ -191,6 +234,12 @@ impl VantaConfig {
         config: Option<AdvancedTokenizerConfig>,
     ) -> Self {
         self.advanced_tokenizer_config = config;
+        self
+    }
+
+    /// Sets the log output format.
+    pub fn with_log_format(mut self, format: LogFormat) -> Self {
+        self.log_format = format;
         self
     }
 }

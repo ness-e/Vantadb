@@ -454,6 +454,21 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
   - `docs/CHANGELOG.md` — Reemplazada sección [Unreleased] obsoleta con resumen completo de 237 commits post-v0.1.4. Agregadas secciones v0.1.2 (PyPI release, WAL hardening, CI), v0.1.3 (version bump), v0.1.4 (sccache, SLSA3 attestations). Formato Keep a Changelog + SemVer mantenido.
 - **Resultado:** CHANGELOG.md al día con todas las versiones publicadas. git-cliff configurado para generación futura automatizada. Total: 66 tareas completadas.
 
+### TSK-94 — JSON Structured Logging con LogFormat + VantaConfig
+
+- **Objetivo:** Reemplazar el control rudimentario por env var (`VANTADB_LOG_JSON`) con un `LogFormat` enum completo integrado en `VantaConfig`, mejorar metadatos JSON, migrar `eprintln!` críticos a `tracing::error!/warn!`.
+- **Cambios:**
+  - `src/config.rs` — Nuevo enum `LogFormat` (Compact/Json/Full) con `from_env_value()`, campo `log_format` en `VantaConfig` con backward compat para `VANTADB_LOG_JSON` legacy.
+  - `src/console.rs` — `init_logging()` refactorizada: acepta `LogFormat` y configura metadata completa (target, file, line, thread_id) según el formato.
+  - `src/cli_server.rs` — `init_telemetry()` acepta `Option<LogFormat>`; formato JSON/Full usa target + file + line + thread_id; MCP stderr redirect preservado. Nueva función `_init_telemetry_otel()` para el feature flag `opentelemetry`.
+  - `src/bin/vanta-cli.rs` — `--verbose` usa `console::init_logging(LogFormat::Full)` en vez de raw `tracing_subscriber::fmt()`.
+  - `vantadb-server/src/main.rs` — `init_telemetry(true/false, Some(config.log_format))`; migrados `eprintln!` a `tracing::info!`/`tracing::error!` en paths de shutdown.
+  - `src/wal.rs` — 4 `eprintln!("DEBUG: ...")` → `tracing::warn!` con structured context.
+  - `src/storage.rs` — `eprintln!("CRITICAL ERROR: ...")` → `tracing::error!`.
+  - `src/hardware/mod.rs` — `eprintln!("[HARDWARE] ...")` → `tracing::info!`.
+  - `vantadb-server/Cargo.toml` — agregado `tracing = "0.1"` dep directa.
+- **Resultado:** JSON logging con metadata completa (target, file, line, thread_id). `VANTADB_LOG_FORMAT=json` o `json/compact/full`. Backward compat total. 48 lib + 33 CLI + 7 memory_api + 6 E2E tests pasan. Total: 67 tareas completadas.
+
 ## 12. Restauración Completa del Backlog (Icebox + Veredicto + Datos Perdidos)
 
 - **Objetivo:** Recuperar toda la información eliminada involuntariamente del Backlog.md durante la reestructuración del vault MPTS. La limpieza eliminó ~500 líneas que contenían tareas postergadas (ROAD, DIST, LISP), HAZ/LOW descartados, DISC discoveries, veredicto del proyecto y fuentes de tareas.
@@ -482,7 +497,7 @@ Listado de tareas técnicas legítimas completadas correspondientes al backlog d
 | E2E / Integración | 6 | 6 tests E2E sobre HTTP real: server socket + reqwest, persistencia, auth, rate limit |
 | Python SDK | 6 | search_batch paralelo, NaN/Inf validation en FFI, pipeline de wheels SLSA L2, put_batch Rayon paralelo, AsyncVantaDB (asyncio), type stubs .pyi |
 | CLI/API | 5 | CLI embebida, consola premium, scripts skills corregidos, adaptadores LangChain/LlamaIndex, 33 tests de integración CLI |
-| Observabilidad | 4 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99) |
+| Observabilidad | 5 | OpenTelemetry, OTLP, compatibilidad MCP, Prometheus HTTP histograms (p50/p95/p99), JSON structured logging (LogFormat/VantaConfig) |
 | Benchmarks/CI | 4 | Benchmark competitivo GloVe/SIFT, optimización de workflows, corpus extendido (BM25 edge cases), benchmarks latencia/throughput del servidor |
 | Documentación | 9 | Plan Maestro unificado, auditoría técnica, gobernanza, durability guarantees, migration guides (ChromaDB/LanceDB), CHANGELOG formal |
-| **Total** | **66** | — |
+| **Total** | **67** | — |

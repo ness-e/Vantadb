@@ -2044,8 +2044,8 @@ impl StorageEngine {
 
         println!("Attempting controlled flush...");
         if let Err(e) = self.flush() {
-            eprintln!(
-                "CRITICAL ERROR: Failed to flush buffers during shutdown: {}",
+            tracing::error!(
+                "Failed to flush buffers during shutdown: {}",
                 e
             );
         } else {
