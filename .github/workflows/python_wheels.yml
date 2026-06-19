@@ -73,7 +73,7 @@ jobs:
         run: cargo test --test version_coherence --all-features
 
       - name: Build wheel
-        uses: pyo3/maturin-action@v2
+        uses: PyO3/maturin-action@v1.51.0
         with:
           command: build
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
