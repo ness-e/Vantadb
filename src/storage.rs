@@ -1554,19 +1554,26 @@ impl StorageEngine {
         self.ensure_writable()?;
         let ratio = ratio.clamp(0.0, 1.0);
         if ratio <= 0.0 {
-            return Ok(EvictionReport { evicted: 0, scanned: 0 });
+            return Ok(EvictionReport {
+                evicted: 0,
+                scanned: 0,
+            });
         }
 
         let candidates: Vec<UnifiedNode> = {
             let cache = self.volatile_cache.read();
-            cache.values()
+            cache
+                .values()
                 .filter(|n| n.tier == crate::node::NodeTier::Hot)
                 .cloned()
                 .collect()
         };
 
         if candidates.is_empty() {
-            return Ok(EvictionReport { evicted: 0, scanned: 0 });
+            return Ok(EvictionReport {
+                evicted: 0,
+                scanned: 0,
+            });
         }
 
         let target = (candidates.len() as f64 * ratio).max(1.0) as usize;
@@ -1590,10 +1597,7 @@ impl StorageEngine {
             }
         }
 
-        Ok(EvictionReport {
-            evicted,
-            scanned,
-        })
+        Ok(EvictionReport { evicted, scanned })
     }
 
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
@@ -2112,7 +2116,9 @@ impl StorageEngine {
         if effective == 0 {
             return Ok(());
         }
-        let limit = self.config.memory_limit
+        let limit = self
+            .config
+            .memory_limit
             .unwrap_or_else(|| crate::hardware::HardwareCapabilities::global().total_memory);
         if (effective as f64) > (limit as f64 * threshold) {
             tracing::warn!(
@@ -2143,10 +2149,7 @@ impl StorageEngine {
 
         println!("Attempting controlled flush...");
         if let Err(e) = self.flush() {
-            tracing::error!(
-                "Failed to flush buffers during shutdown: {}",
-                e
-            );
+            tracing::error!("Failed to flush buffers during shutdown: {}", e);
         } else {
             println!("Buffers flushed successfully.");
         }

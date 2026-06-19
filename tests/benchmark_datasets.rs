@@ -11,7 +11,8 @@ fn test_glove100_hnsw_basic() {
     let config = VantaConfig::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_mmap_hnsw(true);
-    let engine = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
+    let engine =
+        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
 
     // Load a small subset of GloVe for basic validation
     // (Actual CI will use the full dataset via the download script)
@@ -26,7 +27,10 @@ fn test_glove100_hnsw_basic() {
     }
 
     let stats = engine.get_memory_stats();
-    assert!(stats.node_count > 0, "node_count should be > 0 after inserts");
+    assert!(
+        stats.node_count > 0,
+        "node_count should be > 0 after inserts"
+    );
     assert_eq!(
         stats.node_count as usize,
         vectors.len(),
