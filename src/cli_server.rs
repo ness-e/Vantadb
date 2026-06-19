@@ -11,7 +11,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
+use tracing_subscriber::{util::SubscriberInitExt, EnvFilter};
+#[cfg(feature = "opentelemetry")]
+use tracing_subscriber::{layer::SubscriberExt, Registry};
 
 use crate::config::{LogFormat, VantaConfig};
 use crate::console;
