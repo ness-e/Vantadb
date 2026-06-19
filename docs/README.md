@@ -11,6 +11,13 @@ Welcome to the VantaDB documentation registry. This index maps all available gui
 
 ---
 
+## 🚚 Migration Guides
+
+* [From ChromaDB](migration/FROM_CHROMADB.md) — Step-by-step guide to migrate from ChromaDB to VantaDB.
+* [From LanceDB](migration/FROM_LANCEDB.md) — Step-by-step guide to migrate from LanceDB to VantaDB.
+
+---
+
 ## 💻 API & SDK Reference (Pillar 1)
 
 * [Python SDK Guide](api/PYTHON_SDK.md) — Integration, GIL release policies, Rayon batching, and PyO3 FFI boundary specs.
