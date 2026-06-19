@@ -5,9 +5,9 @@ use vantadb::storage::StorageEngine;
 #[test]
 fn test_evict_cold_nodes_empty_engine() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default()
-        .with_storage_path(dir.path().to_str().unwrap().to_string());
-    let engine = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
+    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let engine =
+        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
     let report = engine.evict_cold_nodes(0.5).unwrap();
     assert_eq!(report.evicted, 0);
     assert_eq!(report.scanned, 0);
@@ -16,9 +16,9 @@ fn test_evict_cold_nodes_empty_engine() {
 #[test]
 fn test_evict_cold_nodes_with_hot_nodes() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default()
-        .with_storage_path(dir.path().to_str().unwrap().to_string());
-    let engine = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
+    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let engine =
+        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
 
     for i in 0..5 {
         let mut node = UnifiedNode::with_vector(100 + i, vec![0.1; 4]);
@@ -36,9 +36,9 @@ fn test_evict_cold_nodes_with_hot_nodes() {
 #[test]
 fn test_evict_cold_nodes_zero_ratio() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default()
-        .with_storage_path(dir.path().to_str().unwrap().to_string());
-    let engine = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
+    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let engine =
+        StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
     let report = engine.evict_cold_nodes(0.0).unwrap();
     assert_eq!(report.evicted, 0);
 }

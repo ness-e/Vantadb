@@ -48,8 +48,7 @@ fn test_read_only_shared_lock_prevents_exclusive_writer() {
 
     // Initialize the database with a writer
     let db_w = VantaEmbedded::open(&path).unwrap();
-    db_w.put(VantaMemoryInput::new("ns", "k1", "v1"))
-        .unwrap();
+    db_w.put(VantaMemoryInput::new("ns", "k1", "v1")).unwrap();
     db_w.close().unwrap();
 
     // Open read-only (acquires shared lock on .vanta.lock)
@@ -108,8 +107,7 @@ fn test_vanta_lock_file_shared_and_exclusive_os_level() {
         .unwrap();
 
     // f1 acquires a shared lock (read-only)
-    fs2::FileExt::try_lock_shared(&f1)
-        .expect("f1 should acquire shared lock");
+    fs2::FileExt::try_lock_shared(&f1).expect("f1 should acquire shared lock");
 
     // f2 should also be able to acquire a shared lock (multiple readers allowed)
     fs2::FileExt::try_lock_shared(&f2)

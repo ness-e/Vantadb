@@ -336,12 +336,7 @@ pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
 }
 
 #[cfg(feature = "opentelemetry")]
-fn _init_telemetry_otel(
-    is_mcp: bool,
-    is_json: bool,
-    is_full: bool,
-    env_filter: EnvFilter,
-) {
+fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
     use opentelemetry::trace::TracerProvider;
     use opentelemetry_otlp::WithExportConfig;
 

@@ -6,12 +6,14 @@
 //! aleatorios/corruptos de forma segura, sin entrar en pánico.
 
 use proptest::prelude::*;
-use vantadb::BackendKind;
+use std::collections::HashSet;
 use vantadb::config::VantaConfig;
 use vantadb::node::UnifiedNode;
 use vantadb::wal::WalRecord;
-use vantadb::{FieldValue, InMemoryEngine, VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaError};
-use std::collections::HashSet;
+use vantadb::BackendKind;
+use vantadb::{
+    FieldValue, InMemoryEngine, VantaEmbedded, VantaError, VantaMemoryInput, VantaMemoryMetadata,
+};
 
 proptest! {
     /// Test 1: WalRecord debe manejar bytes aleatorios sin panic
@@ -122,8 +124,14 @@ fn test_ttl_boundary_purge_expired() {
     std::thread::sleep(std::time::Duration::from_millis(2));
 
     let purged = db.purge_expired().unwrap();
-    assert_eq!(purged, 1, "purge_expired should remove exactly one expired record");
+    assert_eq!(
+        purged, 1,
+        "purge_expired should remove exactly one expired record"
+    );
 
     let retrieved = db.get("test_ns", "ttl_key").unwrap();
-    assert!(retrieved.is_none(), "Expired record should be gone after purge");
+    assert!(
+        retrieved.is_none(),
+        "Expired record should be gone after purge"
+    );
 }

@@ -430,13 +430,16 @@ impl WalReader {
                 } else {
                     tracing::warn!(
                         "WAL: Failed to read payload of len {} at pos {}",
-                        len, current_pos
+                        len,
+                        current_pos
                     );
                 }
             } else {
                 tracing::warn!(
                     "WAL: Bounds check failed for record at pos {}: len={}, file_len={}",
-                    current_pos, len, file_len
+                    current_pos,
+                    len,
+                    file_len
                 );
             }
 

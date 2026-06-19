@@ -15,7 +15,13 @@ fn insert_vectors(db: &VantaEmbedded, count: usize, dim: usize) {
     }
 }
 
-fn measure_search_latency(db: &VantaEmbedded, query: Vec<f32>, _dim: usize, iterations: usize, top_k: usize) -> f64 {
+fn measure_search_latency(
+    db: &VantaEmbedded,
+    query: Vec<f32>,
+    _dim: usize,
+    iterations: usize,
+    top_k: usize,
+) -> f64 {
     // Warmup
     for _ in 0..10 {
         let request = VantaMemorySearchRequest {
@@ -64,7 +70,10 @@ fn test_prefetch_impact_on_search_latency() {
         std::env::remove_var("VANTA_DISABLE_PREFETCH");
         measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k)
     };
-    println!("PREFETCH_ON:  avg {:.3}ms over {} queries", avg_prefetch_on, query_iterations);
+    println!(
+        "PREFETCH_ON:  avg {:.3}ms over {} queries",
+        avg_prefetch_on, query_iterations
+    );
 
     // --- Run with prefetch DISABLED ---
     let avg_prefetch_off = {
@@ -74,7 +83,10 @@ fn test_prefetch_impact_on_search_latency() {
         std::env::set_var("VANTA_DISABLE_PREFETCH", "1");
         measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k)
     };
-    println!("PREFETCH_OFF: avg {:.3}ms over {} queries", avg_prefetch_off, query_iterations);
+    println!(
+        "PREFETCH_OFF: avg {:.3}ms over {} queries",
+        avg_prefetch_off, query_iterations
+    );
 
     let ratio = avg_prefetch_on / avg_prefetch_off;
     println!();

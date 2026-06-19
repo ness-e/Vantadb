@@ -653,7 +653,12 @@ fn payload_index_prefix(namespace: &str, field: &str, value: &VantaValue) -> Res
     Ok(prefix)
 }
 
-fn payload_index_key(namespace: &str, field: &str, value: &VantaValue, key: &str) -> Result<Vec<u8>> {
+fn payload_index_key(
+    namespace: &str,
+    field: &str,
+    value: &VantaValue,
+    key: &str,
+) -> Result<Vec<u8>> {
     let mut index_key = payload_index_prefix(namespace, field, value)?;
     index_key.extend_from_slice(key.as_bytes());
     Ok(index_key)
