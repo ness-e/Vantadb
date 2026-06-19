@@ -187,16 +187,78 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 | Windows pagefile | `os error 1455` en `mmap_hnsw` y `proptest` | 🔴 Entorno, no código |
 | `install-action` | `taiki-e/install-action@cargo-llvm-cov` y `@nextest` fallan intermitentemente | 🔴 Infraestructura GitHub |
 
+## Backlog — Auditoría Integral (2026-06-19)
+
+Hallazgos de auditoría automatizada de todo el proyecto, priorizados por severidad.
+
+### 🔴 CRÍTICOS
+
+| ID | Archivo | Descripción | Prioridad |
+|----|---------|-------------|-----------|
+| AUD-01 | `vantadb-python/pyproject.toml:10` + `Cargo.toml:13` | `abi3-py311` requiere Python ≥3.11, pero `requires-python = ">=3.8"` — wheels fallan en 3.8-3.10 | 🔴 Alta |
+| AUD-02 | `src/index.rs:1375-1528`, `src/storage.rs:388`, `src/wal.rs:184-229` | 18 `.unwrap()` riesgosos en producción — panics ante datos corruptos. Cambiar a `?` + error handling | 🔴 Alta |
+| AUD-03 | `Cargo.toml:17` | `bincode 1.3` no mantenido (RUSTSEC-2025-0141). Migrar a bincode 2 o bitcode | 🔴 Alta |
+| AUD-04 | `Cargo.toml:37` | `pyo3 0.24.x` con 2 CVEs abiertos (RUSTSEC-2026-0176/0177). Actualizar a ≥0.29.0 | 🔴 Alta |
+| AUD-05 | `README.md`, `README_ES.md` | 8 links rotos: CONTRIBUTING/SECURITY/SUPPORT.md (en `.github/`), PYTHON_SDK.md (en `docs/api/`), BENCHMARKS.md (en `docs/operations/`), MEMORY_MVP_BASELINE.md (no existe) | 🔴 Alta |
+| AUD-06 | `docs/operations/DURABILITY_GUARANTEES.md:287` | Refiere `tests/storage/chaos_testing.rs` — archivo no existe | 🔴 Alta |
+| AUD-07 | `README_ES.md:24` | `README.MD` con mayúsculas — rompe en Linux/macOS (FS case-sensitive) | 🔴 Alta |
+
+### 🟡 ALTOS
+
+| ID | Archivo | Descripción | Prioridad |
+|----|---------|-------------|-----------|
+| AUD-08 | `src/` (33 bloques) | `unsafe` no revisado: mmap, SIMD, FFI. `index.rs:88` expone `pub unsafe fn` | 🟡 Alta |
+| AUD-09 | `tests/common/mod.rs:21-25` | Estado mutable global (`static TEST_RESULTS: Mutex`, `OnceLock`) — tests del mismo binario interfieren | 🟡 Alta |
+| AUD-10 | `tests/prefetch_benchmark.rs:70,83` | `set_var`/`remove_var` sin restore — contamina env vars para tests paralelos | 🟡 Alta |
+| AUD-11 | `tests/` (~50+ instancias) | Assertions sin mensaje (`assert!(x.is_ok())` sin contexto de fallo) | 🟡 Alta |
+| AUD-12 | `tests/certification/hnsw_recall.rs:11`, `tests/prefetch_benchmark.rs:11,63` | Randomness sin seed fijo — resultados no reproducibles | 🟡 Alta |
+| AUD-13 | `tests/core/basic_node.rs:147`, `tests/benchmark_internal.rs:190` | Paths temporales fijos — colisión en ejecución paralela | 🟡 Alta |
+| AUD-14 | `vantadb-python/vantadb_py/__init__.py:84-95` | `AsyncVantaDB.put()` no recibe ni reenvía `ttl_ms` — async users sin TTL | 🟡 Alta |
+| AUD-15 | `Cargo.toml:45` vs `:115` | `tower 0.4` en dev-deps vs `0.5` en main — conflicto semver, dos copias enlazadas | 🟡 Alta |
+| AUD-16 | `deny.toml:6-8` | 3 ignores stale: RUSTSEC-2025-0119, RUSTSEC-2026-0176/0177 ya no aplican | 🟡 Alta |
+| AUD-17 | `rust-toolchain.toml:2` vs `rust_ci.yml:67` | Toolchain local (1.94.1) desalineado de CI (stable) | 🟡 Alta |
+| AUD-18 | `.github/workflows/rust_ci.yml:121-137` | Windows CI no ejecuta tests — solo check + clippy, fallos pasan silenciosos | 🟡 Alta |
+| AUD-19 | `scripts/install.sh:35` | `curl` sin `-L` en API call de GitHub — riesgo de redirect | 🟡 Alta |
+| AUD-20 | `scripts/install.sh:15-24` | Sin soporte `aarch64`/`arm64` — Apple Silicon usa Rosetta sin advertencia | 🟡 Alta |
+| AUD-21 | `docs/CHANGELOG.md:168` | Refiere `docs/operations/ROADMAP.md` — archivo no existe | 🟡 Alta |
+
+### 🔵 MEDIOS
+
+| ID | Archivo | Descripción | Prioridad |
+|----|---------|-------------|-----------|
+| AUD-22 | `executor.rs:132` | Error de `governor.request_allocation()` silenciosamente ignorado | 🔵 Media |
+| AUD-23 | `storage.rs:1322,1464,2129`, `sdk.rs:3160` | Flush/eviction errors silenciosamente ignorados | 🔵 Media |
+| AUD-24 | `src/storage.rs:1127-1374` | `compact_layout_bfs()` — 247 líneas, refactorizar | 🔵 Media |
+| AUD-25 | `src/index.rs:920-1134` | `add()` — 214 líneas, refactorizar | 🔵 Media |
+| AUD-26 | `src/storage.rs:615-881` | `open_with_config()` — 266 líneas, refactorizar | 🔵 Media |
+| AUD-27 | `vantadb-python/src/lib.rs:531-535` | Backend string desconocido usa Fjall sin warning al usuario | 🔵 Media |
+| AUD-28 | `vantadb-python/src/lib.rs:772-774` | `distance_metric` desconocido usa Cosine sin warning | 🔵 Media |
+| AUD-29 | `scripts/install.sh:35,43`, `install.ps1:20,27`, `pyproject.toml:34-37` | URLs inconsistentes: `ness-e/Vantadb` vs `DevpNess/Vantadb` | 🔵 Media |
+| AUD-30 | `vantadb-python/tests/test_sdk.py:596` | `time.sleep(0.01)` frágil en CI lento | 🔵 Media |
+| AUD-31 | `Cargo.toml:28-30` | `arrow`, `rocksdb`, `fjall` obligatorios — deberían ser feature-gated | 🔵 Media |
+| AUD-32 | `.github/workflows/nightly_bench.yml:23,56` | `actions/checkout@v4` vs `@v6` en otros workflows — inconsistente | 🔵 Media |
+| AUD-33 | `.github/workflows/heavy_certification.yml:274` | `install-action@nextest` legacy — migrar a `@v2` con `tool:` | 🔵 Media |
+| AUD-34 | `docs/progreso/README.md:161` | "237 commits" desactualizado — hay 465 totales | 🔵 Media |
+| AUD-35 | `tests/` | 8 tests con sleeps/timers fijos — frágiles bajo carga | 🔵 Media |
+| AUD-36 | `tests/core/basic_node.rs:189` | Assertion con tiempo de ejecución (`< 500ms`) sin mensaje y sensible a carga | 🔵 Media |
+| AUD-37 | `tests/` | ~15 edge cases faltantes: empty, null, boundary, concurrent access, error paths | 🔵 Media |
+| AUD-38 | `Cargo.toml:45` | `tokio` feature `"full"` —过于 amplio, preferir features granulares | 🔵 Media |
+| AUD-39 | `Cargo.toml:38` | `wide = "=1.2.0"` pin exacto bloquea updates automáticos | 🔵 Media |
+| AUD-40 | `vantadb-python/Cargo.toml:3` | Version hardcodeada — usar workspace inheritance | 🔵 Media |
+
+### Pendientes Anteriores
+
+| ID | Descripción | Estado |
+|----|-------------|--------|
+| TSK-47 | SQ8 quantization — core performance, toca layout HNSW | 🟡 Pendiente |
+| TSK-49 | rkyv zero-copy deserialization — integrar crate externa | 🟡 Pendiente |
+
 ## Progreso Reciente
 
-### Semana del 2026-06-12 → 2026-06-18
+### Semana del 2026-06-12 → 2026-06-19
 
-- **TSK-79**: Benchmark regression alerts. `scripts/bench_regression.py` (3 modos), nightly workflow con creación de GitHub Issue automática. Actualizado progreso (section 17, total 73) y CHANGELOG.
-- **CI fixes**: Conditional imports `#[cfg(feature = "opentelemetry")]` para `Registry`/`util::SubscriberInitExt` en `cli_server.rs`. Step "Download benchmark datasets" añadido a coverage job.
-- **Push final**: 28 commits ahead, pushed to `ness-e/Vantadb` main (commit `a4053bc`)
-
-### Próximos Pasos
-
-- **TSK-47** (SQ8 quantization) 🟡 — Core performance, toca layout HNSW
-- **TSK-49** (rkyv zero-copy) 🟡 — Integrar crate externa
-- Esperar CI runs para validar fix de imports
+- **TSK-79**: Benchmark regression alerts. `scripts/bench_regression.py` (3 modos), nightly workflow con creación de GitHub Issue automática. Actualizado progreso y CHANGELOG.
+- **CI fixes**: Conditional imports en `cli_server.rs`. Step benchmark datasets en coverage job. Update `install-action` a `@v2`.
+- **Clippy audit**: 5 categorías de warnings corregidos (too_many_arguments, suspicious_open_options, field_reassign_with_default, needless_range_loop, needless_borrow)
+- **Auditoría integral**: 40 hallazgos documentados (7 críticos, 14 altos, 19 medios) — ver Backlog arriba
+- **Push final**: 30 commits ahead, pushed to `ness-e/Vantadb` main (commit `f5eafbd`)
