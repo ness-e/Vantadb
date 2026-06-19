@@ -73,7 +73,7 @@ impl HardwareScout {
                     Self::log_adaptive_status(&cached_caps, true);
                     return cached_caps;
                 } else {
-                    eprintln!("[HARDWARE] ⚠️ Environment signature changed. Re-benchmarking...");
+                    tracing::info!("Environment signature changed. Re-benchmarking...");
                 }
             }
         }

@@ -9,6 +9,7 @@ description = "Optional local server wrapper and MCP interface for VantaDB"
 vantadb = { path = "..", features = ["cli", "server"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal"] }
+tracing = "0.1"
 
 [dev-dependencies]
 axum = "0.8"

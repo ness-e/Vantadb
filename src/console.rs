@@ -58,22 +58,55 @@ pub fn print_banner() {
 
 // ─── Logging Initialization ─────────────────────────────────────────────────
 
-/// Initialize `tracing-subscriber` with colored, level-filtered output.
+/// Initialize `tracing-subscriber` with the chosen output format.
+///
+/// | Format | Targets | File/Line | Thread ID | ANSI | Structure |
+/// |--------|---------|-----------|-----------|------|-----------|
+/// | Compact | No | No | No | Yes | Compact, human-readable |
+/// | Json | Yes | Yes | Yes | No | JSON lines, aggregator-ready |
+/// | Full | Yes | Yes | Yes | Yes | Default fmt, full metadata |
+///
 /// Respects the `RUST_LOG` env var (defaults to `info`).
-pub fn init_logging() {
-    use tracing_subscriber::{fmt, EnvFilter};
+pub fn init_logging(format: crate::config::LogFormat) {
+    use tracing_subscriber::fmt;
+    use tracing_subscriber::EnvFilter;
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
-    fmt::Subscriber::builder()
-        .with_env_filter(filter)
-        .with_target(false)
-        .with_thread_ids(false)
-        .with_file(false)
-        .with_line_number(false)
-        .with_ansi(true)
-        .compact()
-        .init();
+    match format {
+        crate::config::LogFormat::Json => {
+            fmt::Subscriber::builder()
+                .with_env_filter(filter)
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_file(true)
+                .with_line_number(true)
+                .with_ansi(false)
+                .json()
+                .init();
+        }
+        crate::config::LogFormat::Full => {
+            fmt::Subscriber::builder()
+                .with_env_filter(filter)
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_file(true)
+                .with_line_number(true)
+                .with_ansi(true)
+                .init();
+        }
+        crate::config::LogFormat::Compact => {
+            fmt::Subscriber::builder()
+                .with_env_filter(filter)
+                .with_target(false)
+                .with_thread_ids(false)
+                .with_file(false)
+                .with_line_number(false)
+                .with_ansi(true)
+                .compact()
+                .init();
+        }
+    }
 }
 
 // ─── Status Lines ───────────────────────────────────────────────────────────

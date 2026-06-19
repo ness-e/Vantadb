@@ -420,21 +420,22 @@ impl WalReader {
                             is_valid = true;
                         } else {
                             let prefix_len = std::cmp::min(16, payload.len());
-                            eprintln!("DEBUG: Record at current_pos={} is invalid. len={}, is_crc_valid={} (stored={:#x}, computed={:#x}), is_deser_ok={}, deser_err={:?}, payload_prefix={:?}",
+                            tracing::warn!(
+                                "WAL record at current_pos={} is invalid. len={}, is_crc_valid={} (stored={:#x}, computed={:#x}), is_deser_ok={}, deser_err={:?}, payload_prefix={:?}",
                                 current_pos, len, is_crc_valid, stored_crc, computed_crc, is_deser_ok, deserialize_res.err(), &payload[0..prefix_len]);
                         }
                     } else {
-                        eprintln!("DEBUG: Failed to read CRC buf at pos {}", current_pos);
+                        tracing::warn!("WAL: Failed to read CRC buf at pos {}", current_pos);
                     }
                 } else {
-                    eprintln!(
-                        "DEBUG: Failed to read payload of len {} at pos {}",
+                    tracing::warn!(
+                        "WAL: Failed to read payload of len {} at pos {}",
                         len, current_pos
                     );
                 }
             } else {
-                eprintln!(
-                    "DEBUG: Bounds check failed for record at pos {}: len={}, file_len={}",
+                tracing::warn!(
+                    "WAL: Bounds check failed for record at pos {}: len={}, file_len={}",
                     current_pos, len, file_len
                 );
             }

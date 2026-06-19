@@ -13,7 +13,7 @@ use tokio::net::TcpListener;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
-use crate::config::VantaConfig;
+use crate::config::{LogFormat, VantaConfig};
 use crate::console;
 use crate::error::Result;
 use crate::metrics;
@@ -254,92 +254,139 @@ async fn execute_query(
     }
 }
 
-pub fn init_telemetry(is_mcp: bool) {
+pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let use_json = std::env::var("VANTADB_LOG_JSON")
-        .map(|v| v == "1" || v == "true")
-        .unwrap_or(false);
+
+    // Resolve format: explicit arg > VantaConfig default > legacy VANTADB_LOG_JSON
+    let format = log_format.unwrap_or_else(|| {
+        let legacy = std::env::var("VANTADB_LOG_JSON")
+            .map(|v| v == "1" || v == "true")
+            .unwrap_or(false);
+        if legacy {
+            LogFormat::Json
+        } else {
+            std::env::var("VANTADB_LOG_FORMAT")
+                .ok()
+                .map(|v| LogFormat::from_env_value(&v))
+                .unwrap_or_default()
+        }
+    });
+
+    let is_json = matches!(format, LogFormat::Json);
+    let is_full = matches!(format, LogFormat::Full);
 
     #[cfg(feature = "opentelemetry")]
-    {
-        use opentelemetry::trace::TracerProvider;
-        use opentelemetry_otlp::WithExportConfig;
-
-        let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:4317".to_string());
-
-        let exporter = opentelemetry_otlp::SpanExporter::builder()
-            .with_tonic()
-            .with_endpoint(endpoint)
-            .build()
-            .expect("Failed to create OTLP exporter");
-
-        let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
-            .with_batch_exporter(exporter)
-            .with_resource(
-                opentelemetry_sdk::Resource::builder_empty()
-                    .with_service_name("vantadb-server")
-                    .build(),
-            )
-            .build();
-
-        let tracer = provider.tracer("vantadb-server");
-        let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-        if use_json {
-            let fmt_layer = tracing_subscriber::fmt::layer().json();
-            if is_mcp {
-                Registry::default()
-                    .with(env_filter)
-                    .with(telemetry)
-                    .with(fmt_layer.with_writer(std::io::stderr))
-                    .init();
-            } else {
-                Registry::default()
-                    .with(env_filter)
-                    .with(telemetry)
-                    .with(fmt_layer)
-                    .init();
-            }
-        } else {
-            let fmt_layer = tracing_subscriber::fmt::layer();
-            if is_mcp {
-                Registry::default()
-                    .with(env_filter)
-                    .with(telemetry)
-                    .with(fmt_layer.with_writer(std::io::stderr))
-                    .init();
-            } else {
-                Registry::default()
-                    .with(env_filter)
-                    .with(telemetry)
-                    .with(fmt_layer)
-                    .init();
-            }
-        }
-    }
+    _init_telemetry_otel(is_mcp, is_json, is_full, env_filter);
 
     #[cfg(not(feature = "opentelemetry"))]
     {
-        if use_json {
-            let fmt_layer = tracing_subscriber::fmt::layer().json();
-            if is_mcp {
-                Registry::default()
-                    .with(env_filter)
-                    .with(fmt_layer.with_writer(std::io::stderr))
-                    .init();
-            } else {
-                Registry::default().with(env_filter).with(fmt_layer).init();
-            }
+        let writer: Box<dyn std::io::Write + Send + Sync> = if is_mcp {
+            Box::new(std::io::stderr())
+        } else {
+            Box::new(std::io::stdout())
+        };
+
+        if is_json {
+            tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .json()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_file(true)
+                .with_line_number(true)
+                .with_ansi(false)
+                .with_writer(writer)
+                .init();
+        } else if is_full {
+            tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_file(true)
+                .with_line_number(true)
+                .with_ansi(true)
+                .with_writer(writer)
+                .init();
         } else if is_mcp {
-            let fmt_layer = tracing_subscriber::fmt::layer();
-            Registry::default()
-                .with(env_filter)
-                .with(fmt_layer.with_writer(std::io::stderr))
+            tracing_subscriber::fmt()
+                .with_env_filter(env_filter)
+                .with_writer(Box::new(std::io::stderr()))
                 .init();
         } else {
-            console::init_logging();
+            // Compact + not MCP → use console init (ANSI-compact)
+            crate::console::init_logging(LogFormat::Compact);
         }
+    }
+}
+
+#[cfg(feature = "opentelemetry")]
+fn _init_telemetry_otel(
+    is_mcp: bool,
+    is_json: bool,
+    is_full: bool,
+    env_filter: EnvFilter,
+) {
+    use opentelemetry::trace::TracerProvider;
+    use opentelemetry_otlp::WithExportConfig;
+
+    let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:4317".to_string());
+
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint)
+        .build()
+        .expect("Failed to create OTLP exporter");
+
+    let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(
+            opentelemetry_sdk::Resource::builder_empty()
+                .with_service_name("vantadb-server")
+                .build(),
+        )
+        .build();
+
+    let tracer = provider.tracer("vantadb-server");
+    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    if is_mcp {
+        Registry::default()
+            .with(env_filter)
+            .with(telemetry)
+            .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+            .init();
+    } else if is_json {
+        Registry::default()
+            .with(env_filter)
+            .with(telemetry)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .json()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true),
+            )
+            .init();
+    } else if is_full {
+        Registry::default()
+            .with(env_filter)
+            .with(telemetry)
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_file(true)
+                    .with_line_number(true),
+            )
+            .init();
+    } else {
+        Registry::default()
+            .with(env_filter)
+            .with(telemetry)
+            .with(tracing_subscriber::fmt::layer())
+            .init();
     }
 }
 
@@ -379,7 +426,7 @@ fn log_security_mode(config: &VantaConfig) {
 }
 
 pub async fn run(config: VantaConfig) -> Result<()> {
-    init_telemetry(false);
+    init_telemetry(false, Some(config.log_format));
 
     console::print_banner();
     console::progress("Initializing storage engine...", None);
