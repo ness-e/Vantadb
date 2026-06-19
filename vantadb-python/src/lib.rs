@@ -1187,7 +1187,7 @@ impl VantaDB {
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
-fn vantadb_native(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
+fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<VantaDB>()?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
