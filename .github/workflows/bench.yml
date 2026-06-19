@@ -72,13 +72,14 @@ jobs:
         python-version: '3.11'
         cache: 'pip'
 
-    - name: Install maturin & build python bindings
+    - name: Build & install Python wheel
       run: |
         python -m venv .venv
         .venv/bin/python -m pip install --upgrade pip
         .venv/bin/python -m pip install maturin
-        # Build and install inside the virtual environment
-        .venv/bin/maturin develop --manifest-path vantadb-python/Cargo.toml --release
+        .venv/bin/maturin build --manifest-path vantadb-python/Cargo.toml --release --out vantadb-python/dist
+        .venv/bin/pip install $(ls -t vantadb-python/dist/vantadb_py-*.whl | head -n 1) --force-reinstall
+        .venv/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
 
     - name: Run Standard Ingestion & Search Benchmark
       run: |
