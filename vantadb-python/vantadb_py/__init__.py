@@ -89,9 +89,10 @@ class AsyncVantaDB:
         *,
         metadata: dict | None = None,
         vector: list[float] | None = None,
+        ttl_ms: int | None = None,
     ):
         return await _to_thread(
-            self._sync.put, namespace, key, payload, metadata, vector
+            self._sync.put, namespace, key, payload, metadata, vector, ttl_ms
         )
 
     async def delete_memory(self, namespace: str, key: str) -> bool:

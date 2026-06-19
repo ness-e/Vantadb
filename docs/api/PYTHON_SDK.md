@@ -74,7 +74,7 @@ does not repair state, including when the database is opened with
 ## Remaining Release Debt
 - `.github/workflows/python_wheels.yml` builds Linux, macOS, and Windows wheels and smoke-installs the generated artifact.
 - TestPyPI upload is prepared as an explicit manual workflow input guarded by `TEST_PYPI_API_TOKEN`.
-- `vantadb-python/pyproject.toml` points to the canonical GitHub repository at `https://github.com/DevpNess/Vantadb`.
+- `vantadb-python/pyproject.toml` points to the canonical GitHub repository at `https://github.com/ness-e/Vantadb`.
 - PyPI production publication is tag-gated and remains an external manual release decision after TestPyPI validation.
 - `vantadb-python` still uses a local path dependency on the core crate for in-repo builds.
 - Public SDK API changes should remain additive until the Python package is distributed externally.

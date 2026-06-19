@@ -172,7 +172,7 @@ If the automated OIDC publishing fails due to registry maintenance:
 In critical rescue scenarios where PyPI is offline, the SDK can be installed directly from the GitHub repository source using Maturin's in-place compilation fallback:
 
 ```bash
-pip install git+https://github.com/DevpNess/Vantadb.git#subdirectory=vantadb-python
+pip install git+https://github.com/ness-e/Vantadb.git#subdirectory=vantadb-python
 ```
 
 This requires local installation of the Rust toolchain on the target system.

@@ -4,6 +4,7 @@ use pyo3::types::{
     PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
     PyTupleMethods,
 };
+use pyo3::Py;
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
@@ -29,7 +30,7 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     if let Ok(dt) = value.extract::<chrono::DateTime<chrono::FixedOffset>>() {
         return Ok(VantaValue::DateTime(dt.with_timezone(&chrono::Utc)));
     }
-    if let Ok(py_list) = value.downcast::<pyo3::types::PyList>() {
+    if let Ok(py_list) = value.cast::<pyo3::types::PyList>() {
         if py_list.is_empty() {
             return Ok(VantaValue::ListString(Vec::new()));
         }
@@ -192,7 +193,7 @@ fn tier_label(tier: VantaStorageTier) -> &'static str {
 
 /// Convert a stable SDK node into a Python dictionary for maximum interop
 /// with the AI ecosystem (LangChain, LlamaIndex, etc.)
-fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<PyObject> {
+fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("id", node.id)?;
     dict.set_item("confidence_score", node.confidence_score)?;
@@ -264,7 +265,7 @@ fn format_query_result(result: &VantaQueryResult) -> String {
     }
 }
 
-fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyResult<PyObject> {
+fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item(
         "profile",
@@ -277,7 +278,7 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
     Ok(dict.unbind().into())
 }
 
-fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<PyObject> {
+fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("namespace", &record.namespace)?;
     dict.set_item("key", &record.key)?;
@@ -306,7 +307,7 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
     Ok(dict.unbind().into())
 }
 
-fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<PyObject> {
+fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("token", &term.token)?;
     dict.set_item("tf", term.tf)?;
@@ -316,7 +317,7 @@ fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult
     Ok(dict.unbind().into())
 }
 
-fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyResult<PyObject> {
+fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("identity", &exp.identity)?;
     dict.set_item("score", exp.score)?;
@@ -335,7 +336,7 @@ fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyR
     Ok(dict.unbind().into())
 }
 
-fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<PyObject> {
+fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("score", hit.score)?;
     dict.set_item("record", memory_record_to_pydict(py, &hit.record)?)?;
@@ -346,7 +347,7 @@ fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<PyOb
     Ok(dict.unbind().into())
 }
 
-fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<PyObject> {
+fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("scanned_nodes", report.scanned_nodes)?;
     dict.set_item("indexed_vectors", report.indexed_vectors)?;
@@ -358,7 +359,7 @@ fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyR
     Ok(dict.unbind().into())
 }
 
-fn export_report_to_pydict(py: Python, report: &VantaExportReport) -> PyResult<PyObject> {
+fn export_report_to_pydict(py: Python, report: &VantaExportReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("records_exported", report.records_exported)?;
     dict.set_item("namespaces", report.namespaces.clone())?;
@@ -367,7 +368,7 @@ fn export_report_to_pydict(py: Python, report: &VantaExportReport) -> PyResult<P
     Ok(dict.unbind().into())
 }
 
-fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<PyObject> {
+fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("inserted", report.inserted)?;
     dict.set_item("updated", report.updated)?;
@@ -380,7 +381,7 @@ fn import_report_to_pydict(py: Python, report: &VantaImportReport) -> PyResult<P
 fn text_index_repair_report_to_pydict(
     py: Python,
     report: &VantaTextIndexRepairReport,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("record_count", report.record_count)?;
     dict.set_item("posting_entries", report.posting_entries)?;
@@ -395,7 +396,7 @@ fn text_index_repair_report_to_pydict(
 fn text_index_audit_report_to_pydict(
     py: Python,
     report: &VantaTextIndexAuditReport,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("schema_version", report.schema_version)?;
     dict.set_item("tokenizer", &report.tokenizer)?;
@@ -428,7 +429,7 @@ fn text_index_audit_report_to_pydict(
 fn operational_metrics_to_pydict(
     py: Python,
     metrics: &VantaOperationalMetrics,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("startup_ms", metrics.startup_ms)?;
     dict.set_item("wal_replay_ms", metrics.wal_replay_ms)?;
@@ -531,7 +532,14 @@ impl VantaDB {
         let backend_kind = match backend {
             Some("rocksdb") => vantadb::BackendKind::RocksDb,
             Some("memory") => vantadb::BackendKind::InMemory,
-            _ => vantadb::BackendKind::Fjall,
+            Some(other) => {
+                tracing::warn!(
+                    "Unknown backend \"{}\" — falling back to default (fjall). Known values: rocksdb, memory",
+                    other
+                );
+                vantadb::BackendKind::Fjall
+            }
+            None => vantadb::BackendKind::Fjall,
         };
         let config = VantaConfig {
             storage_path: db_path.to_string(),
@@ -541,7 +549,7 @@ impl VantaDB {
             ..Default::default()
         };
         let engine = py
-            .allow_threads(move || VantaEmbedded::open_with_config(config))
+            .detach(move || VantaEmbedded::open_with_config(config))
             .map_err(|e| {
                 PyRuntimeError::new_err(format!("VantaDB initialization error: {:?}", e))
             })?;
@@ -580,7 +588,7 @@ impl VantaDB {
         }
 
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .insert_node(input)
                 .map_err(|e| PyRuntimeError::new_err(format!("Insert error: {:?}", e)))
@@ -596,10 +604,10 @@ impl VantaDB {
     /// Returns a list of record dicts in the same order as inputs.
     /// Up to ~5x faster than sequential `put()` calls for large batches.
     #[pyo3(signature = (entries))]
-    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<PyObject>> {
+    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
         let mut inputs = Vec::with_capacity(entries.len().unwrap_or(0));
         for entry in entries.try_iter()? {
-            let entry = entry?.downcast::<PyTuple>()?.clone();
+            let entry = entry?.cast::<PyTuple>()?.clone();
             if entry.len() < 3 {
                 return Err(PyValueError::new_err(
                     "each entry must be a tuple of at least (namespace, key, payload)",
@@ -610,7 +618,7 @@ impl VantaDB {
             let payload: String = entry.get_item(2)?.extract()?;
             let dict = if entry.len() > 3 && !entry.get_item(3)?.is_none() {
                 let item = entry.get_item(3)?;
-                Some(item.downcast::<PyDict>()?.clone())
+                Some(item.cast::<PyDict>()?.clone())
             } else {
                 None
             };
@@ -645,7 +653,7 @@ impl VantaDB {
         }
 
         let engine = self.engine.clone();
-        let records = py.allow_threads(move || {
+        let records = py.detach(move || {
             engine
                 .put_batch(inputs)
                 .map_err(|e| PyRuntimeError::new_err(format!("Put batch error: {:?}", e)))
@@ -669,7 +677,7 @@ impl VantaDB {
         metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let mut input = VantaMemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
         input.ttl_ms = ttl_ms;
@@ -682,7 +690,7 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
-        let record = py.allow_threads(move || {
+        let record = py.detach(move || {
             engine
                 .put(input)
                 .map_err(|e| PyRuntimeError::new_err(format!("Put error: {:?}", e)))
@@ -691,11 +699,11 @@ impl VantaDB {
     }
 
     /// Retrieve a namespace-scoped persistent memory record.
-    fn get_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<PyObject>> {
+    fn get_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
-        let record = py.allow_threads(move || {
+        let record = py.detach(move || {
             engine
                 .get(&namespace, &key)
                 .map_err(|e| PyRuntimeError::new_err(format!("Get memory error: {:?}", e)))
@@ -711,7 +719,7 @@ impl VantaDB {
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .delete(&namespace, &key)
                 .map_err(|e| PyRuntimeError::new_err(format!("Delete memory error: {:?}", e)))
@@ -727,11 +735,11 @@ impl VantaDB {
         filters: Option<&Bound<'_, PyDict>>,
         limit: usize,
         cursor: Option<usize>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let namespace = namespace.to_string();
         let filters_meta = py_dict_to_metadata(filters)?;
         let engine = self.engine.clone();
-        let page = py.allow_threads(move || {
+        let page = py.detach(move || {
             engine
                 .list(
                     &namespace,
@@ -767,10 +775,17 @@ impl VantaDB {
         top_k: usize,
         distance_metric: Option<&str>,
         explain: bool,
-    ) -> PyResult<Vec<PyObject>> {
+    ) -> PyResult<Vec<Py<PyAny>>> {
         let metric = match distance_metric {
             Some("euclidean") => DistanceMetric::Euclidean,
-            _ => DistanceMetric::Cosine,
+            Some(other) => {
+                tracing::warn!(
+                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
+                    other
+                );
+                DistanceMetric::Cosine
+            }
+            None => DistanceMetric::Cosine,
         };
 
         let request = VantaMemorySearchRequest {
@@ -784,7 +799,7 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
-        let hits = py.allow_threads(move || {
+        let hits = py.detach(move || {
             engine
                 .search(request)
                 .map_err(|e| PyRuntimeError::new_err(format!("Search memory error: {:?}", e)))
@@ -796,9 +811,9 @@ impl VantaDB {
     }
 
     /// Rebuild ANN and derived memory indexes from canonical storage.
-    fn rebuild_index(&self, py: Python) -> PyResult<PyObject> {
+    fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
-        let report = py.allow_threads(move || {
+        let report = py.detach(move || {
             engine
                 .rebuild_index()
                 .map_err(|e| PyRuntimeError::new_err(format!("Rebuild index error: {:?}", e)))
@@ -807,11 +822,11 @@ impl VantaDB {
     }
 
     /// Export one namespace as JSONL.
-    fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<PyObject> {
+    fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
         let namespace = namespace.to_string();
-        let report = py.allow_threads(move || {
+        let report = py.detach(move || {
             engine
                 .export_namespace(&path, &namespace)
                 .map_err(|e| PyRuntimeError::new_err(format!("Export namespace error: {:?}", e)))
@@ -820,10 +835,10 @@ impl VantaDB {
     }
 
     /// Export all namespaces as JSONL.
-    fn export_all(&self, py: Python, path: &str) -> PyResult<PyObject> {
+    fn export_all(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.allow_threads(move || {
+        let report = py.detach(move || {
             engine
                 .export_all(&path)
                 .map_err(|e| PyRuntimeError::new_err(format!("Export all error: {:?}", e)))
@@ -832,10 +847,10 @@ impl VantaDB {
     }
 
     /// Import records from a VantaDB memory JSONL export.
-    fn import_file(&self, py: Python, path: &str) -> PyResult<PyObject> {
+    fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.allow_threads(move || {
+        let report = py.detach(move || {
             engine
                 .import_file(&path)
                 .map_err(|e| PyRuntimeError::new_err(format!("Import file error: {:?}", e)))
@@ -850,11 +865,11 @@ impl VantaDB {
         py: Python,
         namespace: Option<&str>,
         deep: bool,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let namespace = namespace.map(|s| s.to_string());
         let report = py
-            .allow_threads(move || {
+            .detach(move || {
                 let ns_ref = namespace.as_deref();
                 if deep {
                     engine.audit_text_index_deep(ns_ref)
@@ -867,9 +882,9 @@ impl VantaDB {
     }
 
     /// Rebuild the text index from canonical storage as a repair primitive.
-    fn repair_text_index(&self, py: Python) -> PyResult<PyObject> {
+    fn repair_text_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
-        let report = py.allow_threads(move || {
+        let report = py.detach(move || {
             engine
                 .repair_text_index()
                 .map_err(|e| PyRuntimeError::new_err(format!("Repair text index error: {:?}", e)))
@@ -878,7 +893,7 @@ impl VantaDB {
     }
 
     /// Return operational metrics for startup, replay, rebuild, export, and import.
-    fn operational_metrics(&self, py: Python) -> PyResult<PyObject> {
+    fn operational_metrics(&self, py: Python) -> PyResult<Py<PyAny>> {
         let metrics = self.engine.operational_metrics();
         operational_metrics_to_pydict(py, &metrics)
     }
@@ -886,9 +901,9 @@ impl VantaDB {
     /// Retrieve a node by ID. Returns a dict or None.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
-    fn get(&self, py: Python, id: u64) -> PyResult<Option<PyObject>> {
+    fn get(&self, py: Python, id: u64) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
-        let node = py.allow_threads(move || {
+        let node = py.detach(move || {
             engine
                 .get_node(id)
                 .map_err(|e| PyRuntimeError::new_err(format!("Get error: {:?}", e)))
@@ -906,7 +921,7 @@ impl VantaDB {
     fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .delete_node(id, &reason_str)
                 .map_err(|e| PyRuntimeError::new_err(format!("Delete error: {:?}", e)))
@@ -929,7 +944,7 @@ impl VantaDB {
     ) -> PyResult<Vec<(u64, f32)>> {
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .search_vector(&v, top_k)
                 .map(|hits| {
@@ -959,7 +974,7 @@ impl VantaDB {
             vectors.iter().map(|v| extract_vector(v, py)).collect();
         let parsed = parsed?;
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             use rayon::prelude::*;
             parsed
                 .into_par_iter()
@@ -987,7 +1002,7 @@ impl VantaDB {
         let engine = self.engine.clone();
         let query_str = iql_query.to_string();
 
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .query(&query_str)
                 .map(|result| format_query_result(&result))
@@ -1000,7 +1015,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
     fn flush(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .flush()
                 .map_err(|e| PyRuntimeError::new_err(format!("Flush error: {:?}", e)))
@@ -1012,7 +1027,7 @@ impl VantaDB {
     #[pyo3(signature = ())]
     fn compact_wal(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .compact_wal()
                 .map_err(|e| PyRuntimeError::new_err(format!("Compact WAL error: {:?}", e)))
@@ -1024,7 +1039,7 @@ impl VantaDB {
     #[pyo3(signature = ())]
     fn purge_expired(&self, py: Python) -> PyResult<u64> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .purge_expired()
                 .map_err(|e| PyRuntimeError::new_err(format!("Purge expired error: {:?}", e)))
@@ -1032,18 +1047,18 @@ impl VantaDB {
     }
 
     /// Introspect the stable runtime capabilities exposed by the SDK boundary.
-    fn capabilities(&self, py: Python) -> PyResult<PyObject> {
+    fn capabilities(&self, py: Python) -> PyResult<Py<PyAny>> {
         let capabilities = self.engine.capabilities();
         capabilities_to_pydict(py, &capabilities)
     }
 
     /// Return capabilities and system memory telemetry.
-    fn hardware_profile(&self, py: Python) -> PyResult<PyObject> {
+    fn hardware_profile(&self, py: Python) -> PyResult<Py<PyAny>> {
         let caps_obj = self.capabilities(py)?;
         let metrics_obj = self.operational_metrics(py)?;
 
-        let caps_dict = caps_obj.bind(py).downcast::<PyDict>()?;
-        let metrics_dict = metrics_obj.bind(py).downcast::<PyDict>()?;
+        let caps_dict = caps_obj.bind(py).cast::<PyDict>()?;
+        let metrics_dict = metrics_obj.bind(py).cast::<PyDict>()?;
 
         let merged_dict = caps_dict.clone();
 
@@ -1086,7 +1101,7 @@ impl VantaDB {
     ) -> PyResult<()> {
         let engine = self.engine.clone();
         let label_str = label.to_string();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .add_edge(source_id, target_id, &label_str, weight)
                 .map_err(|e| PyRuntimeError::new_err(format!("Insert edge error: {:?}", e)))
@@ -1096,7 +1111,7 @@ impl VantaDB {
     /// Flush and close the embedded engine handle.
     fn close(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .close()
                 .map_err(|e| PyRuntimeError::new_err(format!("Close error: {:?}", e)))
@@ -1122,7 +1137,7 @@ impl VantaDB {
     #[pyo3(signature = (roots, max_depth=999999))]
     fn graph_bfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .graph_bfs(&roots, max_depth)
                 .map_err(|e| PyRuntimeError::new_err(format!("BFS error: {:?}", e)))
@@ -1136,7 +1151,7 @@ impl VantaDB {
     #[pyo3(signature = (roots, max_depth=999999))]
     fn graph_dfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .graph_dfs(&roots, max_depth)
                 .map_err(|e| PyRuntimeError::new_err(format!("DFS error: {:?}", e)))
@@ -1149,7 +1164,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during topological sort.
     fn graph_topological_sort(&self, py: Python, roots: Vec<u64>) -> PyResult<Vec<u64>> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .graph_topological_sort(&roots)
                 .map_err(|e| PyRuntimeError::new_err(format!("Topological sort error: {:?}", e)))
@@ -1161,7 +1176,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
     fn graph_is_dag(&self, py: Python, roots: Vec<u64>) -> PyResult<bool> {
         let engine = self.engine.clone();
-        py.allow_threads(move || {
+        py.detach(move || {
             engine
                 .graph_is_dag(&roots)
                 .map_err(|e| PyRuntimeError::new_err(format!("DAG check error: {:?}", e)))

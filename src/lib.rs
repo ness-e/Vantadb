@@ -12,6 +12,7 @@ pub mod cli;
 pub mod cli_handlers;
 #[cfg(feature = "server")]
 pub mod cli_server;
+#[cfg(feature = "arrow")]
 pub mod columnar;
 pub mod config;
 #[cfg(feature = "cli")]

@@ -21,7 +21,7 @@
 </div>
 
 <div align="center">
-  <a href="README.MD">🇺🇸 English</a>
+  <a href="README.md">🇺🇸 English</a>
 </div>
 
 <br>
@@ -48,9 +48,9 @@ VantaDB es un motor de base de datos embebido y local-first diseñado para agent
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebido) |
 | Ejecutar como servidor local | [Modo Servidor](#modo-servidor-opcional) |
 | Leer documentación de arquitectura | [Documentación](#documentación) |
-| Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Reportar una vulnerabilidad | [SECURITY.md](SECURITY.md) |
-| Obtener soporte | [SUPPORT.md](SUPPORT.md) |
+| Contribuir de forma segura | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Reportar una vulnerabilidad | [SECURITY.md](.github/SECURITY.md) |
+| Obtener soporte | [SUPPORT.md](.github/SUPPORT.md) |
 
 ---
 
@@ -302,22 +302,21 @@ Los resultados se imprimirán directamente en la consola y se escribirán en `va
 | [Diseño de Índice de Texto](docs/architecture/TEXT_INDEX_DESIGN.md) | BM25, posiciones de frases, reparación de índice derivado, y límites de Recuperación Híbrida v1. |
 | [Operaciones y Configuración](docs/operations/CONFIGURATION.md) | Parámetros de runtime y configuración del wrapper de servidor. |
 | [Telemetría de Memoria](docs/operations/MEMORY_TELEMETRY.md) | Contrato de métricas de memoria de proceso y guías de interpretación. |
-| [Estado del SDK Python](docs/operations/PYTHON_SDK.md) | Límite estable, superficie de binding actual, y política de distribución. |
+| [Estado del SDK Python](docs/api/PYTHON_SDK.md) | Límite estable, superficie de binding actual, y política de distribución. |
 | [Política de Release Python](docs/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, publicación de producción, signing, assets de release, y rollback. |
 | [Gate de Confiabilidad](docs/operations/RELIABILITY_GATE.md) | Políticas para estabilidad de memoria RSS, inyección de caos, y durabilidad del WAL. |
-| [Línea Base MVP de Memoria](docs/operations/MEMORY_MVP_BASELINE.md) | Superficie de memoria implementada, estado derivado, y límites explícitos. |
 | [Características Experimentales](docs/operations/EXPERIMENTAL_FEATURES.md) | Clasificación de superficies de producción, opcionales, experimentales y diferidas. |
 | [Política de CI](docs/operations/CI_POLICY.md) | Estrategia de integración continua, perfiles, y gates de certificación. |
-| [Benchmarks](docs/BENCHMARKS.md) | Metodología de benchmark de rendimiento y resultados. |
+| [Benchmarks](docs/operations/BENCHMARKS.md) | Metodología de benchmark de rendimiento y resultados. |
 | [Changelog](docs/CHANGELOG.md) | Historial de versiones y notas de release. |
 
 ---
 
 ## Contribución y Seguridad
 
-- Las contribuciones deben seguir [CONTRIBUTING.md](CONTRIBUTING.md).
-- Los reportes de seguridad deben seguir [SECURITY.md](SECURITY.md).
-- Los canales de soporte y triaje se describen en [SUPPORT.md](SUPPORT.md).
+- Las contribuciones deben seguir [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+- Los reportes de seguridad deben seguir [SECURITY.md](.github/SECURITY.md).
+- Los canales de soporte y triaje se describen en [SUPPORT.md](.github/SUPPORT.md).
 
 ---
 

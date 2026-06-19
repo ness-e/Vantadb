@@ -49,9 +49,9 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
 | Run as a local server | [Server Mode](#optional-server-mode) |
 | Read architecture docs | [Documentation](#documentation) |
-| Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Report a vulnerability | [SECURITY.md](SECURITY.md) |
-| Get support | [SUPPORT.md](SUPPORT.md) |
+| Contribute safely | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Report a vulnerability | [SECURITY.md](.github/SECURITY.md) |
+| Get support | [SUPPORT.md](.github/SUPPORT.md) |
 
 ---
 
@@ -303,22 +303,21 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md) | BM25, phrase positions, derived index repair, and Hybrid Retrieval v1 boundaries. |
 | [Operations & Configuration](docs/operations/CONFIGURATION.md) | Runtime parameters and server wrapper configuration. |
 | [Memory Telemetry](docs/operations/MEMORY_TELEMETRY.md) | Process-memory metrics contract and interpretation guidelines. |
-| [Python SDK Status](docs/operations/PYTHON_SDK.md) | Stable boundary, current binding surface, and distribution policy. |
+| [Python SDK Status](docs/api/PYTHON_SDK.md) | Stable boundary, current binding surface, and distribution policy. |
 | [Python Release Policy](docs/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
 | [Reliability Gate](docs/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
-| [Memory MVP Baseline](docs/operations/MEMORY_MVP_BASELINE.md) | Implemented memory surface, derived state, and explicit limits. |
 | [Experimental Features](docs/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
 | [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
-| [Benchmarks](docs/BENCHMARKS.md) | Performance benchmark methodology and results. |
+| [Benchmarks](docs/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
 
 ---
 
 ## Contributing & Security
 
-- Contributions must follow [CONTRIBUTING.md](CONTRIBUTING.md).
-- Security reports must follow [SECURITY.md](SECURITY.md).
-- Support and triage channels are described in [SUPPORT.md](SUPPORT.md).
+- Contributions must follow [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+- Security reports must follow [SECURITY.md](.github/SECURITY.md).
+- Support and triage channels are described in [SUPPORT.md](.github/SUPPORT.md).
 
 ---
 

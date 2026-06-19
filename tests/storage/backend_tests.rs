@@ -49,6 +49,7 @@ fn test_storage_engine_with_inmemory_backend_insert_get_delete() {
 // ─── StorageEngine + RocksDbBackend Smoke Test ──────────────
 
 #[test]
+#[cfg(feature = "rocksdb")]
 fn test_storage_engine_rocksdb_backend_still_works() {
     let mut session = VantaSession::begin("RocksDB Persistence Check");
     session.step("Opening RocksDB storage engine");
@@ -98,6 +99,7 @@ fn test_purge_permanent_via_backend() {
 
 // ─── FjallBackend Tests ────────────────────────────────────────
 
+#[cfg(feature = "fjall")]
 fn open_fjall_engine() -> (StorageEngine, tempfile::TempDir) {
     let dir = tempdir().unwrap();
     let config = VantaConfig {
@@ -110,6 +112,7 @@ fn open_fjall_engine() -> (StorageEngine, tempfile::TempDir) {
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_fjall_backend_basic_crud() {
     let mut session = VantaSession::begin("Fjall Basic CRUD");
     let (engine, _dir) = open_fjall_engine();
@@ -145,6 +148,7 @@ fn test_fjall_backend_batch_multi_partition() {
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_storage_engine_with_fjall_backend_insert_get_delete() {
     let mut session = VantaSession::begin("Fjall Full Engine Roundtrip");
     let (engine, _dir) = open_fjall_engine();
@@ -167,6 +171,7 @@ fn test_storage_engine_with_fjall_backend_insert_get_delete() {
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_storage_engine_fjall_backend_flush() {
     let mut session = VantaSession::begin("Fjall Flush Durability");
     let (engine, _dir) = open_fjall_engine();
@@ -184,6 +189,7 @@ fn test_storage_engine_fjall_backend_flush() {
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_maintenance_with_fjall_degrades_gracefully() {
     let mut session = VantaSession::begin("Fjall Checkpoint Degradation");
     let (engine, dir) = open_fjall_engine();
@@ -198,6 +204,7 @@ fn test_maintenance_with_fjall_degrades_gracefully() {
 }
 
 #[test]
+#[cfg(feature = "rocksdb")]
 fn test_maintenance_with_rocksdb_preserves_behavior() {
     let mut session = VantaSession::begin("RocksDB Checkpoint Preservation");
     let dir = tempdir().unwrap();
@@ -237,16 +244,19 @@ fn test_backend_capabilities() {
         BackendKind::InMemory
     );
 
-    // Fjall
-    let (engine_f, _dir_f) = open_fjall_engine();
-    assert_eq!(engine_f.backend_capabilities().kind, BackendKind::Fjall);
-    assert!(!engine_f.backend_capabilities().supports_checkpoint);
+    #[cfg(feature = "fjall")]
+    {
+        let (engine_f, _dir_f) = open_fjall_engine();
+        assert_eq!(engine_f.backend_capabilities().kind, BackendKind::Fjall);
+        assert!(!engine_f.backend_capabilities().supports_checkpoint);
+    }
 
     session.success("Matrix validation complete.");
     session.finish(true);
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_compaction_request_fjall() {
     let mut session = VantaSession::begin("Fjall Compaction Degradation");
     let (engine, _dir) = open_fjall_engine();
@@ -259,6 +269,7 @@ fn test_compaction_request_fjall() {
 }
 
 #[test]
+#[cfg(feature = "fjall")]
 fn test_fjall_backend_opens_all_partitions() {
     let mut session = VantaSession::begin("Fjall Partition Discovery");
     let (engine, _dir) = open_fjall_engine();

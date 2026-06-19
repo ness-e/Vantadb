@@ -24,7 +24,10 @@ async fn mcp_protocol_certification() {
         let tools = list_res["tools"]
             .as_array()
             .expect("Tools must be an array");
-        assert!(tools.iter().any(|t| t["name"] == "query_lisp"));
+        assert!(
+            tools.iter().any(|t| t["name"] == "query_lisp"),
+            "tools list should include query_lisp"
+        );
 
         TerminalReporter::success("MCP handshake and tools definition verified.");
     });
@@ -47,7 +50,10 @@ async fn mcp_protocol_certification() {
 
         let tool_res = handle_tools_call(&params, &executor, &storage).expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
-        assert!(text.contains("\"confidence_score\":0.99"));
+        assert!(
+            text.contains("\"confidence_score\":0.99"),
+            "get_node_neighbors response should contain confidence_score:0.99"
+        );
 
         // Note: 'query_lisp' tool now routes through execute_hybrid (IQL), since LISP
         // was extracted to the experimental-lisp crate during CUARENTENA-01.
@@ -58,10 +64,13 @@ async fn mcp_protocol_certification() {
         }));
         let lisp_res =
             handle_tools_call(&lisp_params, &executor, &storage).expect("Tool execution failed");
-        assert!(lisp_res["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("affected_nodes"));
+        assert!(
+            lisp_res["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("affected_nodes"),
+            "IQL INSERT response should contain 'affected_nodes' key"
+        );
 
         TerminalReporter::success("MCP tool dispatcher correctly routed and executed calls.");
     });

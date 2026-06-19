@@ -1,7 +1,9 @@
 pub use crate::backend::BackendPartition;
 use crate::backend::{BackendWriteOp, StorageBackend};
+#[cfg(feature = "fjall")]
 use crate::backends::fjall_backend::FjallBackend;
 use crate::backends::in_memory::InMemoryBackend;
+#[cfg(feature = "rocksdb")]
 use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
@@ -385,7 +387,12 @@ impl VantaFile {
         header.validate(*b"VFLE", 1, "VantaFile format mismatch")?;
 
         // The write_cursor of the mmap is stored in 16..24
-        let write_cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().unwrap());
+        let write_cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
+            VantaError::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("write_cursor bytes at offset 16 expected 8 bytes: {e}"),
+            ))
+        })?);
         let write_cursor = if write_cursor < 64 || write_cursor > current_size {
             64
         } else {
@@ -611,13 +618,10 @@ impl StorageEngine {
         None
     }
 
-    /// Open with explicit configuration for memory budgets and mode overrides.
-    pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
-        let startup_started = Instant::now();
-        let config = config.unwrap_or_default();
-        let caps = crate::hardware::HardwareCapabilities::global();
-
-        let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
+    fn init_storage(
+        path: &str,
+        config: &VantaConfig,
+    ) -> Result<(Option<File>, Arc<dyn StorageBackend>, PathBuf)> {
         let base_path = PathBuf::from(path);
 
         if config.read_only && !base_path.exists() {
@@ -706,8 +710,22 @@ impl StorageEngine {
 
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
-            BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, &config)?),
-            BackendKind::Fjall => Arc::new(FjallBackend::open(path, &config)?),
+            #[cfg(feature = "rocksdb")]
+            BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
+            #[cfg(not(feature = "rocksdb"))]
+            BackendKind::RocksDb => {
+                return Err(VantaError::Execution(
+                    "RocksDB backend requires the 'rocksdb' feature".into(),
+                ))
+            }
+            #[cfg(feature = "fjall")]
+            BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
+            #[cfg(not(feature = "fjall"))]
+            BackendKind::Fjall => {
+                return Err(VantaError::Execution(
+                    "Fjall backend requires the 'fjall' feature".into(),
+                ))
+            }
             BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
         };
 
@@ -721,6 +739,16 @@ impl StorageEngine {
         if !config.read_only {
             std::fs::create_dir_all(&data_dir).map_err(VantaError::IoError)?;
         }
+
+        Ok((lock_file, backend, data_dir))
+    }
+
+    fn init_indexes(
+        data_dir: &Path,
+        config: &VantaConfig,
+        caps: &crate::hardware::HardwareCapabilities,
+        effective_memory: u64,
+    ) -> Result<(CPIndex, VantaFile)> {
         let index_path = data_dir.join("vector_index.bin");
 
         let use_mmap = config.mmap_hnsw
@@ -728,7 +756,7 @@ impl StorageEngine {
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
                 || effective_memory < 16 * 1024 * 1024 * 1024);
 
-        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
+        let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
             if use_mmap {
                 info!(
                     backend = "mmap",
@@ -753,16 +781,27 @@ impl StorageEngine {
         };
 
         let vector_store_path = data_dir.join("vector_store.vanta");
-        let mut vector_store = if config.read_only {
+        let vector_store = if config.read_only {
             VantaFile::open_read_only(vector_store_path)?
         } else {
             VantaFile::open(vector_store_path, 1024 * 1024 * 64)?
         };
 
+        Ok((hnsw, vector_store))
+    }
+
+    fn recover_state(
+        data_dir: &Path,
+        config: &VantaConfig,
+        backend: &dyn StorageBackend,
+        hnsw: &mut CPIndex,
+        vector_store: &mut VantaFile,
+    ) -> Result<(u64, u64)> {
+        let index_path = data_dir.join("vector_index.bin");
+
         // ── Index Reconstruction: rebuild HNSW if index file is missing ──────
         if hnsw.nodes.is_empty() {
-            let report =
-                Self::rebuild_hnsw_from_vstore(&mut hnsw, &vector_store, index_path.clone())?;
+            let report = Self::rebuild_hnsw_from_vstore(hnsw, vector_store, index_path)?;
             crate::metrics::record_ann_rebuild(report.duration_ms, report.scanned_nodes);
             if report.scanned_nodes > 0 {
                 info!(
@@ -781,7 +820,11 @@ impl StorageEngine {
         let mut wal_records_replayed = 0u64;
         let checkpoint_seq: u64 = backend
             .get(BackendPartition::InternalMetadata, b"checkpoint_seq")?
-            .and_then(|bytes| bincode::deserialize::<u64>(&bytes).ok())
+            .and_then(|bytes| {
+                bincode::serde::decode_from_slice::<u64, _>(&bytes, bincode::config::standard())
+                    .ok()
+                    .map(|(v, _)| v)
+            })
             .unwrap_or(0);
 
         if !config.read_only && wal_path.exists() {
@@ -796,11 +839,11 @@ impl StorageEngine {
                 wal_records_replayed += 1;
                 match record {
                     crate::wal::WalRecord::Insert(node) => {
-                        let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
+                        let offset = Self::write_node_to_vstore(vector_store, &node)?;
                         hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
                     }
                     crate::wal::WalRecord::Update { id, node } => {
-                        let offset = Self::write_node_to_vstore(&mut vector_store, &node)?;
+                        let offset = Self::write_node_to_vstore(vector_store, &node)?;
                         hnsw.add(id, node.bitset, node.vector.clone(), offset);
                     }
                     crate::wal::WalRecord::Delete { id } => {
@@ -827,11 +870,40 @@ impl StorageEngine {
             }
         }
 
+        Ok((wal_replay_ms, wal_records_replayed))
+    }
+
+    fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<crate::wal::WalWriter>> {
         let wal_writer = if config.read_only {
             None
         } else {
+            let wal_path = data_dir.join("vanta.wal");
             Some(crate::wal::WalWriter::open(&wal_path, config.sync_mode)?)
         };
+        Ok(wal_writer)
+    }
+
+    /// Open with explicit configuration for memory budgets and mode overrides.
+    pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
+        let startup_started = Instant::now();
+        let config = config.unwrap_or_default();
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let effective_memory = config.memory_limit.unwrap_or(caps.total_memory);
+
+        let (lock_file, backend, data_dir) = Self::init_storage(path, &config)?;
+
+        let (mut hnsw, mut vector_store) =
+            Self::init_indexes(&data_dir, &config, caps, effective_memory)?;
+
+        let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
+            &data_dir,
+            &config,
+            backend.as_ref(),
+            &mut hnsw,
+            &mut vector_store,
+        )?;
+
+        let wal_writer = Self::init_wal(&data_dir, &config)?;
 
         crate::metrics::record_startup(
             startup_started.elapsed().as_millis() as u64,
@@ -839,14 +911,13 @@ impl StorageEngine {
             wal_records_replayed,
         );
 
-        // Capture initial memory breakdown after engine is fully open
         let estimated_hnsw_bytes = hnsw.estimate_memory_bytes() as u64;
         crate::metrics::record_memory_breakdown(
             hnsw.nodes.len() as u64,
             estimated_hnsw_bytes,
             engine_mmap_resident_bytes(&hnsw, &vector_store),
-            0, // volatile cache is empty at startup
-            0, // cache cap is set later by SDK; 0 until configured
+            0,
+            0,
         );
 
         if hnsw.nodes.len() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
@@ -1152,8 +1223,37 @@ impl StorageEngine {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
 
         // ── BFS sobre la capa 0 del HNSW (contiene TODOS los nodos) ─────────
-        // Recolectamos el orden BFS: entry_point primero (hub de mayor nivel),
-        // luego sus vecinos en capa 0, y así sucesivamente.
+        let bfs_order = Self::traverse_graph(&hnsw, entry_point_id);
+
+        // ── Layout compaction ────────────────────────────────────────────────
+        let (new_offset_map, new_file_size) =
+            Self::compact_layout(&mut vstore, &hnsw, &bfs_order, header_size)?;
+        let nodes_compacted = new_offset_map.len() as u64;
+
+        // ── Actualizar storage_offset en el DashMap del HNSW ────────────────
+        Self::reindex_nodes(&hnsw, &new_offset_map);
+
+        drop(hnsw);
+
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        info!(
+            nodes_compacted = nodes_compacted,
+            new_file_size = new_file_size,
+            elapsed_ms = elapsed_ms,
+            "compact_layout_bfs: VantaFile compactado en orden BFS"
+        );
+
+        drop(vstore);
+        self.save_vector_index();
+
+        Ok(nodes_compacted)
+    }
+
+    /// Realiza un BFS sobre la capa 0 del HNSW para recolectar el orden de compactación.
+    ///
+    /// Comienza desde el entry point (hub de mayor nivel), luego sus vecinos en capa 0,
+    /// y así sucesivamente. Los nodos aislados (no alcanzados por BFS) se añaden al final.
+    fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
         let total_nodes = hnsw.nodes.len();
         let mut bfs_order: Vec<u64> = Vec::with_capacity(total_nodes);
         let mut visited: HashSet<u64> = HashSet::with_capacity(total_nodes);
@@ -1164,7 +1264,6 @@ impl StorageEngine {
 
         while let Some(node_id) = queue.pop_front() {
             bfs_order.push(node_id);
-            // Usar la capa 0 (contiene todos los vecinos del grafo base)
             if let Some(node_ref) = hnsw.nodes.get(&node_id) {
                 if let Some(layer0_neighbors) = node_ref.neighbors.first() {
                     for &neighbor_id in layer0_neighbors {
@@ -1176,7 +1275,6 @@ impl StorageEngine {
             }
         }
 
-        // Añadir nodos aislados (no alcanzados por BFS) al final
         for entry in hnsw.nodes.iter() {
             let node_id = *entry.key();
             if visited.insert(node_id) {
@@ -1184,26 +1282,32 @@ impl StorageEngine {
             }
         }
 
-        // ── Calcular tamaño total del nuevo archivo ──────────────────────────
-        let mut new_file_size: u64 = 64; // Primeros 64B reservados para el write_cursor
-        for &node_id in &bfs_order {
+        bfs_order
+    }
+
+    /// Compacta el layout físico del VantaFile escribiendo los nodos en el orden BFS
+    /// especificado a un archivo temporal, luego realiza el swap atómico.
+    ///
+    /// Retorna el mapa de nuevos offsets y el tamaño final del archivo.
+    fn compact_layout(
+        vstore: &mut VantaFile,
+        hnsw: &CPIndex,
+        bfs_order: &[u64],
+        header_size: u64,
+    ) -> Result<(HashMap<u64, u64>, u64)> {
+        let mut new_file_size: u64 = 64;
+        for &node_id in bfs_order {
             if let Some(node_ref) = hnsw.nodes.get(&node_id) {
                 let old_offset = node_ref.storage_offset;
                 if let Some(old_header) = vstore.read_header(old_offset) {
                     let vec_size = (old_header.vector_len as u64 * 4 + 63) & !63;
                     new_file_size += header_size + vec_size;
                 }
-                // Nodos sin header en vstore (sin vector) solo ocupan header_size
-                // pero no los añadiremos al nuevo archivo si no tienen header válido.
             }
         }
-        // Redondear a múltiplo de 4096 para alineación de página
         new_file_size = (new_file_size + 4095) & !4095;
 
-        // ── Crear archivo temporal ───────────────────────────────────────────
         let vstore_path = vstore.path.clone();
-        // Construir el path del tmp usando with_file_name para preservar la extensión .vanta
-        // (with_extension remplazaría "vanta" → "vanta.tmp", perdiendo la extensión original)
         let tmp_filename = format!(
             "{}.tmp",
             vstore_path
@@ -1230,22 +1334,17 @@ impl StorageEngine {
                 .map_err(VantaError::IoError)?
         };
 
-        // ── Copiar nodos en orden BFS al archivo temporal ────────────────────
-        // new_offset_map: node_id → nuevo storage_offset en el archivo compactado
-        let mut new_offset_map: HashMap<u64, u64> = HashMap::with_capacity(total_nodes);
-        let mut write_cursor: u64 = 64; // El primer u64 del archivo es el write_cursor
+        let mut new_offset_map: HashMap<u64, u64> = HashMap::with_capacity(bfs_order.len());
+        let mut write_cursor: u64 = 64;
 
-        for &node_id in &bfs_order {
+        for &node_id in bfs_order {
             if let Some(node_ref) = hnsw.nodes.get(&node_id) {
                 let old_offset = node_ref.storage_offset;
-                // Intentar leer el header del VantaFile actual
-                // SAFETY: leemos con borrow de `vstore` que ya tenemos en lock exclusivo.
                 let old_header = match vstore.read_header(old_offset) {
-                    Some(h) => *h,    // clone del header (64B, stack)
-                    None => continue, // sin header válido: skip
+                    Some(h) => *h,
+                    None => continue,
                 };
 
-                // Saltar tombstones: no los copiamos al nuevo layout
                 if (old_header.flags & 0x8) != 0 {
                     continue;
                 }
@@ -1257,7 +1356,6 @@ impl StorageEngine {
                 let new_node_offset = write_cursor;
                 let new_vec_offset = new_node_offset + header_size;
 
-                // Verificar que el nuevo header + vector caben en el archivo tmp
                 let end = new_vec_offset + vec_size_aligned;
                 if end > new_file_size {
                     warn!(
@@ -1276,16 +1374,13 @@ impl StorageEngine {
                     new_file_size = end + 4096;
                 }
 
-                // Construir nuevo header con vector_offset actualizado
                 let mut new_header = old_header;
                 new_header.vector_offset = new_vec_offset;
 
-                // Escribir header en tmp_mmap
                 let header_bytes = new_header.as_bytes();
                 tmp_mmap[new_node_offset as usize..(new_node_offset + header_size) as usize]
                     .copy_from_slice(header_bytes);
 
-                // Copiar datos del vector desde el VantaFile original
                 if vec_len > 0 {
                     let old_vec_start = old_header.vector_offset as usize;
                     let old_vec_end = old_vec_start + vec_size_raw as usize;
@@ -1301,75 +1396,42 @@ impl StorageEngine {
             }
         }
 
-        // Persistir el write_cursor al inicio del archivo tmp (primeros 8 bytes)
         let cursor_bytes = write_cursor.to_le_bytes();
         tmp_mmap[0..8].copy_from_slice(&cursor_bytes);
 
-        // Flush del archivo temporal
         tmp_mmap.flush().map_err(VantaError::IoError)?;
         drop(tmp_mmap);
         drop(tmp_file);
 
-        // ── Swap: tmp → vanta (portable Windows/Unix) ───────────────────
-        // En Unix: rename es atómico incluso con el MMap del origen abierto.
-        // En Windows: rename con un MMap abierto sobre el origen puede fallar.
-        //   Usamos fs::copy (no requiere cerrar el Mmap del origen) seguido de
-        //   remove_file para limpiar el tmp.
-        //
-        // Paso 1: Liberar el handle del vstore original (vstore_path).
-        //   Reasignamos *vstore al tmp; el drop del VantaFile antiguo cierra
-        //   su Mmap y File handle sobre vstore_path.
-        vstore.flush().ok();
+        if let Err(e) = vstore.flush() {
+            tracing::warn!("flush failed: {e}");
+        }
         *vstore = VantaFile::open(tmp_path.clone(), new_file_size)?;
-        // vstore_path ahora sin handles. tmp_path tiene un Mmap (el nuevo *vstore).
 
-        // Paso 2: Hacer el swap según el OS.
         #[cfg(windows)]
         {
-            // En Windows usamos copia en lugar de rename para evitar el problema del Mmap.
             std::fs::copy(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
             let new_vstore = VantaFile::open(vstore_path, new_file_size)?;
             *vstore = new_vstore;
-            // Limpiar el tmp después de que *vstore ya apunta al archivo definitivo.
             let _ = std::fs::remove_file(&tmp_path);
         }
         #[cfg(not(windows))]
         {
-            // En Unix: rename atómico funciona incluso con Mmap abierto sobre el origen.
             std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
             let new_vstore = VantaFile::open(vstore_path, new_file_size)?;
             *vstore = new_vstore;
         }
 
-        let nodes_compacted = new_offset_map.len() as u64;
+        Ok((new_offset_map, new_file_size))
+    }
 
-        // ── Actualizar storage_offset en el DashMap del HNSW ────────────────
-        // Hacemos esto DESPUÉS del swap para que la actualización del índice
-        // y el archivo físico sean coherentes.
-        for (node_id, new_offset) in &new_offset_map {
+    /// Actualiza los storage_offset de todos los nodos compactados en el índice HNSW.
+    fn reindex_nodes(hnsw: &CPIndex, new_offset_map: &HashMap<u64, u64>) {
+        for (node_id, new_offset) in new_offset_map {
             if let Some(mut node_ref) = hnsw.nodes.get_mut(node_id) {
                 node_ref.storage_offset = *new_offset;
             }
         }
-
-        // Descartar guard de hnsw de forma explícita tan pronto como terminamos de mutar sus offsets
-        drop(hnsw);
-
-        let elapsed_ms = started.elapsed().as_millis() as u64;
-        info!(
-            nodes_compacted = nodes_compacted,
-            new_file_size = new_file_size,
-            elapsed_ms = elapsed_ms,
-            "compact_layout_bfs: VantaFile compactado en orden BFS"
-        );
-
-        // Persistir el índice HNSW actualizado
-        // Liberamos el lock de vstore antes de persistir
-        drop(vstore);
-
-        self.save_vector_index();
-
-        Ok(nodes_compacted)
     }
 
     #[tracing::instrument(skip(self, node), level = "debug", err)]
@@ -1433,7 +1495,7 @@ impl StorageEngine {
             relational: active_node.relational.clone(),
             edges: active_node.edges.clone(),
         };
-        let metadata_val = bincode::serialize(&metadata)
+        let metadata_val = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
@@ -1461,7 +1523,9 @@ impl StorageEngine {
             if cache.len() > max_nodes {
                 self.emergency_maintenance_trigger
                     .store(true, Ordering::Release);
-                let _ = self.evict_cold_nodes(self.config.eviction_ratio);
+                if let Err(e) = self.evict_cold_nodes(self.config.eviction_ratio) {
+                    tracing::warn!("eviction failed: {e}");
+                }
             }
         }
 
@@ -1496,7 +1560,7 @@ impl StorageEngine {
             relational: persisted.relational.clone(),
             edges: persisted.edges.clone(),
         };
-        let metadata_val = bincode::serialize(&metadata)
+        let metadata_val = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
@@ -1604,8 +1668,8 @@ impl StorageEngine {
         self.ensure_writable()?;
         let partition = Self::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
-        let val =
-            bincode::serialize(node).map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        let val = bincode::serde::encode_to_vec(node, bincode::config::standard())
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend.put(partition, &key, &val)?;
 
         let storage_offset = self.append_to_vstore(node)?;
@@ -1638,8 +1702,9 @@ impl StorageEngine {
             None => return Ok(None),
         };
 
-        let metadata: NodeMetadata = bincode::deserialize(&metadata_res)
-            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        let (metadata, _): (NodeMetadata, usize) =
+            bincode::serde::decode_from_slice(&metadata_res, bincode::config::standard())
+                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
 
         let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
@@ -1801,8 +1866,9 @@ impl StorageEngine {
         };
 
         if current_wal_seq > 0 {
-            let seq_bytes = bincode::serialize(&current_wal_seq)
-                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+            let seq_bytes =
+                bincode::serde::encode_to_vec(current_wal_seq, bincode::config::standard())
+                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
             self.backend.put(
                 BackendPartition::InternalMetadata,
                 b"checkpoint_seq",
@@ -1932,7 +1998,11 @@ impl StorageEngine {
 
         let mut recovered = Vec::new();
         for (_k, v) in &entries {
-            if let Ok(mut node) = bincode::deserialize::<crate::node::UnifiedNode>(v) {
+            if let Ok((mut node, _)) = bincode::serde::decode_from_slice::<
+                crate::node::UnifiedNode,
+                _,
+            >(v, bincode::config::standard())
+            {
                 if node
                     .edges
                     .iter()
@@ -2126,7 +2196,9 @@ impl StorageEngine {
                 threshold_pct = (threshold * 100.0) as u64,
                 "Memory pressure detected — triggering auto-eviction",
             );
-            let _ = self.evict_cold_nodes(self.config.eviction_ratio);
+            if let Err(e) = self.evict_cold_nodes(self.config.eviction_ratio) {
+                tracing::warn!("eviction failed: {e}");
+            }
             return Err(VantaError::ResourceLimit(format!(
                 "Memory pressure: {} bytes used ({}% of {} limit, threshold {}%)",
                 effective,
@@ -2162,7 +2234,10 @@ impl StorageEngine {
         let mut stats: HashMap<String, HashMap<String, usize>> = HashMap::new();
         if let Ok(records) = backend.scan(BackendPartition::Default) {
             for (_key, val) in records {
-                if let Ok(metadata) = bincode::deserialize::<NodeMetadata>(&val) {
+                if let Ok((metadata, _)) = bincode::serde::decode_from_slice::<NodeMetadata, _>(
+                    &val,
+                    bincode::config::standard(),
+                ) {
                     for (field, value) in metadata.relational {
                         let val_keys = value.to_cardinality_keys();
                         let val_map = stats.entry(field).or_default();

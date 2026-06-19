@@ -8,13 +8,14 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use console::style;
-use rand::{rng, Rng};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
 use vantadb::node::DistanceMetric;
 
 fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
-    let mut rng = rng();
+    let mut rng = StdRng::seed_from_u64(42);
     let mut vectors = Vec::with_capacity(count);
     for _ in 0..count {
         let mut vec = Vec::with_capacity(dims);

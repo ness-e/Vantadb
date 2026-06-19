@@ -201,7 +201,7 @@ impl MaintenanceWorker {
                 for (id, hash, reason) in losers_to_log {
                     let tomb = AuditableTombstone::new(id, reason, hash);
                     let key = id.to_le_bytes();
-                    if let Ok(tomb_val) = bincode::serialize(&tomb) {
+                    if let Ok(tomb_val) = bincode::serde::encode_to_vec(&tomb, bincode::config::standard()) {
                         let _ = storage.put_to_partition(
                             BackendPartition::TombstoneStorage,
                             &key,

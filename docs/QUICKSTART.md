@@ -24,7 +24,7 @@ sudo apt-get install -y libclang-dev clang librocksdb-dev
 ## 2. Clone and Build the CLI
 
 ```bash
-git clone https://github.com/DevpNess/Vantadb.git
+git clone https://github.com/ness-e/Vantadb.git
 cd Vantadb
 cargo run --bin vanta-cli -- --help
 ```

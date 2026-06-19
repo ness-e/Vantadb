@@ -871,13 +871,15 @@ impl VantaEmbedded {
         else {
             return Ok(None);
         };
-        bincode::deserialize(&bytes).map(Some).map_err(|err| {
-            VantaError::SerializationError(format!("derived index state decode error: {err}"))
-        })
+        bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+            .map(|(val, _)| Some(val))
+            .map_err(|err| {
+                VantaError::SerializationError(format!("derived index state decode error: {err}"))
+            })
     }
 
     fn write_derived_index_state(engine: &StorageEngine, state: &DerivedIndexState) -> Result<()> {
-        let bytes = bincode::serialize(state)
+        let bytes = bincode::serde::encode_to_vec(state, bincode::config::standard())
             .map_err(|err| VantaError::SerializationError(err.to_string()))?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
@@ -892,13 +894,15 @@ impl VantaEmbedded {
         else {
             return Ok(None);
         };
-        bincode::deserialize(&bytes).map(Some).map_err(|err| {
-            VantaError::SerializationError(format!("text index state decode error: {err}"))
-        })
+        bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+            .map(|(val, _)| Some(val))
+            .map_err(|err| {
+                VantaError::SerializationError(format!("text index state decode error: {err}"))
+            })
     }
 
     fn write_text_index_state(engine: &StorageEngine, state: &TextIndexState) -> Result<()> {
-        let bytes = bincode::serialize(state)
+        let bytes = bincode::serde::encode_to_vec(state, bincode::config::standard())
             .map_err(|err| VantaError::SerializationError(err.to_string()))?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
@@ -3157,7 +3161,9 @@ impl VantaEmbedded {
 
     /// Flush and close the embedded engine handle.
     pub fn close(&self) -> Result<()> {
-        let _ = self.flush();
+        if let Err(e) = self.flush() {
+            tracing::warn!("flush failed: {e}");
+        }
         let mut guard = self.engine.write();
         *guard = None;
         Ok(())

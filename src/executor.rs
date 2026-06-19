@@ -129,7 +129,7 @@ impl<'a> Executor<'a> {
             use crate::governor::ResourceGovernor;
             let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
             let probe_cost = 0;
-            let _ = governor.request_allocation(probe_cost);
+            governor.request_allocation(probe_cost)?;
         }
 
         match statement {
@@ -326,7 +326,7 @@ impl<'a> Executor<'a> {
         governor.apply_temperature_limits(&mut plan);
 
         let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
-        let _ = governor.request_allocation(estimated_mem_cost)?;
+        governor.request_allocation(estimated_mem_cost)?;
 
         // Intercept Conflict entity scan for experimental governance immediately
         for op in &plan.operators {
