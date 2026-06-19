@@ -1,0 +1,67 @@
+name: 'Rust & system setup'
+description: 'Common Rust toolchain, cache, and system dependencies for VantaDB CI'
+inputs:
+  toolchain:
+    description: 'Rust toolchain channel'
+    required: false
+    default: 'stable'
+  components:
+    description: 'Additional Rustup components'
+    required: false
+    default: ''
+  swap-mb:
+    description: 'Swap file size in MB (0 to skip)'
+    required: false
+    default: '0'
+  free-disk:
+    description: 'Free disk space'
+    required: false
+    default: 'false'
+  cache-bin:
+    description: 'Whether to cache cargo binaries'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Free Disk Space
+      if: ${{ inputs.free-disk == 'true' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+    - uses: actions/checkout@v6
+
+    - name: Add swap space
+      if: ${{ inputs.swap-mb != '0' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        sudo swapoff /swapfile || true
+        sudo rm -f /swapfile
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=${{ inputs.swap-mb }}
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        free -h
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-bin: ${{ inputs.cache-bin }}
+
+    - name: Install system dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libclang-dev clang librocksdb-dev
