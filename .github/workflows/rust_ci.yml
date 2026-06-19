@@ -198,7 +198,7 @@ jobs:
           --profile audit \
           --workspace \
           --lcov --output-path lcov.info \
-          --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
+          --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
           2>&1
         echo "--- Coverage Summary ---"
         cargo llvm-cov report \
