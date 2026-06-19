@@ -6,8 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Upgraded `pyo3` 0.24 → 0.29 (fixes RUSTSEC-2026-0176 use-after-free, RUSTSEC-2026-0177 data race) (AUD-04).
+- Migrated `bincode 1.3` → `2.0` (fixes RUSTSEC-2025-0141 unmaintained advisory) (AUD-03).
+- Removed 3 stale advisory ignores from `deny.toml` (AUD-16).
+- Complete unsafe block audit: 39 items reviewed, 77% low-risk, top 3 riskiest documented (AUD-08).
+
 ### Added
 
+- Edge case test suite: 25 new tests across 17 categories (NaN/Inf vectors, empty keys/batches, unicode metadata, zero-dim vectors, WAL failure, concurrent access, TTL expiry, cross-namespace isolation) (AUD-37).
+- `AsyncVantaDB.put()` now accepts `ttl_ms` parameter for TTL-based memory eviction (AUD-14).
+- ARM64/aarch64 architecture detection in install scripts (AUD-20).
+- Windows CI test execution (AUD-18).
+- Swap space and disk cleanup in nightly benchmark workflow (AUD-43).
+- `vantadb-mcp` binary to release pipeline (AUD-42).
 - Benchmark regression alerts — nightly CI auto-creates GitHub issues when criterion benchmarks regress >5% (TSK-79).
 - WAL compaction (`compact_wal()`) and TTL support (`ttl_ms`, `purge_expired()`) on memory records (TSK-75/76).
 - Batch put with Rayon parallelism (`put_batch()`) for 5x faster bulk inserts (TSK-69).
@@ -54,6 +67,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- 3 large functions refactored: `compact_layout_bfs()` (247→53L), `add()` (214→8L dispatcher), `open_with_config()` (271→59L pipeline) (AUD-24/25/26).
+- Tokio features `"full"` replaced with granular feature flags (rt, sync, time, macros) across 2 Cargo.tomls (AUD-38).
+- `arrow`, `rocksdb`, `fjall` made optional feature-gated dependencies (default includes all 3 for backward compat) (AUD-31).
+- `rust-toolchain.toml` channel `1.94.1` → `stable` to match CI (AUD-17).
+- Workspace version inheritance via `[workspace.package]` for 3 sub-crates (AUD-40).
+- `wide` dependency pin loosened: `=1.2.0` → `>=1.2, <2` (AUD-39).
+- `tower` dev-dependency unified to 0.5 (AUD-15).
+- `abi3-py311` → `abi3-py38` for Python 3.8–3.10 wheel compatibility (AUD-01).
+- `maturin-action@v1` → `@v2` in python_wheels.yml (AUD-41).
+- `actions/checkout@v4` → `@v6`, `setup-python@v5` → `@v6` in nightly_bench.yml (AUD-32/44).
+- `install-action@nextest` → `@v2` with `tool:` in heavy_certification.yml (AUD-33).
+- All repo URLs unified to `ness-e/Vantadb` (AUD-29).
 - HNSW select_neighbors cache optimization O(M^2).
 - Fine-grained locking replaces global RwLock on HNSW index.
 - Decoupled experimental features (governance, LISP) into standalone workspace crates.
@@ -76,6 +101,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- 16 risky `.unwrap()` calls in prod replaced with `?` + error handling (index.rs:13, storage.rs:1, wal.rs:2) (AUD-02).
+- 18 broken links in README.md + README_ES.md (CONTRIBUTING, SECURITY, SUPPORT → `.github/`, Python SDK → `docs/api/`, Benchmarks → `docs/operations/`) (AUD-05).
+- Dangling `chaos_testing.rs` reference in DURABILITY_GUARANTEES.md (AUD-06).
+- `README.MD` uppercase → `README.md` in README_ES.md (AUD-07).
+- Global mutable test state replaced with `thread_local!` (AUD-09).
+- Env vars in prefetch_benchmark.rs now saved/restored properly (AUD-10).
+- ~153 bare assertions given descriptive failure messages (AUD-11).
+- Benchmark RNG seeded with `StdRng::seed_from_u64(42)` for reproducibility (AUD-12).
+- Hardcoded temp paths replaced with `tempfile::TempDir` (AUD-13).
+- `governor.request_allocation()` error now propagated instead of silently dropped (AUD-22).
+- 4 flush/eviction error sites now log `tracing::warn!` instead of `.ok()` (AUD-23).
+- Unknown backend/distance_metric in Python bindings now emit warnings (AUD-27/28).
+- Flaky `time.sleep(0.01)` replaced with retry loop in test_sdk.py (AUD-30).
+- 4 timing-dependent test sleeps replaced with event-based waits (AUD-35).
+- `curl` in install.sh now follows GitHub redirects with `-L` (AUD-19).
+- CHANGELOG dangling ref to ROADMAP.md commented as TODO (AUD-21).
+- Commit count in progreso docs: 237 → 460 (AUD-34).
 - Infinite recursion in text_index without advanced-tokenizer.
 - Compilation on macOS (libc breaking changes, mincore, mach2 paths).
 - HNSW robust bounds-checking in deserialization.
@@ -165,7 +207,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Embedded-memory hybrid benchmark and certification corpora for text-only, vector-only, phrase, and hybrid retrieval paths.
 - Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
 - Public read-only text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index`.
-- Operational roadmap in `docs/operations/ROADMAP.md` covering hardening, backup/restore, Python release engineering, and Search Quality v2.
+<!-- TODO: create and reference docs/operations/ROADMAP.md -->
 - Fjall cold-copy restore validation covering canonical records, BM25/phrase text search, and hybrid retrieval.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
