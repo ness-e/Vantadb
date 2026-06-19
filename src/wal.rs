@@ -181,13 +181,23 @@ impl WalWriter {
                             let payload = &record_bytes[0..len as usize];
                             let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4]
                                 .try_into()
-                                .unwrap();
+                                .map_err(|_| {
+                                    VantaError::WalError(
+                                        "CRC bytes slice expected 4 bytes in WAL record"
+                                            .to_string(),
+                                    )
+                                })?;
                             let stored_crc = u32::from_le_bytes(crc_bytes);
                             let computed_crc = crc32c(payload);
 
                             if stored_crc == computed_crc {
                                 // FMEA-02: Validar deserialización estructural para evitar colisiones accidentales de CRC
-                                if bincode::deserialize::<WalRecord>(payload).is_ok() {
+                                if bincode::serde::decode_from_slice::<WalRecord, _>(
+                                    payload,
+                                    bincode::config::standard(),
+                                )
+                                .is_ok()
+                                {
                                     is_valid = true;
                                 }
                             }
@@ -226,12 +236,21 @@ impl WalWriter {
                                         let crc_bytes: [u8; 4] = test_bytes
                                             [test_len as usize..test_len as usize + 4]
                                             .try_into()
-                                            .unwrap();
+                                            .map_err(|_| {
+                                                VantaError::WalError(
+                                                    "CRC bytes slice expected 4 bytes in WAL scan-forward"
+                                                        .to_string(),
+                                                )
+                                            })?;
                                         let stored_crc = u32::from_le_bytes(crc_bytes);
                                         let computed_crc = crc32c(payload);
 
                                         if stored_crc == computed_crc
-                                            && bincode::deserialize::<WalRecord>(payload).is_ok()
+                                            && bincode::serde::decode_from_slice::<WalRecord, _>(
+                                                payload,
+                                                bincode::config::standard(),
+                                            )
+                                            .is_ok()
                                         {
                                             warn!(
                                                 path = %path.display(),
@@ -289,7 +308,7 @@ impl WalWriter {
             )))
         });
 
-        let payload = bincode::serialize(record)
+        let payload = bincode::serde::encode_to_vec(record, bincode::config::standard())
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
@@ -413,7 +432,10 @@ impl WalReader {
                         let stored_crc = u32::from_le_bytes(crc_buf);
                         let computed_crc = crc32c(&payload);
                         let is_crc_valid = stored_crc == computed_crc;
-                        let deserialize_res = bincode::deserialize::<WalRecord>(&payload);
+                        let deserialize_res = bincode::serde::decode_from_slice::<WalRecord, _>(
+                            &payload,
+                            bincode::config::standard(),
+                        );
                         let is_deser_ok = deserialize_res.is_ok();
 
                         if is_crc_valid && is_deser_ok {
@@ -444,8 +466,9 @@ impl WalReader {
             }
 
             if is_valid {
-                let record = bincode::deserialize(&payload)
-                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                let (record, _) =
+                    bincode::serde::decode_from_slice(&payload, bincode::config::standard())
+                        .map_err(|e| VantaError::SerializationError(e.to_string()))?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {
@@ -474,8 +497,11 @@ impl WalReader {
                                         let stored_crc = u32::from_le_bytes(test_crc_buf);
                                         let computed_crc = crc32c(&test_payload);
                                         if stored_crc == computed_crc
-                                            && bincode::deserialize::<WalRecord>(&test_payload)
-                                                .is_ok()
+                                            && bincode::serde::decode_from_slice::<WalRecord, _>(
+                                                &test_payload,
+                                                bincode::config::standard(),
+                                            )
+                                            .is_ok()
                                         {
                                             warn!(
                                                 corrupt_bytes_skipped = scan_pos - current_pos,

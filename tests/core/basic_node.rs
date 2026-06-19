@@ -6,6 +6,7 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use std::time::Instant;
+use tempfile::TempDir;
 use vantadb::{FieldValue, InMemoryEngine, UnifiedNode};
 
 #[test]
@@ -20,7 +21,10 @@ fn core_engine_certification() {
 
         let retrieved = engine.get(100).unwrap();
         assert_eq!(retrieved.id, 100);
-        assert!(retrieved.is_alive());
+        assert!(
+            retrieved.is_alive(),
+            "retrieved node should be alive after insert"
+        );
         TerminalReporter::success("Basic Insert/Get verified.");
     });
 
@@ -29,22 +33,28 @@ fn core_engine_certification() {
         let id1 = engine.insert(UnifiedNode::new(0)).unwrap();
         let id2 = engine.insert(UnifiedNode::new(0)).unwrap();
         assert_ne!(id1, id2);
-        assert!(id1 > 0);
-        assert!(id2 > 0);
+        assert!(id1 > 0, "auto-generated id should be positive, got {}", id1);
+        assert!(id2 > 0, "auto-generated id should be positive, got {}", id2);
     });
 
     harness.execute("Node CRUD: Duplicate ID Protection", || {
         let engine = InMemoryEngine::new();
         engine.insert(UnifiedNode::new(42)).unwrap();
         let err = engine.insert(UnifiedNode::new(42));
-        assert!(err.is_err());
+        assert!(
+            err.is_err(),
+            "inserting duplicate id should return an error"
+        );
     });
 
     harness.execute("Node CRUD: Delete logic", || {
         let engine = InMemoryEngine::new();
         engine.insert(UnifiedNode::new(1)).unwrap();
         engine.delete(1).unwrap();
-        assert!(engine.get(1).is_none());
+        assert!(
+            engine.get(1).is_none(),
+            "deleted node should not be retrievable"
+        );
     });
 
     harness.execute("Node CRUD: Field Update logic", || {
@@ -144,8 +154,8 @@ fn core_engine_certification() {
     });
 
     harness.execute("WAL: Persistence & Recovery", || {
-        let wal_path = std::env::temp_dir().join("vanta_wal_modern_test.bin");
-        let _ = std::fs::remove_file(&wal_path);
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("vanta_wal_modern_test.bin");
         {
             let engine = InMemoryEngine::with_wal(&wal_path).unwrap();
             let mut node = UnifiedNode::new(42);
@@ -161,7 +171,6 @@ fn core_engine_certification() {
                 Some(&FieldValue::String("test".into()))
             );
         }
-        let _ = std::fs::remove_file(&wal_path);
     });
 
     harness.execute("System: Basic Engine Stats", || {
@@ -185,8 +194,16 @@ fn core_engine_certification() {
             engine.insert(node).unwrap();
         }
         let elapsed = start.elapsed();
-        assert_eq!(engine.node_count(), 10_000);
-        assert!(elapsed.as_millis() < 500);
+        assert_eq!(
+            engine.node_count(),
+            10_000,
+            "engine should contain exactly 10_000 nodes after bulk insert"
+        );
+        assert!(
+            elapsed.as_millis() < 500,
+            "10K inserts should complete in under 500ms, took {}ms",
+            elapsed.as_millis()
+        );
         TerminalReporter::success(&format!(
             "BENCH: 10k inserts in {:?} ({:.1} μs/insert)",
             elapsed,

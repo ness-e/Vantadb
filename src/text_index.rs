@@ -476,12 +476,14 @@ pub(crate) fn posting_count(payload: &str) -> u64 {
 }
 
 fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    bincode::serialize(value).map_err(|err| VantaError::SerializationError(err.to_string()))
+    bincode::serde::encode_to_vec(value, bincode::config::standard())
+        .map_err(|err| VantaError::SerializationError(err.to_string()))
 }
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
-    bincode::deserialize(bytes)
-        .map_err(|err| VantaError::SerializationError(format!("{label} decode error: {err}")))
+    let (val, _) = bincode::serde::decode_from_slice(bytes, bincode::config::standard())
+        .map_err(|err| VantaError::SerializationError(format!("{label} decode error: {err}")))?;
+    Ok(val)
 }
 
 pub(crate) fn posting_value(node_id: u64, tf: u32, positions: &[u32]) -> Result<Vec<u8>> {

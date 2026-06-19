@@ -8,28 +8,15 @@ use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, Write};
-use std::sync::Mutex;
-#[cfg(feature = "cli")]
-use std::sync::OnceLock;
 use std::time::Instant;
 use sysinfo::System;
 
 pub mod sift_loader;
 
-// ─── Global State for Final Summary & Progress ────────────────
-
-static TEST_RESULTS: Mutex<Vec<TestSummary>> = Mutex::new(Vec::new());
 #[cfg(feature = "cli")]
-static MULTI_PROGRESS: OnceLock<MultiProgress> = OnceLock::new();
-#[cfg(feature = "cli")]
-static GLOBAL_BAR: OnceLock<ProgressBar> = OnceLock::new();
-
-#[derive(Clone)]
-struct TestSummary {
-    name: String,
-    success: bool,
-    duration: std::time::Duration,
-    process_memory_delta_mb: f64,
+thread_local! {
+    static MULTI_PROGRESS: std::cell::RefCell<Option<MultiProgress>> = const { std::cell::RefCell::new(None) };
+    static GLOBAL_BAR: std::cell::RefCell<Option<ProgressBar>> = const { std::cell::RefCell::new(None) };
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,33 +63,48 @@ fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySa
 // ─── Internal Helpers ────────────────────────────────────────
 
 #[cfg(feature = "cli")]
-fn get_multi_progress() -> &'static MultiProgress {
-    MULTI_PROGRESS.get_or_init(|| {
-        // Stderr IS a TTY under `cargo test --nocapture`, unlike stdout which
-        // is captured. Routing here ensures indicatif can update lines in-place
-        // instead of printing a new line on every tick / set_message call.
-        MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(10))
+fn with_multi_progress<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut MultiProgress) -> R,
+{
+    MULTI_PROGRESS.with(|cell| {
+        let mut mp = cell.borrow_mut();
+        let mp = mp.get_or_insert_with(|| {
+            // Stderr IS a TTY under `cargo test --nocapture`, unlike stdout which
+            // is captured. Routing here ensures indicatif can update lines in-place
+            // instead of printing a new line on every tick / set_message call.
+            MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(10))
+        });
+        f(mp)
     })
 }
 
 #[cfg(feature = "cli")]
-fn get_global_bar() -> &'static ProgressBar {
-    GLOBAL_BAR.get_or_init(|| {
-        let pb = ProgressBar::with_draw_target(Some(10), ProgressDrawTarget::stderr_with_hz(10));
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template(
-                    "{spinner:.green} \x1b[1;37m[{elapsed_precise}]\x1b[0m \
-                     [{bar:40.cyan/blue}] \x1b[1;36m{pos}/{len}\x1b[0m \
-                     \x1b[37m{msg}\x1b[0m",
-                )
-                .expect("Invalid progress template")
-                .progress_chars("█▉▊▋▌▍▎▏  "),
-        );
-        // steady_tick makes indicatif own the render loop; without it every
-        // .set_message() call triggers a fresh print when stdout isn't a TTY.
-        pb.enable_steady_tick(std::time::Duration::from_millis(100));
-        get_multi_progress().add(pb)
+fn with_global_bar<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut ProgressBar) -> R,
+{
+    GLOBAL_BAR.with(|cell| {
+        let mut bar = cell.borrow_mut();
+        let bar = bar.get_or_insert_with(|| {
+            let pb =
+                ProgressBar::with_draw_target(Some(10), ProgressDrawTarget::stderr_with_hz(10));
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template(
+                        "{spinner:.green} \x1b[1;37m[{elapsed_precise}]\x1b[0m \
+                         [{bar:40.cyan/blue}] \x1b[1;36m{pos}/{len}\x1b[0m \
+                         \x1b[37m{msg}\x1b[0m",
+                    )
+                    .expect("Invalid progress template")
+                    .progress_chars("█▉▊▋▌▍▎▏  "),
+            );
+            // steady_tick makes indicatif own the render loop; without it every
+            // .set_message() call triggers a fresh print when stdout isn't a TTY.
+            pb.enable_steady_tick(std::time::Duration::from_millis(100));
+            with_multi_progress(|mp| mp.add(pb))
+        });
+        f(bar)
     })
 }
 
@@ -125,9 +127,10 @@ impl TerminalReporter {
         );
         println!("{}\n", style(format!("╚{}╝", line)).yellow().bold());
 
-        let bar = get_global_bar();
-        bar.set_length(total_tests);
-        bar.set_message("Initializing test suites...");
+        with_global_bar(|bar| {
+            bar.set_length(total_tests);
+            bar.set_message("Initializing test suites...");
+        });
     }
 
     pub fn block_header(title: &str) {
@@ -170,64 +173,13 @@ impl TerminalReporter {
         );
         pb.set_message(msg.to_string());
         pb.enable_steady_tick(std::time::Duration::from_millis(80));
-        get_multi_progress().add(pb)
+        with_multi_progress(|mp| mp.add(pb))
     }
 
     pub fn print_certification_summary() {
-        let bar = get_global_bar();
-        bar.finish_with_message("All tests completed.");
-
-        let results = TEST_RESULTS.lock().unwrap();
-        if results.is_empty() {
-            return;
-        }
-
-        println!("\n\x1b[1;37m┌{}┐", "─".repeat(74));
-        println!("│{:^74}│", "VANTA DB - OPERATIONAL INTEGRITY REPORT");
-        println!(
-            "├{}┬────────────┬────────────┬────────────┤",
-            "─".repeat(34)
-        );
-        println!(
-            "│ {:<32} │ {:<10} │ {:<10} │ {:<10} │",
-            "Component / Test Case", "Status", "Time", "Proc MB Δ"
-        );
-        println!(
-            "├{}┼────────────┼────────────┼────────────┤",
-            "─".repeat(34)
-        );
-
-        let mut total_time = std::time::Duration::from_secs(0);
-        let mut total_passed = 0;
-
-        for res in results.iter() {
-            let status = if res.success {
-                "\x1b[32mPASS\x1b[0m"
-            } else {
-                "\x1b[31mFAIL\x1b[0m"
-            };
-            println!(
-                "│ {:<32} │ {:^20} │ {:>10.2?} │ {:>7.1} MB │",
-                res.name, status, res.duration, res.process_memory_delta_mb
-            );
-            total_time += res.duration;
-            if res.success {
-                total_passed += 1;
-            }
-        }
-
-        println!(
-            "├{}┴────────────┴────────────┴────────────┤",
-            "─".repeat(34)
-        );
-        let summary_text = format!(
-            "TOTAL: {}/{} PASSED | AGGREGATE TIME: {:?}",
-            total_passed,
-            results.len(),
-            total_time
-        );
-        println!("│ {:<72} │", summary_text);
-        println!("└{}┘\x1b[0m\n", "─".repeat(74));
+        with_global_bar(|bar| {
+            bar.finish_with_message("All tests completed.");
+        });
     }
 }
 
@@ -584,10 +536,9 @@ pub struct VantaSession {
 impl VantaSession {
     pub fn begin(name: &str) -> Self {
         #[cfg(feature = "cli")]
-        {
-            let bar = get_global_bar();
+        with_global_bar(|bar| {
             bar.set_message(format!("Running: {}", name));
-        }
+        });
 
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -656,19 +607,11 @@ impl VantaSession {
         }
 
         #[cfg(feature = "cli")]
-        {
-            let bar = get_global_bar();
+        with_global_bar(|bar| {
             bar.println(output);
             bar.inc(1);
-        }
+        });
         #[cfg(not(feature = "cli"))]
         print!("{}", output);
-
-        TEST_RESULTS.lock().unwrap().push(TestSummary {
-            name: self.name,
-            success,
-            duration,
-            process_memory_delta_mb: mem_delta,
-        });
     }
 }

@@ -12,6 +12,20 @@ use tokio::net::TcpListener;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
+/// Probe a TCP address until it accepts a connection, or panic after timeout.
+async fn wait_for_port(addr: SocketAddr, timeout: Duration) {
+    let deadline = tokio::time::Instant::now() + timeout;
+    loop {
+        if tokio::time::Instant::now() >= deadline {
+            panic!("Server at {} did not start within {:?}", addr, timeout);
+        }
+        if tokio::net::TcpStream::connect(addr).await.is_ok() {
+            break;
+        }
+        tokio::task::yield_now().await;
+    }
+}
+
 /// Bind a real TCP listener on a random port, spawn the real server,
 /// and return the base URL + join handle.
 async fn spawn_server(state: Arc<ServerState>, rpm: u32) -> (String, tokio::task::JoinHandle<()>) {
@@ -29,8 +43,8 @@ async fn spawn_server(state: Arc<ServerState>, rpm: u32) -> (String, tokio::task
         .unwrap();
     });
 
-    // Brief pause to let the server start accepting connections
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    // Wait until the server actually accepts connections (event-based, not fixed sleep)
+    wait_for_port(addr, Duration::from_secs(5)).await;
 
     (base, handle)
 }
@@ -205,10 +219,9 @@ async fn test_e2e_persistence_across_restart() {
     let body: serde_json::Value = resp.json().await.unwrap();
     assert!(body["success"].as_bool().unwrap());
 
-    // Shut down first server — JoinHandle::abort cancels the task
+    // Shut down first server — abort the task and wait for it to fully stop
     handle1.abort();
-    // Allow OS to release the port and storage engine to flush
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    let _ = handle1.await;
 
     // Second server, same storage directory
     let storage2 = Arc::new(StorageEngine::open(&storage_path).unwrap());
@@ -256,7 +269,9 @@ async fn test_e2e_rate_limit_over_http() {
         .unwrap();
     assert_eq!(resp.status(), 200);
 
-    // Rapid second request — with RPM=5 and burst=1, second should hit the rate limit
+    // Rapid second request — with RPM=5 and burst=1, second should hit the rate limit.
+    // Intentional small delay between requests to test rate limiter timing;
+    // not replaceable with event-based wait — this creates the timing gap the test needs.
     tokio::time::sleep(Duration::from_millis(10)).await;
     let resp = client
         .post(format!("{}/api/v2/query", base))

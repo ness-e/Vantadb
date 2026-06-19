@@ -11,12 +11,27 @@ BINARY_NAME="vanta-cli"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
 
+# Normalize architecture names from uname to our conventions
+case "$ARCH" in
+  x86_64|amd64)
+    ARCH_NORM="amd64"
+    ;;
+  aarch64|arm64)
+    ARCH_NORM="arm64"
+    ;;
+  *)
+    echo "❌ Unsupported architecture: $ARCH"
+    echo "Supported architectures: x86_64 (amd64), aarch64 (arm64)"
+    exit 1
+    ;;
+esac
+
 case "$OS" in
   linux*)
-    SUFFIX="linux-amd64"
+    SUFFIX="linux-$ARCH_NORM"
     ;;
   darwin*)
-    SUFFIX="macos-amd64"
+    SUFFIX="macos-$ARCH_NORM"
     ;;
   *)
     echo "❌ Unsupported Operating System: $OS"
@@ -24,15 +39,9 @@ case "$OS" in
     ;;
 esac
 
-# We only support amd64 (x86_64) binaries right now as built by GitHub CI
-if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
-  echo "⚠️ Warning: Your architecture is $ARCH, but we only have precompiled binaries for x86_64/amd64."
-  echo "We will attempt to download the amd64 binary, which may run via translation (like Rosetta on macOS Apple Silicon)."
-fi
-
 # Fetch the latest release tag from GitHub API
 echo "🔍 Fetching latest VantaDB release version..."
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/ness-e/Vantadb/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_RELEASE=$(curl -sL https://api.github.com/repos/ness-e/Vantadb/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST_RELEASE" ]; then
   # Fallback version if API fails

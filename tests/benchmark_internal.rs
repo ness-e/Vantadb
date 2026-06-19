@@ -56,7 +56,11 @@ fn test_benchmark_internal_10k() {
     let rebuild_result = db.rebuild_index().expect("rebuild index");
     let rebuild_duration = start_rebuild.elapsed();
     let rebuild_duration_ms = rebuild_duration.as_millis() as f64;
-    assert!(rebuild_result.success);
+    assert!(
+        rebuild_result.success,
+        "index rebuild should succeed, got success={}",
+        rebuild_result.success
+    );
     println!("Rebuild completed in {:.2} ms", rebuild_duration_ms);
 
     // Latency tests: warm up first
@@ -187,8 +191,8 @@ fn test_benchmark_internal_10k() {
         }
     });
 
-    let report_path = "vanta_benchmark_report.json";
-    let mut file = File::create(report_path).expect("create report file");
+    let report_path = dir.path().join("vanta_benchmark_report.json");
+    let mut file = File::create(&report_path).expect("create report file");
     file.write_all(
         serde_json::to_string_pretty(&report)
             .expect("pretty json")
@@ -196,5 +200,5 @@ fn test_benchmark_internal_10k() {
     )
     .expect("write report json");
 
-    println!("Benchmark report saved to {}", report_path);
+    println!("Benchmark report saved to {}", report_path.display());
 }

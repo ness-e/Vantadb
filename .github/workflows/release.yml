@@ -75,7 +75,7 @@ jobs:
           cache-bin: "false"
 
       - name: Build Release Binaries
-        run: cargo build --release -p vantadb -p vantadb-server
+        run: cargo build --release -p vantadb -p vantadb-server -p vantadb-mcp
 
       - name: Rename and Hash (Unix)
         if: matrix.os != 'windows-latest'
@@ -91,15 +91,18 @@ jobs:
           # Rename
           mv target/release/vanta-cli target/release/vanta-cli-$SUFFIX
           mv target/release/vantadb-server target/release/vantadb-server-$SUFFIX
+          mv target/release/vantadb-mcp target/release/vantadb-mcp-$SUFFIX
           
           # Hash
           cd target/release
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
             sha256sum vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
+            sha256sum vantadb-mcp-$SUFFIX > vantadb-mcp-$SUFFIX.sha256
           else
             shasum -a 256 vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
             shasum -a 256 vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
+            shasum -a 256 vantadb-mcp-$SUFFIX > vantadb-mcp-$SUFFIX.sha256
           fi
 
       - name: Rename and Hash (Windows)
@@ -108,18 +111,24 @@ jobs:
         run: |
           Rename-Item -Path "target\release\vanta-cli.exe" -NewName "vanta-cli-windows-amd64.exe"
           Rename-Item -Path "target\release\vantadb-server.exe" -NewName "vantadb-server-windows-amd64.exe"
+          Rename-Item -Path "target\release\vantadb-mcp.exe" -NewName "vantadb-mcp-windows-amd64.exe"
           
           $hash_cli = (Get-FileHash -Algorithm SHA256 "target\release\vanta-cli-windows-amd64.exe").Hash.ToLower()
           Set-Content -Path "target\release\vanta-cli-windows-amd64.exe.sha256" -NoNewline -Value "$hash_cli  vanta-cli-windows-amd64.exe"
           
           $hash_server = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-server-windows-amd64.exe").Hash.ToLower()
           Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value "$hash_server  vantadb-server-windows-amd64.exe"
+          
+          $hash_mcp = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-mcp-windows-amd64.exe").Hash.ToLower()
+          Set-Content -Path "target\release\vantadb-mcp-windows-amd64.exe.sha256" -NoNewline -Value "$hash_mcp  vantadb-mcp-windows-amd64.exe"
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@v4
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          subject-path: 'target/release/vanta-*'
+          subject-path: |
+            target/release/vanta-*
+            target/release/vantadb-mcp-*
 
       - name: Release
         uses: softprops/action-gh-release@v3
@@ -128,5 +137,6 @@ jobs:
           files: |
             target/release/vanta-cli-*
             target/release/vantadb-server-*
+            target/release/vantadb-mcp-*
           draft: true
           generate_release_notes: true

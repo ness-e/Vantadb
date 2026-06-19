@@ -12,6 +12,7 @@ use axum::{
 use common::{TerminalReporter, VantaHarness};
 use std::net::SocketAddr;
 use std::sync::Arc;
+
 use tower::ServiceExt;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
@@ -335,7 +336,17 @@ async fn test_tls_server_health_and_query() {
         }
     });
 
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    // Wait for the TLS server to actually accept connections (event-based, not fixed sleep)
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        if tokio::time::Instant::now() >= deadline {
+            panic!("TLS server at {} did not start within 5s", addr);
+        }
+        if tokio::net::TcpStream::connect(addr).await.is_ok() {
+            break;
+        }
+        tokio::task::yield_now().await;
+    }
 
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)

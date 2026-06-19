@@ -145,8 +145,12 @@ fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
     let rem_a = chunks_a.remainder();
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
-        let va = f32x8::from(*<&[f32; 8]>::try_from(a_chunk).unwrap());
-        let vb = f32x8::from(*<&[f32; 8]>::try_from(b_chunk).unwrap());
+        let va = f32x8::from(
+            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
+        let vb = f32x8::from(
+            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
         dot_v += va * vb;
         norm_b_v += vb * vb;
     }
@@ -173,8 +177,12 @@ fn f32_dot_product(a: &[f32], b: &[f32]) -> f32 {
     let rem_a = chunks_a.remainder();
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
-        let va = f32x8::from(*<&[f32; 8]>::try_from(a_chunk).unwrap());
-        let vb = f32x8::from(*<&[f32; 8]>::try_from(b_chunk).unwrap());
+        let va = f32x8::from(
+            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
+        let vb = f32x8::from(
+            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
         dot_v += va * vb;
     }
     let mut dot = dot_v.reduce_add();
@@ -241,8 +249,12 @@ pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
     let rem_a = chunks_a.remainder();
     let rem_b = chunks_b.remainder();
     for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
-        let va = f32x8::from(*<&[f32; 8]>::try_from(a_chunk).unwrap());
-        let vb = f32x8::from(*<&[f32; 8]>::try_from(b_chunk).unwrap());
+        let va = f32x8::from(
+            *<&[f32; 8]>::try_from(a_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
+        let vb = f32x8::from(
+            *<&[f32; 8]>::try_from(b_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+        );
         let diff = va - vb;
         sum_v += diff * diff;
     }
@@ -770,8 +782,7 @@ impl CPIndex {
                                 )
                             };
 
-                            if results.len() < ef
-                                || (results.peek().is_some() && d > results.peek().unwrap().0)
+                            if results.len() < ef || results.peek().is_some_and(|worst| d > worst.0)
                             {
                                 candidates.push(NodeSim(d, neighbor_id));
 
@@ -916,36 +927,57 @@ impl CPIndex {
         final_selected
     }
 
-    #[tracing::instrument(skip(self, vec_data), level = "debug")]
-    pub fn add(&self, id: u64, bitset: u128, vec_data: VectorRepresentations, storage_offset: u64) {
+    fn validate_node(
+        &self,
+        id: u64,
+        bitset: u128,
+        vec_data: &VectorRepresentations,
+        storage_offset: u64,
+    ) -> bool {
         if let Some(mut node) = self.nodes.get_mut(&id) {
             node.bitset = bitset;
-            node.vec_data = vec_data;
+            node.vec_data = vec_data.clone();
             node.storage_offset = storage_offset;
-            return;
+            return true;
         }
 
         if vec_data.is_none() {
-            // Can't index graph nodes without vectors into HNSW layers,
-            // but we must still register them in the nodes map to track their storage_offset.
             self.nodes.insert(
                 id,
                 HnswNode {
                     id,
                     bitset,
-                    vec_data,
+                    vec_data: vec_data.clone(),
                     neighbors: vec![Vec::new()],
                     storage_offset,
                     inv_cached_norm: 0.0,
                 },
             );
+            return true;
+        }
+
+        false
+    }
+
+    #[tracing::instrument(skip(self, vec_data), level = "debug")]
+    pub fn add(&self, id: u64, bitset: u128, vec_data: VectorRepresentations, storage_offset: u64) {
+        if self.validate_node(id, bitset, &vec_data, storage_offset) {
             return;
         }
 
+        self.insert_hnsw(id, bitset, vec_data, storage_offset);
+    }
+
+    fn insert_hnsw(
+        &self,
+        id: u64,
+        bitset: u128,
+        vec_data: VectorRepresentations,
+        storage_offset: u64,
+    ) {
         let level = self.random_layer();
         let ef_cons = self.config.ef_construction;
 
-        // Pre-compute the L2 norm for Cosine fast-path (borrows vec_data)
         let inv_cached_norm = match self.config.distance_metric {
             DistanceMetric::Cosine => vec_data
                 .as_f32_slice()
@@ -961,20 +993,17 @@ impl CPIndex {
             DistanceMetric::Euclidean => 0.0,
         };
 
-        // Extract query f32 representation BEFORE moving vec_data into the node.
-        // This eliminates a full vector clone (128D × 4 bytes = 512 bytes per insertion).
-        let query_f32 = vec_data.to_f32(); // borrows then releases vec_data
+        let query_f32 = vec_data.to_f32();
 
         let node = HnswNode {
             id,
             bitset,
-            vec_data, // MOVE — no clone needed since query_f32 is already extracted
+            vec_data,
             neighbors: vec![Vec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
         };
 
-        // If index is empty, just register the node and return
         let ep = match self.get_entry_point() {
             None => {
                 self.set_entry_point(id);
@@ -985,13 +1014,11 @@ impl CPIndex {
             Some(entry) => entry,
         };
 
-        // Insert placeholder node to allow similarity calculations during pruning
         self.nodes.insert(id, node);
 
-        // Unwrap the pre-extracted query vector
         let query_f32 = match query_f32 {
             Some(v) => v,
-            None => return, // Critical failure, vector decode failed
+            None => return,
         };
 
         let (query_norm, query_inv_norm) = match self.config.distance_metric {
@@ -1009,7 +1036,6 @@ impl CPIndex {
         let mut curr_entry_points = vec![ep];
         let top_layer = self.max_layer.load(Ordering::Acquire);
 
-        // Phase 1: Descend down to the new node's insertion level (or top_layer)
         for layer in (level + 1..=top_layer).rev() {
             let mut w = self.search_layer(
                 &query_f32,
@@ -1027,7 +1053,6 @@ impl CPIndex {
             }
         }
 
-        // Phase 2: From node's layer down to 0, find neighbors and connect
         let start_layer = std::cmp::min(level, top_layer);
         for layer in (0..=start_layer).rev() {
             let w = self.search_layer(
@@ -1042,25 +1067,20 @@ impl CPIndex {
                 self.config.distance_metric,
             );
 
-            // Extract the neighbors to connect (bidirectionally)
             let m_max = if layer == 0 {
                 self.config.m_max0
             } else {
                 self.config.m
             };
 
-            // Extract entry_points BEFORE consuming w in select_neighbors
             curr_entry_points = w.iter().map(|ns| ns.1).collect();
             let selected_neighbors = self.select_neighbors(w, m_max);
 
-            // Update our own neighbors for this layer
             if let Some(mut n) = self.nodes.get_mut(&id) {
                 n.neighbors[layer] = selected_neighbors.clone();
             }
 
-            // Bidirectional links
             for &neighbor_id in &selected_neighbors {
-                // Scope mutable access to avoid overlap with immutable `self.nodes.get(&nt)`
                 let (needs_shrink, current_neighbors) = {
                     if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
                         if layer < neighbor_node.neighbors.len() {
@@ -1068,7 +1088,6 @@ impl CPIndex {
                                 neighbor_node.neighbors[layer].push(id);
                             }
 
-                            // Shrink connections if they overflow M_max
                             if neighbor_node.neighbors[layer].len() > m_max {
                                 (true, neighbor_node.neighbors[layer].clone())
                             } else {
@@ -1124,7 +1143,10 @@ impl CPIndex {
             }
         }
 
-        // Update entry point if we created a new highest layer
+        self.update_metadata(level, id);
+    }
+
+    fn update_metadata(&self, level: usize, id: u64) {
         let current_max = self.max_layer.load(Ordering::Acquire);
         if level > current_max {
             self.max_layer.fetch_max(level, Ordering::Release);
@@ -1371,16 +1393,24 @@ impl CPIndex {
 
         #[inline]
         fn read_le_u64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u64> {
-            Ok(u64::from_le_bytes(
-                take_bytes(data, pos, 8, field)?.try_into().unwrap(),
-            ))
+            let bytes = take_bytes(data, pos, 8, field)?;
+            Ok(u64::from_le_bytes(bytes.try_into().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("failed to parse {field} as u64: {e}"),
+                )
+            })?))
         }
 
         #[inline]
         fn read_le_f64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<f64> {
-            Ok(f64::from_le_bytes(
-                take_bytes(data, pos, 8, field)?.try_into().unwrap(),
-            ))
+            let bytes = take_bytes(data, pos, 8, field)?;
+            Ok(f64::from_le_bytes(bytes.try_into().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("failed to parse {field} as f64: {e}"),
+                )
+            })?))
         }
 
         if data.len() < crate::binary_header::VantaHeader::SIZE + 8 {
@@ -1451,7 +1481,12 @@ impl CPIndex {
             let id = read_le_u64(data, &mut pos, "node id")?;
 
             let bitset_bytes = take_bytes(data, &mut pos, 16, "bitset")?;
-            let bitset = u128::from_le_bytes(bitset_bytes.try_into().unwrap());
+            let bitset = u128::from_le_bytes(bitset_bytes.try_into().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("bitset field expected 16 bytes: {e}"),
+                )
+            })?);
 
             let storage_offset = read_le_u64(data, &mut pos, "storage_offset")?;
 
@@ -1474,7 +1509,14 @@ impl CPIndex {
                         for i in 0..vec_len {
                             let start = i * 4;
                             v.push(f32::from_le_bytes(
-                                vec_bytes[start..start + 4].try_into().unwrap(),
+                                vec_bytes[start..start + 4].try_into().map_err(|e| {
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::InvalidData,
+                                        format!(
+                                            "f32 vec chunk at byte {start} expected 4 bytes: {e}"
+                                        ),
+                                    )
+                                })?,
                             ));
                         }
                         VectorRepresentations::Full(v)
@@ -1492,7 +1534,14 @@ impl CPIndex {
                     for i in 0..vec_len {
                         let start = i * 8;
                         v.push(u64::from_le_bytes(
-                            vec_bytes[start..start + 8].try_into().unwrap(),
+                            vec_bytes[start..start + 8].try_into().map_err(|e| {
+                                std::io::Error::new(
+                                    std::io::ErrorKind::InvalidData,
+                                    format!(
+                                        "binary vec chunk at byte {start} expected 8 bytes: {e}"
+                                    ),
+                                )
+                            })?,
                         ));
                     }
                     VectorRepresentations::Binary(v.into_boxed_slice())
@@ -1525,7 +1574,12 @@ impl CPIndex {
                 for i in 0..neighbor_count {
                     let start = i * 8;
                     layer_neighbors.push(u64::from_le_bytes(
-                        nbr_bytes[start..start + 8].try_into().unwrap(),
+                        nbr_bytes[start..start + 8].try_into().map_err(|e| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!("neighbor id at byte {start} expected 8 bytes: {e}"),
+                            )
+                        })?,
                     ));
                 }
                 neighbors.push(layer_neighbors);

@@ -284,4 +284,4 @@ If it opens and queries return expected data, the backup is valid.
 | WAL corruption auto-healing | `tests/storage/wal_resilience.rs` |
 | Fjall + WAL durability recovery | `tests/durability_recovery.rs` |
 | Graceful shutdown | `vantadb-python/tests/` (server E2E tests) |
-| Chaos testing (failpoints) | `tests/storage/chaos_testing.rs` |
+| Chaos testing (failpoints) | `tests/storage/chaos_integrity.rs` |

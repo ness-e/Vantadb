@@ -16,7 +16,7 @@ violations, unsafe deserialization, index corruption, or unauthorized access thr
 report it through one of these channels:
 
 1. **Preferred private channel:** If private reporting is enabled on this repository, use
-   [GitHub Security Advisories](https://github.com/DevpNess/Vantadb/security/advisories/new).
+   [GitHub Security Advisories](https://github.com/ness-e/Vantadb/security/advisories/new).
 2. **Non-sensitive reports:** Open a GitHub Issue and apply or request the `security` label.
 3. **If private reporting is unavailable:** Open a minimal public issue asking for a private
    coordination path, but do not include exploit details, secrets, or weaponized proof-of-concept
