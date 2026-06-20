@@ -108,11 +108,31 @@ fn test_wal_middle_corruption_auto_healing() {
             file.read_to_end(&mut file_content).unwrap();
         }
 
-        // Corrompemos 15 bytes a partir del offset 120 (el cual cae exactamente en la carga útil de node 202)
-        let start_pos = 120;
-        for i in 0..15 {
+        // Localizar dinámicamente la región de payload del nodo 202
+        // header(20) + rec1(4+len1+4) + 4 = start of node202 length prefix
+        let hdr = 20usize;
+        let len1 = u32::from_le_bytes(file_content[hdr..hdr + 4].try_into().unwrap()) as usize;
+        let rec1_end = hdr + 4 + len1 + 4;
+        let len2 =
+            u32::from_le_bytes(file_content[rec1_end..rec1_end + 4].try_into().unwrap()) as usize;
+        let node202_payload_start = rec1_end + 4;
+        let node202_payload_end = node202_payload_start + len2;
+        // Corrompemos bytes en la segunda mitad del payload del nodo 202, pero sin tocar su CRC ni el nodo 203
+        let corruption_len = std::cmp::min(15, len2 / 2);
+        let start_pos = node202_payload_start + len2 / 2;
+        eprintln!(
+            "WAL layout: header=20, node201={}+{} bytes, node202 starts at {}, payload at {}-{}, corrupting {} bytes at offset {}",
+            4 + len1 + 4,
+            4 + len2 + 4,
+            rec1_end,
+            node202_payload_start,
+            node202_payload_end,
+            corruption_len,
+            start_pos,
+        );
+        for i in 0..corruption_len {
             if start_pos + i < file_content.len() {
-                file_content[start_pos + i] = 0xAA; // Sobrescribir con basura binaria
+                file_content[start_pos + i] = 0xAA;
             }
         }
 

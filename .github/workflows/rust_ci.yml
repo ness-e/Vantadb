@@ -137,14 +137,18 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         cache-bin: "false"
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@v2
+      with:
+        tool: nextest
     - name: Cargo check (Windows smoke test)
       run: cargo check --workspace
     - name: Clippy (Windows)
       run: cargo clippy --workspace -- -D warnings
-    - name: Run tests (Windows)
+    - name: Run quick integrity tests (Windows)
       shell: pwsh
       timeout-minutes: 30
-      run: cargo test --workspace
+      run: cargo nextest run --profile audit --workspace
 
   coverage:
     name: Code Coverage (cargo-llvm-cov)

@@ -101,3 +101,104 @@ jobs:
           cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
           cargo nextest run --test wal_resilience --test-threads=1
           cargo nextest run --test crash_injection --test-threads=1
+
+  storage-persistence:
+    name: "Certification: storage_persistence"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      - name: Run storage persistence & recovery tests
+        timeout-minutes: 75
+        run: >
+          cargo test --release --features cli
+          --test backend_tests
+          --test storage
+          --test durability_recovery
+          --test derived_index_recovery
+          --test index_reconstruction
+          --test fjall_cold_copy_restore
+          --test property_durability
+          --test file_locking_stress
+          --test schema_evolution
+          --test gc
+          --test mmap_index
+          --test mutations
+          --test antilocality_layout
+          --test tombstone_ann_vstore
+          --test multi_process_lock
+          --test operational_metrics
+          --test prefetch_benchmark
+          --
+          --test-threads=1
+
+  text-index:
+    name: "Certification: text_index_recovery"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+      - name: Run text index recovery tests
+        timeout-minutes: 45
+        run: cargo test --release --test text_index_recovery -- --test-threads=1 --nocapture
+
+  memory-concurrency:
+    name: "Certification: memory_concurrency"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+      - name: Run memory & concurrency heavy tests
+        timeout-minutes: 45
+        run: >
+          cargo test --release
+          --test memory_brutality
+          --test memory_export_import
+          --test concurrency_parity
+          --test memory_api
+          --test edge_cases
+          --test fuzz_proptest
+          --
+          --test-threads=1
+
+  other-heavy:
+    name: "Certification: other_heavy"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 4096
+          free-disk: true
+      - name: Run remaining heavy tests
+        timeout-minutes: 45
+        run: |
+          cargo test --release --features cli \
+            --test benchmark_internal \
+            --test benchmark_datasets \
+            --test cli_tests \
+            --test structured_api_v2 \
+            --test python_sdk_boundary \
+            --test hybrid_ranking_metrics \
+            --test hybrid_retrieval_quality \
+            --test basic_node \
+            --test hardware_profiles \
+            --test vector_scale_check \
+            --test integration \
+            -- \
+            --test-threads=1
+          cargo test --release \
+            --package vantadb-server \
+            --test mcp_integration \
+            --test e2e \
+            --test benchmarks \
+            --test server \
+            -- \
+            --test-threads=1

@@ -1,5 +1,56 @@
 [profile.audit]
-default-filter = "not test(hnsw_hard_validation_certification) and not test(recall_certification_runner) and not test(stress_protocol_certification) and not test(validate_sift_dataset_integrity) and not test(sift1m_competitive_benchmark) and not test(test_benchmark_internal_10k) and not test(vector_scale_performance_certification) and not test(hardware_certification_full) and not test(multi_process_lock) and not test(crash_injection)"
+# Only quick integrity tests run in CI. Heavy tests (storage, WAL, text index, certification)
+# are excluded here and run exclusively in heavy_certification.yml (weekly).
+# Binary IDs match the test file stem (e.g. tests/storage/wal_resilience.rs → wal_resilience).
+default-filter = """\
+not binary_id(benchmark_internal) \
+and not binary_id(benchmark_datasets) \
+and not binary_id(cli_tests) \
+and not binary_id(concurrency_parity) \
+and not binary_id(derived_index_recovery) \
+and not binary_id(durability_recovery) \
+and not binary_id(edge_cases) \
+and not binary_id(file_locking_stress) \
+and not binary_id(fjall_cold_copy_restore) \
+and not binary_id(fuzz_proptest) \
+and not binary_id(index_reconstruction) \
+and not binary_id(memory_api) \
+and not binary_id(memory_brutality) \
+and not binary_id(memory_export_import) \
+and not binary_id(operational_metrics) \
+and not binary_id(prefetch_benchmark) \
+and not binary_id(property_durability) \
+and not binary_id(schema_evolution) \
+and not binary_id(text_index_recovery) \
+and not binary_id(wal_resilience) \
+and not binary_id(python) \
+and not binary_id(structured_api_v2) \
+and not binary_id(hnsw_recall) \
+and not binary_id(hnsw_validation) \
+and not binary_id(hybrid_ranking_metrics) \
+and not binary_id(hybrid_retrieval_quality) \
+and not binary_id(sift_validation) \
+and not binary_id(stress_protocol) \
+and not binary_id(competitive_bench) \
+and not binary_id(hardware_profiles) \
+and not binary_id(basic_node) \
+and not binary_id(vector_scale_check) \
+and not test(integrations_certification) \
+and not binary_id(mcp_integration) \
+and not binary_id(e2e) \
+and not binary_id(benchmarks) \
+and not binary_id(server) \
+and not binary_id(antilocality_layout) \
+and not binary_id(backend_tests) \
+and not binary_id(chaos_integrity) \
+and not binary_id(crash_injection) \
+and not binary_id(gc) \
+and not binary_id(mmap_index) \
+and not binary_id(multi_process_lock) \
+and not binary_id(mutations) \
+and not binary_id(storage) \
+and not binary_id(tombstone_ann_vstore) \
+"""
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"
