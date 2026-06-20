@@ -89,7 +89,7 @@ jobs:
           echo "Installing wheel: $wheel"
           python -m venv /tmp/.smoke-venv
           /tmp/.smoke-venv/bin/pip install --upgrade pip
-          /tmp/.smoke-venv/bin/pip install "$wheel" pytest
+          /tmp/.smoke-venv/bin/pip install "$wheel" pytest numpy
           /tmp/.smoke-venv/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
           /tmp/.smoke-venv/bin/pytest vantadb-python/tests/test_sdk.py -v
 
@@ -101,7 +101,7 @@ jobs:
           Write-Output "Installing wheel: $wheel"
           python -m venv "$env:TEMP\.smoke-venv"
           & "$env:TEMP\.smoke-venv\Scripts\pip" install --upgrade pip
-          & "$env:TEMP\.smoke-venv\Scripts\pip" install $wheel pytest
+          & "$env:TEMP\.smoke-venv\Scripts\pip" install $wheel pytest numpy
           & "$env:TEMP\.smoke-venv\Scripts\python" -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
           & "$env:TEMP\.smoke-venv\Scripts\pytest" vantadb-python/tests/test_sdk.py -v
 
