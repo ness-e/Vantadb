@@ -1,5 +1,8 @@
 use dashmap::DashMap;
+#[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
+#[cfg(not(feature = "memmap2"))]
+use crate::storage::MmapMut;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::collections::BinaryHeap;
@@ -435,7 +438,7 @@ impl IndexBackend {
             IndexBackend::MMapFile { path, mmap: None } => {
                 // Fallback: open the file and create a temporary read-only mmap
                 let file = File::open(path).ok()?;
-                let mmap = unsafe { memmap2::Mmap::map(&file).ok()? };
+                let mmap = unsafe { crate::storage::Mmap::map(&file).ok()? };
                 crate::storage::get_resident_bytes(mmap.as_ptr(), mmap.len())
             }
             IndexBackend::InMemory => None,
@@ -1741,7 +1744,7 @@ impl CPIndex {
                 Err(_) => return None,
             };
 
-            let mmap = match unsafe { memmap2::MmapMut::map_mut(&file) } {
+            let mmap = match unsafe { crate::storage::MmapMut::map_mut(&file) } {
                 Ok(m) => m,
                 Err(e) => {
                     warn!(err = %e, "Failed to mmap HNSW index file — will rebuild");

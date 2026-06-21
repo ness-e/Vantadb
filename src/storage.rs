@@ -9,16 +9,81 @@ use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use arc_swap::ArcSwap;
-use memmap2::{Mmap, MmapMut, MmapOptions};
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{File, OpenOptions};
+#[cfg(not(feature = "memmap2"))]
+use std::io::Read;
+#[cfg(not(feature = "memmap2"))]
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use zerocopy::{FromBytes, IntoBytes};
+
+// ─── WASM-compatible mmap shim ────────────────────────────────────────
+#[cfg(feature = "memmap2")]
+pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
+
+#[cfg(not(feature = "memmap2"))]
+pub(crate) mod mmap_shim {
+    use super::*;
+    #[derive(Debug)]
+    pub struct Mmap(Vec<u8>);
+    #[derive(Debug)]
+    pub struct MmapMut(Vec<u8>);
+    pub struct MmapOptions;
+
+    impl MmapOptions {
+        pub fn new() -> Self { Self }
+        pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
+            let mut v = vec![0u8; file.metadata()?.len() as usize];
+            let mut f = file.try_clone()?;
+            f.read_exact(&mut v)?;
+            Ok(Mmap(v))
+        }
+        pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
+            let mut v = vec![0u8; file.metadata()?.len() as usize];
+            let mut f = file.try_clone()?;
+            f.read_exact(&mut v)?;
+            Ok(MmapMut(v))
+        }
+    }
+
+    impl Mmap {
+        pub fn map(file: &File) -> std::io::Result<Self> {
+            MmapOptions::new().map(file)
+        }
+        pub fn as_ptr(&self) -> *const u8 { self.0.as_ptr() }
+        pub fn len(&self) -> usize { self.0.len() }
+        pub fn flush(&self) -> std::io::Result<()> { Ok(()) }
+        pub fn flush_async(&self) -> std::io::Result<()> { Ok(()) }
+        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> { Ok(()) }
+        pub fn is_empty(&self) -> bool { self.0.is_empty() }
+    }
+
+    impl Deref for Mmap { type Target = [u8]; fn deref(&self) -> &[u8] { &self.0 } }
+
+    impl MmapMut {
+        pub fn map_mut(file: &File) -> std::io::Result<Self> {
+            MmapOptions::new().map_mut(file)
+        }
+        pub fn as_ptr(&self) -> *const u8 { self.0.as_ptr() }
+        pub fn as_mut_ptr(&mut self) -> *mut u8 { self.0.as_mut_ptr() }
+        pub fn len(&self) -> usize { self.0.len() }
+        pub fn flush(&self) -> std::io::Result<()> { Ok(()) }
+        pub fn flush_async(&self) -> std::io::Result<()> { Ok(()) }
+        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> { Ok(()) }
+        pub fn is_empty(&self) -> bool { self.0.is_empty() }
+    }
+
+    impl Deref for MmapMut { type Target = [u8]; fn deref(&self) -> &[u8] { &self.0 } }
+    impl DerefMut for MmapMut { fn deref_mut(&mut self) -> &mut [u8] { &mut self.0 } }
+}
+#[cfg(not(feature = "memmap2"))]
+pub(crate) use mmap_shim::{Mmap, MmapMut, MmapOptions};
 
 #[cfg(unix)]
 use std::sync::atomic::{AtomicBool, AtomicPtr};
@@ -495,7 +560,9 @@ impl VantaFile {
     pub fn warmup_top_layers(&self, _size: usize) {
         #[cfg(unix)]
         {
+            #[cfg(feature = "memmap2")]
             use memmap2::Advice;
+            #[cfg(feature = "memmap2")]
             let _ = match &self.mmap {
                 VantaFileMap::ReadOnly(mmap) => mmap.advise(Advice::WillNeed),
                 VantaFileMap::ReadWrite(mmap) => mmap.advise(Advice::WillNeed),
@@ -664,10 +731,16 @@ impl StorageEngine {
             let mut acquired = false;
 
             while start_time.elapsed() < total_limit {
-                let lock_res = if config.read_only {
-                    fs2::FileExt::try_lock_shared(&file)
+                let lock_res: std::io::Result<()> = if config.read_only {
+                    #[cfg(feature = "fs2")]
+                    { fs2::FileExt::try_lock_shared(&file) }
+                    #[cfg(not(feature = "fs2"))]
+                    { Ok(()) }
                 } else {
-                    fs2::FileExt::try_lock_exclusive(&file)
+                    #[cfg(feature = "fs2")]
+                    { fs2::FileExt::try_lock_exclusive(&file) }
+                    #[cfg(not(feature = "fs2"))]
+                    { Ok(()) }
                 };
 
                 if lock_res.is_ok() {

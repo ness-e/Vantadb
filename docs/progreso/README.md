@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-21 (TSK-45 + TSK-106b ✅)
+> **Última actualización:** 2026-06-21 (TSK-71 WASM Build ✅)
 
 ## Resumen Ejecutivo
 
@@ -348,3 +348,19 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - Modelo de amenazas: network input (axum), file I/O, Python FFI, CLI arguments
   - Proceso de embargo notificado 3–30 días laborales antes del disclosure
 - **Resultado:** GitHub ahora detecta automáticamente la security policy en la pestaña Security del repo.
+
+### TSK-71 — WASM Build (wasm32-wasip1) para el core de VantaDB (2026-06-21)
+
+- **Objetivo:** Compilar el core de VantaDB a `wasm32-wasip1` haciendo 5 dependencias opcionales y agregando fallbacks en línea para WASM.
+- **Commits:** *(pending — sin commit aún)*
+- **Checklist completado:**
+  - [x] `Cargo.toml`: 5 deps (`sysinfo`, `memmap2`, `fs2`, `prometheus`, `rayon`) movidas a `optional = true`, feature `wasm` creada, `cpufeatures` eliminada
+  - [x] `hardware/mod.rs`: `detect()` bifurcado con `#[cfg(feature = "sysinfo")]`, fallback conservador (1GB RAM, 1 core)
+  - [x] `metrics.rs`: macros `observe_histogram!`, `inc_counter!`, `inc_counter_by!`, `set_gauge!` con `#[cfg(feature = "prometheus")]` interno; 33 statics gated; `export_metrics_text()` con fallback; `record_http_request` bifurcada; `record_memory_breakdown` refactorizado con `_get_rss_virt()`
+  - [x] `storage.rs`: shim mmap `Vec<u8>`-backed (`Mmap`/`MmapMut`/`MmapOptions`) para no-memmap2; file locking `fs2` gated con `Ok(())` fallback
+  - [x] `index.rs`: import condicional de `MmapMut`; llamadas a `crate::storage::Mmap`/`MmapMut` en lugar de `memmap2::`
+  - [x] `sdk.rs`: `rayon::prelude::*` gated; `.into_par_iter()` → bloque `#[cfg]` con `.into_iter()` de fallback
+  - [x] Build nativo (`cargo check`): ✅ sin errores
+  - [x] Build WASM (`cargo check --target wasm32-wasip1 --no-default-features --features wasm`): ✅ sin errores
+- **Archivos modificados:** `Cargo.toml`, `src/hardware/mod.rs`, `src/metrics.rs`, `src/storage.rs`, `src/index.rs`, `src/sdk.rs`
+- **Resultado:** Core crate compila en wasm32-wasip1. Warnings menores (unsafe innecesario en shim, dead code en backend/hardware) no bloqueantes.
