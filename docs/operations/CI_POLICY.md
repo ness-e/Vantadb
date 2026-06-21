@@ -57,6 +57,7 @@ scale capabilities without bottlenecking daily development.
 - `hnsw_validation` & `hnsw_recall_certification`.
 - `sift_validation` (optional): Tests the engine against standard public datasets.
 - `competitive_bench` (optional): Validates against FAISS/HNSWlib.
+- `mcp_tests` (package `vantadb-mcp`), `multilingual_tokenizer_integration`, and `columnar`: Validates integration boundaries and specific features (like arrow or advanced tokenizer) that are excluded from the default Fast Gate.
 
 **Why are these tests separated?** Running `stress_protocol` can take close to 2 hours on hosted
 runners and requires significant system resources (AVX2 plus heavy swap). It runs in its own

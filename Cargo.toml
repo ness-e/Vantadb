@@ -198,6 +198,7 @@ path = "tests/storage/tombstone_ann_vstore.rs"
 [[test]]
 name = "chaos_integrity"
 path = "tests/storage/chaos_integrity.rs"
+required-features = ["failpoints"]
 
 [[test]]
 name = "parser"
@@ -395,6 +396,22 @@ path = "tests/memory/backpressure.rs"
 [[test]]
 name = "memory_eviction"
 path = "tests/memory/eviction.rs"
+
+[[test]]
+name = "fjall_cold_copy_restore"
+path = "tests/fjall_cold_copy_restore.rs"
+
+[[test]]
+name = "property_durability"
+path = "tests/property_durability.rs"
+
+[[test]]
+name = "fuzz_proptest"
+path = "tests/fuzz_proptest.rs"
+
+[[test]]
+name = "multilingual_tokenizer_integration"
+path = "tests/multilingual_tokenizer_integration.rs"
 
 [profile.release]
 lto = "thin"
