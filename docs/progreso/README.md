@@ -414,3 +414,12 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **Problema raíz diagnosticado:**
   - `StorageEngine::get` retornaba `None` porque `DiskNodeHeader::ref_from_bytes` requiere alineación 64-byte del buffer subyacente, pero el `Vec<u8>` en WASM (heap-allocated) solo garantiza 8-16 bytes de alineación. `read_header(offset=64)` fallaba silenciosamente.
 - **Resultado:** 26/26 tests de integración pasan. Build WASM + TypeScript verificados.
+
+### TSK-118 — Ejemplos TS: LangChain.js, LlamaIndex.TS, Vercel AI SDK (2026-06-21)
+
+- **Objetivo:** Crear ejemplos funcionales de integración con los tres frameworks JS/TS más usados para RAG y agentes.
+- **Archivos creados:**
+  - `vantadb-ts/examples/vercel-ai-memory.mjs` — Vercel AI SDK tool calling + VantaDB como memoria conversacional
+  - `vantadb-ts/examples/langchain-rag.mjs` — LangChain Document pipeline + OpenAIEmbeddings + VantaDB search
+  - `vantadb-ts/examples/llamaindex-rag.mjs` — LlamaIndex document indexing + VantaDB vector search
+- **Resultado:** 3 ejemplos ESM con sintaxis verificada. Requieren `npm install` de los respectivos SDKs para ejecutarse.
