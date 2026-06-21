@@ -1,3 +1,5 @@
+#![doc(html_root_url = "https://docs.rs/vantadb/0.1.4/vantadb/")]
+
 //! # VantaDB — Embedded Persistent Memory Engine
 //!
 //! Embedded core for durable local memory, vector retrieval,
