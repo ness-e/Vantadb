@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-21 (TSK-45 — crates.io publish ✅)
+> **Última actualización:** 2026-06-21 (TSK-45 + TSK-106b ✅)
 
 ## Resumen Ejecutivo
 
@@ -335,3 +335,16 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - [x] Publicado en crates.io: `cargo publish` → **vantadb v0.1.4** disponible en https://crates.io/crates/vantadb
 - **Archivos modificados:** `Cargo.toml`, `vantadb-python/Cargo.toml`, `src/lib.rs`, `.gitignore`
 - **Resultado:** Core crate publicado exitosamente en crates.io. Documentación auto-build en docs.rs pendiente.
+
+### TSK-106b — SECURITY.md + Vulnerability Disclosure Policy (2026-06-21)
+
+- **Objetivo:** Crear política de seguridad coordinada con ventana de divulgación de 90 días, alineada con estándares OpenSSF/OWASP.
+- **Commits:** `c14ed97`
+- **Archivo creado:** `.github/SECURITY.md`
+- **Contenido:**
+  - Reporting via GitHub Security Advisories (privado, respuesta ≤3 días hábiles)
+  - Timeline de divulgación coordinada de 90 días (día 0→3 acuse, 3→10 triaje, 10→90 fix, 90+ disclosure público)
+  - Política de versiones soportadas (solo latest minor)
+  - Modelo de amenazas: network input (axum), file I/O, Python FFI, CLI arguments
+  - Proceso de embargo notificado 3–30 días laborales antes del disclosure
+- **Resultado:** GitHub ahora detecta automáticamente la security policy en la pestaña Security del repo.
