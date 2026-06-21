@@ -1,3 +1,4 @@
+#[cfg(feature = "prometheus")]
 use prometheus::{
     exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry,
 };
@@ -5,9 +6,38 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::Instant;
 
-// Ensure singleton metrics registry across the binary
+#[cfg(feature = "prometheus")]
 pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
+macro_rules! observe_histogram {
+    ($hist:expr, $val:expr) => {
+        #[cfg(feature = "prometheus")]
+        $hist.observe($val as f64);
+    };
+}
+
+macro_rules! inc_counter {
+    ($counter:expr) => {
+        #[cfg(feature = "prometheus")]
+        $counter.inc();
+    };
+}
+
+macro_rules! inc_counter_by {
+    ($counter:expr, $val:expr) => {
+        #[cfg(feature = "prometheus")]
+        $counter.inc_by($val);
+    };
+}
+
+macro_rules! set_gauge {
+    ($gauge:expr, $val:expr) => {
+        #[cfg(feature = "prometheus")]
+        $gauge.set($val as i64);
+    };
+}
+
+#[cfg(feature = "prometheus")]
 pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_query_latency_ms",
@@ -22,6 +52,7 @@ pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents")
         .expect("FATAL: Failed to create OOM_TRIPS counter - metric name conflict");
@@ -31,6 +62,7 @@ pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static CACHE_HITS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches")
         .expect("FATAL: Failed to create CACHE_HITS counter - metric name conflict");
@@ -40,6 +72,7 @@ pub static CACHE_HITS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static STARTUP_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_startup_latency_ms",
@@ -52,6 +85,7 @@ pub static STARTUP_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static WAL_REPLAY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_wal_replay_latency_ms",
@@ -64,6 +98,7 @@ pub static WAL_REPLAY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static ANN_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_ann_rebuild_latency_ms",
@@ -76,6 +111,7 @@ pub static ANN_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_derived_rebuild_latency_ms",
@@ -88,6 +124,7 @@ pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_text_index_rebuild_latency_ms",
@@ -100,6 +137,7 @@ pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static RECORDS_EXPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_records_exported_total",
@@ -112,6 +150,7 @@ pub static RECORDS_EXPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static RECORDS_IMPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_records_imported_total",
@@ -124,6 +163,7 @@ pub static RECORDS_IMPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static IMPORT_ERRORS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_import_errors_total",
@@ -136,6 +176,7 @@ pub static IMPORT_ERRORS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_POSTINGS_WRITTEN: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_postings_written_total",
@@ -148,6 +189,7 @@ pub static TEXT_POSTINGS_WRITTEN: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_INDEX_REPAIRS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_index_repairs_total",
@@ -160,6 +202,7 @@ pub static TEXT_INDEX_REPAIRS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_text_lexical_query_latency_ms",
@@ -172,6 +215,7 @@ pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(||
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_LEXICAL_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_lexical_queries_total",
@@ -184,6 +228,7 @@ pub static TEXT_LEXICAL_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_CANDIDATES_SCORED: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_candidates_scored_total",
@@ -196,6 +241,7 @@ pub static TEXT_CANDIDATES_SCORED: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_CONSISTENCY_AUDITS: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_consistency_audits_total",
@@ -208,6 +254,7 @@ pub static TEXT_CONSISTENCY_AUDITS: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_text_consistency_audit_failures_total",
@@ -220,6 +267,7 @@ pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_hybrid_query_latency_ms",
@@ -232,6 +280,7 @@ pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static HYBRID_CANDIDATES_FUSED: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_hybrid_candidates_fused_total",
@@ -244,6 +293,7 @@ pub static HYBRID_CANDIDATES_FUSED: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static PLANNER_HYBRID_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_planner_hybrid_queries_total",
@@ -256,6 +306,7 @@ pub static PLANNER_HYBRID_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_planner_text_only_queries_total",
@@ -268,6 +319,7 @@ pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
     let counter = IntCounter::new(
         "vanta_planner_vector_only_queries_total",
@@ -282,6 +334,7 @@ pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| 
 
 // ── Memory breakdown gauges ──────────────────────────────────────────────
 
+#[cfg(feature = "prometheus")]
 pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_process_rss_bytes",
@@ -294,6 +347,7 @@ pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_process_virtual_bytes",
@@ -306,6 +360,7 @@ pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_hnsw_nodes_count",
@@ -318,6 +373,7 @@ pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_hnsw_logical_bytes",
@@ -330,6 +386,7 @@ pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_mmap_resident_bytes",
@@ -342,6 +399,7 @@ pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_volatile_cache_entries",
@@ -354,6 +412,7 @@ pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
     gauge
 });
 
+#[cfg(feature = "prometheus")]
 pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     let gauge = IntGauge::new(
         "vanta_volatile_cache_cap_bytes",
@@ -368,10 +427,12 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
 
 // ── HTTP request metrics (middleware in cli_server) ─────────────────────
 
+#[cfg(feature = "prometheus")]
 fn http_buckets() -> Vec<f64> {
     exponential_buckets(0.5, 2.0, 12).expect("FATAL: http_buckets")
 }
 
+#[cfg(feature = "prometheus")]
 pub static HTTP_REQUEST_DURATION_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     let hist = HistogramVec::new(
         prometheus::HistogramOpts::new(
@@ -388,6 +449,7 @@ pub static HTTP_REQUEST_DURATION_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
     hist
 });
 
+#[cfg(feature = "prometheus")]
 pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     let counter = IntCounterVec::new(
         prometheus::Opts::new(
@@ -403,6 +465,7 @@ pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     counter
 });
 
+#[cfg(feature = "prometheus")]
 pub fn record_http_request(method: &str, route: &str, status: u16, start: Instant) {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
     HTTP_REQUEST_DURATION_MS
@@ -412,6 +475,9 @@ pub fn record_http_request(method: &str, route: &str, status: u16, start: Instan
         .with_label_values(&[method, route, &status.to_string()])
         .inc();
 }
+
+#[cfg(not(feature = "prometheus"))]
+pub fn record_http_request(_method: &str, _route: &str, _status: u16, _start: Instant) {}
 
 static LAST_STARTUP_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WAL_REPLAY_MS: AtomicU64 = AtomicU64::new(0);
@@ -504,24 +570,24 @@ pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed:
     LAST_STARTUP_MS.store(startup_ms, Ordering::Relaxed);
     LAST_WAL_REPLAY_MS.store(wal_replay_ms, Ordering::Relaxed);
     LAST_WAL_RECORDS_REPLAYED.store(wal_records_replayed, Ordering::Relaxed);
-    STARTUP_LATENCY_MS.observe(startup_ms as f64);
-    WAL_REPLAY_LATENCY_MS.observe(wal_replay_ms as f64);
+    observe_histogram!(STARTUP_LATENCY_MS, startup_ms);
+    observe_histogram!(WAL_REPLAY_LATENCY_MS, wal_replay_ms);
 }
 
 pub fn record_ann_rebuild(duration_ms: u64, scanned_nodes: u64) {
     LAST_ANN_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
     LAST_ANN_REBUILD_SCANNED_NODES.store(scanned_nodes, Ordering::Relaxed);
-    ANN_REBUILD_LATENCY_MS.observe(duration_ms as f64);
+    observe_histogram!(ANN_REBUILD_LATENCY_MS, duration_ms);
 }
 
 pub fn record_derived_rebuild(duration_ms: u64) {
     LAST_DERIVED_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
-    DERIVED_REBUILD_LATENCY_MS.observe(duration_ms as f64);
+    observe_histogram!(DERIVED_REBUILD_LATENCY_MS, duration_ms);
 }
 
 pub fn record_text_index_rebuild(duration_ms: u64, postings_written: u64) {
     LAST_TEXT_INDEX_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
-    TEXT_INDEX_REBUILD_LATENCY_MS.observe(duration_ms as f64);
+    observe_histogram!(TEXT_INDEX_REBUILD_LATENCY_MS, duration_ms);
     record_text_postings_written(postings_written);
 }
 
@@ -530,64 +596,64 @@ pub fn record_text_postings_written(postings_written: u64) {
         return;
     }
     TEXT_POSTINGS_WRITTEN_TOTAL.fetch_add(postings_written, Ordering::Relaxed);
-    TEXT_POSTINGS_WRITTEN.inc_by(postings_written);
+    inc_counter_by!(TEXT_POSTINGS_WRITTEN, postings_written);
 }
 
 pub fn record_text_index_repair() {
     TEXT_INDEX_REPAIRS_TOTAL.fetch_add(1, Ordering::Relaxed);
-    TEXT_INDEX_REPAIRS.inc();
+    inc_counter!(TEXT_INDEX_REPAIRS);
 }
 
 pub fn record_text_lexical_query(duration_ms: u64, candidates_scored: u64) {
     LAST_TEXT_LEXICAL_QUERY_MS.store(duration_ms, Ordering::Relaxed);
     TEXT_LEXICAL_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
     TEXT_CANDIDATES_SCORED_TOTAL.fetch_add(candidates_scored, Ordering::Relaxed);
-    TEXT_LEXICAL_QUERY_LATENCY_MS.observe(duration_ms as f64);
-    TEXT_LEXICAL_QUERIES.inc();
-    TEXT_CANDIDATES_SCORED.inc_by(candidates_scored);
+    observe_histogram!(TEXT_LEXICAL_QUERY_LATENCY_MS, duration_ms);
+    inc_counter!(TEXT_LEXICAL_QUERIES);
+    inc_counter_by!(TEXT_CANDIDATES_SCORED, candidates_scored);
 }
 
 pub fn record_text_consistency_audit(failed: bool) {
     TEXT_CONSISTENCY_AUDITS_TOTAL.fetch_add(1, Ordering::Relaxed);
-    TEXT_CONSISTENCY_AUDITS.inc();
+    inc_counter!(TEXT_CONSISTENCY_AUDITS);
     if failed {
         TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
-        TEXT_CONSISTENCY_AUDIT_FAILURES.inc();
+        inc_counter!(TEXT_CONSISTENCY_AUDIT_FAILURES);
     }
 }
 
 pub fn record_hybrid_query(duration_ms: u64, candidates_fused: u64) {
     LAST_HYBRID_QUERY_MS.store(duration_ms, Ordering::Relaxed);
     HYBRID_CANDIDATES_FUSED_TOTAL.fetch_add(candidates_fused, Ordering::Relaxed);
-    HYBRID_QUERY_LATENCY_MS.observe(duration_ms as f64);
-    HYBRID_CANDIDATES_FUSED.inc_by(candidates_fused);
+    observe_histogram!(HYBRID_QUERY_LATENCY_MS, duration_ms);
+    inc_counter_by!(HYBRID_CANDIDATES_FUSED, candidates_fused);
 }
 
 pub fn record_planner_hybrid_query() {
     PLANNER_HYBRID_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
-    PLANNER_HYBRID_QUERIES.inc();
+    inc_counter!(PLANNER_HYBRID_QUERIES);
 }
 
 pub fn record_planner_text_only_query() {
     PLANNER_TEXT_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
-    PLANNER_TEXT_ONLY_QUERIES.inc();
+    inc_counter!(PLANNER_TEXT_ONLY_QUERIES);
 }
 
 pub fn record_planner_vector_only_query() {
     PLANNER_VECTOR_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
-    PLANNER_VECTOR_ONLY_QUERIES.inc();
+    inc_counter!(PLANNER_VECTOR_ONLY_QUERIES);
 }
 
 pub fn record_export(records: u64) {
     RECORDS_EXPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
-    RECORDS_EXPORTED.inc_by(records);
+    inc_counter_by!(RECORDS_EXPORTED, records);
 }
 
 pub fn record_import(records: u64, errors: u64) {
     RECORDS_IMPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
     IMPORT_ERRORS_TOTAL.fetch_add(errors, Ordering::Relaxed);
-    RECORDS_IMPORTED.inc_by(records);
-    IMPORT_ERRORS.inc_by(errors);
+    inc_counter_by!(RECORDS_IMPORTED, records);
+    inc_counter_by!(IMPORT_ERRORS, errors);
 }
 
 pub fn record_derived_prefix_scan() {
@@ -668,11 +734,6 @@ fn get_native_memory() -> Option<(u64, u64)> {
     None
 }
 
-/// Record a point-in-time memory breakdown from engine subsystems.
-///
-/// Call this after significant state changes (startup, flush, rebuild) to
-/// keep the memory gauges current. The values are observational and come
-/// from native OS APIs (Linux, macOS, Windows) with sysinfo as a fallback.
 pub fn record_memory_breakdown(
     hnsw_nodes: u64,
     hnsw_logical_bytes: u64,
@@ -680,19 +741,10 @@ pub fn record_memory_breakdown(
     cache_entries: u64,
     cache_cap_bytes: u64,
 ) {
-    let (rss, virt) = if let Some((rss, virt)) = get_native_memory() {
-        (rss, virt)
-    } else {
-        tracing::warn!("Native memory telemetry failed. Falling back to sysinfo.");
-        use sysinfo::{Pid, System};
-        let pid = Pid::from_u32(std::process::id());
-        let mut sys = System::new();
-        sys.refresh_process(pid);
-        match sys.process(pid) {
-            Some(proc) => (proc.memory(), proc.virtual_memory()),
-            None => (0, 0),
-        }
-    };
+    #[cfg(any(feature = "sysinfo", target_os = "linux", target_os = "macos", target_os = "windows"))]
+    let (rss, virt) = _get_rss_virt();
+    #[cfg(not(any(feature = "sysinfo", target_os = "linux", target_os = "macos", target_os = "windows")))]
+    let (rss, virt) = (0, 0);
 
     LAST_PROCESS_RSS_BYTES.store(rss, Ordering::Relaxed);
     LAST_PROCESS_VIRTUAL_BYTES.store(virt, Ordering::Relaxed);
@@ -702,23 +754,42 @@ pub fn record_memory_breakdown(
         Some(bytes) => {
             LAST_MMAP_RESIDENT_BYTES.store(bytes, Ordering::Relaxed);
             LAST_MMAP_RESIDENT_BYTES_PRESENT.store(true, Ordering::Relaxed);
-            MMAP_RESIDENT_BYTES.set(bytes as i64);
+            set_gauge!(MMAP_RESIDENT_BYTES, bytes);
         }
         None => {
             LAST_MMAP_RESIDENT_BYTES.store(0, Ordering::Relaxed);
             LAST_MMAP_RESIDENT_BYTES_PRESENT.store(false, Ordering::Relaxed);
-            MMAP_RESIDENT_BYTES.set(0);
+            set_gauge!(MMAP_RESIDENT_BYTES, 0);
         }
     }
     LAST_VOLATILE_CACHE_ENTRIES.store(cache_entries, Ordering::Relaxed);
     LAST_VOLATILE_CACHE_CAP_BYTES.store(cache_cap_bytes, Ordering::Relaxed);
 
-    PROCESS_RSS_BYTES.set(rss as i64);
-    PROCESS_VIRTUAL_BYTES.set(virt as i64);
-    HNSW_NODES_COUNT.set(hnsw_nodes as i64);
-    HNSW_LOGICAL_BYTES.set(hnsw_logical_bytes as i64);
-    VOLATILE_CACHE_ENTRIES.set(cache_entries as i64);
-    VOLATILE_CACHE_CAP_BYTES.set(cache_cap_bytes as i64);
+    set_gauge!(PROCESS_RSS_BYTES, rss);
+    set_gauge!(PROCESS_VIRTUAL_BYTES, virt);
+    set_gauge!(HNSW_NODES_COUNT, hnsw_nodes);
+    set_gauge!(HNSW_LOGICAL_BYTES, hnsw_logical_bytes);
+    set_gauge!(VOLATILE_CACHE_ENTRIES, cache_entries);
+    set_gauge!(VOLATILE_CACHE_CAP_BYTES, cache_cap_bytes);
+}
+
+fn _get_rss_virt() -> (u64, u64) {
+    if let Some((rss, virt)) = get_native_memory() {
+        return (rss, virt);
+    }
+    #[cfg(feature = "sysinfo")]
+    {
+        tracing::warn!("Native memory telemetry failed. Falling back to sysinfo.");
+        use sysinfo::{Pid, System};
+        let pid = Pid::from_u32(std::process::id());
+        let mut sys = System::new();
+        sys.refresh_process(pid);
+        match sys.process(pid) {
+            Some(proc) => return (proc.memory(), proc.virtual_memory()),
+            None => {}
+        }
+    }
+    (0, 0)
 }
 
 pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
@@ -769,6 +840,7 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
 }
 
 /// Export utility suitable for the `/metrics` Axum endpoint
+#[cfg(feature = "prometheus")]
 pub fn export_metrics_text() -> String {
     use prometheus::TextEncoder;
     let encoder = TextEncoder::new();
@@ -778,4 +850,9 @@ pub fn export_metrics_text() -> String {
         return String::new();
     }
     buffer
+}
+
+#[cfg(not(feature = "prometheus"))]
+pub fn export_metrics_text() -> String {
+    String::new()
 }

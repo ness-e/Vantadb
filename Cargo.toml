@@ -39,13 +39,12 @@ fjall = { version = "3.1", optional = true }
 crc32c = "0.5"
 reqwest = { version = "0.13", features = ["json", "blocking"], optional = true }
 serde_json = "1.0"
-prometheus = "0.14"
+prometheus = { version = "0.14", optional = true }
 pyo3 = { version = "0.29", features = ["extension-module", "chrono"], optional = true }
 wide = ">=1.2, <2"
-cpufeatures = "0.3"
-sysinfo = "0.30"
-memmap2 = "0.9"
-fs2 = "0.4"
+sysinfo = { version = "0.30", optional = true }
+memmap2 = { version = "0.9", optional = true }
+fs2 = { version = "0.4", optional = true }
 
 # ── HTTP Server (optional, behind feature = "server") ──
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "signal", "macros"], optional = true }
@@ -63,7 +62,7 @@ indicatif = { version = "0.18", optional = true }
 console = { version = "0.16", optional = true }
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
-rayon = "1.12"
+rayon = { version = "1.12", optional = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 twox-hash = "2.1.2"
@@ -74,7 +73,7 @@ tantivy = { version = "0.22", optional = true, features = ["stopwords"] }
 rkyv = { version = "0.8", optional = true }
 
 [features]
-default = ["cli", "arrow", "rocksdb", "fjall"]
+default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon"]
 arrow = ["dep:arrow"]
 rkyv-serialization = ["dep:rkyv"]
 rocksdb = ["dep:rocksdb"]
@@ -84,6 +83,8 @@ failpoints = ["dep:fail"]
 remote-inference = ["reqwest"]
 python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
+wasm = []
+advanced-tokenizer = ["dep:tantivy"]
 opentelemetry = [
     "dep:opentelemetry",
     "dep:tracing-opentelemetry",
@@ -91,7 +92,6 @@ opentelemetry = [
     "dep:opentelemetry-otlp",
     "opentelemetry_sdk/rt-tokio",
 ]
-advanced-tokenizer = ["dep:tantivy"]
 server = [
     "cli",
     "dep:tokio",

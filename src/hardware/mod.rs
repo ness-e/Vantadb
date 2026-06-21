@@ -3,6 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
+#[cfg(feature = "sysinfo")]
 use sysinfo::System;
 
 /// Global Hardware Profile loaded once at startup.
@@ -50,57 +51,82 @@ impl HardwareScout {
     const PROFILE_PATH: &'static str = ".vanta_profile";
 
     pub fn detect() -> HardwareCapabilities {
-        let mut sys = System::new_all();
-        sys.refresh_all();
+        #[cfg(feature = "sysinfo")]
+        {
+            let mut sys = System::new_all();
+            sys.refresh_all();
 
-        let total_memory = sys.total_memory();
-        let logical_cores = sys.cpus().len();
+            let total_memory = sys.total_memory();
+            let logical_cores = sys.cpus().len();
 
-        // Calculate stable environment hash
-        let mut hasher = DefaultHasher::new();
-        total_memory.hash(&mut hasher);
-        logical_cores.hash(&mut hasher);
-        if let Some(cpu) = sys.cpus().first() {
-            cpu.brand().hash(&mut hasher);
-        }
-        let env_hash = hasher.finish();
+            // Calculate stable environment hash
+            let mut hasher = DefaultHasher::new();
+            total_memory.hash(&mut hasher);
+            logical_cores.hash(&mut hasher);
+            if let Some(cpu) = sys.cpus().first() {
+                cpu.brand().hash(&mut hasher);
+            }
+            let env_hash = hasher.finish();
 
-        // Check if we have a valid cached profile
-        if let Ok(data) = fs::read_to_string(Self::PROFILE_PATH) {
-            if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data) {
-                if cached_caps.env_hash == env_hash {
-                    // Cache Hit: Environment unchanged! Perfect cold-start speedup.
-                    Self::log_adaptive_status(&cached_caps, true);
-                    return cached_caps;
-                } else {
-                    tracing::info!("Environment signature changed. Re-benchmarking...");
+            // Check if we have a valid cached profile
+            if let Ok(data) = fs::read_to_string(Self::PROFILE_PATH) {
+                if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data) {
+                    if cached_caps.env_hash == env_hash {
+                        // Cache Hit: Environment unchanged! Perfect cold-start speedup.
+                        Self::log_adaptive_status(&cached_caps, true);
+                        return cached_caps;
+                    } else {
+                        tracing::info!("Environment signature changed. Re-benchmarking...");
+                    }
                 }
             }
+
+            let instructions = Self::detect_instructions();
+            let profile = Self::determine_profile(total_memory, instructions);
+
+            let resource_score =
+                Self::calculate_resource_score(total_memory, logical_cores, instructions);
+
+            let caps = HardwareCapabilities {
+                instructions,
+                profile,
+                logical_cores,
+                total_memory,
+                resource_score,
+                env_hash,
+            };
+
+            Self::log_adaptive_status(&caps, false);
+
+            // Save new profile
+            if let Ok(json) = serde_json::to_string_pretty(&caps) {
+                let _ = fs::write(Self::PROFILE_PATH, json);
+            }
+
+            return caps;
         }
 
-        let instructions = Self::detect_instructions();
-        let profile = Self::determine_profile(total_memory, instructions);
+        #[cfg(not(feature = "sysinfo"))]
+        {
+            let env_hash = 0;
+            let instructions = Self::detect_instructions();
+            let logical_cores = 1;
+            let total_memory = 1024 * 1024 * 1024; // Conservative 1GB default
+            let profile = Self::determine_profile(total_memory, instructions);
+            let resource_score = Self::calculate_resource_score(total_memory, logical_cores, instructions);
 
-        let resource_score =
-            Self::calculate_resource_score(total_memory, logical_cores, instructions);
+            let caps = HardwareCapabilities {
+                instructions,
+                profile,
+                logical_cores,
+                total_memory,
+                resource_score,
+                env_hash,
+            };
 
-        let caps = HardwareCapabilities {
-            instructions,
-            profile,
-            logical_cores,
-            total_memory,
-            resource_score,
-            env_hash,
-        };
-
-        Self::log_adaptive_status(&caps, false);
-
-        // Save new profile
-        if let Ok(json) = serde_json::to_string_pretty(&caps) {
-            let _ = fs::write(Self::PROFILE_PATH, json);
+            Self::log_adaptive_status(&caps, false);
+            caps
         }
-
-        caps
     }
 
     fn detect_instructions() -> InstructionSet {

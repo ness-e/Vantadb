@@ -2511,6 +2511,7 @@ impl VantaEmbedded {
     /// then processes the batch in parallel using Rayon for up to 5x throughput
     /// improvement over sequential `put()` calls.
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
+        #[cfg(feature = "rayon")]
         use rayon::prelude::*;
 
         for input in &inputs {
@@ -2519,9 +2520,17 @@ impl VantaEmbedded {
             validate_metadata(&input.metadata)?;
         }
 
-        let results: Vec<Result<VantaMemoryRecord>> = inputs
-            .into_par_iter()
-            .map(|input| {
+        let results: Vec<Result<VantaMemoryRecord>> = {
+            #[cfg(feature = "rayon")]
+            {
+                inputs.into_par_iter()
+            }
+            #[cfg(not(feature = "rayon"))]
+            {
+                inputs.into_iter()
+            }
+        }
+        .map(|input| {
                 let engine = self.engine_handle()?;
                 let node_id = memory_node_id(&input.namespace, &input.key);
                 let existing = match engine.get(node_id)? {
