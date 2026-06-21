@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-19
+> **Última actualización:** 2026-06-20
 
 ## Resumen Ejecutivo
 
@@ -272,6 +272,7 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 ### Tarea: AUD-WORK — Corrección de CI y Auditoría de Workflows (2026-06-20)
 
 - **Objetivo:** Corregir las fallas del pipeline de CI de GitHub Actions (timeout en `crash_injection` y fallo de permisos de `wal_write_failure_returns_error`) y aplicar de forma estructurada los 9 hallazgos del reporte de auditoría.
+- **Commits:** `85f2beb`, `447224e`, `4030d36`, `ab09229`
 - **Checklist Completado:**
   - [x] Modificar `.config/nextest.toml`
     - [x] Migrar exclusiones de `binary_id(...)` a `binary(...)`
@@ -281,15 +282,14 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
     - [x] Agregar exclusión de `memory_telemetry` y el test unitario `concurrent_insert_preserves_hnsw_invariants`
   - [x] Modificar `Cargo.toml`
     - [x] Declarar `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` y `multilingual_tokenizer_integration`
-    - [x] Agregar `required-features = ["failpoints"]` a `chaos_integrity`
   - [x] Actualizar Workflows y Políticas
-    - [x] Modificar `rust_ci.yml` para usar `--features cli,arrow`
-    - [x] Modificar `heavy_certification.yml` para clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
+    - [x] Modificar `heavy_certification.yml` para incluir `--features cli,arrow` y clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
     - [x] Modificar `docs/operations/CI_POLICY.md`
-  - [x] Sincronizar Backlog
-    - [x] Modificar `C:\Users\Eros\Obsidian\Eros\Backlog.md`
   - [x] Entorno de Validación Local (Pre-push)
     - [x] Agregar `numpy` al entorno virtual de auditoría de Python en `dev-tools/setup_venv.ps1`
+- **Pendientes del reporte original:**
+  - [ ] `Cargo.toml`: Agregar `required-features = ["failpoints"]` a `chaos_integrity`
+  - [ ] `.config/nextest.toml`: Hacer `test-threads = 2` específico para Windows
 - **Cambios y Resultados:**
   - **Soporte robusto de workspace en Nextest:** El cambio de `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados se excluyan efectivamente del Fast Gate de PR, previniendo fallas de permisos de root y timeouts en el CI rápido.
   - **Exclusiones de tests de larga duración:** Se identificó y excluyó `memory_telemetry` (timeout de 180s local) y el test unitario lento `concurrent_insert_preserves_hnsw_invariants` (~68s) de la fast gate, acelerando el pipeline.
