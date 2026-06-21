@@ -5,9 +5,14 @@ edition = "2021"
 rust-version = "1.94.1"
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
 license = "Apache-2.0"
-readme = "README.MD"
+readme = "README.md"
+repository = "https://github.com/ness-e/Vantadb"
+homepage = "https://vantadb.dev"
+documentation = "https://docs.rs/vantadb"
 keywords = ["database", "vector", "graph", "embedded", "rust"]
 categories = ["database-implementations"]
+[badges]
+maintenance = { status = "actively-developed" }
 
 
 [dependencies]
