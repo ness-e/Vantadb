@@ -268,3 +268,27 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **Clippy audit**: 5 categorías de warnings corregidos (too_many_arguments, suspicious_open_options, field_reassign_with_default, needless_range_loop, needless_borrow)
 - **Auditoría integral**: 40 hallazgos documentados (7 críticos, 14 altos, 19 medios).
 - **Push final**: 30 commits ahead, pushed to `ness-e/Vantadb` main (commit `f5eafbd`)
+
+### Tarea: AUD-WORK — Corrección de CI y Auditoría de Workflows (2026-06-20)
+
+- **Objetivo:** Corregir las fallas del pipeline de CI de GitHub Actions (timeout en `crash_injection` y fallo de permisos de `wal_write_failure_returns_error`) y aplicar de forma estructurada los 9 hallazgos del reporte de auditoría.
+- **Checklist Completado:**
+  - [x] Modificar `.config/nextest.toml`
+    - [x] Migrar exclusiones de `binary_id(...)` a `binary(...)`
+    - [x] Corregir `hnsw_recall` a `hnsw_recall_certification`
+    - [x] Cambiar `not test(integrations_certification)` a `not binary(integration)`
+    - [x] Agregar exclusión de `mcp_tests` y `multilingual_tokenizer_integration`
+  - [x] Modificar `Cargo.toml`
+    - [x] Declarar `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` y `multilingual_tokenizer_integration`
+    - [x] Agregar `required-features = ["failpoints"]` a `chaos_integrity`
+  - [x] Actualizar Workflows y Políticas
+    - [x] Modificar `rust_ci.yml` para usar `--features cli,arrow`
+    - [x] Modificar `heavy_certification.yml` para clasificar `mcp_tests`, `multilingual_tokenizer_integration` y `columnar`
+    - [x] Modificar `docs/operations/CI_POLICY.md`
+  - [x] Sincronizar Backlog
+    - [x] Modificar `C:\Users\Eros\Obsidian\Eros\Backlog.md`
+- **Cambios y Resultados:**
+  - **Soporte robusto de workspace en Nextest:** El cambio de `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados se excluyan efectivamente del Fast Gate de PR, previniendo fallas de permisos de root y timeouts en el CI rápido.
+  - **Declaración explícita de tests:** Los tests sin entrada explícita `[[test]]` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-descubrimiento.
+  - **Clasificación en Heavy Certification:** `mcp_tests` y `multilingual_tokenizer_integration` fueron clasificados para correr exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
+  - **Ejecución de columnar test:** Se habilitó la feature `arrow` en los workflows y se programó `columnar` para que sea evaluado en CI.
