@@ -11,9 +11,9 @@ homepage = "https://vantadb.dev"
 documentation = "https://docs.rs/vantadb"
 keywords = ["database", "vector", "graph", "embedded", "rust"]
 categories = ["database-implementations"]
+exclude = ["test/"]
 [badges]
 maintenance = { status = "actively-developed" }
-
 
 [dependencies]
 # ── Core ──
