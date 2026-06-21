@@ -25,6 +25,8 @@ high_density_bench_db/
 benches_db/
 tests_graph_db/
 tests_server_db/
+/test/
+job_log.txt
 
 # Python bindings and general Python artifacts
 vantadb-python/target/
