@@ -153,3 +153,87 @@ fn test_vanta_lock_file_shared_and_exclusive_os_level() {
 
     fs2::FileExt::unlock(&f3).expect("f3 unlock");
 }
+
+/// Simulates antivirus software opening the lock file with FILE_SHARE_READ
+/// while VantaDB holds its exclusive lock. Verifies VantaDB does not crash
+/// or lose its lock.
+#[cfg(windows)]
+#[test]
+fn test_antivirus_file_share_read_does_not_block() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().to_str().unwrap().to_string();
+
+    // VantaDB acquires exclusive lock on .vanta.lock
+    let db = VantaEmbedded::open(&path).unwrap();
+    let lock_path = dir.path().join(".vanta.lock");
+
+    // Simulate antivirus: open the lock file with FILE_SHARE_READ (0x1)
+    let _antivirus_file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0x1) // FILE_SHARE_READ
+        .open(&lock_path)
+        .expect("Antivirus should be able to open lock file with FILE_SHARE_READ");
+
+    // VantaDB should still be able to operate while antivirus has a handle open
+    db.put(VantaMemoryInput::new("ns", "k1", "v1")).unwrap();
+    let result = db.get("ns", "k1");
+    assert!(result.is_ok(), "VantaDB should still operate with antivirus handle open");
+
+    // Should still work after the antivirus handle is dropped
+    drop(_antivirus_file);
+    db.put(VantaMemoryInput::new("ns", "k2", "v2")).unwrap();
+    let result = db.get("ns", "k2");
+    assert!(result.is_ok(), "VantaDB should work after antivirus handle closes");
+    assert_eq!(result.unwrap().map(|r| r.payload).as_deref(), Some("v2"));
+
+    db.close().unwrap();
+}
+
+/// Simulates backup software opening the lock file with FILE_SHARE_DELETE
+/// while VantaDB holds its exclusive lock.
+#[cfg(windows)]
+#[test]
+fn test_backup_file_share_delete_does_not_block() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().to_str().unwrap().to_string();
+
+    let db = VantaEmbedded::open(&path).unwrap();
+    let lock_path = dir.path().join(".vanta.lock");
+
+    // Simulate backup software: open with FILE_SHARE_READ | FILE_SHARE_DELETE
+    let backup_file = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0x1 | 0x4) // FILE_SHARE_READ | FILE_SHARE_DELETE
+        .open(&lock_path)
+        .expect("Backup software should open lock file with FILE_SHARE_DELETE");
+
+    // VantaDB should still operate
+    db.put(VantaMemoryInput::new("ns", "k1", "backup_test")).unwrap();
+    drop(backup_file);
+    db.close().unwrap();
+}
+
+/// Verifies VantaDB can recover from a stale .vanta.lock file (e.g., after crash).
+#[test]
+fn test_stale_lock_recovery() {
+    let dir = TempDir::new().unwrap();
+    let lock_path = dir.path().join(".vanta.lock");
+
+    // Create a stale lock file (simulates crash without cleanup)
+    std::fs::write(&lock_path, b"stale_lock_content").unwrap();
+
+    // VantaDB should clean it up and acquire a fresh lock
+    let path = dir.path().to_str().unwrap().to_string();
+    let db = VantaEmbedded::open(&path).unwrap();
+    db.put(VantaMemoryInput::new("ns", "k1", "recovered")).unwrap();
+
+    // Verify the lock file now has valid content (not our stale bytes)
+    let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+    assert_ne!(content, "stale_lock_content", "Stale lock should have been replaced");
+
+    db.close().unwrap();
+}

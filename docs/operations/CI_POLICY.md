@@ -58,6 +58,7 @@ scale capabilities without bottlenecking daily development.
 - `sift_validation` (optional): Tests the engine against standard public datasets.
 - `competitive_bench` (optional): Validates against FAISS/HNSWlib.
 - `mcp_tests` (package `vantadb-mcp`), `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry`, and the unit test `concurrent_insert_preserves_hnsw_invariants`: Validates integration boundaries, memory telemetry contracts, and resource-heavy/slow unit tests that are excluded from the default Fast Gate.
+- `chaos_integrity`, `wal_resilience`, `crash_injection` (failpoint-tests job): Validates crash recovery with `--features failpoints`; also excluded from the Fast Gate.
 
 **Why are these tests separated?** Running `stress_protocol` can take close to 2 hours on hosted
 runners and requires significant system resources (AVX2 plus heavy swap). It runs in its own

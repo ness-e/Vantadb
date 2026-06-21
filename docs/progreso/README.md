@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-20
+> **Última actualización:** 2026-06-20 (Tarde — CI, DISC, Phase 4 items)
 
 ## Resumen Ejecutivo
 
@@ -272,7 +272,7 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 ### Tarea: AUD-WORK — Corrección de CI y Auditoría de Workflows (2026-06-20)
 
 - **Objetivo:** Corregir las fallas del pipeline de CI de GitHub Actions (timeout en `crash_injection` y fallo de permisos de `wal_write_failure_returns_error`) y aplicar de forma estructurada los 9 hallazgos del reporte de auditoría.
-- **Commits:** `85f2beb`, `447224e`, `4030d36`, `ab09229`
+- **Commits:** `85f2beb`, `447224e`, `4030d36`, `ab09229`, `25dc38b`, `a3c2c04`, `aaf0428`, `26afb62`
 - **Checklist Completado:**
   - [x] Modificar `.config/nextest.toml`
     - [x] Migrar exclusiones de `binary_id(...)` a `binary(...)`
@@ -282,14 +282,19 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
     - [x] Agregar exclusión de `memory_telemetry` y el test unitario `concurrent_insert_preserves_hnsw_invariants`
   - [x] Modificar `Cargo.toml`
     - [x] Declarar `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` y `multilingual_tokenizer_integration`
+    - [x] Agregar `required-features = ["failpoints"]` a `chaos_integrity` (`Cargo.toml:201`)
   - [x] Actualizar Workflows y Políticas
     - [x] Modificar `heavy_certification.yml` para incluir `--features cli,arrow` y clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
     - [x] Modificar `docs/operations/CI_POLICY.md`
+    - [x] Split quick CI (<30min) de weekly heavy certification (`aaf0428`)
+    - [x] Robustecer nextest filter expression (`a3c2c04`)
+    - [x] Restaurar strict binary_id nextest filter con cli features (`25dc38b`)
+    - [x] Fix version extraction en python_wheels.yml, mejorar comentario test-threads (`26afb62`)
   - [x] Entorno de Validación Local (Pre-push)
     - [x] Agregar `numpy` al entorno virtual de auditoría de Python en `dev-tools/setup_venv.ps1`
 - **Pendientes del reporte original:**
-  - [ ] `Cargo.toml`: Agregar `required-features = ["failpoints"]` a `chaos_integrity`
-  - [ ] `.config/nextest.toml`: Hacer `test-threads = 2` específico para Windows
+  - [x] ~~`Cargo.toml`: Agregar `required-features = ["failpoints"]` a `chaos_integrity`~~ → **Completado** en `Cargo.toml:201`
+  - [ ] `.config/nextest.toml`: Hacer `test-threads = 2` específico para Windows (actualmente global en `nextest.toml:67`)
 - **Cambios y Resultados:**
   - **Soporte robusto de workspace en Nextest:** El cambio de `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados se excluyan efectivamente del Fast Gate de PR, previniendo fallas de permisos de root y timeouts en el CI rápido.
   - **Exclusiones de tests de larga duración:** Se identificó y excluyó `memory_telemetry` (timeout de 180s local) y el test unitario lento `concurrent_insert_preserves_hnsw_invariants` (~68s) de la fast gate, acelerando el pipeline.
@@ -297,3 +302,18 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - **Declaración explícita de tests:** Los tests sin entrada explícita `[[test]]` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-descubrimiento.
   - **Clasificación en Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants` fueron clasificados para correr exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
   - **Ejecución de columnar test:** Se habilitó la feature `arrow` en los workflows y se programó `columnar` para que sea evaluado en CI.
+- **CI Pending:** `.config/nextest.toml` — `test-threads = 2` movido de global a `[profile.audit.overrides."cfg(target_os = \"windows\")".override]` exclusivo para Windows.
+- **DISC-03:** `PrefetchMode` enum (Auto/Enabled/Disabled) agregado a `src/config.rs` con campo `prefetch_mode` en `VantaConfig`; soporte de env vars `VANTA_PREFETCH` y `VANTA_DISABLE_PREFETCH`; integrado en `src/index.rs` vía `OnceLock<PrefetchMode>` y llamado desde `open_with_config` en `src/sdk.rs`.
+- **DISC-02:** 3 nuevos tests Windows-only en `tests/file_locking_stress.rs` — antivirus FILE_SHARE_READ, backup FILE_SHARE_DELETE, stale lock recovery (+test cross-platform existente).
+- **TSK-47 (SQ8):**
+  - `VectorRepresentations::SQ8(Box<[i8]>, f32)` en `src/node.rs` con soporte en `dimensions()`, `to_f32()`, `as_f32_slice()`, `memory_size()`, `cosine_similarity()`.
+  - `sq8_quantize()` y `sq8_similarity()` en `src/vector/quantization.rs`.
+  - `sq8_similarity_fallback()` en `src/index.rs` para compara raw query vs SQ8; manejado en `calculate_similarity()`.
+  - Serialización (tag 4) y deserialización en formato binario del índice.
+  - `estimated_memory_size()` y `storage.rs::vector_size` extendidos para SQ8.
+- **TSK-49 (rkyv):**
+  - Dependencia `rkyv` opcional (feature `rkyv-serialization`) en `Cargo.toml`.
+  - `src/serialization/rkyv_archives.rs` con `ArchivedHnswHeader`, `ArchivedHnswNode`, `ArchivedHnswGraph` — formato `repr(C)` para mmap zero-copy.
+  - `CPIndex::serialize_to_rkyv()` y `CPIndex::load_from_rkyv()`.
+  - `serialization_order()` promovido a `pub(crate)`.
+- **ROAD-06:** `docs/operations/grafana-dashboard.json` (6 paneles: RSS, Memory Pressure, Vector Ops, Latency P50/P95/P99, Disk Usage, Index Memory) + `docs/operations/GRAFANA_SETUP.md`.

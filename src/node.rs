@@ -31,6 +31,9 @@ pub enum VectorRepresentations {
     Binary(Box<[u64]>),
     /// L2: Re-ranking and initial validation. Memory-mapped from disk (3-bit).
     Turbo(Box<[u8]>),
+    /// L2.5: 8-bit scalar quantization. Higher precision than Turbo, half the
+    ///       memory of Full. Each dimension stored as `i8` scaled by `max_abs / 127`.
+    SQ8(Box<[i8]>, f32),
     /// L3: Full precision float32.
     Full(Vec<f32>),
     /// L3 (MMap): Zero-copy view into the memory-mapped file
@@ -44,8 +47,9 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => v.len(),
             VectorRepresentations::MmapFull(_, len) => *len,
-            VectorRepresentations::Binary(data) => data.len() * 64, // rough dim
-            VectorRepresentations::Turbo(data) => data.len() * 2,   // depends on packing
+            VectorRepresentations::Binary(data) => data.len() * 64,
+            VectorRepresentations::Turbo(data) => data.len() * 2,
+            VectorRepresentations::SQ8(data, _) => data.len(),
             VectorRepresentations::None => 0,
         }
     }
@@ -62,7 +66,11 @@ impl VectorRepresentations {
                 let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                 Some(slice.to_vec())
             }
-            _ => None, // Only full supports exact to_f32 without decomp
+            VectorRepresentations::SQ8(data, scale) => {
+                let inv = scale / 127.0;
+                Some(data.iter().map(|&q| (q as f32) * inv).collect())
+            }
+            _ => None,
         }
     }
 
@@ -78,10 +86,18 @@ impl VectorRepresentations {
         }
     }
 
-    /// Computes cosine similarity (F32) or delegates to quantized logic.
-    /// Uses zero-copy slice access to avoid heap allocations.
+    /// Computes cosine similarity or quantized dot-product approximation.
+    /// Uses zero-copy slice access to avoid heap allocations where possible.
     pub fn cosine_similarity(&self, other: &VectorRepresentations) -> Option<f32> {
         use crate::hardware::{HardwareCapabilities, InstructionSet};
+
+        // SQ8 ↔ SQ8 fast path: avoid full decode
+        if let (VectorRepresentations::SQ8(a_data, a_scale), VectorRepresentations::SQ8(b_data, b_scale)) =
+            (self, other)
+        {
+            let dot = crate::vector::quantization::sq8_similarity(a_data, *a_scale, b_data, *b_scale);
+            return Some(dot);
+        }
 
         let a = self.as_f32_slice()?;
         let b = other.as_f32_slice()?;
@@ -153,6 +169,7 @@ impl VectorRepresentations {
             VectorRepresentations::MmapFull(_, _) => 0, // Zero heap allocations for mapped memory
             VectorRepresentations::Binary(data) => data.len() * 8,
             VectorRepresentations::Turbo(data) => data.len(),
+            VectorRepresentations::SQ8(data, _) => data.len() + 4,
             VectorRepresentations::None => 0,
         }
     }

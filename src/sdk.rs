@@ -3,7 +3,7 @@ use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::executor::{ExecutionResult, Executor};
 // use crate::hardware::{HardwareCapabilities, HardwareProfile}; // Temporarily commented out to fix unused_imports warning in CI
-use crate::index::cosine_sim_f32;
+use crate::index::{cosine_sim_f32, set_prefetch_mode};
 use crate::node::{DistanceMetric, FieldValue, UnifiedNode, VectorRepresentations};
 use crate::storage::{IndexRebuildReport, StorageEngine};
 use parking_lot::RwLock;
@@ -845,6 +845,7 @@ impl VantaEmbedded {
 
     pub fn open_with_config(config: VantaConfig) -> Result<Self> {
         let final_config = config.clone();
+        set_prefetch_mode(config.prefetch_mode);
 
         let engine = StorageEngine::open_with_config(
             &final_config.storage_path,

@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `AsyncVantaDB.put()` now accepts `ttl_ms` parameter for TTL-based memory eviction (AUD-14).
 - ARM64/aarch64 architecture detection in install scripts (AUD-20).
 - Windows CI test execution (AUD-18).
+- SQ8 8-bit scalar quantization — 4x memory reduction vs f32 (TSK-47).
+- rkyv-based zero-copy HNSW graph archive with `repr(C)` layout (TSK-49).
+- `PrefetchMode` config (Auto/Enabled/Disabled) with `VANTA_PREFETCH` env var (DISC-03).
+- Grafana dashboard JSON (`docs/operations/grafana-dashboard.json`) (ROAD-06).
 - Swap space and disk cleanup in nightly benchmark workflow (AUD-43).
 - `vantadb-mcp` binary to release pipeline (AUD-42).
 - Benchmark regression alerts — nightly CI auto-creates GitHub issues when criterion benchmarks regress >5% (TSK-79).
@@ -67,6 +71,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Split CI: quick Fast Gate (<30min) separated from weekly Heavy Certification (`heavy_certification.yml` now runs on CRON + manual dispatch) (AUD-WORK).
+- Nextest filter expressions migrated from `binary_id(...)` to `binary(...)` for workspace compatibility (AUD-WORK).
+- Declared 4 missing test targets (`fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest`, `multilingual_tokenizer_integration`) in `Cargo.toml`; added `required-features = ["failpoints"]` to `chaos_integrity` (AUD-WORK).
+- `memory_telemetry` and `concurrent_insert_preserves_hnsw_invariants` moved from Fast Gate to Heavy Certification (AUD-WORK).
 - 3 large functions refactored: `compact_layout_bfs()` (247→53L), `add()` (214→8L dispatcher), `open_with_config()` (271→59L pipeline) (AUD-24/25/26).
 - Tokio features `"full"` replaced with granular feature flags (rt, sync, time, macros) across 2 Cargo.tomls (AUD-38).
 - `arrow`, `rocksdb`, `fjall` made optional feature-gated dependencies (default includes all 3 for backward compat) (AUD-31).
@@ -126,6 +134,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - indicatif API drift and type inference errors.
 - Progress bar line spam in `cargo test`.
 - Windows CI timeouts and runner image pinning.
+- Windows `test-threads = 2` made specific to `cfg(target_os = "windows")` (CI Pending).
+- File locking edge case tests: antivirus FILE_SHARE_READ, backup FILE_SHARE_DELETE, stale lock recovery (DISC-02).
+- Unused `derive` feature flag removed from rkyv dependency.
+- Unused `sq8_similarity` import removed from `index.rs`.
+- Unused `query_norm` parameter annotated in `sq8_similarity_fallback`.
 
 ## [v0.1.4] - 2026-05-25
 

@@ -117,17 +117,36 @@ pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize
     let _ = (mmap_ptr, offset, len);
 }
 
-/// Controla dinámicamente si el prefetch predictivo está activo.
-/// Lee la variable de entorno `VANTA_DISABLE_PREFETCH` en cada invocación.
-/// El overhead de `std::env::var` (~1µs) es despreciable frente al cómputo
-/// de distancia vectorial (~50µs) y la propia syscall de prefetch (~2µs).
+use crate::config::PrefetchMode;
 use std::sync::OnceLock;
 
-static PREFETCH_ENABLED: OnceLock<bool> = OnceLock::new();
+/// Global prefetch mode — initialized once from `VantaConfig::prefetch_mode`
+/// or falls back to the env var `VANTA_PREFETCH` / `VANTA_DISABLE_PREFETCH`.
+static PREFETCH_MODE: OnceLock<PrefetchMode> = OnceLock::new();
+
+/// Override the global prefetch mode at runtime (called during initialization).
+pub fn set_prefetch_mode(mode: PrefetchMode) {
+    let _ = PREFETCH_MODE.set(mode);
+}
 
 #[inline(always)]
 fn should_prefetch() -> bool {
-    *PREFETCH_ENABLED.get_or_init(|| std::env::var("VANTA_DISABLE_PREFETCH").is_err())
+    if let Some(mode) = PREFETCH_MODE.get() {
+        return mode.is_prefetch_enabled();
+    }
+    // Fallback: if config never initialized, read env var
+    let mode = std::env::var("VANTA_PREFETCH")
+        .ok()
+        .map(|v| PrefetchMode::from_env_value(&v));
+    let disabled = std::env::var("VANTA_DISABLE_PREFETCH")
+        .ok()
+        .map(|v| v == "1" || v == "true")
+        .unwrap_or(false);
+    match (mode, disabled) {
+        (Some(m), _) => m.is_prefetch_enabled(),
+        (_, true) => false,
+        _ => true,
+    }
 }
 
 const VECTOR_INDEX_VERSION: u16 = 4; // Upgraded for zero-copy aligned vector paging
@@ -266,6 +285,45 @@ pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
     sum
 }
 
+/// Compute similarity against a raw query when SQ8 is the only available
+/// representation for the stored node. Decodes on the fly.
+fn sq8_similarity_fallback(
+    raw_query: &[f32],
+    sq8_data: &[i8],
+    sq8_scale: f32,
+    metric: DistanceMetric,
+    _query_norm: Option<f32>,
+) -> f32 {
+    let inv_scale = sq8_scale / 127.0;
+    match metric {
+        DistanceMetric::Cosine => {
+            let mut dot = 0.0_f32;
+            let mut norm_q = 0.0_f32;
+            for (&q, &s) in raw_query.iter().zip(sq8_data.iter()) {
+                let decoded = (s as f32) * inv_scale;
+                dot += q * decoded;
+                norm_q += q * q;
+            }
+            let norm_sq = sq8_data.iter().fold(0.0_f32, |acc, &s| {
+                let d = (s as f32) * inv_scale;
+                acc + d * d
+            });
+            if norm_q <= f32::EPSILON || norm_sq <= f32::EPSILON {
+                return 0.0;
+            }
+            dot / (norm_q.sqrt() * norm_sq.sqrt())
+        }
+        DistanceMetric::Euclidean => {
+            let mut sum_sq = 0.0_f32;
+            for (&q, &s) in raw_query.iter().zip(sq8_data.iter()) {
+                let diff = q - (s as f32) * inv_scale;
+                sum_sq += diff * diff;
+            }
+            -sum_sq
+        }
+    }
+}
+
 pub fn calculate_similarity(
     raw_query: &[f32],
     query_norm: Option<f32>,
@@ -288,6 +346,10 @@ pub fn calculate_similarity(
             } else {
                 0.0
             }
+        }
+        VectorRepresentations::SQ8(data, scale) => {
+            // Decode SQ8 on the fly and compute similarity
+            sq8_similarity_fallback(raw_query, data, *scale, metric, query_norm)
         }
         VectorRepresentations::Full(f) => match metric {
             DistanceMetric::Cosine => match query_norm {
@@ -507,6 +569,7 @@ impl CPIndex {
                 VectorRepresentations::MmapFull(_, _) => {} // Zero heap allocations for mapped memory
                 VectorRepresentations::Binary(b) => total += b.len() * std::mem::size_of::<u64>(),
                 VectorRepresentations::Turbo(t) => total += t.len(),
+                VectorRepresentations::SQ8(d, _) => total += d.len() + 4,
                 VectorRepresentations::None => {}
             }
             for layer in &node.neighbors {
@@ -1236,7 +1299,7 @@ impl CPIndex {
 
     /// BFS traversal order for on-disk layout: entry point first, then graph neighbors
     /// (upper layers before lower) to improve mmap locality on large indexes.
-    fn serialization_order(&self) -> Vec<u64> {
+    pub(crate) fn serialization_order(&self) -> Vec<u64> {
         use std::collections::{HashSet, VecDeque};
 
         let mut order = Vec::with_capacity(self.nodes.len());
@@ -1349,6 +1412,14 @@ impl CPIndex {
                     buf.push(3);
                     buf.extend_from_slice(&(t.len() as u64).to_le_bytes());
                     buf.extend_from_slice(t);
+                }
+                VectorRepresentations::SQ8(d, scale) => {
+                    buf.push(4);
+                    buf.extend_from_slice(&(d.len() as u64).to_le_bytes());
+                    for &v in d {
+                        buf.push(v as u8);
+                    }
+                    buf.extend_from_slice(&scale.to_le_bytes());
                 }
                 VectorRepresentations::None => {
                     buf.push(0);
@@ -1549,6 +1620,15 @@ impl CPIndex {
                 3 => {
                     let vec_bytes = take_bytes(data, &mut pos, vec_len, "turbo vec")?;
                     VectorRepresentations::Turbo(vec_bytes.to_vec().into_boxed_slice())
+                }
+                4 => {
+                    let sq8_bytes = take_bytes(data, &mut pos, vec_len, "sq8 vec")?;
+                    let sq8_data: Vec<i8> = sq8_bytes.iter().map(|&b| b as i8).collect();
+                    let scale_bytes = take_bytes(data, &mut pos, 4, "sq8 scale")?;
+                    let scale = f32::from_le_bytes(scale_bytes.try_into().map_err(|e| {
+                        Error::new(ErrorKind::InvalidData, format!("sq8 scale: {e}"))
+                    })?);
+                    VectorRepresentations::SQ8(sq8_data.into_boxed_slice(), scale)
                 }
                 _ => VectorRepresentations::None,
             };
