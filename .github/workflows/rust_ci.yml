@@ -110,7 +110,7 @@ jobs:
 
     - name: Run fast gate tests (Audit profile)
       timeout-minutes: 30
-      run: cargo nextest run --profile audit --workspace --features cli
+      run: cargo nextest run --profile audit --workspace --features cli,arrow
 
     - name: Security Audit
       # DEBT NOTE: Ignoring pyo3 advisories RUSTSEC-2026-0176 and RUSTSEC-2026-0177
@@ -148,7 +148,7 @@ jobs:
     - name: Run quick integrity tests (Windows)
       shell: pwsh
       timeout-minutes: 30
-      run: cargo nextest run --profile audit --workspace --features cli
+      run: cargo nextest run --profile audit --workspace --features cli,arrow
 
   coverage:
     name: Code Coverage (cargo-llvm-cov)
@@ -217,7 +217,7 @@ jobs:
         cargo llvm-cov nextest \
           --profile audit \
           --workspace \
-          --features cli \
+          --features cli,arrow \
           --lcov --output-path lcov.info \
           --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
           2>&1

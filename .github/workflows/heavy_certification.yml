@@ -111,6 +111,8 @@ jobs:
         with:
           swap-mb: 4096
           free-disk: true
+      # Runs storage persistence and recovery tests.
+      # Note: prefetch_benchmark and file_locking_stress explicitly require the "cli" feature in Cargo.toml.
       - name: Run storage persistence & recovery tests
         timeout-minutes: 75
         run: >
@@ -180,7 +182,7 @@ jobs:
       - name: Run remaining heavy tests
         timeout-minutes: 45
         run: |
-          cargo test --release --features cli \
+          cargo test --release --features cli,arrow \
             --test benchmark_internal \
             --test benchmark_datasets \
             --test cli_tests \
@@ -192,6 +194,8 @@ jobs:
             --test hardware_profiles \
             --test vector_scale_check \
             --test integration \
+            --test multilingual_tokenizer_integration \
+            --test columnar \
             -- \
             --test-threads=1
           cargo test --release \
@@ -200,5 +204,10 @@ jobs:
             --test e2e \
             --test benchmarks \
             --test server \
+            -- \
+            --test-threads=1
+          cargo test --release \
+            --package vantadb-mcp \
+            --test mcp_tests \
             -- \
             --test-threads=1
