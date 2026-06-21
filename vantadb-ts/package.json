@@ -1,0 +1,27 @@
+{
+  "name": "vantadb",
+  "version": "0.1.4",
+  "description": "VantaDB TypeScript SDK — WASM-powered vector & graph memory for JS runtimes",
+  "type": "module",
+  "main": "src/vantadb.ts",
+  "types": "src/vantadb.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "vector-database",
+    "memory",
+    "rag",
+    "embeddings",
+    "graph"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "vantadb-wasm": "file:../vantadb-wasm/pkg"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
+  }
+}

@@ -19,7 +19,8 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use web_time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 use zerocopy::{FromBytes, IntoBytes};
 

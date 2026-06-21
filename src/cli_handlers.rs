@@ -3,7 +3,8 @@
 use clap::CommandFactory;
 use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 use crate::cli::{Cli, Shell};
 use crate::config::VantaConfig;

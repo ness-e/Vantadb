@@ -14,7 +14,8 @@ use std::hash::Hasher;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use web_time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 use twox_hash::XxHash64;
 
 const RESERVED_PREFIX: &str = "__vanta_";
@@ -34,7 +35,7 @@ const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
 // VantaOpenOptions was removed in favor of VantaConfig.
 
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VantaRuntimeProfile {
     Enterprise,
     Performance,
@@ -42,7 +43,7 @@ pub enum VantaRuntimeProfile {
 }
 
 /// Stable storage tier view for external SDKs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VantaStorageTier {
     Hot,
     Cold,
@@ -136,7 +137,7 @@ pub struct VantaMemoryRecord {
 }
 
 /// Stable list options for namespace-scoped memory records.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemoryListOptions {
     pub filters: VantaMemoryMetadata,
     pub limit: usize,
@@ -154,14 +155,14 @@ impl Default for VantaMemoryListOptions {
 }
 
 /// Stable list page returned by namespace-scoped scans.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemoryListPage {
     pub records: Vec<VantaMemoryRecord>,
     pub next_cursor: Option<usize>,
 }
 
 /// Stable vector search request for persistent memory records.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaMemorySearchRequest {
     pub namespace: String,
     pub query_vector: Vec<f32>,
@@ -439,7 +440,7 @@ struct VantaMemoryExportLine {
 }
 
 /// Stable graph edge representation for external SDKs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaEdgeRecord {
     pub target: u64,
     pub label: String,
@@ -447,7 +448,7 @@ pub struct VantaEdgeRecord {
 }
 
 /// Stable node payload accepted by external SDKs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaNodeInput {
     pub id: u64,
     pub content: Option<String>,
@@ -467,7 +468,7 @@ impl VantaNodeInput {
 }
 
 /// Stable node view returned to external SDKs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaNodeRecord {
     pub id: u64,
     pub fields: VantaFields,
@@ -484,14 +485,14 @@ pub struct VantaNodeRecord {
 }
 
 /// Stable vector search hit for external SDKs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaSearchHit {
     pub node_id: u64,
     pub distance: f32,
 }
 
 /// Stable query result enum for external SDKs.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum VantaQueryResult {
     Read(Vec<VantaNodeRecord>),
     Write {
@@ -505,7 +506,7 @@ pub enum VantaQueryResult {
 }
 
 /// Stable capabilities summary exposed to external SDKs.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VantaCapabilities {
     pub runtime_profile: VantaRuntimeProfile,
     pub persistence: bool,
