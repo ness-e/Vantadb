@@ -201,7 +201,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           else
-            version=$(grep '^version' vantadb-python/Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+            version=$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
             echo "version=${version}" >> "$GITHUB_OUTPUT"
           fi
 
