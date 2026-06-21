@@ -278,17 +278,19 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
     - [x] Corregir `hnsw_recall` a `hnsw_recall_certification`
     - [x] Cambiar `not test(integrations_certification)` a `not binary(integration)`
     - [x] Agregar exclusión de `mcp_tests` y `multilingual_tokenizer_integration`
+    - [x] Agregar exclusión de `memory_telemetry` y el test unitario `concurrent_insert_preserves_hnsw_invariants`
   - [x] Modificar `Cargo.toml`
     - [x] Declarar `fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest` y `multilingual_tokenizer_integration`
     - [x] Agregar `required-features = ["failpoints"]` a `chaos_integrity`
   - [x] Actualizar Workflows y Políticas
     - [x] Modificar `rust_ci.yml` para usar `--features cli,arrow`
-    - [x] Modificar `heavy_certification.yml` para clasificar `mcp_tests`, `multilingual_tokenizer_integration` y `columnar`
+    - [x] Modificar `heavy_certification.yml` para clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
     - [x] Modificar `docs/operations/CI_POLICY.md`
   - [x] Sincronizar Backlog
     - [x] Modificar `C:\Users\Eros\Obsidian\Eros\Backlog.md`
 - **Cambios y Resultados:**
   - **Soporte robusto de workspace en Nextest:** El cambio de `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados se excluyan efectivamente del Fast Gate de PR, previniendo fallas de permisos de root y timeouts en el CI rápido.
+  - **Exclusiones de tests de larga duración:** Se identificó y excluyó `memory_telemetry` (timeout de 180s local) y el test unitario lento `concurrent_insert_preserves_hnsw_invariants` (~68s) de la fast gate, acelerando el pipeline.
   - **Declaración explícita de tests:** Los tests sin entrada explícita `[[test]]` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-descubrimiento.
-  - **Clasificación en Heavy Certification:** `mcp_tests` y `multilingual_tokenizer_integration` fueron clasificados para correr exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
+  - **Clasificación en Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants` fueron clasificados para correr exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
   - **Ejecución de columnar test:** Se habilitó la feature `arrow` en los workflows y se programó `columnar` para que sea evaluado en CI.
