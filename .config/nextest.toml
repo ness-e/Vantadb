@@ -52,6 +52,8 @@ and not binary(storage) \
 and not binary(tombstone_ann_vstore) \
 and not binary(mcp_tests) \
 and not binary(multilingual_tokenizer_integration) \
+and not binary(memory_telemetry) \
+and not test(concurrent_insert_preserves_hnsw_invariants) \
 """
 fail-fast = false
 failure-output = "immediate-final"

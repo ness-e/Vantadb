@@ -165,6 +165,7 @@ jobs:
           --test memory_export_import
           --test concurrency_parity
           --test memory_api
+          --test memory_telemetry
           --test edge_cases
           --test fuzz_proptest
           --
@@ -211,3 +212,8 @@ jobs:
             --test mcp_tests \
             -- \
             --test-threads=1
+          cargo test --release \
+            --package vantadb \
+            --lib index::tests::concurrent_insert_preserves_hnsw_invariants \
+            -- \
+            --nocapture
