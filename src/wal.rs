@@ -352,8 +352,8 @@ impl WalWriter {
         let old_path = self.path.clone();
         drop(self);
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
         let archive_name = format!(
@@ -549,8 +549,8 @@ impl WalRecord {
     pub fn create_checkpoint(node_count: u64, index_state: Option<&[u8]>) -> Self {
         let index_checksum = index_state.map(compute_crc32c);
         let timestamp = Some(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
+            web_time::SystemTime::now()
+                .duration_since(web_time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
         );

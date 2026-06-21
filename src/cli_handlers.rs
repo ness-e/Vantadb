@@ -157,8 +157,8 @@ pub fn cmd_put(
         crate::node::FieldValue::String(payload.to_string()),
     );
 
-    let now_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    let now_ms = web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
 

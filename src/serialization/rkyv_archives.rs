@@ -74,7 +74,11 @@ impl<'a> ArchivedHnswGraph<'a> {
                 neighbor_bytes.len() / 8,
             )
         };
-        Some(Self { header, nodes, neighbor_data })
+        Some(Self {
+            header,
+            nodes,
+            neighbor_data,
+        })
     }
 
     pub fn node_count(&self) -> usize {
@@ -158,10 +162,7 @@ impl CPIndex {
         }
 
         let neighbor_bytes = unsafe {
-            std::slice::from_raw_parts(
-                neighbor_data.as_ptr() as *const u8,
-                neighbor_data.len() * 8,
-            )
+            std::slice::from_raw_parts(neighbor_data.as_ptr() as *const u8, neighbor_data.len() * 8)
         };
         buf.extend_from_slice(neighbor_bytes);
 
@@ -171,9 +172,8 @@ impl CPIndex {
     /// Load an index from the rkyv archive format.
     pub fn load_from_rkyv(data: &[u8]) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
-        let graph = ArchivedHnswGraph::from_bytes(data).ok_or_else(|| {
-            Error::new(ErrorKind::InvalidData, "invalid rkyv archive")
-        })?;
+        let graph = ArchivedHnswGraph::from_bytes(data)
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "invalid rkyv archive"))?;
 
         let index = CPIndex::new_with_config(HnswConfig {
             distance_metric: graph.distance_metric(),
@@ -181,8 +181,12 @@ impl CPIndex {
         });
 
         if graph.header.entry_point != u64::MAX {
-            index.entry_point.store(graph.entry_point(), std::sync::atomic::Ordering::Release);
-            index.max_layer.store(graph.max_layer(), std::sync::atomic::Ordering::Release);
+            index
+                .entry_point
+                .store(graph.entry_point(), std::sync::atomic::Ordering::Release);
+            index
+                .max_layer
+                .store(graph.max_layer(), std::sync::atomic::Ordering::Release);
         }
 
         for archived in graph.nodes {

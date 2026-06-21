@@ -89,8 +89,12 @@ struct SearchRequest {
     explain: bool,
 }
 
-fn default_top_k() -> usize { 10 }
-fn default_distance() -> String { "Cosine".to_string() }
+fn default_top_k() -> usize {
+    10
+}
+fn default_distance() -> String {
+    "Cosine".to_string()
+}
 
 #[derive(Serialize, Deserialize)]
 struct ListOptions {
@@ -102,7 +106,9 @@ struct ListOptions {
     cursor: Option<usize>,
 }
 
-fn default_limit() -> usize { 100 }
+fn default_limit() -> usize {
+    100
+}
 
 #[wasm_bindgen]
 pub struct VantaDB {
@@ -219,7 +225,10 @@ impl VantaDB {
     }
 
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
-        let hits = self.inner.search_vector(&vector, top_k).map_err(to_js_err)?;
+        let hits = self
+            .inner
+            .search_vector(&vector, top_k)
+            .map_err(to_js_err)?;
         to_js(&hits)
     }
 

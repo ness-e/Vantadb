@@ -16,7 +16,7 @@ fn test_vanta_value_all_variants_serialize() {
     let variants = vec![
         VantaValue::String("test".into()),
         VantaValue::Int(42),
-        VantaValue::Float(3.14),
+        VantaValue::Float(std::f64::consts::PI),
         VantaValue::Bool(true),
         VantaValue::Null,
         VantaValue::ListString(vec!["a".into(), "b".into()]),
@@ -172,7 +172,11 @@ fn test_query_result_serialize() {
     let json = serde_json::to_string(&write).unwrap();
     let back: VantaQueryResult = serde_json::from_str(&json).unwrap();
     match back {
-        VantaQueryResult::Write { affected_nodes, message, node_id } => {
+        VantaQueryResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        } => {
             assert_eq!(affected_nodes, 1);
             assert_eq!(message, "ok");
             assert_eq!(node_id, Some(42));

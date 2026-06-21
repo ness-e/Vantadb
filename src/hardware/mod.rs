@@ -103,7 +103,7 @@ impl HardwareScout {
                 let _ = fs::write(Self::PROFILE_PATH, json);
             }
 
-            return caps;
+            caps
         }
 
         #[cfg(not(feature = "sysinfo"))]
@@ -113,7 +113,8 @@ impl HardwareScout {
             let logical_cores = 1;
             let total_memory = 1024 * 1024 * 1024; // Conservative 1GB default
             let profile = Self::determine_profile(total_memory, instructions);
-            let resource_score = Self::calculate_resource_score(total_memory, logical_cores, instructions);
+            let resource_score =
+                Self::calculate_resource_score(total_memory, logical_cores, instructions);
 
             let caps = HardwareCapabilities {
                 instructions,
