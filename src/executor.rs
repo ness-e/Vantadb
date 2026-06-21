@@ -271,8 +271,8 @@ impl<'a> Executor<'a> {
             Statement::InsertMessage(msg) => {
                 // Syntactic Sugar for Chat Threads: Creates a node and relates it.
                 // Normally we'd use a UUID generator, but for MVP we use a timestamp-based ID or random
-                let msg_id = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
+                let msg_id = web_time::SystemTime::now()
+                    .duration_since(web_time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_micros() as u64;
                 let mut node = UnifiedNode::new(msg_id);

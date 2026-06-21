@@ -93,6 +93,14 @@ chaos_results.json
 payload.json
 test_gil.py
 
+# Windows debug symbols
+*.pdb
+
+# Node.js / TypeScript
+node_modules/
+vantadb-ts/node_modules/
+**/node_modules/
+
 # Coverage reports
 lcov.info
 *.profraw

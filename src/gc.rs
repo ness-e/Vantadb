@@ -1,6 +1,6 @@
 use crate::storage::StorageEngine;
 use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 pub struct GcWorker<'a> {
     storage: &'a StorageEngine,

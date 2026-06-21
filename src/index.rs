@@ -1,8 +1,8 @@
+#[cfg(not(feature = "memmap2"))]
+use crate::storage::MmapMut;
 use dashmap::DashMap;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
-#[cfg(not(feature = "memmap2"))]
-use crate::storage::MmapMut;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::collections::BinaryHeap;

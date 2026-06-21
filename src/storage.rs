@@ -19,9 +19,9 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use web_time::Instant;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
+use web_time::Instant;
+use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, IntoBytes};
 
 // ─── WASM-compatible mmap shim ────────────────────────────────────────
@@ -38,7 +38,9 @@ pub(crate) mod mmap_shim {
     pub struct MmapOptions;
 
     impl MmapOptions {
-        pub fn new() -> Self { Self }
+        pub fn new() -> Self {
+            Self
+        }
         pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
             let mut v = vec![0u8; file.metadata()?.len() as usize];
             let mut f = file.try_clone()?;
@@ -57,31 +59,71 @@ pub(crate) mod mmap_shim {
         pub fn map(file: &File) -> std::io::Result<Self> {
             MmapOptions::new().map(file)
         }
-        pub fn as_ptr(&self) -> *const u8 { self.0.as_ptr() }
-        pub fn len(&self) -> usize { self.0.len() }
-        pub fn flush(&self) -> std::io::Result<()> { Ok(()) }
-        pub fn flush_async(&self) -> std::io::Result<()> { Ok(()) }
-        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> { Ok(()) }
-        pub fn is_empty(&self) -> bool { self.0.is_empty() }
+        pub fn as_ptr(&self) -> *const u8 {
+            self.0.as_ptr()
+        }
+        pub fn len(&self) -> usize {
+            self.0.len()
+        }
+        pub fn flush(&self) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn flush_async(&self) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn is_empty(&self) -> bool {
+            self.0.is_empty()
+        }
     }
 
-    impl Deref for Mmap { type Target = [u8]; fn deref(&self) -> &[u8] { &self.0 } }
+    impl Deref for Mmap {
+        type Target = [u8];
+        fn deref(&self) -> &[u8] {
+            &self.0
+        }
+    }
 
     impl MmapMut {
         pub fn map_mut(file: &File) -> std::io::Result<Self> {
             MmapOptions::new().map_mut(file)
         }
-        pub fn as_ptr(&self) -> *const u8 { self.0.as_ptr() }
-        pub fn as_mut_ptr(&mut self) -> *mut u8 { self.0.as_mut_ptr() }
-        pub fn len(&self) -> usize { self.0.len() }
-        pub fn flush(&self) -> std::io::Result<()> { Ok(()) }
-        pub fn flush_async(&self) -> std::io::Result<()> { Ok(()) }
-        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> { Ok(()) }
-        pub fn is_empty(&self) -> bool { self.0.is_empty() }
+        pub fn as_ptr(&self) -> *const u8 {
+            self.0.as_ptr()
+        }
+        pub fn as_mut_ptr(&mut self) -> *mut u8 {
+            self.0.as_mut_ptr()
+        }
+        pub fn len(&self) -> usize {
+            self.0.len()
+        }
+        pub fn flush(&self) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn flush_async(&self) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> {
+            Ok(())
+        }
+        pub fn is_empty(&self) -> bool {
+            self.0.is_empty()
+        }
     }
 
-    impl Deref for MmapMut { type Target = [u8]; fn deref(&self) -> &[u8] { &self.0 } }
-    impl DerefMut for MmapMut { fn deref_mut(&mut self) -> &mut [u8] { &mut self.0 } }
+    impl Deref for MmapMut {
+        type Target = [u8];
+        fn deref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+    impl DerefMut for MmapMut {
+        fn deref_mut(&mut self) -> &mut [u8] {
+            &mut self.0
+        }
+    }
 }
 #[cfg(not(feature = "memmap2"))]
 pub(crate) use mmap_shim::{Mmap, MmapMut, MmapOptions};
@@ -328,7 +370,7 @@ fn engine_mmap_resident_bytes(hnsw: &CPIndex, vector_store: &VantaFile) -> Optio
 }
 
 pub struct VantaFile {
-    pub file: File,
+    pub file: Option<File>,
     mmap: VantaFileMap,
     pub path: PathBuf,
     pub size: u64,
@@ -339,6 +381,7 @@ pub struct VantaFile {
 enum VantaFileMap {
     ReadOnly(Mmap),
     ReadWrite(MmapMut),
+    InMemory(Vec<u8>),
 }
 
 impl VantaFileMap {
@@ -346,6 +389,7 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(mmap) => mmap,
             VantaFileMap::ReadWrite(mmap) => mmap,
+            VantaFileMap::InMemory(data) => data,
         }
     }
 
@@ -353,6 +397,7 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(mmap) => mmap.as_ptr(),
             VantaFileMap::ReadWrite(mmap) => mmap.as_ptr(),
+            VantaFileMap::InMemory(data) => data.as_ptr(),
         }
     }
 
@@ -360,6 +405,7 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(mmap) => mmap.len(),
             VantaFileMap::ReadWrite(mmap) => mmap.len(),
+            VantaFileMap::InMemory(data) => data.len(),
         }
     }
 
@@ -369,6 +415,7 @@ impl VantaFileMap {
                 "VantaFile is read-only; write operation rejected".to_string(),
             )),
             VantaFileMap::ReadWrite(mmap) => Ok(mmap),
+            VantaFileMap::InMemory(data) => Ok(data),
         }
     }
 
@@ -376,6 +423,7 @@ impl VantaFileMap {
         match self {
             VantaFileMap::ReadOnly(_) => Ok(()),
             VantaFileMap::ReadWrite(mmap) => mmap.flush().map_err(VantaError::IoError),
+            VantaFileMap::InMemory(_) => Ok(()),
         }
     }
 }
@@ -394,6 +442,25 @@ impl VantaFile {
 
     pub fn open_read_only(path: PathBuf) -> Result<Self> {
         Self::open_with_mode(path, 0, true)
+    }
+
+    /// Create a purely in-memory VantaFile backed by Vec<u8>.
+    /// No file I/O involved — used for WASM / true in-memory mode.
+    pub fn create_in_memory(initial_size: u64) -> Self {
+        let size = initial_size.max(64);
+        let mut data = vec![0u8; size as usize];
+        let header = crate::binary_header::VantaHeader::new(*b"VFLE", 1, 0);
+        data[0..16].copy_from_slice(&header.serialize());
+        let initial_cursor = 64u64.to_le_bytes();
+        data[16..24].copy_from_slice(&initial_cursor);
+        Self {
+            file: None,
+            mmap: VantaFileMap::InMemory(data),
+            path: PathBuf::new(),
+            size,
+            write_cursor: 64,
+            read_only: false,
+        }
     }
 
     fn open_with_mode(path: PathBuf, initial_size: u64, read_only: bool) -> Result<Self> {
@@ -467,7 +534,7 @@ impl VantaFile {
         };
 
         Ok(Self {
-            file,
+            file: Some(file),
             mmap,
             path,
             size: current_size,
@@ -497,9 +564,12 @@ impl VantaFile {
                 "VantaFile is read-only; remap operation rejected".to_string(),
             ));
         }
+        if let VantaFileMap::InMemory(_) = &self.mmap {
+            return Ok(());
+        }
         self.mmap = VantaFileMap::ReadWrite(unsafe {
             MmapOptions::new()
-                .map_mut(&self.file)
+                .map_mut(self.file.as_ref().unwrap())
                 .map_err(VantaError::IoError)?
         });
         Ok(())
@@ -543,6 +613,28 @@ impl VantaFile {
         Ok(())
     }
 
+    /// Grow the backing store to at least `new_size` bytes.
+    /// For file-backed VantaFiles this resizes the file and remaps the mmap.
+    /// For in-memory VantaFiles this simply resizes the Vec.
+    pub fn grow_to(&mut self, new_size: u64) -> Result<()> {
+        match &mut self.mmap {
+            VantaFileMap::InMemory(data) => {
+                data.resize(new_size as usize, 0);
+                self.size = new_size;
+                Ok(())
+            }
+            _ => {
+                self.file
+                    .as_ref()
+                    .unwrap()
+                    .set_len(new_size)
+                    .map_err(VantaError::IoError)?;
+                self.size = new_size;
+                self.remap_mut()
+            }
+        }
+    }
+
     /// Synchronizes changes to disk
     pub fn flush(&self) -> Result<()> {
         #[cfg(feature = "failpoints")]
@@ -567,6 +659,7 @@ impl VantaFile {
             let _ = match &self.mmap {
                 VantaFileMap::ReadOnly(mmap) => mmap.advise(Advice::WillNeed),
                 VantaFileMap::ReadWrite(mmap) => mmap.advise(Advice::WillNeed),
+                VantaFileMap::InMemory(_) => Ok(()),
             };
         }
         #[cfg(not(unix))]
@@ -692,6 +785,12 @@ impl StorageEngine {
     ) -> Result<(Option<File>, Arc<dyn StorageBackend>, PathBuf)> {
         let base_path = PathBuf::from(path);
 
+        // ── Pure in-memory: skip all file I/O ─────
+        if matches!(config.backend_kind, BackendKind::InMemory) {
+            let backend: Arc<dyn StorageBackend> = Arc::new(InMemoryBackend::new());
+            return Ok((None, backend, PathBuf::new()));
+        }
+
         if config.read_only && !base_path.exists() {
             return Err(VantaError::Execution(format!(
                 "StorageEngine read-only open requires an existing database path: {}",
@@ -734,14 +833,22 @@ impl StorageEngine {
             while start_time.elapsed() < total_limit {
                 let lock_res: std::io::Result<()> = if config.read_only {
                     #[cfg(feature = "fs2")]
-                    { fs2::FileExt::try_lock_shared(&file) }
+                    {
+                        fs2::FileExt::try_lock_shared(&file)
+                    }
                     #[cfg(not(feature = "fs2"))]
-                    { Ok(()) }
+                    {
+                        Ok(())
+                    }
                 } else {
                     #[cfg(feature = "fs2")]
-                    { fs2::FileExt::try_lock_exclusive(&file) }
+                    {
+                        fs2::FileExt::try_lock_exclusive(&file)
+                    }
                     #[cfg(not(feature = "fs2"))]
-                    { Ok(()) }
+                    {
+                        Ok(())
+                    }
                 };
 
                 if lock_res.is_ok() {
@@ -966,18 +1073,32 @@ impl StorageEngine {
 
         let (lock_file, backend, data_dir) = Self::init_storage(path, &config)?;
 
-        let (mut hnsw, mut vector_store) =
-            Self::init_indexes(&data_dir, &config, caps, effective_memory)?;
-
-        let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
-            &data_dir,
-            &config,
-            backend.as_ref(),
-            &mut hnsw,
-            &mut vector_store,
-        )?;
-
-        let wal_writer = Self::init_wal(&data_dir, &config)?;
+        // ── True in-memory mode: no disk-backed VantaFile, WAL, or recovery ──
+        let (hnsw, vector_store, wal_writer, wal_replay_ms, wal_records_replayed) =
+            if matches!(config.backend_kind, BackendKind::InMemory) {
+                let hnsw = CPIndex::new();
+                let vector_store = VantaFile::create_in_memory(1024 * 1024 * 64);
+                let wal_writer = None;
+                (hnsw, vector_store, wal_writer, 0u64, 0u64)
+            } else {
+                let (mut hnsw, mut vector_store) =
+                    Self::init_indexes(&data_dir, &config, caps, effective_memory)?;
+                let (wal_replay_ms, wal_records_replayed) = Self::recover_state(
+                    &data_dir,
+                    &config,
+                    backend.as_ref(),
+                    &mut hnsw,
+                    &mut vector_store,
+                )?;
+                let wal_writer = Self::init_wal(&data_dir, &config)?;
+                (
+                    hnsw,
+                    vector_store,
+                    wal_writer,
+                    wal_replay_ms,
+                    wal_records_replayed,
+                )
+            };
 
         crate::metrics::record_startup(
             startup_started.elapsed().as_millis() as u64,
@@ -1062,9 +1183,7 @@ impl StorageEngine {
 
         if total_needed > vstore.size {
             let new_size = vstore.size * 2;
-            vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
-            vstore.size = new_size;
-            vstore.remap_mut()?;
+            vstore.grow_to(new_size)?;
         }
 
         let mut header = DiskNodeHeader::new(node.id);
@@ -1108,9 +1227,7 @@ impl StorageEngine {
 
         if total_needed > vstore.size {
             let new_size = (vstore.size * 2).max(total_needed + 4096);
-            vstore.file.set_len(new_size).map_err(VantaError::IoError)?;
-            vstore.size = new_size;
-            vstore.remap_mut()?;
+            vstore.grow_to(new_size)?;
         }
 
         let mut header = DiskNodeHeader::new(node.id);

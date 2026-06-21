@@ -741,9 +741,19 @@ pub fn record_memory_breakdown(
     cache_entries: u64,
     cache_cap_bytes: u64,
 ) {
-    #[cfg(any(feature = "sysinfo", target_os = "linux", target_os = "macos", target_os = "windows"))]
+    #[cfg(any(
+        feature = "sysinfo",
+        target_os = "linux",
+        target_os = "macos",
+        target_os = "windows"
+    ))]
     let (rss, virt) = _get_rss_virt();
-    #[cfg(not(any(feature = "sysinfo", target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(
+        feature = "sysinfo",
+        target_os = "linux",
+        target_os = "macos",
+        target_os = "windows"
+    )))]
     let (rss, virt) = (0, 0);
 
     LAST_PROCESS_RSS_BYTES.store(rss, Ordering::Relaxed);
@@ -784,9 +794,8 @@ fn _get_rss_virt() -> (u64, u64) {
         let pid = Pid::from_u32(std::process::id());
         let mut sys = System::new();
         sys.refresh_process(pid);
-        match sys.process(pid) {
-            Some(proc) => return (proc.memory(), proc.virtual_memory()),
-            None => {}
+        if let Some(proc) = sys.process(pid) {
+            return (proc.memory(), proc.virtual_memory());
         }
     }
     (0, 0)

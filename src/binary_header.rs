@@ -1,4 +1,5 @@
 use crate::error::{Result, VantaError};
+use web_time::SystemTime;
 
 /// Unified 16-byte binary header for all VantaDB persisted files.
 /// Ensures format, schema and data integrity on load/recovery.
@@ -21,8 +22,8 @@ impl VantaHeader {
 
     /// Create a new header with current system timestamp.
     pub fn new(magic: [u8; 4], format_version: u16, schema_version: u16) -> Self {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
         Self {

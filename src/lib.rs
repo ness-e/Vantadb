@@ -34,13 +34,13 @@ pub mod metadata;
 pub mod metrics;
 pub mod node;
 pub mod parser;
-pub mod serialization;
 pub mod physical_plan;
 pub mod planner;
 #[cfg(feature = "python_sdk")]
 pub mod python;
 pub mod query;
 pub mod sdk;
+pub mod serialization;
 
 pub mod storage;
 pub(crate) mod text_index;

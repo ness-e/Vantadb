@@ -156,10 +156,7 @@ pub fn sq8_quantize(data: &[f32]) -> (Box<[i8]>, f32) {
     let scale = 127.0 / max_abs;
     let quantized: Vec<i8> = data
         .iter()
-        .map(|&v| {
-            let scaled = (v * scale).round().clamp(-127.0, 127.0) as i8;
-            scaled
-        })
+        .map(|&v| (v * scale).round().clamp(-127.0, 127.0) as i8)
         .collect();
 
     (quantized.into_boxed_slice(), max_abs)

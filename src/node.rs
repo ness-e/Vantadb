@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Metric type used for vector distance/similarity calculations.
@@ -92,10 +92,13 @@ impl VectorRepresentations {
         use crate::hardware::{HardwareCapabilities, InstructionSet};
 
         // SQ8 ↔ SQ8 fast path: avoid full decode
-        if let (VectorRepresentations::SQ8(a_data, a_scale), VectorRepresentations::SQ8(b_data, b_scale)) =
-            (self, other)
+        if let (
+            VectorRepresentations::SQ8(a_data, a_scale),
+            VectorRepresentations::SQ8(b_data, b_scale),
+        ) = (self, other)
         {
-            let dot = crate::vector::quantization::sq8_similarity(a_data, *a_scale, b_data, *b_scale);
+            let dot =
+                crate::vector::quantization::sq8_similarity(a_data, *a_scale, b_data, *b_scale);
             return Some(dot);
         }
 

@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-21 (TSK-71 WASM Build ✅)
+> **Última actualización:** 2026-06-21 (WASM Browser Build ✅)
 
 ## Resumen Ejecutivo
 
@@ -21,7 +21,7 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 | QA/Tests | 7 | 7 | ✅ |
 | Herramientas DX | 8 | 8 | ✅ |
 | Project Management | 6 | 6 | ✅ |
-| **Total** | **73** | **~84** | **✅** |
+| **Total** | **74** | **~84** | **✅** |
 
 ## Leyenda
 
@@ -364,3 +364,24 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - [x] Build WASM (`cargo check --target wasm32-wasip1 --no-default-features --features wasm`): ✅ sin errores
 - **Archivos modificados:** `Cargo.toml`, `src/hardware/mod.rs`, `src/metrics.rs`, `src/storage.rs`, `src/index.rs`, `src/sdk.rs`
 - **Resultado:** Core crate compila en wasm32-wasip1. Warnings menores (unsafe innecesario en shim, dead code en backend/hardware) no bloqueantes.
+
+### Fix WASM Browser Build (wasm32-unknown-unknown) — SystemTime panic (2026-06-21)
+
+- **Objetivo:** Eliminar panics de `std::time::SystemTime::now()` al compilar `vantadb-wasm` para `wasm32-unknown-unknown` (target browser WASM).
+- **Problema:** `SystemTime::now()` no está disponible en `wasm32-unknown-unknown`. Causaba panic en tiempo de ejecución al cargar el WASM.
+- **Solución:** Reemplazar todas las ocurrencias de `std::time::SystemTime` y `std::time::UNIX_EPOCH` por `web_time::SystemTime` / `web_time::UNIX_EPOCH` (crate `web-time` v1.1.0, compatible con WASM y native).
+- **Archivos modificados (11):**
+  - `src/binary_header.rs` — import + `verify_magic_number()`
+  - `src/segment_expiry_state.rs` — `SegmentExpiryState`
+  - `src/segment_redundancy.rs` — `SegmentRedundancy`
+  - `src/sync_verification.rs` — `SyncVerification`
+  - `src/cluster_manager.rs` — `ClusterManager`
+  - `src/sdk.rs` — import + `now_ms()`
+  - `src/storage.rs` — import
+  - `src/wal.rs` — 2x `now()` + 2x `duration_since()`
+  - `src/cli_handlers.rs` — `now()` + `duration_since()`
+  - `src/executor.rs` — `now()` + `duration_since()`
+  - `src/gc.rs` — import
+- **Verificación:**
+  - `cargo build --target wasm32-unknown-unknown` (desde `vantadb-wasm/`): ✅ sin errores
+  - `cargo test --lib` (native): ✅ 48 tests, 0 fallos

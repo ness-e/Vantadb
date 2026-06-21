@@ -179,13 +179,19 @@ fn test_antivirus_file_share_read_does_not_block() {
     // VantaDB should still be able to operate while antivirus has a handle open
     db.put(VantaMemoryInput::new("ns", "k1", "v1")).unwrap();
     let result = db.get("ns", "k1");
-    assert!(result.is_ok(), "VantaDB should still operate with antivirus handle open");
+    assert!(
+        result.is_ok(),
+        "VantaDB should still operate with antivirus handle open"
+    );
 
     // Should still work after the antivirus handle is dropped
     drop(_antivirus_file);
     db.put(VantaMemoryInput::new("ns", "k2", "v2")).unwrap();
     let result = db.get("ns", "k2");
-    assert!(result.is_ok(), "VantaDB should work after antivirus handle closes");
+    assert!(
+        result.is_ok(),
+        "VantaDB should work after antivirus handle closes"
+    );
     assert_eq!(result.unwrap().map(|r| r.payload).as_deref(), Some("v2"));
 
     db.close().unwrap();
@@ -212,7 +218,8 @@ fn test_backup_file_share_delete_does_not_block() {
         .expect("Backup software should open lock file with FILE_SHARE_DELETE");
 
     // VantaDB should still operate
-    db.put(VantaMemoryInput::new("ns", "k1", "backup_test")).unwrap();
+    db.put(VantaMemoryInput::new("ns", "k1", "backup_test"))
+        .unwrap();
     drop(backup_file);
     db.close().unwrap();
 }
@@ -229,11 +236,15 @@ fn test_stale_lock_recovery() {
     // VantaDB should clean it up and acquire a fresh lock
     let path = dir.path().to_str().unwrap().to_string();
     let db = VantaEmbedded::open(&path).unwrap();
-    db.put(VantaMemoryInput::new("ns", "k1", "recovered")).unwrap();
+    db.put(VantaMemoryInput::new("ns", "k1", "recovered"))
+        .unwrap();
 
     // Verify the lock file now has valid content (not our stale bytes)
     let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
-    assert_ne!(content, "stale_lock_content", "Stale lock should have been replaced");
+    assert_ne!(
+        content, "stale_lock_content",
+        "Stale lock should have been replaced"
+    );
 
     db.close().unwrap();
 }
