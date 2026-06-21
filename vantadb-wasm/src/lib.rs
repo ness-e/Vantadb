@@ -18,6 +18,27 @@ fn to_js_err(e: VantaError) -> JsValue {
     js_sys::Error::new(&e.to_string()).into()
 }
 
+fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
+    let obj = js_sys::Object::new();
+    js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"created_at_ms".into(), &rec.created_at_ms.to_string().into()).unwrap();
+    js_sys::Reflect::set(&obj, &"updated_at_ms".into(), &rec.updated_at_ms.to_string().into()).unwrap();
+    js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
+    js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
+    if let Some(ref vector) = rec.vector {
+        let v: JsValue = serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
+        js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
+    }
+    if let Some(expires_at) = rec.expires_at_ms {
+        js_sys::Reflect::set(&obj, &"expires_at_ms".into(), &expires_at.to_string().into()).unwrap();
+    }
+    let meta: JsValue = serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
+    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).unwrap();
+    JsValue::from(&obj)
+}
+
 fn from_js<T: serde::de::DeserializeOwned>(val: JsValue) -> Result<T, JsValue> {
     serde_wasm_bindgen::from_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
 }
@@ -110,6 +131,116 @@ fn default_limit() -> usize {
     100
 }
 
+// ── JS‑facing record types (u64 → String for JS Number safety) ──────────
+
+#[derive(Serialize)]
+struct JsNodeRecord {
+    id: String,
+    fields: VantaFields,
+    vector: Option<Vec<f32>>,
+    vector_dimensions: usize,
+    edges: Vec<VantaEdgeRecord>,
+    confidence_score: f32,
+    importance: f32,
+    hits: u32,
+    last_accessed: String,
+    epoch: u32,
+    tier: VantaStorageTier,
+    is_alive: bool,
+}
+
+impl From<VantaNodeRecord> for JsNodeRecord {
+    fn from(n: VantaNodeRecord) -> Self {
+        JsNodeRecord {
+            id: n.id.to_string(),
+            fields: n.fields,
+            vector: n.vector,
+            vector_dimensions: n.vector_dimensions,
+            edges: n.edges,
+            confidence_score: n.confidence_score,
+            importance: n.importance,
+            hits: n.hits,
+            last_accessed: n.last_accessed.to_string(),
+            epoch: n.epoch,
+            tier: n.tier,
+            is_alive: n.is_alive,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct JsOperationalMetrics {
+    startup_ms: String,
+    wal_replay_ms: String,
+    wal_records_replayed: String,
+    ann_rebuild_ms: String,
+    ann_rebuild_scanned_nodes: String,
+    derived_rebuild_ms: String,
+    text_index_rebuild_ms: String,
+    text_postings_written: String,
+    text_index_repairs: String,
+    text_lexical_queries: String,
+    text_lexical_query_ms: String,
+    text_candidates_scored: String,
+    text_consistency_audits: String,
+    text_consistency_audit_failures: String,
+    hybrid_query_ms: String,
+    hybrid_candidates_fused: String,
+    planner_hybrid_queries: String,
+    planner_text_only_queries: String,
+    planner_vector_only_queries: String,
+    records_exported: String,
+    records_imported: String,
+    import_errors: String,
+    derived_prefix_scans: String,
+    derived_full_scan_fallbacks: String,
+    process_rss_bytes: String,
+    process_virtual_bytes: String,
+    hnsw_nodes_count: String,
+    hnsw_logical_bytes: String,
+    mmap_resident_bytes: Option<String>,
+    volatile_cache_entries: String,
+    volatile_cache_cap_bytes: String,
+}
+
+impl From<VantaOperationalMetrics> for JsOperationalMetrics {
+    fn from(m: VantaOperationalMetrics) -> Self {
+        JsOperationalMetrics {
+            startup_ms: m.startup_ms.to_string(),
+            wal_replay_ms: m.wal_replay_ms.to_string(),
+            wal_records_replayed: m.wal_records_replayed.to_string(),
+            ann_rebuild_ms: m.ann_rebuild_ms.to_string(),
+            ann_rebuild_scanned_nodes: m.ann_rebuild_scanned_nodes.to_string(),
+            derived_rebuild_ms: m.derived_rebuild_ms.to_string(),
+            text_index_rebuild_ms: m.text_index_rebuild_ms.to_string(),
+            text_postings_written: m.text_postings_written.to_string(),
+            text_index_repairs: m.text_index_repairs.to_string(),
+            text_lexical_queries: m.text_lexical_queries.to_string(),
+            text_lexical_query_ms: m.text_lexical_query_ms.to_string(),
+            text_candidates_scored: m.text_candidates_scored.to_string(),
+            text_consistency_audits: m.text_consistency_audits.to_string(),
+            text_consistency_audit_failures: m.text_consistency_audit_failures.to_string(),
+            hybrid_query_ms: m.hybrid_query_ms.to_string(),
+            hybrid_candidates_fused: m.hybrid_candidates_fused.to_string(),
+            planner_hybrid_queries: m.planner_hybrid_queries.to_string(),
+            planner_text_only_queries: m.planner_text_only_queries.to_string(),
+            planner_vector_only_queries: m.planner_vector_only_queries.to_string(),
+            records_exported: m.records_exported.to_string(),
+            records_imported: m.records_imported.to_string(),
+            import_errors: m.import_errors.to_string(),
+            derived_prefix_scans: m.derived_prefix_scans.to_string(),
+            derived_full_scan_fallbacks: m.derived_full_scan_fallbacks.to_string(),
+            process_rss_bytes: m.process_rss_bytes.to_string(),
+            process_virtual_bytes: m.process_virtual_bytes.to_string(),
+            hnsw_nodes_count: m.hnsw_nodes_count.to_string(),
+            hnsw_logical_bytes: m.hnsw_logical_bytes.to_string(),
+            mmap_resident_bytes: m.mmap_resident_bytes.map(|v| v.to_string()),
+            volatile_cache_entries: m.volatile_cache_entries.to_string(),
+            volatile_cache_cap_bytes: m.volatile_cache_cap_bytes.to_string(),
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub struct VantaDB {
     inner: VantaEmbedded,
@@ -160,7 +291,7 @@ impl VantaDB {
             ttl_ms: input.ttl_ms,
         };
         let record = self.inner.put(vanta_input).map_err(to_js_err)?;
-        to_js(&record)
+        Ok(memory_record_to_js(record))
     }
 
     pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
@@ -177,12 +308,19 @@ impl VantaDB {
             })
             .collect();
         let records = self.inner.put_batch(vanta_inputs).map_err(to_js_err)?;
-        to_js(&records)
+        let arr = js_sys::Array::new();
+        for rec in records {
+            arr.push(&memory_record_to_js(rec));
+        }
+        Ok(arr.into())
     }
 
     pub fn get(&self, namespace: &str, key: &str) -> Result<JsValue, JsValue> {
-        let record = self.inner.get(namespace, key).map_err(to_js_err)?;
-        to_js(&record)
+        let record: Option<VantaMemoryRecord> = self.inner.get(namespace, key).map_err(to_js_err)?;
+        match record {
+            Some(rec) => Ok(memory_record_to_js(rec)),
+            None => Ok(JsValue::null()),
+        }
     }
 
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool, JsValue> {
@@ -202,7 +340,28 @@ impl VantaDB {
             cursor: opts.cursor,
         };
         let page = self.inner.list(namespace, vanta_opts).map_err(to_js_err)?;
-        to_js(&page)
+        let obj = js_sys::Object::new();
+        let arr = js_sys::Array::new();
+        for rec in page.records {
+            arr.push(&memory_record_to_js(rec));
+        }
+        js_sys::Reflect::set(&obj, &"records".into(), &arr).unwrap();
+        if let Some(cursor) = page.next_cursor {
+            js_sys::Reflect::set(&obj, &"next_cursor".into(), &(cursor as f64).into()).unwrap();
+        }
+        Ok(obj.into())
+    }
+
+    fn search_hit_to_js(hit: VantaMemorySearchHit) -> JsValue {
+        let obj = js_sys::Object::new();
+        js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).unwrap();
+        js_sys::Reflect::set(&obj, &"score".into(), &(hit.score as f64).into()).unwrap();
+        if let Some(ref explanation) = hit.explanation {
+            let expl_js: JsValue = serde_wasm_bindgen::to_value(explanation)
+                .expect("search explanation serialization");
+            js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).unwrap();
+        }
+        obj.into()
     }
 
     pub fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
@@ -221,7 +380,11 @@ impl VantaDB {
             explain: req.explain,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
-        to_js(&hits)
+        let arr = js_sys::Array::new();
+        for hit in hits {
+            arr.push(&Self::search_hit_to_js(hit));
+        }
+        Ok(arr.into())
     }
 
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
@@ -229,7 +392,14 @@ impl VantaDB {
             .inner
             .search_vector(&vector, top_k)
             .map_err(to_js_err)?;
-        to_js(&hits)
+        let arr = js_sys::Array::new();
+        for hit in hits {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"node_id".into(), &hit.node_id.to_string().into()).unwrap();
+            js_sys::Reflect::set(&obj, &"score".into(), &(hit.distance as f64).into()).unwrap();
+            arr.push(&obj);
+        }
+        Ok(arr.into())
     }
 
     pub fn explain_memory_search(&self, request: JsValue) -> Result<JsValue, JsValue> {
@@ -322,7 +492,8 @@ impl VantaDB {
 
     pub fn operational_metrics(&self) -> Result<JsValue, JsValue> {
         let metrics = self.inner.operational_metrics();
-        to_js(&metrics)
+        let js: JsOperationalMetrics = metrics.into();
+        to_js(&js)
     }
 
     pub fn query(&self, query: &str) -> Result<JsValue, JsValue> {
@@ -337,7 +508,11 @@ impl VantaDB {
         vector: Option<Vec<f32>>,
         fields: JsValue,
     ) -> Result<(), JsValue> {
-        let fields: VantaFields = from_js(fields)?;
+        let fields: VantaFields = if fields.is_undefined() || fields.is_null() {
+            VantaFields::new()
+        } else {
+            from_js(fields)?
+        };
         let input = VantaNodeInput {
             id,
             content,
@@ -348,8 +523,9 @@ impl VantaDB {
     }
 
     pub fn get_node(&self, id: u64) -> Result<JsValue, JsValue> {
-        let node = self.inner.get_node(id).map_err(to_js_err)?;
-        to_js(&node)
+        let node: Option<VantaNodeRecord> = self.inner.get_node(id).map_err(to_js_err)?;
+        let js: Option<JsNodeRecord> = node.map(Into::into);
+        to_js(&js)
     }
 
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<(), JsValue> {

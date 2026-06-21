@@ -15,19 +15,8 @@ import type {
   VantaConfig,
 } from "./types.js";
 
-function _toNum(val: bigint): number {
-  return Number(val);
-}
-
 function _mapRecord(r: any): MemoryRecord {
-  return {
-    ...r,
-    node_id: _toNum(r.node_id),
-    created_at_ms: _toNum(r.created_at_ms),
-    updated_at_ms: _toNum(r.updated_at_ms),
-    version: _toNum(r.version),
-    expires_at_ms: r.expires_at_ms != null ? _toNum(r.expires_at_ms) : undefined,
-  };
+  return r;
 }
 
 export class VantaDB {
@@ -129,10 +118,13 @@ export class VantaDB {
     }));
   }
 
-  async searchVector(vector: number[], topK: number = 10): Promise<SearchHit[]> {
+  async searchVector(
+    vector: number[],
+    topK: number = 10
+  ): Promise<{ node_id: string; score: number }[]> {
     const raw: any[] = this.inner.search_vector(new Float32Array(vector), topK);
     return raw.map((hit: any) => ({
-      record: _mapRecord(hit.record),
+      node_id: hit.node_id,
       score: hit.score,
     }));
   }
@@ -150,53 +142,27 @@ export class VantaDB {
   }
 
   async exportNamespace(path: string, namespace: string): Promise<ExportReport> {
-    const raw = this.inner.export_namespace(path, namespace);
-    return {
-      records_exported: _toNum(raw.records_exported),
-      namespaces: raw.namespaces,
-      path: raw.path,
-      duration_ms: _toNum(raw.duration_ms),
-    };
+    return this.inner.export_namespace(path, namespace);
   }
 
   async exportAll(path: string): Promise<ExportReport> {
-    const raw = this.inner.export_all(path);
-    return {
-      records_exported: _toNum(raw.records_exported),
-      namespaces: raw.namespaces,
-      path: raw.path,
-      duration_ms: _toNum(raw.duration_ms),
-    };
+    return this.inner.export_all(path);
   }
 
   async importRecords(records: any[]): Promise<ImportReport> {
-    const raw = this.inner.import_records(records);
-    return {
-      inserted: _toNum(raw.inserted),
-      updated: _toNum(raw.updated),
-      skipped: _toNum(raw.skipped),
-      errors: _toNum(raw.errors),
-      duration_ms: _toNum(raw.duration_ms),
-    };
+    return this.inner.import_records(records);
   }
 
   async importFile(path: string): Promise<ImportReport> {
-    const raw = this.inner.import_file(path);
-    return {
-      inserted: _toNum(raw.inserted),
-      updated: _toNum(raw.updated),
-      skipped: _toNum(raw.skipped),
-      errors: _toNum(raw.errors),
-      duration_ms: _toNum(raw.duration_ms),
-    };
+    return this.inner.import_file(path);
   }
 
   async rebuildIndex(): Promise<any> {
     return this.inner.rebuild_index();
   }
 
-  async compactLayout(): Promise<number> {
-    return _toNum(this.inner.compact_layout());
+  async compactLayout(): Promise<bigint> {
+    return this.inner.compact_layout();
   }
 
   async auditTextIndex(namespace?: string): Promise<any> {
@@ -219,8 +185,8 @@ export class VantaDB {
     this.inner.compact_wal();
   }
 
-  async purgeExpired(): Promise<number> {
-    return _toNum(this.inner.purge_expired());
+  async purgeExpired(): Promise<bigint> {
+    return this.inner.purge_expired();
   }
 
   async operationalMetrics(): Promise<OperationalMetrics> {
@@ -248,14 +214,7 @@ export class VantaDB {
   async getNode(id: number): Promise<NodeRecord | null> {
     const raw = this.inner.get_node(BigInt(id));
     if (raw == null) return null;
-    return {
-      ...raw,
-      id: _toNum(raw.id),
-      vector_dimensions: _toNum(raw.vector_dimensions),
-      hits: _toNum(raw.hits),
-      last_accessed: _toNum(raw.last_accessed),
-      epoch: _toNum(raw.epoch),
-    };
+    return raw;
   }
 
   async deleteNode(id: number, reason: string = "deleted"): Promise<void> {

@@ -1,20 +1,45 @@
 {
   "name": "vantadb",
   "version": "0.1.4",
-  "description": "VantaDB TypeScript SDK — WASM-powered vector & graph memory for JS runtimes",
+  "description": "VantaDB TypeScript SDK — WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
   "type": "module",
-  "main": "src/vantadb.ts",
-  "types": "src/vantadb.ts",
+  "main": "dist/vantadb.js",
+  "types": "dist/vantadb.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/vantadb.d.ts",
+      "import": "./dist/vantadb.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ness-e/Vantadb"
+  },
+  "homepage": "https://vantadb.dev",
+  "bugs": "https://github.com/ness-e/Vantadb/issues",
   "keywords": [
     "vector-database",
     "memory",
     "rag",
     "embeddings",
-    "graph"
+    "graph",
+    "wasm",
+    "ai",
+    "semantic-search"
   ],
   "license": "Apache-2.0",
   "dependencies": {

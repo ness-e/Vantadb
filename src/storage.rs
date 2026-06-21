@@ -576,14 +576,14 @@ impl VantaFile {
     }
 
     /// Read a DiskNodeHeader from a specific offset without cloning (Zero-Copy)
-    pub fn read_header(&self, offset: u64) -> Option<&DiskNodeHeader> {
+    pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if offset + header_size > self.size || !offset.is_multiple_of(64) {
             return None;
         }
 
         let slice = &self.mmap_bytes()[offset as usize..(offset + header_size) as usize];
-        DiskNodeHeader::ref_from_bytes(slice).ok()
+        DiskNodeHeader::read_from_bytes(slice).ok()
     }
 
     /// Write a DiskNodeHeader to a specific offset
@@ -1030,7 +1030,7 @@ impl StorageEngine {
                     crate::wal::WalRecord::Delete { id } => {
                         if let Some(index_node) = hnsw.nodes.get(&id) {
                             let offset = index_node.storage_offset;
-                            if let Some(h) = vector_store.read_header(offset).cloned() {
+                            if let Some(h) = vector_store.read_header(offset) {
                                 let mut tombstoned = h;
                                 tombstoned.flags |= 0x8;
                                 vector_store.write_header(offset, &tombstoned)?;
@@ -1532,7 +1532,7 @@ impl StorageEngine {
             if let Some(node_ref) = hnsw.nodes.get(&node_id) {
                 let old_offset = node_ref.storage_offset;
                 let old_header = match vstore.read_header(old_offset) {
-                    Some(h) => *h,
+                    Some(h) => h,
                     None => continue,
                 };
 
@@ -1724,7 +1724,7 @@ impl StorageEngine {
     }
 
     pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) {
-        if storage_offset < 64 || !storage_offset.is_multiple_of(64) {
+        if !storage_offset.is_multiple_of(64) {
             return;
         }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
@@ -1737,8 +1737,17 @@ impl StorageEngine {
                     crate::node::VectorRepresentations::Full(vec.clone()),
                     storage_offset,
                 );
+                return;
             }
         }
+        let _guard = self.insert_lock.lock();
+        let index = self.hnsw.load();
+        index.add(
+            node.id,
+            node.bitset,
+            crate::node::VectorRepresentations::None,
+            storage_offset,
+        );
     }
 
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
@@ -1973,7 +1982,7 @@ impl StorageEngine {
             let offset = index_node.storage_offset;
 
             let mut vstore = self.vector_store.write();
-            if let Some(mut header) = vstore.read_header(offset).cloned() {
+            if let Some(mut header) = vstore.read_header(offset) {
                 header.flags |= 0x8;
                 vstore.write_header(offset, &header)?;
             }
