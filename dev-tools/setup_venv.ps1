@@ -24,8 +24,8 @@ if (-not (Test-Path $VenvDir)) {
     Write-Host "Reusing existing virtual environment." -ForegroundColor DarkGray
 }
 
-Write-Host "Installing pip, wheel, maturin, pytest..." -ForegroundColor Yellow
-& $VenvPython -m pip install --upgrade pip wheel maturin pytest --quiet
+Write-Host "Installing pip, wheel, maturin, pytest, numpy..." -ForegroundColor Yellow
+& $VenvPython -m pip install --upgrade pip wheel maturin pytest numpy --quiet
 if ($LASTEXITCODE -ne 0) { throw "Failed to install Python tooling." }
 
 # maturin requires VIRTUAL_ENV to install into this venv (not system Python).

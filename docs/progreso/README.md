@@ -288,9 +288,12 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
     - [x] Modificar `docs/operations/CI_POLICY.md`
   - [x] Sincronizar Backlog
     - [x] Modificar `C:\Users\Eros\Obsidian\Eros\Backlog.md`
+  - [x] Entorno de Validación Local (Pre-push)
+    - [x] Agregar `numpy` al entorno virtual de auditoría de Python en `dev-tools/setup_venv.ps1`
 - **Cambios y Resultados:**
   - **Soporte robusto de workspace en Nextest:** El cambio de `binary_id(...)` a `binary(...)` en `nextest.toml` asegura que los binarios pesados se excluyan efectivamente del Fast Gate de PR, previniendo fallas de permisos de root y timeouts en el CI rápido.
   - **Exclusiones de tests de larga duración:** Se identificó y excluyó `memory_telemetry` (timeout de 180s local) y el test unitario lento `concurrent_insert_preserves_hnsw_invariants` (~68s) de la fast gate, acelerando el pipeline.
+  - **Validación de Python SDK corregida:** Se instaló `numpy` en el entorno virtual hermético de auditoría (`dev-tools/setup_venv.ps1`) para que las pruebas de integración del SDK de Python que dependen de NumPy pasen correctamente y no bloqueen el pre-push de Git.
   - **Declaración explícita de tests:** Los tests sin entrada explícita `[[test]]` en `Cargo.toml` fueron declarados formalmente para evitar su desaparición por auto-descubrimiento.
   - **Clasificación en Heavy Certification:** `mcp_tests`, `multilingual_tokenizer_integration`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants` fueron clasificados para correr exclusivamente en `heavy_certification.yml` y documentados en `CI_POLICY.md`.
   - **Ejecución de columnar test:** Se habilitó la feature `arrow` en los workflows y se programó `columnar` para que sea evaluado en CI.
