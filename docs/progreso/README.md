@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-20 (Tarde — CI, DISC, Phase 4 items)
+> **Última actualización:** 2026-06-21 (TSK-45 — crates.io publish ✅)
 
 ## Resumen Ejecutivo
 
@@ -317,3 +317,21 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - `CPIndex::serialize_to_rkyv()` y `CPIndex::load_from_rkyv()`.
   - `serialization_order()` promovido a `pub(crate)`.
 - **ROAD-06:** `docs/operations/grafana-dashboard.json` (6 paneles: RSS, Memory Pressure, Vector Ops, Latency P50/P95/P99, Disk Usage, Index Memory) + `docs/operations/GRAFANA_SETUP.md`.
+
+### TSK-45 — Publicar core en crates.io + docs.rs (2026-06-21)
+
+- **Objetivo:** Publicar el crate `vantadb` v0.1.4 en crates.io con metadata completa, README corregido, y verificaciones de licencia.
+- **Commits:** `d249cd5`, `d2ba445`, `2ffd7c9`
+- **Checklist completado:**
+  - [x] Instalar cargo-deny + `cargo deny check licenses` — todas las licencias compatibles con Apache 2.0
+  - [x] Agregar `repository`, `homepage`, `documentation`, `badges` (maintenance badge) a `Cargo.toml`
+  - [x] Agregar `publish = false` a `vantadb-python/Cargo.toml` (cdylib, va a PyPI)
+  - [x] Renombrar `README.MD` → `README.md` + actualizar ref en `Cargo.toml`
+  - [x] Agregar `#![doc(html_root_url)]` a `src/lib.rs`
+  - [x] Excluir `test/` del package via `exclude = ["test/"]` en `Cargo.toml`
+  - [x] Excluir `job_log.txt` via `.gitignore`
+  - [x] `cargo package --list` verificado limpio (373 files, 386.6MiB → 1.4MiB comprimido)
+  - [x] `cargo publish --dry-run` pasa
+  - [x] Publicado en crates.io: `cargo publish` → **vantadb v0.1.4** disponible en https://crates.io/crates/vantadb
+- **Archivos modificados:** `Cargo.toml`, `vantadb-python/Cargo.toml`, `src/lib.rs`, `.gitignore`
+- **Resultado:** Core crate publicado exitosamente en crates.io. Documentación auto-build en docs.rs pendiente.
