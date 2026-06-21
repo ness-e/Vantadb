@@ -48,6 +48,36 @@ pub enum SyncMode {
     Never,
 }
 
+/// Controls whether mmap vector prefetching is active.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PrefetchMode {
+    /// Default — prefetch enabled (backward compatible).
+    /// In the future, may auto-detect NVMe vs HDD.
+    #[default]
+    Auto,
+    /// Force prefetch on regardless of storage type.
+    Enabled,
+    /// Disable prefetch entirely (avoids syscall overhead on fast NVMe).
+    Disabled,
+}
+
+impl PrefetchMode {
+    pub fn from_env_value(s: &str) -> Self {
+        match s.trim().to_lowercase().as_str() {
+            "disabled" | "off" | "0" | "false" => PrefetchMode::Disabled,
+            "enabled" | "on" | "1" | "true" => PrefetchMode::Enabled,
+            _ => PrefetchMode::Auto,
+        }
+    }
+
+    pub fn is_prefetch_enabled(self) -> bool {
+        match self {
+            PrefetchMode::Disabled => false,
+            PrefetchMode::Auto | PrefetchMode::Enabled => true,
+        }
+    }
+}
+
 /// Unified configuration for VantaDB.
 ///
 /// Consolidates engine, LLM, and server settings. Loads from environment
@@ -68,6 +98,11 @@ pub struct VantaConfig {
     /// instead of heap-allocated Full vectors. Enabled automatically on systems
     /// with <16GB RAM or LowResource profile. Set `force_mmap` to override.
     pub mmap_hnsw: bool,
+    /// Prefetch mode for mmap vector pages during HNSW search.
+    /// Controls whether `madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory`
+    /// is issued for unvisited neighbor pages in the hot search loop.
+    /// Default: `Auto` (prefetch enabled, backward compatible).
+    pub prefetch_mode: PrefetchMode,
     /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
     /// When the effective memory usage exceeds this fraction of the memory limit,
     /// write operations return `VantaError::ResourceLimit`.
@@ -137,6 +172,19 @@ impl Default for VantaConfig {
             read_only: false,
             force_mmap: false,
             mmap_hnsw: true,
+            prefetch_mode: {
+                let mode = env::var("VANTA_PREFETCH")
+                    .ok()
+                    .map(|v| PrefetchMode::from_env_value(&v));
+                let disable = env::var("VANTA_DISABLE_PREFETCH")
+                    .ok()
+                    .map(|v| v == "1" || v == "true");
+                match (mode, disable) {
+                    (Some(m), _) => m,
+                    (_, Some(true)) => PrefetchMode::Disabled,
+                    _ => PrefetchMode::Auto,
+                }
+            },
             rss_threshold: 0.80,
             eviction_weight_hits: 1.0,
             eviction_weight_confidence: 2.0,
@@ -311,6 +359,12 @@ impl VantaConfig {
     /// Sets the log output format.
     pub fn with_log_format(mut self, format: LogFormat) -> Self {
         self.log_format = format;
+        self
+    }
+
+    /// Sets the prefetch mode for mmap vector pages during HNSW search.
+    pub fn with_prefetch_mode(mut self, mode: PrefetchMode) -> Self {
+        self.prefetch_mode = mode;
         self
     }
 }

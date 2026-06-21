@@ -32,6 +32,7 @@ pub mod metadata;
 pub mod metrics;
 pub mod node;
 pub mod parser;
+pub mod serialization;
 pub mod physical_plan;
 pub mod planner;
 #[cfg(feature = "python_sdk")]

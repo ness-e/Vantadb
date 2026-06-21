@@ -135,3 +135,42 @@ pub fn turbo_quant_similarity(
     // But since this is a dot product, we just return it.
     dot as f32 * (a_max_abs * b_max_abs) / 49.0
 }
+
+/// 8-bit scalar quantization (SQ8).
+/// Maps each f32 dimension to `i8` in [-127, 127] using linear scaling
+/// by `max_abs` (the maximum absolute component value).
+///
+/// Memory: 1 byte/dim vs 4 bytes/dim for f32.
+pub fn sq8_quantize(data: &[f32]) -> (Box<[i8]>, f32) {
+    let mut max_abs = 0.0_f32;
+    for &val in data {
+        let abs = val.abs();
+        if abs > max_abs {
+            max_abs = abs;
+        }
+    }
+    if max_abs < f32::EPSILON {
+        max_abs = 1.0;
+    }
+
+    let scale = 127.0 / max_abs;
+    let quantized: Vec<i8> = data
+        .iter()
+        .map(|&v| {
+            let scaled = (v * scale).round().clamp(-127.0, 127.0) as i8;
+            scaled
+        })
+        .collect();
+
+    (quantized.into_boxed_slice(), max_abs)
+}
+
+/// Computes approximate dot-product similarity between two SQ8-quantized vectors.
+pub fn sq8_similarity(a: &[i8], a_max_abs: f32, b: &[i8], b_max_abs: f32) -> f32 {
+    let mut dot = 0_i32;
+    for (va, vb) in a.iter().zip(b.iter()) {
+        dot += *va as i32 * *vb as i32;
+    }
+    let scale = (a_max_abs / 127.0) * (b_max_abs / 127.0);
+    dot as f32 * scale
+}

@@ -1586,6 +1586,7 @@ impl StorageEngine {
                 crate::node::VectorRepresentations::MmapFull(_, len) => *len,
                 crate::node::VectorRepresentations::Binary(b) => b.len() * 8, // u64 = 8 bytes
                 crate::node::VectorRepresentations::Turbo(t) => t.len(),
+                crate::node::VectorRepresentations::SQ8(d, _) => d.len() + 4,
                 crate::node::VectorRepresentations::None => 0,
             };
             // Alinear a 64 bytes (misma alineación que usa el storage)
