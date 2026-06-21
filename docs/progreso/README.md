@@ -385,3 +385,32 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 - **Verificación:**
   - `cargo build --target wasm32-unknown-unknown` (desde `vantadb-wasm/`): ✅ sin errores
   - `cargo test --lib` (native): ✅ 48 tests, 0 fallos
+
+### TSK-112 — Package `vantadb-wasm` como npm TypeScript SDK (2026-06-21)
+
+- **Objetivo:** Compilar, empaquetar y publicar `vantadb-wasm` como un SDK de TypeScript funcional en npm con tests de integración, ejemplos para Vercel AI SDK / LangChain / LlamaIndex, y README profesional.
+- **Commits:** *(pending)*
+- **Checklist completado:**
+  - [x] `wasm-pack build --target bundler` desde `vantadb-wasm/` — binario WASM compilado en `vantadb-wasm/pkg/`
+  - [x] `vantadb-ts/package.json` — `main`, `types`, `exports`, `files`, `repository`, `homepage`, `bugs`, `prepublishOnly` configurados
+  - [x] `vantadb-ts/vantadb.ts` — TypeScript wrappers: `VantaDB` class, tipos `MemoryRecord`, `SearchResult`, `Capabilities`, `OperationalMetrics`, `ListPage`
+  - [x] `vantadb-ts/types.ts` — tipos `MemoryInput`, `VantaMemoryMetadata`, todas las u64 expuestas como `string`
+  - [x] `vantadb-ts/README.md` — SDK docs con quick start, runtime support matrix (Node/Bun/Deno/browser), full API table
+  - [x] `vantadb-ts/test-runner.mjs` — Node.js ESM test runner con `--experimental-wasm-modules`, 26 tests de integración
+  - [x] Fix u64 > 2^53 en WASM bindings: `memory_record_to_js()` + `search_hit_to_js()` helpers manuales con `js_sys::Reflect`
+  - [x] Fix `read_header` alignment: `DiskNodeHeader::ref_from_bytes` (zerocopy) → `read_from_bytes` (owned copy) en `storage.rs:579`
+  - [x] Fix deref en `storage.rs:1535` — `*h` → `h` tras cambio a owned header
+  - [x] Limpieza de debug tracing (WARN/INFO logs eliminados)
+  - [x] Eliminación de structs no usados (`JsMemoryRecord`, `JsMemorySearchHit`, `JsMemoryListPage`)
+  - [x] Eliminación de deps no usadas (`esbuild`, `rollup`, `vite-plugin-wasm`, `vite-plugin-top-level-await`)
+- **Archivos modificados:**
+  - `vantadb-wasm/src/lib.rs` — `memory_record_to_js`, `search_hit_to_js`, `put`/`get`/`put_batch`/`list`/`search`/`search_vector` refactorizados a manual JsValue
+  - `src/storage.rs` — `read_header` return type: `Option<&DiskNodeHeader>` → `Option<DiskNodeHeader>`, 3 `.cloned()` removidos, 1 `*h` → `h`
+  - `vantadb-ts/package.json` — metadata npm, scripts, devDeps limpiados
+  - `vantadb-ts/vantadb.ts` — `searchVector` return type corregido a `{node_id: string; score: number}[]`
+- **Archivos creados:**
+  - `vantadb-ts/README.md` — documentación del SDK TypeScript
+  - `vantadb-ts/test-runner.mjs` — test runner para Node.js ESM
+- **Problema raíz diagnosticado:**
+  - `StorageEngine::get` retornaba `None` porque `DiskNodeHeader::ref_from_bytes` requiere alineación 64-byte del buffer subyacente, pero el `Vec<u8>` en WASM (heap-allocated) solo garantiza 8-16 bytes de alineación. `read_header(offset=64)` fallaba silenciosamente.
+- **Resultado:** 26/26 tests de integración pasan. Build WASM + TypeScript verificados.

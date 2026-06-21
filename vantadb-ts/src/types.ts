@@ -25,12 +25,12 @@ export interface MemoryRecord {
   key: string;
   payload: string;
   metadata: VantaMetadata;
-  created_at_ms: number;
-  updated_at_ms: number;
-  version: number;
-  node_id: number;
+  created_at_ms: string;
+  updated_at_ms: string;
+  version: string;
+  node_id: string;
   vector?: number[];
-  expires_at_ms?: number;
+  expires_at_ms?: string;
 }
 
 export interface ListOptions {
@@ -76,7 +76,7 @@ export interface NodeInput {
 }
 
 export interface NodeRecord {
-  id: number;
+  id: string;
   fields: Record<string, VantaValue>;
   vector?: number[];
   vector_dimensions: number;
@@ -84,22 +84,22 @@ export interface NodeRecord {
   confidence_score: number;
   importance: number;
   hits: number;
-  last_accessed: number;
+  last_accessed: string;
   epoch: number;
   tier: "Hot" | "Cold";
   is_alive: boolean;
 }
 
 export interface EdgeRecord {
-  target: number;
+  target: string;
   label: string;
   weight: number;
 }
 
 export interface QueryResult {
   Read?: NodeRecord[];
-  Write?: { affected_nodes: number; message: string; node_id?: number };
-  StaleContext?: { node_id: number };
+  Write?: { affected_nodes: number; message: string; node_id?: string };
+  StaleContext?: { node_id: string };
 }
 
 export interface ExportReport {
@@ -118,17 +118,17 @@ export interface ImportReport {
 }
 
 export interface OperationalMetrics {
-  startup_ms: number;
-  wal_replay_ms: number;
-  wal_records_replayed: number;
-  ann_rebuild_ms: number;
-  ann_rebuild_scanned_nodes: number;
-  process_rss_bytes: number;
-  process_virtual_bytes: number;
-  hnsw_nodes_count: number;
-  hnsw_logical_bytes: number;
-  volatile_cache_entries: number;
-  volatile_cache_cap_bytes: number;
+  startup_ms: string;
+  wal_replay_ms: string;
+  wal_records_replayed: string;
+  ann_rebuild_ms: string;
+  ann_rebuild_scanned_nodes: string;
+  process_rss_bytes: string;
+  process_virtual_bytes: string;
+  hnsw_nodes_count: string;
+  hnsw_logical_bytes: string;
+  volatile_cache_entries: string;
+  volatile_cache_cap_bytes: string;
 }
 
 export interface Capabilities {
