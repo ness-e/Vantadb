@@ -71,6 +71,7 @@ opentelemetry = { version = "0.32.0", optional = true }
 tracing-opentelemetry = { version = "0.33.0", optional = true }
 tantivy = { version = "0.22", optional = true, features = ["stopwords"] }
 rkyv = { version = "0.8", optional = true }
+web-time = "1.1.0"
 
 [features]
 default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon"]
@@ -446,6 +447,7 @@ members = [
     "vantadb-python",
     "vantadb-server",
     "vantadb-mcp",
+    "vantadb-wasm",
 ]
 
 [workspace.package]

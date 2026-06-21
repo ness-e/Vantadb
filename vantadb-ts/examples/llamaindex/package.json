@@ -1,0 +1,16 @@
+{
+  "name": "vantadb-llamaindex-example",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "llamaindex": "^0.8.0",
+    "vantadb": "file:../.."
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

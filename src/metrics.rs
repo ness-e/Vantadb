@@ -4,7 +4,7 @@ use prometheus::{
 };
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
-use std::time::Instant;
+use web_time::Instant;
 
 #[cfg(feature = "prometheus")]
 pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
