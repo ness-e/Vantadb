@@ -1,4 +1,4 @@
-# VantaDB Editor Integrations
+﻿# VantaDB Editor Integrations
 
 This guide explains how to integrate VantaDB with popular code editors and AI-assisted development environments using the Model Context Protocol (MCP).
 
@@ -144,7 +144,7 @@ Antigravity editor with AI features supports MCP.
 
 ```toml
 [mcp]
-[[mcp.servers]]
+[mcp.servers](Glosario/mcp.servers.md)
 name = "vantadb"
 command = "vanta-server"
 args = ["--mcp", "--path", "~/.vantadb"]
