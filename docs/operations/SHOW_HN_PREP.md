@@ -13,7 +13,7 @@ Este documento contiene el borrador oficial para el lanzamiento de **VantaDB** e
 
 Hi HN,
 
-I’m the creator of VantaDB (https://github.com/ness-e/Vantadb). 
+I'm the creator of VantaDB (https://github.com/ness-e/Vantadb). 
 
 VantaDB is an embedded, zero-dependency, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine.
 

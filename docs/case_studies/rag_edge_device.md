@@ -71,7 +71,7 @@ The EdgeSense team evaluated VantaDB against ChromaDB and LanceDB on a dataset o
 
 ### Power-Cut Durability Validation
 To test durability, the EdgeSense team ran a chaos loop injecting hard power cuts during write bursts. 
-ChromaDB’s HNSW files became corrupted on restart 3 times out of 10, requiring a clean database rebuild. 
+ChromaDB's HNSW files became corrupted on restart 3 times out of 10, requiring a clean database rebuild. 
 VantaDB recovered to the last transaction boundary in **100%** of the test iterations. On reboot, the engine replayed the append-only WAL, validated CRC32C signatures, and repaired the HNSW graph file in under **1.2 seconds**.
 
 ---

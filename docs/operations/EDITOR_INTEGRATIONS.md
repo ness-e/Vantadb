@@ -1,4 +1,4 @@
-﻿# VantaDB Editor Integrations
+# VantaDB Editor Integrations
 
 This guide explains how to integrate VantaDB with popular code editors and AI-assisted development environments using the Model Context Protocol (MCP).
 
