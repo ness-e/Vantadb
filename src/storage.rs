@@ -1332,7 +1332,16 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         // Mitigación A-01: Serializar escrituras/rebuild adquiriendo insert_lock
-        let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in rebuild_vector_index".to_string()))?;
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| {
+                VantaError::Execution(
+                    "Timeout acquiring insert_lock in rebuild_vector_index".to_string(),
+                )
+            })?;
 
         // ── Paso 1: Flush del WAL antes de reubicar físicamente los offsets ──
         self.flush()?;
@@ -1390,7 +1399,16 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         // Mitigación A-01: Serializar mutaciones adquiriendo insert_lock
-        let _guard_insert = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in compact_layout_bfs".to_string()))?;
+        let _guard_insert = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| {
+                VantaError::Execution(
+                    "Timeout acquiring insert_lock in compact_layout_bfs".to_string(),
+                )
+            })?;
 
         // ── Flush previo del WAL para garantizar consistencia ────────────────
         self.flush()?;
@@ -1692,7 +1710,16 @@ impl StorageEngine {
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
         {
-            let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in update_node".to_string()))?;
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| {
+                    VantaError::Execution(
+                        "Timeout acquiring insert_lock in update_node".to_string(),
+                    )
+                })?;
             let hnsw = self.hnsw.load();
             hnsw.add(
                 active_node.id,
@@ -1729,7 +1756,16 @@ impl StorageEngine {
         }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string()))?;
+                let _guard = self
+                    .insert_lock
+                    .try_lock_for(std::time::Duration::from_millis(
+                        self.config.insert_lock_timeout_ms,
+                    ))
+                    .ok_or_else(|| {
+                        VantaError::Execution(
+                            "Timeout acquiring insert_lock in refresh_index".to_string(),
+                        )
+                    })?;
                 let index = self.hnsw.load();
                 index.add(
                     node.id,
@@ -1740,7 +1776,14 @@ impl StorageEngine {
                 return Ok(());
             }
         }
-        let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string()))?;
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| {
+                VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string())
+            })?;
         let index = self.hnsw.load();
         index.add(
             node.id,

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [v0.1.5] - 2026-06-22
+
 ### Added
 
 - Error hardening: all production `unwrap()` calls replaced with `?` propagation or graceful fallback (Phase 5 M1).
@@ -16,7 +18,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - LlamaIndex integration: `VantaDBVectorStore` adapter with graph traversal, hybrid search, and rich filtering (`integrations/llamaindex/`).
 - Integration test suites for LangChain and LlamaIndex adapters (Phase 6 M10).
 - Integrations section added to `docs/README.md` under Developers (Phase 6 M6).
-
 - CLI-EPIC: 7 new CLI commands — `backup`, `restore`, `doctor`, `inspect`, `stats`, `count`, `search-similar` (CLI-EPIC).
 - TSK-111: Expanded filter operators `FilterOp` enum (`Eq, Neq, Gt, Gte, Lt, Lte, In, Exists`) + `MemoryFilter` struct with backward-compatible `filter_exprs` field.
 - TSK-119: `VantaEmbedded::delete_by_filter()` SDK method + `vanta-cli delete-by-filter` command.
@@ -42,16 +43,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - TSK-124: Documented `generate_snippet` and highlighing in `PYTHON_SDK.md`.
 - TSK-125: Aligned SLSA actions version (`@v4`) in `PYTHON_RELEASE_POLICY.md`.
 - TSK-127: Removed hallucinated functions and formalized IQL archiving in `PYTHON_SDK.md`.
-
-### Security
-
-- Upgraded `pyo3` 0.24 → 0.29 (fixes RUSTSEC-2026-0176 use-after-free, RUSTSEC-2026-0177 data race) (AUD-04).
-- Migrated `bincode 1.3` → `2.0` (fixes RUSTSEC-2025-0141 unmaintained advisory) (AUD-03).
-- Removed 3 stale advisory ignores from `deny.toml` (AUD-16).
-- Complete unsafe block audit: 39 items reviewed, 77% low-risk, top 3 riskiest documented (AUD-08).
-
-### Added
-
 - Edge case test suite: 25 new tests across 17 categories (NaN/Inf vectors, empty keys/batches, unicode metadata, zero-dim vectors, WAL failure, concurrent access, TTL expiry, cross-namespace isolation) (AUD-37).
 - `AsyncVantaDB.put()` now accepts `ttl_ms` parameter for TTL-based memory eviction (AUD-14).
 - ARM64/aarch64 architecture detection in install scripts (AUD-20).
@@ -105,6 +96,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Editor integration documentation.
 - Cascade/Claude skill for VantaDB integration.
 - Spanish README and language switcher.
+
+### Security
+
+- Upgraded `pyo3` 0.24 → 0.29 (fixes RUSTSEC-2026-0176 use-after-free, RUSTSEC-2026-0177 data race) (AUD-04).
+- Migrated `bincode 1.3` → `2.0` (fixes RUSTSEC-2025-0141 unmaintained advisory) (AUD-03).
+- Removed 3 stale advisory ignores from `deny.toml` (AUD-16).
+- Complete unsafe block audit: 39 items reviewed, 77% low-risk, top 3 riskiest documented (AUD-08).
 
 ### Changed
 
@@ -496,4 +494,4 @@ Ademas: `repl` (REPL interactivo), `tui` (dashboard en vivo 2s), flags globales 
 
 ---
 
-*Keep a Changelog format maintained in English above. Detailed Spanish progress log below. Updated 2026-06-22.*
+*Keep a Changelog format maintained in English above. Detailed Spanish progress log below. Updated 2026-06-23.*
