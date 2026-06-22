@@ -242,7 +242,10 @@ fn test_stale_lock_recovery() {
     // Verify the lock file is still there and we can operate
     // We do not assert the content of the lock file, as VantaDB does not
     // overwrite or truncate the lock file content, it simply locks it.
-    assert!(std::path::Path::new(&lock_path).exists(), "Lock file should still exist");
+    assert!(
+        std::path::Path::new(&lock_path).exists(),
+        "Lock file should still exist"
+    );
 
     db.close().unwrap();
 }

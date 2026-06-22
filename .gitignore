@@ -107,6 +107,15 @@ lcov.info
 *.profraw
 
 
+# Obsidian vault config
+.obsidian/
+
+# Backups
+*_BACKUP_*/
+
+# Vector index binary
+vector_index.bin
+
 # Test artifacts
 ghost_out/
 examples/rust/

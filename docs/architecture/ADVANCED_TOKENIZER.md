@@ -8,7 +8,7 @@ The advanced tokenizer provides multilingual text processing with stemming, stop
 
 - **Stemming**: Reduces words to their root form (e.g., "jumping" → "jump", "quickly" → "quick")
 - **Stopwords Removal**: Filters out common words that add little semantic value (e.g., "the", "and", "is")
-- **Unicode Folding**: Normalizes Unicode characters to ASCII (e.g., "café" → "cafe", "naïve" → "naive")
+- **Unicode Folding**: Normalizes Unicode characters to ASCII (e.g., "cafe" → "cafe", "naive" → "naive")
 - **Multilingual Support**: Supports multiple languages with language-specific stemming and stopwords
 
 ## Installation
@@ -27,16 +27,10 @@ vantadb = { version = "0.1", features = ["advanced-tokenizer"] }
 When the `advanced-tokenizer` feature is enabled, VantaDB automatically uses the advanced tokenizer for all text indexing and search operations:
 
 ```rust
-use vantadb::VantaDB;
+use vantadb::VantaEmbedded;
 
 // The advanced tokenizer is automatically used when the feature is enabled
-let db = VantaDB::open("./vanta_data").unwrap();
-
-// Text is tokenized with stemming, stopwords removal, and Unicode folding
-db.put_memory("agent/main", "memory-001", "The quick brown fox jumps over the lazy dog", None, None);
-
-// Search benefits from improved tokenization
-let results = db.search_memory("agent/main", "jumping fox", None, 5);
+let db = VantaEmbedded::open("./vanta_data").unwrap();
 ```
 
 ### Runtime Configuration
@@ -44,7 +38,7 @@ let results = db.search_memory("agent/main", "jumping fox", None, 5);
 You can configure the advanced tokenizer at runtime using `VantaConfig`:
 
 ```rust
-use vantadb::{VantaDB, VantaConfig};
+use vantadb::{VantaEmbedded, VantaConfig};
 use vantadb::tokenizer::{AdvancedTokenizerConfig, Language};
 
 let config = VantaConfig::default()
@@ -55,7 +49,7 @@ let config = VantaConfig::default()
         ..Default::default()
     }));
 
-let db = VantaDB::open_with_config("./vanta_data", Some(config)).unwrap();
+let db = VantaEmbedded::open_with_config(config).unwrap();
 ```
 
 ### Advanced Configuration Options
@@ -92,8 +86,7 @@ let config = AdvancedTokenizerConfig {
 You can also use the tokenizer functions directly for custom text processing:
 
 ```rust
-use vantadb::text_index::{token_counts_with_config, record_terms_with_config, query_plan_with_config};
-use vantadb::tokenizer::{AdvancedTokenizerConfig, Language};
+use vantadb::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig, Language};
 
 let config = AdvancedTokenizerConfig {
     language: Language::English,
@@ -101,9 +94,7 @@ let config = AdvancedTokenizerConfig {
 };
 
 // Tokenize with custom configuration
-let counts = token_counts_with_config("The jumping fox", Some(&config));
-let terms = record_terms_with_config("The quick brown fox", Some(&config));
-let plan = query_plan_with_config("jumping fox", Some(&config));
+let tokens = tokenize_advanced("The jumping fox", &config);
 ```
 
 ### Configuration
@@ -170,7 +161,7 @@ let text = "The jumping fox runs quickly";
 ### Spanish Text
 
 ```rust
-let text = "El perro rápido salta sobre el perro perezoso";
+let text = "El perro rapido salta sobre el perro perezoso";
 // Advanced tokenizer (Spanish): ["perro", "rapid", "salt", "perro", "perezos"]
 // Stopwords like "el", "sobre" are removed
 ```
@@ -178,7 +169,7 @@ let text = "El perro rápido salta sobre el perro perezoso";
 ### Unicode Text
 
 ```rust
-let text = "Café naïve résumé";
+let text = "Cafe naive resume";
 // Basic tokenizer: May not handle Unicode correctly
 // Advanced tokenizer: ["cafe", "naiv", "resum"] (Unicode folded)
 ```
@@ -198,7 +189,6 @@ If you see schema version errors, ensure that:
 ## Future Enhancements
 
 Potential future improvements:
-- Runtime configuration via `VantaConfig`
 - Custom stemming rules
 - Language detection
 - Performance optimizations
