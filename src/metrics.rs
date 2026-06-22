@@ -3,6 +3,7 @@ use prometheus::{
     exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry,
 };
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(feature = "prometheus")]
 use std::sync::LazyLock;
 use web_time::Instant;
 
@@ -524,6 +525,7 @@ pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock:
 
 // ── Memory breakdown gauges ──────────────────────────────────────────────
 
+#[cfg(feature = "prometheus")]
 macro_rules! register_gauge {
     ($name:expr, $help:expr, $static_name:tt) => {{
         let gauge = match IntGauge::new($name, $help) {
