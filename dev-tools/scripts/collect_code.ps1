@@ -1,190 +1,276 @@
-$date = Get-Date -Format "yyyy-MM-dd"
-$outputFile = "docs/operations/snapshots/snapshot_$date.md"
-$scriptName = $MyInvocation.MyCommand.Name
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+  Collects all relevant VantaDB source files into a single Markdown snapshot for AI analysis.
+.DESCRIPTION
+  Walks the repo, excludes non-essential dirs/files, sorts by last-modified (newest first),
+  and writes a structured .md file with metadata, file tree, and full contents.
+.PARAMETER OutDir
+  Output directory (default: docs/operations/snapshots).
+.PARAMETER MaxFileSizeMB
+  Skip files larger than this (default: 1 MB).
+.PARAMETER DryRun
+  Preview which files would be included without writing output.
+.PARAMETER NoStats
+  Skip per-file line/word/token stats (faster on huge repos).
+.EXAMPLE
+  .\collect_code.ps1
+  .\collect_code.ps1 -DryRun
+  .\collect_code.ps1 -MaxFileSizeMB 2 -OutDir ./exports
+#>
 
-# Directorios a excluir (coincidencia exacta de carpetas y subcarpetas)
-$excludedPatterns = @(
-    '\.git', 'target', 'node_modules', 'venv', '\.venv', '__pycache__',
-    '\.idea', '\.vscode', 'dist', 'build', '\.pytest_cache', 'vanta_snapshots',
-    'tmp', 'datasets', 'test_sdk.*', 'tests_.*', '\.agents',
-    'vanta-web', 'vantadb_data',
-    'tests_server_db', 'tests_graph_db', 'tests_vector_db', 'tests_python_api',
-    'docs[\\/]operations[\\/]snapshots', 'docs[\\/]progreso', 'apruba', 'release_test', 'validation_logs', 'job.*_logs',
-    '\.trash_docker', 'vanta_certification\.json'
+param(
+  [string]$OutDir = "docs/operations/snapshots",
+  [int]$MaxFileSizeMB = 1,
+  [switch]$DryRun,
+  [switch]$NoStats
 )
 
-# Extensiones a incluir (whitelist)
-$includedPatterns = @(
-    '.rs', '.toml', '.py', '.sh', '.ps1', '.bat', '.md', '.json', '.yml', '.yaml',
-    '.sql', '.dockerignore', '.gitignore', '.vanta_profile', '.env'
+$ErrorActionPreference = "Stop"
+$MaxBytes = $MaxFileSizeMB * 1MB
+
+$ScriptPath = $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $ScriptPath
+$ProjectRoot = $ScriptDir
+for ($i = 0; $i -lt 3 -and -not (Test-Path (Join-Path $ProjectRoot ".git") -PathType Container); $i++) {
+  $parentDir = Split-Path -Parent $ProjectRoot
+  if ($parentDir -eq $ProjectRoot) { break }
+  $ProjectRoot = $parentDir
+}
+$OutputDir = Join-Path -Path $ProjectRoot -ChildPath $OutDir
+$Date = Get-Date -Format "yyyy-MM-dd"
+$OutputFile = Join-Path -Path $OutputDir -ChildPath "snapshot_$Date.md"
+$ScriptName = Split-Path -Leaf $ScriptPath
+
+if (-not $DryRun) {
+  $null = New-Item -ItemType Directory -Path $OutputDir -Force
+}
+
+$ExcludedPatterns = @(
+  '\.git', 'target', 'node_modules', 'venv', '\.venv', '__pycache__',
+  '\.idea', '\.vscode', 'dist', 'build', '\.pytest_cache',
+  'tmp', 'datasets', 'vanta_snapshots', 'vanta-web',
+  'tests?_(server|graph|vector|python)_db',
+  'docs[\\/]operations[\\/]snapshots', 'docs[\\/]progreso',
+  'apruba', 'release_test', 'validation_logs', 'job.*_logs',
+  '\.trash_docker', '\.trunk',
+  'Cargo\.lock$',
+  '\.wasm$', '\.png$', '\.jpg$', '\.jpeg$', '\.gif$', '\.svg$', '\.ico$',
+  '\.profraw$', '\.gcda$', '\.gcno$', '\.d\.ts$',
+  'vanta_certification\.json$',
+  'archive[\\/]', 'packages[\\/]', 'Formula[\\/]', 'completions[\\/]',
+  'package-lock\.json$',
+  'vanta_benchmark_report\.json$',
+  'vantadb-wasm[\\/]pkg',
+  '\.cargo[\\/]', '\.devin[\\/]'
 )
 
-# --- METADATOS DE GIT ---
-$gitBranch = 'N/A'
-$gitCommit = 'N/A'
-try {
-    $gitBranch = (git rev-parse --abbrev-ref HEAD 2>$null)
-    $gitCommit = (git rev-parse --short HEAD 2>$null)
+$IncludedExtensions = @(
+  '.rs', '.toml', '.py', '.sh', '.ps1', '.bat', '.cmd',
+  '.ts', '.mjs', '.cjs',
+  '.md', '.json', '.yml', '.yaml',
+  '.sql', '.dockerignore', '.gitignore', '.env',
+  '.vanta_profile'
+)
+
+$IncludedNames = @(
+  'dockerfile', 'makefile', 'license',
+  'rust-toolchain.toml', '.rustfmt.toml', '.clippy.toml',
+  'deny.toml'
+)
+
+$LangMap = @{
+  '.rs'   = 'rust'
+  '.py'   = 'python'
+  '.toml' = 'toml'
+  '.json' = 'json'
+  '.yml'  = 'yaml'
+  '.yaml' = 'yaml'
+  '.sh'   = 'bash'
+  '.ps1'  = 'powershell'
+  '.bat'  = 'batch'
+  '.cmd'  = 'batch'
+  '.sql'  = 'sql'
+  '.md'   = 'markdown'
+  '.env'  = 'text'
 }
-catch {}
 
-# --- METADATOS DEL SISTEMA ---
-$rustVersion = 'N/A'
-$cargoVersion = 'N/A'
-try {
-    $rustVersion = (rustc --version 2>$null)
-    $cargoVersion = (cargo --version 2>$null)
-}
-catch {}
+$GitBranch = 'N/A'; $GitCommit = 'N/A'
+try { $GitBranch = git rev-parse --abbrev-ref HEAD 2>$null; $GitCommit = git rev-parse --short HEAD 2>$null } catch {}
 
-$gitLog = 'N/A'
-try {
-    $gitLog = (git log -n 5 --oneline 2>$null) -join "`n"
-}
-catch {}
+$RustVersion = 'N/A'; $CargoVersion = 'N/A'
+try { $RustVersion = rustc --version 2>$null; $CargoVersion = cargo --version 2>$null } catch {}
 
-# --- CABECERA EN CONSOLA ---
-Write-Host ' '
-Write-Host '====================================================' -ForegroundColor Cyan
-Write-Host ' 🚀 VANTA DB - Professional Code Collector' -ForegroundColor White -BackgroundColor DarkBlue
-Write-Host '====================================================' -ForegroundColor Cyan
-Write-Host (' 🌿 Rama: ' + $gitBranch + ' | Commit: ' + $gitCommit) -ForegroundColor Gray
-Write-Host '====================================================' -ForegroundColor Cyan
+$GitLog = 'N/A'
+try { $GitLog = (git log -n 5 --oneline 2>$null) -join "`n" } catch {}
 
-# --- INICIALIZACIÓN ---
-Set-Content -Path $outputFile -Value '' -Encoding utf8
-$basePath = (Get-Location).Path
-$files = Get-ChildItem -File -Recurse | Where-Object {
-    $relPath = $_.FullName.Substring($basePath.Length).TrimStart('\')
-    foreach ($p in $excludedPatterns) { if ($relPath -match ('(^|\\)' + $p + '($|\\)')) { return $false } }
-    if ($_.Name -eq $outputFile -or $_.Name -eq $scriptName) { return $false }
-    $ext = $_.Extension.ToLower()
-    $name = $_.Name.ToLower()
-    foreach ($p in $includedPatterns) { if ($ext -eq $p.ToLower() -or $name -eq $p.ToLower()) { return $true } }
+function Test-Binary {
+  param([string]$Path)
+  try {
+    $buffer = [byte[]]::new(8192)
+    $stream = [System.IO.File]::OpenRead($Path)
+    $read = $stream.Read($buffer, 0, $buffer.Length)
+    $stream.Close()
+    for ($i = 0; $i -lt $read; $i++) { if ($buffer[$i] -eq 0) { return $true } }
     return $false
-} | Sort-Object FullName
-
-$totalFiles = ($files | Measure-Object).Count
-$current = 0
-$totalLines = 0
-$totalWords = 0
-$langStats = @{}
-
-# --- MAPA DE ESTRUCTURA ---
-Write-Host '🌳 Generando mapa de estructura...' -ForegroundColor Cyan
-$treeText = '## ESTRUCTURA DEL PROYECTO' + [System.Environment]::NewLine + '```text' + [System.Environment]::NewLine
-foreach ($f in $files) { $treeText += ($f.FullName.Replace($basePath, '.') + [System.Environment]::NewLine) }
-$treeText += '```' + [System.Environment]::NewLine
-
-# --- CONSTRUIR HEADER PARA IA ---
-$nl = [System.Environment]::NewLine
-$aiHeader = '# VANTA DB - PROJECT CONTEXT SNAPSHOT' + $nl
-$aiHeader += 'Generado el: ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + $nl
-$aiHeader += 'Git: Rama [' + $gitBranch + '] | Commit [' + $gitCommit + ']' + $nl
-$aiHeader += 'Entorno: ' + $rustVersion + ' | ' + $cargoVersion + $nl + $nl
-
-$aiHeader += '## HISTORIAL RECIENTE (Git Log)' + $nl
-$aiHeader += '```text' + $nl + $gitLog + $nl + '```' + $nl + $nl
-
-$aiHeader += '## INSTRUCCIONES PARA LA IA' + $nl
-$aiHeader += 'Este documento contiene una consolidacion completa del proyecto VantaDB.' + $nl
-$aiHeader += '1. **Contexto**: Este archivo representa el estado actual y veridico del sistema.' + $nl
-$aiHeader += '2. **Estructura**: Revisa el mapa de directorios abajo para entender la jerarquia.' + $nl
-$aiHeader += '3. **Orden**: Archivos ordenados por RECIENTE (los de arriba son los últimos editados).' + $nl
-$aiHeader += '4. **Marcas**: Busca "START OF FILE" y "END OF FILE" para cada seccion.' + $nl + $nl
-$aiHeader += $treeText + $nl + ('=' * 80) + $nl
-
-Set-Content -Path $outputFile -Value $aiHeader -Encoding utf8
-
-# --- PROCESAMIENTO ---
-Write-Host ('📂 Procesando ' + $totalFiles + ' archivos...') -ForegroundColor Yellow
-
-function Get-MarkdownLanguage ($ext) {
-    switch ($ext) {
-        '.rs'   { return 'rust' }
-        '.py'   { return 'python' }
-        '.toml' { return 'toml' }
-        '.json' { return 'json' }
-        '.yml'  { return 'yaml' }
-        '.yaml' { return 'yaml' }
-        '.sh'   { return 'bash' }
-        '.ps1'  { return 'powershell' }
-        '.bat'  { return 'cmd' }
-        '.sql'  { return 'sql' }
-        '.md'   { return 'markdown' }
-        default { return 'text' }
-    }
+  } catch { return $true }
 }
 
-foreach ($file in $files) {
-    $current++
-    $relPath = $file.FullName.Substring($basePath.Length).TrimStart('\')
-    $ext = $file.Extension.ToLower(); if ($ext -eq '') { $ext = '(sin ext)' }
-    $langStats[$ext] = ($langStats[$ext] + 1)
-    
-    $sizeStr = if ($file.Length -ge 1MB) { ([Math]::Round($file.Length / 1MB, 2).ToString() + ' MB') } else { ([Math]::Round($file.Length / 1KB, 2).ToString() + ' KB') }
-    Write-Progress -Activity 'Vanta Collector' -Status ('Procesando: ' + $relPath) -PercentComplete (($current / $totalFiles) * 100)
-    
-    $sep = '=' * 80
-    
-    try {
-        $content = Get-Content $file.FullName -Raw -ErrorAction Stop
-        $totalLines += ($content -split '\r?\n').Count
-        $totalWords += ($content -split '\s+').Count
-        
-        $lang = Get-MarkdownLanguage $file.Extension.ToLower()
-        $fence = "````"
-        
-        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
-        Add-Content -Path $outputFile -Value ('--- START OF FILE: ' + $relPath + ' (Size: ' + $sizeStr + ' | Modified: ' + $file.LastWriteTime.ToString() + ') ---') -Encoding utf8
-        Add-Content -Path $outputFile -Value $sep -Encoding utf8
-        Add-Content -Path $outputFile -Value "$fence$lang" -Encoding utf8
-        Add-Content -Path $outputFile -Value $content -Encoding utf8
-        Add-Content -Path $outputFile -Value "$fence" -Encoding utf8
-        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
-        Add-Content -Path $outputFile -Value ('--- END OF FILE: ' + $relPath + ' ---') -Encoding utf8
-        Add-Content -Path $outputFile -Value ($sep + $nl) -Encoding utf8
+Write-Host ''
+Write-Host ('=' * 55) -ForegroundColor Cyan
+Write-Host '  VANTA DB - Code Snapshot Collector' -ForegroundColor White -BackgroundColor DarkBlue
+Write-Host ('=' * 55) -ForegroundColor Cyan
+Write-Host "  Branch: $GitBranch  |  Commit: $GitCommit" -ForegroundColor Gray
+Write-Host "  Max file size: ${MaxFileSizeMB}MB  |  Dry-run: $DryRun" -ForegroundColor Gray
+Write-Host ('=' * 55) -ForegroundColor Cyan
 
-        Write-Host ('[' + $current + '/' + $totalFiles + '] ') -NoNewline -ForegroundColor Cyan
-        Write-Host '✔ ' -NoNewline -ForegroundColor Green
-        Write-Host ($relPath + ' ') -NoNewline -ForegroundColor Gray
-        Write-Host ('(' + $sizeStr + ')') -ForegroundColor DarkGray
-    }
-    catch {
-        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
-        Add-Content -Path $outputFile -Value ('--- START OF FILE: ' + $relPath + ' (Error de Lectura) ---') -Encoding utf8
-        Add-Content -Path $outputFile -Value $sep -Encoding utf8
-        Add-Content -Path $outputFile -Value ('[Error de lectura en ' + $relPath + ': ' + $_.Exception.Message + ']') -Encoding utf8
-        Add-Content -Path $outputFile -Value ($nl + $sep) -Encoding utf8
-        Add-Content -Path $outputFile -Value ('--- END OF FILE: ' + $relPath + ' ---') -Encoding utf8
-        Add-Content -Path $outputFile -Value ($sep + $nl) -Encoding utf8
-        
-        Write-Host ('[' + $current + '/' + $totalFiles + '] ✖ ' + $relPath + ' [Error]') -ForegroundColor Red
-    }
+$AllFiles = Get-ChildItem -File -Recurse -LiteralPath $ProjectRoot | Where-Object {
+  $RelPath = $_.FullName.Substring($ProjectRoot.Length).TrimStart('\', '/')
+  $Ext = $_.Extension.ToLower()
+  $Name = $_.Name.ToLower()
+
+  foreach ($P in $ExcludedPatterns) { if ($RelPath -match $P) { return $false } }
+  if ($RelPath -eq $ScriptName -or $RelPath -eq "docs/operations/snapshots/snapshot_$Date.md") { return $false }
+  if ($_.Length -gt $MaxBytes) { return $false }
+  if (Test-Binary $_.FullName) { return $false }
+  if ($IncludedExtensions -contains $Ext) { return $true }
+  if ($IncludedNames -contains $Name) { return $true }
+
+  return $false
+} | Sort-Object LastWriteTime -Descending
+
+$TotalFiles = $AllFiles.Count
+if ($TotalFiles -eq 0) { Write-Host 'No files matched. Check exclusions.' -ForegroundColor Yellow; return }
+
+# ---- DRY RUN ----
+if ($DryRun) {
+  $totalWordsDry = 0
+  Write-Host "`n[DRY-RUN] $TotalFiles files would be included:" -ForegroundColor Cyan
+  foreach ($F in $AllFiles) {
+    $Rel = $F.FullName.Substring($ProjectRoot.Length).TrimStart('\', '/')
+    $Size = if ($F.Length -ge 1MB) { "{0:N2} MB" -f ($F.Length/1MB) } else { "{0:N1} KB" -f ($F.Length/1KB) }
+    Write-Host ('  ' + $Rel + ' (' + $Size + ', modified ' + $F.LastWriteTime.ToString('yyyy-MM-dd HH:mm') + ')') -ForegroundColor Gray
+    $c = Get-Content $F.FullName -Raw -ErrorAction SilentlyContinue
+    if ($c) { $totalWordsDry += ($c -split '\s+').Count }
+  }
+  $EstTokens = [Math]::Round($totalWordsDry * 1.35)
+  Write-Host "`nEstimated: ~$EstTokens tokens" -ForegroundColor Yellow
+  return
 }
 
-# --- RESUMEN FINAL ---
-$estimatedTokens = [Math]::Round($totalWords * 1.35)
-Write-Host ' '
-Write-Host '✨ ¡Snapshot Completado!' -ForegroundColor Green
-Write-Host '------------------------------------------------' -ForegroundColor Gray
-Write-Host '📊 Estadísticas por Lenguaje:' -ForegroundColor Cyan
-foreach ($kv in $langStats.GetEnumerator()) {
-    Write-Host ('   ' + $kv.Key + ': ' + $kv.Value + ' archivos') -ForegroundColor Gray
-}
-Write-Host '------------------------------------------------' -ForegroundColor Gray
-Write-Host '📝 Resumen Global:' -ForegroundColor Cyan
-Write-Host '   Total Líneas: ' -NoNewline -ForegroundColor Gray; Write-Host $totalLines -ForegroundColor Yellow
-Write-Host '   Total Palabras: ' -NoNewline -ForegroundColor Gray; Write-Host $totalWords -ForegroundColor Yellow
-Write-Host '   Tokens Est. (IA): ' -NoNewline -ForegroundColor Gray; Write-Host ('~' + $estimatedTokens) -ForegroundColor Cyan
-Write-Host '------------------------------------------------' -ForegroundColor Gray
+# ---- BUILD OUTPUT ----
+$Sb = [System.Text.StringBuilder]::new()
+$Nl = [System.Environment]::NewLine
 
-Add-Content -Path $outputFile -Value ($nl + '---' + $nl + '## RESUMEN FINAL DE RECOLECCION') -Encoding utf8
-Add-Content -Path $outputFile -Value ('- **Total Archivos**: ' + $totalFiles) -Encoding utf8
-Add-Content -Path $outputFile -Value ('- **Total Lineas**: ' + $totalLines) -Encoding utf8
-Add-Content -Path $outputFile -Value ('- **Tokens Estimados (IA)**: ~' + $estimatedTokens) -Encoding utf8
-Add-Content -Path $outputFile -Value ($nl + '### Estadisticas por Lenguaje:') -Encoding utf8
-foreach ($kv in $langStats.GetEnumerator()) {
-    Add-Content -Path $outputFile -Value ('- ' + $kv.Key + ': ' + $kv.Value + ' archivos') -Encoding utf8
+$Null = $Sb.AppendLine("# VANTA DB - Project Context Snapshot")
+$Null = $Sb.AppendLine("Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+$Null = $Sb.AppendLine("Git: branch [$GitBranch] commit [$GitCommit]")
+$Null = $Sb.AppendLine("Rust: $RustVersion")
+$Null = $Sb.AppendLine("Cargo: $CargoVersion")
+$Null = $Sb.AppendLine("")
+$Null = $Sb.AppendLine("## Recent History")
+$Null = $Sb.AppendLine('```text'); $Null = $Sb.AppendLine($GitLog); $Null = $Sb.AppendLine('```')
+$Null = $Sb.AppendLine("")
+$Null = $Sb.AppendLine("## AI Instructions")
+$Null = $Sb.AppendLine("This file is a consolidated snapshot of VantaDB for AI analysis.")
+$Null = $Sb.AppendLine("1. Files are ordered by last modified (newest first).")
+$Null = $Sb.AppendLine("2. Use the file tree below to understand the project structure.")
+$Null = $Sb.AppendLine("3. Look for '--- START OF FILE ---' and '--- END OF FILE ---' delimiters.")
+$Null = $Sb.AppendLine("")
+
+$Null = $Sb.AppendLine("## Project Structure")
+$Null = $Sb.AppendLine('```text')
+foreach ($F in $AllFiles) {
+  $Rel = $F.FullName.Substring($ProjectRoot.Length).TrimStart('\', '/')
+  $Null = $Sb.AppendLine('  ' + $Rel)
 }
-Add-Content -Path $outputFile -Value ($nl + '---' + $nl + 'END OF SNAPSHOT') -Encoding utf8
+$Null = $Sb.AppendLine('```')
+$Null = $Sb.AppendLine("")
+$Null = $Sb.AppendLine('=' * 80)
+
+$TotalLines = 0
+$TotalWords = 0
+$LangStats = @{}
+$Current = 0
+
+foreach ($File in $AllFiles) {
+  $Current++
+  $Rel = $File.FullName.Substring($ProjectRoot.Length).TrimStart('\', '/')
+  $Ext = $File.Extension.ToLower()
+  $LangStats[$Ext] = ($LangStats[$Ext] + 1)
+
+  $SizeStr = if ($File.Length -ge 1MB) { "{0:N2} MB" -f ($File.Length/1MB) } else { "{0:N1} KB" -f ($File.Length/1KB) }
+  $Modified = $File.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+
+  Write-Progress -Activity "Collecting" -Status $Rel -PercentComplete (($Current / $TotalFiles) * 100)
+
+  try {
+    $Content = Get-Content $File.FullName -Raw -ErrorAction Stop
+    $Lines = ($Content -split '\r?\n').Count
+    $Words = ($Content -split '\s+').Count
+    $TotalLines += $Lines; $TotalWords += $Words
+
+    $Lang = if ($LangMap.ContainsKey($Ext)) { $LangMap[$Ext] } else { 'text' }
+    $Fence = '```'
+
+    $Null = $Sb.AppendLine($Nl + ('=' * 80))
+    $Null = $Sb.AppendLine("--- START OF FILE: $Rel ($SizeStr, modified $Modified) ---")
+    $Null = $Sb.AppendLine('=' * 80)
+    $Null = $Sb.AppendLine("${Fence}$Lang")
+    $Trimmed = $Content.TrimEnd("`r", "`n")
+    $Null = $Sb.Append($Trimmed)
+    $Null = $Sb.AppendLine("")
+    $Null = $Sb.AppendLine($Fence)
+    $Null = $Sb.AppendLine('=' * 80)
+    $Null = $Sb.AppendLine("--- END OF FILE: $Rel ---")
+    $Null = $Sb.AppendLine(('=' * 80) + $Nl)
+
+    Write-Host ("[$Current/$TotalFiles] ") -NoNewline -ForegroundColor Cyan
+    Write-Host 'v ' -NoNewline -ForegroundColor Green
+    Write-Host "$Rel " -NoNewline -ForegroundColor Gray
+    Write-Host "($SizeStr)" -ForegroundColor DarkGray
+  } catch {
+    $Null = $Sb.AppendLine($Nl + ('=' * 80))
+    $Null = $Sb.AppendLine("--- START OF FILE: $Rel (read error) ---")
+    $Null = $Sb.AppendLine('=' * 80)
+    $Null = $Sb.AppendLine("[Error: $($_.Exception.Message)]")
+    $Null = $Sb.AppendLine(('=' * 80) + $Nl)
+    $Null = $Sb.AppendLine("--- END OF FILE: $Rel ---")
+    $Null = $Sb.AppendLine(('=' * 80) + $Nl)
+    Write-Host ("[$Current/$TotalFiles] x $Rel [Error]") -ForegroundColor Red
+  }
+}
+
+Write-Progress -Activity "Collecting" -Completed
+
+$EstTokens = [Math]::Round($TotalWords * 1.35)
+
+$Null = $Sb.AppendLine("---")
+$Null = $Sb.AppendLine("## Collection Summary")
+$Null = $Sb.AppendLine("- **Total files**: $TotalFiles")
+$Null = $Sb.AppendLine("- **Total lines**: $TotalLines")
+$Null = $Sb.AppendLine("- **Estimated tokens (AI)**: ~$EstTokens")
+$Null = $Sb.AppendLine("")
+$Null = $Sb.AppendLine("### Per language")
+foreach ($KV in $LangStats.GetEnumerator() | Sort-Object Name) {
+  $Null = $Sb.AppendLine("- $($KV.Key): $($KV.Value) files")
+}
+$Null = $Sb.AppendLine("")
+$Null = $Sb.AppendLine("---")
+$Null = $Sb.AppendLine("END OF SNAPSHOT")
+$Null = $Sb.AppendLine("")
+
+[System.IO.File]::WriteAllText($OutputFile, $Sb.ToString(), [System.Text.UTF8Encoding]::new($false))
+$OutputSize = (Get-Item $OutputFile).Length
+$OutputSizeStr = if ($OutputSize -ge 1MB) { "{0:N2} MB" -f ($OutputSize/1MB) } else { "{0:N1} KB" -f ($OutputSize/1KB) }
+
+Write-Host "`n$(Get-Date -Format 'HH:mm:ss') - Snapshot written:" -ForegroundColor Cyan
+Write-Host "  $OutputFile" -ForegroundColor White
+Write-Host "  Size: $OutputSizeStr  |  Files: $TotalFiles  |  Lines: $TotalLines  |  ~${EstTokens} tokens" -ForegroundColor Yellow
+Write-Host "  Max file size: ${MaxFileSizeMB}MB (larger files skipped)" -ForegroundColor DarkGray
+
+if ($EstTokens -gt 200000) {
+  Write-Host ""
+  Write-Host "WARNING: ~${EstTokens} tokens exceeds most AI context windows." -ForegroundColor Red
+  Write-Host "  Consider: -MaxFileSizeMB 0.5 or manually prune the snapshot." -ForegroundColor Yellow
+}
