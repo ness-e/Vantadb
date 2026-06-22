@@ -190,6 +190,8 @@ jobs:
         with:
           swap-mb: 4096
           free-disk: true
+      - name: Download benchmark datasets
+        run: bash scripts/download_benchmark_datasets.sh
       - name: Run remaining heavy tests
         timeout-minutes: 45
         run: |
