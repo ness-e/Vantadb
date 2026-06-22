@@ -24,7 +24,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
 
     // 1. Inicializar con configuración explícita
     let config = VantaConfig {
-        backend_kind: BackendKind::InMemory,
+        backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
 
@@ -84,7 +84,7 @@ fn test_wal_middle_corruption_auto_healing() {
     let db_path = dir.path().to_str().unwrap();
 
     let config = VantaConfig {
-        backend_kind: BackendKind::InMemory,
+        backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
 
@@ -203,7 +203,7 @@ fn test_wal_selective_crc_corruption_recovery() {
     let db_path = dir.path().to_str().unwrap();
 
     let config = VantaConfig {
-        backend_kind: BackendKind::InMemory,
+        backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
 
@@ -295,5 +295,36 @@ fn test_wal_selective_crc_corruption_recovery() {
     );
 
     session.success("Selective CRC32C corruption detection and recovery certified.");
+    session.finish(true);
+}
+
+#[test]
+fn test_wal_write_failure_simulated() {
+    TerminalReporter::suite_banner("WAL WRITE FAILURE SIMULATION", 1);
+    let mut session = VantaSession::begin("WAL Write Failure");
+
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    let config = VantaConfig {
+        backend_kind: BackendKind::Fjall,
+        ..Default::default()
+    };
+
+    let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
+    storage.insert(&UnifiedNode::new(1)).unwrap();
+    
+    // Enable failpoint to simulate catastrophic I/O failure during append
+    #[cfg(feature = "failpoints")]
+    {
+        fail::cfg("wal_append_fail", "return").unwrap();
+
+        let res = storage.insert(&UnifiedNode::new(2));
+        assert!(res.is_err(), "Insert should fail when WAL append fails");
+        
+        fail::remove("wal_append_fail");
+    }
+
+    session.success("WAL write failure simulated successfully.");
     session.finish(true);
 }

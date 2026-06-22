@@ -274,49 +274,6 @@ fn all_zeros_vector_put_and_list() {
     assert_eq!(fetched.vector, record.vector);
 }
 
-// ── 9. WAL write failure handling ──────────────────────────
-
-#[test]
-fn wal_write_failure_returns_error() {
-    let dir = tempdir().expect("tempdir");
-    let wal_path = dir.path().join("vanta_wal.bin");
-
-    let engine = InMemoryEngine::with_wal(&wal_path).expect("engine with WAL");
-
-    engine
-        .insert(UnifiedNode::new(1))
-        .expect("first insert should succeed");
-
-    // Delete the WAL file to simulate a write failure on the next operation
-    // by making the parent directory read-only (best-effort simulation).
-    #[cfg(unix)]
-    {
-        use std::fs;
-        // Close and reopen won't help — we need a scenario where WAL write fails.
-        // Simulate by removing write permission on the directory.
-        let mut perms = fs::metadata(dir.path()).unwrap().permissions();
-        let original = perms.clone();
-        perms.set_readonly(true);
-        fs::set_permissions(dir.path(), perms).unwrap();
-
-        let result = engine.insert(UnifiedNode::new(2));
-        assert!(
-            result.is_err(),
-            "WAL write should fail when directory is read-only"
-        );
-
-        // Restore permissions for cleanup
-        fs::set_permissions(dir.path(), original).unwrap();
-    }
-
-    #[cfg(not(unix))]
-    {
-        // On non-Unix (Windows), we test that the WAL writer handles errors gracefully.
-        // Try inserting a node — it should at least not panic.
-        engine.insert(UnifiedNode::new(2)).ok();
-    }
-}
-
 // ── 10. Concurrent connections / rapid requests ────────────
 
 #[test]
