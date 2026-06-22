@@ -112,6 +112,30 @@ db.close();
 | `.operationalMetrics()` | Get runtime metrics |
 | `.capabilities()` | Get build capabilities |
 
+### Export / Import
+
+| Method | Description |
+|--------|-------------|
+| `.exportNamespace(path, namespace)` | Export a namespace to JSONL |
+| `.exportAll(path)` | Export all namespaces to JSONL |
+| `.importRecords(records)` | Import records from an array |
+| `.importFile(path)` | Import records from a JSONL file |
+
+### Text Index
+
+| Method | Description |
+|--------|-------------|
+| `.auditTextIndex(namespace?)` | Audit text index integrity |
+| `.auditTextIndexDeep(namespace?)` | Deep structural text index audit |
+| `.repairTextIndex()` | Repair text index from canonical storage |
+
+### Utilities
+
+| Method | Description |
+|--------|-------------|
+| `.query(iqlQuery)` | Execute IQL query |
+| `.generateSnippet(payload, query, withHighlighting?)` | Generate highlighted text snippet |
+
 ## Runtimes
 
 | Runtime | Status |

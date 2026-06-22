@@ -313,7 +313,7 @@ fn test_wal_write_failure_simulated() {
 
     let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
     storage.insert(&UnifiedNode::new(1)).unwrap();
-    
+
     // Enable failpoint to simulate catastrophic I/O failure during append
     #[cfg(feature = "failpoints")]
     {
@@ -321,7 +321,7 @@ fn test_wal_write_failure_simulated() {
 
         let res = storage.insert(&UnifiedNode::new(2));
         assert!(res.is_err(), "Insert should fail when WAL append fails");
-        
+
         fail::remove("wal_append_fail");
     }
 

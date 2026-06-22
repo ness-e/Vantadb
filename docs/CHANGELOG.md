@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - TSK-35: Rust examples — 4 runnable examples in `examples/rust/`: `basic` (CRUD), `hybrid` (search), `graphrag` (graph traverse), `concurrent` (multi-threaded).
 - TSK-34: Docs reorganization — `docs/README.md` restructured by audience (End Users / Developers / Operators / Reference).
 - COM-02/03: Verified CONTRIBUTING.md and CODE_OF_CONDUCT.md already exist in `.github/` (high quality).
+- Vault unification: Obsidian vault moved to `docs/`, all wikilinks preserved, Master Index expanded with full repo documentation.
 
 ### Security
 
@@ -339,3 +340,155 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Unstable proto-CGR algorithms.
 - Hard-coded vector similarity loops lacking validation suites.
+
+---
+
+## Registro Detallado en Español
+
+### FASE 1 — Fundación
+
+| ID | Tarea | Estado |
+|----|-------|--------|
+| TSK-01 | Tipos de datos vector_index (`VectorIndex`, `IndexOptions`, `QuantizationMode`) | ✅ |
+| TSK-02 | HNSW básico (insert, search, ef_construction, ef_search, multi-layer skip list) | ✅ |
+| TSK-03 | IVF básico (k-means, nprobe, inverted lists) | ✅ |
+| TSK-04 | Refactor benchmark framework (Dibs → Criterion, profiling) | ✅ |
+| TSK-05 | Híbrido sparse-dense ranking (`HybridRanker`, `fusion_score`) | ✅ |
+| TSK-06 | HNSW multi-threaded insert (`RwLock<HnswLayer>`, `build_threaded()`) | ✅ |
+| TSK-07 | Python bindings maturin (pyo3, `python_module.rs`) | ✅ |
+| TSK-08 | Ser/deser con rmp-serde (MessagePack, `to_bytes/from_bytes`) | ✅ |
+| TSK-09 | Versionar formato de índice (`INDEX_VERSION`, `VantaHeader`) | ✅ |
+| TSK-10 | Expansión de tests (34 unit, 3 integración, proptest) | ✅ |
+
+### FASE 2 — Integracion y API
+
+| ID | Tarea | Estado |
+|----|-------|--------|
+| TSK-18 | Integrar HNSW + IVF como `UnifiedIndex` | ✅ |
+| TSK-19 | Consolidar `VantaIndex` como API principal | ✅ |
+| TSK-20 | Integration tests de `VantaIndex` | ✅ |
+| TSK-21 | Servidor HTTP con axum | ✅ |
+| TSK-22 | MCP server para LLM agents | ✅ |
+| TSK-23 | GitHub Actions CI + Build | ✅ |
+| TSK-24 | CLIP embeddings (producción, ONNX) | ✅ |
+| TSK-25 | Unified embedding interface (`EmbeddingModel` trait) | ✅ |
+| TSK-26 | Python tests con pytest | ✅ |
+| TSK-27 | E2E tests cliente HTTP → servidor | ✅ |
+| TSK-28 | Investigación: lock-free HNSW (DISC-01) | ✅ |
+| TSK-29 | Pagina web estatica VantaDB | ✅ |
+| TSK-31 | DataDog tracing | ✅ |
+| TSK-32 | DOTC (DataDog Observabilidad, 8 modulos) | ✅ |
+| TSK-33 | Razonamiento GraphRAG (diseno) | ✅ |
+| TSK-51 | Sparse embedding integracion | ✅ |
+| TSK-52 | Host header + connection pooling | ✅ |
+| TSK-53 | Bind a interfaz especifica | ✅ |
+| TSK-57 | Investigacion: dataset benchmarks grande (DISC-02) | ✅ |
+| TSK-58 | Deduplication de vectores (`UniqueConstraint`) | ✅ |
+| TSK-59 | Atomic read-write semantics (WAL, crash recovery) | ✅ |
+| TSK-60 | `sparse_threshold` (dense-sparse weight) | ✅ |
+| TSK-68 | Event-driven hooks (`EventHook`, sync) | ✅ |
+
+### FASE 3 — Pre-Lanzamiento
+
+| ID | Tarea | Estado |
+|----|-------|--------|
+| TSK-61 | Feature gates + perfiles de compilacion | ✅ |
+| TSK-62 | CLI flags + env vars + config file (`VantaConfig`) | ✅ |
+| TSK-63 | Cross-platform CI con cobertura | ✅ |
+| TSK-64 | Linting + coverage gate (clippy, fmt, llvm-cov) | ✅ |
+| TSK-65 | Version bumps semver (0.1.0 → 0.1.4) | ✅ |
+| TSK-66 | Release CI pipeline (cargo publish, GitHub Release) | ✅ |
+| TSK-67 | GraphRAG docs completas | ✅ |
+| TSK-46 | MMap-backed HNSW | ✅ |
+| TSK-50 | Backpressure RSS (`check_memory_pressure()`) | ✅ |
+| TSK-69 | `put_batch()` con Rayon (5x bulk inserts) | ✅ |
+| TSK-73 | `AsyncVantaDB` asyncio Python | ✅ |
+| TSK-74 | Type stubs `.pyi` | ✅ |
+| TSK-75 | WAL compact + rotate | ✅ |
+| TSK-76a | TTL auto-eviction (`ttl_ms`, `purge_expired()`) | ✅ |
+| TSK-76b | Weighted eviction (`EvictionWeights`) | ✅ |
+| TSK-70 | Durability guarantees docs | ✅ |
+| TSK-78 | Property-based testing expandido (5 nuevos proptests) | ✅ |
+| TSK-93 | Prometheus histograms HTTP (p50/p95/p99) | ✅ |
+| TSK-97 | Eliminacion de panics runtime (6 ubicaciones) | ✅ |
+| TSK-56 | Fix Windows CI runner (timeouts, OIDC) | ✅ |
+| TSK-55 | Real datasets CI (GloVe-100) | ✅ |
+| TSK-79 | Benchmark regression alerts (auto GitHub Issues) | ✅ |
+| TSK-81 | README badges con iconos de marca | ✅ |
+| TSK-80 | Migration guides (ChromaDB, LanceDB) | ✅ |
+| TSK-82 | CHANGELOG formal (git-cliff, 460 commits) | ✅ |
+| TSK-94 | JSON structured logging (`LogFormat`) | ✅ |
+| TSK-54 | Nightly CI benchmarks | ✅ |
+| TSK-37 | Hybrid quality benchmarks (NDCG@k, MRR, Recall@k) | ✅ |
+| TSK-83 | Issue/PR templates (`.github/`) | ✅ |
+| TSK-84 | DISC-03: Prefetch benchmark (13.8% faster) | ✅ |
+| TSK-85 | File locking stress tests (4 tests) | ✅ |
+| TSK-86 | `similar_to_key()` SDK method | ✅ |
+| TSK-87 | `count()` SDK method con filtros | ✅ |
+| TSK-88 | Multi-namespace search | ✅ |
+| TSK-111 | Expanded filter operators (`FilterOp` enum) | ✅ |
+| TSK-119 | `delete_by_filter()` SDK + CLI | ✅ |
+
+### Auditoria Integral (2026-06-19) — 44 hallazgos resueltos
+
+**7 Criticos:**
+- AUD-01: `abi3-py311` → `abi3-py38` (soporta Python 3.8–3.10)
+- AUD-02: 16 `.unwrap()` → `?` (eliminados panics runtime)
+- AUD-03: `bincode 1.3` → `2.0` (RUSTSEC-2025-0141)
+- AUD-04: `pyo3 0.24` → `0.29` (RUSTSEC-2026-0176/0177)
+- AUD-05: 18 links rotos reparados en README
+- AUD-06: Referencia `chaos_testing.rs` corregida
+- AUD-07: `README.MD` → `README.md` (case-sensitive FS)
+
+**14 Medios:** AUD-08 a AUD-21 (unsafe audit, test state, assertions, CI fixes)
+
+**23 Bajos:** AUD-22 a AUD-44 (refactors, lint, features granulares, version bumps)
+
+### CLI-EPIC (2026-06-21) — 7 comandos nuevos
+
+| Comando | Descripcion |
+|---------|-------------|
+| `backup` | Backup con flush WAL, copia de archivos, manifiesto CRC32 |
+| `restore` | Restaura desde backup, verifica CRC32, rebuild opcional |
+| `doctor` | Diagnostico de salud (WAL, backend, memoria, HNSW) |
+| `inspect` | Inspecciona un registro completo |
+| `stats` | Estadisticas de la base de datos (formateado o JSON) |
+| `count` | Conteo de registros con filtros opcionales |
+| `search-similar` | Busqueda por similitud desde clave existente |
+
+Ademas: `repl` (REPL interactivo), `tui` (dashboard en vivo 2s), flags globales `--json`/`--quiet`, sugerencias de typo, progress bars deterministas.
+
+### FASE 4 — Ecosistema y SDK Cross-Platform
+
+| ID | Tarea | Estado |
+|----|-------|--------|
+| TSK-100 | Homebrew formula (`brew install vantadb`) | ✅ |
+| TSK-101 | ARM64 Linux wheels (QEMU cross-compile) | ✅ |
+| TSK-102 | Python 3.13+ support (ABI3) | ✅ |
+| TSK-106b | SECURITY.md + vulnerability disclosure policy | ✅ |
+| TSK-112 | WASM TypeScript SDK (npm package) | ✅ |
+| TSK-118 | Ejemplos LangChain, LlamaIndex, Vercel AI SDK | ✅ |
+| TSK-120 | Fix CI ARM64 (ubuntu-22.04, QEMU v4) | ✅ |
+| TSK-71 | WASM build support (wasm32-wasip1) | ✅ |
+| TSK-34 | Docs reorganization (5-pilar design system) | ✅ |
+| TSK-35 | Rust examples (basic, hybrid, graphrag, concurrent) | ✅ |
+
+### TSK-45 — Publicacion en crates.io (2026-06-21)
+
+- Crate `vantadb` v0.1.4 publicado en https://crates.io/crates/vantadb
+- Metadata completa, README corregido, licencias verificadas
+- 373 files, 1.4MiB comprimido
+
+### Vault Unificado (2026-06-22)
+
+- Vault de Obsidian movido a `docs/` como raiz
+- Todos los wikilinks preservados (~400)
+- `Master Index.md` expandido con documentacion del repositorio organizada por audiencia (End Users / Developers / Operators / Project Tracking)
+- `docs/README.md` convertido en indice general con redirect a Master Index
+- `.obsidian/` agregado a `.gitignore`
+- CHANGELOG fusionado bilingue
+- **Incidente:** Windows NTFS case-insensitive causo perdida del changelog detallado en espanol (archivo `Changelog.md` = `CHANGELOG.md` en NTFS). Restaurado desde backup, seccion en espanol reconstruida desde `docs/progreso/README.md`.
+
+---
+
+*Keep a Changelog format maintained in English above. Detailed Spanish progress log below. Updated 2026-06-22.*
