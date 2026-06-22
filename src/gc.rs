@@ -1,3 +1,4 @@
+use crate::error::{Result, VantaError};
 use crate::storage::StorageEngine;
 use std::collections::BTreeMap;
 use web_time::{SystemTime, UNIX_EPOCH};
@@ -22,10 +23,10 @@ impl<'a> GcWorker<'a> {
     }
 
     /// Triggers a sweep that clears old items. In production this runs in a `tokio::spawn` loop.
-    pub fn sweep(&mut self) -> usize {
+    pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .map_err(|_| VantaError::Execution("System time before UNIX epoch".into()))?
             .as_secs();
 
         // Split the BTreeMap, taking all nodes where expiration <= now
@@ -50,6 +51,6 @@ impl<'a> GcWorker<'a> {
             self.index_ttl.remove(&key);
         }
 
-        expired_count
+        Ok(expired_count)
     }
 }

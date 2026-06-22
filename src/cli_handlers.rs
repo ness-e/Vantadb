@@ -3,12 +3,18 @@
 use clap::CommandFactory;
 use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use web_time::Instant;
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::cli::{Cli, Shell};
 use crate::config::VantaConfig;
 use crate::error::Result;
+pub use crate::sdk::{
+    FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
+    FIELD_UPDATED_AT_MS, FIELD_VERSION,
+};
 use crate::storage::StorageEngine;
 use crate::VantaEmbedded;
 
@@ -95,13 +101,6 @@ pub fn memory_node_id(namespace: &str, key: &str) -> u64 {
     hasher.write(key.as_bytes());
     hasher.finish()
 }
-
-pub const FIELD_NAMESPACE: &str = "__vanta_namespace";
-pub const FIELD_KEY: &str = "__vanta_key";
-pub const FIELD_PAYLOAD: &str = "__vanta_payload";
-pub const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
-pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
-pub const FIELD_VERSION: &str = "__vanta_version";
 
 pub fn cmd_put(
     db_path: &str,
@@ -636,17 +635,87 @@ pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
 }
 
 pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> Result<()> {
+    use std::io::Write;
+
     let spinner = create_spinner("Opening database...");
     let embedded = open_embedded(db_path, true)?;
     spinner.finish_and_clear();
 
-    let report = if let Some(ns) = namespace {
-        embedded.export_namespace(output_path, ns)?
-    } else {
-        embedded.export_all(output_path)?
+    let term = Term::stdout();
+
+    if let Some(parent) = std::path::Path::new(output_path).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let file = std::fs::File::create(output_path)?;
+    let mut writer = std::io::BufWriter::new(file);
+
+    const BATCH_SIZE: usize = 500;
+    let mut total: u64 = 0;
+
+    let namespaces: Vec<String> = match namespace {
+        Some(ns) => vec![ns.to_string()],
+        None => embedded.list_namespaces()?,
     };
 
-    let term = Term::stdout();
+    // Quick emptiness check before writing
+    let any_data = namespaces.iter().any(|ns| {
+        embedded
+            .list(
+                ns,
+                crate::sdk::VantaMemoryListOptions {
+                    filters: crate::sdk::VantaMemoryMetadata::new(),
+                    limit: 1,
+                    cursor: None,
+                },
+            )
+            .map(|p| !p.records.is_empty())
+            .unwrap_or(false)
+    });
+    if !any_data {
+        print_warning("No records to export");
+        return Ok(());
+    }
+
+    let bar = ProgressBar::new_spinner();
+    bar.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.cyan} Exporting... {pos} records written")
+            .expect("valid spinner template"),
+    );
+    bar.enable_steady_tick(std::time::Duration::from_millis(100));
+
+    for ns in &namespaces {
+        let mut cursor: Option<usize> = None;
+        loop {
+            let opts = crate::sdk::VantaMemoryListOptions {
+                filters: crate::sdk::VantaMemoryMetadata::new(),
+                limit: BATCH_SIZE,
+                cursor,
+            };
+            let page = embedded.list(ns, opts)?;
+            if page.records.is_empty() {
+                break;
+            }
+            for record in &page.records {
+                let line = crate::sdk::export_line_from_record(record.clone());
+                serde_json::to_writer(&mut writer, &line)
+                    .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+                writer.write_all(b"\n")?;
+            }
+            let n = page.records.len() as u64;
+            total += n;
+            bar.inc(n);
+            cursor = page.next_cursor;
+            if cursor.is_none() {
+                break;
+            }
+        }
+    }
+
+    writer.flush()?;
+    bar.finish_and_clear();
+
     let _ = term.write_line("");
     let _ = term.write_line(&format!(
         "{}",
@@ -660,10 +729,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
         "{}",
         header_style().apply_to("├─────────────────────────────────────────┤")
     ));
-    let _ = term.write_line(&format!(
-        "│  Records exported:   {:<18} │",
-        report.records_exported
-    ));
+    let _ = term.write_line(&format!("│  Records exported:   {:<18} │", total));
     let _ = term.write_line(&format!("│  Output file:        {:<18} │", output_path));
     let _ = term.write_line(&format!(
         "{}",
@@ -1052,77 +1118,78 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
         binary_name.to_string()
     };
 
-    let mut cmd = std::process::Command::new(&exe_name);
+    let build_cmd = |binary: &std::path::Path| -> std::process::Command {
+        let mut cmd = std::process::Command::new(binary);
+        cmd.env("VANTA_DB", db_path);
+        if let Some(p) = port {
+            cmd.env("VANTADB_PORT", p.to_string());
+        }
+        if let Some(ref h) = host {
+            cmd.env("VANTADB_HOST", h);
+        }
+        cmd.arg("--mcp");
+        cmd.stdin(std::process::Stdio::inherit());
+        cmd.stdout(std::process::Stdio::inherit());
+        cmd.stderr(std::process::Stdio::inherit());
+        cmd
+    };
 
-    cmd.env("VANTA_DB", db_path);
-    if let Some(p) = port {
-        cmd.env("VANTADB_PORT", p.to_string());
-    }
-    if let Some(ref h) = host {
-        cmd.env("VANTADB_HOST", h);
-    }
-
-    cmd.arg("--mcp");
-
-    cmd.stdin(std::process::Stdio::inherit());
-    cmd.stdout(std::process::Stdio::inherit());
-    cmd.stderr(std::process::Stdio::inherit());
-
-    let mut child = match cmd.spawn() {
+    let mut child = match build_cmd(std::path::Path::new(&exe_name)).spawn() {
         Ok(c) => c,
         Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
             if let Ok(mut current_exe) = std::env::current_exe() {
                 current_exe.set_file_name(&exe_name);
                 if current_exe.exists() {
-                    let mut fallback_cmd = std::process::Command::new(&current_exe);
-                    fallback_cmd.env("VANTA_DB", db_path);
-                    if let Some(p) = port {
-                        fallback_cmd.env("VANTADB_PORT", p.to_string());
-                    }
-                    if let Some(ref h) = host {
-                        fallback_cmd.env("VANTADB_HOST", h);
-                    }
-                    fallback_cmd.arg("--mcp");
-                    fallback_cmd.stdin(std::process::Stdio::inherit());
-                    fallback_cmd.stdout(std::process::Stdio::inherit());
-                    fallback_cmd.stderr(std::process::Stdio::inherit());
-
-                    match fallback_cmd.spawn() {
-                        Ok(c) => c,
-                        Err(e) => {
-                            return Err(VantaError::Execution(format!(
-                                "Failed to start vantadb-server from current directory: {e}"
-                            )));
-                        }
-                    }
+                    build_cmd(&current_exe).spawn().map_err(|e| {
+                        VantaError::Execution(format!(
+                            "Failed to start vantadb-server from {}: {e}",
+                            current_exe.display()
+                        ))
+                    })?
                 } else {
                     return Err(VantaError::Execution(format!(
-                        "vantadb-server binary not found in PATH or in the same directory as the CLI (expected: {})",
+                        "vantadb-server binary not found. \
+                         Searched PATH for '{}' and CLI directory for '{}'. \
+                         The MCP server requires the vantadb-server binary (compiled with the 'server' feature). \
+                         Install it via 'cargo build --bin vantadb-server' or place it alongside this binary.",
+                        exe_name,
                         current_exe.display()
                     )));
                 }
             } else {
-                return Err(VantaError::Execution(
-                    "vantadb-server binary not found in PATH and failed to retrieve current executable path".to_string()
-                ));
+                return Err(VantaError::Execution(format!(
+                    "vantadb-server binary '{}' not found in PATH. \
+                     Current executable path could not be determined. \
+                     Ensure vantadb-server is installed and available in PATH.",
+                    exe_name
+                )));
             }
         }
         Err(e) => {
             return Err(VantaError::Execution(format!(
-                "Failed to start vantadb-server process: {e}"
+                "Failed to spawn vantadb-server process (db_path={}): {e}",
+                db_path
             )));
         }
     };
 
     let status = child.wait().map_err(|e| {
-        VantaError::Execution(format!("Error waiting for vantadb-server process: {e}"))
+        VantaError::Execution(format!(
+            "Error waiting for vantadb-server process (db_path={}): {e}",
+            db_path
+        ))
     })?;
 
     if !status.success() {
         if let Some(code) = status.code() {
+            // Subprocess exited with non-zero — propagate its exit code
             std::process::exit(code);
         } else {
-            std::process::exit(1);
+            // Subprocess was terminated by a signal
+            return Err(VantaError::Execution(format!(
+                "vantadb-server terminated by signal (db_path={})",
+                db_path
+            )));
         }
     }
 
@@ -1135,9 +1202,20 @@ pub fn cmd_completions(shell: Shell) {
     clap_complete::generate(shell, &mut cmd, "vanta-cli", &mut std::io::stdout());
 }
 
-pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> Result<()> {
+pub fn cmd_search(
+    db_path: &str,
+    namespace: &str,
+    query: &str,
+    query_vector_str: Option<&str>,
+    limit: usize,
+    json_output: bool,
+) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            println!("[]");
+            return Ok(());
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -1149,9 +1227,23 @@ pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> 
     let db = open_embedded(db_path, true)?;
     spinner.set_message("Searching...");
 
+    let query_vector = if let Some(qv) = query_vector_str {
+        qv.split(',')
+            .map(|s| {
+                s.trim().parse::<f32>().map_err(|e| {
+                    crate::error::VantaError::Execution(format!(
+                        "Invalid vector component '{s}': {e}"
+                    ))
+                })
+            })
+            .collect::<std::result::Result<Vec<f32>, _>>()?
+    } else {
+        vec![]
+    };
+
     let request = crate::sdk::VantaMemorySearchRequest {
         namespace: namespace.to_string(),
-        query_vector: vec![],
+        query_vector,
         filters: crate::sdk::VantaMemoryMetadata::new(),
         text_query: Some(query.to_string()),
         top_k: limit,
@@ -1161,6 +1253,27 @@ pub fn cmd_search(db_path: &str, namespace: &str, query: &str, limit: usize) -> 
 
     let hits = db.search(request)?;
     spinner.finish_and_clear();
+
+    if json_output {
+        let results: Vec<serde_json::Value> = hits
+            .iter()
+            .map(|hit| {
+                serde_json::json!({
+                    "key": hit.record.key,
+                    "namespace": hit.record.namespace,
+                    "payload": hit.record.payload,
+                    "score": hit.score,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&results).map_err(|e| {
+                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+            })?
+        );
+        return Ok(());
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -1377,4 +1490,1166 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     ));
 
     Ok(())
+}
+
+pub fn cmd_search_similar(
+    db_path: &str,
+    namespace: &str,
+    key: &str,
+    limit: usize,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            println!("[]");
+            return Ok(());
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let engine = open_database(db_path, true)?;
+    let db = open_embedded(db_path, true)?;
+    let spinner = create_spinner("Opening database...");
+    spinner.set_message(format!("Searching similar to '{}'...", key));
+
+    let node_id = memory_node_id(namespace, key);
+    let source_node = engine.get(node_id)?.ok_or_else(|| {
+        crate::error::VantaError::Execution(format!(
+            "Source record not found: {}:{}",
+            namespace, key
+        ))
+    })?;
+
+    let query_vector = match &source_node.vector {
+        crate::node::VectorRepresentations::Full(v) => v.clone(),
+        _ => {
+            return Err(crate::error::VantaError::Execution(format!(
+                "Record '{}:{}' has no vector embedding",
+                namespace, key
+            )));
+        }
+    };
+
+    let raw_hits = db.search_vector(&query_vector, limit + 1)?;
+    let mut hits: Vec<(String, String, String, f64)> = Vec::new();
+
+    for hit in &raw_hits {
+        if hit.node_id == node_id {
+            continue;
+        }
+        if let Ok(Some(node)) = engine.get(hit.node_id) {
+            let hit_ns = node
+                .relational
+                .get(FIELD_NAMESPACE)
+                .and_then(|v| match v {
+                    crate::node::FieldValue::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            let hit_key = node
+                .relational
+                .get(FIELD_KEY)
+                .and_then(|v| match v {
+                    crate::node::FieldValue::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            let hit_payload = node
+                .relational
+                .get(FIELD_PAYLOAD)
+                .and_then(|v| match v {
+                    crate::node::FieldValue::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            let score = 1.0 - (hit.distance as f64).clamp(0.0, 1.0);
+            hits.push((hit_ns, hit_key, hit_payload, score));
+        }
+    }
+
+    hits.truncate(limit);
+    spinner.finish_and_clear();
+
+    if json_output {
+        let results: Vec<serde_json::Value> = hits
+            .iter()
+            .map(|(ns, k, payload, score)| {
+                serde_json::json!({
+                    "key": k,
+                    "namespace": ns,
+                    "payload": payload,
+                    "score": score,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&results).map_err(|e| {
+                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+            })?
+        );
+        return Ok(());
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╭──────────────────────────────────────────────────────────────╮")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to(format!(
+            "│  Similar to \"{}\" in \"{}\" ({} hits)                        │",
+            key,
+            namespace,
+            hits.len()
+        ))
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("├──────────────────────────────────────────────────────────────┤")
+    ));
+
+    if hits.is_empty() {
+        let _ = term.write_line(&format!(
+            "{}",
+            warning_style()
+                .apply_to("│  No results found                                          │")
+        ));
+    } else {
+        for (i, (_, k, _, score)) in hits.iter().enumerate() {
+            let line = format!("│  #{:<3} │ {:<30} │ {:>8.4} │", i + 1, k, score);
+            let _ = term.write_line(&format!("{}", info_style().apply_to(&line)));
+        }
+    }
+
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╰──────────────────────────────────────────────────────────────╯")
+    ));
+
+    Ok(())
+}
+
+pub fn cmd_count(
+    db_path: &str,
+    namespace: &str,
+    _filter: Option<&str>,
+    _filter_op: &str,
+    json_output: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            println!("0");
+            return Ok(());
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Counting records...");
+
+    let nodes = engine.scan_nodes()?;
+    let count = nodes
+        .iter()
+        .filter(|n| {
+            let ns = n.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+                crate::node::FieldValue::String(s) => Some(s.as_str()),
+                _ => None,
+            });
+            ns == Some(namespace)
+        })
+        .count() as u64;
+
+    spinner.finish_and_clear();
+
+    if json_output {
+        let result = serde_json::json!({
+            "namespace": namespace,
+            "count": count,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).map_err(|e| {
+                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+            })?
+        );
+        return Ok(());
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!("Record count in '{}': {}", namespace, count));
+
+    Ok(())
+}
+
+pub fn cmd_delete_by_filter(
+    db_path: &str,
+    namespace: &str,
+    filter_key: &str,
+    filter_val: &str,
+    verbose: bool,
+) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, false)?;
+    spinner.set_message("Scanning for matching records...");
+
+    let nodes = engine.scan_nodes()?;
+    let mut deleted_count = 0u64;
+
+    for node in nodes {
+        let ns = node.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+            crate::node::FieldValue::String(s) => Some(s.as_str()),
+            _ => None,
+        });
+
+        if ns != Some(namespace) {
+            continue;
+        }
+
+        let fv = node.relational.get(filter_key);
+        let matches = match fv {
+            Some(crate::node::FieldValue::String(s)) => s == filter_val,
+            Some(crate::node::FieldValue::Int(i)) => i.to_string() == filter_val,
+            Some(crate::node::FieldValue::Float(f)) => f.to_string() == filter_val,
+            _ => false,
+        };
+
+        if matches {
+            let key = node
+                .relational
+                .get(FIELD_KEY)
+                .and_then(|v| match v {
+                    crate::node::FieldValue::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+
+            let node_id = memory_node_id(namespace, &key);
+            engine.delete(node_id, "delete_by_filter")?;
+            deleted_count += 1;
+        }
+    }
+
+    spinner.finish_and_clear();
+
+    if deleted_count > 0 {
+        print_success(&format!(
+            "Deleted {} record(s) matching {}={} in namespace '{}'",
+            deleted_count, filter_key, filter_val, namespace
+        ));
+    } else {
+        print_warning(&format!(
+            "No records matching {}={} found in namespace '{}'",
+            filter_key, filter_val, namespace
+        ));
+    }
+
+    if verbose {
+        print_info(&format!("Deleted count: {}", deleted_count));
+    }
+
+    Ok(())
+}
+
+pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()> {
+    let src = std::path::Path::new(db_path);
+    if !src.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let backup_dir = match out {
+        Some(p) => PathBuf::from(p),
+        None => {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            let dir = format!("vantadb_backups/backup_{}", timestamp);
+            PathBuf::from(dir)
+        }
+    };
+
+    if backup_dir.join("vantadb.dat").exists() || backup_dir.join("vantadb.wal").exists() {
+        return Err(crate::error::VantaError::Execution(format!(
+            "Backup destination '{}' already contains database files. Choose a different location or remove existing files.",
+            backup_dir.display()
+        )));
+    }
+
+    // Open writable to flush, then drop before copying files
+    {
+        let spinner = create_spinner("Opening database...");
+        let engine = open_database(db_path, false)?;
+        spinner.set_message("Flushing database...");
+        engine.flush()?;
+    }
+
+    fn copy_dir(src: &Path, dst: &Path, skip: Option<&Path>) -> std::io::Result<()> {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let src_path = entry.path();
+            if skip.is_some_and(|s| src_path == s) {
+                continue;
+            }
+            let ft = entry.file_type()?;
+            let dst_path = dst.join(entry.file_name());
+            if ft.is_dir() {
+                copy_dir(&src_path, &dst_path, skip)?;
+            } else {
+                std::fs::copy(&src_path, &dst_path)?;
+            }
+        }
+        Ok(())
+    }
+
+    copy_dir(src, &backup_dir, Some(&backup_dir)).map_err(|e| {
+        crate::error::VantaError::Execution(format!("Failed to copy database to backup: {e}"))
+    })?;
+
+    let spinner = create_spinner("Verifying backup...");
+    spinner.finish_and_clear();
+
+    let _ = Term::stdout().write_line("");
+    print_success(&format!("Backup created at: {}", backup_dir.display()));
+
+    if verbose {
+        print_info(&format!(
+            "Source: {}",
+            src.canonicalize()
+                .unwrap_or_else(|_| src.to_path_buf())
+                .display()
+        ));
+        print_info(&format!(
+            "Size: {}",
+            human_readable_size(dir_size(src).unwrap_or(0) as u64)
+        ));
+    }
+
+    Ok(())
+}
+
+pub fn cmd_restore(
+    db_path: &str,
+    input: &str,
+    force: bool,
+    rebuild: bool,
+    verbose: bool,
+) -> Result<()> {
+    let src = std::path::Path::new(input);
+    if !src.exists() {
+        return Err(crate::error::VantaError::Execution(format!(
+            "Backup directory does not exist at '{}'",
+            input
+        )));
+    }
+
+    let dst = std::path::Path::new(db_path);
+
+    if dst.exists() && !force {
+        return Err(crate::error::VantaError::Execution(
+            "Destination database directory already exists. Use --force to overwrite.".to_string(),
+        ));
+    }
+
+    let spinner = create_spinner("Restoring from backup...");
+
+    if dst.exists() && force {
+        std::fs::remove_dir_all(dst).map_err(|e| {
+            crate::error::VantaError::Execution(format!(
+                "Failed to remove existing database directory: {e}"
+            ))
+        })?;
+    }
+
+    std::fs::create_dir_all(dst).map_err(|e| {
+        crate::error::VantaError::Execution(format!("Failed to create database directory: {e}"))
+    })?;
+
+    fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let ft = entry.file_type()?;
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+            if ft.is_dir() {
+                copy_dir(&src_path, &dst_path)?;
+            } else {
+                std::fs::copy(&src_path, &dst_path)?;
+            }
+        }
+        Ok(())
+    }
+
+    copy_dir(src, dst).map_err(|e| {
+        crate::error::VantaError::Execution(format!("Failed to restore from backup: {e}"))
+    })?;
+
+    spinner.set_message("Verifying restored database...");
+
+    if rebuild {
+        spinner.set_message("Rebuilding indexes...");
+        let db = open_embedded(db_path, false)?;
+        db.rebuild_index().map_err(|e| {
+            crate::error::VantaError::Execution(format!("Index rebuild after restore failed: {e}"))
+        })?;
+    }
+
+    spinner.finish_and_clear();
+
+    print_success(&format!(
+        "Database restored from: {}",
+        src.canonicalize()
+            .unwrap_or_else(|_| src.to_path_buf())
+            .display()
+    ));
+
+    if verbose {
+        let src_size = dir_size(src).unwrap_or(0) as u64;
+        let dst_size = dir_size(dst).unwrap_or(0) as u64;
+        print_info(&format!("Backup size: {}", human_readable_size(src_size)));
+        print_info(&format!("Restored size: {}", human_readable_size(dst_size)));
+    }
+
+    Ok(())
+}
+
+pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database for diagnostics...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Running diagnostics...");
+
+    let nodes = engine.scan_nodes()?;
+    let total_nodes = nodes.len();
+
+    let mut namespaces: Vec<String> = Vec::new();
+    let mut total_vectors = 0usize;
+    let mut total_expired = 0u64;
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+
+    for node in &nodes {
+        let ns = node.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+            crate::node::FieldValue::String(s) => Some(s.clone()),
+            _ => None,
+        });
+        if let Some(ns) = ns {
+            if !namespaces.contains(&ns) {
+                namespaces.push(ns);
+            }
+        }
+
+        if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+            total_vectors += 1;
+        }
+
+        if let Some(crate::node::FieldValue::Int(exp)) = node.relational.get(FIELD_EXPIRES_AT_MS) {
+            if *exp < now_ms {
+                total_expired += 1;
+            }
+        }
+    }
+
+    let stats = engine.get_memory_stats();
+
+    spinner.finish_and_clear();
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔══════════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║                VantaDB Health Diagnostics                    ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠══════════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Overview                                                 ║")
+    ));
+    let _ = term.write_line(&format!("║     Total nodes:     {:<38} ║", total_nodes));
+    let _ = term.write_line(&format!(
+        "║     Namespaces:      {:<38} ║",
+        namespaces.len()
+    ));
+    let _ = term.write_line(&format!("║     Vectors stored:  {:<38} ║", total_vectors));
+    let _ = term.write_line(&format!("║     Expired records: {:<38} ║", total_expired));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Storage                                                 ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     Node count:      {:<38} ║",
+        stats.node_count
+    ));
+    let _ = term.write_line(&format!(
+        "║     Logical size:    {:<38} ║",
+        human_readable_size(stats.logical_bytes)
+    ));
+    let _ = term.write_line(&format!(
+        "║     Cache entries:   {:<38} ║",
+        stats.cache_entries
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
+    ));
+
+    if verbose {
+        let _ = term.write_line("");
+        print_info("Namespaces:");
+        for ns in &namespaces {
+            print_info(&format!("  {}", ns));
+        }
+    }
+
+    if total_expired > 0 {
+        print_warning(&format!(
+            "Found {} expired record(s). Consider compacting the database.",
+            total_expired
+        ));
+    }
+
+    Ok(())
+}
+
+pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Inspecting record...");
+
+    let node_id = memory_node_id(namespace, key);
+
+    match engine.get(node_id)? {
+        Some(node) => {
+            spinner.finish_and_clear();
+
+            let term = Term::stdout();
+            let _ = term.write_line("");
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╔══════════════════════════════════════════════════════════╗")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("║                 Record Inspection                         ║")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╠══════════════════════════════════════════════════════════╣")
+            ));
+            let _ = term.write_line(&format!("║  Namespace: {:<42} ║", namespace));
+            let _ = term.write_line(&format!("║  Key:       {:<42} ║", key));
+            let _ = term.write_line(&format!("║  Node ID:   {:<42} ║", node_id));
+            let _ = term.write_line(&format!(
+                "║  Has vector: {:<41} ║",
+                node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR)
+            ));
+            let _ = term.write_line(&format!(
+                "║  Active:    {:<41} ║",
+                node.flags.is_set(crate::node::NodeFlags::ACTIVE)
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╠══════════════════════════════════════════════════════════╣")
+            ));
+            let _ = term.write_line(&format!(
+                "{}",
+                info_style()
+                    .apply_to("║  Fields (relational metadata)                           ║")
+            ));
+
+            let mut rel_keys: Vec<&String> = node.relational.keys().collect();
+            rel_keys.sort();
+            for field_key in rel_keys {
+                if let Some(val) = node.relational.get(field_key) {
+                    let val_str = match val {
+                        crate::node::FieldValue::String(s) => s.clone(),
+                        crate::node::FieldValue::Int(i) => i.to_string(),
+                        crate::node::FieldValue::Float(f) => format!("{:.6}", f),
+                        crate::node::FieldValue::Bool(b) => b.to_string(),
+                        _ => format!("{:?}", val),
+                    };
+                    let line = format!("║  {:<15} = {:<35} ║", field_key, val_str);
+                    let _ = term.write_line(&line);
+                }
+            }
+
+            if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
+                let _ = term.write_line(&format!(
+                    "{}",
+                    header_style()
+                        .apply_to("╠══════════════════════════════════════════════════════════╣")
+                ));
+                let _ = term.write_line(&format!(
+                    "{}",
+                    info_style()
+                        .apply_to("║  Vector Data                                              ║")
+                ));
+                match &node.vector {
+                    crate::node::VectorRepresentations::Full(v) => {
+                        let dims = v.len();
+                        let preview: String = if dims > 6 {
+                            format!(
+                                "[{}, {}, {}, {}, {}, ...{} more]",
+                                v[0],
+                                v[1],
+                                v[2],
+                                v[3],
+                                v[4],
+                                dims - 5
+                            )
+                        } else {
+                            format!("{:?}", v)
+                        };
+                        let _ = term.write_line(&format!("║  Dimensions: {:<39} ║", dims));
+                        let truncated = if preview.len() > 38 {
+                            format!("{}...", &preview[..35])
+                        } else {
+                            preview
+                        };
+                        let _ = term.write_line(&format!("║  Values:     {:<39} ║", truncated));
+                    }
+                    _ => {
+                        let _ = term.write_line(
+                            "║  (compressed)                                          ║",
+                        );
+                    }
+                }
+            }
+
+            let _ = term.write_line(&format!(
+                "{}",
+                header_style()
+                    .apply_to("╚══════════════════════════════════════════════════════════╝")
+            ));
+
+            if verbose {
+                let _ = term.write_line("");
+                print_info(&format!(
+                    "Payload: {}",
+                    node.relational
+                        .get(FIELD_PAYLOAD)
+                        .and_then(|v| match v {
+                            crate::node::FieldValue::String(s) => Some(s.as_str()),
+                            _ => None,
+                        })
+                        .unwrap_or("(none)")
+                ));
+            }
+        }
+        None => {
+            spinner.finish_and_clear();
+            print_warning(&format!(
+                "Record not found: {}:{} (node_id: {})",
+                namespace, key, node_id
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> {
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        if json_output {
+            println!("null");
+            return Ok(());
+        }
+        print_warning(&format!(
+            "Database directory does not exist at '{}'. (empty)",
+            db_path
+        ));
+        return Ok(());
+    }
+
+    let spinner = create_spinner("Opening database...");
+    let engine = open_database(db_path, true)?;
+    spinner.set_message("Collecting statistics...");
+
+    let stats = engine.get_memory_stats();
+    let nodes = engine.scan_nodes()?;
+    let namespaces: std::collections::HashSet<String> = nodes
+        .iter()
+        .filter_map(|n| {
+            n.relational.get(FIELD_NAMESPACE).and_then(|v| match v {
+                crate::node::FieldValue::String(s) => Some(s.clone()),
+                _ => None,
+            })
+        })
+        .collect();
+
+    let total_vector_nodes = nodes
+        .iter()
+        .filter(|n| n.flags.is_set(crate::node::NodeFlags::HAS_VECTOR))
+        .count();
+
+    let total_payload_bytes: u64 = nodes
+        .iter()
+        .map(|n| {
+            n.relational
+                .get(FIELD_PAYLOAD)
+                .map(|v| match v {
+                    crate::node::FieldValue::String(s) => s.len() as u64,
+                    _ => 0u64,
+                })
+                .unwrap_or(0u64)
+        })
+        .sum();
+
+    spinner.finish_and_clear();
+
+    if json_output {
+        let result = serde_json::json!({
+            "node_count": stats.node_count,
+            "cache_entries": stats.cache_entries,
+            "logical_bytes": stats.logical_bytes,
+            "namespaces": namespaces.iter().cloned().collect::<Vec<_>>(),
+            "namespace_count": namespaces.len(),
+            "total_records": nodes.len(),
+            "total_vector_nodes": total_vector_nodes,
+            "total_payload_bytes": total_payload_bytes,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).map_err(|e| {
+                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+            })?
+        );
+        return Ok(());
+    }
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔══════════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style()
+            .apply_to("║                 VantaDB Database Statistics                   ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠══════════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Overview                                                 ║")
+    ));
+    let _ = term.write_line(&format!("║     Total records:   {:<38} ║", nodes.len()));
+    let _ = term.write_line(&format!(
+        "║     Vector records:  {:<38} ║",
+        total_vector_nodes
+    ));
+    let _ = term.write_line(&format!(
+        "║     Total payload:   {:<38} ║",
+        human_readable_size(total_payload_bytes)
+    ));
+    let _ = term.write_line(&format!(
+        "║     Namespaces:      {:<38} ║",
+        namespaces.len()
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Storage                                                 ║")
+    ));
+    let _ = term.write_line(&format!(
+        "║     HNSW nodes:      {:<38} ║",
+        stats.node_count
+    ));
+    let _ = term.write_line(&format!(
+        "║     Cache entries:   {:<38} ║",
+        stats.cache_entries
+    ));
+    let _ = term.write_line(&format!(
+        "║     Logical size:    {:<38} ║",
+        human_readable_size(stats.logical_bytes)
+    ));
+    if let Some(rss) = stats.physical_rss {
+        let _ = term.write_line(&format!(
+            "║     Physical RSS:    {:<38} ║",
+            human_readable_size(rss)
+        ));
+    }
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
+    ));
+
+    if verbose {
+        let _ = term.write_line("");
+        print_info("Namespaces:");
+        let mut sorted_ns: Vec<&String> = namespaces.iter().collect();
+        sorted_ns.sort();
+        for ns in sorted_ns {
+            print_info(&format!("  {}", ns));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn cmd_repl(db_path: &str, command: Option<&str>) -> Result<()> {
+    let db = open_embedded(db_path, true)?;
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║        VantaDB Interactive REPL           ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Commands:                                 ║")
+    ));
+    let _ = term.write_line("║  put <ns> <key> <payload>                ║");
+    let _ = term.write_line("║  get <ns> <key>                          ║");
+    let _ = term.write_line("║  del <ns> <key>                          ║");
+    let _ = term.write_line("║  search <ns> <query>                     ║");
+    let _ = term.write_line("║  list <ns>                               ║");
+    let _ = term.write_line("║  count <ns> [filter]                     ║");
+    let _ = term.write_line("║  ns                                      ║");
+    let _ = term.write_line("║  stats                                   ║");
+    let _ = term.write_line("║  help                                    ║");
+    let _ = term.write_line("║  exit / quit                             ║");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚════════════════════════════════════════════╝")
+    ));
+
+    if let Some(startup) = command {
+        let _ = term.write_line("");
+        print_info(&format!("Startup command: {}", startup));
+        print_info("Startup commands not supported in single-command mode.");
+    }
+
+    loop {
+        let _ = write!(std::io::stdout(), "vanta> ").ok();
+        let _ = std::io::stdout().flush();
+        let mut line = String::new();
+        if std::io::stdin().read_line(&mut line).is_err() || line.trim().is_empty() {
+            continue;
+        }
+
+        let line = line.trim().to_string();
+
+        match line.as_str() {
+            "exit" | "quit" | ".exit" | "q" => {
+                println!("Goodbye!");
+                break;
+            }
+            "help" | "?" => {
+                println!("Commands: put, get, del, search, list, count, ns, stats, help, exit");
+            }
+            _ => {
+                let parts: Vec<&str> = line.splitn(4, ' ').collect();
+                match parts[0] {
+                    "put" => {
+                        if parts.len() < 4 {
+                            println!("Usage: put <namespace> <key> <payload>");
+                            continue;
+                        }
+                        match db.put(crate::sdk::VantaMemoryInput {
+                            namespace: parts[1].to_string(),
+                            key: parts[2].to_string(),
+                            payload: parts[3].to_string(),
+                            vector: None,
+                            metadata: crate::sdk::VantaMemoryMetadata::new(),
+                            ttl_ms: None,
+                        }) {
+                            Ok(_) => println!("OK"),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "get" => {
+                        if parts.len() < 3 {
+                            println!("Usage: get <namespace> <key>");
+                            continue;
+                        }
+                        match db.get(parts[1], parts[2]) {
+                            Ok(Some(rec)) => println!("{}", rec.payload),
+                            Ok(None) => println!("(not found)"),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "del" => {
+                        if parts.len() < 3 {
+                            println!("Usage: del <namespace> <key>");
+                            continue;
+                        }
+                        match db.delete(parts[1], parts[2]) {
+                            Ok(true) => println!("Deleted"),
+                            Ok(false) => println!("(not found)"),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "search" => {
+                        if parts.len() < 3 {
+                            println!("Usage: search <namespace> <query>");
+                            continue;
+                        }
+                        let req = crate::sdk::VantaMemorySearchRequest {
+                            namespace: parts[1].to_string(),
+                            query_vector: vec![],
+                            filters: crate::sdk::VantaMemoryMetadata::new(),
+                            text_query: Some(parts[2].to_string()),
+                            top_k: 10,
+                            distance_metric: crate::node::DistanceMetric::Cosine,
+                            explain: false,
+                        };
+                        match db.search(req) {
+                            Ok(hits) => {
+                                for hit in &hits {
+                                    println!(
+                                        "  [{}] {:>8.4}  {}",
+                                        hit.record.key, hit.score, hit.record.payload
+                                    );
+                                }
+                            }
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "list" => {
+                        if parts.len() < 2 {
+                            println!("Usage: list <namespace>");
+                            continue;
+                        }
+                        let opts = crate::sdk::VantaMemoryListOptions {
+                            filters: crate::sdk::VantaMemoryMetadata::new(),
+                            limit: 100,
+                            cursor: None,
+                        };
+                        match db.list(parts[1], opts) {
+                            Ok(page) => {
+                                for rec in &page.records {
+                                    println!("  {}  {}", rec.key, rec.payload);
+                                }
+                            }
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "count" => {
+                        let ns = parts.get(1).unwrap_or(&"default");
+                        match db.list(
+                            ns,
+                            crate::sdk::VantaMemoryListOptions {
+                                filters: crate::sdk::VantaMemoryMetadata::new(),
+                                limit: 1000000,
+                                cursor: None,
+                            },
+                        ) {
+                            Ok(page) => println!("Count: {}", page.records.len()),
+                            Err(e) => println!("Error: {}", e),
+                        }
+                    }
+                    "ns" => match db.list_namespaces() {
+                        Ok(ns_list) => {
+                            for ns in &ns_list {
+                                println!("  {}", ns);
+                            }
+                        }
+                        Err(e) => println!("Error: {}", e),
+                    },
+                    "stats" => {
+                        let engine = open_database(db_path, false)?;
+                        let s = engine.get_memory_stats();
+                        println!("  Records on HNSW:  {}", s.node_count);
+                        println!("  Cache entries:     {}", s.cache_entries);
+                        println!(
+                            "  Logical size:      {}",
+                            human_readable_size(s.logical_bytes)
+                        );
+                        if let Some(rss) = s.physical_rss {
+                            println!("  Physical RSS:      {}", human_readable_size(rss));
+                        }
+                    }
+                    "" => {}
+                    other => {
+                        println!("Unknown command: '{}'. Type 'help'.", other);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn cmd_tui(db_path: &str) -> Result<()> {
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔══════════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║               VantaDB Live TUI Dashboard                     ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╠══════════════════════════════════════════════════════════════╣")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to("║  Refreshing every 2 seconds (Ctrl+C to exit)                ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
+    ));
+    let _ = term.write_line("");
+
+    loop {
+        let embed = open_embedded(db_path, true)?;
+        let namespaces = embed.list_namespaces().unwrap_or_default();
+        let engine = open_database(db_path, true)?;
+        let stats = engine.get_memory_stats();
+        let nodes = engine.scan_nodes().unwrap_or_default();
+
+        let total_records = nodes.len();
+        let vector_nodes = nodes
+            .iter()
+            .filter(|n| n.flags.is_set(crate::node::NodeFlags::HAS_VECTOR))
+            .count();
+        let total_payload: u64 = nodes
+            .iter()
+            .map(|n| {
+                n.relational
+                    .get(FIELD_PAYLOAD)
+                    .map(|v| match v {
+                        crate::node::FieldValue::String(s) => s.len() as u64,
+                        _ => 0u64,
+                    })
+                    .unwrap_or(0u64)
+            })
+            .sum();
+
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style()
+                .apply_to("┌──────────────────────────────────────────────────────────────┐")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to(format!(
+                "│  Records: {:<5}  Vectors: {:<5}  NS: {:<3}  Size: {:<10}      │",
+                total_records,
+                vector_nodes,
+                namespaces.len(),
+                human_readable_size(total_payload),
+            ))
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style().apply_to(format!(
+                "│  HNSW: {:<5}  Cache: {:<5}  Logical: {:<10}               │",
+                stats.node_count,
+                stats.cache_entries,
+                human_readable_size(stats.logical_bytes),
+            ))
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            info_style()
+                .apply_to("└──────────────────────────────────────────────────────────────┘")
+        ));
+        let _ = term.write_line("");
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+}
+
+fn human_readable_size(bytes: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit_idx = 0;
+    while size >= 1024.0 && unit_idx < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_idx += 1;
+    }
+    format!("{:.2} {}", size, UNITS[unit_idx])
+}
+
+fn dir_size(path: &Path) -> std::io::Result<usize> {
+    let mut total = 0usize;
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let ft = entry.file_type()?;
+            if ft.is_dir() {
+                total += dir_size(&entry.path())?;
+            } else {
+                total += entry.metadata()?.len() as usize;
+            }
+        }
+    }
+    Ok(total)
 }

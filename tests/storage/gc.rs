@@ -38,7 +38,7 @@ fn storage_gc_certification() {
         worker.register_ttl(2, now + 100); // Future
 
         TerminalReporter::sub_step("Executing sweep cycle...");
-        let purged = worker.sweep();
+        let purged = worker.sweep().unwrap();
 
         assert_eq!(purged, 1, "GC failed to purge expired node");
         assert!(

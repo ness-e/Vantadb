@@ -112,6 +112,7 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
             "agent/a",
             VantaMemoryListOptions {
                 filters,
+
                 limit: 50,
                 cursor: None,
             },

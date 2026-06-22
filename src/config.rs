@@ -2,6 +2,7 @@ use crate::backend::BackendKind;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
 use std::env;
+use tracing::debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
@@ -153,21 +154,45 @@ pub struct VantaConfig {
 impl Default for VantaConfig {
     fn default() -> Self {
         Self {
-            storage_path: env::var("VANTADB_STORAGE_PATH")
-                .unwrap_or_else(|_| "vantadb_data".to_string()),
-            host: env::var("VANTADB_HOST")
-                .or_else(|_| env::var("HOST"))
-                .unwrap_or_else(|_| "127.0.0.1".to_string()),
-            port: env::var("VANTADB_PORT")
-                .or_else(|_| env::var("PORT"))
-                .ok()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(8080),
-            llm_url: env::var("VANTA_LLM_URL")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string()),
-            llm_model: env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string()),
-            llm_summarize_model: env::var("VANTA_LLM_SUMMARIZE_MODEL")
-                .unwrap_or_else(|_| "llama3".to_string()),
+            storage_path: {
+                let v =
+                    env::var("VANTADB_STORAGE_PATH").unwrap_or_else(|_| "vantadb_data".to_string());
+                debug!(val = %v, "VANTADB_STORAGE_PATH");
+                v
+            },
+            host: {
+                let v = env::var("VANTADB_HOST")
+                    .or_else(|_| env::var("HOST"))
+                    .unwrap_or_else(|_| "127.0.0.1".to_string());
+                debug!(val = %v, "VANTADB_HOST");
+                v
+            },
+            port: {
+                let v = env::var("VANTADB_PORT")
+                    .or_else(|_| env::var("PORT"))
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(8080);
+                debug!(val = v, "VANTADB_PORT");
+                v
+            },
+            llm_url: {
+                let v = env::var("VANTA_LLM_URL")
+                    .unwrap_or_else(|_| "http://localhost:11434".to_string());
+                debug!(val = %v, "VANTA_LLM_URL");
+                v
+            },
+            llm_model: {
+                let v = env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
+                debug!(val = %v, "VANTA_LLM_MODEL");
+                v
+            },
+            llm_summarize_model: {
+                let v =
+                    env::var("VANTA_LLM_SUMMARIZE_MODEL").unwrap_or_else(|_| "llama3".to_string());
+                debug!(val = %v, "VANTA_LLM_SUMMARIZE_MODEL");
+                v
+            },
             memory_limit: None,
             read_only: false,
             force_mmap: false,
@@ -179,11 +204,13 @@ impl Default for VantaConfig {
                 let disable = env::var("VANTA_DISABLE_PREFETCH")
                     .ok()
                     .map(|v| v == "1" || v == "true");
-                match (mode, disable) {
+                let v = match (mode, disable) {
                     (Some(m), _) => m,
                     (_, Some(true)) => PrefetchMode::Disabled,
                     _ => PrefetchMode::Auto,
-                }
+                };
+                debug!(?v, "VANTA_PREFETCH");
+                v
             },
             rss_threshold: 0.80,
             eviction_weight_hits: 1.0,
@@ -191,35 +218,63 @@ impl Default for VantaConfig {
             eviction_weight_importance: 3.0,
             eviction_weight_recency: 1.0,
             eviction_ratio: 0.20,
-            backend_kind: match env::var("VANTA_BACKEND").ok().as_deref() {
-                Some("rocksdb") => BackendKind::RocksDb,
-                Some("memory") => BackendKind::InMemory,
-                _ => BackendKind::Fjall,
+            backend_kind: {
+                let v = match env::var("VANTA_BACKEND").ok().as_deref() {
+                    Some("rocksdb") => BackendKind::RocksDb,
+                    Some("memory") => BackendKind::InMemory,
+                    _ => BackendKind::Fjall,
+                };
+                debug!(?v, "VANTA_BACKEND");
+                v
             },
-            max_blocking_threads: env::var("VANTADB_MAX_BLOCKING_THREADS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(16),
+            max_blocking_threads: {
+                let v = env::var("VANTADB_MAX_BLOCKING_THREADS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(16);
+                debug!(val = v, "VANTADB_MAX_BLOCKING_THREADS");
+                v
+            },
             sync_mode: SyncMode::default(),
-            api_key: env::var("VANTADB_API_KEY").ok(),
-            rate_limit_rpm: env::var("VANTADB_RATE_LIMIT_RPM")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(100),
-            tls_cert_path: env::var("VANTADB_TLS_CERT").ok(),
-            tls_key_path: env::var("VANTADB_TLS_KEY").ok(),
+            api_key: {
+                let v = env::var("VANTADB_API_KEY").ok();
+                debug!(present = v.is_some(), "VANTADB_API_KEY");
+                v
+            },
+            rate_limit_rpm: {
+                let v = env::var("VANTADB_RATE_LIMIT_RPM")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(100);
+                debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
+                v
+            },
+            tls_cert_path: {
+                let v = env::var("VANTADB_TLS_CERT").ok();
+                debug!(present = v.is_some(), "VANTADB_TLS_CERT");
+                v
+            },
+            tls_key_path: {
+                let v = env::var("VANTADB_TLS_KEY").ok();
+                debug!(present = v.is_some(), "VANTADB_TLS_KEY");
+                v
+            },
             log_format: {
-                let legacy = env::var("VANTADB_LOG_JSON")
-                    .map(|v| v == "1" || v == "true")
-                    .unwrap_or(false);
-                if legacy {
-                    LogFormat::Json
-                } else {
-                    env::var("VANTADB_LOG_FORMAT")
-                        .ok()
-                        .map(|v| LogFormat::from_env_value(&v))
-                        .unwrap_or_default()
-                }
+                let v = {
+                    let legacy = env::var("VANTADB_LOG_JSON")
+                        .map(|v| v == "1" || v == "true")
+                        .unwrap_or(false);
+                    if legacy {
+                        LogFormat::Json
+                    } else {
+                        env::var("VANTADB_LOG_FORMAT")
+                            .ok()
+                            .map(|v| LogFormat::from_env_value(&v))
+                            .unwrap_or_default()
+                    }
+                };
+                debug!(?v, "VANTADB_LOG_FORMAT");
+                v
             },
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,

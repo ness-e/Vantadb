@@ -9,11 +9,11 @@ use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaEmbedded, VantaExportReport,
-    VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNodeInput,
-    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
-    VantaSearchExplanationHit, VantaStorageTier, VantaTextIndexAuditReport,
-    VantaTextIndexRepairReport, VantaValue,
+    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput,
+    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
+    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
+    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier,
+    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 use vantadb::DistanceMetric;
 
@@ -332,6 +332,38 @@ fn explanation_hit_to_pydict(py: Python, exp: &VantaSearchExplanationHit) -> PyR
     dict.set_item("bm25_terms", bm25_terms)?;
     dict.set_item("rrf_text_rank", exp.rrf_text_rank)?;
     dict.set_item("rrf_vector_rank", exp.rrf_vector_rank)?;
+
+    Ok(dict.unbind().into())
+}
+
+fn hybrid_fusion_report_to_pydict(
+    py: Python,
+    report: &VantaHybridFusionReport,
+) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("text_candidates", report.text_candidates)?;
+    dict.set_item("vector_candidates", report.vector_candidates)?;
+    dict.set_item("fused_candidates", report.fused_candidates)?;
+    dict.set_item("rrf_k", report.rrf_k)?;
+    Ok(dict.unbind().into())
+}
+
+fn search_explanation_to_pydict(py: Python, exp: &VantaSearchExplanation) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("route", &exp.route)?;
+
+    let hits = PyList::empty(py);
+    for hit in &exp.hits {
+        hits.append(explanation_hit_to_pydict(py, hit)?)?;
+    }
+    dict.set_item("hits", hits)?;
+
+    match &exp.fusion_report {
+        Some(report) => {
+            dict.set_item("fusion_report", hybrid_fusion_report_to_pydict(py, report)?)?
+        }
+        None => dict.set_item("fusion_report", py.None())?,
+    }
 
     Ok(dict.unbind().into())
 }
@@ -1181,6 +1213,91 @@ impl VantaDB {
                 .graph_is_dag(&roots)
                 .map_err(|e| PyRuntimeError::new_err(format!("DAG check error: {:?}", e)))
         })
+    }
+
+    /// Compact the storage layout: reorders nodes in BFS order to improve
+    /// locality and free unused pages. Returns the number of nodes compacted.
+    fn compact_layout(&self, py: Python) -> PyResult<u64> {
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .compact_layout()
+                .map_err(|e| PyRuntimeError::new_err(format!("Compact layout error: {:?}", e)))
+        })
+    }
+
+    /// List all namespaces currently registered in the database.
+    fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .list_namespaces()
+                .map_err(|e| PyRuntimeError::new_err(format!("List namespaces error: {:?}", e)))
+        })
+    }
+
+    /// Generate a text snippet from a payload, highlighting matched query terms.
+    #[pyo3(signature = (payload, text_query, with_highlighting=false))]
+    fn generate_snippet(
+        &self,
+        py: Python,
+        payload: &str,
+        text_query: &str,
+        with_highlighting: bool,
+    ) -> PyResult<Option<String>> {
+        let engine = self.engine.clone();
+        let payload = payload.to_string();
+        let text_query = text_query.to_string();
+        py.detach(move || {
+            let result = engine.generate_snippet(&payload, &text_query, with_highlighting);
+            Ok(result)
+        })
+    }
+
+    /// Explain how a memory search arrives at its results — returns a detailed
+    /// breakdown of the search route, fusion, and per-hit explanation.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None))]
+    fn explain_memory_search(
+        &self,
+        py: Python,
+        namespace: &str,
+        query_vector: &Bound<'_, PyAny>,
+        filters: Option<&Bound<'_, PyDict>>,
+        text_query: Option<String>,
+        top_k: usize,
+        distance_metric: Option<&str>,
+    ) -> PyResult<Py<PyAny>> {
+        let metric = match distance_metric {
+            Some("euclidean") => DistanceMetric::Euclidean,
+            Some(other) => {
+                tracing::warn!(
+                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
+                    other
+                );
+                DistanceMetric::Cosine
+            }
+            None => DistanceMetric::Cosine,
+        };
+
+        let request = VantaMemorySearchRequest {
+            namespace: namespace.to_string(),
+            query_vector: extract_vector(query_vector, py)?,
+            filters: py_dict_to_metadata(filters)?,
+            text_query,
+            top_k,
+            distance_metric: metric,
+            explain: true,
+        };
+
+        let engine = self.engine.clone();
+        let explanation = py.detach(move || {
+            engine.explain_memory_search(request).map_err(|e| {
+                PyRuntimeError::new_err(format!("Explain memory search error: {:?}", e))
+            })
+        })?;
+
+        search_explanation_to_pydict(py, &explanation)
     }
 }
 

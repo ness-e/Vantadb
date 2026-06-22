@@ -37,6 +37,7 @@ fn namespace_and_filter_paths_use_prefix_scans() {
             "agent/a",
             VantaMemoryListOptions {
                 filters,
+
                 limit: 100,
                 cursor: None,
             },

@@ -23,9 +23,9 @@ pub fn print_banner() {
     let border = style("═").color256(166).to_string(); // Rust Orange border
     let b = border.repeat(50);
 
-    eprintln!();
-    eprintln!("  {}", style(&b).color256(166));
-    eprintln!(
+    println!();
+    println!("  {}", style(&b).color256(166));
+    println!(
         "  {}  {}  {}",
         style("║").color256(166),
         style(format!(
@@ -36,7 +36,7 @@ pub fn print_banner() {
         .color256(166),
         style("  ║").color256(166),
     );
-    eprintln!(
+    println!(
         "  {}  {}  {}",
         style("  ║").color256(166),
         style("  Embedded Persistent Memory Engine       ")
@@ -44,7 +44,7 @@ pub fn print_banner() {
             .white(),
         style("  ║").color256(166),
     );
-    eprintln!(
+    println!(
         "  {}  {}  {}",
         style("  ║").color256(166),
         style("  Vector Retrieval · Structured Fields    ")
@@ -52,8 +52,8 @@ pub fn print_banner() {
             .white(),
         style("  ║").color256(166),
     );
-    eprintln!("  {}", style(&b).color256(166));
-    eprintln!();
+    println!("  {}", style(&b).color256(166));
+    println!();
 }
 
 // ─── Logging Initialization ─────────────────────────────────────────────────

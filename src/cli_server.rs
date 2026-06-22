@@ -159,11 +159,18 @@ async fn health_check() -> Json<QueryResponse> {
 
 async fn metrics_endpoint() -> impl IntoResponse {
     let metrics_text = metrics::export_metrics_text();
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/plain; version=0.0.4")
         .body(metrics_text)
-        .unwrap()
+    {
+        Ok(resp) => resp.into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to build metrics response: {e}"),
+        )
+            .into_response(),
+    }
 }
 
 pub async fn request_metrics_middleware(

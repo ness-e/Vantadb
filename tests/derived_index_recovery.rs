@@ -42,6 +42,7 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
             "agent/main",
             VantaMemoryListOptions {
                 filters,
+
                 limit: 10,
                 cursor: None,
             },

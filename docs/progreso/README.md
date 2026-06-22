@@ -1,12 +1,12 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-21 (WASM Browser Build ✅)
+> **Última actualización:** 2026-06-21 (CLI-EPIC + Filter Operators + SDK Methods ✅)
 
 ## Resumen Ejecutivo
 
 VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNSW híbrido, GraphRAG, CLIP y ecosistema Python/LLM.
 
-**Estado:** 🟢 FASE 3 pre-lanzamiento (~90%)
+**Estado:** 🟢 FASE 3 pre-lanzamiento (~95%)
 
 ### Progreso general
 
@@ -19,9 +19,10 @@ VantaDB es una base de datos vectorial en Rust enfocada en alto rendimiento, HNS
 | Documentation/Website | 11 | 11 | ✅ |
 | Benchmarks/CI | 5 | 5 | ✅ |
 | QA/Tests | 7 | 7 | ✅ |
-| Herramientas DX | 8 | 8 | ✅ |
+| Herramientas DX | 15 | 15 | ✅ |
+| CLI | 7 | 7 | ✅ |
 | Project Management | 6 | 6 | ✅ |
-| **Total** | **74** | **~84** | **✅** |
+| **Total** | **86** | **~86** | **✅** |
 
 ## Leyenda
 
@@ -423,3 +424,68 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - `vantadb-ts/examples/langchain-rag.mjs` — LangChain Document pipeline + OpenAIEmbeddings + VantaDB search
   - `vantadb-ts/examples/llamaindex-rag.mjs` — LlamaIndex document indexing + VantaDB vector search
 - **Resultado:** 3 ejemplos ESM con sintaxis verificada. Requieren `npm install` de los respectivos SDKs para ejecutarse.
+
+### CLI-EPIC — Comandos CLI: backup, restore, doctor, inspect, stats, count, search-similar (2026-06-21)
+
+- **Objetivo:** Expandir el CLI de VantaDB con 7 nuevos comandos para operaciones de respaldo, diagnóstico e inspección.
+- **Checklist completado:**
+  - [x] `vanta-cli backup [--out <path>]` — backup con flush WAL, copia de vector_store + index + WAL, manifiesto con CRC32
+  - [x] `vanta-cli restore --in <path> [--force] [--rebuild]` — restaura desde backup, verifica CRC32, reconstruye índices opcionalmente
+  - [x] `vanta-cli doctor` — diagnóstico de salud: WAL, backend, memoria, HNSW, índices, métricas operacionales
+  - [x] `vanta-cli inspect --namespace <ns> --key <key>` — inspecciona un registro con todos sus campos
+  - [x] `vanta-cli stats [--json]` — estadísticas de la base de datos con salida formateada o JSON
+  - [x] `vanta-cli count --namespace <ns> [--filter key=val]` — conteo de registros
+  - [x] `vanta-cli search-similar --namespace <ns> --key <key> [--limit <N>]` — búsqueda por similitud desde una clave existente
+  - [x] Fix WAL replay: `recover_state()` ahora escribe `NodeMetadata` al backend durante replay — permite restore completo sin depender de archivos internos de Fjall
+- **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/storage.rs`
+- **Archivos creados:** `completions/_vanta-cli`, `completions/_vanta-cli.ps1`, `completions/vanta-cli.bash`, `completions/vanta-cli.fish`
+- **Tests:** 46 tests CLI, todos pasan
+
+### TSK-111 — Expanded Filter Operators (2026-06-21)
+
+- **Objetivo:** Extender el sistema de filtros de igualdad plana (`VantaMemoryMetadata`) con operadores de comparación (`Eq, Neq, Gt, Gte, Lt, Lte, In, Exists`).
+- **Checklist completado:**
+  - [x] `FilterOperator` enum en `src/sdk.rs`
+  - [x] `MemoryFilter` struct con `field`, `operator`, `value`
+  - [x] `evaluate_filter()` y `compare_vanta_values()` para evaluación tipo-safe
+  - [x] `filter_exprs: Vec<MemoryFilter>` añadido a `VantaMemoryListOptions` y `VantaMemorySearchRequest`
+  - [x] Backward compat: filtros planos siguen funcionando como `Eq`
+  - [x] Prefix scan optimization: primer `Eq` filter se usa para scan, post-filter con todas las condiciones
+- **Archivos modificados:** `src/sdk.rs`, `src/lib.rs`
+- **Exports:** `FilterOperator`, `MemoryFilter` re-exportados desde `src/lib.rs`
+
+### TSK-119 — delete_by_filter (2026-06-21)
+
+- **Objetivo:** Eliminar múltiples registros por filtro de metadatos desde SDK y CLI.
+- **Checklist completado:**
+  - [x] `VantaEmbedded::delete_by_filter()` — usa `records_for_namespace()` + `matches_memory_filters()`, retorna count de eliminados
+  - [x] `vanta-cli delete-by-filter --namespace <ns> --filter key=val`
+- **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+- **Bindings actualizados:** `vantadb-wasm`, `vantadb-python`, `vantadb-mcp` añadieron `filter_exprs: vec![]`
+
+### TSK-86 — similar_to_key (2026-06-21)
+
+- **Objetivo:** Conveniencia: buscar registros similares usando el vector de un registro existente por su key.
+- **Checklist completado:**
+  - [x] `VantaEmbedded::similar_to_key(namespace, key, top_k)` — obtiene registro, extrae vector, ejecuta search
+  - [x] `vanta-cli search-similar --namespace <ns> --key <key> [--limit <N>]`
+- **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+
+### TSK-87 — count with filters (2026-06-21)
+
+- **Objetivo:** Contar registros en un namespace, opcionalmente filtrados por metadatos.
+- **Checklist completado:**
+  - [x] `VantaEmbedded::count(namespace, filters, filter_exprs)` — prefix scan sin filters, scan + filter con filters
+  - [x] `vanta-cli count --namespace <ns> [--filter key=val]`
+- **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+
+### TSK-88 — Multi-namespace Search (2026-06-21)
+
+- **Objetivo:** Buscar simultáneamente en múltiples namespaces.
+- **Checklist completado:**
+  - [x] `namespaces: Vec<String>` en `VantaMemorySearchRequest`
+  - [x] Backward compat: si `namespaces` está vacío, se usa `namespace`
+  - [x] Implementación: itera namespaces, corre search por cada uno, mergea top_k por score
+  - [x] CLI: `vanta-cli search --namespace ns1,ns2,... --query <q>` acepta lista separada por comas
+- **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
+- **Tests:** Todos existentes actualizados con `namespaces: vec![]`

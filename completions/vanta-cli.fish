@@ -98,8 +98,10 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand completions" -s v -l
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand completions" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l namespace -d 'Namespace to search within' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l query -d 'Text query for semantic/hybrid search' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l query-vector -d 'Optional explicit vector query (comma-separated f32 values)' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l limit -d 'Maximum number of results' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -l json -d 'Output in JSON format'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand search" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -l namespace -d 'Namespace of the record' -r

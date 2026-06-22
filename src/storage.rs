@@ -1406,7 +1406,7 @@ impl StorageEngine {
             Some(ep) => ep,
             None => {
                 // Índice vacío: nada que compactar
-                info!("compact_layout_bfs: índice vacío, skip");
+                info!("compact_layout_bfs: empty index, skipping");
                 return Ok(0);
             }
         };
@@ -2413,11 +2413,11 @@ impl StorageEngine {
 
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
-        println!("🔥 VANTADB SYSTEM EMERGENCY: Security Constraint Violated 🔥");
+        println!("[!] VANTADB SYSTEM EMERGENCY: Security Constraint Violated");
         println!("=======================================================");
-        println!("Reason: {}", reason);
+        tracing::error!("Emergency shutdown reason: {}", reason);
         if let Some(s) = stmt {
-            println!("Offending Transaction: {}", s);
+            tracing::error!("Offending Transaction: {}", s);
         }
 
         println!("Attempting controlled flush...");

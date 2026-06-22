@@ -144,7 +144,7 @@ impl<'a> Executor<'a> {
                         node.relational.get("type")
                     {
                         if node_type == "SemanticSummary" && node.confidence_score() < 0.4 {
-                            println!("⚠️ [Executor] Supervised mode: Low-confidence summary detected (ID 0). Skipping.");
+                            tracing::warn!("[Executor] Supervised mode: Low-confidence summary detected (ID 0). Skipping.");
                             continue;
                         }
                     }
