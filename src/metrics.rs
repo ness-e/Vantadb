@@ -608,6 +608,60 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(
     )
 });
 
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_ALLOCATED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_allocated_bytes",
+        "Number of bytes allocated by jemalloc",
+        JEMALLOC_ALLOCATED_BYTES
+    )
+});
+
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_ACTIVE_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_active_bytes",
+        "Number of bytes in active pages allocated by jemalloc",
+        JEMALLOC_ACTIVE_BYTES
+    )
+});
+
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_METADATA_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_metadata_bytes",
+        "Number of bytes dedicated to jemalloc metadata",
+        JEMALLOC_METADATA_BYTES
+    )
+});
+
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_resident_bytes",
+        "Number of bytes in resident pages allocated by jemalloc",
+        JEMALLOC_RESIDENT_BYTES
+    )
+});
+
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_MAPPED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_mapped_bytes",
+        "Number of bytes mapped by jemalloc",
+        JEMALLOC_MAPPED_BYTES
+    )
+});
+
+#[cfg(feature = "prometheus")]
+pub static JEMALLOC_RETAINED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
+        "vanta_jemalloc_retained_bytes",
+        "Number of bytes in retained pages by jemalloc",
+        JEMALLOC_RETAINED_BYTES
+    )
+});
+
 // ── HTTP request metrics (middleware in cli_server) ─────────────────────
 
 #[cfg(feature = "prometheus")]
@@ -713,6 +767,13 @@ static LAST_MMAP_RESIDENT_BYTES: AtomicU64 = AtomicU64::new(0);
 static LAST_MMAP_RESIDENT_BYTES_PRESENT: AtomicBool = AtomicBool::new(false);
 static LAST_VOLATILE_CACHE_ENTRIES: AtomicU64 = AtomicU64::new(0);
 static LAST_VOLATILE_CACHE_CAP_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_ALLOCATED_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_ACTIVE_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_METADATA_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_RESIDENT_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_MAPPED_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_RETAINED_BYTES: AtomicU64 = AtomicU64::new(0);
+static LAST_JEMALLOC_STATS_PRESENT: AtomicBool = AtomicBool::new(false);
 static TEXT_LEXICAL_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CANDIDATES_SCORED_TOTAL: AtomicU64 = AtomicU64::new(0);
 static TEXT_CONSISTENCY_AUDITS_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -745,6 +806,18 @@ pub struct MemoryBreakdownSnapshot {
     pub volatile_cache_entries: u64,
     /// Maximum capacity in bytes for the volatile cache.
     pub volatile_cache_cap_bytes: u64,
+    /// Number of bytes allocated by jemalloc.
+    pub jemalloc_allocated_bytes: Option<u64>,
+    /// Number of bytes in active pages allocated by jemalloc.
+    pub jemalloc_active_bytes: Option<u64>,
+    /// Number of bytes dedicated to jemalloc metadata.
+    pub jemalloc_metadata_bytes: Option<u64>,
+    /// Number of bytes in resident pages allocated by jemalloc.
+    pub jemalloc_resident_bytes: Option<u64>,
+    /// Number of bytes mapped by jemalloc.
+    pub jemalloc_mapped_bytes: Option<u64>,
+    /// Number of bytes in retained pages by jemalloc.
+    pub jemalloc_retained_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -945,6 +1018,23 @@ fn get_native_memory() -> Option<(u64, u64)> {
     None
 }
 
+#[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
+fn get_jemalloc_stats() -> Option<(u64, u64, u64, u64, u64, u64)> {
+    let _ = tikv_jemalloc_ctl::epoch::advance();
+    let allocated = tikv_jemalloc_ctl::stats::allocated::read().ok().unwrap_or(0) as u64;
+    let active = tikv_jemalloc_ctl::stats::active::read().ok().unwrap_or(0) as u64;
+    let metadata = tikv_jemalloc_ctl::stats::metadata::read().ok().unwrap_or(0) as u64;
+    let resident = tikv_jemalloc_ctl::stats::resident::read().ok().unwrap_or(0) as u64;
+    let mapped = tikv_jemalloc_ctl::stats::mapped::read().ok().unwrap_or(0) as u64;
+    let retained = tikv_jemalloc_ctl::stats::retained::read().ok().unwrap_or(0) as u64;
+    Some((allocated, active, metadata, resident, mapped, retained))
+}
+
+#[cfg(not(all(feature = "jemalloc", not(target_os = "windows"))))]
+fn get_jemalloc_stats() -> Option<(u64, u64, u64, u64, u64, u64)> {
+    None
+}
+
 pub fn record_memory_breakdown(
     hnsw_nodes: u64,
     hnsw_logical_bytes: u64,
@@ -986,6 +1076,26 @@ pub fn record_memory_breakdown(
     LAST_VOLATILE_CACHE_ENTRIES.store(cache_entries, Ordering::Relaxed);
     LAST_VOLATILE_CACHE_CAP_BYTES.store(cache_cap_bytes, Ordering::Relaxed);
 
+    let jemalloc_stats = get_jemalloc_stats();
+    if let Some((allocated, active, metadata, resident, mapped, retained)) = jemalloc_stats {
+        LAST_JEMALLOC_ALLOCATED_BYTES.store(allocated, Ordering::Relaxed);
+        LAST_JEMALLOC_ACTIVE_BYTES.store(active, Ordering::Relaxed);
+        LAST_JEMALLOC_METADATA_BYTES.store(metadata, Ordering::Relaxed);
+        LAST_JEMALLOC_RESIDENT_BYTES.store(resident, Ordering::Relaxed);
+        LAST_JEMALLOC_MAPPED_BYTES.store(mapped, Ordering::Relaxed);
+        LAST_JEMALLOC_RETAINED_BYTES.store(retained, Ordering::Relaxed);
+        LAST_JEMALLOC_STATS_PRESENT.store(true, Ordering::Relaxed);
+
+        set_gauge!(JEMALLOC_ALLOCATED_BYTES, allocated);
+        set_gauge!(JEMALLOC_ACTIVE_BYTES, active);
+        set_gauge!(JEMALLOC_METADATA_BYTES, metadata);
+        set_gauge!(JEMALLOC_RESIDENT_BYTES, resident);
+        set_gauge!(JEMALLOC_MAPPED_BYTES, mapped);
+        set_gauge!(JEMALLOC_RETAINED_BYTES, retained);
+    } else {
+        LAST_JEMALLOC_STATS_PRESENT.store(false, Ordering::Relaxed);
+    }
+
     set_gauge!(PROCESS_RSS_BYTES, rss);
     set_gauge!(PROCESS_VIRTUAL_BYTES, virt);
     set_gauge!(HNSW_NODES_COUNT, hnsw_nodes);
@@ -1017,6 +1127,8 @@ pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
         .load(Ordering::Relaxed)
         .then(|| LAST_MMAP_RESIDENT_BYTES.load(Ordering::Relaxed));
 
+    let jemalloc_present = LAST_JEMALLOC_STATS_PRESENT.load(Ordering::Relaxed);
+
     MemoryBreakdownSnapshot {
         process_rss_bytes: LAST_PROCESS_RSS_BYTES.load(Ordering::Relaxed),
         process_virtual_bytes: LAST_PROCESS_VIRTUAL_BYTES.load(Ordering::Relaxed),
@@ -1025,6 +1137,12 @@ pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
         mmap_resident_bytes,
         volatile_cache_entries: LAST_VOLATILE_CACHE_ENTRIES.load(Ordering::Relaxed),
         volatile_cache_cap_bytes: LAST_VOLATILE_CACHE_CAP_BYTES.load(Ordering::Relaxed),
+        jemalloc_allocated_bytes: jemalloc_present.then(|| LAST_JEMALLOC_ALLOCATED_BYTES.load(Ordering::Relaxed)),
+        jemalloc_active_bytes: jemalloc_present.then(|| LAST_JEMALLOC_ACTIVE_BYTES.load(Ordering::Relaxed)),
+        jemalloc_metadata_bytes: jemalloc_present.then(|| LAST_JEMALLOC_METADATA_BYTES.load(Ordering::Relaxed)),
+        jemalloc_resident_bytes: jemalloc_present.then(|| LAST_JEMALLOC_RESIDENT_BYTES.load(Ordering::Relaxed)),
+        jemalloc_mapped_bytes: jemalloc_present.then(|| LAST_JEMALLOC_MAPPED_BYTES.load(Ordering::Relaxed)),
+        jemalloc_retained_bytes: jemalloc_present.then(|| LAST_JEMALLOC_RETAINED_BYTES.load(Ordering::Relaxed)),
     }
 }
 

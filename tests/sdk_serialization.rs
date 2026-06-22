@@ -315,6 +315,12 @@ fn test_operational_metrics_serialize() {
         mmap_resident_bytes: None,
         volatile_cache_entries: 50,
         volatile_cache_cap_bytes: 1048576,
+        jemalloc_allocated_bytes: None,
+        jemalloc_active_bytes: None,
+        jemalloc_metadata_bytes: None,
+        jemalloc_resident_bytes: None,
+        jemalloc_mapped_bytes: None,
+        jemalloc_retained_bytes: None,
     };
     let json = serde_json::to_string(&metrics).unwrap();
     let back: VantaOperationalMetrics = serde_json::from_str(&json).unwrap();

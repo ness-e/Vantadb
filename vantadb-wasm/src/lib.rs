@@ -218,6 +218,12 @@ struct JsOperationalMetrics {
     mmap_resident_bytes: Option<String>,
     volatile_cache_entries: String,
     volatile_cache_cap_bytes: String,
+    jemalloc_allocated_bytes: Option<String>,
+    jemalloc_active_bytes: Option<String>,
+    jemalloc_metadata_bytes: Option<String>,
+    jemalloc_resident_bytes: Option<String>,
+    jemalloc_mapped_bytes: Option<String>,
+    jemalloc_retained_bytes: Option<String>,
 }
 
 impl From<VantaOperationalMetrics> for JsOperationalMetrics {
@@ -254,6 +260,12 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
             mmap_resident_bytes: m.mmap_resident_bytes.map(|v| v.to_string()),
             volatile_cache_entries: m.volatile_cache_entries.to_string(),
             volatile_cache_cap_bytes: m.volatile_cache_cap_bytes.to_string(),
+            jemalloc_allocated_bytes: m.jemalloc_allocated_bytes.map(|v| v.to_string()),
+            jemalloc_active_bytes: m.jemalloc_active_bytes.map(|v| v.to_string()),
+            jemalloc_metadata_bytes: m.jemalloc_metadata_bytes.map(|v| v.to_string()),
+            jemalloc_resident_bytes: m.jemalloc_resident_bytes.map(|v| v.to_string()),
+            jemalloc_mapped_bytes: m.jemalloc_mapped_bytes.map(|v| v.to_string()),
+            jemalloc_retained_bytes: m.jemalloc_retained_bytes.map(|v| v.to_string()),
         }
     }
 }

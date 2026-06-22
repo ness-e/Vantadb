@@ -275,6 +275,12 @@ pub struct VantaOperationalMetrics {
     pub mmap_resident_bytes: Option<u64>,
     pub volatile_cache_entries: u64,
     pub volatile_cache_cap_bytes: u64,
+    pub jemalloc_allocated_bytes: Option<u64>,
+    pub jemalloc_active_bytes: Option<u64>,
+    pub jemalloc_metadata_bytes: Option<u64>,
+    pub jemalloc_resident_bytes: Option<u64>,
+    pub jemalloc_mapped_bytes: Option<u64>,
+    pub jemalloc_retained_bytes: Option<u64>,
 }
 
 #[cfg(debug_assertions)]
@@ -3928,6 +3934,12 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             mmap_resident_bytes: metrics.memory.mmap_resident_bytes,
             volatile_cache_entries: metrics.memory.volatile_cache_entries,
             volatile_cache_cap_bytes: metrics.memory.volatile_cache_cap_bytes,
+            jemalloc_allocated_bytes: metrics.memory.jemalloc_allocated_bytes,
+            jemalloc_active_bytes: metrics.memory.jemalloc_active_bytes,
+            jemalloc_metadata_bytes: metrics.memory.jemalloc_metadata_bytes,
+            jemalloc_resident_bytes: metrics.memory.jemalloc_resident_bytes,
+            jemalloc_mapped_bytes: metrics.memory.jemalloc_mapped_bytes,
+            jemalloc_retained_bytes: metrics.memory.jemalloc_retained_bytes,
         }
     }
 }
