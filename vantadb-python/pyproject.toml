@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "vantadb-py"
-version = "0.1.4"
+version = "0.1.5"
 description = "Source-installed Python bindings for the VantaDB embedded persistent memory engine."
 readme = "README.md"
 requires-python = ">=3.11"
