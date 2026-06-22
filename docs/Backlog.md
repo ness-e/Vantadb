@@ -74,29 +74,6 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB (showcase) | 🟠 | ❌ |
 | `TSK-103` | Public benchmark site (compare.py vs chroma/lancedb/qdrant) | 🟠 | ❌ |
 
-### 4.H Structural Debt Mitigation (2026-06-22)
-
-| ID | Tarea | Prioridad | Estado |
-|----|-------|-----------|--------|
-| `TSK-126` | Agregar `impl Drop for StorageEngine` para liberación explícita del lock | 🟡 | ✅ |
-| `TSK-128` | Hacer configurable el timeout de `insert_lock` | 🟡 | ✅ |
-| `TSK-129` | Hacer configurable el timeout de `.vanta.lock` | 🟡 | ✅ |
-| `TSK-130` | Agregar instrumentación de heap memory drift (jemalloc stats) | 🟡 | ❌ |
-
-### 4.I CI/CD Workflow Fixes (2026-06-22)
-
-Hallazgos de revisión exhaustiva de 6 workflows + `rust-setup` action. Ver reporte completo en sesión de agente 2026-06-22.
-
-| ID | Tarea | Prioridad | Estado |
-|----|-------|-----------|--------|
-| `TSK-134` | Fix `release.yml:73` — validado swap correcto, sin cambios necesarios | 🔴 | ✅ |
-| `TSK-135` | Fix `python_wheels.yml:60` — `dtolnay/rust-toolchain@master` → `@stable` | 🟡 | ✅ |
-| `TSK-136` | Fix `nightly_bench.yml:117` — `GITHUB_SHA` no propagado al `github-script` step (issues muestran 'unknown') | 🟡 | ❌ |
-| `TSK-137` | Agregar swap en macOS/Windows para release builds (solo Ubuntu tiene swap) | 🟡 | ❌ |
-| `TSK-138` | Eliminar double checkout en `heavy_certification.yml` (`rust-setup` + caller hacen checkout duplicado) | 🟢 | ✅ |
-| `TSK-139` | Eliminar stale path trigger `packages/**` en `rust_ci.yml` (migrado a `integrations/`) | 🟢 | ❌ |
-| `TSK-140` | Eliminado job arm64 con `if: false` en `python_wheels.yml` (~69 líneas dead code) | 🟢 | ✅ |
-| `TSK-141` | Remover `librocksdb-dev` innecesario de `rust-setup/action.yml` (crate bundlea su propia versión) | 🟢 | ✅ |
 
 ## FASE 5 — Post-Lanzamiento / Pre-Seed (Noviembre-Diciembre 2026)
 

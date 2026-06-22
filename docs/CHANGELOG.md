@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Instrumentación de heap memory drift: jemalloc stats (`allocated`, `active`, `metadata`, `resident`, `mapped`, `retained` bytes) expuestos en Prometheus, `MemoryBreakdownSnapshot`, `VantaOperationalMetrics`, y SDK de Python (TSK-130).
 - Error hardening: all production `unwrap()` calls replaced with `?` propagation or graceful fallback (Phase 5 M1).
 - Metrics hardening: ~40 `expect()` calls in `metrics.rs` replaced with `tracing::warn!` + graceful `None` degradation (Phase 5 M2).
 - Logging coverage: `tracing::debug!` added to env var lookups in `config.rs`, cold-start mmap fallback paths, and key parse sites (Phase 5 M3).
@@ -106,6 +107,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Configuración de swap/pagefile en CI/CD para Windows y macOS (runners de GitHub Actions) para evitar crashes por OOM en builds de release (TSK-137).
+- Implementación de `Drop` para `StorageEngine` para liberar explícitamente el file lock de `fs2` (TSK-126).
+- Timeouts configurables de `insert_lock` y `.vanta.lock` vía variables de entorno `VANTADB_INSERT_LOCK_TIMEOUT_MS` y `VANTADB_FILE_LOCK_TIMEOUT_MS` (TSK-128, TSK-129).
 - Split CI: quick Fast Gate (<30min) separated from weekly Heavy Certification (`heavy_certification.yml` now runs on CRON + manual dispatch) (AUD-WORK).
 - Nextest filter expressions migrated from `binary_id(...)` to `binary(...)` for workspace compatibility (AUD-WORK).
 - Declared 4 missing test targets (`fjall_cold_copy_restore`, `property_durability`, `fuzz_proptest`, `multilingual_tokenizer_integration`) in `Cargo.toml`; added `required-features = ["failpoints"]` to `chaos_integrity` (AUD-WORK).
