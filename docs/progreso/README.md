@@ -1,6 +1,6 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-21 (CLI-EPIC + Filter Operators + SDK Methods ✅)
+> **Última actualización:** 2026-06-22 (Vault Unificado ✅)
 
 ## Resumen Ejecutivo
 
@@ -250,6 +250,24 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
 | AUD-42 | `vantadb-mcp` agregado al build/release/hash/attest en release.yml. |
 | AUD-43 | Free disk space + 6GB swap agregados a nightly_bench.yml. |
 | AUD-44 | `setup-python@v5` → `@v6`. |
+
+### 2026-06-22 (2ª pasada) — Cobertura documental completa
+
+- **HTTP_API.md:** Nuevo — documenta `GET /health`, `GET /metrics`, `POST /api/v2/query` con auth, rate limiting, TLS, payloads y ejemplos curl.
+- **PYTHON_SDK.md:** +27 métodos Rust-native agregados (node/graph API, maintenance, export/import, text index, utilities, observability). Tabla de return types 26→52 filas.
+- **CONFIGURATION.md:** +9 comandos CLI documentados (audit-index, repair-text-index, query, status, search, delete, completions, namespace, server). Nueva sección de 14 Cargo features con descripciones.
+- **vantadb-ts/README.md:** +9 métodos TS agregados (exportNamespace, exportAll, importRecords, importFile, auditTextIndex, auditTextIndexDeep, repairTextIndex, query, generateSnippet).
+- **Master Index.md:** EMBEDDED_SDK.md marcado como ❌ Missing (pendiente de crear). HTTP_API.md corregido a Done.
+- **EMBEDDED_SDK.md:** Nuevo — referencia completa de `VantaEmbedded` (~45 métodos, ~15 tipos de datos, 5 report types).
+- **Cobertura documental completada al 100%:** todos los archivos del Master Index existen y están actualizados.
+
+### 2026-06-22 — Corrección de Documentación (ADVANCED_TOKENIZER, CONFIGURATION, PYTHON_SDK, Master Index)
+
+- **ADVANCED_TOKENIZER.md:** `VantaDB`→`VantaEmbedded`, `put_memory`→`put`, `search_memory`→`search`, imports corregidos (`tokenizer::` en vez de `text_index::`), sección "Future Enhancements" obsoleta eliminada y reemplazada por runtime config real.
+- **CONFIGURATION.md:** Tabla expandida de ~15 a 26 campos. Env vars corregidas (`VANTADB_THREADS`→`VANTADB_MAX_BLOCKING_THREADS`, `HOST`/`PORT` como fallbacks). Secciones de enums, CLI y notas operativas agregadas.
+- **PYTHON_SDK.md:** Versión actualizada 0.1.1→0.1.5. ~20 métodos faltantes documentados (put_batch, consolidate, knowledge, ask, chat, from_file/url, etc.). Tabla completa de tipos de retorno. Changelog expandido.
+- **Master Index.md:** 4 anchors TOC rotos reparados. `[[progress]]`→ruta relativa. Glosario 47→50 términos. Enlaces cruzados normalizados.
+- **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Progreso Reciente
 
@@ -587,6 +605,95 @@ Las siguientes tareas se derivan de una auditoría estricta de escalabilidad y r
       - [ ] Revisar changelog/releases de `fjall` periódicamente
       - [ ] Si no hay avance upstream: evaluar contribuir checkpoint API a fjall
       - [ ] Alternativa: implementar snapshot a nivel de filesystem con hardlinks
+- **Walkthrough y Cambios:** Se implementó un anclaje del sistema operativo del runner a `ubuntu-22.04` para la compatibilidad con el ecosistema de QEMU y Docker de `maturin-action`. Asimismo, se actualizaron las dependencias a versiones modernas basadas en Node 20/24 para eliminar advertencias de seguridad y asegurar resiliencia en el pipeline.
+
+## Tareas Pendientes (Backlog Activo)
+
+### FASE 4 — Launch: Deuda Técnica Estructural
+
+Las siguientes tareas se derivan de una auditoría estricta de escalabilidad y rendimiento ejecutada el 2026-06-22.
+
+#### 🔴 Alta Prioridad — Bloqueantes de Calidad de Release
+
+1. **[TSK-123]** Promover `advanced-tokenizer` como feature default — ❌
+   - **Objetivo:** Mover `advanced-tokenizer` de feature opt-in a default en `Cargo.toml` para asegurar paridad semántica multilingüe (stemming, stopwords, Unicode folding) en toda compilación.
+   - **Checklist:**
+     - [ ] Agregar `advanced-tokenizer` a `[features] default = [...]` en `Cargo.toml`
+     - [ ] Validar que `cargo build --no-default-features` sigue funcionando (sin tantivy)
+     - [ ] Verificar que `vantadb-python`, `vantadb-server`, `vantadb-mcp` heredan el feature correctamente
+     - [ ] Actualizar `tests/multilingual_tokenizer_integration.rs` — test end-to-end real (put + search con stemming/stopwords)
+     - [ ] Documentar en `docs/api/` que el tokenizador avanzado es ahora default
+
+2. **[TSK-124]** Documentar `generate_snippet` y `highlighting` en PYTHON_SDK.md — ❌
+   - **Objetivo:** La funcionalidad ya está implementada en Rust y expuesta en Python, pero no documentada formalmente en la guía del SDK Python.
+   - **Checklist:**
+     - [ ] Agregar sección de búsqueda con snippets en `docs/api/PYTHON_SDK.md`
+     - [ ] Incluir ejemplo de `generate_snippet(payload, query, with_highlighting=True)`
+     - [ ] Incluir ejemplo de acceso a `snippet` field en `VantaSearchExplanationHit`
+
+3. **[TSK-125]** Alinear documentación SLSA con implementación real — ❌
+   - **Objetivo:** Las docs mencionan `actions/attest-build-provenance@v2` pero los workflows usan `@v4`. También hay discrepancia SLSA2 (wheels) vs SLSA3 (binarios).
+   - **Checklist:**
+     - [ ] Actualizar `docs/operations/PYTHON_RELEASE_POLICY.md` a `@v4`
+     - [ ] Unificar nomenclatura SLSA2/SLSA3 en `docs/README.md` y `docs/CHANGELOG.md`
+     - [ ] Verificar que el nivel SLSA real coincida con la documentación
+
+4. **[TSK-126]** Agregar `impl Drop for StorageEngine` para liberación explícita de `.vanta.lock` — ❌
+   - **Objetivo:** Actualmente el lock se libera solo por drop implícito del `File` handle. Un `impl Drop` garantiza liberación incluso en casos de panic recovery o error paths.
+   - **Checklist:**
+     - [ ] Implementar `impl Drop for StorageEngine` en `src/storage.rs`
+     - [ ] En `drop()`, caller `drop(_lock_file.take())` explícitamente
+     - [ ] Agregar test que verifique que el lock se libera en panic simulado
+
+5. **[TSK-127]** Formalizar estado de IQL como API estable o experimental documentada — ❌
+   - **Objetivo:** IQL se ejecuta en el core y está expuesto en Python, pero está documentado como experimental. Definir un perímetro claro.
+   - **Checklist:**
+     - [ ] Decidir: ¿IQL es parte del API estable v0.2.0? ¿O se marca explícitamente como experimental?
+     - [ ] Si experimental: agregar `deprecated`/`experimental` gate en runtime con warning
+     - [ ] Si estable: formalizar gramática IQL en `docs/experimental/IQL.md` y promover a `docs/api/IQL.md`
+     - [ ] Agregar integración continua para IQL con test de regresión
+
+#### 🟡 Prioridad Media — Post-Lanzamiento Inmediato
+
+6. **[TSK-128]** Hacer configurable el timeout de `insert_lock` — ❌
+   - **Objetivo:** El `insert_lock` (`parking_lot::Mutex`) no tiene timeout. En cargas de alta inserción, el put_batch paralelo (Rayon) se encola sin límite. Agregar `insert_timeout_ms` configurable en `VantaConfig`.
+   - **Checklist:**
+     - [ ] Agregar `insert_timeout_ms: Option<u64>` a `VantaConfig` en `src/config.rs`
+     - [ ] Migrar de `parking_lot::Mutex` a un lock con timeout (o documentar que es blocking)
+     - [ ] Retornar `VantaError::Execution` si se excede el timeout
+     - [ ] Documentar single-writer trade-off en `docs/operations/CONFIGURATION.md`
+
+7. **[TSK-129]** Hacer configurable el timeout del `.vanta.lock` — ❌
+   - **Objetivo:** El timeout actual de ~1s (backoff exponencial 5ms→100ms) es fijo. Hacerlo configurable para entornos donde la contención de procesos es esperada.
+   - **Checklist:**
+     - [ ] Agregar `lock_timeout_ms: Option<u64>` a `VantaConfig`
+     - [ ] Reemplazar constantes hardcodeadas en `src/storage.rs:800-882` por la config
+     - [ ] Documentar en `docs/operations/CONFIGURATION.md`
+
+8. **[TSK-130]** Agregar instrumentación de heap memory drift — ❌
+   - **Objetivo:** La telemetría actual mide RSS/virtual/HNSW lógico, pero no hay métrica de "heap drift" con alertas. Agregar seguimiento de allocated vs resident para detectar fugas lentas.
+   - **Checklist:**
+     - [ ] Investigar `tikv-jemalloc-ctl` para estadísticas de heap (allocated, active, resident)
+     - [ ] Exponer métricas como gauges de Prometheus
+     - [ ] Agregar test de memory drift en `tests/memory_telemetry.rs`
+     - [ ] Actualizar `docs/operations/MEMORY_TELEMETRY.md`
+
+#### 🔵 Baja Prioridad — Post-Launch / FASE 5
+
+9. **[TSK-131]** Implementar PITR vía WAL archival — ❌
+   - **Objetivo:** Implementar recuperación point-in-time mediante archivado y replay de WAL, similar a PostgreSQL WAL archiving.
+   - **Checklist:**
+     - [ ] Diseñar protocolo de archival de WAL (WAL segments sellados + checkpoint LSN)
+     - [ ] Implementar `archive_wal()` que mueve segmentos completados a un directorio de archive
+     - [ ] Implementar `recover_to_timestamp(timestamp)` que replay WALs hasta un punto
+     - [ ] Documentar en `docs/operations/` y actualizar BACKUP_POLICY.md
+
+10. **[TSK-132]** Investigar checkpoint API en Fjall upstream — ❌
+    - **Objetivo:** Fjall actualmente no expone checkpoint API. Monitorear upstream para cuando esté disponible, o contribuir la feature.
+    - **Checklist:**
+      - [ ] Revisar changelog/releases de `fjall` periódicamente
+      - [ ] Si no hay avance upstream: evaluar contribuir checkpoint API a fjall
+      - [ ] Alternativa: implementar snapshot a nivel de filesystem con hardlinks
 
 11. **[TSK-133]** Agregar backup incremental — ❌
     - **Objetivo:** Actualmente solo existe backup completo (cold copy) o exportación lógica JSONL. Agregar backup incremental basado en WAL diff desde último checkpoint.
@@ -595,3 +702,25 @@ Las siguientes tareas se derivan de una auditoría estricta de escalabilidad y r
       - [ ] Implementar `vanta-cli backup --incremental`
       - [ ] Implementar `vanta-cli restore --incremental`
       - [ ] Tests de integración para backup/restore incremental
+
+---
+
+## Historial de Tareas Completadas
+
+### [2026-06-22] Fix Heavy Certification Workflow Failures
+
+**Objetivo:** Corregir los 4 tests que causaban fallos en el pipeline `VantaDB Heavy Certification` de GitHub Actions.
+
+**Checklist:**
+- [x] Corregir `test_stale_lock_recovery` en `tests/file_locking_stress.rs` (aserción incorrecta sobre contenido del lock file)
+- [x] Cambiar `BackendKind::InMemory` → `BackendKind::Fjall` en 3 tests de `tests/storage/wal_resilience.rs`
+- [x] Eliminar `wal_write_failure_returns_error` de `tests/edge_cases.rs` (test roto en Unix)
+- [x] Añadir `test_wal_write_failure_simulated` con failpoints en `tests/storage/wal_resilience.rs`
+- [x] Añadir paso `bash scripts/download_benchmark_datasets.sh` en `.github/workflows/heavy_certification.yml`
+- [x] Validación local: `edge_cases` (24/24 ✅), `test_stale_lock_recovery` (✅)
+
+**Archivos modificados:**
+- `tests/file_locking_stress.rs` — Corregida aserción de lock stale
+- `tests/storage/wal_resilience.rs` — 3x InMemory→Fjall + nuevo test failpoint
+- `tests/edge_cases.rs` — Eliminado test roto de permisos Unix
+- `.github/workflows/heavy_certification.yml` — Añadido paso de descarga de datasets
