@@ -174,7 +174,8 @@ fn test_search_no_results() {
     let (_dir, path) = setup_temp_db();
     // seed via embedded to build text index
     seed_embedded(&path, "srch_ns", "k1", "hello world");
-    let result = vantadb::cli_handlers::cmd_search(&path, "srch_ns", "zzz_nonexistent", 10);
+    let result =
+        vantadb::cli_handlers::cmd_search(&path, "srch_ns", "zzz_nonexistent", None, 10, false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -193,7 +194,7 @@ fn test_search_with_results() {
     seed_embedded(&path, "search_ns", "r2", "banana cherry");
 
     // search for "banana" - should find at least 1 result
-    let result = vantadb::cli_handlers::cmd_search(&path, "search_ns", "banana", 10);
+    let result = vantadb::cli_handlers::cmd_search(&path, "search_ns", "banana", None, 10, false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -321,7 +322,7 @@ fn test_cmd_delete_missing_db() {
 
 #[test]
 fn test_cmd_search_missing_db() {
-    let result = vantadb::cli_handlers::cmd_search("./ghost_dir", "ns", "q", 10);
+    let result = vantadb::cli_handlers::cmd_search("./ghost_dir", "ns", "q", None, 10, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
@@ -382,6 +383,267 @@ fn test_cmd_query_empty_db() {
         "query on empty db should succeed: {:?}",
         result
     );
+}
+
+// ─── backup / restore ────────────────────────────────────────
+
+#[test]
+fn test_backup_and_restore() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "bkp_ns", "k1", "backup test");
+
+    // Verify source has the record before backup
+    let src_engine =
+        vantadb::cli_handlers::open_database(&path, false).expect("source DB should open");
+    let src_node_id = vantadb::cli_handlers::memory_node_id("bkp_ns", "k1");
+    let src_node = src_engine
+        .get(src_node_id)
+        .expect("source read should succeed");
+    assert!(
+        src_node.is_some(),
+        "source record should exist before backup"
+    );
+    eprintln!("DEBUG: source node_id = {}", src_node_id);
+    drop(src_engine);
+
+    let backup_dir = format!("{}/test_backup", &path);
+
+    // Create backup
+    let result = vantadb::cli_handlers::cmd_backup(&path, Some(&backup_dir), false);
+    assert!(result.is_ok(), "backup should succeed: {:?}", result);
+
+    // Verify backup directory exists
+    assert!(std::path::Path::new(&backup_dir).exists());
+
+    // List backup files
+    eprintln!("DEBUG: backup files:");
+    for entry in std::fs::read_dir(&backup_dir).unwrap() {
+        let e = entry.unwrap();
+        eprintln!("  {}", e.path().display());
+    }
+    let bdata_dir = std::path::Path::new(&backup_dir).join("data");
+    if bdata_dir.exists() {
+        eprintln!("DEBUG: backup data/ files:");
+        for entry in std::fs::read_dir(&bdata_dir).unwrap() {
+            let e = entry.unwrap();
+            eprintln!(
+                "  {} ({} bytes)",
+                e.path().display(),
+                e.metadata().unwrap().len()
+            );
+        }
+    }
+
+    // Check that backup vector_index.bin has valid content
+    let backup_idx = bdata_dir.join("vector_index.bin");
+    if backup_idx.exists() {
+        let idx_data = std::fs::read(&backup_idx).unwrap();
+        eprintln!(
+            "DEBUG: backup vector_index.bin size = {} bytes, first 4 bytes = {:?}",
+            idx_data.len(),
+            &idx_data[..4.min(idx_data.len())]
+        );
+    }
+
+    // Read source vector_index.bin to compare with backup
+    let src_data_dir = std::path::Path::new(&path).join("data");
+    if src_data_dir.exists() {
+        for entry in std::fs::read_dir(&src_data_dir).unwrap() {
+            let e = entry.unwrap();
+            eprintln!(
+                "DEBUG: source data/ {} ({} bytes)",
+                e.path().display(),
+                e.metadata().unwrap().len()
+            );
+        }
+    }
+
+    // Try rebuild approach
+    let restore_path_rebuild = format!("{}/restored_rebuild", &path);
+    let result =
+        vantadb::cli_handlers::cmd_restore(&restore_path_rebuild, &backup_dir, true, false, true);
+    assert!(
+        result.is_ok(),
+        "restore with rebuild should succeed: {:?}",
+        result
+    );
+    let engine_rb = vantadb::cli_handlers::open_database(&restore_path_rebuild, false)
+        .expect("restored DB (rebuild) should open writable");
+    let node_id = vantadb::cli_handlers::memory_node_id("bkp_ns", "k1");
+    eprintln!("DEBUG: restoring node_id = {}", node_id);
+    let node_rb = engine_rb
+        .get(node_id)
+        .expect("db read should succeed (rebuild)");
+    assert!(node_rb.is_some(), "restored record should exist (rebuild)");
+
+    // Also try without rebuild (original path)
+    let restore_path = format!("{}/restored", &path);
+    let result = vantadb::cli_handlers::cmd_restore(&restore_path, &backup_dir, true, false, false);
+    assert!(result.is_ok(), "restore should succeed: {:?}", result);
+    assert!(std::path::Path::new(&restore_path).exists());
+    assert!(std::path::Path::new(&restore_path)
+        .join(".vanta.lock")
+        .exists());
+    eprintln!("DEBUG: restored files:");
+    for entry in std::fs::read_dir(&restore_path).unwrap() {
+        let e = entry.unwrap();
+        eprintln!("  {}", e.path().display());
+    }
+    let rdata_dir = std::path::Path::new(&restore_path).join("data");
+    if rdata_dir.exists() {
+        eprintln!("DEBUG: restored data/ files:");
+        for entry in std::fs::read_dir(&rdata_dir).unwrap() {
+            let e = entry.unwrap();
+            eprintln!(
+                "  {} ({} bytes)",
+                e.path().display(),
+                e.metadata().unwrap().len()
+            );
+        }
+    }
+    let engine = vantadb::cli_handlers::open_database(&restore_path, false)
+        .expect("restored DB should open writable");
+    eprintln!("DEBUG: restoring node_id = {}", node_id);
+    let node = engine.get(node_id).expect("db read should succeed");
+    assert!(node.is_some(), "restored record should exist");
+    let payload = node
+        .unwrap()
+        .relational
+        .get(vantadb::cli_handlers::FIELD_PAYLOAD)
+        .and_then(|v| match v {
+            vantadb::node::FieldValue::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .expect("payload not found");
+    assert_eq!(payload, "backup test");
+}
+
+#[test]
+fn test_backup_nonexistent_db_path() {
+    // Opening a writable database creates the directory, so this succeeds
+    // but the backup target directory shouldn't exist
+    let result =
+        vantadb::cli_handlers::cmd_backup("./ghost_backup_dir", Some("./ghost_backup_out"), false);
+    if let Err(e) = &result {
+        eprintln!("ERROR (non-fatal for this test): {:?}", e);
+    }
+    // Cleanup
+    let _ = std::fs::remove_dir_all("./ghost_backup_dir");
+    let _ = std::fs::remove_dir_all("./ghost_backup_out");
+}
+
+#[test]
+fn test_restore_missing_backup() {
+    let result =
+        vantadb::cli_handlers::cmd_restore("./dummy", "./nonexistent_backup", true, false, false);
+    assert!(
+        result.is_err(),
+        "restore from non-existent backup should error"
+    );
+}
+
+// ─── doctor ───────────────────────────────────────────────────
+
+#[test]
+fn test_doctor_no_db() {
+    let path = "./nonexistent_doctor_test_dir_should_not_exist";
+    if std::path::Path::new(path).exists() {
+        eprintln!("WARNING: test directory exists, using temp dir instead");
+        let (_dir, tmp_path) = setup_temp_db();
+        let result = vantadb::cli_handlers::cmd_doctor(&tmp_path, false);
+        assert!(result.is_ok());
+        return;
+    }
+    let result = vantadb::cli_handlers::cmd_doctor(path, false);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_doctor_with_db() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "doc_ns", "k1", "doctor test");
+    let result = vantadb::cli_handlers::cmd_doctor(&path, false);
+    assert!(result.is_ok(), "doctor should succeed: {:?}", result);
+}
+
+#[test]
+fn test_doctor_verbose() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "doc_v_ns", "k1", "verbose doctor");
+    let result = vantadb::cli_handlers::cmd_doctor(&path, true);
+    assert!(
+        result.is_ok(),
+        "doctor verbose should succeed: {:?}",
+        result
+    );
+}
+
+// ─── inspect ──────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_record() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "ins_ns", "ins_k", "inspect me");
+
+    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "ins_k", false);
+    assert!(result.is_ok(), "inspect should succeed: {:?}", result);
+}
+
+#[test]
+fn test_inspect_nonexistent() {
+    let (_dir, path) = setup_temp_db();
+    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "missing", false);
+    assert!(
+        result.is_ok(),
+        "inspect missing record should warn: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_inspect_missing_db() {
+    let result = vantadb::cli_handlers::cmd_inspect("./ghost_inspect_dir", "ns", "k", false);
+    assert!(result.is_ok(), "missing db should warn, not error");
+}
+
+// ─── stats ────────────────────────────────────────────────────
+
+#[test]
+fn test_stats_no_db() {
+    let path = "./nonexistent_stats_dir_should_not_exist";
+    if std::path::Path::new(path).exists() {
+        eprintln!("WARNING: test directory exists, using temp dir instead");
+        let (_dir, tmp_path) = setup_temp_db();
+        let result = vantadb::cli_handlers::cmd_stats(&tmp_path, false, false);
+        assert!(result.is_ok());
+        return;
+    }
+    let result = vantadb::cli_handlers::cmd_stats(path, false, false);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_stats_with_db() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "st_ns", "st_k", "stats test");
+    let result = vantadb::cli_handlers::cmd_stats(&path, false, false);
+    assert!(result.is_ok(), "stats should succeed: {:?}", result);
+}
+
+#[test]
+fn test_stats_json() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "stj_ns", "stj_k", "json stats");
+    let result = vantadb::cli_handlers::cmd_stats(&path, true, false);
+    assert!(result.is_ok(), "stats json should succeed: {:?}", result);
+}
+
+#[test]
+fn test_stats_verbose() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "stv_ns", "stv_k", "verbose stats");
+    let result = vantadb::cli_handlers::cmd_stats(&path, false, true);
+    assert!(result.is_ok(), "stats verbose should succeed: {:?}", result);
 }
 
 // ─── verbose mode ─────────────────────────────────────────────

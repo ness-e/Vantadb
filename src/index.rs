@@ -437,8 +437,26 @@ impl IndexBackend {
             }
             IndexBackend::MMapFile { path, mmap: None } => {
                 // Fallback: open the file and create a temporary read-only mmap
-                let file = File::open(path).ok()?;
-                let mmap = unsafe { crate::storage::Mmap::map(&file).ok()? };
+                let file = match File::open(path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        tracing::debug!(
+                            "mmap_resident_bytes fallback: failed to open {}: {e}",
+                            path.display()
+                        );
+                        return None;
+                    }
+                };
+                let mmap = match unsafe { crate::storage::Mmap::map(&file) } {
+                    Ok(m) => m,
+                    Err(e) => {
+                        tracing::debug!(
+                            "mmap_resident_bytes fallback: failed to mmap {}: {e}",
+                            path.display()
+                        );
+                        return None;
+                    }
+                };
                 crate::storage::get_resident_bytes(mmap.as_ptr(), mmap.len())
             }
             IndexBackend::InMemory => None,

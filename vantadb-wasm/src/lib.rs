@@ -23,18 +23,35 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).unwrap();
     js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).unwrap();
     js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).unwrap();
-    js_sys::Reflect::set(&obj, &"created_at_ms".into(), &rec.created_at_ms.to_string().into()).unwrap();
-    js_sys::Reflect::set(&obj, &"updated_at_ms".into(), &rec.updated_at_ms.to_string().into()).unwrap();
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at_ms".into(),
+        &rec.created_at_ms.to_string().into(),
+    )
+    .unwrap();
+    js_sys::Reflect::set(
+        &obj,
+        &"updated_at_ms".into(),
+        &rec.updated_at_ms.to_string().into(),
+    )
+    .unwrap();
     js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
     js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
     if let Some(ref vector) = rec.vector {
-        let v: JsValue = serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
+        let v: JsValue =
+            serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
         js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
     }
     if let Some(expires_at) = rec.expires_at_ms {
-        js_sys::Reflect::set(&obj, &"expires_at_ms".into(), &expires_at.to_string().into()).unwrap();
+        js_sys::Reflect::set(
+            &obj,
+            &"expires_at_ms".into(),
+            &expires_at.to_string().into(),
+        )
+        .unwrap();
     }
-    let meta: JsValue = serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
+    let meta: JsValue =
+        serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
     js_sys::Reflect::set(&obj, &"metadata".into(), &meta).unwrap();
     JsValue::from(&obj)
 }
@@ -316,7 +333,8 @@ impl VantaDB {
     }
 
     pub fn get(&self, namespace: &str, key: &str) -> Result<JsValue, JsValue> {
-        let record: Option<VantaMemoryRecord> = self.inner.get(namespace, key).map_err(to_js_err)?;
+        let record: Option<VantaMemoryRecord> =
+            self.inner.get(namespace, key).map_err(to_js_err)?;
         match record {
             Some(rec) => Ok(memory_record_to_js(rec)),
             None => Ok(JsValue::null()),

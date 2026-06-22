@@ -79,8 +79,10 @@ fn test_memory_record_serialize() {
 fn test_search_request_serialize() {
     let req = VantaMemorySearchRequest {
         namespace: "ns1".into(),
+
         query_vector: vec![0.1, 0.2],
         filters: BTreeMap::new(),
+
         text_query: Some("hello".into()),
         top_k: 5,
         distance_metric: DistanceMetric::Cosine,

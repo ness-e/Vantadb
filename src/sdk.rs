@@ -19,13 +19,13 @@ use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 const RESERVED_PREFIX: &str = "__vanta_";
-const FIELD_NAMESPACE: &str = "__vanta_namespace";
-const FIELD_KEY: &str = "__vanta_key";
-const FIELD_PAYLOAD: &str = "__vanta_payload";
-const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
-const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
-const FIELD_VERSION: &str = "__vanta_version";
-const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
+pub const FIELD_NAMESPACE: &str = "__vanta_namespace";
+pub const FIELD_KEY: &str = "__vanta_key";
+pub const FIELD_PAYLOAD: &str = "__vanta_payload";
+pub const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
+pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
+pub const FIELD_VERSION: &str = "__vanta_version";
+pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
@@ -426,7 +426,7 @@ pub struct VantaTextIndexAuditReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct VantaMemoryExportLine {
+pub(crate) struct VantaMemoryExportLine {
     schema_version: u32,
     namespace: String,
     key: String,
@@ -520,6 +520,16 @@ pub struct VantaCapabilities {
 pub struct VantaEmbedded {
     engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
     config: VantaConfig,
+}
+
+impl std::fmt::Debug for VantaEmbedded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let is_open = self.engine.read().is_some();
+        f.debug_struct("VantaEmbedded")
+            .field("config", &self.config)
+            .field("is_open", &is_open)
+            .finish()
+    }
 }
 
 fn now_ms() -> u64 {
@@ -783,7 +793,7 @@ fn memory_record_to_node(record: &VantaMemoryRecord) -> UnifiedNode {
     node
 }
 
-fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
+pub(crate) fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
     VantaMemoryExportLine {
         schema_version: EXPORT_SCHEMA_VERSION,
         namespace: record.namespace,

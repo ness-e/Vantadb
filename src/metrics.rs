@@ -12,468 +12,677 @@ pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 macro_rules! observe_histogram {
     ($hist:expr, $val:expr) => {
         #[cfg(feature = "prometheus")]
-        $hist.observe($val as f64);
+        if let Some(h) = $hist.as_ref() {
+            h.observe($val as f64);
+        }
     };
 }
 
 macro_rules! inc_counter {
     ($counter:expr) => {
         #[cfg(feature = "prometheus")]
-        $counter.inc();
+        if let Some(c) = $counter.as_ref() {
+            c.inc();
+        }
     };
 }
 
 macro_rules! inc_counter_by {
     ($counter:expr, $val:expr) => {
         #[cfg(feature = "prometheus")]
-        $counter.inc_by($val);
+        if let Some(c) = $counter.as_ref() {
+            c.inc_by($val);
+        }
     };
 }
 
 macro_rules! set_gauge {
     ($gauge:expr, $val:expr) => {
         #[cfg(feature = "prometheus")]
-        $gauge.set($val as i64);
+        if let Some(g) = $gauge.as_ref() {
+            g.set($val as i64);
+        }
     };
 }
 
 #[cfg(feature = "prometheus")]
-pub static QUERY_LATENCY: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static QUERY_LATENCY: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_query_latency_ms",
         "Query execution times in ms",
-    ))
-    .expect(
-        "FATAL: Failed to create QUERY_LATENCY histogram - metric name conflict or invalid config",
-    );
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register QUERY_LATENCY - registry error");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create QUERY_LATENCY histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register QUERY_LATENCY: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static OOM_TRIPS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents")
-        .expect("FATAL: Failed to create OOM_TRIPS counter - metric name conflict");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register OOM_TRIPS - registry error");
-    counter
+pub static OOM_TRIPS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents") {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create OOM_TRIPS counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register OOM_TRIPS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static CACHE_HITS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches")
-        .expect("FATAL: Failed to create CACHE_HITS counter - metric name conflict");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register CACHE_HITS - registry error");
-    counter
+pub static CACHE_HITS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches") {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create CACHE_HITS counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register CACHE_HITS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static STARTUP_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static STARTUP_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_startup_latency_ms",
         "Storage engine startup time in ms",
-    ))
-    .expect("FATAL: Failed to create STARTUP_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register STARTUP_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create STARTUP_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register STARTUP_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static WAL_REPLAY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static WAL_REPLAY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_wal_replay_latency_ms",
         "WAL replay time in ms during startup",
-    ))
-    .expect("FATAL: Failed to create WAL_REPLAY_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register WAL_REPLAY_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create WAL_REPLAY_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register WAL_REPLAY_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static ANN_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static ANN_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_ann_rebuild_latency_ms",
         "Manual or startup ANN rebuild time in ms",
-    ))
-    .expect("FATAL: Failed to create ANN_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register ANN_REBUILD_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create ANN_REBUILD_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register ANN_REBUILD_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_derived_rebuild_latency_ms",
         "Derived namespace/payload index rebuild time in ms",
-    ))
-    .expect("FATAL: Failed to create DERIVED_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register DERIVED_REBUILD_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create DERIVED_REBUILD_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register DERIVED_REBUILD_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_text_index_rebuild_latency_ms",
         "Derived text index rebuild time in ms",
-    ))
-    .expect("FATAL: Failed to create TEXT_INDEX_REBUILD_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register TEXT_INDEX_REBUILD_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_INDEX_REBUILD_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_INDEX_REBUILD_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static RECORDS_EXPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static RECORDS_EXPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_records_exported_total",
         "Persistent memory records exported",
-    )
-    .expect("FATAL: Failed to create RECORDS_EXPORTED counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register RECORDS_EXPORTED");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create RECORDS_EXPORTED counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register RECORDS_EXPORTED: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static RECORDS_IMPORTED: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static RECORDS_IMPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_records_imported_total",
         "Persistent memory records imported",
-    )
-    .expect("FATAL: Failed to create RECORDS_IMPORTED counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register RECORDS_IMPORTED");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create RECORDS_IMPORTED counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register RECORDS_IMPORTED: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static IMPORT_ERRORS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static IMPORT_ERRORS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_import_errors_total",
         "Persistent memory import errors",
-    )
-    .expect("FATAL: Failed to create IMPORT_ERRORS counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register IMPORT_ERRORS");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create IMPORT_ERRORS counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register IMPORT_ERRORS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_POSTINGS_WRITTEN: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_POSTINGS_WRITTEN: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_postings_written_total",
         "Derived text index postings written",
-    )
-    .expect("FATAL: Failed to create TEXT_POSTINGS_WRITTEN counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_POSTINGS_WRITTEN");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_POSTINGS_WRITTEN counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_POSTINGS_WRITTEN: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_INDEX_REPAIRS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_INDEX_REPAIRS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_index_repairs_total",
         "Derived text index repairs from canonical records",
-    )
-    .expect("FATAL: Failed to create TEXT_INDEX_REPAIRS counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_INDEX_REPAIRS");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_INDEX_REPAIRS counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_INDEX_REPAIRS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_text_lexical_query_latency_ms",
         "BM25 lexical memory query time in ms",
-    ))
-    .expect("FATAL: Failed to create TEXT_LEXICAL_QUERY_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register TEXT_LEXICAL_QUERY_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_LEXICAL_QUERY_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_LEXICAL_QUERY_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_LEXICAL_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_LEXICAL_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_lexical_queries_total",
         "BM25 lexical memory queries executed",
-    )
-    .expect("FATAL: Failed to create TEXT_LEXICAL_QUERIES counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_LEXICAL_QUERIES");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_LEXICAL_QUERIES counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_LEXICAL_QUERIES: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_CANDIDATES_SCORED: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_CANDIDATES_SCORED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_candidates_scored_total",
         "BM25 lexical candidates scored",
-    )
-    .expect("FATAL: Failed to create TEXT_CANDIDATES_SCORED counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_CANDIDATES_SCORED");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_CANDIDATES_SCORED counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_CANDIDATES_SCORED: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_CONSISTENCY_AUDITS: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_CONSISTENCY_AUDITS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_consistency_audits_total",
         "Structural text index consistency audits executed",
-    )
-    .expect("FATAL: Failed to create TEXT_CONSISTENCY_AUDITS counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_CONSISTENCY_AUDITS");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_CONSISTENCY_AUDITS counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_CONSISTENCY_AUDITS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_text_consistency_audit_failures_total",
         "Structural text index consistency audits that detected mismatch",
-    )
-    .expect("FATAL: Failed to create TEXT_CONSISTENCY_AUDIT_FAILURES counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register TEXT_CONSISTENCY_AUDIT_FAILURES");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create TEXT_CONSISTENCY_AUDIT_FAILURES counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register TEXT_CONSISTENCY_AUDIT_FAILURES: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Histogram> = LazyLock::new(|| {
-    let hist = Histogram::with_opts(prometheus::HistogramOpts::new(
+pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
+    let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
         "vanta_hybrid_query_latency_ms",
         "Hybrid memory query fusion time in ms",
-    ))
-    .expect("FATAL: Failed to create HYBRID_QUERY_LATENCY_MS histogram");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register HYBRID_QUERY_LATENCY_MS");
-    hist
+    )) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create HYBRID_QUERY_LATENCY_MS histogram: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register HYBRID_QUERY_LATENCY_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static HYBRID_CANDIDATES_FUSED: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static HYBRID_CANDIDATES_FUSED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_hybrid_candidates_fused_total",
         "Unique memory candidates fused by hybrid retrieval",
-    )
-    .expect("FATAL: Failed to create HYBRID_CANDIDATES_FUSED counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register HYBRID_CANDIDATES_FUSED");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create HYBRID_CANDIDATES_FUSED counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register HYBRID_CANDIDATES_FUSED: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static PLANNER_HYBRID_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static PLANNER_HYBRID_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_planner_hybrid_queries_total",
         "Memory searches planned as hybrid text+vector retrieval",
-    )
-    .expect("FATAL: Failed to create PLANNER_HYBRID_QUERIES counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register PLANNER_HYBRID_QUERIES");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create PLANNER_HYBRID_QUERIES counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register PLANNER_HYBRID_QUERIES: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_planner_text_only_queries_total",
         "Memory searches planned as text-only retrieval",
-    )
-    .expect("FATAL: Failed to create PLANNER_TEXT_ONLY_QUERIES counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register PLANNER_TEXT_ONLY_QUERIES");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create PLANNER_TEXT_ONLY_QUERIES counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register PLANNER_TEXT_ONLY_QUERIES: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<IntCounter> = LazyLock::new(|| {
-    let counter = IntCounter::new(
+pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
+    let counter = match IntCounter::new(
         "vanta_planner_vector_only_queries_total",
         "Memory searches planned as vector-only retrieval",
-    )
-    .expect("FATAL: Failed to create PLANNER_VECTOR_ONLY_QUERIES counter");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register PLANNER_VECTOR_ONLY_QUERIES");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create PLANNER_VECTOR_ONLY_QUERIES counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register PLANNER_VECTOR_ONLY_QUERIES: {e}");
+            None
+        }
+    }
 });
 
 // ── Memory breakdown gauges ──────────────────────────────────────────────
 
+macro_rules! register_gauge {
+    ($name:expr, $help:expr, $static_name:tt) => {{
+        let gauge = match IntGauge::new($name, $help) {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::warn!("Failed to create {} gauge: {e}", stringify!($static_name));
+                return None;
+            }
+        };
+        match METRICS_REGISTRY.register(Box::new(gauge.clone())) {
+            Ok(_) => Some(gauge),
+            Err(e) => {
+                tracing::warn!("Failed to register {}: {e}", stringify!($static_name));
+                None
+            }
+        }
+    }};
+}
+
 #[cfg(feature = "prometheus")]
-pub static PROCESS_RSS_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static PROCESS_RSS_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_process_rss_bytes",
         "Process resident set size in bytes (via sysinfo)",
+        PROCESS_RSS_BYTES
     )
-    .expect("FATAL: Failed to create PROCESS_RSS_BYTES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register PROCESS_RSS_BYTES");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static PROCESS_VIRTUAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static PROCESS_VIRTUAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_process_virtual_bytes",
         "Process virtual memory in bytes (via sysinfo)",
+        PROCESS_VIRTUAL_BYTES
     )
-    .expect("FATAL: Failed to create PROCESS_VIRTUAL_BYTES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register PROCESS_VIRTUAL_BYTES");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static HNSW_NODES_COUNT: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static HNSW_NODES_COUNT: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_hnsw_nodes_count",
         "Number of nodes currently in the HNSW index",
+        HNSW_NODES_COUNT
     )
-    .expect("FATAL: Failed to create HNSW_NODES_COUNT gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register HNSW_NODES_COUNT");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static HNSW_LOGICAL_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static HNSW_LOGICAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_hnsw_logical_bytes",
         "Estimated logical memory footprint of HNSW nodes and neighbor layers",
+        HNSW_LOGICAL_BYTES
     )
-    .expect("FATAL: Failed to create HNSW_LOGICAL_BYTES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register HNSW_LOGICAL_BYTES");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static MMAP_RESIDENT_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static MMAP_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_mmap_resident_bytes",
         "OS-reported resident bytes for VantaDB memory-mapped files when available",
+        MMAP_RESIDENT_BYTES
     )
-    .expect("FATAL: Failed to create MMAP_RESIDENT_BYTES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register MMAP_RESIDENT_BYTES");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static VOLATILE_CACHE_ENTRIES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static VOLATILE_CACHE_ENTRIES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_volatile_cache_entries",
         "Number of entries in the volatile hot-node cache",
+        VOLATILE_CACHE_ENTRIES
     )
-    .expect("FATAL: Failed to create VOLATILE_CACHE_ENTRIES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register VOLATILE_CACHE_ENTRIES");
-    gauge
 });
 
 #[cfg(feature = "prometheus")]
-pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
-    let gauge = IntGauge::new(
+pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
+    register_gauge!(
         "vanta_volatile_cache_cap_bytes",
         "Maximum capacity in bytes for the volatile hot-node cache",
+        VOLATILE_CACHE_CAP_BYTES
     )
-    .expect("FATAL: Failed to create VOLATILE_CACHE_CAP_BYTES gauge");
-    METRICS_REGISTRY
-        .register(Box::new(gauge.clone()))
-        .expect("FATAL: Failed to register VOLATILE_CACHE_CAP_BYTES");
-    gauge
 });
 
 // ── HTTP request metrics (middleware in cli_server) ─────────────────────
 
 #[cfg(feature = "prometheus")]
-fn http_buckets() -> Vec<f64> {
-    exponential_buckets(0.5, 2.0, 12).expect("FATAL: http_buckets")
+fn http_buckets() -> Option<Vec<f64>> {
+    match exponential_buckets(0.5, 2.0, 12) {
+        Ok(b) => Some(b),
+        Err(e) => {
+            tracing::warn!("Failed to create http_buckets: {e}");
+            None
+        }
+    }
 }
 
 #[cfg(feature = "prometheus")]
-pub static HTTP_REQUEST_DURATION_MS: LazyLock<HistogramVec> = LazyLock::new(|| {
-    let hist = HistogramVec::new(
+pub static HTTP_REQUEST_DURATION_MS: LazyLock<Option<HistogramVec>> = LazyLock::new(|| {
+    let buckets = match http_buckets() {
+        Some(b) => b,
+        None => return None,
+    };
+    let hist = match HistogramVec::new(
         prometheus::HistogramOpts::new(
             "vanta_http_request_duration_ms",
             "HTTP request latency in ms by method and route",
         )
-        .buckets(http_buckets()),
+        .buckets(buckets),
         &["method", "route"],
-    )
-    .expect("FATAL: Failed to create HTTP_REQUEST_DURATION_MS");
-    METRICS_REGISTRY
-        .register(Box::new(hist.clone()))
-        .expect("FATAL: Failed to register HTTP_REQUEST_DURATION_MS");
-    hist
+    ) {
+        Ok(h) => h,
+        Err(e) => {
+            tracing::warn!("Failed to create HTTP_REQUEST_DURATION_MS: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(hist.clone())) {
+        Ok(_) => Some(hist),
+        Err(e) => {
+            tracing::warn!("Failed to register HTTP_REQUEST_DURATION_MS: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
-pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
-    let counter = IntCounterVec::new(
+pub static HTTP_REQUESTS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
+    let counter = match IntCounterVec::new(
         prometheus::Opts::new(
             "vanta_http_requests_total",
             "Total HTTP requests by method, route, and status",
         ),
         &["method", "route", "status"],
-    )
-    .expect("FATAL: Failed to create HTTP_REQUESTS_TOTAL");
-    METRICS_REGISTRY
-        .register(Box::new(counter.clone()))
-        .expect("FATAL: Failed to register HTTP_REQUESTS_TOTAL");
-    counter
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create HTTP_REQUESTS_TOTAL: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register HTTP_REQUESTS_TOTAL: {e}");
+            None
+        }
+    }
 });
 
 #[cfg(feature = "prometheus")]
 pub fn record_http_request(method: &str, route: &str, status: u16, start: Instant) {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-    HTTP_REQUEST_DURATION_MS
-        .with_label_values(&[method, route])
-        .observe(elapsed_ms);
-    HTTP_REQUESTS_TOTAL
-        .with_label_values(&[method, route, &status.to_string()])
-        .inc();
+    if let Some(hist) = HTTP_REQUEST_DURATION_MS.as_ref() {
+        hist.with_label_values(&[method, route]).observe(elapsed_ms);
+    }
+    if let Some(counter) = HTTP_REQUESTS_TOTAL.as_ref() {
+        counter
+            .with_label_values(&[method, route, &status.to_string()])
+            .inc();
+    }
 }
 
 #[cfg(not(feature = "prometheus"))]

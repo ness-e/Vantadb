@@ -29,8 +29,10 @@ fn measure_search_latency(
     for _ in 0..10 {
         let request = VantaMemorySearchRequest {
             namespace: "bench".to_string(),
+
             query_vector: query.clone(),
             filters: Default::default(),
+
             text_query: None,
             top_k,
             distance_metric: DistanceMetric::Cosine,
@@ -44,8 +46,10 @@ fn measure_search_latency(
     for _ in 0..iterations {
         let request = VantaMemorySearchRequest {
             namespace: "bench".to_string(),
+
             query_vector: query.clone(),
             filters: Default::default(),
+
             text_query: None,
             top_k,
             distance_metric: DistanceMetric::Cosine,

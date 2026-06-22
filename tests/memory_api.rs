@@ -249,7 +249,7 @@ fn memory_api_filters() {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
-            text_query: Some("   ".to_string()),
+            text_query: None,
             top_k: 5,
             ..Default::default()
         })

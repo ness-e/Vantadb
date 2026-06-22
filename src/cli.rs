@@ -124,9 +124,15 @@ pub enum Commands {
         /// Text query for semantic/hybrid search
         #[arg(long)]
         query: String,
+        /// Optional explicit vector query (comma-separated f32 values)
+        #[arg(long)]
+        query_vector: Option<String>,
         /// Maximum number of results
         #[arg(long, default_value = "10")]
         limit: usize,
+        /// Output in JSON format
+        #[arg(long)]
+        json: bool,
     },
 
     /// Delete a record by namespace and key

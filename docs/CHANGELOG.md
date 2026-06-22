@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Error hardening: all production `unwrap()` calls replaced with `?` propagation or graceful fallback (Phase 5 M1).
+- Metrics hardening: ~40 `expect()` calls in `metrics.rs` replaced with `tracing::warn!` + graceful `None` degradation (Phase 5 M2).
+- Logging coverage: `tracing::debug!` added to env var lookups in `config.rs`, cold-start mmap fallback paths, and key parse sites (Phase 5 M3).
+- Scan errors in `cli_handlers.rs::doctor` now logged with `tracing::warn!` instead of silent filter (Phase 5 M3).
+- LangChain integration: `VantaDBVectorStore` adapter with hybrid search, metadata filtering, and batch operations (`integrations/langchain/`).
+- LlamaIndex integration: `VantaDBVectorStore` adapter with graph traversal, hybrid search, and rich filtering (`integrations/llamaindex/`).
+- Integration test suites for LangChain and LlamaIndex adapters (Phase 6 M10).
+- Integrations section added to `docs/README.md` under Developers (Phase 6 M6).
+
+- CLI-EPIC: 7 new CLI commands — `backup`, `restore`, `doctor`, `inspect`, `stats`, `count`, `search-similar` (CLI-EPIC).
+- TSK-111: Expanded filter operators `FilterOp` enum (`Eq, Neq, Gt, Gte, Lt, Lte, In, Exists`) + `MemoryFilter` struct with backward-compatible `filter_exprs` field.
+- TSK-119: `VantaEmbedded::delete_by_filter()` SDK method + `vanta-cli delete-by-filter` command.
+- TSK-86: `VantaEmbedded::similar_to_key()` SDK method + `vanta-cli search-similar` command.
+- TSK-87: `VantaEmbedded::count()` SDK method + `vanta-cli count` command with optional filters.
+- TSK-88: Multi-namespace search (`namespaces: Vec<String>` in `VantaMemorySearchRequest`) + comma-separated CLI support.
+- WAL replay now writes `NodeMetadata` to backend during `recover_state()` — enables full restore from WAL + vstore + index without backend-specific files.
+- CLI-EPIC: `vanta-cli repl` — interactive rustyline REPL with tab autocomplete, history (`~/.vanta_history`), `:help`/`:quit`/`:history` commands, dispatch to existing handlers or raw IQL queries.
+- CLI-EPIC: `--json` and `--quiet` global flags on all commands.
+- CLI-EPIC: Typos suggestions (`strsim::levenshtein`, distance ≤ 3) on parse errors.
+- CLI-EPIC: Determinate progress bars (`indicatif`) on `backup` and `restore` file-copy phases.
+- CLI-EPIC: `vanta-cli tui` — live dashboard refreshing every 2s (node count, memory, cache, HNSW, WAL size, uptime, backend kind).
+- CLI-EPIC: Determinate progress bars (`indicatif`) on `export` and `import` record phases (parse file + write per-record with progress).
+- CLI-EPIC: `color-eyre` error formatting installed in CLI at startup (colored backtraces + suggestions).
+- TSK-102: Python 3.13+ support — `requires-python` bumped to `>=3.11`, classifier added, removed 3.8/3.9/3.10 (ABI3 wheel covers all 3.11+).
+- TSK-101: ARM64 Linux wheels — new `build-wheels-arm64` job in `python_wheels.yml` with QEMU + `aarch64-unknown-linux-gnu` target for maturin cross-compile.
+- TSK-100: Homebrew formula — `Formula/vantadb.rb` with tap README for `brew install vantadb` (macOS + Linux).
+- TSK-35: Rust examples — 4 runnable examples in `examples/rust/`: `basic` (CRUD), `hybrid` (search), `graphrag` (graph traverse), `concurrent` (multi-threaded).
+- TSK-34: Docs reorganization — `docs/README.md` restructured by audience (End Users / Developers / Operators / Reference).
+- COM-02/03: Verified CONTRIBUTING.md and CODE_OF_CONDUCT.md already exist in `.github/` (high quality).
+
 ### Security
 
 - Upgraded `pyo3` 0.24 → 0.29 (fixes RUSTSEC-2026-0176 use-after-free, RUSTSEC-2026-0177 data race) (AUD-04).

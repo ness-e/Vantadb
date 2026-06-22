@@ -859,7 +859,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__search)
-            opts="-d -v -h --namespace --query --limit --db --verbose --help"
+            opts="-d -v -h --namespace --query --query-vector --limit --json --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -870,6 +870,10 @@ _vanta-cli() {
                     return 0
                     ;;
                 --query)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --query-vector)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

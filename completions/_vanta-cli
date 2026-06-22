@@ -163,9 +163,11 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Namespace to search within]:NAMESPACE:_default' \
 '--query=[Text query for semantic/hybrid search]:QUERY:_default' \
+'--query-vector=[Optional explicit vector query (comma-separated f32 values)]:QUERY_VECTOR:_default' \
 '--limit=[Maximum number of results]:LIMIT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--json[Output in JSON format]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \

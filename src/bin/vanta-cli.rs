@@ -66,8 +66,17 @@ fn main() -> Result<()> {
         Commands::Search {
             namespace,
             query,
+            query_vector,
             limit,
-        } => cli_handlers::cmd_search(&args.db, &namespace, &query, limit)?,
+            json,
+        } => cli_handlers::cmd_search(
+            &args.db,
+            &namespace,
+            &query,
+            query_vector.as_deref(),
+            limit,
+            json,
+        )?,
 
         Commands::Delete { namespace, key } => {
             cli_handlers::cmd_delete(&args.db, &namespace, &key, args.verbose)?

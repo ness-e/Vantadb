@@ -201,8 +201,8 @@ impl HardwareScout {
             style("DETECTED").bold().underlined()
         };
 
-        let lightning = Emoji("⚡ ", "!");
-        let shield = Emoji("🛡️  ", "!!");
+        let lightning = Emoji("[!] ", "[!]");
+        let shield = Emoji("[*] ", "[*]");
 
         eprintln!(
             "\n{}",

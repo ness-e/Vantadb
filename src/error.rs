@@ -44,6 +44,9 @@ pub enum VantaError {
     ResourceLimit(String),
 
     #[error("Execution error: {0}")]
+    // NOTE: This is a catch-all variant. Future refactoring should add typed
+    // variants for: NodeIdCollision, CycleDetected, IqlParseError, etc.
+    // Tracking: https://github.com/ness-e/Vantadb/issues (C4)
     Execution(String),
 
     #[error("Database busy: {0}")]
