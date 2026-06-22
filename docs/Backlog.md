@@ -91,6 +91,9 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 | `TSK-133` | Backup incremental (full snapshot + WAL deltas) | 🟢 | ❌ |
 | `TSK-48` | Cuantización dinámica (f32→SQ8 para nodos fríos) | 🟢 | ❌ |
 | `LOW-01` | TLS 1.3 en vantadb-server | 🟢 | ⏸️ Postpuesto |
+| `TSK-142` | Investigar y prototipar persistencia WASM mediante OPFS y Web Workers | 🟡 | ❌ |
+| `TSK-143` | Benchmark de paridad de performance Fjall vs RocksDB para depreciación de RocksDB | 🟡 | ❌ |
+| `TSK-144` | Benchmarking cuantitativo de Recall vs Latencia de HNSW custom vs hnswlib | 🟠 | ❌ |
 
 ### 5.B VantaDB Cloud y Negocio
 
