@@ -670,3 +670,25 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 - `tests/storage/wal_resilience.rs` — 3x InMemory→Fjall + nuevo test failpoint
 - `tests/edge_cases.rs` — Eliminado test roto de permisos Unix
 - `.github/workflows/heavy_certification.yml` — Añadido paso de descarga de datasets
+
+### [2026-06-22] Batch CI/CD Fixes + StorageEngine Locking (TSK-134/135/138/140/126/128/129)
+
+**Objetivo:** Limpiar workflows CI/CD y hacer robusto el sistema de locking del StorageEngine.
+
+**Checklist CI/CD:**
+- [x] TSK-134: Validado swap en `release.yml` — lógica correcta, sin cambios necesarios
+- [x] TSK-135: `python_wheels.yml` — `dtolnay/rust-toolchain@master` → `@stable`
+- [x] TSK-138: Eliminado checkout duplicado en `rust-setup/action.yml`
+- [x] TSK-140: Eliminado job ARM64 muerto (`if: false`) en `python_wheels.yml` (-69 líneas)
+- [x] TSK-141: Removido `librocksdb-dev` de `rust-setup/action.yml` (sesión anterior)
+
+**Checklist StorageEngine Locking:**
+- [x] TSK-126: `impl Drop for StorageEngine` — libera `fs2` lock explícitamente al destruir
+- [x] TSK-128: `insert_lock` timeout configurable via `VANTADB_INSERT_LOCK_TIMEOUT_MS` (default 2000ms)
+- [x] TSK-129: `.vanta.lock` timeout configurable via `VANTADB_FILE_LOCK_TIMEOUT_MS` (default 1000ms)
+
+**Archivos modificados:**
+- `src/config.rs` — +2 campos struct (`insert_lock_timeout_ms`, `file_lock_timeout_ms`) + Default impl
+- `src/storage.rs` — +Drop impl, 5× `lock()` → `try_lock_for()`, `refresh_index()` → `Result<()>`
+- `.github/workflows/python_wheels.yml` — -69 líneas (job ARM64 muerto), toolchain stable
+- `.github/actions/rust-setup/action.yml` — -checkout duplicado
