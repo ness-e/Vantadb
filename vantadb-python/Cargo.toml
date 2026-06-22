@@ -18,4 +18,4 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 
 # In-process reference to the core engine (zero network overhead)
-vantadb = { path = "../", default-features = false, features = ["fjall"] }
+vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2"] }

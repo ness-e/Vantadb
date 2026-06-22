@@ -73,6 +73,7 @@ Thumbs.db
 
 # Local Python test database and virtual environments
 vantadb-python/test_vanta_db/
+vantadb-python/test_path_dummy/
 test_vanta_db*/
 vanta_data*/
 vantadb_data*/
