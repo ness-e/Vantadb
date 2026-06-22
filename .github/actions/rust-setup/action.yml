@@ -34,8 +34,6 @@ runs:
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-    - uses: actions/checkout@v6
-
     - name: Add swap space
       if: ${{ inputs.swap-mb != '0' && runner.os == 'Linux' }}
       shell: bash
