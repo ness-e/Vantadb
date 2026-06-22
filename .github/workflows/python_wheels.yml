@@ -114,6 +114,7 @@ jobs:
 
   build-wheels-arm64:
     name: Build Python wheel (linux-arm64)
+    if: false
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     continue-on-error: true
