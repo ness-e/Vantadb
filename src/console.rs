@@ -17,42 +17,76 @@ use std::time::Duration;
 
 // ─── Banner ────────────────────────────────────────────────────────────────
 
+/// Width of the inner content area (between the ║ borders)
+const BOX_INNER: usize = 58;
+
+/// Center a string inside a fixed-width box line with ║ borders.
+fn box_line_center(text: &str, styled_text: impl std::fmt::Display) -> String {
+    let pad = BOX_INNER.saturating_sub(console::measure_text_width(text));
+    let left = pad / 2;
+    let right = pad - left;
+    format!(
+        "  {}{}{}{}  {}",
+        style("║").color256(166),
+        " ".repeat(left),
+        styled_text,
+        " ".repeat(right),
+        style("║").color256(166),
+    )
+}
+
 /// Print the VantaDB ASCII banner to stdout.
-/// Uses Rust Orange for the name and dim white for the tagline.
 pub fn print_banner() {
-    let border = style("═").color256(166).to_string(); // Rust Orange border
-    let b = border.repeat(50);
+    // 60-char wide top/bottom border: ╔ + 58×═ + ╗
+    let top = format!(
+        "  {}{}{}",
+        style("╔").color256(166),
+        style("═".repeat(BOX_INNER)).color256(166),
+        style("╗").color256(166)
+    );
+    let bottom = format!(
+        "  {}{}{}",
+        style("╚").color256(166),
+        style("═".repeat(BOX_INNER)).color256(166),
+        style("╝").color256(166)
+    );
+    let divider = format!(
+        "  {}{}{}",
+        style("╠").color256(166),
+        style("═".repeat(BOX_INNER)).color256(166),
+        style("╣").color256(166)
+    );
+    let blank = format!(
+        "  {}{}  {}",
+        style("║").color256(166),
+        " ".repeat(BOX_INNER),
+        style("║").color256(166)
+    );
+
+    let version = crate::metadata::version_label();
+    let title_text = format!("  ⚡  V A N T A D B  {}  ⚡", version);
+    let tagline1 = "Embedded Persistent Memory Engine";
+    let tagline2 = "Vector · Graph · BM25 · WAL · Rust";
 
     println!();
-    println!("  {}", style(&b).color256(166));
+    println!("{top}");
+    println!("{blank}");
     println!(
-        "  {}  {}  {}",
-        style("║").color256(166),
-        style(format!(
-            "  ⚡  V A N T A D B   {}  ⚡           ║",
-            crate::metadata::version_label()
-        ))
-        .bold()
-        .color256(166),
-        style("  ║").color256(166),
+        "{}",
+        box_line_center(&title_text, style(&title_text).bold().color256(166))
+    );
+    println!("{blank}");
+    println!("{divider}");
+    println!(
+        "{}",
+        box_line_center(tagline1, style(tagline1).white().dim())
     );
     println!(
-        "  {}  {}  {}",
-        style("  ║").color256(166),
-        style("  Embedded Persistent Memory Engine       ")
-            .dim()
-            .white(),
-        style("  ║").color256(166),
+        "{}",
+        box_line_center(tagline2, style(tagline2).color256(240).dim())
     );
-    println!(
-        "  {}  {}  {}",
-        style("  ║").color256(166),
-        style("  Vector Retrieval · Structured Fields    ")
-            .dim()
-            .white(),
-        style("  ║").color256(166),
-    );
-    println!("  {}", style(&b).color256(166));
+    println!("{blank}");
+    println!("{bottom}");
     println!();
 }
 
