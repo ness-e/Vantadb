@@ -465,4 +465,7 @@ exclude = ["fuzz"]
 debug = 0
 opt-level = 0
 
-
+[profile.release.package.vantadb-wasm]
+opt-level = "s"
+lto = true
+strip = true
