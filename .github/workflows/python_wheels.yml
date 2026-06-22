@@ -57,7 +57,7 @@ jobs:
           python-version: "3.11"
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
@@ -112,75 +112,6 @@ jobs:
           path: ./dist/*.whl
           if-no-files-found: error
 
-  build-wheels-arm64:
-    name: Build Python wheel (linux-arm64)
-    if: false
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    continue-on-error: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: arm64
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Set up Rust (with retry)
-        uses: nick-fields/retry@v4
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: |
-            curl --proto '=https' --tlsv1.2 --retry 5 --retry-connrefused -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-            rustup target add aarch64-unknown-linux-gnu
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install Python build tools
-        run: python -m pip install --upgrade pip pytest
-
-      - name: Validate version coherence
-        run: cargo test --test version_coherence --no-default-features --features fjall
-
-      - name: Build wheel (aarch64)
-        uses: PyO3/maturin-action@v1.51.0
-        with:
-          command: build
-          target: aarch64-unknown-linux-gnu
-          args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
-          manylinux: 2_28
-          before-script-linux: |
-            yum install -y clang clang-devel
-
-      - name: Smoke test (aarch64 via QEMU)
-        shell: bash
-        run: |
-          wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
-          echo "Installing wheel: $wheel"
-          python -m venv /tmp/.smoke-venv-arm64
-          /tmp/.smoke-venv-arm64/bin/pip install --upgrade pip
-          /tmp/.smoke-venv-arm64/bin/pip install "$wheel" pytest numpy
-          /tmp/.smoke-venv-arm64/bin/python -c "import vantadb_py; print('Import OK:', vantadb_py.__version__)"
-          /tmp/.smoke-venv-arm64/bin/pytest vantadb-python/tests/test_sdk.py -v
-
-      - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-linux-arm64
-          path: ./dist/*.whl
-          if-no-files-found: error
 
   publish-testpypi:
     name: Publish wheels to TestPyPI
