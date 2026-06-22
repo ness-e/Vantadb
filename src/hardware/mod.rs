@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "sysinfo")]
 use std::collections::hash_map::DefaultHasher;
+#[cfg(feature = "sysinfo")]
 use std::fs;
+#[cfg(feature = "sysinfo")]
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 #[cfg(feature = "sysinfo")]
@@ -48,6 +51,7 @@ impl HardwareCapabilities {
 pub struct HardwareScout;
 
 impl HardwareScout {
+    #[cfg(feature = "sysinfo")]
     const PROFILE_PATH: &'static str = ".vanta_profile";
 
     pub fn detect() -> HardwareCapabilities {
