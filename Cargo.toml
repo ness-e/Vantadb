@@ -77,7 +77,7 @@ rkyv = { version = "0.8", optional = true }
 web-time = "1.1.0"
 
 [features]
-default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon"]
+default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]
 arrow = ["dep:arrow"]
 rkyv-serialization = ["dep:rkyv"]
 rocksdb = ["dep:rocksdb"]

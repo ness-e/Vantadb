@@ -37,7 +37,7 @@ For pre-releases, the following formats are permitted:
 
 To ensure supply-chain integrity, all built Python wheels (`.whl`) are signed using
 [GitHub Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations)
-(`actions/attest-build-provenance@v2`), which generates cryptographically signed
+(`actions/attest-build-provenance@v4`), which generates cryptographically signed
 SLSA Level 2 provenance records bound to the GitHub Actions OIDC identity.
 
 ### Why GitHub Attestations over Sigstore Standalone
@@ -45,12 +45,12 @@ SLSA Level 2 provenance records bound to the GitHub Actions OIDC identity.
 | Mechanism | Status |
 |---|---|
 | `sigstore/gh-action-sigstore-python` | Superseded — GitHub Attestations provides equivalent guarantees natively |
-| `actions/attest-build-provenance@v2` | **Active** — SLSA Level 2, integrated with GitHub OIDC, no Fulcio/Rekor self-management |
+| `actions/attest-build-provenance@v4` | **Active** — SLSA Level 2, integrated with GitHub OIDC, no Fulcio/Rekor self-management |
 
 ### Attestation Flow
 
 1. The release workflow uses GitHub Actions OIDC (`id-token: write`) to establish a verified identity.
-2. `actions/attest-build-provenance@v2` generates a signed SLSA provenance statement for each wheel.
+2. `actions/attest-build-provenance@v4` generates a signed SLSA provenance statement for each wheel.
 3. The attestation is stored in GitHub's immutable attestation store, linked to the repository.
 4. Wheels and their signed GitHub Release assets are published alongside each release.
 
@@ -122,7 +122,7 @@ git push origin v0.1.4
 ```
 
 Tag pushes trigger the production pipeline which:
-1. Builds and attests wheels via `actions/attest-build-provenance@v2`
+1. Builds and attests wheels via `actions/attest-build-provenance@v4`
 2. Attaches `.whl` assets to the GitHub Release
 3. Publishes to PyPI via Trusted Publishing (OIDC — no tokens needed)
 4. **[Automated]** The `verify-pypi-install` job waits 90s for CDN propagation,

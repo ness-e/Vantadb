@@ -78,11 +78,7 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 
 | ID | Tarea | Prioridad | Estado |
 |----|-------|-----------|--------|
-| `TSK-123` | Promover `advanced-tokenizer` como feature default + integration test E2E | 🔴 | ❌ |
-| `TSK-124` | Documentar `generate_snippet` y highlighting en PYTHON_SDK.md | 🔴 | ❌ |
-| `TSK-125` | Alinear docs SLSA con workflows reales (@v2→@v4, SLSA2 vs SLSA3) | 🔴 | ❌ |
 | `TSK-126` | Agregar `impl Drop for StorageEngine` para liberación explícita del lock | 🟡 | ❌ |
-| `TSK-127` | Formalizar estado de IQL (API estable vs experimental documentado) | 🟡 | ❌ |
 | `TSK-128` | Hacer configurable el timeout de `insert_lock` | 🟡 | ❌ |
 | `TSK-129` | Hacer configurable el timeout de `.vanta.lock` | 🟡 | ❌ |
 | `TSK-130` | Agregar instrumentación de heap memory drift (jemalloc stats) | 🟡 | ❌ |
