@@ -181,73 +181,80 @@ impl HardwareScout {
 
     #[cfg(feature = "cli")]
     fn log_adaptive_status(caps: &HardwareCapabilities, cached: bool) {
-        use console::{style, Emoji};
+        use console::style;
 
-        let instr_str = match caps.instructions {
-            InstructionSet::Avx512 => style("AVX-512").cyan().bold(),
-            InstructionSet::Avx2 => style("AVX2").cyan().bold(),
-            InstructionSet::Neon => style("NEON").cyan().bold(),
-            InstructionSet::Fallback => style("SCALAR FALLBACK").red().dim(),
+        // Fixed inner width = 76 chars (between the │ borders)
+        const W: usize = 76;
+
+        let instr_label = match caps.instructions {
+            InstructionSet::Avx512 => "AVX-512",
+            InstructionSet::Avx2 => "AVX2",
+            InstructionSet::Neon => "NEON",
+            InstructionSet::Fallback => "SCALAR",
         };
-
-        let (_profile_str, profile_color) = match caps.profile {
-            HardwareProfile::Enterprise => ("ENTERPRISE", style("ENTERPRISE").green().bold()),
-            HardwareProfile::Performance => ("PERFORMANCE", style("PERFORMANCE").yellow().bold()),
-            HardwareProfile::LowResource => ("LOW_RESOURCE", style("LOW_RESOURCE").red().bold()),
+        let instr_styled = match caps.instructions {
+            InstructionSet::Avx512 => style(instr_label).cyan().bold(),
+            InstructionSet::Avx2 => style(instr_label).cyan().bold(),
+            InstructionSet::Neon => style(instr_label).cyan().bold(),
+            InstructionSet::Fallback => style(instr_label).red().dim(),
+        };
+        let profile_label = match caps.profile {
+            HardwareProfile::Enterprise => "ENTERPRISE",
+            HardwareProfile::Performance => "PERFORMANCE",
+            HardwareProfile::LowResource => "LOW-RESOURCE",
+        };
+        let profile_styled = match caps.profile {
+            HardwareProfile::Enterprise => style(profile_label).green().bold(),
+            HardwareProfile::Performance => style(profile_label).yellow().bold(),
+            HardwareProfile::LowResource => style(profile_label).red().bold(),
         };
 
         let ram_gb = caps.total_memory / (1024 * 1024 * 1024);
-        let cache_cap_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
+        let cache_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
+        let source = if cached { "CACHED" } else { "DETECTED" };
 
-        let source_str = if cached {
-            style("CACHED").dim()
-        } else {
-            style("DETECTED").bold().underlined()
-        };
+        // Helper: render a plain-text version to measure, then build styled line
+        let hw_row_plain = format!(
+            " ⚡  CPU  {}   RAM {}GB (cache {}GB)  │  {} cores  │  score {}",
+            instr_label, ram_gb, cache_gb, caps.logical_cores, caps.resource_score
+        );
+        let prof_row_plain = format!(" ★  Profile: {}   Source: {}", profile_label, source);
 
-        let lightning = Emoji("[!] ", "[!]");
-        let shield = Emoji("[*] ", "[*]");
+        fn pad_to(plain: &str, width: usize) -> usize {
+            width.saturating_sub(plain.chars().count())
+        }
 
+        let hw_pad = pad_to(&hw_row_plain, W);
+        let prof_pad = pad_to(&prof_row_plain, W);
+
+        let top = format!("  ╭{}╮", "─".repeat(W));
+        let bottom = format!("  ╰{}╯", "─".repeat(W));
+        let mid = format!("  ├{}┤", "─".repeat(W));
+        let blank = format!("  │{}│", " ".repeat(W));
+
+        eprintln!();
+        eprintln!("{}", style(&top).color256(240).dim());
+        eprintln!("{blank}");
         eprintln!(
-            "\n{}",
-            style(
-                "╭──────────────────────────────────────────────────────────────────────────────╮"
-            )
-            .dim()
+            "  │ ⚡  {} [ {} ]   RAM {}GB (cache {}GB)  │  {} cores  │  score {}{}│",
+            style("CPU").bold().white(),
+            instr_styled,
+            style(format!("{}GB", ram_gb)).white(),
+            style(format!("{}GB", cache_gb)).white().dim(),
+            style(caps.logical_cores).white(),
+            style(caps.resource_score).magenta().bold(),
+            " ".repeat(hw_pad),
         );
+        eprintln!("{mid}");
         eprintln!(
-            "{} {} {} [ {} ] {}",
-            style("│").dim(),
-            lightning,
-            style("ADAPTIVE RESOURCE MODE:").bold(),
-            instr_str,
-            style("│").dim()
+            "  │ ★  Profile: {}   Source: {}{}│",
+            profile_styled,
+            style(source).white().dim(),
+            " ".repeat(prof_pad),
         );
-        eprintln!(
-            "{}    {} {} | {} Core(s) | Score: {} {}",
-            style("│").dim(),
-            source_str,
-            style(format!("RAM: {}GB (Cache: {}GB)", ram_gb, cache_cap_gb)).dim(),
-            caps.logical_cores,
-            style(caps.resource_score).magenta(),
-            style("│").dim()
-        );
-        eprintln!(
-            "{} {} {} [ {} ] {:>32} {}",
-            style("│").dim(),
-            shield,
-            style("PROFILER STATUS:").bold(),
-            profile_color,
-            "",
-            style("│").dim()
-        );
-        eprintln!(
-            "{}\n",
-            style(
-                "╰──────────────────────────────────────────────────────────────────────────────╯"
-            )
-            .dim()
-        );
+        eprintln!("{blank}");
+        eprintln!("{}", style(&bottom).color256(240).dim());
+        eprintln!();
     }
 
     #[cfg(not(feature = "cli"))]

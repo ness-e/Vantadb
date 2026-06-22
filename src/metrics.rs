@@ -1021,7 +1021,9 @@ fn get_native_memory() -> Option<(u64, u64)> {
 #[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
 fn get_jemalloc_stats() -> Option<(u64, u64, u64, u64, u64, u64)> {
     let _ = tikv_jemalloc_ctl::epoch::advance();
-    let allocated = tikv_jemalloc_ctl::stats::allocated::read().ok().unwrap_or(0) as u64;
+    let allocated = tikv_jemalloc_ctl::stats::allocated::read()
+        .ok()
+        .unwrap_or(0) as u64;
     let active = tikv_jemalloc_ctl::stats::active::read().ok().unwrap_or(0) as u64;
     let metadata = tikv_jemalloc_ctl::stats::metadata::read().ok().unwrap_or(0) as u64;
     let resident = tikv_jemalloc_ctl::stats::resident::read().ok().unwrap_or(0) as u64;
@@ -1137,12 +1139,18 @@ pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
         mmap_resident_bytes,
         volatile_cache_entries: LAST_VOLATILE_CACHE_ENTRIES.load(Ordering::Relaxed),
         volatile_cache_cap_bytes: LAST_VOLATILE_CACHE_CAP_BYTES.load(Ordering::Relaxed),
-        jemalloc_allocated_bytes: jemalloc_present.then(|| LAST_JEMALLOC_ALLOCATED_BYTES.load(Ordering::Relaxed)),
-        jemalloc_active_bytes: jemalloc_present.then(|| LAST_JEMALLOC_ACTIVE_BYTES.load(Ordering::Relaxed)),
-        jemalloc_metadata_bytes: jemalloc_present.then(|| LAST_JEMALLOC_METADATA_BYTES.load(Ordering::Relaxed)),
-        jemalloc_resident_bytes: jemalloc_present.then(|| LAST_JEMALLOC_RESIDENT_BYTES.load(Ordering::Relaxed)),
-        jemalloc_mapped_bytes: jemalloc_present.then(|| LAST_JEMALLOC_MAPPED_BYTES.load(Ordering::Relaxed)),
-        jemalloc_retained_bytes: jemalloc_present.then(|| LAST_JEMALLOC_RETAINED_BYTES.load(Ordering::Relaxed)),
+        jemalloc_allocated_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_ALLOCATED_BYTES.load(Ordering::Relaxed)),
+        jemalloc_active_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_ACTIVE_BYTES.load(Ordering::Relaxed)),
+        jemalloc_metadata_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_METADATA_BYTES.load(Ordering::Relaxed)),
+        jemalloc_resident_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_RESIDENT_BYTES.load(Ordering::Relaxed)),
+        jemalloc_mapped_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_MAPPED_BYTES.load(Ordering::Relaxed)),
+        jemalloc_retained_bytes: jemalloc_present
+            .then(|| LAST_JEMALLOC_RETAINED_BYTES.load(Ordering::Relaxed)),
     }
 }
 
