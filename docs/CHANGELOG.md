@@ -38,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - TSK-34: Docs reorganization — `docs/README.md` restructured by audience (End Users / Developers / Operators / Reference).
 - COM-02/03: Verified CONTRIBUTING.md and CODE_OF_CONDUCT.md already exist in `.github/` (high quality).
 - Vault unification: Obsidian vault moved to `docs/`, all wikilinks preserved, Master Index expanded with full repo documentation.
+- TSK-123: Promoted `advanced-tokenizer` to default features in `Cargo.toml`.
+- TSK-124: Documented `generate_snippet` and highlighing in `PYTHON_SDK.md`.
+- TSK-125: Aligned SLSA actions version (`@v4`) in `PYTHON_RELEASE_POLICY.md`.
+- TSK-127: Removed hallucinated functions and formalized IQL archiving in `PYTHON_SDK.md`.
 
 ### Security
 
@@ -142,6 +146,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- AUD-45: Fixed Windows file lock stress tests (`test_antivirus_file_share_read_does_not_block`, `test_backup_file_share_delete_does_not_block`) by adjusting simulation `share_mode` to correctly permit VantaDB's exclusive lock while requesting overlapped operations.
 - 16 risky `.unwrap()` calls in prod replaced with `?` + error handling (index.rs:13, storage.rs:1, wal.rs:2) (AUD-02).
 - 18 broken links in README.md + README_ES.md (CONTRIBUTING, SECURITY, SUPPORT → `.github/`, Python SDK → `docs/api/`, Benchmarks → `docs/operations/`) (AUD-05).
 - Dangling `chaos_testing.rs` reference in DURABILITY_GUARANTEES.md (AUD-06).

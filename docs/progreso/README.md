@@ -557,9 +557,15 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 | `TSK-81` | README badges (CI, PyPI, Downloads, License) | 🟡 | ✅ |
 | `TSK-82` | CHANGELOG.md formal (keepachangelog + git-cliff) | 🟡 | ✅ |
 | `TSK-83` | Issue + PR templates en GitHub | 🟡 | ✅ |
+| `TSK-123` | Promover `advanced-tokenizer` como feature default | 🔴 | ✅ |
+| `TSK-124` | Documentar `generate_snippet` y highlighting en PYTHON_SDK.md | 🔴 | ✅ |
+| `TSK-125` | Alinear docs SLSA con workflows reales (@v2→@v4) | 🔴 | ✅ |
+| `TSK-127` | Formalizar estado de IQL y limpiar alucinaciones | 🟡 | ✅ |
+| `TSK-141` | Remover `librocksdb-dev` innecesario de `rust-setup/action.yml` | 🟢 | ✅ |
 | `AUD-01` | Fix `abi3-py311` vs `requires-python >=3.8` | `pyproject.toml` especifica `requires-python = ">=3.8"` pero el target `abi3-py311` genera wheels `.cp311-abi3` que solo funcionan en Python ≥3.11. Solución: cambiar a `abi3-py38`. → ✅ Cambiado `abi3-py311` → `abi3-py38` en `vantadb-python/Cargo.toml:13` | 🔴 | ✅ |
 | `AUD-02` | Reemplazar `.unwrap()` en producción | `index.rs`, `storage.rs`, `wal.rs` contienen `.unwrap()` que causan panics en runtime. Migrados 16 `.unwrap()` a `?` + error handling. → ✅ `index.rs` (13), `storage.rs` (1), `wal.rs` (2) | 🔴 | ✅ |
 | `AUD-03` | Migrar `bincode 1.3` (RUSTSEC-2025-0141) | Migrado a `bincode 2.0` con feature `serde` para compatibilidad. → ✅ 8 archivos modificados, 27 call sites migrados. Compilación limpia. | 🔴 | ✅ |
+| `AUD-45` | Fix Windows tests (antivirus/backup lock files) | Arreglados los tests de estrés `test_antivirus_file_share_read_does_not_block` y `test_backup_file_share_delete_does_not_block` en Windows ajustando el flag `share_mode(0x1 | 0x2 | 0x4)` para permitir lectura, escritura y borrado concurrentes simulados. | 🔴 | ✅ |
 | `AUD-04` | Upgrade `pyo3 0.24.x` a ≥0.29.0 | Migrado de pyo3 0.24 → 0.29, pyo3-asyncio 0.21 → 0.23. Breaking changes migrados: `PyObject`→`Py<PyAny>`, `.downcast()`→`.cast()`, `.allow_threads()`→`.detach()`. → ✅ Compilación limpia, zero warnings. | 🔴 | ✅ |
 | `AUD-05` | Reparar broken links en READMEs | → ✅ 18 links reparados en README.md + README_ES.md: CONTRIBUTING/SECURITY/SUPPORT → `.github/`, PYTHON_SDK.md → `docs/api/`, BENCHMARKS.md → `docs/operations/`, MEMORY_MVP_BASELINE.md removido (archivo eliminado). | 🔴 | ✅ |
 | `AUD-06` | Fix referencia caída en DURABILITY_GUARANTEES.md | → ✅ `chaos_testing.rs` → `chaos_integrity.rs` en `DURABILITY_GUARANTEES.md:287` | 🔴 | ✅ |
