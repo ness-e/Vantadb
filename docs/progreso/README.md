@@ -489,3 +489,13 @@ Auditoría automatizada de 44 hallazgos ejecutada y resuelta en su totalidad el 
   - [x] CLI: `vanta-cli search --namespace ns1,ns2,... --query <q>` acepta lista separada por comas
 - **Archivos modificados:** `src/cli.rs`, `src/cli_handlers.rs`, `src/bin/vanta-cli.rs`, `src/sdk.rs`
 - **Tests:** Todos existentes actualizados con `namespaces: vec![]`
+
+### TSK-120 — Corrección de Entorno CI ARM64 (Exit Code 127) (2026-06-22)
+
+- **Objetivo:** Estabilizar la construcción de Python Wheels en `linux-arm64` resolviendo el fallo de interoperabilidad de Docker (`exit code 127`) causado por la actualización de `ubuntu-latest` a 24.04.
+- **Checklist Completado:**
+  - [x] Editar `.github/workflows/python_wheels.yml`
+  - [x] Cambiar `runs-on: ubuntu-latest` por `runs-on: ubuntu-22.04` en `build-wheels-arm64`
+  - [x] Actualizar `docker/setup-qemu-action` a `@v4`
+  - [x] Actualizar `nick-fields/retry` a `@v4`
+- **Walkthrough y Cambios:** Se implementó un anclaje del sistema operativo del runner a `ubuntu-22.04` para la compatibilidad con el ecosistema de QEMU y Docker de `maturin-action`. Asimismo, se actualizaron las dependencias a versiones modernas basadas en Node 20/24 para eliminar advertencias de seguridad y asegurar resiliencia en el pipeline.
