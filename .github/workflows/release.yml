@@ -61,6 +61,17 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
 
+      - name: Add swap space (prevent OOM)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo swapoff /swapfile || true
+          sudo rm -f /swapfile
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Checkout Code
         uses: actions/checkout@v6
 
