@@ -147,6 +147,12 @@ pub struct VantaConfig {
     /// Values: `compact` (default), `json`, `full`.
     /// Also respects legacy `VANTADB_LOG_JSON=1/true` for backward compat.
     pub log_format: LogFormat,
+    /// Timeout for acquiring the insert spin-lock (default: 2000 ms).
+    /// Configured via `VANTADB_INSERT_LOCK_TIMEOUT_MS`.
+    pub insert_lock_timeout_ms: u64,
+    /// Timeout for acquiring the process-level file lock (default: 1000 ms).
+    /// Configured via `VANTADB_FILE_LOCK_TIMEOUT_MS`.
+    pub file_lock_timeout_ms: u64,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
@@ -236,6 +242,22 @@ impl Default for VantaConfig {
                 v
             },
             sync_mode: SyncMode::default(),
+            insert_lock_timeout_ms: {
+                let v = env::var("VANTADB_INSERT_LOCK_TIMEOUT_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(2000);
+                debug!(val = v, "VANTADB_INSERT_LOCK_TIMEOUT_MS");
+                v
+            },
+            file_lock_timeout_ms: {
+                let v = env::var("VANTADB_FILE_LOCK_TIMEOUT_MS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(1000);
+                debug!(val = v, "VANTADB_FILE_LOCK_TIMEOUT_MS");
+                v
+            },
             api_key: {
                 let v = env::var("VANTADB_API_KEY").ok();
                 debug!(present = v.is_some(), "VANTADB_API_KEY");
