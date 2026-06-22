@@ -287,7 +287,8 @@ jobs:
       - name: Functional smoke test - verify published wheel
         env:
           VANTADB_EXPECTED_VERSION: ${{ steps.pkg_version.outputs.version }}
-        run: python vantadb-python/verify_published_wheel.py
+        run: python "${{ github.workspace }}/vantadb-python/verify_published_wheel.py"
+        working-directory: /tmp
 
   verify-pypi-install:
     name: Verify PyPI production install + Attest provenance
@@ -325,7 +326,8 @@ jobs:
       - name: Functional smoke test - verify published wheel
         env:
           VANTADB_EXPECTED_VERSION: ${{ steps.pkg_version.outputs.version }}
-        run: python vantadb-python/verify_published_wheel.py
+        run: python "${{ github.workspace }}/vantadb-python/verify_published_wheel.py"
+        working-directory: /tmp
 
       - name: Verify build provenance (GitHub Attestations)
         env:
