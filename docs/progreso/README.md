@@ -635,6 +635,17 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 | `DISC-09` | Skills Python dependencies | ✅ Scripts funcionales en Windows |
 | `DISC-10` | CLI commands server/search/delete/namespace | ✅ Resuelto (TSK-24/25/26/27) |
 | `AUD-WORK` | CI fixes (nextest workspace exclusions, test declarations, heavy_cert classification, numpy venv, version extraction) | ✅ 8/9 hallazgos: 9/9 resueltos (último: test-threads Windows-específico ✅) |
+| `TSK-126` | Agregar `impl Drop for StorageEngine` para liberación explícita del lock | 🟡 | ✅ |
+| `TSK-128` | Hacer configurable el timeout de `insert_lock` | 🟡 | ✅ |
+| `TSK-129` | Hacer configurable el timeout de `.vanta.lock` | 🟡 | ✅ |
+| `TSK-130` | Agregar instrumentación de heap memory drift (jemalloc stats) | 🟡 | ✅ |
+| `TSK-134` | Fix `release.yml:73` — swap validado, sin cambios | 🔴 | ✅ |
+| `TSK-135` | Fix `python_wheels.yml:60` — `dtolnay/rust-toolchain@master` → `@stable` | 🟡 | ✅ |
+| `TSK-136` | Fix `nightly_bench.yml:117` — `GITHUB_SHA` propagado a `github-script` | 🟡 | ✅ |
+| `TSK-137` | Agregar swap en macOS/Windows para release builds | 🟡 | ✅ |
+| `TSK-138` | Eliminar double checkout en `heavy_certification.yml` | 🟢 | ✅ |
+| `TSK-139` | Eliminar stale path trigger `packages/**` en `rust_ci.yml` | 🟢 | ✅ |
+| `TSK-140` | Eliminado job arm64 con `if: false` en `python_wheels.yml` | 🟢 | ✅ |
 
 ### DISC Discoveries Completados
 
@@ -656,14 +667,13 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 ### [2026-06-22] Fix Heavy Certification Workflow Failures
 
 **Objetivo:** Corregir los 4 tests que causaban fallos en el pipeline `VantaDB Heavy Certification` de GitHub Actions.
-
-**Checklist:**
-- [x] Corregir `test_stale_lock_recovery` en `tests/file_locking_stress.rs` (aserción incorrecta sobre contenido del lock file)
-- [x] Cambiar `BackendKind::InMemory` → `BackendKind::Fjall` en 3 tests de `tests/storage/wal_resilience.rs`
-- [x] Eliminar `wal_write_failure_returns_error` de `tests/edge_cases.rs` (test roto en Unix)
-- [x] Añadir `test_wal_write_failure_simulated` con failpoints en `tests/storage/wal_resilience.rs`
-- [x] Añadir paso `bash scripts/download_benchmark_datasets.sh` en `.github/workflows/heavy_certification.yml`
-- [x] Validación local: `edge_cases` (24/24 ✅), `test_stale_lock_recovery` (✅)
+- **Checklist:**
+  - [x] Corregir `test_stale_lock_recovery` en `tests/file_locking_stress.rs` (aserción incorrecta sobre contenido del lock file)
+  - [x] Cambiar `BackendKind::InMemory` → `BackendKind::Fjall` en 3 tests de `tests/storage/wal_resilience.rs`
+  - [x] Eliminar `wal_write_failure_returns_error` de `tests/edge_cases.rs` (test roto en Unix)
+  - [x] Añadir `test_wal_write_failure_simulated` con failpoints en `tests/storage/wal_resilience.rs`
+  - [x] Añadir paso `bash scripts/download_benchmark_datasets.sh` en `.github/workflows/heavy_certification.yml`
+  - [x] Validación local: `edge_cases` (24/24 ✅), `test_stale_lock_recovery` (✅)
 
 **Archivos modificados:**
 - `tests/file_locking_stress.rs` — Corregida aserción de lock stale
@@ -692,3 +702,29 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 - `src/storage.rs` — +Drop impl, 5× `lock()` → `try_lock_for()`, `refresh_index()` → `Result<()>`
 - `.github/workflows/python_wheels.yml` — -69 líneas (job ARM64 muerto), toolchain stable
 - `.github/actions/rust-setup/action.yml` — -checkout duplicado
+
+### [2026-06-22] jemalloc Instrumentation + CI/CD Swap (TSK-130/137)
+
+**Objetivo:** Instrumentar estadísticas detalladas de heap memory drift (jemalloc stats) y agregar swap space para Windows/macOS en CI/CD.
+
+**Checklist jemalloc (TSK-130):**
+- [x] Agregar dependencias `tikv-jemallocator` y `tikv-jemalloc-ctl` Unix-only.
+- [x] Configurar condicionalmente `global_allocator` en CLI y Server.
+- [x] Recolectar estadísticas (`allocated`, `active`, `metadata`, `resident`, `mapped`, `retained` bytes) y exponerlas en Prometheus y snapshots.
+- [x] Soportar mapeos de estas métricas en Python y test de serialización.
+
+**Checklist CI/CD Swap (TSK-137):**
+- [x] Configurar pagefile (8-16GB) para Windows en `release.yml` y `python_wheels.yml`.
+- [x] Liberar espacio eliminando cache en macOS para permitir dynamic paging en `release.yml` y `python_wheels.yml`.
+
+**Archivos modificados:**
+- `Cargo.toml` — dependencias condicionales Unix para jemalloc
+- `vantadb-server/Cargo.toml` — feature `jemalloc` y dependencias Unix
+- `src/bin/vanta-cli.rs` — allocator global condicional
+- `vantadb-server/src/main.rs` — allocator global condicional
+- `src/metrics.rs` — gauges de jemalloc, actualización de snapshots
+- `src/sdk.rs` — campos de jemalloc en VantaOperationalMetrics
+- `vantadb-python/src/lib.rs` — mapeo en Python SDK
+- `tests/sdk_serialization.rs` — test de serialización de métricas
+- `.github/workflows/release.yml` — pagefile/swap en CI/CD Windows/macOS
+- `.github/workflows/python_wheels.yml` — pagefile/swap en CI/CD Windows/macOS
