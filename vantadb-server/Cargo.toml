@@ -32,6 +32,7 @@ axum-server = { version = "0.7", features = ["tls-rustls"] }
 
 [features]
 custom-allocator = ["mimalloc"]
+jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
@@ -39,4 +40,8 @@ opentelemetry = ["vantadb/opentelemetry"]
 
 [dependencies.mimalloc]
 version = "0.1"
+optional = true
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies.tikv-jemallocator]
+version = "0.6"
 optional = true

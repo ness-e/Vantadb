@@ -510,6 +510,12 @@ fn operational_metrics_to_pydict(
     dict.set_item("mmap_resident_bytes", metrics.mmap_resident_bytes)?;
     dict.set_item("volatile_cache_entries", metrics.volatile_cache_entries)?;
     dict.set_item("volatile_cache_cap_bytes", metrics.volatile_cache_cap_bytes)?;
+    dict.set_item("jemalloc_allocated_bytes", metrics.jemalloc_allocated_bytes)?;
+    dict.set_item("jemalloc_active_bytes", metrics.jemalloc_active_bytes)?;
+    dict.set_item("jemalloc_metadata_bytes", metrics.jemalloc_metadata_bytes)?;
+    dict.set_item("jemalloc_resident_bytes", metrics.jemalloc_resident_bytes)?;
+    dict.set_item("jemalloc_mapped_bytes", metrics.jemalloc_mapped_bytes)?;
+    dict.set_item("jemalloc_retained_bytes", metrics.jemalloc_retained_bytes)?;
     Ok(dict.unbind().into())
 }
 

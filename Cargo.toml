@@ -87,6 +87,7 @@ failpoints = ["dep:fail"]
 remote-inference = ["reqwest"]
 python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
+jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl"]
 wasm = []
 advanced-tokenizer = ["dep:tantivy"]
 opentelemetry = [
@@ -108,6 +109,14 @@ tls = ["dep:axum-server", "dep:rustls-pemfile"]
 
 [dependencies.mimalloc]
 version = "0.1"
+optional = true
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies.tikv-jemallocator]
+version = "0.6"
+optional = true
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies.tikv-jemalloc-ctl]
+version = "0.6"
 optional = true
 
 [target.'cfg(windows)'.dependencies]
@@ -434,7 +443,7 @@ opt-level = 3
 # debug=1 emits line tables only (no full debug var info).
 [profile.dev]
 opt-level = 1
-debug = 1
+debug = 0
 strip = "none"
 
 # CI profile: release-like but without LTO for faster CI builds.
