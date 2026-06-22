@@ -172,7 +172,7 @@ fn test_antivirus_file_share_read_does_not_block() {
     // Simulate antivirus: open the lock file with FILE_SHARE_READ (0x1)
     let _antivirus_file = std::fs::OpenOptions::new()
         .read(true)
-        .share_mode(0x1) // FILE_SHARE_READ
+        .share_mode(0x1 | 0x2 | 0x4) // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
         .open(&lock_path)
         .expect("Antivirus should be able to open lock file with FILE_SHARE_READ");
 
@@ -213,7 +213,7 @@ fn test_backup_file_share_delete_does_not_block() {
     // Simulate backup software: open with FILE_SHARE_READ | FILE_SHARE_DELETE
     let backup_file = std::fs::OpenOptions::new()
         .read(true)
-        .share_mode(0x1 | 0x4) // FILE_SHARE_READ | FILE_SHARE_DELETE
+        .share_mode(0x1 | 0x2 | 0x4) // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
         .open(&lock_path)
         .expect("Backup software should open lock file with FILE_SHARE_DELETE");
 
