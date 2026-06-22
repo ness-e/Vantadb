@@ -48,6 +48,19 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+      - name: Configure pagefile (Windows — prevent OOM)
+        if: matrix.os == 'windows-latest'
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 8GB
+          maximum-size: 16GB
+
+      - name: Free Disk Space (macOS — allow dynamic pager growth)
+        if: matrix.os == 'macos-latest'
+        run: |
+          sudo rm -rf /opt/hostedtoolcache || true
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v6
 
