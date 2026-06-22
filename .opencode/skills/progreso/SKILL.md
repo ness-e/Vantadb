@@ -2,8 +2,8 @@
 name: progreso
 description: >
   Gestiona el historial unificado de progreso del proyecto VantaDB:
-  registra tareas completadas en docs/progreso/README.md, mantiene
-  sincronizado el vault MPTS en Obsidian y actualiza el backlog.
+  mueve tareas completadas entre docs/Backlog.md y
+  docs/progreso/README.md, y mantiene la documentación del proyecto.
 compatibility: opencode
 ---
 
@@ -11,11 +11,16 @@ compatibility: opencode
 
 ## Ubicaciones Clave
 
-- **Backlog maestro (Obsidian):** `C:\Users\Eros\Obsidian\Eros\Backlog.md`
-- **Changelog del proyecto (Obsidian):** `C:\Users\Eros\Obsidian\Eros\Changelog.md`
-- **Documentación del proyecto (Obsidian MPTS):** `C:\Users\Eros\Obsidian\Eros\VantaDB-MPTS\`
-- **Historial unificado de progreso:** `./docs/progreso/README.md`
+- **Backlog activo:** `./docs/Backlog.md` — tareas pendientes
+- **Historial unificado de progreso:** `./docs/progreso/README.md` — tareas completadas + hitos
 - **Archivos de planificación:** `implementation_plan.md`, `task.md`, `walkthrough.md`
+
+### Flujo de Archivos (cómo se relacionan)
+
+1. **Backlog.md** contiene tareas PENDIENTES con status ❌ (o ⏸️)
+2. Cuando una tarea alcanza ✅, se MUeVE de Backlog.md a progreso/README.md (sección "Tareas Completadas (Migradas desde Backlog)")
+3. **progreso/README.md** contiene SOLO tareas completadas + hitos + auditorías
+4. Backlog.md y progreso/README.md son MUTUAMENTE EXCLUYENTES — ninguna tarea aparece en ambos
 
 El sistema por defecto sobrescribe los artifacts de planificación locales (`implementation_plan.md`, `task.md`, `walkthrough.md`) al iniciar nuevas actividades, lo cual causa pérdida de datos históricos. Para prevenir esto y mantener el repositorio limpio y estructurado sin subcarpetas innecesarias, DEBES cumplir estrictamente este protocolo de registro en el Historial Unificado de Progreso:
 
@@ -23,39 +28,55 @@ El sistema por defecto sobrescribe los artifacts de planificación locales (`imp
 
 Inmediatamente después de generar o actualizar el `walkthrough.md` como paso final de una implementación:
 
-1. Extrae los datos clave de la tarea recién completada (identificador/nombre de la tarea, fecha, objetivo).
-2. Lee el archivo unificado de progreso: `./docs/progreso/README.md`.
-3. Concatena (añade al final) una nueva entrada estructurada para la tarea completada que consolide:
-   - **Metadatos de la Tarea:** Identificador, nombre de la tarea y fecha de finalización.
-   - **Objetivo y Plan:** Resumen muy breve de lo que se planificó en el `implementation_plan.md`.
-   - **Checklist de Tareas:** Copia de las tareas con estado completado (`[x]`) de `task.md`.
-   - **Walkthrough y Cambios:** Resumen de las modificaciones de archivos y el impacto descrito en `walkthrough.md`.
-   - **Modificaciones de última hora:** Si el plan cambió durante la ejecución, si se agregaron más pasos, o si se hicieron tareas adicionales antes de la consolidación final, detállalas bajo esta entrada.
-4. Guarda las actualizaciones en `./docs/progreso/README.md`.
-5. **Agrega una entrada en el Changelog** en `C:\Users\Eros\Obsidian\Eros\Changelog.md` con:
-   - Fecha en formato ISO 8601
-   - Versión del proyecto (`v<version>`)
-   - Nombre de la tarea como encabezado
-   - Objetivo de la tarea
-   - Archivos afectados (lista)
-   - Resultado obtenido
-6. **Actualiza los documentos relevantes del vault MPTS** en `C:\Users\Eros\Obsidian\Eros\VantaDB-MPTS\` según el tipo de tarea completada:
-   - **Cambios de CI/CD, testing, calidad** → actualiza `Operaciones, Calidad y Riesgos.md`
-   - **Tareas del roadmap completadas** → actualiza `Roadmap e Hitos de Ingeniería.md` (marcar checkboxes, % de progreso)
-   - **Cambios de arquitectura o core** → actualiza `Arquitectura Técnica y Core Engine.md`
-   - **Cambios de API o SDK** → actualiza `Especificaciones Funcionales y SDK API.md`
-   - **Cambios de estrategia o producto** → actualiza `Estrategia de Ecosistema y GTM.md` y/o `Visión y Posicionamiento Estratégico.md`
-   - **Cambios de versión o estado general** → actualiza `Master Index.md` (versión, estado, last_refined)
-7. Realiza un commit en Git que incluya `./docs/progreso/README.md`, `Changelog.md` y los archivos MPTS actualizados (ej: `git commit -m "docs: append <nombre-tarea-completada> to progress history, changelog, MPTS"`).
-8. Informa al usuario que el "Historial Unificado de Progreso", "Changelog" y el vault MPTS han sido actualizados con éxito.
+### Paso A: Extraer datos de la tarea completada
+Identificador, nombre de la tarea, fecha, objetivo del `implementation_plan.md` y `walkthrough.md`.
+
+### Paso B: Mover tarea a Historial Unificado
+1. Lee `./docs/Backlog.md` — encuentra la fila de la tarea completada (✅).
+2. Lee `./docs/progreso/README.md` — encuentra dónde insertar la nueva entrada.
+3. En `./docs/Backlog.md`:
+   - **Elimina la fila** de la tarea completada de su tabla.
+   - Si la subsección queda vacía, elimínala por completo.
+4. En `./docs/progreso/README.md`:
+   - Agrega una entrada estructurada en la sección "Tareas Completadas (Migradas desde Backlog)" o en el "Progreso Reciente" si es un hito significativo.
+   - Incluye: identificador, objetivo, checklist completado (`[x]`), archivos modificados, walkthrough.
+5. **Guarda ambos archivos.**
+
+### Paso C: Registrar en Changelog
+Si existe `./docs/CHANGELOG.md`, agrega una entrada con:
+- Fecha en formato ISO 8601
+- Versión del proyecto (`v<version>`)
+- Nombre de la tarea como encabezado
+- Objetivo de la tarea
+- Archivos afectados (lista)
+- Resultado obtenido
+
+### Paso D: Registrar en progreso Reciente (opcional)
+Si la tarea fue un hito significativo, agrega una entrada breve en la sección "Progreso Reciente" de `./docs/progreso/README.md` además de la migración.
+
+### Paso E: Commit
+```bash
+git add docs/Backlog.md docs/progreso/README.md
+git commit -m "docs: move <tarea> completada a historial"
+```
+
+### Paso F: Notificar
+Informa al usuario que Backlog.md y progreso/README.md han sido actualizados.
 
 ## Trigger 2: Al recibir una solicitud para una NUEVA actividad
 
 Si el usuario te pide una nueva tarea que requiere un nuevo `implementation_plan.md`, ANTES de sobrescribir los archivos en tu memoria local de artifacts:
 
-1. Abre `./docs/progreso/README.md` y verifica si la última tarea completada ya se encuentra registrada en él de forma consolidada.
-2. Si no se encuentra registrada, ejecuta inmediatamente el proceso del **Trigger 1** utilizando el contexto y los artifacts locales de la tarea anterior que aún conservas.
-3. Solo cuando la actualización del Historial Unificado esté confirmada y guardada en `./docs/progreso/README.md`, procede a sobrescribir y generar el nuevo Plan de Implementación local en tus artifacts.
-4. Actualiza el backlog de Obsidian marcando la tarea como completada en `C:\Users\Eros\Obsidian\Eros\Backlog.md`.
-5. Verifica que `C:\Users\Eros\Obsidian\Eros\Changelog.md` tenga una entrada para la tarea completada; si no, créala.
-6. Verifica que los documentos del vault MPTS en `C:\Users\Eros\Obsidian\Eros\VantaDB-MPTS\` reflejen el estado actual del proyecto; si no, actualízalos antes de iniciar la nueva tarea.
+1. Abre `./docs/progreso/README.md` y verifica si la última tarea completada ya se encuentra registrada.
+2. Si no se encuentra registrada, ejecuta inmediatamente **Trigger 1** usando los artifacts locales de la tarea anterior.
+3. Solo cuando la actualización esté confirmada, procede a generar el nuevo Plan de Implementación.
+4. Si la nueva tarea existe en `./docs/Backlog.md` como ❌, actualiza su estado a 🟡 En Progreso.
+
+## Trigger 3: Mantenimiento periódico (revisión mensual)
+
+1. Revisa `docs/Backlog.md` para identificar tareas que lleven >30 días como ❌ sin actividad.
+   - Si aplica, muévelas a la sección ⏸️ Icebox.
+   - Si ya no son relevantes, muévelas a ❌ No Hacer.
+2. Revisa `docs/progreso/README.md` para identificar secciones duplicadas o desactualizadas.
+3. Verifica que no haya tareas presentes en ambos archivos a la vez.
+4. Verifica que `docs/Backlog.md.new` o archivos temporales no hayan quedado huérfanos.

@@ -29,7 +29,7 @@ HNSW (Hierarchical Navigable Small World) is a dense retrieval model that struct
 
 ---
 
-## 2. VantaDB’s Lexical Subsystem (BM25 in LSM)
+## 2. VantaDB's Lexical Subsystem (BM25 in LSM)
 
 To avoid external dependencies and guarantee atomic persistence, VantaDB implements a custom BM25 index stored directly inside its Log-Structured Merge-tree (LSM) storage backend.
 
@@ -44,7 +44,7 @@ Because VantaDB stores token positions within the posting lists, it supports quo
 
 ---
 
-## 3. VantaDB’s Semantic Subsystem (SIMD HNSW)
+## 3. VantaDB's Semantic Subsystem (SIMD HNSW)
 
 For semantic search, VantaDB implements a Hierarchical Navigable Small World (HNSW) graph.
 

@@ -92,6 +92,6 @@ To ensure VantaDB is reliable enough to serve as a production memory store, we m
 
 ## Conclusion: Engineering a Tailored Memory Engine
 
-SQLite is the best database for embedded relational data. But for AI agent memory, VantaDB’s architectural deviations—LSM storage for append-heavy writes, topological BFS layouts on memory-mapped graphs, SIMD accelerations, and GIL-free batch query parallelization—provide the performance and safety edge AI agents deserve.
+SQLite is the best database for embedded relational data. But for AI agent memory, VantaDB's architectural deviations—LSM storage for append-heavy writes, topological BFS layouts on memory-mapped graphs, SIMD accelerations, and GIL-free batch query parallelization—provide the performance and safety edge AI agents deserve.
 
 To run the hardware profiles and benchmarks on your own device, clone the repository at [GitHub: ness-e/Vantadb](https://github.com/ness-e/Vantadb).

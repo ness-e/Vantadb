@@ -1,12 +1,12 @@
 # Repo Alignment Checklist
 
-Este checklist define el corte inmediato del repositorio después del release técnico inicial. Su objetivo ya no es “empujar distribución”, sino alinear narrativa, telemetría y surface area con el estado real del core.
+Este checklist define el corte inmediato del repositorio después del release técnico inicial. Su objetivo ya no es "empujar distribución", sino alinear narrativa, telemetría y surface area con el estado real del core.
 
 ## 1. Claims y documentación
 
 - [x] README reposicionado como memoria persistente embebida + vector retrieval.
 - [x] Claims de multimodelo universal rebajados o eliminados.
-- [x] Claims de “hybrid search” acotados a Hybrid Retrieval v1 con planner simple + RRF, sin paridad competitiva.
+- [x] Claims de "hybrid search" acotados a Hybrid Retrieval v1 con planner simple + RRF, sin paridad competitiva.
 - [x] SIFT1M etiquetado como benchmark no comparable para competitividad mientras el motor siga en cosine-only.
 - [x] Documentación de arquitectura reescrita para reflejar el boundary actual del producto.
 
