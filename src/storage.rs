@@ -826,7 +826,7 @@ impl StorageEngine {
 
             // Intentar adquirir el bloqueo con reintentos y backoff exponencial (timeout total ~1000ms)
             let mut delay = std::time::Duration::from_millis(5);
-            let total_limit = std::time::Duration::from_millis(1000);
+            let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
             let start_time = std::time::Instant::now();
             let mut acquired = false;
 
@@ -1332,7 +1332,7 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         // Mitigación A-01: Serializar escrituras/rebuild adquiriendo insert_lock
-        let _guard = self.insert_lock.lock();
+        let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in rebuild_vector_index".to_string()))?;
 
         // ── Paso 1: Flush del WAL antes de reubicar físicamente los offsets ──
         self.flush()?;
@@ -1390,7 +1390,7 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         // Mitigación A-01: Serializar mutaciones adquiriendo insert_lock
-        let _guard_insert = self.insert_lock.lock();
+        let _guard_insert = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in compact_layout_bfs".to_string()))?;
 
         // ── Flush previo del WAL para garantizar consistencia ────────────────
         self.flush()?;
@@ -1692,7 +1692,7 @@ impl StorageEngine {
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
         {
-            let _guard = self.insert_lock.lock();
+            let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in update_node".to_string()))?;
             let hnsw = self.hnsw.load();
             hnsw.add(
                 active_node.id,
@@ -1723,13 +1723,13 @@ impl StorageEngine {
         Ok(())
     }
 
-    pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) {
+    pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
         if !storage_offset.is_multiple_of(64) {
-            return;
+            return Ok(());
         }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let crate::node::VectorRepresentations::Full(vec) = &node.vector {
-                let _guard = self.insert_lock.lock();
+                let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string()))?;
                 let index = self.hnsw.load();
                 index.add(
                     node.id,
@@ -1737,10 +1737,10 @@ impl StorageEngine {
                     crate::node::VectorRepresentations::Full(vec.clone()),
                     storage_offset,
                 );
-                return;
+                return Ok(());
             }
         }
-        let _guard = self.insert_lock.lock();
+        let _guard = self.insert_lock.try_lock_for(std::time::Duration::from_millis(self.config.insert_lock_timeout_ms)).ok_or_else(|| VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string()))?;
         let index = self.hnsw.load();
         index.add(
             node.id,
@@ -1748,6 +1748,7 @@ impl StorageEngine {
             crate::node::VectorRepresentations::None,
             storage_offset,
         );
+        Ok(())
     }
 
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
@@ -1773,7 +1774,7 @@ impl StorageEngine {
                 .map(|n| n.storage_offset)
                 .unwrap_or(0)
         };
-        self.refresh_index(&persisted, offset);
+        self.refresh_index(&persisted, offset)?;
 
         // Libera páginas de memoria del vector store para nodos Cold (TSK-04)
         // Esto reduce el RSS sin invalidar el mmap; las páginas se cargarán bajo demanda
@@ -1874,7 +1875,7 @@ impl StorageEngine {
         self.backend.put(partition, &key, &val)?;
 
         let storage_offset = self.append_to_vstore(node)?;
-        self.refresh_index(node, storage_offset);
+        self.refresh_index(node, storage_offset)?;
         Ok(())
     }
 
@@ -2505,6 +2506,17 @@ impl StorageEngine {
                 crate::query::RelOp::Eq => 0.0,
                 crate::query::RelOp::Neq => 1.0,
                 _ => 0.5,
+            }
+        }
+    }
+}
+
+impl Drop for StorageEngine {
+    fn drop(&mut self) {
+        #[cfg(feature = "fs2")]
+        {
+            if let Some(file) = &self._lock_file {
+                let _ = fs2::FileExt::unlock(file);
             }
         }
     }
