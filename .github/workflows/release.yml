@@ -88,6 +88,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -99,7 +105,7 @@ jobs:
           cache-bin: "false"
 
       - name: Build Release Binaries
-        run: cargo build --release -p vantadb -p vantadb-server
+        run: cargo build --release --all-features -p vantadb -p vantadb-server
 
       - name: Rename and Hash (Unix)
         if: matrix.os != 'windows-latest'
@@ -144,7 +150,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           subject-path: |
-            target/release/vanta-*
+            target/release/vanta-cli-*
+            target/release/vantadb-server-*
 
       - name: Release
         uses: softprops/action-gh-release@v3
