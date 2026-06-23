@@ -160,4 +160,4 @@ jobs:
           files: |
             target/release/vanta-cli-*
             target/release/vantadb-server-*
-          fail_on_unmatched_glob: false
+          fail_on_unmatched_files: false
