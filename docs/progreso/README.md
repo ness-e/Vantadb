@@ -617,6 +617,29 @@ Estas tareas alcanzaron 100% de finalización y fueron movidas aquí desde el ba
 | `TSK-113` | TS types + docs (intellisense, quickstart Node/Bun/Deno) | 🟠 | ✅ |
 | `TSK-118` | Ejemplos TS con LangChain.js, LlamaIndex.TS, Vercel AI SDK | 🟠 | ✅ |
 | `TSK-111` | Filtros metadata expandidos ($eq, $or, $in, $exists...) | 🟡 | ✅ |
+
+### Julio 2026 — Auditoría de Código (2ª pasada)
+
+| ID | Tarea | Prioridad | Estado |
+|----|-------|-----------|--------|
+| `AUD-01` | 🔴 OTel startup `expect()` panics if endpoint unreachable (`cli_server.rs:366`) | 🔴 | ✅ |
+| `AUD-02` | 🔴 `unwrap()` on Option in mmap hot path (`storage.rs:572,629`) | 🔴 | ✅ |
+| `AUD-03` | 🔴 `from_raw_parts` sin bounds check en hot path (`index.rs:1420,1701`) | 🔴 | ✅ |
+| `AUD-04` | 🔴 Cast unsafe sin verificación de alineación (`rkyv_archives.rs:54-71`) | 🔴 | ✅ |
+| `AUD-05` | 🔴 `.ok()` silencia errores UTF-8 en parsing de claves (`sdk.rs:1351-1362`) | 🔴 | ✅ |
+| `AUD-06` | 🔴 N+1 query: `scan_nodes()` parsea metadata directo del scan, evita 1+N gets (`storage.rs:2271`) | 🔴 | ✅ |
+| `AUD-07` | 🔴 `ensure_indexes_current` unifica 3 scans en 1 (`sdk.rs:1495`) | 🔴 | ✅ |
+| `AUD-08` | 🔴 `memory_record_to_node_owned` reduce clones en `put()` (`sdk.rs:768`) | 🔴 | ✅ |
+| `AUD-09` | 🟡 4 dead CLI handlers removidas + rustyline+strsim eliminados de Cargo.toml | 🟡 | ✅ |
+| `AUD-10` | 🟡 `mapped_file_resident_bytes()` removida (`storage.rs:346`) | 🟡 | ✅ |
+| `AUD-11` | 🟡 `wal_path` asignado pero nunca leído (`engine.rs:55`) | 🟡 | ✅ |
+| `AUD-12` | 🟡 3 unused deps: `anyhow`, `num-traits`, `color-eyre` | 🟡 | ✅ |
+| `AUD-13` | 🟡 Config parse falla silenciosamente con env vars inválidas (`config.rs:179-293`) | 🟡 | ✅ |
+| `AUD-14` | 🟢 39 `pub fn` sin doc comments (74% de `sdk.rs`) | 🟢 | ✅ |
+| `AUD-15` | 🟢 6 broken links en Backlog.md (apuntan a `docs/` raíz, deben ser `docs/VantaDB-MPTS/`) | 🟢 | ✅ |
+| `AUD-16` | 🟢 15 módulos sin tests unitarios (añadidos tests a error.rs y binary_header.rs: +19 tests) | 🟢 | ✅ |
+| `AUD-17` | 🟢 Dead code en `utils/` (`DuplicatePreventionFilter`, `OriginCollisionTracker` — removidos de re-exports públicos) | 🟢 | ✅ |
+| `AUD-18` | 🟢 `#[allow(dead_code)]` obsoleto en `physical_plan.rs:query_vec_text` (falso positivo: condicionado a `remote-inference`) | 🟢 | ✅ |
 | `TSK-119` | `delete_by_filter()` — eliminar por metadata | 🟡 | ✅ |
 | `TSK-86` | `similar_to_key()` — buscar similares a existente | 🟡 | ✅ |
 | `TSK-87` | `count()` con filtros | 🟡 | ✅ |

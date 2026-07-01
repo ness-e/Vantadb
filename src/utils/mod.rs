@@ -6,5 +6,4 @@
 pub mod confidence_metrics;
 pub mod duplicate_prevention;
 
-pub use confidence_metrics::{compute_confidence_friction, OriginCollisionTracker};
-pub use duplicate_prevention::DuplicatePreventionFilter;
+pub use confidence_metrics::compute_confidence_friction;

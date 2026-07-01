@@ -85,3 +85,75 @@ impl VantaHeader {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_roundtrip() {
+        let h = VantaHeader::new(*b"VWAL", 2, 1);
+        let bytes = h.serialize();
+        assert_eq!(bytes.len(), 16);
+        let deserialized = VantaHeader::deserialize(&bytes).unwrap();
+        assert_eq!(deserialized.magic, h.magic);
+        assert_eq!(deserialized.format_version, h.format_version);
+        assert_eq!(deserialized.schema_version, h.schema_version);
+        assert_eq!(deserialized.timestamp, h.timestamp);
+    }
+
+    #[test]
+    fn deserialize_too_short() {
+        let result = VantaHeader::deserialize(&[0u8; 10]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_accepts_matching() {
+        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        assert!(h.validate(*b"VFLE", 1, "vfile").is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_mismatched_magic() {
+        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let err = h.validate(*b"VWAL", 1, "expected VWAL").unwrap_err();
+        assert!(err.to_string().contains("expected VWAL"));
+    }
+
+    #[test]
+    fn validate_rejects_mismatched_version() {
+        let h = VantaHeader::new(*b"VFLE", 1, 0);
+        let err = h.validate(*b"VFLE", 2, "version mismatch").unwrap_err();
+        assert!(err.to_string().contains("version mismatch"));
+    }
+
+    #[test]
+    fn header_size_constant() {
+        assert_eq!(VantaHeader::SIZE, 16);
+    }
+
+    #[test]
+    fn schema_version_is_preserved() {
+        let h = VantaHeader::new(*b"VNDX", 3, 42);
+        assert_eq!(h.schema_version, 42);
+    }
+
+    #[test]
+    fn timestamp_is_recent() {
+        let h = VantaHeader::new(*b"VTST", 1, 0);
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        // Allow 5 seconds of clock drift
+        assert!(
+            h.timestamp + 5000 >= now,
+            "timestamp should be within 5s of now"
+        );
+        assert!(
+            h.timestamp <= now + 5000,
+            "timestamp should not be in the future"
+        );
+    }
+}

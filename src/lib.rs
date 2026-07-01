@@ -67,7 +67,7 @@ pub use sdk::{
     VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::BackendKind;
-pub use utils::{compute_confidence_friction, DuplicatePreventionFilter, OriginCollisionTracker};
+pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};
 
 #[cfg(feature = "failpoints")]

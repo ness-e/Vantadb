@@ -2,7 +2,7 @@
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, ingenieria, fases, prioridades]
-links: "[Master Index](Master Index.md)"
+links: "[Master Index](VantaDB-MPTS/Master Index.md)"
 last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs reorg + Homebrew + color-eyre ✅)
 ---
 
@@ -10,8 +10,8 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 
 > **Propósito:** Única fuente de verdad para todas las tareas del proyecto, activas y postergadas.
 > **Historial de auditoría:** `REPORT_AUDITORIA_RECTIFICACION_2026-06-14.md`
-> **Features ya implementadas:** `docs/progreso/README.md`
-> **Verticales GTM:** [Estrategia de Ecosistema y GTM#Segmentación de Mercado 3 Verticales GTM](Estrategia de Ecosistema y GTM.mdsegmentaciãn-de-mercado-3-verticales-gtm)
+> **Features ya implementadas:** `progreso/README.md`
+> **Verticales GTM:** [Estrategia de Ecosistema y GTM#Segmentación-de-Mercado-3-Verticales-GTM](VantaDB-MPTS/Estrategia de Ecosistema y GTM.md#segmentaci%C3%B3n-de-mercado-3-verticales-gtm)
 > **Especificación CLI/TUI:** `Investigaciones/VantaDB_CLI_TUI_Design_Spec.md`
 
 ---
@@ -24,28 +24,6 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 |----|-------|-----------|--------|
 | `TSK-09` | OpenTelemetry traces (prematuro sin Prometheus básico) | 🟢 | ✅ |
 
-### 3.D Auditoría de Código — Julio 2026
-
-| ID | Tarea | Prioridad | Estado |
-|----|-------|-----------|--------|
-| `AUD-01` | 🔴 OTel startup `expect()` panics if endpoint unreachable (`cli_server.rs:366`) | 🔴 | ❌ |
-| `AUD-02` | 🔴 `unwrap()` on Option in mmap hot path (`storage.rs:572,629`) | 🔴 | ❌ |
-| `AUD-03` | 🔴 `from_raw_parts` sin bounds check en hot path (`index.rs:1420,1701`) | 🔴 | ❌ |
-| `AUD-04` | 🔴 Cast unsafe sin verificación de alineación (`rkyv_archives.rs:54-71`) | 🔴 | ❌ |
-| `AUD-05` | 🔴 `.ok()` silencia errores UTF-8 en parsing de claves (`sdk.rs:1351-1362`) | 🔴 | ❌ |
-| `AUD-06` | 🔴 N+1 query: `scan_nodes()` hace 1+N gets individuales (`storage.rs:2271`) | 🔴 | ❌ |
-| `AUD-07` | 🔴 `ensure_text_index_current` hace 3 full scans por startup (`sdk.rs:1495`) | 🔴 | ❌ |
-| `AUD-08` | 🔴 Redundant clone metadata+vector en cada `put()` (`sdk.rs:768`) | 🔴 | ❌ |
-| `AUD-09` | 🟡 5 dead CLI handlers: `cmd_search_similar`, `cmd_count`, `cmd_delete_by_filter`, `cmd_repl`, `cmd_tui` | 🟡 | ❌ |
-| `AUD-10` | 🟡 Dead function `mapped_file_resident_bytes()` (`storage.rs:346`) | 🟡 | ❌ |
-| `AUD-11` | 🟡 `wal_path` asignado pero nunca leído (`engine.rs:55`) | 🟡 | ❌ |
-| `AUD-12` | 🟡 5 unused deps: `anyhow`, `num-traits`, `rustyline`, `strsim`, `color-eyre` | 🟡 | ❌ |
-| `AUD-13` | 🟡 Config parse falla silenciosamente con env vars inválidas (`config.rs:179-293`) | 🟡 | ❌ |
-| `AUD-14` | 🟢 39 `pub fn` sin doc comments (74% de `sdk.rs`) | 🟢 | ❌ |
-| `AUD-15` | 🟢 6 broken links en Backlog.md (apuntan a `docs/` raíz, deben ser `docs/VantaDB-MPTS/`) | 🟢 | ❌ |
-| `AUD-16` | 🟢 15 módulos sin tests unitarios | 🟢 | ❌ |
-| `AUD-17` | 🟢 Dead code en `utils/` (`DuplicatePreventionFilter`, `OriginCollisionTracker`) | 🟢 | ❌ |
-| `AUD-18` | 🟢 `#[allow(dead_code)]` obsoleto en `physical_plan.rs:query_vec_text` | 🟢 | ❌ |
 
 ## FASE 4 — Launch (Jul-Sep 2026)
 
@@ -236,9 +214,9 @@ Tareas que no entran en el roadmap actual pero se mantienen como registro. Sin p
 | `DISC-11` | Unificar binarios CLI+MCP+Server | ⏸️ Postpuesto (dependencia circular) |
 ## Véase También
 
-- [Master Index](Master Index.md) — Documento padre
-- [Roadmap e Hitos de Ingeniería](Roadmap e Hitos de Ingeniería.md) — Timeline, decisiones, criterios por fase
-- [Estrategia de Ecosistema y GTM](Estrategia de Ecosistema y GTM.md) — Verticales GTM, integraciones, marketing
-- [Operaciones, Calidad y Riesgos](Operaciones, Calidad y Riesgos.md) — Testing, CI/CD, riesgos estructurales
-- `REPORT_AUDITORIA_RECTIFICACION_2026-06-14.md` — Hallazgos de auditoría (ERR, FEAT, HAZ, correcciones)
-- `docs/progreso/README.md` — Historial completo de progreso técnico
+- [Master Index](VantaDB-MPTS/Master Index.md) — Documento padre
+- [Roadmap e Hitos de Ingeniería](VantaDB-MPTS/Roadmap e Hitos de Ingeniería.md) — Timeline, decisiones, criterios por fase
+- [Estrategia de Ecosistema y GTM](VantaDB-MPTS/Estrategia de Ecosistema y GTM.md) — Verticales GTM, integraciones, marketing
+- [Operaciones, Calidad y Riesgos](VantaDB-MPTS/Operaciones, Calidad y Riesgos.md) — Testing, CI/CD, riesgos estructurales
+- `VantaDB-MPTS/REPORT_AUDITORIA_RECTIFICACION_2026-06-14.md` — Hallazgos de auditoría (ERR, FEAT, HAZ, correcciones)
+- `progreso/README.md` — Historial completo de progreso técnico

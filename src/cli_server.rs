@@ -359,11 +359,20 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
     let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
         .unwrap_or_else(|_| "http://localhost:4317".to_string());
 
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
+    let exporter = match opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
-        .with_endpoint(endpoint)
+        .with_endpoint(endpoint.clone())
         .build()
-        .expect("Failed to create OTLP exporter");
+    {
+        Ok(exporter) => exporter,
+        Err(e) => {
+            eprintln!(
+                "⚠️ Failed to create OTLP exporter (endpoint: {}), continuing without tracing: {e}",
+                endpoint
+            );
+            return;
+        }
+    };
 
     let service_name =
         std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "vantadb-server".to_string());
