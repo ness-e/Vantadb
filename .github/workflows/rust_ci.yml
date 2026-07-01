@@ -99,7 +99,7 @@ jobs:
     # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
     # exclusivamente en heavy_certification.yml (semanal / manual).
     - name: Cache benchmark dataset (GloVe 100d)
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: data/benchmark/glove.6B.100d.txt
         key: glove-100d-v1
@@ -199,7 +199,7 @@ jobs:
         tool: nextest
 
     - name: Cache benchmark dataset (GloVe 100d)
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: data/benchmark/glove.6B.100d.txt
         key: glove-100d-v1
