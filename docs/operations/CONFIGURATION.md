@@ -63,9 +63,10 @@ db = vantadb.VantaDB(
     "./vanta_data",
     read_only=False,
     memory_limit_bytes=512_000_000,
-    backend=None,     # "[[rocksdb]]", "memory", or None ([[fjall]])
+    backend=None,     # "rocksdb", "memory", or None (fjall)
 )
 ```
+*Note: Available backends include [[rocksdb]] and [[fjall]] (default).*
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

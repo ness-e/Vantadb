@@ -30,7 +30,7 @@ db.put(
     vector=[0.1] * 384, # Dummy vector for example
 )
 
-# [[hybrid-search|Hybrid search]] (memory API)
+# Hybrid search (memory API)
 results = db.search_memory(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",
@@ -48,6 +48,7 @@ if results and results.get("records"):
     )
     print(f"Snippet: {snippet}")
 ```
+*Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
 
 ## API Reference
 

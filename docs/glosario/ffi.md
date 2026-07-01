@@ -73,7 +73,7 @@ extern SearchResult* vanta_search(
 Python
   │
   ▼
-[[pyo3]] (Framework de bindings)
+PyO3 (Framework de bindings)
   │
   ▼
 FFI Boundary (C ABI)
@@ -81,6 +81,7 @@ FFI Boundary (C ABI)
   ▼
 Rust Core (VantaDB Engine)
 ```
+*Platform:* [[pyo3]]
 
 ### Example of FFI Crossover
 
@@ -157,7 +158,7 @@ impl VantaEmbedded {
 ### 4. Concurrency and [[gil]]
 
 ```rust
-// Liberar [[gil]] antes de operación pesada
+// Liberar GIL antes de operación pesada
 fn search(&self, py: Python<'_>, vector: Vec<f32>) -> PyResult<Vec<SearchResult>> {
     py.allow_threads(|| {
         // Sin GIL: otros threads Python pueden correr
@@ -165,6 +166,7 @@ fn search(&self, py: Python<'_>, vector: Vec<f32>) -> PyResult<Vec<SearchResult>
     })
 }
 ```
+*Note: Thread management requires releasing the [[gil|GIL]].*
 
 ## FFI Overhead
 
@@ -322,7 +324,7 @@ pub fn greet(name: &str) -> String {
 **Impact:** Possible panics or unexpected behavior with invalid inputs.
 
 **Mitigation:**
-``rust
+```rust
 fn put(&self, metadata: HashMap<String, Value>) -> PyResult<()> {
     // Validate types BEFORE processing
     for (key, value) in &metadata {

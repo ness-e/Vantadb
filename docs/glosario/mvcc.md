@@ -1,49 +1,48 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [concurrencia, aislamiento, transacciones]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Multi-Version Concurrency Control, MVCC]
-description: "Método de control de concurrencia donde cada transacción ve un snapshot consistente de la base de datos, permitiendo que lectores y escritores operen simultáneamente sin bloquearse"
+description: "Concurrency control method where each transaction sees a consistent snapshot of the database, allowing readers and writers to operate simultaneously without blocking"
 ---
+#MVCC—Multi-Version Concurrency Control
 
-# MVCC — Multi-Version Concurrency Control
+##Definition
 
-## Definición
+**MVCC** is a method of concurrency control where **each transaction sees a consistent snapshot** of the database, allowing readers and writers to operate simultaneously without blocking each other.
 
-**MVCC** es un método de control de concurrencia donde **cada transacción ve un snapshot consistente** de la base de datos, permitiendo que lectores y escritores operen simultáneamente sin bloquearse mutuamente.
+## How It Works
 
-## Cómo Funciona
-
-### Concepto Básico
+### Basic Concept
 
 ```
 Transacción A (lectura):
 - Ve snapshot del tiempo T1
 - No ve cambios de transacciones posteriores
 
-Transacción B (escritura):
-- Escribe nueva versión de datos
-- No bloquea a Transacción A
+Transaction B (write):
+- Write new version of data
+- Does not block Transaction A
 
-Resultado:
-- Lectores no bloquean escritores
-- Escritores no bloquean lectores
-- Cada transacción ve vista consistente
+Result:
+- Readers do not block writers
+- Writers do not block readers
+- Every transaction sees consistent view
 ```
 
-## Uso en VantaDB
+## Usage in VantaDB
 
-MVCC es implementado por el backend [Fjall](Fjall.md) para transacciones concurrentes.
+MVCC is implemented by the [[fjall]] backend for concurrent transactions.
 
-## Véase También
+## See Also
 
-- [Fjall](Fjall.md) — Backend con MVCC nativo
-- [Transaccional](Transaccional.md) — Propiedad que MVCC habilita
-- [RwLock](RwLock.md) — Alternativa más simple
+- [[fjall]] — Backend with native MVCC
+- [[transactional]] — Property that MVCC enables
+- [[rwlock]] — Simpler alternative
 
 ---
 
-*MVCC permite concurrencia sin bloqueos globales.*
+*MVCC allows concurrency without global locks.*
 

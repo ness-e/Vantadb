@@ -1,17 +1,16 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [concurrencia, lock, sincronizacion, rust]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Read-Write Lock]
 ---
+#RwLock—Read-Write Lock
 
-# RwLock — Read-Write Lock
+##Definition
 
-## Definición
-
-Un **RwLock** (Read-Write Lock) es una primitiva de sincronización que permite **múltiples lectores simultáneos** o **un solo escritor exclusivo**, optimizando para workloads con más lecturas que escrituras.
+A **RwLock** (Read-Write Lock) is a synchronization primitive that allows **multiple simultaneous readers** or **a single dedicated writer**, optimizing for workloads with more reads than writes.
 
 ## Cómo Funciona
 
@@ -24,7 +23,7 @@ RwLock<T>
     lock.write() → WriteGuard<T>
 ```
 
-## Uso en VantaDB
+## Usage in VantaDB
 
 ```rust
 use std::sync::{Arc, RwLock};
@@ -33,7 +32,7 @@ pub struct VantaEmbedded {
     engine: Arc<RwLock<Engine>>,
 }
 
-// Lectura (múltiples threads)
+// Reading (multiple threads)
 fn get(&self, key: &str) -> Result<Option<Value>> {
     let engine = self.engine.read().unwrap();
     engine.get(key)
@@ -46,7 +45,7 @@ fn put(&self, key: &str, value: Value) -> Result<()> {
 }
 ```
 
-## Ventajas vs Mutex
+## Advantages vs Mutex
 
 | Dimensión | RwLock | Mutex |
 |-----------|--------|-------|
@@ -55,31 +54,31 @@ fn put(&self, key: &str, value: Value) -> Result<()> {
 | **Overhead** | Mayor | Menor |
 | **Caso de uso** | Read-heavy (90%+ lecturas) | Balanced o write-heavy |
 
-## Problemas Conocidos
+## Known Issues
 
-### AUD-03: Rebuild sin Lock Global
+### AUD-03: Rebuild without Global Lock
 
-**Severidad:** ⚠️ Alta
+**Severity:** ⚠️ High
 
-**Descripción:** `rebuild_index()` no adquiere un lock exclusivo, permitiendo lecturas concurrentes durante la reconstrucción.
+**Description:** `rebuild_index()` does not acquire an exclusive lock, allowing concurrent reads during rebuild.
 
-**Impacto:** Lectores pueden ver índice parcialmente reconstruido.
+**Impact:** Readers can see partially reconstructed index.
 
-**Mitigación:**
+**Mitigation:**
 ```rust
 fn rebuild_index(&self) -> Result<()> {
-    let mut engine = self.engine.write().unwrap();  // Lock exclusivo
+    let mut engine = self.engine.write().unwrap();  // Exclusive lock
     engine.rebuild_index()
 }
 ```
 
-## Véase También
+## See Also
 
-- [File Locking](File Locking.md) — Lock a nivel de proceso
-- [GIL](GIL.md) — Lock global de Python (diferente)
-- [Transaccional](Transaccional.md) — RwLock ayuda a garantizar aislamiento
+- [[file-locking]] — Lock at the process level
+- [[gil]] — Python global lock (different)
+- [[transactional]] — RwLock helps ensure isolation
 
 ---
 
-*RwLock es la primitiva de concurrencia interna de VantaDB para proteger el estado del engine.*
+*RwLock is VantaDB's internal concurrency primitive to protect engine state.*
 

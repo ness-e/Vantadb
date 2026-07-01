@@ -187,19 +187,20 @@ Q3 2026 (Jul-Sep)
 
 Q4 2026 (Oct-Dec)
 ├── Oct ── 4.F Distribution (ARM64, Homebrew), 4.G DevEx
-├── Nov ── Phase 5: TSK-72 (encryption), BIZ-02 ([[wal|WAL]] shipping), enterprise pilots
+├── Nov ── Phase 5: TSK-72 (encryption), BIZ-02 (WAL shipping), enterprise pilots
 └── Dec ── CLD-01 (Cloud alpha), CLD-02 (pitch deck), CLD-04 (case studies)
 
 Q1 2027
 ├── Enterprise pilots expansion
 ├── Pre-seed fundraising preparation
-└── [[wal|WAL]] shipping MVP
+└── WAL shipping MVP
 
 Q2 2027
 ├── VantaDB Cloud beta (Fly.io)
 ├── 3+ enterprise pilots
 └── Target: $10K MRR
 ```
+*Note: Replication relies on [[wal|WAL]] shipping.*
 
 ---
 

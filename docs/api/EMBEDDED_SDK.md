@@ -74,12 +74,13 @@ pub struct VantaMemorySearchRequest {
     pub namespace: String,
     pub query_vector: Vec<f32>,       // empty = no vector search
     pub filters: VantaMemoryMetadata, // equality filter on metadata
-    pub text_query: Option<String>,   // [[bm25|BM25]] lexical query
+    pub text_query: Option<String>,   // BM25 lexical query
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
     pub explain: bool,                // include score breakdown
 }
 ```
+*Note: Lexical search uses the [[bm25|BM25]] algorithm.*
 
 ### `VantaMemoryRecord`
 

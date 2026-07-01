@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [io, memoria, zero-copy, performance]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Memory-Mapped I/O, Memory Mapping]
-description: "Syscall del sistema operativo que mapea un archivo de disco directamente al espacio de direcciones virtuales de un proceso, permitiendo acceso zero-copy al contenido del archivo"
+description: "Operating system syscall that maps a disk file directly to the virtual address space of a process, allowing zero-copy access to the file's contents"
 ---
-
 # mmap — Memory-Mapped I/O
 
-## Definición
+##Definition
 
-**mmap** (memory mapping) es una syscall del sistema operativo que **mapea un archivo de disco directamente al espacio de direcciones virtuales** de un proceso, permitiendo acceder al contenido del archivo como si fuera memoria RAM, sin copias explícitas.
+**mmap** (memory mapping) is an operating system syscall that **maps a disk file directly to the virtual address space** of a process, allowing access to the contents of the file as if it were RAM, without explicit copies.
 
-## Cómo Funciona
+## How It Works
 
-### Sin mmap (Lectura Tradicional)
+### Without mmap (Traditional Reading)
 
 ```
 Disco: archivo.dat (10 GB)
@@ -33,10 +32,10 @@ User Buffer (copia 2)
     ▼
 Aplicación
 
-Total: 2 copias, 2 context switches
+Total: 2 copies, 2 context switches
 ```
 
-### Con mmap (Zero-Copy)
+### With mmap (Zero-Copy)
 
 ```
 Disco: archivo.dat (10 GB)
@@ -53,7 +52,7 @@ Espacio Virtual del Proceso
     ▼
 RAM: Solo las páginas accedidas
 
-Total: 0 copias, 1 context switch
+Total: 0 copies, 1 context switch
 ```
 
 ## Ventajas de mmap
@@ -66,18 +65,18 @@ Total: 0 copias, 1 context switch
 | **Acceso Aleatorio** | Seek instantáneo a cualquier offset |
 | **Compartido** | Múltiples procesos pueden mapear el mismo archivo |
 
-## Uso en VantaDB
+## Usage in VantaDB
 
-### Persistencia del Índice [HNSW](HNSW.md)
+### Persistencia del Índice [[hnsw]]
 
 ```rust
 use memmap2::Mmap;
 
 pub struct HnswIndex {
-    // Archivo en disco mapeado a memoria
+    // File on memory mapped disk
     mmap: Mmap,
     
-    // Metadata del índice
+    // Index metadata
     num_vectors: usize,
     dimensions: usize,
     entry_point: usize,
@@ -88,7 +87,7 @@ impl HnswIndex {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         
-        // Leer header
+        // Read header
         let header: &IndexHeader = unsafe {
             &*(mmap.as_ptr() as *const IndexHeader)
         };
@@ -120,13 +119,13 @@ impl HnswIndex {
 | **Leer archivo + parsear** | ~5-10 segundos |
 | **mmap** | **~10 milisegundos** |
 
-**Razón:** mmap no lee el archivo, solo crea punteros virtuales. Las páginas se cargan bajo demanda (page faults).
+**Reason:** mmap does not read the file, it only creates virtual pointers. Pages are loaded on demand (page faults).
 
 ## Page Faults
 
-### Qué es un Page Fault
+### What is a Page Fault
 
-Cuando accedes a una página mapeada que **no está en RAM**:
+When you access a mapped page that is **not in RAM**:
 
 ```
 1. CPU intenta acceder a dirección virtual
@@ -137,19 +136,19 @@ Cuando accedes a una página mapeada que **no está en RAM**:
 6. Proceso continúa
 ```
 
-### Tipos de Page Faults
+### Types of Page Faults
 
 | Tipo | Descripción | Latencia |
 |------|-------------|----------|
 | **Minor** | Página está en RAM (page cache) | ~1 μs |
 | **Major** | Página debe leerse del disco | ~1-10 ms |
 
-### Optimización: Prefetching
+### Optimization: Prefetching
 
 ```rust
 use libc::{madvise, MADV_WILLNEED};
 
-// Decirle al OS que pronto accederemos a estas páginas
+// Tell the OS that we will soon access these pages
 unsafe {
     madvise(
         mmap.as_ptr() as *mut libc::c_void,
@@ -159,27 +158,27 @@ unsafe {
 }
 ```
 
-**Efecto:** El OS carga páginas en background, reduciendo major faults.
+**Effect:** The OS loads pages in the background, reducing major faults.
 
-## Consideraciones de Performance
+## Performance Considerations
 
-### Cuándo mmap es Rápido
+### When mmap is Fast
 
-✅ **Acceso aleatorio** a archivos grandes
-✅ **Lectura repetida** del mismo archivo (page cache)
-✅ **Archivos > RAM** (solo carga lo necesario)
-✅ **Múltiples procesos** leyendo el mismo archivo
+✅ **Random access** to large files
+✅ **Repeated reading** of the same file (page cache)
+✅ **Files > RAM** (only load what is necessary)
+✅ **Multiple processes** reading the same file
 
-### Cuándo mmap es Lento
+### When mmap is Slow
 
-❌ **Acceso secuencial** a archivos pequeños (overhead de page faults)
-❌ **Escrituras frecuentes** (requiere msync)
-❌ **Archivos en red** (NFS, SMB) — latencia impredecible
-❌ **SSD muy rápido** — a veces read() + buffer es más rápido
+❌ **Sequential access** to small files (page faults overhead)
+❌ **Frequent writes** (requires msync)
+❌ **Network files** (NFS, SMB) — unpredictable latency
+❌ **Very fast SSD** — sometimes read() + buffer is faster
 
-## Métricas en VantaDB
+## Metrics in VantaDB
 
-### Telemetría de mmap
+### mmap Telemetry
 
 ```rust
 pub struct MmapMetrics {
@@ -217,7 +216,7 @@ impl MmapMetrics {
 }
 ```
 
-### Ejemplo de Métricas
+### Metrics Example
 
 ```
 Dataset: 1M vectores (384d)
@@ -229,21 +228,21 @@ mmap metrics:
 - minor_faults: 12,345
 - major_faults: 45,678
 
-Interpretación:
-- Solo 180 MB en RAM (12% de 1.5 GB)
-- Mayoría de accesos son a page cache (minor faults)
-- Algunos major faults durante warmup
+Interpretation:
+- Only 180 MB in RAM (12% of 1.5 GB)
+- Most accesses are to page cache (minor faults)
+- Some major faults during warmup
 ```
 
-## Seguridad de mmap
+## mmap security
 
-### Riesgos
+### Risks
 
-1. **Punteros dangling:** Si el archivo se trunca, los punteros son inválidos
-2. **SIGBUS:** Acceder a página inválida mata el proceso
-3. **Concurrencia:** Múltiples procesos escribiendo = corrupción
+1. **Dangling pointers:** If the file is truncated, the pointers are invalid
+2. **SIGBUS:** Accessing an invalid page kills the process
+3. **Concurrency:** Multiple processes writing = corruption
 
-### Mitigaciones en VantaDB
+### Mitigations in VantaDB
 
 ```rust
 pub struct SafeMmap {
@@ -254,21 +253,21 @@ pub struct SafeMmap {
 
 impl SafeMmap {
     pub fn get_vector(&self, idx: usize) -> Result<&[f32]> {
-        // 1. Validar índice
+        // 1. Validate index
         if idx >= self.num_vectors {
             return Err(Error::IndexOutOfBounds);
         }
         
-        // 2. Validar checksum (opcional, costoso)
+        // 2. Validate checksum (optional, expensive)
         // self.validate_checksum()?;
         
-        // 3. Acceder a memoria
+        // 3. Access memory
         Ok(unsafe { self.get_vector_unchecked(idx) })
     }
 }
 ```
 
-## Comparación: mmap vs read()
+## Comparison: mmap vs read()
 
 | Dimensión | mmap | read() + buffer |
 |-----------|------|-----------------|
@@ -280,51 +279,51 @@ impl SafeMmap {
 | **Archivos > RAM** | ✅ Funciona | ❌ Requiere streaming |
 | **Overhead CPU** | Bajo (page faults) | Alto (copias) |
 
-### Cuándo Usar Cada Uno
+### When to Use Each
 
-**Usar mmap:**
-- Índices vectoriales grandes (>100K vectores)
-- Lectura aleatoria frecuente
-- Archivos > RAM disponible
+**Use mmap:**
+- Large vector indices (>100K vectors)
+- Frequent random reading
+- Files > Available RAM
 
-**Usar read():**
-- Archivos pequeños (<100 MB)
-- Lectura secuencial
-- Escrituras frecuentes
-- Archivos en red (NFS)
+**Use read():**
+- Small files (<100 MB)
+- Sequential reading
+- Frequent writings
+- Network Files (NFS)
 
-## Problemas Conocidos
+## Known Issues
 
-### AUD-08: mmap en Windows
+### AUD-08: mmap on Windows
 
-**Severidad:** ℹ️ Media
+**Severity:** ℹ️ Medium
 
-**Descripción:** mmap en Windows tiene comportamiento diferente (file locking más estricto).
+**Description:** mmap on Windows has different behavior (stricter file locking).
 
-**Impacto:** Posibles errores al eliminar archivos mapeados.
+**Impact:** Possible errors when deleting mapped files.
 
-**Mitigación:**
+**Mitigation:**
 ```rust
 #[cfg(windows)]
 fn safe_unmap(mmap: Mmap, path: &Path) -> Result<()> {
-    drop(mmap);  // Liberar mmap primero
-    std::thread::sleep(Duration::from_millis(10));  // Esperar
-    std::fs::remove_file(path)?;  // Ahora sí se puede borrar
+    drop(mmap);  // Release mmap first
+    std::thread::sleep(Duration::from_millis(10));  // Wait
+    std::fs::remove_file(path)?;  // Now it can be deleted
     Ok(())
 }
 ```
 
-## Véase También
+## See Also
 
-- [HNSW](HNSW.md) — Índice que usa mmap para persistencia
-- [Vectores](Vectores.md) — Datos almacenados vía mmap
-- [Zero-Config](Zero-Config.md) — mmap habilita carga instantánea
+- [[hnsw]] — Index used by mmap for persistence
+- [[vectors]] — Data stored via mmap
+- [[zero-config]] — mmap enables instant loading
 
-### Documentación de Implementación Relacionada
-- [[../architecture/HNSW_INDEX|HNSW Index Architecture]]
-- [[../operations/MEMORY_TELEMETRY|Memory Telemetry]]
+### Related Implementation Documentation
+- [[../architecture/hnsw_index|HNSW Index Architecture]]
+- [[../operations/memory_telemetry|Memory Telemetry]]
 
 ---
 
-*mmap es la tecnología que permite a VantaDB manejar datasets más grandes que la RAM disponible.*
+*mmap is the technology that allows VantaDB to handle datasets larger than the available RAM.*
 

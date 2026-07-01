@@ -107,7 +107,7 @@ impl VantaEmbedded {
             text: text.to_string(),
         };
         
-        // 2. Append al [[wal]]
+        // 2. Append al WAL
         self.wal.append(&mutation)?;
         
         // 3. fsync() del WAL ← DURABILIDAD
@@ -121,6 +121,7 @@ impl VantaEmbedded {
     }
 }
 ```
+*Note: Write operations are logged to the [[wal|Write-Ahead Log (WAL)]] prior to fsync.*
 
 ### fsync implementation
 
