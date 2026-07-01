@@ -102,6 +102,7 @@ pub fn memory_node_id(namespace: &str, key: &str) -> u64 {
     hasher.finish()
 }
 
+#[tracing::instrument]
 pub fn cmd_put(
     db_path: &str,
     namespace: &str,
@@ -201,6 +202,7 @@ pub fn cmd_put(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -303,6 +305,7 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
     }
 }
 
+#[tracing::instrument]
 pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -402,6 +405,7 @@ pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> 
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_rebuild_index(db_path: &str, _verbose: bool) -> Result<()> {
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -483,6 +487,7 @@ pub fn cmd_rebuild_index(db_path: &str, _verbose: bool) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_audit_index(
     db_path: &str,
     namespace: Option<&str>,
@@ -608,6 +613,7 @@ pub fn cmd_audit_index(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
@@ -634,6 +640,7 @@ pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> Result<()> {
     use std::io::Write;
 
@@ -739,6 +746,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()> {
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -810,6 +818,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
@@ -907,6 +916,7 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     let term = Term::stdout();
@@ -1064,6 +1074,7 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_server(
     db_path: &str,
     http: bool,
@@ -1196,12 +1207,14 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_completions(shell: Shell) {
     let mut cmd = Cli::command();
     let shell: clap_complete::Shell = shell.into();
     clap_complete::generate(shell, &mut cmd, "vanta-cli", &mut std::io::stdout());
 }
 
+#[tracing::instrument]
 pub fn cmd_search(
     db_path: &str,
     namespace: &str,
@@ -1344,6 +1357,7 @@ pub fn cmd_search(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1374,6 +1388,7 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1430,6 +1445,7 @@ pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1492,6 +1508,7 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_search_similar(
     db_path: &str,
     namespace: &str,
@@ -1637,6 +1654,7 @@ pub fn cmd_search_similar(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_count(
     db_path: &str,
     namespace: &str,
@@ -1696,6 +1714,7 @@ pub fn cmd_count(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_delete_by_filter(
     db_path: &str,
     namespace: &str,
@@ -1774,6 +1793,7 @@ pub fn cmd_delete_by_filter(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()> {
     let src = std::path::Path::new(db_path);
     if !src.exists() {
@@ -1856,6 +1876,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_restore(
     db_path: &str,
     input: &str,
@@ -1942,6 +1963,7 @@ pub fn cmd_restore(
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -2057,6 +2079,7 @@ pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -2207,6 +2230,7 @@ pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> 
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -2349,6 +2373,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_repl(db_path: &str, command: Option<&str>) -> Result<()> {
     let db = open_embedded(db_path, true)?;
 
@@ -2543,6 +2568,7 @@ pub fn cmd_repl(db_path: &str, command: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument]
 pub fn cmd_tui(db_path: &str) -> Result<()> {
     let term = Term::stdout();
     let _ = term.write_line("");

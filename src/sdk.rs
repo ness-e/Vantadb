@@ -844,6 +844,7 @@ fn matches_memory_filters(record: &VantaMemoryRecord, filters: &VantaMemoryMetad
 }
 
 impl VantaEmbedded {
+    #[tracing::instrument(skip(engine))]
     pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
         let config = engine.config.clone();
         Self {
@@ -852,6 +853,7 @@ impl VantaEmbedded {
         }
     }
 
+    #[tracing::instrument(skip(path), err)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let config = VantaConfig {
             storage_path: path.as_ref().to_string_lossy().into_owned(),
@@ -860,6 +862,7 @@ impl VantaEmbedded {
         Self::open_with_config(config)
     }
 
+    #[tracing::instrument(skip(config), err)]
     pub fn open_with_config(config: VantaConfig) -> Result<Self> {
         let final_config = config.clone();
         set_prefetch_mode(config.prefetch_mode);
@@ -2492,6 +2495,7 @@ impl VantaEmbedded {
         Ok(record)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn insert_node(&self, input: VantaNodeInput) -> Result<()> {
         let engine = self.engine_handle()?;
         let mut node = UnifiedNode::new(input.id);
@@ -2512,12 +2516,14 @@ impl VantaEmbedded {
         engine.insert(&node)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn get_node(&self, id: u64) -> Result<Option<VantaNodeRecord>> {
         self.engine_handle()?
             .get(id)
             .map(|node| node.map(Into::into))
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<()> {
         self.engine_handle()?.delete(id, reason)
     }
@@ -2527,6 +2533,7 @@ impl VantaEmbedded {
     /// Validates all inputs upfront (fail-fast on invalid namespaces/keys/metadata),
     /// then processes the batch in parallel using Rayon for up to 5x throughput
     /// improvement over sequential `put()` calls.
+    #[tracing::instrument(skip(self, inputs), err)]
     pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
         #[cfg(feature = "rayon")]
         use rayon::prelude::*;
@@ -2600,6 +2607,7 @@ impl VantaEmbedded {
         results.into_iter().collect()
     }
 
+    #[tracing::instrument(skip(self, input), err)]
     pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
@@ -2648,6 +2656,7 @@ impl VantaEmbedded {
         Ok(record)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn get(&self, namespace: &str, key: &str) -> Result<Option<VantaMemoryRecord>> {
         validate_namespace(namespace)?;
         validate_key(key)?;
@@ -2667,6 +2676,7 @@ impl VantaEmbedded {
         }
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
         validate_namespace(namespace)?;
         validate_key(key)?;
@@ -2682,6 +2692,7 @@ impl VantaEmbedded {
         Ok(true)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn list_namespaces(&self) -> Result<Vec<String>> {
         let engine = self.engine_handle()?;
         let mut namespaces = BTreeSet::new();
@@ -2706,6 +2717,7 @@ impl VantaEmbedded {
         Ok(namespaces.into_iter().collect())
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn list(
         &self,
         namespace: &str,
@@ -2727,6 +2739,7 @@ impl VantaEmbedded {
         })
     }
 
+    #[tracing::instrument(skip(self, request), err)]
     pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
@@ -2840,6 +2853,7 @@ impl VantaEmbedded {
         }
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -2862,6 +2876,7 @@ impl VantaEmbedded {
     /// superiores del HNSW) en las primeras páginas virtuales del archivo.
     ///
     /// Retorna el número de nodos compactados.
+    #[tracing::instrument(skip(self), err)]
     pub fn compact_layout(&self) -> Result<u64> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -2871,6 +2886,7 @@ impl VantaEmbedded {
         self.engine_handle()?.compact_layout_bfs()
     }
 
+    #[tracing::instrument(skip(self, path), err)]
     pub fn export_namespace(
         &self,
         path: impl AsRef<Path>,
@@ -2882,6 +2898,7 @@ impl VantaEmbedded {
         self.write_export_file(path.as_ref(), records, vec![namespace.to_string()], started)
     }
 
+    #[tracing::instrument(skip(self, path), err)]
     pub fn export_all(&self, path: impl AsRef<Path>) -> Result<VantaExportReport> {
         let started = Instant::now();
         let namespaces = self.list_namespaces()?;
@@ -2924,6 +2941,7 @@ impl VantaEmbedded {
         })
     }
 
+    #[tracing::instrument(skip(self, records), err)]
     pub fn import_records(&self, records: Vec<VantaMemoryRecord>) -> Result<VantaImportReport> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -2955,6 +2973,7 @@ impl VantaEmbedded {
         Ok(report)
     }
 
+    #[tracing::instrument(skip(self, path), err)]
     pub fn import_file(&self, path: impl AsRef<Path>) -> Result<VantaImportReport> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -3000,6 +3019,7 @@ impl VantaEmbedded {
     /// state marker against canonical memory records. It never repairs state;
     /// callers should use `rebuild_index` when the report returns `passed =
     /// false`.
+    #[tracing::instrument(skip(self), err)]
     pub fn audit_text_index(&self, namespace: Option<&str>) -> Result<VantaTextIndexAuditReport> {
         if let Some(namespace) = namespace {
             validate_namespace(namespace)?;
@@ -3012,6 +3032,7 @@ impl VantaEmbedded {
     ///
     /// The audit decodes and compares individual fields (TF, positions, DF, doc lengths)
     /// across all postings against the canonical memory records.
+    #[tracing::instrument(skip(self), err)]
     pub fn audit_text_index_deep(
         &self,
         namespace: Option<&str>,
@@ -3025,6 +3046,7 @@ impl VantaEmbedded {
 
     /// Public repair primitive for the text index. Rebuilds all postings,
     /// doc stats, term stats, and namespace stats from canonical memory records.
+    #[tracing::instrument(skip(self), err)]
     pub fn repair_text_index(&self) -> Result<VantaTextIndexRepairReport> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -3044,6 +3066,7 @@ impl VantaEmbedded {
         })
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn operational_metrics(&self) -> VantaOperationalMetrics {
         if let Ok(engine) = self.engine_handle() {
             let stats = engine.get_memory_stats();
@@ -3061,6 +3084,7 @@ impl VantaEmbedded {
     /// K-NN vector search across all nodes via HNSW index.
     ///
     /// Complejidad: O(log N) en promedio. Anteriormente era O(N) brute-force.
+    #[tracing::instrument(skip(self, vector), err)]
     pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {
         if vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
@@ -3088,6 +3112,7 @@ impl VantaEmbedded {
     ///
     /// Delega al `StorageEngine::flush()` que sincroniza el backend KV y el
     /// archivo de vectores MMap. Antes era un no-op silencioso.
+    #[tracing::instrument(skip(self), err)]
     pub fn flush(&self) -> Result<()> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -3102,6 +3127,7 @@ impl VantaEmbedded {
     ///
     /// Safe to call at any time.  Archived WALs can be removed
     /// once no longer needed for crash recovery.
+    #[tracing::instrument(skip(self), err)]
     pub fn compact_wal(&self) -> Result<()> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -3114,6 +3140,7 @@ impl VantaEmbedded {
     /// Scan all memory records and physically delete those whose
     /// ``expires_at_ms`` deadline has passed.  Returns the number
     /// of records purged.
+    #[tracing::instrument(skip(self), err)]
     pub fn purge_expired(&self) -> Result<u64> {
         if self.config.read_only {
             return Err(VantaError::Execution(
@@ -3156,6 +3183,7 @@ impl VantaEmbedded {
     }
 
     /// Return stable runtime capabilities.
+    #[tracing::instrument(skip(self))]
     pub fn capabilities(&self) -> VantaCapabilities {
         VantaCapabilities {
             runtime_profile: VantaRuntimeProfile::Performance,
@@ -3167,6 +3195,7 @@ impl VantaEmbedded {
     }
 
     /// Add a directed edge between two nodes.
+    #[tracing::instrument(skip(self), err)]
     pub fn add_edge(
         &self,
         source_id: u64,
@@ -3187,6 +3216,7 @@ impl VantaEmbedded {
     }
 
     /// Flush and close the embedded engine handle.
+    #[tracing::instrument(skip(self), err)]
     pub fn close(&self) -> Result<()> {
         if let Err(e) = self.flush() {
             tracing::warn!("flush failed: {e}");
@@ -3197,6 +3227,7 @@ impl VantaEmbedded {
     }
 
     /// Execute an IQL query.
+    #[tracing::instrument(skip(self), err)]
     pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
         let engine = self.engine_handle()?;
         let executor = Executor::new(&engine);
@@ -3213,6 +3244,7 @@ impl VantaEmbedded {
     ///
     /// # Returns
     /// * `Option<String>` - The snippet with optional highlighting, or None if no match found
+    #[tracing::instrument(skip(self, payload))]
     pub fn generate_snippet(
         &self,
         payload: &str,
@@ -3495,6 +3527,7 @@ impl VantaEmbedded {
         }
     }
 
+    #[tracing::instrument(skip(self, request), err)]
     pub fn explain_memory_search(
         &self,
         request: VantaMemorySearchRequest,
@@ -3861,24 +3894,28 @@ impl VantaEmbedded {
         result
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn graph_bfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.bfs_traverse(roots, max_depth)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn graph_dfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.dfs_traverse(roots, max_depth)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn graph_topological_sort(&self, roots: &[u64]) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.topological_sort(roots)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub fn graph_is_dag(&self, roots: &[u64]) -> Result<bool> {
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);

@@ -1,6 +1,8 @@
 # Progreso General del Proyecto VantaDB
 
-> **Última actualización:** 2026-06-22 (Vault Unificado ✅)
+> **Última actualización:** 2026-06-30
+> **Versión de release:** [`docs/CHANGELOG.md`](../CHANGELOG.md) — changelog formal por versión
+> **Backlog activo:** [`docs/Backlog.md`](../Backlog.md) — tareas priorizadas
 
 ## Resumen Ejecutivo
 

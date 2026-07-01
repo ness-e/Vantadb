@@ -89,11 +89,14 @@ The MCP server provides the following prompt templates:
 
 ### Starting the MCP Server
 
-The MCP server runs as a stdio JSON-RPC server. To start it:
+The MCP server runs as a stdio JSON-RPC server via the CLI:
 
 ```bash
-# Using the VantaDB server with MCP
-cargo run --bin vanta-server --features cli
+# Using the VantaDB CLI with MCP mode
+vanta-cli server --mcp --db ./vanta_data
+
+# Or from source
+cargo run --bin vanta-cli -- server --mcp --db ./vanta_data
 ```
 
 ### MCP Client Configuration
@@ -104,8 +107,8 @@ Configure your MCP client to connect to VantaDB:
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vanta-server",
-      "args": ["--mcp", "--path", "/path/to/vantadb"]
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "/path/to/vantadb"]
     }
   }
 }
@@ -187,8 +190,8 @@ Add to Claude Desktop configuration:
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vanta-server",
-      "args": ["--mcp", "--path", "~/.vantadb"]
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
     }
   }
 }
@@ -235,12 +238,12 @@ Adjust the `max_blocking_threads` configuration in VantaConfig to optimize for y
 
 ## Version
 
-Current MCP implementation version: 0.1.4
+Current MCP implementation version: 0.1.5
 
 Protocol version: 2024-11-05
 
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/your-org/vantadb/issues
-- Documentation: https://docs.vantadb.io
+- GitHub Issues: https://github.com/ness-e/Vantadb/issues
+- Documentation: https://vantadb.dev

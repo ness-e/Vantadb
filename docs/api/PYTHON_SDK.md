@@ -6,7 +6,7 @@
 pip install vantadb-py
 ```
 
-> **Note:** Requires Python 3.9+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64 and macOS (arm64/x86_64).
+> **Note:** Requires Python 3.11+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64, linux/arm64 (aarch64), and macOS (arm64/x86_64).
 
 ## Quick Start
 
@@ -204,6 +204,36 @@ db.graph_topological_sort(roots: List[int]) -> List[int]
 ```python
 db.graph_is_dag(roots: List[int]) -> bool
 ```
+
+### Advanced Operations
+
+#### `delete_by_filter()`
+```python
+db.delete_by_filter(
+    namespace: str,
+    filters: dict,
+) -> int
+```
+Delete all records matching metadata filters in a namespace. Returns count deleted.
+
+#### `similar_to_key()`
+```python
+db.similar_to_key(
+    namespace: str,
+    key: str,
+    top_k: int = 10,
+) -> List[dict]
+```
+Search by vector similarity from an existing key.
+
+#### `count()`
+```python
+db.count(
+    namespace: Optional[str] = None,
+    filters: Optional[dict] = None,
+) -> int
+```
+Count records, optionally filtered by namespace and metadata.
 
 ### Maintenance & Diagnostics
 

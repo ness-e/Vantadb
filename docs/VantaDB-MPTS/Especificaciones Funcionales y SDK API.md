@@ -10,8 +10,10 @@ aliases: [SDK, API, Especificaciones, Python SDK, Rust SDK]
 
 # Especificaciones Funcionales y SDK API
 
-> **Dominio:** Funcional & Producto
+> **Dominio:** Funcional & Producto (Español)
 > **Propósito:** Documentar la API pública, ejemplos de uso y límites operativos
+> **Referencia actualizada en inglés:** [`docs/api/EMBEDDED_SDK.md`](../api/EMBEDDED_SDK.md) (Rust SDK)
+> **Python SDK:** [`docs/api/PYTHON_SDK.md`](../api/PYTHON_SDK.md)
 
 ---
 

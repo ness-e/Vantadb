@@ -1,4 +1,6 @@
 use std::sync::Arc;
+#[cfg(feature = "opentelemetry")]
+use std::sync::OnceLock;
 
 use axum::{
     extract::State,
@@ -14,6 +16,8 @@ use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing_subscriber::EnvFilter;
 #[cfg(feature = "opentelemetry")]
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
+#[cfg(feature = "opentelemetry")]
+static OTEL_PROVIDER: OnceLock<opentelemetry_sdk::trace::SdkTracerProvider> = OnceLock::new();
 
 use crate::config::{LogFormat, VantaConfig};
 use crate::console;
@@ -22,7 +26,7 @@ use crate::metrics;
 use crate::node::{FieldValue, UnifiedNode};
 use crate::storage::StorageEngine;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct QueryRequest {
     pub query: String,
 }
@@ -148,6 +152,7 @@ pub async fn auth_middleware(
     }
 }
 
+#[tracing::instrument]
 async fn health_check() -> Json<QueryResponse> {
     Json(QueryResponse {
         success: true,
@@ -157,6 +162,7 @@ async fn health_check() -> Json<QueryResponse> {
     })
 }
 
+#[tracing::instrument]
 async fn metrics_endpoint() -> impl IntoResponse {
     let metrics_text = metrics::export_metrics_text();
     match Response::builder()
@@ -186,6 +192,7 @@ pub async fn request_metrics_middleware(
     res
 }
 
+#[tracing::instrument(skip(state))]
 async fn execute_query(
     State(state): State<Arc<ServerState>>,
     Json(payload): Json<QueryRequest>,
@@ -358,16 +365,20 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
         .build()
         .expect("Failed to create OTLP exporter");
 
+    let service_name =
+        std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "vantadb-server".to_string());
+
     let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
         .with_resource(
             opentelemetry_sdk::Resource::builder_empty()
-                .with_service_name("vantadb-server")
+                .with_service_name(service_name.clone())
                 .build(),
         )
         .build();
 
-    let tracer = provider.tracer("vantadb-server");
+    let _ = OTEL_PROVIDER.set(provider.clone());
+    let tracer = provider.tracer(service_name.clone());
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
     if is_mcp {
@@ -407,6 +418,15 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
             .with(telemetry)
             .with(tracing_subscriber::fmt::layer())
             .init();
+    }
+}
+
+#[cfg(feature = "opentelemetry")]
+pub fn shutdown_telemetry() {
+    if let Some(provider) = OTEL_PROVIDER.get() {
+        if let Err(e) = provider.shutdown() {
+            eprintln!("OTel provider shutdown error: {e}");
+        }
     }
 }
 
@@ -503,6 +523,49 @@ pub async fn wait_for_shutdown_signal() {
     let _ = ctrl_c.await;
 }
 
+#[cfg(feature = "tls")]
+async fn build_tls13_config(
+    cert_path: &str,
+    key_path: &str,
+) -> std::io::Result<rustls::ServerConfig> {
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rustls_pemfile::Item;
+
+    let cert_bytes = tokio::fs::read(cert_path).await?;
+    let key_bytes = tokio::fs::read(key_path).await?;
+
+    let certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut cert_bytes.as_ref())
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut key_vec: Vec<Vec<u8>> = rustls_pemfile::read_all(&mut key_bytes.as_ref())
+        .filter_map(|i| match i.ok()? {
+            Item::Sec1Key(k) => Some(k.secret_sec1_der().to_vec()),
+            Item::Pkcs1Key(k) => Some(k.secret_pkcs1_der().to_vec()),
+            Item::Pkcs8Key(k) => Some(k.secret_pkcs8_der().to_vec()),
+            _ => None,
+        })
+        .collect();
+
+    if key_vec.len() != 1 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "expected exactly one private key in PEM file",
+        ));
+    }
+
+    let key = PrivateKeyDer::try_from(key_vec.pop().unwrap())
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    let mut config =
+        rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    Ok(config)
+}
+
 #[cfg_attr(not(feature = "tls"), allow(unused_variables))]
 async fn serve_http_or_tls(
     router: axum::Router,
@@ -512,11 +575,11 @@ async fn serve_http_or_tls(
 ) {
     #[cfg(feature = "tls")]
     if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
-        use axum_server::tls_rustls::RustlsConfig;
+        use std::sync::Arc;
         use std::time::Duration;
 
-        let tls_config = match RustlsConfig::from_pem_file(cert, key).await {
-            Ok(c) => c,
+        let tls_config = match build_tls13_config(cert, key).await {
+            Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
             Err(e) => {
                 console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
                 std::process::exit(1);
@@ -544,6 +607,8 @@ async fn serve_http_or_tls(
             } else {
                 console::ok("Storage flushed", None);
             }
+            #[cfg(feature = "opentelemetry")]
+            shutdown_telemetry();
             handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
 
@@ -599,4 +664,7 @@ async fn serve_http_or_tls(
     } else {
         console::ok("Storage flushed successfully", None);
     }
+
+    #[cfg(feature = "opentelemetry")]
+    shutdown_telemetry();
 }

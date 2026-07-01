@@ -105,7 +105,6 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_topological_sort(roots)` | Topological sort. Returns `Vec<u64>` |
 | `graph_is_dag(roots)` | Check if subgraph is a DAG. Returns `bool` |
 | `search_vector(vector, top_k)` | Pure HNSW vector search. Returns `Vec<VantaSearchHit>` |
-| `search_batch(vectors, top_k)` | Parallel batch vector search (Rayon). Returns `Vec<Vec<VantaSearchHit>>` |
 | `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
 
 ### `VantaNodeInput`
@@ -200,6 +199,97 @@ pub enum VantaValue {
 }
 ```
 
+### `VantaMemoryListOptions`
+
+```rust
+pub struct VantaMemoryListOptions {
+    pub filters: VantaMemoryMetadata,  // equality filter on metadata fields
+    pub limit: usize,                  // max records to return (default: 100)
+    pub cursor: Option<usize>,         // pagination cursor from previous page
+}
+```
+
+### `VantaMemoryListPage`
+
+```rust
+pub struct VantaMemoryListPage {
+    pub records: Vec<VantaMemoryRecord>,
+    pub next_cursor: Option<usize>,
+}
+```
+
+### `VantaMemorySearchHit`
+
+```rust
+pub struct VantaMemorySearchHit {
+    pub record: VantaMemoryRecord,
+    pub score: f32,
+    pub explanation: Option<VantaSearchExplanationHit>,
+}
+```
+
+### `VantaEdgeRecord`
+
+```rust
+pub struct VantaEdgeRecord {
+    pub target: u64,
+    pub label: String,
+    pub weight: f32,
+}
+```
+
+### `VantaRuntimeProfile` / `VantaStorageTier`
+
+```rust
+pub enum VantaRuntimeProfile {
+    Enterprise,
+    Performance,
+    LowResource,
+}
+
+pub enum VantaStorageTier {
+    Hot,   // RAM-cached
+    Cold,  // on-disk
+}
+```
+
+### `VantaQueryResult`
+
+```rust
+pub enum VantaQueryResult {
+    Read(Vec<VantaNodeRecord>),
+    Write {
+        affected_nodes: u64,
+        message: String,
+        node_id: Option<u64>,
+    },
+    StaleContext {
+        node_id: u64,
+    },
+}
+```
+
+### `VantaSearchExplanation`
+
+```rust
+pub struct VantaSearchExplanation {
+    pub route: String,                          // "hybrid", "text_only", "vector_only"
+    pub hits: Vec<VantaSearchExplanationHit>,
+    pub fusion_report: Option<VantaHybridFusionReport>,
+}
+```
+
+### `VantaHybridFusionReport`
+
+```rust
+pub struct VantaHybridFusionReport {
+    pub text_candidates: usize,
+    pub vector_candidates: usize,
+    pub fused_candidates: usize,
+    pub rrf_k: usize,
+}
+```
+
 ### `VantaCapabilities`
 
 ```rust
@@ -212,7 +302,7 @@ pub struct VantaCapabilities {
 }
 ```
 
-### `VantaOperationalMetrics` (28 fields)
+### `VantaOperationalMetrics` (37 fields)
 
 Metrics grouped by subsystem:
 
@@ -225,6 +315,7 @@ Metrics grouped by subsystem:
 | Hybrid planner | `hybrid_query_ms`, `hybrid_candidates_fused`, `planner_hybrid_queries`, `planner_text_only_queries`, `planner_vector_only_queries` |
 | Export/Import | `records_exported`, `records_imported`, `import_errors` |
 | Memory | `process_rss_bytes`, `process_virtual_bytes`, `hnsw_nodes_count`, `hnsw_logical_bytes`, `mmap_resident_bytes`, `volatile_cache_entries`, `volatile_cache_cap_bytes` |
+| Jemalloc (heap) | `jemalloc_allocated_bytes`, `jemalloc_active_bytes`, `jemalloc_metadata_bytes`, `jemalloc_resident_bytes`, `jemalloc_mapped_bytes`, `jemalloc_retained_bytes` |
 
 ### `VantaSearchExplanationHit`
 
@@ -314,10 +405,15 @@ pub struct VantaTextIndexRepairReport {
 
 All fallible methods return `Result<T, VantaError>` where `VantaError` is an enum covering:
 
-- `VantaError::IoError` — filesystem errors
-- `VantaError::SerializationError` — bincode/serde failures
 - `VantaError::NodeNotFound(u64)` — node ID not found
-- `VantaError::Execution(String)` — runtime errors (collisions, invariants)
+- `VantaError::DuplicateNode(u64)` — duplicate node ID on insert
+- `VantaError::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
+- `VantaError::WalError(String)` — WAL operation failure
+- `VantaError::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
+- `VantaError::SerializationError(String)` — bincode/serde failures
+- `VantaError::IoError(std::io::Error)` — filesystem errors
+- `VantaError::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `VantaError::NotInitialized` — engine not open
-- `VantaError::InvalidInput(String)` — validation failures
-- `VantaError::InvalidMetadata(String)` — metadata validation
+- `VantaError::ResourceLimit(String)` — resource limit exceeded (backpressure)
+- `VantaError::Execution(String)` — runtime errors (collisions, invariants)
+- `VantaError::DatabaseBusy(String)` — database locked by another process

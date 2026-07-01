@@ -498,4 +498,6 @@ Ademas: `repl` (REPL interactivo), `tui` (dashboard en vivo 2s), flags globales 
 
 ---
 
-*Keep a Changelog format maintained in English above. Detailed Spanish progress log below. Updated 2026-06-23.*
+*Keep a Changelog format maintained in English above. Detailed Spanish progress log below.*
+*For the full task-level progress tracking, see [`docs/progreso/README.md`](progreso/README.md).*
+*Updated 2026-06-30.*

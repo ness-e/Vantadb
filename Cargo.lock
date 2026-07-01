@@ -4631,6 +4631,7 @@ dependencies = [
  "reqwest 0.13.4",
  "rkyv",
  "rocksdb",
+ "rustls",
  "rustls-pemfile",
  "rustyline",
  "serde",
