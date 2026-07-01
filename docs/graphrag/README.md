@@ -1,3 +1,11 @@
+---
+title: GraphRAG README
+type: guide
+status: active
+tags: [vantadb, graphrag]
+last_reviewed: 2026-07-01
+---
+
 # GraphRAG on VantaDB
 
 > GraphRAG is a retrieval-augmented generation technique that uses a graph structure to represent entities, their relationships, and semantic context — enabling multi-hop reasoning, community-level summarization, and confidence-weighted retrieval that flat vector search cannot provide.

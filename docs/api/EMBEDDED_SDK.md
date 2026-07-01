@@ -1,6 +1,14 @@
+---
+title: VantaEmbedded SDK Reference
+type: api
+status: active
+tags: [vantadb, api]
+last_reviewed: 2026-07-01
+---
+
 # VantaEmbedded SDK Reference
 
-> Core Rust SDK struct `VantaEmbedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via PyO3 (Python), wasm-bindgen (TypeScript), and MCP.
+> Core Rust SDK struct `VantaEmbedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [[pyo3|PyO3]] (Python), wasm-bindgen (TypeScript), and [[mcp|MCP]].
 
 **Source:** `src/sdk.rs`
 
@@ -43,7 +51,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `delete(namespace, key)` | Delete a record. Returns `bool` (true if existed) |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
-| `search(request: VantaMemorySearchRequest)` | Hybrid (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
+| `search(request: VantaMemorySearchRequest)` | [[hybrid-search|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 
 ### `VantaMemoryInput`
@@ -66,7 +74,7 @@ pub struct VantaMemorySearchRequest {
     pub namespace: String,
     pub query_vector: Vec<f32>,       // empty = no vector search
     pub filters: VantaMemoryMetadata, // equality filter on metadata
-    pub text_query: Option<String>,   // BM25 lexical query
+    pub text_query: Option<String>,   // [[bm25|BM25]] lexical query
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
     pub explain: bool,                // include score breakdown
@@ -104,7 +112,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_dfs(roots, max_depth)` | DFS traversal. Returns `Vec<u64>` |
 | `graph_topological_sort(roots)` | Topological sort. Returns `Vec<u64>` |
 | `graph_is_dag(roots)` | Check if subgraph is a DAG. Returns `bool` |
-| `search_vector(vector, top_k)` | Pure HNSW vector search. Returns `Vec<VantaSearchHit>` |
+| `search_vector(vector, top_k)` | Pure [[hnsw|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
 
 ### `VantaNodeInput`
@@ -141,10 +149,10 @@ pub struct VantaNodeRecord {
 
 | Method | Description |
 |--------|-------------|
-| `flush()` | Flush WAL + HNSW to disk for durability |
-| `compact_wal()` | Archive WAL file and start fresh |
+| `flush()` | Flush [[wal|WAL]] + [[hnsw|HNSW]] to disk for durability |
+| `compact_wal()` | Archive [[wal|WAL]] file and start fresh |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
-| `rebuild_index()` | Rebuild ANN (HNSW), derived, and text indexes. Returns `VantaIndexRebuildReport` |
+| `rebuild_index()` | Rebuild ANN ([[hnsw|HNSW]]), derived, and text indexes. Returns `VantaIndexRebuildReport` |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 
 ## Export / Import

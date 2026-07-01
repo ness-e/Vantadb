@@ -1,3 +1,11 @@
+---
+title: "SQLite for AI Agents: Benchmarks and Architecture Decisions"
+type: article
+status: active
+tags: [vantadb, articles]
+last_reviewed: 2026-07-01
+---
+
 # SQLite for AI Agents: Benchmarks and Architecture Decisions
 
 *By the VantaDB Team*

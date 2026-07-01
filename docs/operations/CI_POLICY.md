@@ -1,3 +1,11 @@
+---
+title: "VantaDB CI & Certification Policy"
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB CI & Certification Policy
 
 To maintain a rapid development iteration cycle and guarantee mathematical precision in our HNSW

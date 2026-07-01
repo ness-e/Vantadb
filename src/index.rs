@@ -1061,17 +1061,9 @@ impl CPIndex {
         self.insert_hnsw(id, bitset, vec_data, storage_offset);
     }
 
-    fn insert_hnsw(
-        &self,
-        id: u64,
-        bitset: u128,
-        vec_data: VectorRepresentations,
-        storage_offset: u64,
-    ) {
-        let level = self.random_layer();
-        let ef_cons = self.config.ef_construction;
-
-        let inv_cached_norm = match self.config.distance_metric {
+    #[inline]
+    fn compute_inv_cached_norm(&self, vec_data: &VectorRepresentations) -> f32 {
+        match self.config.distance_metric {
             DistanceMetric::Cosine => vec_data
                 .as_f32_slice()
                 .map(|s| {
@@ -1084,7 +1076,20 @@ impl CPIndex {
                 })
                 .unwrap_or(0.0),
             DistanceMetric::Euclidean => 0.0,
-        };
+        }
+    }
+
+    fn insert_hnsw(
+        &self,
+        id: u64,
+        bitset: u128,
+        vec_data: VectorRepresentations,
+        storage_offset: u64,
+    ) {
+        let level = self.random_layer();
+        let ef_cons = self.config.ef_construction;
+
+        let inv_cached_norm = self.compute_inv_cached_norm(&vec_data);
 
         let query_f32 = vec_data.to_f32();
 
@@ -1195,48 +1200,53 @@ impl CPIndex {
                 };
 
                 if needs_shrink {
-                    let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
-                        Some(n) => (
-                            n.vec_data.as_f32_slice().map(|s| s.to_vec()),
-                            n.inv_cached_norm,
-                        ),
-                        None => (None, 0.0),
-                    };
-
-                    if let Some(nb_v) = nb_vec {
-                        let mut cand_heap = BinaryHeap::new();
-                        let q_norm = if nb_inv_norm > f32::EPSILON {
-                            Some(1.0 / nb_inv_norm)
-                        } else {
-                            None
-                        };
-                        let q_inv_norm = if nb_inv_norm > f32::EPSILON {
-                            Some(nb_inv_norm)
-                        } else {
-                            None
-                        };
-                        for &n_target in &current_neighbors {
-                            if let Some(nt) = self.nodes.get(&n_target) {
-                                let d = self.fast_similarity(
-                                    &nb_v,
-                                    q_norm,
-                                    q_inv_norm,
-                                    &nt,
-                                    self.config.distance_metric,
-                                );
-                                cand_heap.push(NodeSimMin(d, n_target));
-                            }
-                        }
-                        let pruned = self.select_neighbors(cand_heap, m_max);
-                        if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                            neighbor_node.neighbors[layer] = pruned;
-                        }
-                    }
+                    self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
                 }
             }
         }
 
         self.update_metadata(level, id);
+    }
+
+    #[inline]
+    fn shrink_neighbors(&self, neighbor_id: u64, m_max: usize, current_neighbors: &[u64], layer: usize) {
+        let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
+            Some(n) => (
+                n.vec_data.as_f32_slice().map(|s| s.to_vec()),
+                n.inv_cached_norm,
+            ),
+            None => (None, 0.0),
+        };
+
+        if let Some(nb_v) = nb_vec {
+            let mut cand_heap = BinaryHeap::new();
+            let q_norm = if nb_inv_norm > f32::EPSILON {
+                Some(1.0 / nb_inv_norm)
+            } else {
+                None
+            };
+            let q_inv_norm = if nb_inv_norm > f32::EPSILON {
+                Some(nb_inv_norm)
+            } else {
+                None
+            };
+            for &n_target in current_neighbors {
+                if let Some(nt) = self.nodes.get(&n_target) {
+                    let d = self.fast_similarity(
+                        &nb_v,
+                        q_norm,
+                        q_inv_norm,
+                        &nt,
+                        self.config.distance_metric,
+                    );
+                    cand_heap.push(NodeSimMin(d, n_target));
+                }
+            }
+            let pruned = self.select_neighbors(cand_heap, m_max);
+            if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
+                neighbor_node.neighbors[layer] = pruned;
+            }
+        }
     }
 
     fn update_metadata(&self, level: usize, id: u64) {

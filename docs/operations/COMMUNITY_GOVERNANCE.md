@@ -1,3 +1,11 @@
+---
+title: "VantaDB Community Governance & SLA Policy"
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB Community Governance & SLA Policy
 
 This document establishes the official governance rules, contribution workflows, and maintainer SLA commitments for **VantaDB** as an Open-Core system (Apache-2.0). Our goal is to ensure a transparent, active, and welcoming community for external developers and systems engineers.

@@ -1,3 +1,11 @@
+---
+title: Changelog
+type: documentation
+status: active
+tags: [vantadb]
+last_reviewed: 2026-07-01
+---
+
 # Changelog
 
 All notable changes to the VantaDB engine will be documented in this file.

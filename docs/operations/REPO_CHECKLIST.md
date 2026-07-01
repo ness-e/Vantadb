@@ -1,90 +1,98 @@
+---
+title: Repo Alignment Checklist
+type: operations
+status: active
+tags: [vantadb, operations, checklist]
+last_reviewed: 2026-07-01
+---
+
 # Repo Alignment Checklist
 
-Este checklist define el corte inmediato del repositorio después del release técnico inicial. Su objetivo ya no es "empujar distribución", sino alinear narrativa, telemetría y surface area con el estado real del core.
+This checklist defines the immediate repository cut after the initial technical release. Its goal is no longer "push distribution," but to align narrative, telemetry, and surface area with the actual state of the core.
 
-## 1. Claims y documentación
+## 1. Claims and documentation
 
-- [x] README reposicionado como memoria persistente embebida + vector retrieval.
-- [x] Claims de multimodelo universal rebajados o eliminados.
-- [x] Claims de "hybrid search" acotados a Hybrid Retrieval v1 con planner simple + RRF, sin paridad competitiva.
-- [x] SIFT1M etiquetado como benchmark no comparable para competitividad mientras el motor siga en cosine-only.
-- [x] Documentación de arquitectura reescrita para reflejar el boundary actual del producto.
+- [x] README repositioned as embedded persistent memory + vector retrieval.
+- [x] Universal multi-model claims toned down or removed.
+- [x] "Hybrid search" claims scoped to Hybrid Retrieval v1 with simple planner + RRF, without competitive parity.
+- [x] SIFT1M labeled as a non-comparable benchmark for competitiveness while the engine remains cosine-only.
+- [x] Architecture documentation rewritten to reflect the current product boundary.
 
-## 2. Naming y consistencia técnica
+## 2. Naming and technical consistency
 
-- [x] Restos principales de naming legado eliminados en tests y descripciones públicas.
-- [x] El boundary estable del SDK se documenta como `src/sdk.rs`.
-- [x] El paquete Python tiene CI de wheels/TestPyPI preparado, pero no promete PyPI de producción.
+- [x] Major legacy naming remnants removed from tests and public descriptions.
+- [x] The stable SDK boundary is documented as `src/sdk.rs`.
+- [x] The Python package has CI for wheels/TestPyPI prepared, but does not promise production PyPI.
 
-## 3. Observabilidad y métricas
+## 3. Observability and metrics
 
-- [x] Contrato de telemetría de memoria documentado.
-- [x] Métricas de proceso separadas de métricas lógicas del índice.
-- [x] El repo deja explícito qué métricas son confiables y cuáles siguen siendo experimentales.
-- [x] Harness controlado de memoria añadido para cold start, ingestión, replay y reinicio.
+- [x] Memory telemetry contract documented.
+- [x] Process metrics separated from logical index metrics.
+- [x] The repo makes explicit which metrics are reliable and which remain experimental.
+- [x] Controlled memory harness added for cold start, ingestion, replay, and restart.
 
-## 4. Gate de confiabilidad
+## 4. Reliability gate
 
 - [x] `durability_recovery`
 - [x] `index_reconstruction`
 - [x] `backend_tests`
 - [x] `memory_telemetry`
 - [x] `python_sdk_boundary`
-- [x] smoke del SDK Python
+- [x] Python SDK smoke
 - [x] `pytest vantadb-python/tests/test_sdk.py -v`
 
-## 5. Trabajo diferido de forma explícita
+## 5. Explicitly deferred work
 
-- [x] PyPI de producción y signing quedan fuera de este ciclo.
-- [x] Public ranking/debug avanzado, snippets ricos y claims competitivos quedan fuera de este ciclo.
-- [x] Namespaces first-class y modelo canónico pasan al siguiente bloque del MVP.
+- [x] Production PyPI and signing remain outside this cycle.
+- [x] Public ranking/debug, rich snippets, and competitive claims remain outside this cycle.
+- [x] First-class namespaces and canonical model move to the next MVP block.
 
-## 6. Siguiente bloque activo
+## 6. Next active block
 
-- [x] Modelo canónico de memoria separado de `UnifiedNode`.
-- [x] Namespaces first-class con `namespace + key`.
-- [x] API mínima `put/get/delete/list/search`.
-- [x] Flujo Python SDK para memoria persistente.
-- [x] CLI embebida mínima `put/get/list`.
+- [x] Canonical memory model separated from `UnifiedNode`.
+- [x] First-class namespaces with `namespace + key`.
+- [x] Minimal API `put/get/delete/list/search`.
+- [x] Python SDK flow for persistent memory.
+- [x] Minimal embedded CLI `put/get/list`.
 
-## 7. Bloque operativo memory-mvp-core
+## 7. Operational block memory-mvp-core
 
-- [x] Rebuild ANN manual expuesto en Rust SDK, Python SDK y CLI.
-- [x] Export/import JSONL por namespace y base completa.
-- [x] Índices derivados persistidos para namespace y filtros escalares de metadata.
-- [x] Rebuild de índices derivados desde registros canónicos.
-- [x] Suite de brutalidad con recovery, pérdida de índice, export/import y smoke de 10K records.
+- [x] Manual ANN rebuild exposed in Rust SDK, Python SDK, and CLI.
+- [x] JSONL export/import by namespace and full base.
+- [x] Persistent derived indexes for namespace and scalar metadata filters.
+- [x] Derived index rebuild from canonical records.
+- [x] Brutality suite covering recovery, index loss, export/import, and 10K record smoke test.
 
-## 8. Límites que siguen abiertos
+## 8. Remaining open limits
 
-- [x] Optimizar los índices derivados con iteradores/prefix scans reales en el backend.
-- [x] Añadir telemetría estructurada de `startup_ms`, `wal_replay_ms`, `wal_records_replayed`, `rebuild_ms`, `records_exported` y `records_imported`.
-- [x] Endurecer recuperación de índices derivados stale/corruptos.
-- [x] Documentar protocolo de mutación y versionado recuperable.
-- [x] Diseñar índice textual antes de implementar BM25/RRF.
-- [x] Preparar wheels/TestPyPI sin activar publicación PyPI de producción.
-- [ ] Mantener signing y publicación PyPI de producción fuera del ciclo hasta estabilizar release policy.
+- [x] Optimize derived indexes with real iterator/prefix scans in the backend.
+- [x] Add structured telemetry for `startup_ms`, `wal_replay_ms`, `wal_records_replayed`, `rebuild_ms`, `records_exported`, and `records_imported`.
+- [x] Harden recovery of stale/corrupt derived indexes.
+- [x] Document mutation protocol and recoverable versioning.
+- [x] Design text index before implementing BM25/RRF.
+- [x] Prepare wheels/TestPyPI without activating production PyPI publishing.
+- [ ] Keep signing and production PyPI publishing outside the cycle until release policy is stabilized.
 
-## 9. Siguiente corte técnico
+## 9. Next technical cut
 
-- [x] Convertir el scaffold textual en índice invertido persistente reconstruible.
-- [x] Definir BM25 texto-only sobre el índice textual, sin claims competitivos todavía.
-- [x] Definir RRF/planner mínimo sobre rankings lexicales y vectoriales.
-- [ ] Evaluar Euclidean/SIFT solo como habilitador de benchmark serio.
+- [x] Convert the text scaffold into a persistent, rebuildable inverted index.
+- [x] Define BM25 text-only over the text index, without competitive claims yet.
+- [x] Define minimal RRF/planner over lexical and vector rankings.
+- [ ] Evaluate Euclidean/SIFT only as an enabler for serious benchmarking.
 
-## 10. Cierre operativo de Hybrid v1
+## 10. Hybrid v1 operational closeout
 
-- [x] Restituir tracker fuente de verdad en `seguimiento de proyecto.csv`.
-- [x] Documentar cierre de fase en `docs/operations/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
-- [x] Habilitar `text_query` texto-only y hybrid v1 con RRF/planner mínimo.
-- [x] Endurecer Hybrid v1 con certificación, corpus determinista y debug interno del planner/RRF.
-- [x] Añadir posiciones textuales v3, phrase query básica, explain/snippet debug-only, wheel CI y benchmark híbrido sobre corpus embebido real.
-- [x] Exponer auditoría estructural read-only del text index en Rust/Python SDK y CLI.
-- [x] Crear `docs/operations/ROADMAP.md` como roadmap operativo del proceso.
+- [x] Restore source-of-truth tracker in `seguimiento de proyecto.csv`.
+- [x] Document phase closeout in `docs/archive/TEXT_INDEX_PHASE_1_CLOSEOUT.md`.
+- [x] Enable `text_query` text-only and hybrid v1 with minimal RRF/planner.
+- [x] Harden Hybrid v1 with certification, deterministic corpus, and internal planner/RRF debug.
+- [x] Add text positions v3, basic phrase query, explain/snippet debug-only, wheel CI, and hybrid benchmark on real embedded corpus.
+- [x] Expose read-only structural audit of text index in Rust/Python SDK and CLI.
+- [x] Create `docs/operations/ROADMAP.md` as the operational process roadmap.
 
-## 11. Siguiente hardening operativo
+## 11. Next operational hardening
 
-- [x] Documentar que JSONL export/import no es backup físico.
-- [x] Validar restore por cold copy para el backend Fjall default.
-- [ ] Mantener TestPyPI como gate manual antes de cualquier PyPI productivo.
-- [ ] Abrir Search Quality v2 solo después del cierre operativo: analyzer, Unicode folding, stopwords/stemming y snippets públicos siguen diferidos.
+- [x] Document that JSONL export/import is not a physical backup.
+- [x] Validate restore via cold copy for the default Fjall backend.
+- [ ] Keep TestPyPI as a manual gate before any production PyPI release.
+- [ ] Open Search Quality v2 only after operational closeout: analyzer, Unicode folding, stopwords/stemming, and public snippets remain deferred.

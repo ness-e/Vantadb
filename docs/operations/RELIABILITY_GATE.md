@@ -1,30 +1,38 @@
+---
+title: VantaDB Reliability Gate & Certification Policy
+type: operations
+status: active
+tags: [vantadb, operations, reliability]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB Reliability Gate & Certification Policy
 
-Este documento consolida la política de certificación operativa, los umbrales de aceptación (gating) y los procedimientos prácticos para validar la resiliencia de VantaDB bajo estrés de memoria, inyección de fallos catastróficos y corrupción de datos.
+This document consolidates the operational certification policy, acceptance thresholds (gating), and practical procedures for validating VantaDB's resilience under memory stress, catastrophic fault injection, and data corruption.
 
 ---
 
-## Sección 1: RSS Stability Gate (Confined Heap Memory)
+## Section 1: RSS Stability Gate (Confined Heap Memory)
 
-Establece el procedimiento operativo para validar la estabilidad de la memoria física (RSS) de VantaDB bajo cargas sostenidas y certificar que el asignador global `mimalloc` mitiga la fragmentación del heap a largo plazo (Criterio de Aceptación ST2.2.2).
+Establishes the operational procedure for validating VantaDB's physical memory (RSS) stability under sustained loads and certifying that the global `mimalloc` allocator mitigates long-term heap fragmentation (Acceptance Criterion ST2.2.2).
 
-### 1.1 Propósito
+### 1.1 Purpose
 
-El test rápido de CI valida la ausencia de fugas catastróficas en caliente. Sin embargo, para certificar formalmente la mitigación de la fragmentación a largo plazo bajo ciclos dinámicos del motor de almacenamiento, se requiere una ejecución continua durante **30 minutos**.
+The quick CI test validates the absence of catastrophic hot leaks. However, to formally certify long-term fragmentation mitigation under dynamic storage engine cycles, a continuous **30-minute** run is required.
 
-### 1.2 Requisitos Previos
+### 1.2 Prerequisites
 
-Compilar el ejecutable o biblioteca con la feature `custom-allocator` habilitada para activar `mimalloc`:
+Build the executable or library with the `custom-allocator` feature enabled to activate `mimalloc`:
 
 ```powershell
 cargo build --release --features custom-allocator
 ```
 
-### 1.3 Procedimiento de Ejecución Manual
+### 1.3 Manual Execution Procedure
 
-El script ejecuta un bucle continuo de inserciones y lecturas masivas a través de la interfaz del SDK de Python, evaluando la deriva del Resident Set Size (RSS) a través del tiempo.
+The script runs a continuous loop of bulk insertions and reads through the Python SDK interface, evaluating Resident Set Size (RSS) drift over time.
 
-#### Código del Test (Guarda en `tests/stress_rss_30m.py`)
+#### Test Code (Save as `tests/stress_rss_30m.py`)
 
 ```python
 import time
@@ -33,7 +41,7 @@ import psutil
 import vantadb_py as vanta
 
 def run_stress_test(duration_minutes=30):
-    print(f"Iniciando test de estrés RSS por {duration_minutes} minutos...")
+    print(f"Starting RSS stress test for {duration_minutes} minutes...")
     db_path = "./temp_stress_db"
     if not os.path.exists(db_path):
         os.makedirs(db_path)
@@ -41,7 +49,7 @@ def run_stress_test(duration_minutes=30):
     db = vanta.VantaDB(db_path)
     process = psutil.Process(os.getpid())
     rss_initial = process.memory_info().rss
-    print(f"RSS Inicial: {rss_initial / 1024 / 1024:.2f} MB")
+    print(f"Initial RSS: {rss_initial / 1024 / 1024:.2f} MB")
     
     start_time = time.time()
     end_time = start_time + (duration_minutes * 60)
@@ -56,96 +64,96 @@ def run_stress_test(duration_minutes=30):
         profile = db.hardware_profile()
         current_rss = profile["process_rss_bytes"]
         elapsed = (time.time() - start_time) / 60
-        print(f"[{elapsed:.2f} min] RSS actual: {current_rss / 1024 / 1024:.2f} MB | Nodos: {count}")
+        print(f"[{elapsed:.2f} min] Current RSS: {current_rss / 1024 / 1024:.2f} MB | Nodes: {count}")
         time.sleep(1)
         
     rss_final = process.memory_info().rss
     drift = (rss_final / rss_initial) - 1.0
     print("\n" + "="*40)
-    print("TEST FINALIZADO")
-    print(f"RSS Inicial: {rss_initial / 1024 / 1024:.2f} MB")
-    print(f"RSS Final: {rss_final / 1024 / 1024:.2f} MB")
-    print(f"Drift Residual de RSS: {drift * 100:.2f}%")
+    print("TEST COMPLETED")
+    print(f"Initial RSS: {rss_initial / 1024 / 1024:.2f} MB")
+    print(f"Final RSS: {rss_final / 1024 / 1024:.2f} MB")
+    print(f"Residual RSS Drift: {drift * 100:.2f}%")
     print("="*40)
     
     if drift < 0.10:
-        print("✅ Certificación Exitosa: Crecimiento residual de RSS inferior al 10%.")
+        print("✅ Certification Successful: Residual RSS growth below 10%.")
     else:
-        print("❌ Certificación Fallida: Fuga o fragmentación excesiva detectada.")
+        print("❌ Certification Failed: Excessive leak or fragmentation detected.")
 
 if __name__ == "__main__":
     run_stress_test(30)
 ```
 
-### 1.4 Umbrales de Aceptación (Gating)
+### 1.4 Acceptance Thresholds (Gating)
 
-1. **Drift de RSS < 10%** medido entre la estabilización de memoria del minuto 5 (tras el warm-up) y el final en el minuto 30.
-2. **Coherencia de Fragmentación**: La memoria HNSW lógica (`hnsw_logical_bytes`) y la memoria residente mapeada física (`mmap_resident_bytes`) deben reflejar estabilidad en RAM, sin crecimiento exponencial o divergente del RSS global del proceso.
+1. **RSS Drift < 10%** measured between memory stabilization at minute 5 (after warm-up) and the end at minute 30.
+2. **Fragmentation Coherence**: Logical [[hnsw|HNSW]] memory (`hnsw_logical_bytes`) and mapped physical resident memory (`mmap_resident_bytes`) must reflect RAM stability, without exponential growth or divergent global process RSS.
 
 ---
 
-## Sección 2: Chaos Integrity Gate (Fault-Injection and Recovery)
+## Section 2: Chaos Integrity Gate (Fault-Injection and Recovery)
 
-Garantiza que VantaDB es tolerante a fallos catastróficos inyectados de E/S de disco, memoria y serialización de índice, asegurando una auto-recuperación 100% libre de corrupción y sin pérdida de consistencia ácida.
+Ensures VantaDB is tolerant to catastrophic disk I/O, memory, and index serialization faults injected at critical points, guaranteeing 100% corruption-free self-recovery without loss of ACID consistency.
 
-### 2.1 Puntos de Caos Instrumentados (Failpoints)
+### 2.1 Instrumented Chaos Points (Failpoints)
 
-VantaDB instrumenta inyecciones de error discretas controladas mediante la feature-flag `failpoints`:
+VantaDB instruments controlled discrete error injections via the `failpoints` feature flag:
 
-| Nombre del Failpoint | Ubicación en Código | Comportamiento Simulado |
+| Failpoint Name | Code Location | Simulated Behavior |
 | :--- | :--- | :--- |
-| `wal_append_fail` | `src/wal.rs` | Error al escribir registros en el Write-Ahead Log. |
-| `storage_insert_fail` | `src/storage.rs` | Error catastrófico de E/S al insertar en las estructuras de almacenamiento. |
-| `mmap_flush_fail` | `src/storage.rs` | Error al sincronizar con disco (`msync` / `flush`) el archivo mapeado en memoria. |
-| `hnsw_serialize_fail` | `src/index.rs` | Error de E/S al serializar y persistir en disco el índice vectorial HNSW. |
+| `wal_append_fail` | `src/wal.rs` | Error when writing records to the Write-Ahead Log. |
+| `storage_insert_fail` | `src/storage.rs` | Catastrophic I/O error when inserting into storage structures. |
+| `mmap_flush_fail` | `src/storage.rs` | Error when syncing to disk (`msync` / `flush`) the memory-mapped file. |
+| `hnsw_serialize_fail` | `src/index.rs` | I/O error when serializing and persisting the HNSW vector index to disk. |
 
-### 2.2 Procedimientos de Verificación
+### 2.2 Verification Procedures
 
-#### A. Verificación Rápida de CI (Nextest)
+#### A. Quick CI Verification (Nextest)
 
-Para ejecutar de forma rápida las pruebas de caos en entornos de CI o pre-push:
+For rapid chaos testing in CI or pre-push environments:
 
 ```powershell
 cargo nextest run --profile chaos --features failpoints
 ```
 
-#### B. Certificación de Loop de Caos Manual (Resiliencia Sostenida)
+#### B. Manual Chaos Loop Certification (Sustained Resilience)
 
-Para validar la ausencia de fugas, bloqueos mutuos o corrupción residual en ejecuciones repetitivas de inyección de errores, se corre el script de loop de caos:
+To validate the absence of leaks, deadlocks, or residual corruption during repetitive error injection runs, execute the chaos loop script:
 
 ```powershell
 .\dev-tools\chaos_loop.ps1 -Iterations 1000 -Release
 ```
 
-### 2.3 Umbrales de Aceptación (Gating)
+### 2.3 Acceptance Thresholds (Gating)
 
-1. **Ratio de Éxito: 100.00%** sobre 1,000 iteraciones (cero fallos no interceptados).
-2. **Garantía de Auto-Recuperación**: Toda operación que retorne `Err` durante la inyección del fallo debe ejecutarse de forma exitosa (`Ok`) inmediatamente después de desactivar el failpoint.
-3. **Consistencia Transaccional**: El estado del motor debe ser legible y correcto, recuperando todos los datos confirmados previo al fallo.
+1. **Success Rate: 100.00%** over 1,000 iterations (zero unhandled failures).
+2. **Self-Recovery Guarantee**: Any operation returning `Err` during fault injection must execute successfully (`Ok`) immediately after deactivating the failpoint.
+3. **Transactional Consistency**: The engine state must be readable and correct, recovering all committed data prior to the fault.
 
 ---
 
-## Sección 3: Durabilidad WAL y Recuperación Fría (Durability and Cold-Start)
+## Section 3: WAL Durability and Cold-Start Recovery
 
-Valida que ante una detención forzada del proceso de la base de datos (crash abrupto), los datos confirmados en el WAL no se pierdan y el motor se reconstruya automáticamente a su último estado consistente conocido.
+Validates that upon a forced process termination (abrupt crash), data committed to the WAL is not lost and the engine automatically rebuilds to its last known consistent state.
 
-### 3.1 Suite de Validación
+### 3.1 Validation Suite
 
-La resiliencia de durabilidad del WAL y el cold-start se verifica mediante las suites dedicadas:
+WAL durability resilience and cold-start recovery are verified through dedicated suites:
 
-- **`tests/storage/wal_resilience.rs`**: Certifica la integridad del parser del WAL, sumas de comprobación CRC32C, y la recuperación ante fragmentos truncados.
-- **`tests/durability_recovery.rs`**: Certifica la reconstrucción fría del índice vectorial y relacional a partir de los registros del WAL tras fallos simulados del proceso.
+- **`tests/storage/wal_resilience.rs`**: Certifies WAL parser integrity, CRC32C checksums, and recovery from truncated fragments.
+- **`tests/durability_recovery.rs`**: Certifies cold reconstruction of the vector and relational index from WAL records after simulated process crashes.
 
-### 3.2 Comandos de Ejecución
+### 3.2 Execution Commands
 
-Para certificar de forma manual:
+For manual certification:
 
 ```powershell
 cargo test --test wal_resilience --release
 cargo test --test durability_recovery --release
 ```
 
-### 3.3 Umbrales de Aceptación (Gating)
+### 3.3 Acceptance Thresholds (Gating)
 
-1. **Cero fugas de consistencia**: Todos los nodos insertados y confirmados en el WAL antes del apagado abrupto deben ser recuperables vía `get()` después de la reapertura fría (`StorageEngine::open`).
-2. **Checksum Integrity**: Cualquier corrupción física introducida en el archivo de WAL debe ser detectada a nivel de página/registro mediante CRC32C, levantando errores de lectura o aplicando auto-reparación hasta el último punto consistente del log.
+1. **Zero consistency leaks**: All nodes inserted and committed to the WAL before the abrupt shutdown must be recoverable via `get()` after cold restart (`StorageEngine::open`).
+2. **Checksum Integrity**: Any physical corruption introduced in the WAL file must be detected at the page/record level via CRC32C, raising read errors or applying auto-repair up to the last consistent point in the log.

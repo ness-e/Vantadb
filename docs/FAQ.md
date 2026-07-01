@@ -1,3 +1,11 @@
+---
+title: Frequently Asked Questions
+type: documentation
+status: active
+tags: [vantadb]
+last_reviewed: 2026-07-01
+---
+
 # Frequently Asked Questions
 
 ## General

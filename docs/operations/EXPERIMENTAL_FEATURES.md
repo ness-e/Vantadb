@@ -1,3 +1,11 @@
+---
+title: Experimental Features and Product Boundary
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # Experimental Features and Product Boundary
 
 This document classifies the current v0.1.x repository surface. It is the operational reference for

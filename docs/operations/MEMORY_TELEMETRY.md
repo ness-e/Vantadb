@@ -1,3 +1,11 @@
+---
+title: "Memory Telemetry — Schema and Validation"
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # Memory Telemetry — Schema and Validation
 
 This document defines the VantaDB memory observability contract, the operational metrics exposed via Prometheus, and the historical baseline for in-memory data persistence.
@@ -42,7 +50,7 @@ VantaDB operates with a structured contract across memory and disk to ensure con
 The engine reads the canonical key-value storage and materializes the following structures cold, which can be fully rebuilt via `rebuild_index`:
 1. **`NamespaceIndex`:** Maps namespace prefix to logical node identifiers.
 2. **`PayloadIndex`:** Maps scalar fields for fast relational filtered lookups.
-3. **`TextIndex`:** BM25 inverted indexes for full-text lexical search.
+3. **`TextIndex`:** [[bm25|BM25]] inverted indexes for full-text lexical search.
 
 ---
 

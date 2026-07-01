@@ -1,3 +1,11 @@
+---
+title: "Python Release Policy & Wheel Engineering"
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # Python Release Policy & Wheel Engineering
 
 This document outlines the standard release policy and engineering practices for the VantaDB Python SDK (`vantadb-python`).

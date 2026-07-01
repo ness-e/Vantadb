@@ -1,3 +1,11 @@
+---
+title: Why I Built a Local Memory Engine for AI Agents in Rust
+type: article
+status: active
+tags: [vantadb, articles]
+last_reviewed: 2026-07-01
+---
+
 # Why I Built a Local Memory Engine for AI Agents in Rust
 
 *By the VantaDB Team*

@@ -1,8 +1,16 @@
+---
+title: VantaDB Model Context Protocol (MCP) Server
+type: api
+status: active
+tags: [vantadb, api]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB Model Context Protocol (MCP) Server
 
 ## Overview
 
-VantaDB provides a complete [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server implementation that enables AI agents to interact with VantaDB through a standardized interface. The MCP server exposes tools, resources, and prompts for seamless integration with AI assistants and agents.
+VantaDB provides a complete [[mcp|Model Context Protocol (MCP)]] server implementation that enables AI agents to interact with VantaDB through a standardized interface. The MCP server exposes tools, resources, and prompts for seamless integration with AI assistants and agents.
 
 ## Features
 
@@ -34,11 +42,11 @@ The MCP server exposes the following tools for memory operations:
 
 #### Search Operations
 
-- **`search_memory`** - Hybrid vector and text search
+- **`search_memory`** - [[hybrid-search|Hybrid]] vector and text search
   - Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`
   - Returns: Search hits with scores and optional explanations
 
-- **`search_semantic`** - Raw HNSW vector search
+- **`search_semantic`** - Raw [[hnsw|HNSW]] vector search
   - Parameters: `vector`, `k`
   - Returns: Nearest neighbors with distances
 
@@ -65,10 +73,10 @@ The MCP server exposes the following tools for memory operations:
 The MCP server exposes the following resources:
 
 - **`metrics://`** - Operational metrics
-  - Memory usage, HNSW statistics, storage information
+  - Memory usage, [[hnsw|HNSW]] statistics, storage information
 
 - **`schema://`** - Database schema information
-  - HNSW configuration, text index version
+  - [[hnsw|HNSW]] configuration, text index version
 
 - **`memory://{namespace}/{key}`** - Individual memory records
   - Access specific memory records by URI

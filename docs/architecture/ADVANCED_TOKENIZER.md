@@ -1,3 +1,11 @@
+---
+title: Advanced Tokenizer
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-07-01
+---
+
 # Advanced Tokenizer
 
 ## Overview
@@ -197,5 +205,5 @@ Potential future improvements:
 ## References
 
 - [Tantivy Documentation](https://docs.rs/tantivy/)
-- [BM25 Algorithm](https://en.wikipedia.org/wiki/Okapi_BM25)
+- [[bm25|BM25 Algorithm]]
 - [Stemming Algorithms](https://en.wikipedia.org/wiki/Stemming)

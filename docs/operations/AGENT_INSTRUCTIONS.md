@@ -1,3 +1,11 @@
+---
+title: "VantaDB - Agent Instructions"
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB - Agent Instructions
 
 Welcome to the VantaDB codebase.

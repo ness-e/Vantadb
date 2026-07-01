@@ -1,3 +1,11 @@
+---
+title: "Case Study 1: Persistent Episodic Memory for a Local AI Coding Assistant"
+type: case-study
+status: active
+tags: [vantadb, case-studies]
+last_reviewed: 2026-07-01
+---
+
 # Case Study 1: Persistent Episodic Memory for a Local AI Coding Assistant
 
 *Category: Local Developer Tools | Hardware: Macbook Pro M2 Max (32GB RAM) | Date: June 2026*

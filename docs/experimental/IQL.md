@@ -1,3 +1,11 @@
+---
+title: Historical / Experimental Notice
+type: experimental
+status: active
+tags: [vantadb, experimental]
+last_reviewed: 2026-07-01
+---
+
 # Historical / Experimental Notice
 
 This document describes historical and experimental query-language work. IQL/LISP/DQL is not part

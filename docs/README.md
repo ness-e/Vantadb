@@ -2,57 +2,50 @@
 title: VantaDB Documentation
 type: docs-index
 status: active
-last_reviewed: 2026-06-22
-review_interval_days: 90
-language: es
+last_reviewed: 2026-07-01
+language: en
 aliases: [Documentation Home, Docs Root, Vault Root]
 tags: [vantadb, documentation, index]
 ---
 
 # VantaDB Documentation
 
-Bienvenido a la documentación de VantaDB.
+Welcome to the VantaDB documentation vault.
 
-Este directorio (`docs/`) es la raíz del vault de Obsidian del proyecto. Toda la documentación se encuentra centralizada aquí.
+This directory (`docs/`) is the root of the project's Obsidian vault. All documentation is centralized here.
 
-## Índice Principal
+## Main Index
 
-La entrada principal a toda la documentación es el **[Master Index](VantaDB-MPTS/Master%20Index.md)**, que organiza el contenido en:
+The primary entry point to all documentation is the [[master-index|Master Index]], which organizes the content into:
 
-- **MPTS** — Especificación técnica completa (arquitectura, SDK, operaciones, roadmap, glosario)
-- **End Users** — Quickstart, guías de migración, case studies, artículos técnicos, GraphRAG
-- **Developers** — API reference, arquitectura, ADRs, experimentos, planes
-- **Operators** — Configuración, CI/CD, benchmarks, monitoreo, gobernanza
-- **Project Tracking** — Backlog, progreso, changelog, bitácora
+- **MPTS** — Complete technical specification (architecture, SDK, operations, roadmap, glossary)
+- **End Users** — Quickstart, migration guides, case studies, technical articles, GraphRAG
+- **Developers** — API reference, architecture, ADRs, experiments, implementation plans
+- **Operators** — Configuration, CI/CD, benchmarks, monitoring, governance
+- **Project Tracking** — Backlog, progress, changelog, devlog
 
-## Archivos y Directorios
+## Files and Directories
 
-| Ruta | Descripción |
+| Path | Description |
 |------|-------------|
-| `VantaDB-MPTS/` | MPTS: Arquitectura, SDK, Estrategia GTM, Operaciones, Roadmap, Glosario |
-| `api/` | SDK Python y MCP server docs |
-| `architecture/` | Arquitectura del core, ADRs, auditorías |
-| `operations/` | CI/CD, benchmarks, configuración, monitoreo |
-| `migration/` | Guías de migración (ChromaDB, LanceDB) |
-| `articles/` | Artículos técnicos publicados |
-| `case_studies/` | Casos de estudio de despliegue |
-| `graphrag/` | Documentación de GraphRAG |
-| `experimental/` | IQL y features experimentales |
-| `plans/` | Planes de implementación |
-| `progreso/` | Dashboard de progreso del proyecto |
-| `Investigaciones/` | Investigaciones de mercado, backlog completo, CLI spec |
-| `assets/` | Imágenes y recursos estáticos |
-| `.obsidian/` | Configuración del vault de Obsidian |
-| `Backlog.md` | Backlog activo de tareas |
-| `CHANGELOG.md` | Registro de cambios |
-| `QUICKSTART.md` | Guía de inicio en 5 minutos |
-| `Bitácora.md` | Tareas pendientes y observaciones |
-| `Investigaciones.md` | Índice de investigaciones |
-| `README.md` | Este archivo |
+| [[glosario/README.md\|glosario/]] | Glossary of technical terms (concepts, engines, metrics) |
+| [[api/EMBEDDED_SDK.md\|api/]] | Python and Rust SDK reference |
+| [[architecture/ARCHITECTURE.md\|architecture/]] | Core engine architecture, ADRs, audits |
+| [[operations/CONFIGURATION.md\|operations/]] | CI/CD, benchmarks, configuration, monitoring |
+| [[migration/FROM_CHROMADB.md\|migration/]] | Migration guides (ChromaDB, LanceDB) |
+| [[articles/why_i_built_local_memory_engine.md\|articles/]] | Published technical articles |
+| [[case_studies/rag_edge_device.md\|case_studies/]] | Deployment case studies |
+| [[graphrag/README.md\|graphrag/]] | GraphRAG architecture and design |
+| [[experimental/IQL.md\|experimental/]] | Interactive Query Language and experimental features |
+| [[progreso/README.md\|progreso/]] | Project progress dashboard |
+| [[Backlog.md]] | Active task backlog |
+| [[CHANGELOG.md]] | Project changelog |
+| [[QUICKSTART.md]] | 5-minute quickstart guide |
+| [[bitacora.md]] | Development log and daily notes |
+| [[README.md]] | This overview file |
 
-## Convenciones
+## Conventions
 
-- La documentación técnica principal está en inglés
-- Los documentos del vault MPTS están en español (planificación estratégica)
-- Todos los links usan formato markdown estándar `[texto](ruta)` compatible con GitHub y Obsidian
-- El glosario detallado vive en [`VantaDB-MPTS/Glosario/`](VantaDB-MPTS/Glosario/) con un archivo por término
+- The entire documentation vault is maintained in English.
+- Internal vault links use Obsidian wikilinks format (`[[Link]]`) for seamless navigation.
+- Public-facing documentation retains GitHub-compatible markdown links where required.

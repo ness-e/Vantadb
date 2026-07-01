@@ -1,19 +1,27 @@
-# ADR 001: Arquitectura de Configuración Unificada y Barrera de Solo Lectura
+---
+title: "ADR 001: Unified Configuration Architecture and Read-Only Barrier"
+type: adr
+status: active
+tags: [vantadb, architecture, adr]
+last_reviewed: 2026-07-01
+---
 
-## Estado
+# ADR 001: Unified Configuration Architecture and Read-Only Barrier
 
-Estado: Aprobado
+## Status
 
-## Contexto
+Status: Approved
 
-En las versiones MVP de VantaDB, las opciones de configuración estaban fragmentadas en múltiples interfaces mutables (por ejemplo, `VantaOpenOptions`), lo que permitía modificar parámetros estructurales del motor en caliente. Esta mutabilidad inconsistente causaba problemas de consistencia interna y riesgos de corrupción.
-Además, las operaciones de escritura (como inserciones, actualizaciones y borrados) avanzaban profundamente en la canalización del motor de almacenamiento antes de validar el estado operativo de la base de datos (por ejemplo, si el motor fue abierto en modo `read_only`), incurriendo en costos innecesarios de CPU, asignación de memoria y contención de cerrojos (locks) antes de fallar.
+## Context
 
-## Decisión
+In the MVP versions of VantaDB, configuration options were fragmented across multiple mutable interfaces (e.g., `VantaOpenOptions`), allowing structural engine parameters to be modified at runtime. This inconsistent mutability caused internal consistency problems and corruption risks.
+Additionally, write operations (such as inserts, updates, and deletes) would proceed deep into the storage engine pipeline before validating the operational state of the database (e.g., whether the engine was opened in `read_only` mode), incurring unnecessary CPU costs, memory allocation, and lock contention before failing.
 
-1. **Consolidación Estructural:** Unificar todas las opciones de inicialización en una única estructura inmutable y con tipado fuerte llamada `VantaConfig`. Todos los puntos de entrada del SDK y del servidor consumen esta configuración consolidada en el momento de la apertura del motor (`open_with_config`).
+## Decision
 
-2. **Barrera de Entrada Temprana (Fail-Fast):** Implementar la función de protección `guard_write_allowed(&self.config)` en la API pública de almacenamiento. Esta rutina evalúa inmediatamente el flag de protección de escritura:
+1. **Structural Consolidation:** Unify all initialization options into a single, immutable, strongly-typed structure called `VantaConfig`. All SDK and server entry points consume this consolidated configuration at engine open time (`open_with_config`).
+
+2. **Early Entry Barrier (Fail-Fast):** Implement the `guard_write_allowed(&self.config)` guard function in the public storage API. This routine immediately evaluates the write-protection flag:
 
    ```rust
    pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
@@ -24,16 +32,16 @@ Además, las operaciones de escritura (como inserciones, actualizaciones y borra
    }
    ```
 
-3. **Inyección en Mutadores:** Invocar esta barrera como la primera línea de ejecución en todos los métodos que alteren el estado lógico o físico del motor: `insert`, `put`, `delete`, `add_edge` y `flush`.
+3. **Inject into Mutators:** Invoke this barrier as the first line of execution in all methods that alter the logical or physical state of the engine: `insert`, `put`, `delete`, `add_edge`, and `flush`.
 
-## Consecuencias
+## Consequences
 
-### Beneficios
+### Benefits
 
-* **Aislamiento Predictivo:** El motor aborta operaciones no autorizadas en tiempo $O(1)$ sin reservar locks de lectura/escritura ni abrir transacciones en los motores subyacentes (RocksDB, Fjall), previniendo la degradación de recursos.
-* **Seguridad de Hilo (Thread Safety):** Al ser `VantaConfig` completamente inmutable tras la inicialización, se elimina cualquier posibilidad de data races o inconsistencias por reconfiguración en caliente en entornos altamente concurrentes.
-* **Simplificación de la API:** Se remueven APIs redundantes y métodos deprecados, mejorando la mantenibilidad para clientes que integran VantaDB como motor embebido.
+* **Predictable Isolation:** The engine aborts unauthorized operations in $O(1)$ time without acquiring read/write locks or opening transactions in underlying engines (RocksDB, Fjall), preventing resource degradation.
+* **Thread Safety:** Since `VantaConfig` is completely immutable after initialization, any possibility of data races or inconsistencies from hot reconfiguration in highly concurrent environments is eliminated.
+* **API Simplification:** Redundant APIs and deprecated methods are removed, improving maintainability for clients integrating VantaDB as an embedded engine.
 
-### Deuda Técnica / Costos
+### Technical Debt / Costs
 
-* **Re-inicialización Mandatoria:** Si un nodo requiere cambiar de estado operativo (de réplica de solo lectura a primario de lectura/escritura), la instancia del motor debe cerrarse y abrirse explícitamente con una nueva estructura `VantaConfig`. Esto se considera un comportamiento deseable en arquitecturas de sistemas distribuidos industriales.
+* **Mandatory Re-initialization:** If a node needs to change operational state (from read-only replica to read-write primary), the engine instance must be explicitly closed and reopened with a new `VantaConfig` structure. This is considered desirable behavior in industrial distributed system architectures.

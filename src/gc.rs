@@ -59,3 +59,111 @@ impl<'a> GcWorker<'a> {
         Ok(expired_count)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VantaConfig;
+    use crate::node::UnifiedNode;
+    use crate::storage::{BackendKind, StorageEngine};
+    use tempfile::tempdir;
+
+    fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+        (storage, dir)
+    }
+
+    #[test]
+    fn test_register_ttl_inserts_entry() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        worker.register_ttl(42, 1_000_000);
+        assert_eq!(worker.index_ttl.len(), 1);
+        assert_eq!(worker.index_ttl.get(&1_000_000).unwrap(), &vec![42]);
+    }
+
+    #[test]
+    fn test_register_ttl_multiple_ids_same_expiry() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        worker.register_ttl(1, 100);
+        worker.register_ttl(2, 100);
+        assert_eq!(worker.index_ttl.get(&100).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_register_ttl_different_expiries() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        worker.register_ttl(1, 100);
+        worker.register_ttl(2, 200);
+        assert_eq!(worker.index_ttl.len(), 2);
+    }
+
+    #[test]
+    fn test_sweep_no_expired_nodes() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let far_future = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 100_000;
+        worker.register_ttl(42, far_future);
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(worker.index_ttl.len(), 1);
+    }
+
+    #[test]
+    fn test_sweep_empty_worker_returns_zero() {
+        let (storage, _dir) = setup_storage();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_sweep_removes_expired_entries_from_map() {
+        let (storage, _dir) = setup_storage();
+        let node = UnifiedNode::new(99);
+        storage.insert(&node).unwrap();
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let past = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 1;
+        worker.register_ttl(99, past);
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 1);
+        assert!(worker.index_ttl.is_empty());
+    }
+
+    #[test]
+    fn test_multiple_sweeps_gradual_expiry() {
+        let (storage, _dir) = setup_storage();
+        for i in 0..5 {
+            let node = UnifiedNode::new(i);
+            storage.insert(&node).unwrap();
+        }
+        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        for i in 0..5 {
+            let past = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                - (5 - i);
+            worker.register_ttl(i, past);
+        }
+        let count = worker.sweep().unwrap();
+        assert_eq!(count, 5);
+        assert!(worker.index_ttl.is_empty());
+    }
+}
