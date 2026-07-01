@@ -1,3 +1,11 @@
+---
+title: Migrating from ChromaDB to VantaDB
+type: guide
+status: active
+tags: [vantadb, migration]
+last_reviewed: 2026-07-01
+---
+
 # Migrating from ChromaDB to VantaDB
 
 ## Why migrate?

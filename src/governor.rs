@@ -70,3 +70,90 @@ impl ResourceGovernor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_request_allocation_granted() {
+        let gov = ResourceGovernor::new(1000, 5000);
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+        let status = gov.request_allocation(100).unwrap();
+        assert_eq!(status, AllocationStatus::Granted);
+    }
+
+    #[test]
+    fn test_request_allocation_pressure() {
+        let gov = ResourceGovernor::new(1000, 5000);
+        ALLOCATED_BYTES.store(850, Ordering::SeqCst);
+        let status = gov.request_allocation(100).unwrap();
+        assert_eq!(status, AllocationStatus::GrantedWithPressure);
+    }
+
+    #[test]
+    fn test_request_allocation_oom() {
+        let gov = ResourceGovernor::new(1000, 5000);
+        ALLOCATED_BYTES.store(950, Ordering::SeqCst);
+        let result = gov.request_allocation(100);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_free_allocation_decrements() {
+        let gov = ResourceGovernor::new(1000, 5000);
+        ALLOCATED_BYTES.store(500, Ordering::SeqCst);
+        gov.free_allocation(100);
+        assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 400);
+    }
+
+    #[test]
+    fn test_request_free_cycle() {
+        let gov = ResourceGovernor::new(1000, 5000);
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+        gov.request_allocation(300).unwrap();
+        assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 300);
+        gov.free_allocation(300);
+        assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_apply_temperature_limits_low_temp() {
+        let mut plan = LogicalPlan {
+            operators: vec![crate::query::LogicalOperator::Traverse {
+                min_depth: 1,
+                max_depth: 10,
+                edge_label: String::new(),
+            }],
+            temperature: 0.3,
+            enforce_role: None,
+        };
+        let gov = ResourceGovernor::new(1000, 5000);
+        gov.apply_temperature_limits(&mut plan);
+        if let crate::query::LogicalOperator::Traverse { max_depth, .. } = &plan.operators[0] {
+            assert_eq!(*max_depth, 10);
+        } else {
+            panic!("Expected Traverse operator");
+        }
+    }
+
+    #[test]
+    fn test_apply_temperature_limits_high_temp() {
+        let mut plan = LogicalPlan {
+            operators: vec![crate::query::LogicalOperator::Traverse {
+                min_depth: 1,
+                max_depth: 10,
+                edge_label: String::new(),
+            }],
+            temperature: 0.9,
+            enforce_role: None,
+        };
+        let gov = ResourceGovernor::new(1000, 5000);
+        gov.apply_temperature_limits(&mut plan);
+        if let crate::query::LogicalOperator::Traverse { max_depth, .. } = &plan.operators[0] {
+            assert_eq!(*max_depth, 3);
+        } else {
+            panic!("Expected Traverse operator");
+        }
+    }
+}

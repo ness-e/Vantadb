@@ -1,41 +1,49 @@
-# ADR 002: Resiliencia Física del WAL, Validación CRC32C y Mecanismo de Auto-Healing
+---
+title: "ADR 002: WAL Physical Resilience, CRC32C Validation, and Auto-Healing Mechanism"
+type: adr
+status: active
+tags: [vantadb, architecture, adr]
+last_reviewed: 2026-07-01
+---
 
-## Estado
+# ADR 002: WAL Physical Resilience, CRC32C Validation, and Auto-Healing Mechanism
 
-Estado: Aprobado
+## Status
 
-## Contexto
+Status: Approved
 
-En escenarios de caídas del sistema de producción (p. ej., fallos de energía, kernel panics o terminación abrupta del proceso), el archivo de Write-Ahead Log (WAL) puede quedar en un estado corrupto o parcialmente escrito en su sección final (trailer).
-La ausencia de validaciones de integridad binaria estrictas y de recuperación tolerante a fallos permitía que registros incompletos o corruptos fuesen interpretados en el arranque del motor, provocando caídas catastróficas del sistema o, peor aún, corrupción silenciosa de datos que se propagaba al índice HNSW y al almacenamiento relacional.
+## Context
 
-## Decisión
+In production system crash scenarios (e.g., power failures, kernel panics, or abrupt process termination), the Write-Ahead Log (WAL) file may end up in a corrupt or partially-written state in its final section (trailer).
+The absence of strict binary integrity validations and fault-tolerant recovery allowed incomplete or corrupt records to be interpreted during engine startup, causing catastrophic system crashes or, worse, silent data corruption that propagated to the HNSW index and relational storage.
 
-Para blindar la consistencia física del motor ante fallos de persistencia catastróficos, se implementó un rediseño de la capa WAL basado en tres pilares:
+## Decision
 
-1. **Estructura Binaria Robusta con Versionado:** Cada registro del WAL se serializa bajo una estructura binaria con cabeceras explícitamente estructuradas y una versión de protocolo mutable:
-   * `version: u32`: Identificador de versión del WAL. Se prohíbe y rechaza explícitamente `version = 0` para evitar decodificar ruido binario de archivos vacíos o pre-asignados con ceros.
-   * `payload_len: u32`: Longitud del payload de datos.
-   * `crc32c: u32`: Checksum calculado de forma redundante sobre el payload de datos completo utilizando la variante CRC32C (Castagnoli).
-   * `payload`: Bytes correspondientes a la mutación (`Put`, `Delete`, etc.).
+To harden the engine's physical consistency against catastrophic persistence failures, a three-pillar redesign of the WAL layer was implemented:
 
-2. **Auto-Healing ante Caídas Catastróficas:** En la fase de arranque y recuperación, el lector del WAL analiza secuencialmente cada frame binario. Si encuentra una corrupción (fallo de CRC32C, cabecera corrupta o EOF prematuro a mitad de un registro):
-   * Detiene inmediatamente la decodificación de forma controlada y segura.
-   * Emite logs detallados de nivel de advertencia (`tracing::warn!`) especificando el offset del byte corrupto.
-   * Ejecuta una rutina de **truncamiento físico automático (auto-healing)** para cortar el archivo del WAL exactamente en la posición del último registro consistente y saludable.
-   * Limpia cualquier residuo binario corrupto posterior al corte, permitiendo al motor continuar el arranque normal con las transacciones confirmadas hasta ese punto.
+1. **Robust Binary Structure with Versioning:** Each WAL record is serialized under a binary structure with explicitly structured headers and a mutable protocol version:
+   * `version: u32`: WAL version identifier. `version = 0` is explicitly prohibited and rejected to prevent decoding binary noise from empty or pre-allocated zero-filled files.
+   * `payload_len: u32`: Length of the data payload.
+   * `crc32c: u32`: Redundant checksum computed over the complete data payload using the CRC32C (Castagnoli) variant.
+   * `payload`: Bytes corresponding to the mutation (`Put`, `Delete`, etc.).
 
-3. **Garantías de Coherencia en Checkpoints:** Al invocar la consolidación de base de datos (`checkpoint`), se asegura la descarga física a disco (`flush()` y `sync()`) de las tablas activas antes de actualizar el puntero `checkpoint_seq: u64` en el metadata index, garantizando un punto de consistencia exacto sobre el cual restaurar.
+2. **Auto-Healing on Catastrophic Crashes:** During startup and recovery, the WAL reader sequentially parses each binary frame. If corruption is detected (CRC32C mismatch, corrupt header, or premature EOF mid-record):
+   * It immediately stops decoding in a controlled, safe manner.
+   * Emits detailed warning-level logs (`tracing::warn!`) specifying the corrupt byte offset.
+   * Executes an **automatic physical truncation routine (auto-healing)** to cut the WAL file exactly at the position of the last consistent and healthy record.
+   * Cleans up any corrupt binary residue after the cut, allowing the engine to continue normal startup with transactions committed up to that point.
 
-## Consecuencias
+3. **Checkpoint Coherence Guarantees:** When invoking database consolidation (`checkpoint`), the physical flush to disk (`flush()` and `sync()`) of active tables is ensured before updating the `checkpoint_seq: u64` pointer in the metadata index, guaranteeing an exact consistency point for restoration.
 
-### Beneficios
+## Consequences
 
-* **Resiliencia Extrema a Fallos de Energía:** Las pruebas de caos con inyección activa de fallos binarios demuestran que VantaDB arranca siempre sin errores catastróficos y en un estado lógicamente coherente, independientemente de qué tan corrupto quede el final del WAL.
-* **Prevención de Corrupción Silenciosa:** Ninguna mutación parcial o corrupta por escritura incompleta en disco puede llegar a ser inyectada en la memoria viva del motor, protegiendo las bases de datos de embeddings e índices relacionales.
-* **Fuzzing Integrado:** Se integró una suite exclusiva en `heavy_certification.yml` que estresa sistemáticamente el decodificador de WAL inyectando fallos e interrupciones aleatorias, certificando una estabilidad del 100%.
+### Benefits
 
-### Deuda Técnica / Costos
+* **Extreme Power-Failure Resilience:** Chaos tests with active binary fault injection demonstrate that VantaDB always starts without catastrophic errors and in a logically consistent state, regardless of how corrupt the WAL tail end becomes.
+* **Silent Corruption Prevention:** No partial or corrupt mutation from incomplete disk writes can be injected into the engine's live memory, protecting embedding databases and relational indexes.
+* **Integrated Fuzzing:** A dedicated suite in `heavy_certification.yml` systematically stresses the WAL decoder by injecting random faults and interruptions, certifying 100% stability.
 
-* **Pérdida Controlada de Transacciones no Confirmadas:** El truncamiento físico del trailer implica descartar la última mutación incompleta o no sincronizada físicamente a disco al momento de la caída. Este es un trade-off estándar en base de datos industriales y se considera la única alternativa segura frente a la inyección de datos corruptos.
-* **Cálculo de Checksum en CPU:** El cómputo del CRC32C añade un mínimo overhead al escribir registros en caliente. Para mitigar esto, se hace uso de librerías altamente optimizadas que explotan instrucciones SIMD a nivel de CPU siempre que estén disponibles.
+### Technical Debt / Costs
+
+* **Controlled Loss of Uncommitted Transactions:** Physical truncation of the trailer implies discarding the last incomplete or unsynchronized mutation at the time of the crash. This is a standard trade-off in industrial databases and is considered the only safe alternative to injecting corrupt data.
+* **CPU Checksum Overhead:** CRC32C computation adds minimal overhead when writing hot records. To mitigate this, we use highly optimized libraries that exploit CPU-level SIMD instructions whenever available.

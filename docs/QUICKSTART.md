@@ -1,3 +1,11 @@
+---
+title: VantaDB 5-Minute Quickstart
+type: documentation
+status: active
+tags: [vantadb]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB 5-Minute Quickstart
 
 This quickstart validates the current v0.1.x MVP boundary from a clean local

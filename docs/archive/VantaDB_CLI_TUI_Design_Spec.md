@@ -50,7 +50,7 @@ vantadb
 │   ├── put    <key> <texto|archivo>   # Insertar/actualizar registro
 │   ├── get    <key>                   # Obtener registro por clave
 │   ├── delete <key>                   # Eliminar registro
-│   ├── search <query>                 # Búsqueda híbrida semántica
+│   ├── search <query>                 # busqueda-hibrida semántica
 │   └── similar <key>                  # Buscar similares a un registro existente
 │
 ├── NAMESPACE
@@ -115,7 +115,7 @@ vantadb search "privacidad de datos" --top-k 5 --format json | jq '.results[0].k
 ```
 $ vantadb search "política de privacidad" --namespace docs --top-k 5
 
-  Búsqueda híbrida en [docs] · 45,230 registros · 12ms
+  busqueda-hibrida en [docs] · 45,230 registros · 12ms
 
   #  Clave             Score   Extracto
   ─────────────────────────────────────────────────────────────────
@@ -664,7 +664,7 @@ VISTAS
   5          Graph explorer
 
 FILTROS DE BÚSQUEDA (en search bar)
-  :mode:hybrid    Búsqueda híbrida (default)
+  :mode:hybrid    busqueda-hibrida (default)
   :mode:vector    Solo vectorial
   :mode:text      Solo BM25 (léxica)
   :top:20         Cambiar top-k

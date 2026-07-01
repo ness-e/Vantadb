@@ -42,7 +42,7 @@ db.put_memory(
 record = db.get_memory("agent/session_1", "fact_001")
 print(record["payload"])
 
-# 4. Búsqueda híbrida (Vectorial + Léxica)
+# 4. busqueda-hibrida (Vectorial + Léxica)
 # Nota: Requiere un vector de consulta del mismo tamaño que los almacenados
 query_vector = [0.15, 0.25, 0.35, 0.45]
 results = db.search_hybrid(
@@ -69,7 +69,7 @@ db.close()
 VantaDB está optimizado para actuar como **memoria a largo plazo** para agentes autónomos locales (Claude, Gemini, LLaMA, etc.):
 
 - **Persistencia Zero-Copy**: Los datos sobreviven a reinicios del agente sin overhead de serialización.
-- **Búsqueda Híbrida RRF**: Combina similitud semántica (vectores) con coincidencia léxica (BM25) para recuperación precisa de contexto.
+- **busqueda-hibrida RRF**: Combina similitud semántica (vectores) con coincidencia léxica (BM25) para recuperación precisa de contexto.
 - **Control de Memoria Explícito**: `memory_limit_bytes` evita que el agente colapse la RAM del dispositivo host.
 - **Embebido**: Sin servidores externos, sin Docker, sin latencia de red. Ideal para dispositivos edge y offline.
 

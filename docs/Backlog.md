@@ -1,222 +1,237 @@
 ---
 type: backlog-tracking
 status: active
-tags: [vantadb, backlog, ingenieria, fases, prioridades]
-links: "[Master Index](VantaDB-MPTS/Master Index.md)"
-last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs reorg + Homebrew + color-eyre ✅)
+tags: [vantadb, backlog, engineering, phases, priorities]
+links: "[[master-index]]"
+last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code hardening ✅)
 ---
 
-# Backlog Activo — VantaDB
+# Active Backlog — VantaDB
 
-> **Propósito:** Única fuente de verdad para todas las tareas del proyecto, activas y postergadas.
-> **Historial de auditoría:** `REPORT_AUDITORIA_RECTIFICACION_2026-06-14.md`
-> **Features ya implementadas:** `progreso/README.md`
-> **Verticales GTM:** [Estrategia de Ecosistema y GTM#Segmentación-de-Mercado-3-Verticales-GTM](VantaDB-MPTS/Estrategia de Ecosistema y GTM.md#segmentaci%C3%B3n-de-mercado-3-verticales-gtm)
-> **Especificación CLI/TUI:** `Investigaciones/VantaDB_CLI_TUI_Design_Spec.md`
+> **Purpose:** Single source of truth for all project tasks, active and postponed.
+> **Completed features:** `docs/CHANGELOG.md`
 
 ---
 
-## FASE 3 — Pre-Lanzamiento (Julio-Agosto 2026)
+## PHASE 3 — Pre-Launch (July-August 2026)
 
 ### 3.C Core Engine
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `TSK-09` | OpenTelemetry traces (prematuro sin Prometheus básico) | 🟢 | ✅ |
+| `TSK-09` | OpenTelemetry traces (premature without basic Prometheus) | 🟢 | ✅ |
 
 
-## FASE 4 — Launch (Jul-Sep 2026)
+## PHASE 4 — Launch (Jul-Sep 2026)
 
-### 4.0 Fundacional (bloqueante — hacer primero)
+### 4.0 Foundational (blocking — do first)
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `MKT-06` | Logo y branding (SVG, paleta, favicon) | 🔴 | ❌ |
+| `MKT-06` | Logo and branding (SVG, palette, favicon) | 🔴 | ❌ |
 
 ### 4.B Framework Integrations
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `INT-01` | LangChain adapter (PyPI + PR langchain-community) | 🔴 | ❌ |
 | `INT-02` | LlamaIndex adapter (PyPI + PR llama-index) | 🔴 | ❌ |
-| `TSK-90` | Mem0: VantaDB como VectorStoreBackend | 🟠 | ❌ |
-| `TSK-89` | CrewAI: VantaDBMemory para crews multi-agente | 🟡 | ❌ |
+| `TSK-90` | Mem0: VantaDB as VectorStoreBackend | 🟠 | ❌ |
+| `TSK-89` | CrewAI: VantaDBMemory for multi-agent crews | 🟡 | ❌ |
 | `TSK-91` | DSPy: VantaDBRM (Retrieval Module) | 🟡 | ❌ |
 | `TSK-92` | Haystack: VantaDBDocumentStore | 🟡 | ❌ |
-| `TSK-116` | vantadb-openai (paquete embedding opcional) | 🟡 | ❌ |
-| `TSK-117` | vantadb-ollama (embedding local offline) | 🟡 | ❌ |
-| `TSK-95` | vantadb-litellm (gateway universal embeddings) | 🟡 | ❌ |
+| `TSK-116` | vantadb-openai (optional embedding package) | 🟡 | ❌ |
+| `TSK-117` | vantadb-ollama (local offline embedding) | 🟡 | ❌ |
+| `TSK-95` | vantadb-litellm (universal gateway embeddings) | 🟡 | ❌ |
 
 ### 4.D Launch Campaign
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `MKT-01` | Landing page (vantadb.dev): hero, benchmarks, comparaciones | 🔴 | ❌ |
-| `MKT-02` | Blog post "Introducing VantaDB" (técnico + benchmarks) | 🔴 | ❌ |
-| `MKT-03` | Show HN post (timing, título, respuestas preparadas) | 🔴 | ❌ |
+| `MKT-01` | Landing page (vantadb.dev): hero, benchmarks, comparisons | 🔴 | ❌ |
+| `MKT-02` | Blog post "Introducing VantaDB" (technical + benchmarks) | 🔴 | ❌ |
+| `MKT-03` | Show HN post (timing, title, prepared responses) | 🔴 | ❌ |
 | `MKT-04` | Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) | 🟠 | ❌ |
-| `MKT-05` | Blog posts técnicos (5+ pre-lanzamiento) | 🟠 | ❌ |
+| `MKT-05` | Technical blog posts (5+ pre-launch) | 🟠 | ❌ |
 | `COM-01` | Discord: announcements, general, help, showcase, dev | 🔴 | ❌ |
 | `TSK-106` | GitHub Discussions (Q&A, Ideas, Show & Tell) | 🟡 | ❌ |
-| `TSK-107` | Community showcase (proyectos en docs/showcase.md) | 🟡 | ❌ |
+| `TSK-107` | Community showcase (projects in docs/showcase.md) | 🟡 | ❌ |
 | `TSK-108` | Newsletter (Substack/Beehiiv, monthly) | 🟢 | ❌ |
-| — | Good first issues (20+ issues etiquetados) | 🟠 | ❌ |
+| — | Good first issues (20+ tagged issues) | 🟠 | ❌ |
 
-### 4.F Distribución
+### 4.F Distribution
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `TSK-121` | Hash SHA256 verification del wheel en tests | 🟢 | ❌ |
+| `TSK-121` | SHA256 hash verification of the wheel in tests | 🟢 | ❌ |
 
 ### 4.G Developer Experience
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB (showcase) | 🟠 | ❌ |
 | `TSK-103` | Public benchmark site (compare.py vs chroma/lancedb/qdrant) | 🟠 | ❌ |
 
 
-## FASE 5 — Post-Lanzamiento / Pre-Seed (Noviembre-Diciembre 2026)
+### 4.H Code Health & Security
+
+| ID | Task | Priority | Status |
+|----|-------|-----------|--------|
+| `SEC-01` | Migrate `bincode` (RUSTSEC-2025-0141 — unmaintained). Direct dep used in index serialization, WAL, state. Alternatives: `postcard`, `rkyv`, `borsh`. | 🔴 | ❌ |
+| `SEC-02` | Migrate `rustls-pemfile` (RUSTSEC-2025-0134 — unmaintained). Direct dep for TLS in vantadb-server. Alternatives: `rustls-pki-types` or inline PEM parsing. | 🔴 | ❌ |
+| `DOC-01` | Unit tests: 34/48 modules without `#[cfg(test)]`. Priority: `config.rs`, `engine.rs`, `executor.rs`, `gc.rs`, `metrics.rs`, `storage.rs`, `graph.rs`, `backends/` | 🟡 | ⏳ |
+| `DOC-02` | Refactor `insert_hnsw()` in `src/index.rs` (177L → 3 functions: `compute_inv_cached_norm`, `shrink_neighbors`, `insert_hnsw`) | 🟡 | ✅ |
+| `DOC-03` | Normalize 6 files with Unicode/accent in filename to pure ASCII (avoids cross-platform issues) | 🟢 | ✅ |
+
+### 4.I Documentation Consolidation
+
+| ID | Task | Priority | Status |
+|----|-------|-----------|--------|
+| `DOC-04` | Restore unique content from archived VantaDB-MPTS files: Vision/UVP, GTM/Strategic Roadmap, design principles, flowcharts, risk register (~2,900 unique lines with no EN equivalent). Create `docs/vision/VISION.md`, `docs/strategy/ROADMAP.md`, `docs/strategy/GO_TO_MARKET.md` | 🔴 | ✅ |
+| `DOC-05` | Translate to English 10 docs from `operations/` + 3 ADRs that are in Spanish (violate EN convention) | 🟡 | ✅ |
+| `DOC-06` | Unified frontmatter schema (title, status, tags, last_reviewed, aliases) for 117 .md files | 🟡 | ⏳ |
+| `DOC-07` | Unify naming convention to kebab-case without accents or spaces | 🟢 | ✅ |
+| `DOC-08` | Archive `TEXT_INDEX_PHASE_1_CLOSEOUT.md`, `RELEASE_V0.1.1.md`, `MILESTONE_V0.2.0.md` (historical) | 🟢 | ✅ |
+
+## PHASE 5 — Post-Launch / Pre-Seed (November-December 2026)
 
 ### 5.A Enterprise Readiness
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `TSK-72` | Encriptación at-rest AES-256-GCM (clave externa) | 🟡 | ❌ |
+| `TSK-72` | AES-256-GCM at-rest encryption (foreign key) | 🟡 | ❌ |
 | `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 | ❌ |
-| `TSK-110` | SBOM (SPDX/CycloneDX) en cada release | 🟡 | ❌ |
-| `BIZ-02` | WAL Shipping asíncrono (replicación sin Raft) | 🟡 | ❌ |
-| `TSK-122` | Sharded-slab para HNSW lock-free (mitiga `insert_lock` bottleneck) | 🟡 | ❌ |
-| `TSK-131` | Implementar PITR vía WAL archival (archivado + replay point-in-time) | 🟡 | ❌ |
-| `TSK-132` | Investigar checkpoint API en Fjall upstream o contribuirla | 🟢 | ❌ |
-| `TSK-133` | Backup incremental (full snapshot + WAL deltas) | 🟢 | ❌ |
-| `TSK-48` | Cuantización dinámica (f32→SQ8 para nodos fríos) | 🟢 | ❌ |
-| `LOW-01` | TLS 1.3 en vantadb-server | 🟢 | ✅ |
-| `TSK-142` | Investigar y prototipar persistencia WASM mediante OPFS y Web Workers | 🟡 | ❌ |
-| `TSK-143` | Benchmark de paridad de performance Fjall vs RocksDB para depreciación de RocksDB | 🟡 | ❌ |
-| `TSK-144` | Benchmarking cuantitativo de Recall vs Latencia de HNSW custom vs hnswlib | 🟠 | ❌ |
+| `TSK-110` | SBOM (SPDX/CycloneDX) in each release | 🟡 | ❌ |
+| `BIZ-02` | Asynchronous WAL Shipping (replication without Raft) | 🟡 | ❌ |
+| `TSK-122` | Sharded-slab for HNSW lock-free (mitigates `insert_lock` bottleneck) | 🟡 | ❌ |
+| `TSK-131` | Implement PITR via archival WAL (archive + point-in-time replay) | 🟡 | ❌ |
+| `TSK-132` | Research checkpoint API in Fjall upstream or contribute it | 🟢 | ❌ |
+| `TSK-133` | Incremental backup (full snapshot + WAL deltas) | 🟢 | ❌ |
+| `TSK-48` | Dynamic quantization (f32→SQ8 for cold nodes) | 🟢 | ❌ |
+| `LOW-01` | TLS 1.3 on vantadb-server | 🟢 | ✅ |
+| `TSK-142` | Investigate and prototype WASM persistence using OPFS and Web Workers | 🟡 | ❌ |
+| `TSK-143` | Fjall vs RocksDB Performance Parity Benchmark for RocksDB Depreciation | 🟡 | ❌ |
+| `TSK-144` | Quantitative benchmarking of Recall vs Latency of custom HNSW vs hnswlib | 🟠 | ❌ |
 
-### 5.B VantaDB Cloud y Negocio
+### 5.B VantaDB Cloud and Business
 
-| ID | Tarea | Prioridad | Estado |
+| ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `CLD-01` | VantaDB Cloud Beta (Fly.io, NVMe, Bearer auth) | 🟡 | ❌ |
-| `CLD-02` | Pitch Deck + one-pager (10 slides pre-seed) | 🟡 | ❌ |
-| `CLD-03` | Programa pilotos enterprise (3-5 early adopters) | 🟡 | ❌ |
-| `CLD-04` | Case Studies (mínimo 2) | 🟡 | ❌ |
-| `BIZ-01` | Bifurcación workspace open-source vs enterprise | 🟡 | ❌ |
+| `CLD-02` | Pitch Deck + one-pager (10 pre-seed slides) | 🟡 | ❌ |
+| `CLD-03` | Enterprise pilot program (3-5 early adopters) | 🟡 | ❌ |
+| `CLD-04` | Case Studies (minimum 2) | 🟡 | ❌ |
+| `BIZ-01` | Workspace open-source vs enterprise branch | 🟡 | ❌ |
 | `BIZ-03` | Pricing page (Free/Pro/Enterprise) | 🟡 | ❌ |
 
-**Criterio de salida FASE 5:** 10 enterprise pilots ✓ | $10K MRR ✓ | 3 case studies ✓ | Pitch deck ✓
+**Phase 5 Exit Criteria:** 10 enterprise pilots ✓ | $10K MRR ✓ | 3 case studies ✓ | Pitch deck ✓
 
 ---
 
-## ⚠️ Riesgos de No Hacer (pre-launch)
+## ⚠️ Risks of Not Doing (pre-launch)
 
-| Riesgo | Impacto | Mitigación |
+| Risk | Impact | Mitigation |
 |--------|---------|------------|
-| ~~License audit pendiente~~ | ✅ Mitigado — `cargo deny check licenses` pasa limpio, todas las dependencias compatibles con Apache 2.0 |
-| Trademark "VantaDB" no registrado | Alguien más reclama el nombre | Registrar marca en USPTO + EUIPO antes de Show HN |
-| CI/CD para forks externos | PRs de comunidad pueden romper CI o inyectar código malicioso | Workflow approval for first-time contributors + restricted secrets |
+| ~~Pending license audit~~ | ✅ Mitigated — `cargo deny check licenses` passes clean, all deps Apache 2.0 compatible |
+| Trademark "VantaDB" not registered | Someone else claims the name | Register trademark at USPTO + EUIPO before Show HN |
+| CI/CD for external forks | Community PRs can break CI or inject malicious code | Workflow approval for first-time contributors + restricted secrets |
 
 ---
 
-## ⏸️ Icebox — Postergado / Sin Prioridad Asignada
+## ⏸️ Icebox — Postponed / No Assigned Priority
 
-Tareas que no entran en el roadmap actual pero se mantienen como registro. Sin prioridad, sin fase asignada.
+Tasks that don't fit in the current roadmap but are kept as a record. No priority, no assigned phase.
 
-### Roadmap v2 (Visualización y Herramientas)
+### Roadmap v2 (Visualization and Tools)
 
-| ID | Tarea | Descripción |
+| ID | Task | Description |
 |----|-------|-------------|
-| `ROAD-02` | Backup/Restore a S3 | Exportar instantáneas .vantadb a almacenamiento de red |
-| `ROAD-03` | Web UI Explorer | Visualizar topología HNSW + dispersión vectorial (Umap/TSNE) |
-| `ROAD-04` | Bulk Import CLI | Importación optimizada de millones de nodos desde JSON/CSV con barra de progreso |
-| `ROAD-05` | Multi-model Hooks | Integración con LLMs locales (Ollama) y remotos (OpenAI) para embeddings automáticos |
-| `ROAD-07` | Connection Pooling | Cola de conexiones reutilizables con circuit breaker |
-| `ROAD-08` | Schema Validation | Validaciones estrictas opcionales de tipos por namespace |
-| `ROAD-09` | Query Caching | Caché LRU de búsqueda híbrida con TTL |
-| `ROAD-11` | Docker Compose | Entorno preconfigurado VantaDB Server + Ollama + Web UI |
+| `ROAD-02` | Backup/Restore to S3 | Export .vantadb snapshots to network storage |
+| `ROAD-03` | Web UI Explorer | Visualize HNSW topology + vector dispersion (UMAP/t-SNE) |
+| `ROAD-04` | Bulk Import CLI | Optimized import of millions of nodes from JSON/CSV with progress bar |
+| `ROAD-05` | Multi-model Hooks | Integration with local LLMs (Ollama) and remote (OpenAI) for automatic embeddings |
+| `ROAD-07` | Connection Pooling | Reusable connection queue with circuit breaker |
+| `ROAD-08` | Schema Validation | Optional strict type validations per namespace |
+| `ROAD-09` | Query Caching | LRU cache for hybrid-search with TTL |
+| `ROAD-11` | Docker Compose | Pre-configured environment VantaDB Server + Ollama + Web UI |
 
-### Distribuido y Escalamiento Multi-nodo (v2.0+)
+### Distributed and Multi-node Scaling (v2.0+)
 
-| ID | Tarea | Descripción |
+| ID | Task | Description |
 |----|-------|-------------|
-| `DIST-01` | Raft Consensus | Integración de `openraft` en vantadb-server |
-| `DIST-02` | Hash Sharding | Distribución consistente de llaves por hash + consultas cross-shard |
-| `DIST-03` | Zero-Downtime Upgrades | Rolling restarts sin pérdida de servicio |
-| `DIST-04` | ML Cost-Based Optimizer | Optimizador heurístico basado en árboles de decisión |
-| `DIST-05` | Auto-Indexing | Creación automática de índices sobre campos filtrados frecuentemente |
-| `DIST-06` | Adaptive TEMPERATURE | Variación de hiperparámetros según frecuencia de lectura del agente |
-| `DIST-07` | Query Recommendations | Sugerencias ortográficas y correcciones en consultas de texto |
-| `DIST-08` | Anomaly Detection | Monitoreo de spikes de recursos en clusters |
-| `DIST-09` | Multi-Tenant Isolation | Cuotas estrictas de RAM, IOPS e indexación por tenant |
-| `DIST-10` | Plugin Marketplace | Ejecución en sandbox de módulos personalizados WASM |
-| `DIST-11` | Edge Federation | Sincronización eventual P2P entre agentes desconectados |
-| `DIST-12` | Time-Series Mode | Operadores y funciones de agregación por ventanas de tiempo |
-| `DIST-13` | GraphQL API | Consultar namespaces, grafos y relaciones con GraphQL |
-| `DIST-14` | CDC (Change Data Capture) | Eventos del WAL vía WebSocket a clientes externos |
+| `DIST-01` | Raft Consensus | Integration of `openraft` in vantadb-server |
+| `DIST-02` | Hash Sharding | Consistent key distribution by hash + cross-shard queries |
+| `DIST-03` | Zero-Downtime Upgrades | Rolling restarts without service loss |
+| `DIST-04` | ML Cost-Based Optimizer | Heuristic optimizer based on decision trees |
+| `DIST-05` | Auto-Indexing | Automatic index creation on frequently filtered fields |
+| `DIST-06` | Adaptive TEMPERATURE | Hyperparameter variation based on agent read frequency |
+| `DIST-07` | Query Recommendations | Spelling suggestions and corrections in text queries |
+| `DIST-08` | Anomaly Detection | Resource spike monitoring in clusters |
+| `DIST-09` | Multi-Tenant Isolation | Strict RAM, IOPS and indexing quotas per tenant |
+| `DIST-10` | Plugin Marketplace | Sandboxed execution of custom WASM modules |
+| `DIST-11` | Edge Federation | Eventual P2P sync between disconnected agents |
+| `DIST-12` | Time-Series Mode | Operators and aggregation functions over time windows |
+| `DIST-13` | GraphQL API | Query namespaces, graphs and relationships with GraphQL |
+| `DIST-14` | CDC (Change Data Capture) | WAL events via WebSocket to external clients |
 
-### VantaLISP / VantaScript (Primitivas Cognitivas)
+### VantaLISP / VantaScript (Cognitive Primitives)
 
-| ID | Tarea | Descripción |
+| ID | Task | Description |
 |----|-------|-------------|
-| `LISP-01` | Bytecode JIT | Traducción de consultas relacionales a bytecode de ejecución directa sobre mmap |
-| `LISP-02` | Unificación multimodal | Operadores semántico-léxicos `~` y `SIGUE` en IQL |
-| `LISP-03` | Fuel 2.0 | Límites de cómputo vinculados dinámicamente a telemetría de CPU/RAM |
-| `LISP-04` | Metacognición | Algoritmos de rehidratación y reordenamiento de relaciones según flujo de conversación |
-| `LISP-05` | Monotonic Logic | Lógica distribuida coordinada sin reloj global para agentes |
-| `LISP-06` | Sandbox de ejecución | Restricciones FFI para que el motor no llame rutinas inseguras |
-| `LISP-07` | CRDTs definibles en LISP | Tipos de datos para mezcla determinista |
-| `LISP-08` | Multi-salto | Rutas de razonamiento semántico recursivas cruzando enlaces de grafos |
-| `LISP-09` | Fuzzing del parser | Inyección aleatoria de tokens para robustez del compilador |
-| `LISP-10` | VantaScript / Inference Logic | Renombrado a estándares más legibles para devs JS/Python |
+| `LISP-01` | Bytecode JIT | Translation of relational queries to bytecode for direct mmap execution |
+| `LISP-02` | Multimodal Unification | Semantic-lexical operators `~` and `FOLLOWS` in IQL |
+| `LISP-03` | Fuel 2.0 | Compute limits dynamically bound to CPU/RAM telemetry |
+| `LISP-04` | Metacognition | Relationship rehydration and reordering algorithms based on conversation flow |
+| `LISP-05` | Monotonic Logic | Coordinated distributed logic without global clock for agents |
+| `LISP-06` | Execution Sandbox | FFI restrictions to prevent engine from calling unsafe routines |
+| `LISP-07` | LISP-definable CRDTs | Data types for deterministic merge |
+| `LISP-08` | Multi-hop | Recursive semantic reasoning paths crossing graph edges |
+| `LISP-09` | Parser Fuzzing | Random token injection for compiler robustness |
+| `LISP-10` | VantaScript / Inference Logic | Renamed to more readable standards for JS/Python devs |
 
-### Bajo ROI / No Prioritario
+### Low ROI / Non-Priority
 
-| ID | Tarea | Razón |
-|----|-------|-------|
-| `LOW-02` | Background compaction en Fjall | Fjall maneja su propia compactación |
+| ID | Task | Reason |
+|----|------|--------|
+| `LOW-02` | Background compaction in Fjall | Fjall handles its own compaction |
+
 ---
 
-## ❌ No Hacer (hasta post-seed con equipo)
+## ❌ Do Not Do (until post-seed with team)
 
-| Feature | Razón |
+| Feature | Reason |
 |---------|-------|
-| SQL completo | 3-6 meses, ICP no lo necesita, pgvector ya lo tiene |
-| Distributed / Raft | 6-12 meses, contradice filosofía embedded |
-| IVF-PQ disk-based | LanceDB mejor, no es mercado VantaDB |
-| GPU acceleration | Rompe zero-config, no resuelve bottleneck real |
-| RBAC / SSO en core | Solo cloud managed, post-seed |
-| Embedding models bundled | Destruye zero-config (500MB+ wheel) |
-| GraphQL API | ICP prefiere API, ya tienes MCP |
-| Versionado git-style | No es dolor del ICP, LanceDB ya lo tiene |
-| Time-series mode | Producto diferente, fuera de scope |
-| Cuantización 1.5/2-bit | Retorno marginal para datasets <1M |
+| Full SQL | 3-6 months, ICP doesn't need it, pgvector already has it |
+| Distributed / Raft | 6-12 months, contradicts embedded philosophy |
+| IVF-PQ disk-based | LanceDB does this better, not VantaDB's market |
+| GPU acceleration | Breaks zero-config, doesn't solve real bottleneck |
+| RBAC / SSO in core | Cloud managed only, post-seed |
+| Embedding models bundled | Destroys zero-config (500MB+ wheel) |
+| GraphQL API | ICP prefers REST API, MCP already available |
+| Git-style versioning | Not ICP pain point, LanceDB already has it |
+| Time-series mode | Different product, out of scope |
+| 1.5/2-bit Quantization | Marginal returns for datasets <1M |
 
 ---
 
-## 📊 Veredicto: Estado Real del Proyecto
+## 📊 Verdict: Actual Project Status
 
-| Aspecto | Estado | Confianza |
+| Aspect | Status | Confidence |
 |---------|--------|-----------|
-| **Core Engine (Rust)** | 🟢 Sólido | 95% |
-| **Persistencia (WAL, mmap)** | 🟢 Implementado | 90% |
-| **Índices (HNSW, BM25)** | 🟢 Funcional | 85% |
-| **Python SDK** | 🟢 Completo | 90% |
-| **Documentación MPTS** | 🟢 Rectificada | 85% |
-| **Testing** | 🟡 Parcial | 70% |
-| **CLI + Server** | 🟢 Completo (repl, json/quiet, typos) | 95% |
-| **API Methods** | 🟢 Completo (filter ops, delete_by_filter, similar_to_key, count, multi-ns) | 95% |
+| **Core Engine (Rust)** | 🟢 Solid | 95% |
+| **Persistence (WAL, mmap)** | 🟢 Implemented | 90% |
+| **Indexes (HNSW, BM25)** | 🟢 Functional | 85% |
+| **Python SDK** | 🟢 Complete | 90% |
+| **Documentation** | 🟡 Consolidated (VISION/ROADMAP/GTM created, 34 frontmatter added, 12 docs translated, Unicode normalized) | 85% |
+| **Testing** | 🟡 Partial | 70% |
+| **CLI + Server** | 🟢 Complete (repl, json/quiet, typos) | 95% |
+| **API Methods** | 🟢 Complete (filter ops, delete_by_filter, similar_to_key, count, multi-ns) | 95% |
 
 ---
 
-| `DISC-11` | Unificar binarios CLI+MCP+Server | ⏸️ Postpuesto (dependencia circular) |
-## Véase También
+## See Also
 
-- [Master Index](VantaDB-MPTS/Master Index.md) — Documento padre
-- [Roadmap e Hitos de Ingeniería](VantaDB-MPTS/Roadmap e Hitos de Ingeniería.md) — Timeline, decisiones, criterios por fase
-- [Estrategia de Ecosistema y GTM](VantaDB-MPTS/Estrategia de Ecosistema y GTM.md) — Verticales GTM, integraciones, marketing
-- [Operaciones, Calidad y Riesgos](VantaDB-MPTS/Operaciones, Calidad y Riesgos.md) — Testing, CI/CD, riesgos estructurales
-- `VantaDB-MPTS/REPORT_AUDITORIA_RECTIFICACION_2026-06-14.md` — Hallazgos de auditoría (ERR, FEAT, HAZ, correcciones)
-- `progreso/README.md` — Historial completo de progreso técnico
+- [[master-index]] — Central navigation for all documentation
+- [[archive/]] — Archive of historical docs, executed plans, and previous research
+- [[FAQ.md]] — Frequently Asked Questions
+- [[CHANGELOG.md]] — Release history and implemented features

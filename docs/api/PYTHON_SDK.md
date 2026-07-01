@@ -1,3 +1,11 @@
+---
+title: Python SDK Documentation
+type: api
+status: active
+tags: [vantadb, api]
+last_reviewed: 2026-07-01
+---
+
 # Python SDK Documentation
 
 ## Installation
@@ -22,7 +30,7 @@ db.put(
     vector=[0.1] * 384, # Dummy vector for example
 )
 
-# Hybrid search (memory API)
+# [[hybrid-search|Hybrid search]] (memory API)
 results = db.search_memory(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",

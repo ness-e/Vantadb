@@ -1,3 +1,11 @@
+---
+title: Durability Guarantees
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # Durability Guarantees
 
 > What happens when the power goes out, the process crashes, or the disk
@@ -13,10 +21,10 @@ specific failure mode:
 
 | Layer | Role | Durability mechanism |
 |---|---|---|
-| **WAL** (`vanta.wal`) | Ordered journal of every mutation | CRC32C per record, auto-healing scan-forward, optional per-write `fsync` |
-| **Backend KV** (Fjall) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
-| **Vector store** (`vector_store.vanta`) | Dense vector storage (mmap) | `msync` on flush, atomic RCU rename |
-| **HNSW index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
+| **[[wal|WAL]]** (`vanta.wal`) | Ordered journal of every mutation | [[crc32c|CRC32C]] per record, auto-healing scan-forward, optional per-write `fsync` |
+| **Backend KV** ([[fjall|Fjall]]) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
+| **Vector store** (`vector_store.vanta`) | Dense vector storage ([[mmap]]) | `msync` on flush, atomic RCU rename |
+| **[[hnsw|HNSW]] index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
 
 The write path is: **WAL first, then data, then indexes**. If the process
 crashes mid-write, the WAL contains the mutation and replay restores it.
@@ -38,7 +46,7 @@ All four steps must succeed for the mutation to be considered committed.
 If step 1 fails (e.g. disk full), the mutation is rejected at the
 application level — no partial state is written.
 
-The WAL record carries a **CRC32C checksum** of its serialized payload.
+The WAL record carries a **[[crc32c|CRC32C]] checksum** of its serialized payload.
 In `SyncMode::Always`, an `fdatasync` is issued after every `append()`.
 In `Periodic` mode (default), the OS page cache batches writes.
 
@@ -61,10 +69,10 @@ flush()
 
 At the end of a successful `flush()`, the system guarantees:
 
-- All relational data is in the KV backend (Fjall SSTs)
-- All vectors are in `vector_store.vanta` (flushed from mmap)
-- The HNSW index is on disk as `vector_index.bin`
-- `checkpoint_seq` records how many WAL entries are already flushed
+- All relational data is in the KV backend ([[fjall|Fjall]] SSTs)
+- All vectors are in `vector_store.vanta` (flushed from [[mmap]])
+- The [[hnsw|HNSW]] index is on disk as `vector_index.bin`
+- `checkpoint_seq` records how many [[wal|WAL]] entries are already flushed
 
 ### checkpoint_seq
 

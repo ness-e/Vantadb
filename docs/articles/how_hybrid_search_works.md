@@ -1,3 +1,11 @@
+---
+title: "How Hybrid Search Works: BM25 + HNSW + RRF in Practice"
+type: article
+status: active
+tags: [vantadb, articles]
+last_reviewed: 2026-07-01
+---
+
 # How Hybrid Search Works: BM25 + HNSW + RRF in Practice
 
 *By the VantaDB Team*

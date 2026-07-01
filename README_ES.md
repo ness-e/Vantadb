@@ -27,14 +27,14 @@
 <br>
 
 <div align="center">
-  <img src="docs/assets/demo_terminal.png" alt="VantaDB — Demo de búsqueda híbrida: BM25 + HNSW + RRF en 1.2ms" width="820"/>
+  <img src="docs/assets/demo_terminal.png" alt="VantaDB — Demo de busqueda-hibrida: BM25 + HNSW + RRF en 1.2ms" width="820"/>
   <br/>
-  <sub><i>Búsqueda híbrida (BM25 + HNSW vía RRF) · 1.2ms de latencia · 100% Recall@10 · Cero red · Embebido en-proceso</i></sub>
+  <sub><i>busqueda-hibrida (BM25 + HNSW vía RRF) · 1.2ms de latencia · 100% Recall@10 · Cero red · Embebido en-proceso</i></sub>
 </div>
 
 <br>
 
-VantaDB es un motor de base de datos embebido y local-first diseñado para agentes de IA, pipelines RAG locales y aplicaciones edge. Proporciona almacenamiento persistente, recuperación segura ante fallos vía WAL, y búsqueda híbrida nativa (BM25 + HNSW) sin requerir servicios externos, contenedores o dependencias de red.
+VantaDB es un motor de base de datos embebido y local-first diseñado para agentes de IA, pipelines RAG locales y aplicaciones edge. Proporciona almacenamiento persistente, recuperación segura ante fallos vía WAL, y busqueda-hibrida nativa (BM25 + HNSW) sin requerir servicios externos, contenedores o dependencias de red.
 
 ---
 
@@ -101,7 +101,7 @@ record = db.put(
 # 3. Recupera el registro exacto por clave
 stored = db.get_memory("agent/main", "memory-001")
 
-# 4. Búsqueda Híbrida (BM25 + Similitud Coseno fusionada vía RRF)
+# 4. busqueda-hibrida (BM25 + Similitud Coseno fusionada vía RRF)
 hits = db.search_memory("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Telemetría Operacional y Cierre Seguro
@@ -122,7 +122,7 @@ print(caps)
 | Motor | Mecanismo | Detalles |
 | :--- | :--- | :--- |
 | **Núcleo Persistente** | `StorageBackend` + VantaFile + WAL | Fjall (por defecto) o RocksDB alternativo. Recuperación automática ante fallos vía Write-Ahead Log con checksums CRC32C. |
-| **Búsqueda Híbrida** | BM25 + HNSW vía RRF | Fusiona puntuación léxica y similitud vectorial usando Reciprocal Rank Fusion. Enrutado automáticamente vía planificador de consultas. |
+| **busqueda-hibrida** | BM25 + HNSW vía RRF | Fusiona puntuación léxica y similitud vectorial usando Reciprocal Rank Fusion. Enrutado automáticamente vía planificador de consultas. |
 | **Recuperación Vectorial** | HNSW Nativo | Similitud coseno con `M`, `ef_construction` y `ef_search` configurables. Validado en datasets sintéticos de 10K–100K. |
 | **API de Memoria** | Registros `namespace + key` | `put/get/delete/list/search` almacenan payloads UTF-8, metadata escalar, vectores opcionales, timestamps, versiones y IDs de nodo determinísticos. |
 | **Índices Estructurados** | Índices de prefix-scan derivados | Filtros de igualdad usan índices de metadata persistidos que pueden reconstruirse desde registros canónicos. |
@@ -138,7 +138,7 @@ No se requiere clúster separado, demonio o servicio externo. VantaDB ejecuta en
 
 - La ruta ANN enviada usa **similitud coseno**.
 - `list/search` con ámbito de namespace usan índices derivados de namespace y metadata escalar, con los registros canónicos permaneciendo como la fuente de verdad.
-- **Búsqueda Híbrida** es soportada nativamente. El motor planifica y ejecuta consultas léxicas (BM25) y vectoriales (Coseno), fusionándolas usando Reciprocal Rank Fusion (RRF).
+- **busqueda-hibrida** es soportada nativamente. El motor planifica y ejecuta consultas léxicas (BM25) y vectoriales (Coseno), fusionándolas usando Reciprocal Rank Fusion (RRF).
 - SIFT-1M sigue siendo útil como escenario de estrés/recuperación vía el workflow de [Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml).
 
 ---

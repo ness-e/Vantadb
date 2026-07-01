@@ -1,3 +1,11 @@
+---
+title: Grafana Dashboard Setup
+type: operations
+status: active
+tags: [vantadb, operations]
+last_reviewed: 2026-07-01
+---
+
 # Grafana Dashboard Setup
 
 ## 1. Import the dashboard
@@ -44,4 +52,4 @@ For embedded use, ensure `VantaConfig` has:
 config.with_metrics(Some("0.0.0.0:9090".parse().unwrap()))
 ```
 
-> **Note:** The `L2.5` layer corresponds to SQ8 quantization. It will appear only after upgrading to v0.1.5+ (SQ8 is not available in earlier versions).
+> **Note:** The `L2.5` layer corresponds to [[sq8|SQ8]] quantization. It will appear only after upgrading to v0.1.5+ ([[sq8|SQ8]] is not available in earlier versions).

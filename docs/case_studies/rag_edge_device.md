@@ -1,3 +1,11 @@
+---
+title: "Case Study 2: Fast Hybrid RAG on Edge Devices (Raspberry Pi & Intel NUC)"
+type: case-study
+status: active
+tags: [vantadb, case-studies]
+last_reviewed: 2026-07-01
+---
+
 # Case Study 2: Fast Hybrid RAG on Edge Devices (Raspberry Pi & Intel NUC)
 
 *Category: Edge AI & IoT | Hardware: Raspberry Pi 5 (8GB RAM) & Intel NUC | Date: June 2026*

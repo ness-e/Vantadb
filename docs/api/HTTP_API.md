@@ -1,3 +1,11 @@
+---
+title: VantaDB HTTP API
+type: api
+status: active
+tags: [vantadb, api]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB HTTP API
 
 > REST interface for the VantaDB HTTP server (optional, enabled via `vanta-cli server --http` or the `server` Cargo feature).

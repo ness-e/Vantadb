@@ -1,69 +1,77 @@
-# 🔍 Guía de Fuzzing para VantaDB
+---
+title: Fuzzing Guide for VantaDB
+type: operations
+status: active
+tags: [vantadb, operations, testing, fuzzing]
+last_reviewed: 2026-07-01
+---
 
-## 📊 Estrategia de Validación
+# Fuzzing Guide for VantaDB
 
-VantaDB utiliza un enfoque dual de fuzzing para maximizar cobertura y compatibilidad:
+## Validation Strategy
 
-| Método | Plataforma | Propósito | Ejecución |
+VantaDB uses a dual fuzzing approach to maximize coverage and compatibility:
+
+| Method | Platform | Purpose | Execution |
 |--------|-----------|-----------|----------|
-| **`proptest`** | ✅ Windows, Linux, macOS | Validación cross-platform en desarrollo | `cargo test fuzz_proptest` |
-| **`cargo-fuzz`** | 🐧 Solo Linux/macOS | Fuzzing intensivo con sanitizers (CI) | `cd fuzz && cargo +nightly fuzz run <target>` |
+| **`proptest`** | ✅ Windows, Linux, macOS | Cross-platform validation during development | `cargo test fuzz_proptest` |
+| **`cargo-fuzz`** | 🐧 Linux/macOS only | Intensive fuzzing with sanitizers (CI) | `cd fuzz && cargo +nightly fuzz run <target>` |
 
 ---
 
-## 🪟 Validación en Windows (Proptest)
+## Windows Validation (Proptest)
 
-Ejecuta tests basados en propiedades que generan datos aleatorios para validar robustez:
+Run property-based tests that generate random data to validate robustness:
 
 ```powershell
-# Ejecutar tests de fuzzing
+# Run fuzzing tests
 cargo test fuzz_proptest
 
-# Ejecutar con más casos (por defecto 256)
+# Run with more cases (default 256)
 PROPTEST_CASES=1000 cargo test fuzz_proptest
 ```
 
-**Qué valida:**
-- ✅ Deserialización segura de `WalRecord` y `UnifiedNode` ante bytes corruptos
-- ✅ Roundtrip correcto con payloads y vectores aleatorios
-- ✅ Cero pánicos en código crítico de parsing
+**What it validates:**
+- ✅ Safe deserialization of `WalRecord` and `UnifiedNode` against corrupt bytes
+- ✅ Correct roundtrip with random payloads and vectors
+- ✅ Zero panics in critical parsing code
 
-**Criterios de aceptación:**
-- Todos los tests de `fuzz_proptest` deben pasar
-- No debe haber pánicos ni crashes en la deserialización
+**Acceptance criteria:**
+- All `fuzz_proptest` tests must pass
+- No panics or crashes during deserialization
 
 ---
 
-## 🐧 Fuzzing Avanzado (Linux/macOS + Nightly)
+## Advanced Fuzzing (Linux/macOS + Nightly)
 
-Requiere `cargo-fuzz` y `rustc nightly`. Úsalo en CI o WSL2:
+Requires `cargo-fuzz` and `rustc nightly`. Use in CI or WSL2:
 
-### Prerequisitos
+### Prerequisites
 ```bash
 rustup install nightly
 cargo install cargo-fuzz
 ```
 
-### Ejecución
+### Execution
 ```bash
 cd fuzz/
 
-# Fuzzing de deserialización (WAL + Nodes)
+# Deserialization fuzzing (WAL + Nodes)
 cargo +nightly fuzz run fuzz_node_deserialize -- -max_total_time=300
 
-# Fuzzing de parser LISP/queries
+# LISP/query parser fuzzing
 cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
 ```
 
-### Reproducir Crashes
-Si `cargo-fuzz` encuentra un crash, guarda el caso en `fuzz/artifacts/`:
+### Reproducing Crashes
+If `cargo-fuzz` finds a crash, the case is saved in `fuzz/artifacts/`:
 ```bash
 cargo +nightly fuzz run fuzz_node_deserialize fuzz/artifacts/fuzz_node_deserialize/crash-<hash>
 ```
 
-### Integración en CI (GitHub Actions)
+### CI Integration (GitHub Actions)
 ```yaml
-# .github/workflows/fuzz.yml (ejemplo para Linux)
+# .github/workflows/fuzz.yml (example for Linux)
 name: Fuzzing
 on: [push, pull_request]
 
@@ -79,44 +87,44 @@ jobs:
 
 ---
 
-## 🎯 Criterios de Aceptación en CI
+## CI Acceptance Criteria
 
-- [ ] `proptest` pasa en todas las plataformas (Windows/Linux/macOS)
-- [ ] `cargo-fuzz` corre 300s sin crashes en Linux (no-pánico)
-- [ ] 0 memory leaks detectados por LSan/ASan (Linux only)
-- [ ] Cualquier crash encontrado se documenta en `docs/architecture/audits/fuzz-crashes.md`
+- [ ] `proptest` passes on all platforms (Windows/Linux/macOS)
+- [ ] `cargo-fuzz` runs for 300s without crashes on Linux (no-panic)
+- [ ] 0 memory leaks detected by LSan/ASan (Linux only)
+- [ ] Any crash found is documented in `docs/architecture/audits/fuzz-crashes.md`
 
 ---
 
-## ⚠️ Notas Técnicas
+## Technical Notes
 
-### Por qué `cargo-fuzz` no funciona en Windows nativo
-- `cargo-fuzz` depende de `libFuzzer`, que requiere sanitizers (ASan/LSan)
-- Los sanitizers de LLVM solo están soportados oficialmente en Linux/macOS
-- En Windows, usa `proptest` para validación de lógica y reserva `cargo-fuzz` para CI Linux
+### Why `cargo-fuzz` Does Not Work on Native Windows
+- `cargo-fuzz` depends on `libFuzzer`, which requires sanitizers (ASan/LSan)
+- LLVM sanitizers are only officially supported on Linux/macOS
+- On Windows, use `proptest` for logic validation and reserve `cargo-fuzz` for Linux CI
 
-### Configuración del Workspace
-El directorio `fuzz/` está excluido del workspace en `Cargo.toml`:
+### Workspace Configuration
+The `fuzz/` directory is excluded from the workspace in `Cargo.toml`:
 ```toml
 [workspace]
-exclude = ["fuzz"]  # Evita conflicto con cargo-fuzz en Windows
+exclude = ["fuzz"]  # Prevents conflict with cargo-fuzz on Windows
 ```
 
-Esto permite:
-- Ejecutar `cargo test` en Windows sin errores de workspace
-- Ejecutar `cargo +nightly fuzz run` en Linux sin interferencias
+This allows:
+- Running `cargo test` on Windows without workspace errors
+- Running `cargo +nightly fuzz run` on Linux without interference
 
 ---
 
-## 📈 Métricas de Calidad
+## Quality Metrics
 
-| Métrica | Objetivo | Herramienta |
+| Metric | Target | Tool |
 |---------|----------|-------------|
-| **Cobertura de fuzzing** | >1M inputs sin crash | `cargo-fuzz` (Linux) |
-| **Tiempo sin regresiones** | 300s continuos | `cargo-fuzz -- -max_total_time=300` |
-| **Tests de propiedad** | 256+ casos por test | `proptest` (default) |
-| **Pánicos en deserialización** | 0 | Ambos métodos |
+| **Fuzzing coverage** | >1M inputs without crash | `cargo-fuzz` (Linux) |
+| **Regression-free duration** | 300s continuous | `cargo-fuzz -- -max_total_time=300` |
+| **Property tests** | 256+ cases per test | `proptest` (default) |
+| **Deserialization panics** | 0 | Both methods |
 
 ---
 
-> **Nota para desarrolladores**: Si añades nuevos tipos serializables críticos (ej: nuevos records de WAL, estructuras de índice), considera añadir un test de `proptest` correspondiente en este archivo para mantener la cobertura de fuzzing.
+> **Note for developers**: If you add new critical serializable types (e.g., new WAL records, index structures), consider adding a corresponding `proptest` test in this file to maintain fuzzing coverage.

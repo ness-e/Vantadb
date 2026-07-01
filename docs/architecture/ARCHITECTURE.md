@@ -1,6 +1,341 @@
+---
+title: VantaDB Internal Architecture
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-07-01
+---
+
 # VantaDB Internal Architecture
 
 This document reflects the current repo truth for `v0.1.x`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+
+---
+
+## Design Principles
+
+### 1. Embedded-First
+
+VantaDB is an **embedded library**, not a service. The core (`vantadb-core`) has zero network dependencies. The HTTP server lives in `vanta-cli server` (in-process, behind `server` feature flag).
+
+```
+┌─────────────────────────────────────────┐
+│         Application (Python/Rust)        │
+│                                          │
+│  ┌────────────────────────────────────┐ │
+│  │     vantadb-core (linked library)   │ │
+│  │  ┌──────┐  ┌──────┐  ┌──────────┐ │ │
+│  │  │ [[wal|WAL]]  │  │ [[hnsw|HNSW]] │  │ Storage  │ │ │
+│  │  └──────┘  └──────┘  └──────────┘ │ │
+│  └────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+### 2. Canonical Data + Derived Indexes
+
+All data has a single source of truth (canonical storage). Indexes are **ephemeral materializations** — if corrupted, they can be rebuilt from canonical data.
+
+```
+Source of Truth (Canonical):
+├── Documents (text + metadata)
+├── Vectors (embeddings)
+└── Graph (edges)
+
+Derived Indexes (Rebuildable):
+├── [[hnsw|HNSW]] (vector ANN search)
+├── [[bm25|BM25]] (lexical search)
+└── Payload indexes (structured filters)
+```
+
+### 3. Zero-Cost Abstractions
+
+Rust enables high-level abstractions with zero runtime overhead:
+- **Traits** for static polymorphism
+- **Zero-copy** where possible ([[mmap]])
+- **[[simd|SIMD]]** for vector operations
+
+### 4. Durability Before Performance
+
+Write path order — NEVER acknowledge before fsync:
+
+1. Append mutation to [[wal|WAL]]
+2. fsync() the [[wal|WAL]] ← **DURABILITY GUARANTEED**
+3. Apply to storage backend ([[fjall|Fjall]]/[[rocksdb|RocksDB]])
+4. Update derived indexes ([[hnsw|HNSW]], [[bm25|BM25]])
+5. ACK to client
+
+---
+
+## WAL Binary Layout
+
+The Write-Ahead Log guarantees durability before any mutation is applied to storage.
+
+### Record Structure
+
+```
+┌─────────────────────────────────────┐
+│         WAL Record                   │
+├─────────────────────────────────────┤
+│ Header (8 bytes)                    │
+│ ├── Length: u32                     │
+│ ├── Type: u8 (Insert/Delete/Update) │
+│ └── Flags: u8                       │
+├─────────────────────────────────────┤
+│ Payload (variable)                  │
+│ ├── Key: [u8]                       │
+│ ├── Vector: [f32]                   │
+│ ├── Text: [u8]                      │
+│ └── Metadata: [u8]                  │
+├─────────────────────────────────────┤
+│ Checksum: u32 ([[crc32c|CRC32C]])              │
+└─────────────────────────────────────┘
+```
+
+### Write Flow
+
+```
+1. Serialize mutation
+2. Compute CRC32C of payload
+3. Append to wal.log
+4. fsync() ← DURABILITY GUARANTEED
+5. Apply to Fjall/RocksDB
+6. Update indexes (HNSW, BM25)
+7. ACK to client
+```
+
+### WAL Compaction
+
+Automatic when accumulated size exceeds 256 MB (`compact_wal()`):
+- Rotates obsolete WAL segments (post-checkpoint)
+- Exposed via `vanta-cli wal compact`
+- Zero interruption to read/write operations
+
+---
+
+## Storage Backend: [[fjall|Fjall]] vs [[rocksdb|RocksDB]]
+
+| Feature | [[fjall|Fjall]] (Default) | [[rocksdb|RocksDB]] (Fallback) |
+|---------|-----------------|-------------------|
+| Language | 100% Rust | C++ (C bindings) |
+| Build Time | ~30s | ~5-10min |
+| Dependencies | Zero | CMake, Clang, libstdc++ |
+| Memory Safety | Safe Rust | `unsafe` in bindings |
+| MVCC | ✅ Native | ✅ Supported |
+| LSM-Tree | ✅ | ✅ |
+
+The `StorageBackend` trait abstracts the KV layer:
+
+```rust
+pub trait StorageBackend: Send + Sync {
+    fn put(&self, key: &[u8], value: &[u8]) -> Result<()>;
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
+    fn delete(&self, key: &[u8]) -> Result<()>;
+    fn flush(&self) -> Result<()>;
+}
+```
+
+---
+
+## Data Flow Diagrams
+
+### Document Insert Path
+
+```
+Client: db.put("doc1", vector, text, metadata)
+    │
+    ▼
+┌────────────────────────┐
+│ 1. Validate inputs     │
+│    - key not empty     │
+│    - valid vector dim  │
+│    - valid metadata    │
+└──────────┬─────────────┘
+           │
+           ▼
+┌────────────────────────┐
+│ 2. Serialize mutation  │
+│    Mutation::Insert {  │
+│      key, vector,      │
+│      text, metadata    │
+│    }                   │
+└──────────┬─────────────┘
+           │
+           ▼
+┌────────────────────────┐
+│ 3. Append to WAL       │
+│    - Compute CRC32C    │
+│    - Write record      │
+└──────────┬─────────────┘
+           │
+           ▼
+┌────────────────────────┐
+│ 4. fsync() of WAL      │ ← DURABILITY
+└──────────┬─────────────┘
+           │
+           ▼
+┌────────────────────────┐
+│ 5. Apply to [[fjall|Fjall]]      │
+│    - Insert document   │
+│    - Insert vector     │
+│    - Insert metadata   │
+└──────────┬─────────────┘
+           │
+           ▼
+┌────────────────────────┐
+│ 6. Update indexes      │
+│    - [[hnsw|HNSW]]: add vector  │
+│    - [[bm25|BM25]]: index text  │
+└──────────┬─────────────┘
+           │
+           ▼
+      ACK to client
+```
+
+### Hybrid Search Path
+
+```
+Client: db.search(vector, text, top_k=10)
+    │
+    ├─▶ HNSW Index
+    │   └─▶ Candidate List 1: [doc5, doc12, doc23, ...]
+    │
+    ├─▶ BM25 Index
+    │   └─▶ Candidate List 2: [doc3, doc7, doc12, doc45, ...]
+    │
+    └─▶ RRF Fusion
+        └─▶ Unified Ranking: [doc12, doc7, doc45, ...]
+            │
+            ▼
+        Return top-K to client
+```
+
+---
+
+## System Architecture (Layered)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 5: SDK / API                                          │
+│  ├── Python SDK (PyO3 bindings)                             │
+│  ├── Rust SDK (native VantaEmbedded API)                    │
+│  ├── TypeScript SDK (WASM)                                  │
+│  └── MCP Server (agent protocol)                            │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: Query Engine                                       │
+│  ├── Query Planner (AST + optimization)                     │
+│  ├── Hybrid Search (HNSW + BM25 + RRF)                     │
+│  └── Graph Traversal (multi-hop)                            │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Indexes                                            │
+│  ├── HNSW Index (vector ANN)                                │
+│  ├── BM25 Index (lexical)                                   │
+│  └── Payload Indexes (filters)                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: Storage Engine                                     │
+│  ├── WAL (Write-Ahead Log)                                  │
+│  ├── Fjall Backend (default, 100% Rust LSM-tree)            │
+│  └── RocksDB Backend (fallback via C bindings)              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1: Persistence                                        │
+│  ├── mmap (memory-mapped I/O)                               │
+│  ├── fsync (durability)                                     │
+│  └── CRC32C (integrity)                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Map
+
+| Component | Source File | Responsibility |
+|-----------|------------|----------------|
+| **VantaEmbedded** | `src/sdk.rs` | Public API boundary |
+| **StorageEngine** | `src/storage.rs` | Storage orchestration |
+| **WalWriter** | `src/wal.rs` | Write-ahead log |
+| **HnswIndex** | `src/index.rs` | Vector ANN index |
+| **Bm25Index** | `src/text_index.rs` | Lexical search index |
+| **FjallBackend** | `src/backends/fjall_backend.rs` | LSM-tree backend |
+| **UnifiedNode** | `src/node.rs` | Unified data model |
+
+---
+
+## HNSW Index
+
+**Purpose:** Approximate nearest neighbor (ANN) search in logarithmic time.
+
+```
+Layer 2 (sparsest):
+    [A] ────────── [D]
+
+Layer 1 (intermediate):
+    [A] ─── [B] ─── [D]
+     │       │       │
+    [E] ─── [C] ─── [F]
+
+Layer 0 (densest, all vectors):
+    [A]─[B]─[C]─[D]─[E]─[F]─[G]─[H]─[I]─[J]
+```
+
+**Parameters:**
+- **M:** Max connections per node (default: 16)
+- **ef_construction:** Candidates during construction (default: 200)
+- **ef_search:** Candidates during search (default: 100)
+
+**Persistence:** Full graph memory-mapped (mmap) → instant load.
+
+## BM25 Index
+
+**Purpose:** Keyword-based lexical search via inverted index.
+
+```
+Inverted Index:
+"database" → [doc1, doc3, doc7, ...]
+"vector"  → [doc1, doc8, doc20, ...]
+"search"  → [doc3, doc7, doc12, ...]
+```
+
+---
+
+## Unified Data Model
+
+The `UnifiedNode` in `src/node.rs` is the canonical internal representation:
+
+```rust
+pub struct UnifiedNode {
+    pub id: u64,
+    pub bitset: u128,
+    pub semantic_cluster: u32,
+    pub flags: NodeFlags,
+    pub vector: VectorRepresentations,
+    pub epoch: u32,
+    pub edges: Vec<Edge>,
+    pub relational: RelFields,
+    pub tier: NodeTier,
+    pub hits: u32,
+    pub last_accessed: u64,
+    pub confidence_score: f32,
+    pub importance: f32,
+    pub ext_metadata: HashMap<String, Vec<u8>>,
+}
+```
+
+The product-level memory model (`VantaMemoryInput`, `VantaMemoryRecord`, etc.) provides a simpler interface over this internal representation.
+
+---
+
+## WASM Support
+
+The core compiles for `wasm32-wasip1` via conditional compilation:
+
+| Dependency | Native | WASM | Strategy |
+|-----------|--------|------|----------|
+| **sysinfo** | Real | Stub | Optional feature |
+| **memmap2** | mmap | Vec-backed shim | Optional, shim in `src/wasm/mmap.rs` |
+| **fs2** | File locking | Ok stub | Optional, empty stub |
+| **prometheus** | Real metrics | cfg-gated statics | `#[cfg(feature = "prometheus")]` |
+| **rayon** | Thread pool | Sequential fallback | Optional, `iter().map().collect()` |
+
+Browser target (`wasm32-unknown-unknown`) uses `web_time::SystemTime` to avoid panics from `std::time::SystemTime::now()` (unavailable in browsers).
 
 ## 1. Product Boundary
 
