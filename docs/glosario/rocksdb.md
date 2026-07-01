@@ -1,20 +1,19 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [storage, backend, lsm-tree, cpp]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [RocksDB Storage Engine]
-description: "Motor de almacenamiento LSM-tree de alto rendimiento desarrollado por Facebook en C++. Backend alternativo/fallback en VantaDB para benchmarking y compatibilidad"
+description: "High-performance LSM-tree storage engine developed by Facebook in C++. Alternative/fallback backend in VantaDB for benchmarking and compatibility"
 ---
-
 # RocksDB
 
-## Definición
+## Definition
 
-**RocksDB** es un motor de almacenamiento **[LSM-Tree](LSM-Tree.md)** de alto rendimiento desarrollado por Facebook, escrito en **C++**. Es ampliamente usado en la industria como backend de almacenamiento para bases de datos y sistemas distribuidos. En VantaDB, RocksDB es el **backend alternativo/fallback**, mantenido para benchmarking y compatibilidad.
+**RocksDB** is a high-performance **[[lsm-tree]]** storage engine developed by Facebook, written in **C++**. It is widely used in the industry as a storage backend for databases and distributed systems. In VantaDB, RocksDB is the **fallback/alternative backend**, maintained for benchmarking and compatibility.
 
-## Historia y Adopción
+## History and Adoption
 
 | Año | Hito |
 |-----|------|
@@ -22,9 +21,9 @@ description: "Motor de almacenamiento LSM-tree de alto rendimiento desarrollado 
 | 2013 | Open-source bajo licencia BSD |
 | 2015+ | Adopción masiva: CockroachDB, TiKV, Flink, Kafka |
 | 2020+ | Estándar de facto para LSM-trees en producción |
-| 2024+ | VantaDB adopta RocksDB, luego migra a [Fjall](Fjall.md) como default |
+| 2024+ | VantaDB adopta RocksDB, luego migra a [[fjall]] como default |
 
-## Características Clave
+## Key Features
 
 | Característica | Descripción |
 |---------------|-------------|
@@ -36,24 +35,24 @@ description: "Motor de almacenamiento LSM-tree de alto rendimiento desarrollado 
 | **Tuning Avanzado** | Cientos de parámetros configurables |
 | **Madurez** | 10+ años en producción a gran escala |
 
-## Por Qué VantaDB Soporta RocksDB
+## Why VantaDB Supports RocksDB
 
-### Razones Históricas
+### Historical Reasons
 
-1. **Inicialmente fue el default:** VantaDB comenzó con RocksDB
-2. **Madurez probada:** Usado en producción por Facebook, CockroachDB, TiKV
-3. **Documentación extensa:** Wiki oficial con cientos de páginas
-4. **Features avanzadas:** Backup engine, checkpoints, transactions
+1. **Initially the default:** VantaDB started with RocksDB
+2. **Proven Maturity:** Used in production by Facebook, CockroachDB, TiKV
+3. **Extensive documentation:** Official Wiki with hundreds of pages
+4. **Advanced features:** Backup engine, checkpoints, transactions
 
-### Razones Actuales (Fallback)
+### Current Reasons (Fallback)
 
-1. **Benchmarking comparativo:** Fjall vs RocksDB
-2. **Migración incremental:** Usuarios con datos existentes
-3. **Features específicas:** Algunos usuarios requieren capabilities únicas de RocksDB
+1. **Comparative benchmarking:** Fjall vs RocksDB
+2. **Incremental migration:** Users with existing data
+3. **Specific Features:** Some users require unique RocksDB capabilities
 
-## Arquitectura de RocksDB
+## RocksDB architecture
 
-### Componentes Principales
+### Main Components
 
 ```
 ┌─────────────────────────────────────┐
@@ -78,9 +77,9 @@ description: "Motor de almacenamiento LSM-tree de alto rendimiento desarrollado 
 └─────────────────────────────────────┘
 ```
 
-## Uso en VantaDB
+## Usage in VantaDB
 
-### Habilitar RocksDB
+### Enable RocksDB
 
 ```toml
 # Cargo.toml
@@ -88,7 +87,7 @@ description: "Motor de almacenamiento LSM-tree de alto rendimiento desarrollado 
 vantadb = { version = "0.1.4", features = ["rocksdb"] }
 ```
 
-### Inicialización
+### Initialization
 
 ```rust
 use vantadb::storage::RocksDbBackend;
@@ -96,14 +95,14 @@ use vantadb::storage::RocksDbBackend;
 let backend = RocksDbBackend::open("./vantadb_data")?;
 ```
 
-### Configuración Avanzada
+### Advanced Settings
 
 ```rust
 use rocksdb::{Options, DB};
 
 let mut opts = Options::default();
 opts.create_if_missing(true);
-opts.set_write_buffer_size(64 * 1024 * 1024);  // 64 MB
+opts.set_write_buffer_size(64 * 1024 * 1024);  // 64MB
 opts.set_max_write_buffer_number(3);
 opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
 opts.set_level_compaction_dynamic_level_bytes(true);
@@ -132,7 +131,7 @@ let db = DB::open(&opts, path)?;
 | **Debugging** | Rust debugger | C++ debugger + Rust bindings |
 | **Error messages** | Rust nativo | C++ errors envueltos |
 
-### Seguridad
+### Security
 
 | Aspecto | Fjall | RocksDB |
 |---------|-------|---------|
@@ -140,9 +139,9 @@ let db = DB::open(&opts, path)?;
 | **UB potential** | Cero | Posible en FFI |
 | **Auditability** | Fácil (Rust) | Difícil (C++ + Rust) |
 
-## Problemas de RocksDB en VantaDB
+## RocksDB issues in VantaDB
 
-### 1. Fricción de Compilación
+### 1. Compilation Friction
 
 ```
 Error: failed to run custom build command for `librocksdb-sys v0.11.0`
@@ -150,14 +149,14 @@ Error: failed to run custom build command for `librocksdb-sys v0.11.0`
 Caused by:
   process didn't exit successfully: `.../build-script-build`
   
-  --- stderr
+  ---stderr
   CMake Error: CMake was unable to find a build program
   ...
 ```
 
-**Impacto:** CI/CD lento, problemas en Windows, onboarding difícil.
+**Impact:** Slow CI/CD, Windows issues, difficult onboarding.
 
-### 2. Dependencias de Sistema
+### 2. System Dependencies
 
 ```bash
 # Ubuntu
@@ -166,33 +165,33 @@ sudo apt-get install libclang-dev cmake
 # macOS
 brew install cmake llvm
 
-# Windows
-# Instalar Visual Studio 2022 con C++ workload
-# Instalar CMake
-# Configurar variables de entorno
+#Windows
+# Install Visual Studio 2022 with C++ workload
+# Install CMake
+# Configure environment variables
 ```
 
-**Impacto:** No es zero-config, contradice filosofía [Embebido](Embebido.md).
+**Impact:** It is not zero-config, it contradicts [Embedded] philosophy (Embebido.md).
 
-### 3. Binarios Inflados
+### 3. Inflated Binaries
 
 | Backend | Tamaño del Binario |
 |---------|-------------------|
 | **Fjall** | ~15 MB |
 | **RocksDB** | ~45 MB |
 
-**Impacto:** 3x más grande, afecta distribución.
+**Impact:** 3x larger, affects distribution.
 
 ### 4. Cross-Platform Issues
 
 **Windows:**
-- Requiere `rust-lld` como linker
-- Problemas con `dbghelp.lib`
-- Incompatibilidades con MSVC
+- Requires `rust-lld` as linker
+- Problems with `dbghelp.lib`
+- Incompatibilities with MSVC
 
 **macOS ARM64:**
-- Problemas con `mincore` (firma diferente)
-- Requiere conditional compilation
+- Problems with `mincore` (different signature)
+- Requires conditional compilation
 
 ## Migración a Fjall
 
@@ -207,7 +206,7 @@ brew install cmake llvm
 | **2027-Q1** | RocksDB marcado como deprecated |
 | **2027-Q2** | RocksDB removido del default |
 
-### Herramienta de Migración
+### Migration Tool
 
 ```bash
 # Migrar datos de RocksDB a Fjall
@@ -219,30 +218,30 @@ vanta migrate \
   --verify
 ```
 
-## Cuándo Usar RocksDB (Aún)
+## When to Use RocksDB (Yet)
 
-### Casos Válidos
+### Valid Cases
 
 1. **Migración pendiente:** Todavía no has migrado a Fjall
 2. **Benchmarking:** Comparar performance vs Fjall
 3. **Features específicas:** Necesitas algo que solo RocksDB tiene
 4. **Compatibilidad:** Integración con sistemas que usan RocksDB
 
-### Casos Inválidos
+### Invalid Cases
 
-1. **"RocksDB es más maduro":** Fjall es suficientemente estable para producción
-2. **"Mejor performance":** Diferencia marginal (<20%), no justifica fricción
-3. **"Siempre lo usamos":** Deuda técnica, no razón técnica
+1. **"RocksDB is more mature":** Fjall is stable enough for production
+2. **"Better performance":** Marginal difference (<20%), does not justify friction
+3. **"We always use it":** Technical debt, not technical reason
 
-## Optimizaciones de RocksDB en VantaDB
+## RocksDB optimizations in VantaDB
 
-### Configuración para VantaDB
+### Configuration for VantaDB
 
 ```rust
 let mut opts = Options::default();
 
 // Write performance
-opts.set_write_buffer_size(64 * 1024 * 1024);  // 64 MB
+opts.set_write_buffer_size(64 * 1024 * 1024);  // 64MB
 opts.set_max_write_buffer_number(3);
 opts.set_min_write_buffer_number_to_merge(2);
 
@@ -256,17 +255,17 @@ opts.set_bottommost_compression_type(DBCompressionType::Zstd);
 
 // Compaction
 opts.set_level_compaction_dynamic_level_bytes(true);
-opts.set_target_file_size_base(64 * 1024 * 1024);  // 64 MB
+opts.set_target_file_size_base(64 * 1024 * 1024);  // 64MB
 ```
 
-## Véase También
+## See Also
 
-- [Fjall](Fjall.md) — Backend canónico por defecto
-- [LSM-Tree](LSM-Tree.md) — Estructura de datos subyacente
-- [WAL](WAL.md) — Durabilidad
-- [Embebido](Embebido.md) — Filosofía que RocksDB contradice parcialmente
+- [[fjall]] — Default canonical backend
+- [[lsm-tree]] — Underlying data structure
+- [[wal]] — Durability
+- [[embedded]] — Philosophy that RocksDB partially contradicts
 
 ---
 
-*RocksDB es un excelente motor, pero su fricción de integración lo hace subóptimo para VantaDB como default.*
+*RocksDB is an excellent engine, but its integration friction makes it suboptimal for VantaDB as default.*
 

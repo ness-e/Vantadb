@@ -1207,3 +1207,280 @@ pub fn export_metrics_text() -> String {
 pub fn export_metrics_text() -> String {
     String::new()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Snapshot defaults ──────────────────────────────────────
+
+    #[test]
+    fn test_memory_breakdown_snapshot_default() {
+        let snap = MemoryBreakdownSnapshot::default();
+        assert_eq!(snap.process_rss_bytes, 0);
+        assert_eq!(snap.hnsw_nodes_count, 0);
+        assert_eq!(snap.hnsw_logical_bytes, 0);
+        assert_eq!(snap.mmap_resident_bytes, None);
+        assert_eq!(snap.volatile_cache_entries, 0);
+        assert_eq!(snap.jemalloc_allocated_bytes, None);
+    }
+
+    #[test]
+    fn test_operational_metrics_snapshot_default() {
+        let snap = OperationalMetricsSnapshot::default();
+        assert_eq!(snap.startup_ms, 0);
+        assert_eq!(snap.wal_records_replayed, 0);
+        assert_eq!(snap.text_postings_written, 0);
+        assert_eq!(snap.records_exported, 0);
+        assert_eq!(snap.memory, MemoryBreakdownSnapshot::default());
+    }
+
+    // ── Record + snapshot round-trips ──────────────────────────
+
+    #[test]
+    fn test_record_startup() {
+        record_startup(100, 25, 500);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.startup_ms, 100);
+        assert_eq!(snap.wal_replay_ms, 25);
+        assert_eq!(snap.wal_records_replayed, 500);
+    }
+
+    #[test]
+    fn test_record_startup_idempotent() {
+        record_startup(1, 2, 3);
+        record_startup(10, 20, 30);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.startup_ms, 10);
+        assert_eq!(snap.wal_replay_ms, 20);
+        assert_eq!(snap.wal_records_replayed, 30);
+    }
+
+    #[test]
+    fn test_record_ann_rebuild() {
+        record_ann_rebuild(250, 10_000);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.ann_rebuild_ms, 250);
+        assert_eq!(snap.ann_rebuild_scanned_nodes, 10_000);
+    }
+
+    #[test]
+    fn test_record_derived_rebuild() {
+        record_derived_rebuild(75);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.derived_rebuild_ms, 75);
+    }
+
+    #[test]
+    fn test_record_text_index_rebuild() {
+        record_text_index_rebuild(300, 1500);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_index_rebuild_ms, 300);
+        assert_eq!(snap.text_postings_written, 1500);
+    }
+
+    #[test]
+    fn test_record_text_postings_written_zero_guard() {
+        let snap_before = operational_metrics_snapshot();
+        record_text_postings_written(0);
+        let snap_after = operational_metrics_snapshot();
+        assert_eq!(snap_before.text_postings_written, snap_after.text_postings_written);
+    }
+
+    #[test]
+    fn test_record_text_postings_written_accumulates() {
+        record_text_postings_written(100);
+        record_text_postings_written(200);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_postings_written, 300);
+    }
+
+    #[test]
+    fn test_record_text_index_repair() {
+        let snap_before = operational_metrics_snapshot();
+        record_text_index_repair();
+        let snap_after = operational_metrics_snapshot();
+        assert_eq!(snap_after.text_index_repairs, snap_before.text_index_repairs + 1);
+    }
+
+    #[test]
+    fn test_record_text_lexical_query() {
+        record_text_lexical_query(42, 500);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_lexical_query_ms, 42);
+        assert_eq!(snap.text_candidates_scored, 500);
+        // Counter incremented by 1
+        assert_eq!(snap.text_lexical_queries, 1);
+    }
+
+    #[test]
+    fn test_record_text_lexical_query_multi() {
+        record_text_lexical_query(10, 50);
+        record_text_lexical_query(20, 100);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_lexical_queries, 2);
+        assert_eq!(snap.text_candidates_scored, 150);
+        // Last duration overwrites
+        assert_eq!(snap.text_lexical_query_ms, 20);
+    }
+
+    #[test]
+    fn test_record_text_consistency_audit_no_failure() {
+        let snap_before = operational_metrics_snapshot();
+        record_text_consistency_audit(false);
+        let snap_after = operational_metrics_snapshot();
+        assert_eq!(snap_after.text_consistency_audits, snap_before.text_consistency_audits + 1);
+        assert_eq!(snap_after.text_consistency_audit_failures, snap_before.text_consistency_audit_failures);
+    }
+
+    #[test]
+    fn test_record_text_consistency_audit_with_failure() {
+        let snap_before = operational_metrics_snapshot();
+        record_text_consistency_audit(true);
+        let snap_after = operational_metrics_snapshot();
+        assert_eq!(snap_after.text_consistency_audits, snap_before.text_consistency_audits + 1);
+        assert_eq!(snap_after.text_consistency_audit_failures, snap_before.text_consistency_audit_failures + 1);
+    }
+
+    #[test]
+    fn test_record_hybrid_query() {
+        record_hybrid_query(150, 25);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.hybrid_query_ms, 150);
+        assert_eq!(snap.hybrid_candidates_fused, 25);
+    }
+
+    #[test]
+    fn test_record_hybrid_query_accumulates() {
+        record_hybrid_query(10, 5);
+        record_hybrid_query(20, 3);
+        assert_eq!(operational_metrics_snapshot().hybrid_candidates_fused, 8);
+    }
+
+    #[test]
+    fn test_record_planner_queries() {
+        record_planner_hybrid_query();
+        record_planner_text_only_query();
+        record_planner_vector_only_query();
+
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.planner_hybrid_queries, 1);
+        assert_eq!(snap.planner_text_only_queries, 1);
+        assert_eq!(snap.planner_vector_only_queries, 1);
+    }
+
+    #[test]
+    fn test_record_planner_accumulates() {
+        for _ in 0..5 {
+            record_planner_hybrid_query();
+        }
+        for _ in 0..3 {
+            record_planner_text_only_query();
+        }
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.planner_hybrid_queries, 5);
+        assert_eq!(snap.planner_text_only_queries, 3);
+        assert_eq!(snap.planner_vector_only_queries, 0);
+    }
+
+    // ── Export / Import ────────────────────────────────────────
+
+    #[test]
+    fn test_record_export() {
+        record_export(100);
+        assert_eq!(operational_metrics_snapshot().records_exported, 100);
+    }
+
+    #[test]
+    fn test_record_export_accumulates() {
+        record_export(50);
+        record_export(25);
+        assert_eq!(operational_metrics_snapshot().records_exported, 75);
+    }
+
+    #[test]
+    fn test_record_import() {
+        record_import(200, 3);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.records_imported, 200);
+        assert_eq!(snap.import_errors, 3);
+    }
+
+    #[test]
+    fn test_record_import_no_errors() {
+        record_import(50, 0);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.records_imported, 50);
+        assert_eq!(snap.import_errors, 0);
+    }
+
+    // ── Derived scans ──────────────────────────────────────────
+
+    #[test]
+    fn test_record_derived_scan() {
+        record_derived_prefix_scan();
+        record_derived_full_scan_fallback();
+
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.derived_prefix_scans, 1);
+        assert_eq!(snap.derived_full_scan_fallbacks, 1);
+    }
+
+    #[test]
+    fn test_record_derived_scan_accumulates() {
+        for _ in 0..7 {
+            record_derived_prefix_scan();
+        }
+        assert_eq!(operational_metrics_snapshot().derived_prefix_scans, 7);
+    }
+
+    // ── Memory breakdown ───────────────────────────────────────
+
+    #[test]
+    fn test_record_memory_breakdown() {
+        record_memory_breakdown(1000, 50_000_000, Some(8_000_000), 500, 100_000_000);
+        let snap = memory_breakdown_snapshot();
+        assert_eq!(snap.hnsw_nodes_count, 1000);
+        assert_eq!(snap.hnsw_logical_bytes, 50_000_000);
+        assert_eq!(snap.mmap_resident_bytes, Some(8_000_000));
+        assert_eq!(snap.volatile_cache_entries, 500);
+        assert_eq!(snap.volatile_cache_cap_bytes, 100_000_000);
+    }
+
+    #[test]
+    fn test_record_memory_breakdown_no_mmap() {
+        record_memory_breakdown(0, 0, None, 0, 0);
+        let snap = memory_breakdown_snapshot();
+        assert_eq!(snap.mmap_resident_bytes, None);
+    }
+
+    #[test]
+    fn test_record_memory_breakdown_idempotent() {
+        record_memory_breakdown(1, 100, Some(10), 2, 200);
+        record_memory_breakdown(2, 200, None, 3, 300);
+        let snap = memory_breakdown_snapshot();
+        assert_eq!(snap.hnsw_nodes_count, 2);
+        assert_eq!(snap.mmap_resident_bytes, None);
+        assert_eq!(snap.volatile_cache_entries, 3);
+    }
+
+    // ── Snapshot isolation ─────────────────────────────────────
+
+    #[test]
+    fn test_operational_snapshot_includes_memory() {
+        record_memory_breakdown(42, 99_000, Some(77), 5, 10_000);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.memory.hnsw_nodes_count, 42);
+        assert_eq!(snap.memory.hnsw_logical_bytes, 99_000);
+        assert_eq!(snap.memory.mmap_resident_bytes, Some(77));
+    }
+
+    // ── Export (non-prometheus, always empty string) ────────────
+
+    #[test]
+    fn test_export_metrics_text_without_prometheus() {
+        // Without the prometheus feature, export returns empty string
+        let text = export_metrics_text();
+        assert_eq!(text, "");
+    }
+}

@@ -484,3 +484,302 @@ impl VantaConfig {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── LogFormat ──────────────────────────────────────────────
+
+    #[test]
+    fn test_log_format_default() {
+        assert_eq!(LogFormat::default(), LogFormat::Compact);
+    }
+
+    #[test]
+    fn test_log_format_from_env_value() {
+        assert_eq!(LogFormat::from_env_value("json"), LogFormat::Json);
+        assert_eq!(LogFormat::from_env_value("JSON"), LogFormat::Json);
+        assert_eq!(LogFormat::from_env_value("1"), LogFormat::Json);
+        assert_eq!(LogFormat::from_env_value("true"), LogFormat::Json);
+        assert_eq!(LogFormat::from_env_value("full"), LogFormat::Full);
+        assert_eq!(LogFormat::from_env_value("verbose"), LogFormat::Full);
+        assert_eq!(LogFormat::from_env_value("FULL"), LogFormat::Full);
+        assert_eq!(LogFormat::from_env_value("compact"), LogFormat::Compact);
+        assert_eq!(LogFormat::from_env_value("garbage"), LogFormat::Compact);
+        assert_eq!(LogFormat::from_env_value(""), LogFormat::Compact);
+    }
+
+    // ── SyncMode ───────────────────────────────────────────────
+
+    #[test]
+    fn test_sync_mode_default() {
+        assert_eq!(SyncMode::default(), SyncMode::Periodic);
+    }
+
+    // ── PrefetchMode ───────────────────────────────────────────
+
+    #[test]
+    fn test_prefetch_mode_default() {
+        assert_eq!(PrefetchMode::default(), PrefetchMode::Auto);
+    }
+
+    #[test]
+    fn test_prefetch_mode_from_env_value() {
+        assert_eq!(PrefetchMode::from_env_value("auto"), PrefetchMode::Auto);
+        assert_eq!(PrefetchMode::from_env_value("AUTO"), PrefetchMode::Auto);
+        assert_eq!(PrefetchMode::from_env_value("unknown"), PrefetchMode::Auto);
+
+        assert_eq!(PrefetchMode::from_env_value("disabled"), PrefetchMode::Disabled);
+        assert_eq!(PrefetchMode::from_env_value("off"), PrefetchMode::Disabled);
+        assert_eq!(PrefetchMode::from_env_value("0"), PrefetchMode::Disabled);
+        assert_eq!(PrefetchMode::from_env_value("false"), PrefetchMode::Disabled);
+
+        assert_eq!(PrefetchMode::from_env_value("enabled"), PrefetchMode::Enabled);
+        assert_eq!(PrefetchMode::from_env_value("on"), PrefetchMode::Enabled);
+        assert_eq!(PrefetchMode::from_env_value("1"), PrefetchMode::Enabled);
+        assert_eq!(PrefetchMode::from_env_value("true"), PrefetchMode::Enabled);
+    }
+
+    #[test]
+    fn test_prefetch_mode_is_enabled() {
+        assert!(PrefetchMode::Auto.is_prefetch_enabled());
+        assert!(PrefetchMode::Enabled.is_prefetch_enabled());
+        assert!(!PrefetchMode::Disabled.is_prefetch_enabled());
+    }
+
+    // ── VantaConfig defaults ───────────────────────────────────
+
+    #[test]
+    fn test_vanta_config_default_values() {
+        let cfg = VantaConfig::default();
+        assert_eq!(cfg.storage_path, "vantadb_data");
+        assert_eq!(cfg.host, "127.0.0.1".to_string());
+        assert_eq!(cfg.port, 8080);
+        assert_eq!(cfg.llm_url, "http://localhost:11434");
+        assert_eq!(cfg.llm_model, "all-minilm");
+        assert_eq!(cfg.llm_summarize_model, "llama3");
+        assert_eq!(cfg.memory_limit, None);
+        assert!(!cfg.read_only);
+        assert!(!cfg.force_mmap);
+        assert!(cfg.mmap_hnsw);
+        assert_eq!(cfg.prefetch_mode, PrefetchMode::Auto);
+        assert!((cfg.rss_threshold - 0.80).abs() < 1e-9);
+        assert!((cfg.eviction_weight_hits - 1.0).abs() < 1e-9);
+        assert!((cfg.eviction_weight_confidence - 2.0).abs() < 1e-9);
+        assert!((cfg.eviction_weight_importance - 3.0).abs() < 1e-9);
+        assert!((cfg.eviction_weight_recency - 1.0).abs() < 1e-9);
+        assert!((cfg.eviction_ratio - 0.20).abs() < 1e-9);
+        assert_eq!(cfg.backend_kind, BackendKind::Fjall);
+        assert_eq!(cfg.max_blocking_threads, 16);
+        assert_eq!(cfg.sync_mode, SyncMode::Periodic);
+        assert_eq!(cfg.api_key, None);
+        assert_eq!(cfg.rate_limit_rpm, 100);
+        assert_eq!(cfg.tls_cert_path, None);
+        assert_eq!(cfg.tls_key_path, None);
+        assert_eq!(cfg.log_format, LogFormat::Compact);
+        assert_eq!(cfg.insert_lock_timeout_ms, 2000);
+        assert_eq!(cfg.file_lock_timeout_ms, 1000);
+    }
+
+    // ── Builder methods ───────────────────────────────────────
+
+    #[test]
+    fn test_with_storage_path() {
+        let cfg = VantaConfig::default().with_storage_path("/tmp/vanta".into());
+        assert_eq!(cfg.storage_path, "/tmp/vanta");
+    }
+
+    #[test]
+    fn test_with_memory_limit() {
+        let cfg = VantaConfig::default().with_memory_limit(4_096_000_000);
+        assert_eq!(cfg.memory_limit, Some(4_096_000_000));
+    }
+
+    #[test]
+    fn test_with_read_only() {
+        let cfg = VantaConfig::default().with_read_only(true);
+        assert!(cfg.read_only);
+    }
+
+    #[test]
+    fn test_with_force_mmap() {
+        let cfg = VantaConfig::default().with_force_mmap(true);
+        assert!(cfg.force_mmap);
+    }
+
+    #[test]
+    fn test_with_mmap_hnsw() {
+        let cfg = VantaConfig::default().with_mmap_hnsw(false);
+        assert!(!cfg.mmap_hnsw);
+    }
+
+    #[test]
+    fn test_with_rss_threshold() {
+        let cfg = VantaConfig::default().with_rss_threshold(0.5);
+        assert!((cfg.rss_threshold - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_rss_threshold_clamps() {
+        let cfg = VantaConfig::default().with_rss_threshold(1.5);
+        assert!((cfg.rss_threshold - 1.0).abs() < 1e-9);
+        let cfg = VantaConfig::default().with_rss_threshold(-0.5);
+        assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_rss_threshold_zero_disables() {
+        let cfg = VantaConfig::default().with_rss_threshold(0.0);
+        assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_eviction_weights() {
+        let cfg = VantaConfig::default()
+            .with_eviction_weights(0.5, 1.5, 2.5, 3.5);
+        assert!((cfg.eviction_weight_hits - 0.5).abs() < 1e-9);
+        assert!((cfg.eviction_weight_confidence - 1.5).abs() < 1e-9);
+        assert!((cfg.eviction_weight_importance - 2.5).abs() < 1e-9);
+        assert!((cfg.eviction_weight_recency - 3.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_eviction_ratio() {
+        let cfg = VantaConfig::default().with_eviction_ratio(0.5);
+        assert!((cfg.eviction_ratio - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_eviction_ratio_clamps() {
+        let cfg = VantaConfig::default().with_eviction_ratio(1.5);
+        assert!((cfg.eviction_ratio - 1.0).abs() < 1e-9);
+        let cfg = VantaConfig::default().with_eviction_ratio(-0.5);
+        assert!((cfg.eviction_ratio - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_eviction_weights_struct() {
+        let cfg = VantaConfig::default()
+            .with_eviction_weights(0.1, 0.2, 0.3, 0.4);
+        let w = cfg.eviction_weights();
+        assert!((w.hits - 0.1).abs() < 1e-9);
+        assert!((w.confidence - 0.2).abs() < 1e-9);
+        assert!((w.importance - 0.3).abs() < 1e-9);
+        assert!((w.recency - 0.4).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_backend() {
+        let cfg = VantaConfig::default().with_backend(BackendKind::RocksDb);
+        assert_eq!(cfg.backend_kind, BackendKind::RocksDb);
+        let cfg = VantaConfig::default().with_backend(BackendKind::InMemory);
+        assert_eq!(cfg.backend_kind, BackendKind::InMemory);
+    }
+
+    #[test]
+    fn test_with_max_blocking_threads() {
+        let cfg = VantaConfig::default().with_max_blocking_threads(32);
+        assert_eq!(cfg.max_blocking_threads, 32);
+    }
+
+    #[test]
+    fn test_with_sync_mode() {
+        let cfg = VantaConfig::default().with_sync_mode(SyncMode::Always);
+        assert_eq!(cfg.sync_mode, SyncMode::Always);
+    }
+
+    #[test]
+    fn test_with_api_key() {
+        let cfg = VantaConfig::default().with_api_key(Some("sk-test".into()));
+        assert_eq!(cfg.api_key, Some("sk-test".into()));
+        let cfg = VantaConfig::default().with_api_key(None);
+        assert_eq!(cfg.api_key, None);
+    }
+
+    #[test]
+    fn test_with_rate_limit_rpm() {
+        let cfg = VantaConfig::default().with_rate_limit_rpm(0);
+        assert_eq!(cfg.rate_limit_rpm, 0);
+    }
+
+    #[test]
+    fn test_with_tls() {
+        let cfg = VantaConfig::default()
+            .with_tls("cert.pem".into(), "key.pem".into());
+        assert_eq!(cfg.tls_cert_path, Some("cert.pem".into()));
+        assert_eq!(cfg.tls_key_path, Some("key.pem".into()));
+    }
+
+    #[test]
+    fn test_with_log_format() {
+        let cfg = VantaConfig::default().with_log_format(LogFormat::Json);
+        assert_eq!(cfg.log_format, LogFormat::Json);
+    }
+
+    #[test]
+    fn test_with_prefetch_mode() {
+        let cfg = VantaConfig::default()
+            .with_prefetch_mode(PrefetchMode::Disabled);
+        assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
+    }
+
+    #[test]
+    fn test_from_env_equals_default() {
+        // `from_env()` delegates to `default()`, which reads env vars.
+        // In an isolated test environment with no preset vars, both yield
+        // the same values. To verify the delegation itself:
+        // `from_env()` calls `Self::default()` — structural equality check.
+        let cfg_default = VantaConfig::default();
+        let cfg_from_env = VantaConfig::from_env();
+        // Basic structural fields (env-independent) match
+        assert_eq!(cfg_default.memory_limit, cfg_from_env.memory_limit);
+        assert_eq!(cfg_default.read_only, cfg_from_env.read_only);
+        assert_eq!(cfg_default.force_mmap, cfg_from_env.force_mmap);
+        assert_eq!(cfg_default.backend_kind, cfg_from_env.backend_kind);
+        assert_eq!(cfg_default.sync_mode, cfg_from_env.sync_mode);
+        assert_eq!(cfg_default.prefetch_mode, cfg_from_env.prefetch_mode);
+        assert_eq!(cfg_default.log_format, cfg_from_env.log_format);
+        assert_eq!(cfg_default.rate_limit_rpm, cfg_from_env.rate_limit_rpm);
+    }
+
+    // ── Builder chaining ───────────────────────────────────────
+
+    #[test]
+    fn test_builder_chaining() {
+        let cfg = VantaConfig::default()
+            .with_storage_path("/data/vanta".into())
+            .with_memory_limit(8_000_000_000)
+            .with_read_only(true)
+            .with_force_mmap(true)
+            .with_mmap_hnsw(false)
+            .with_rss_threshold(0.70)
+            .with_eviction_weights(0.5, 1.0, 1.5, 2.0)
+            .with_eviction_ratio(0.15)
+            .with_backend(BackendKind::RocksDb)
+            .with_max_blocking_threads(64)
+            .with_sync_mode(SyncMode::Always)
+            .with_api_key(Some("sk-chained".into()))
+            .with_rate_limit_rpm(200)
+            .with_tls("crt.pem".into(), "key.pem".into())
+            .with_log_format(LogFormat::Json)
+            .with_prefetch_mode(PrefetchMode::Disabled);
+
+        assert_eq!(cfg.storage_path, "/data/vanta");
+        assert_eq!(cfg.memory_limit, Some(8_000_000_000));
+        assert!(cfg.read_only);
+        assert!(cfg.force_mmap);
+        assert!(!cfg.mmap_hnsw);
+        assert!((cfg.rss_threshold - 0.70).abs() < 1e-9);
+        assert!((cfg.eviction_weight_hits - 0.5).abs() < 1e-9);
+        assert!((cfg.eviction_ratio - 0.15).abs() < 1e-9);
+        assert_eq!(cfg.backend_kind, BackendKind::RocksDb);
+        assert_eq!(cfg.max_blocking_threads, 64);
+        assert_eq!(cfg.sync_mode, SyncMode::Always);
+        assert_eq!(cfg.api_key, Some("sk-chained".into()));
+        assert_eq!(cfg.rate_limit_rpm, 200);
+        assert_eq!(cfg.tls_cert_path, Some("crt.pem".into()));
+        assert_eq!(cfg.log_format, LogFormat::Json);
+        assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
+    }
+}

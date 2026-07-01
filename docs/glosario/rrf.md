@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [busqueda, fusion, ranking, hybrid-search]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Reciprocal Rank Fusion, Rank Fusion]
-description: "Algoritmo para fusionar múltiples listas de ranking en un ranking unificado, basado únicamente en la posición ordinal (rango) de cada documento, sin necesidad de normalizar scores heterogéneos"
+description: "Algorithm to merge multiple ranking lists into a unified ranking, based solely on the ordinal position (rank) of each document, without the need to normalize heterogeneous scores"
 ---
+#RRF—Reciprocal Rank Fusion
 
-# RRF — Reciprocal Rank Fusion
+##Definition
 
-## Definición
+**RRF** (Reciprocal Rank Fusion) is an algorithm to **merge multiple ranking lists** into a unified ranking, based solely on the **ordinal position** (rank) of each document in each list, without the need to normalize heterogeneous scores.
 
-**RRF** (Reciprocal Rank Fusion) es un algoritmo para **fusionar múltiples listas de ranking** en un ranking unificado, basado únicamente en la **posición ordinal** (rango) de cada documento en cada lista, sin necesidad de normalizar scores heterogéneos.
+## Mathematical Formula
 
-## Fórmula Matemática
-
-Para un documento $d$ que aparece en múltiples listas de resultados $\mathcal{M}$:
+For a document $d$ that appears in multiple result lists $\mathcal{M}$:
 
 $$
 \text{RRFscore}(d) = \sum_{r \in \mathcal{M}} \frac{1}{k + r(d)}
@@ -27,16 +26,16 @@ Donde:
 - $k$ = constante de suavizado (típicamente 60)
 - $\mathcal{M}$ = conjunto de listas de resultados a fusionar
 
-## Ejemplo Práctico
+## Practical Example
 
-### Escenario
+### Scenery
 
-**Query:** `"base de datos vectorial"`
+**Query:** `"vector database"`
 
-**Lista 1 (BM25):** `[doc5, doc12, doc23, doc7, doc45]`
-**Lista 2 (HNSW):** `[doc3, doc7, doc12, doc45, doc8]`
+**List 1 (BM25):** `[doc5, doc12, doc23, doc7, doc45]`
+**List 2 (HNSW):** `[doc3, doc7, doc12, doc45, doc8]`
 
-### Cálculo RRF (k=60)
+### RRF calculation (k=60)
 
 | Documento | Rango BM25 | Rango HNSW | Score RRF |
 |-----------|-----------|-----------|-----------|
@@ -48,17 +47,17 @@ Donde:
 | **doc23** | 3 | — | 1/(60+3) = **0.01587** |
 | **doc8** | — | 5 | 1/(60+5) = **0.01538** |
 
-### Ranking Final Fusionado
+### Merged Final Ranking
 
-1. **doc12** (0.03200) — Aparece en ambos, buen ranking en ambos
-2. **doc7** (0.03176) — Aparece en ambos, excelente en HNSW
-3. **doc45** (0.03101) — Aparece en ambos
-4. **doc5** (0.01639) — Solo en BM25, pero #1
-5. **doc3** (0.01639) — Solo en HNSW, pero #1
-6. **doc23** (0.01587) — Solo en BM25
-7. **doc8** (0.01538) — Solo en HNSW
+1. **doc12** (0.03200) — Appears in both, good ranking in both
+2. **doc7** (0.03176) — Appears in both, excellent in HNSW
+3. **doc45** (0.03101) — Appears in both
+4. **doc5** (0.01639) — Only on BM25, but #1
+5. **doc3** (0.01639) — Only in HNSW, but #1
+6. **doc23** (0.01587) — BM25 only
+7. **doc8** (0.01538) — HNSW only
 
-## Por Qué Funciona RRF
+## Why RRF Works
 
 ### Problema: Scores Incompatibles
 
@@ -66,20 +65,20 @@ Donde:
 |--------|---------------|--------------|
 | **BM25** | $[0, \infty)$ | No acotado, depende del corpus |
 | **Coseno** | $[-1, 1]$ | Normalizado |
-| **Euclidiana** | $[0, \infty)$ | No acotado |
+| **Euclidiana** | $[[bm25|0, \infty)$ | No acotado |
 
 **Intento ingenuo:** Promediar scores → **Sesgo hacia el método con scores más altos**
 
-### Solución RRF: Usar Solo Rangos
+### RRF Solution: Use Only Ranges
 
-RRF ignora los scores y usa solo la **posición ordinal**:
-- No requiere normalización
-- Inmune a diferencias de escala
-- Funciona con cualquier método de ranking
+RRF ignores the scores and uses only the **ordinal position**:
+- Does not require normalization
+- Immune to scale differences
+- Works with any ranking method
 
-## Implementación en VantaDB
+## Implementation in VantaDB
 
-### Algoritmo
+### Algorithm
 
 ```rust
 pub fn reciprocal_rank_fusion(
@@ -107,7 +106,7 @@ pub fn reciprocal_rank_fusion(
 }
 ```
 
-### busqueda-hibrida en VantaDB
+### hybrid-search in VantaDB
 
 ```python
 results = db.search(
@@ -119,9 +118,9 @@ results = db.search(
 )
 ```
 
-## Efecto del Parámetro k
+## Effect of Parameter k
 
-### k Pequeño (k → 1)
+### k Small (k → 1)
 
 ```
 k = 1:
@@ -130,10 +129,10 @@ Rango 2: 1/(1+2) = 0.333
 Rango 3: 1/(1+3) = 0.250
 ```
 
-**Decaimiento extremo:** El #1 domina completamente.
-**Uso:** Cuando un método es mucho más confiable que otros.
+**Extreme Decay:** #1 completely dominates.
+**Usage:** When one method is much more reliable than others.
 
-### k Estándar (k = 60)
+### k Standard (k = 60)
 
 ```
 k = 60:
@@ -142,8 +141,8 @@ Rango 2: 1/(60+2) = 0.01613
 Rango 3: 1/(60+3) = 0.01587
 ```
 
-**Decaimiento suave:** Balance entre métodos.
-**Uso:** Caso general (default en VantaDB).
+**Soft decay:** Balance between methods.
+**Use:** General case (default in VantaDB).
 
 ### k Grande (k → ∞)
 
@@ -154,10 +153,10 @@ Rango 2: 1/(1000+2) = 0.000998
 Rango 3: 1/(1000+3) = 0.000997
 ```
 
-**Decaimiento mínimo:** Casi todos los rangos pesan igual.
-**Uso:** Cuando todos los métodos son igualmente ruidosos.
+**Minimum Decay:** Almost all ranks weigh the same.
+**Usage:** When all methods are equally noisy.
 
-## Ventajas de RRF
+## Advantages of RRF
 
 | Ventaja | Descripción |
 |---------|-------------|
@@ -167,7 +166,7 @@ Rango 3: 1/(1000+3) = 0.000997
 | **Efectivo** | Empíricamente funciona tan bien como métodos complejos |
 | **Universal** | Funciona con cualquier sistema de ranking |
 
-## Limitaciones de RRF
+## Limitations of RRF
 
 | Limitación | Descripción |
 |-----------|-------------|
@@ -176,7 +175,7 @@ Rango 3: 1/(1000+3) = 0.000997
 | **k fijo** | Requiere tuning manual del parámetro |
 | **Sin contexto** | No considera correlación entre métodos |
 
-## Alternativas a RRF
+## Alternatives to RRF
 
 | Método | Complejidad | Requiere Training | Calidad |
 |--------|-------------|-------------------|---------|
@@ -185,12 +184,12 @@ Rango 3: 1/(1000+3) = 0.000997
 | **Learning to Rank** | Alta | Sí | Muy alta |
 | **Cross-Encoder Reranking** | Muy alta | No | Excelente |
 
-### Cuándo Usar Cada Uno
+### When to Use Each
 
-- **RRF:** Caso general, sin training data
-- **Linear Combination:** Cuando conoces pesos óptimos
-- **Learning to Rank:** Cuando tienes clicks/relevancia labels
-- **Cross-Encoder:** Para reranking de top-K (calidad máxima)
+- **RRF:** General case, without training data
+- **Linear Combination:** When you know optimal weights
+- **Learning to Rank:** When you have clicks/relevance labels
+- **Cross-Encoder:** For top-K reranking (maximum quality)
 
 ## Comparación de Resultados
 
@@ -204,11 +203,11 @@ Rango 3: 1/(1000+3) = 0.000997
 | Linear Combination | 0.45 | 0.43 |
 | Cross-Encoder Rerank | 0.52 | 0.50 |
 
-**Conclusión:** RRF mejora ambos métodos individuales, sin overhead de reranking.
+**Conclusion:** RRF improves both individual methods, without reranking overhead.
 
-## Métricas en VantaDB
+## Metrics in VantaDB
 
-### Latencia de busqueda-hibrida
+### Hybrid-Seek Latency
 
 | Operación | Latencia p50 | Speedup vs Secuencial |
 |-----------|--------------|----------------------|
@@ -217,7 +216,7 @@ Rango 3: 1/(1000+3) = 0.000997
 | **Híbrida (RRF)** | 180 ms | 1.0x (baseline) |
 | **Híbrida (paralela + RRF)** | 125 ms | 1.44x |
 
-### Recall Mejorado
+### Improved Recall
 
 | Método | Recall@10 |
 |--------|-----------|
@@ -225,14 +224,14 @@ Rango 3: 1/(1000+3) = 0.000997
 | HNSW solo | 0.89 |
 | **RRF (híbrido)** | **0.94** |
 
-## Véase También
+## See Also
 
-- [BM25](BM25.md) — Ranking léxico
-- [HNSW](HNSW.md) — Ranking vectorial
-- [Vectores](Vectores.md) — Embeddings para búsqueda semántica
-- [RAG](RAG.md) — Caso de uso principal de busqueda-hibrida
+- [BM25]] — Lexical ranking
+- [[hnsw]] — Vector ranking
+- [[vectors]] — Embeddings for semantic search
+- [[rag]] — Hybrid-search main use case
 
 ---
 
-*RRF es el algoritmo más simple y efectivo para fusión de rankings heterogéneos.*
+*RRF is the simplest and most effective algorithm for fusion of heterogeneous rankings.*
 

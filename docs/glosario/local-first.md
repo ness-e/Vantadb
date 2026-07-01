@@ -98,10 +98,12 @@ VantaDB embodies the local-first philosophy for **AI agents and knowledge pipeli
 
 ```
 Local-First
-    ├── [[embedded]] (implementación técnica)
-    ├── [[zero-config]] (experiencia de usuario)
+    ├── Embedded (implementación técnica)
+    ├── Zero-Config (experiencia de usuario)
     └── Privacy-by-Design (principio legal)
 ```
+*Platform details:* [[embedded]], [[zero-config]]
+
 
 ## See Also
 

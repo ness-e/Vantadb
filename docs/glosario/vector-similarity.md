@@ -1,23 +1,22 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [vectores, distancia, metricas, busqueda]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
-aliases: [Vector Distance Metrics, Métricas de Distancia]
+links: "[[README.md]]"
+aliases: [Vector Distance Metrics]
 ---
+#VectorSimilarity
 
-# Vector Similarity
+##Definition
 
-## Definición
+**Vector Similarity** refers to the **mathematical metrics** used to measure how similar two vectors are in a high-dimensional space. It is the basis of vector-search in [[hnsw]].
 
-**Vector Similarity** se refiere a las **métricas matemáticas** usadas para medir qué tan similares son dos vectores en un espacio de alta dimensionalidad. Es la base de la busqueda-vectorial en [HNSW](HNSW.md).
+## Main Metrics
 
-## Métricas Principales
+### 1. Cosine Similarity
 
-### 1. Similitud Coseno
-
-Mide el **ángulo** entre vectores (independiente de magnitud).
+Measures the **angle** between vectors (independent of magnitude).
 
 $$
 \cos(\theta) = \frac{\mathbf{a} \cdot \mathbf{b}}{|\mathbf{a}| \cdot |\mathbf{b}|}
@@ -29,11 +28,11 @@ $$
 | 0 | Ortogonales (no relacionados) |
 | -1 | Opuestos |
 
-**Uso:** Embeddings de texto (sentence-transformers)
+**Use:** Text embeddings (sentence-transformers)
 
-### 2. Distancia Euclidiana (L2)
+### 2. Euclidean Distance (L2)
 
-Distancia **geométrica** directa.
+Direct **geometric** distance.
 
 $$
 d(\mathbf{a}, \mathbf{b}) = \sqrt{\sum_{i=1}^{d} (a_i - b_i)^2}
@@ -46,13 +45,13 @@ $$
 
 **Uso:** Embeddings de imágenes (CLIP)
 
-### 3. Producto Punto (Dot Product)
+### 3. Dot Product
 
 $$
 \mathbf{a} \cdot \mathbf{b} = \sum_{i=1}^{d} a_i \cdot b_i
 $$
 
-**Uso:** Vectores normalizados (equivalente a coseno)
+**Use:** Normalized vectors (equivalent to cosine)
 
 ## Implementación en VantaDB
 
@@ -87,16 +86,16 @@ unsafe fn euclidean_distance_avx2(a: &[f32], b: &[f32]) -> f32 {
 | Métrica | Rango | Invariante a | Caso de Uso |
 |---------|-------|--------------|-------------|
 | **Coseno** | [-1, 1] | Magnitud | Texto, semántica |
-| **Euclidiana** | [0, ∞) | Nada | Imágenes, geometría |
+| **Euclidiana** | [[vectors|0, ∞) | Nada | Imágenes, geometría |
 | **Dot Product** | (-∞, ∞) | Nada | Vectores normalizados |
 
-## Véase También
+## See Also
 
-- [Vectores](Vectores.md) — Lo que se compara
-- [HNSW](HNSW.md) — Índice que usa estas métricas
-- [BM25](BM25.md) — Búsqueda complementaria (léxica)
+- [Vectors]] — What is compared
+- [[hnsw]] — Index using these metrics
+- [[bm25]] — Supplementary search (lexical)
 
 ---
 
-*La elección de métrica de similitud afecta directamente la calidad de búsqueda.*
+*The choice of similarity metric directly affects search quality.*
 

@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [ffi, python, rust, bindings]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [PyO3 Bindings, Rust-Python Bindings]
-description: "Framework de Rust para crear extensiones de Python y bindings bidireccionales entre Rust y Python, permitiendo exponer código Rust como módulos Python nativos"
+description: "Rust framework to create Python extensions and bidirectional bindings between Rust and Python, allowing you to expose Rust code as native Python modules"
 ---
-
 # PyO3
 
-## Definición
+##Definition
 
 **PyO3** es un framework de Rust para crear **extensiones de Python** y **bindings bidireccionales** entre Rust y Python. Permite exponer código Rust como módulos Python nativos, manteniendo seguridad de tipos y gestión de memoria automática.
 
-## Cómo Funciona
+## How It Works
 
-### Arquitectura
+### Architecture
 
 ```
 ┌─────────────────────────────────────┐
@@ -30,7 +29,7 @@ description: "Framework de Rust para crear extensiones de Python y bindings bidi
 │         PyO3 Layer                   │
 │  - Conversión de tipos               │
 │  - Gestión de referencias            │
-│  - Manejo de [GIL](GIL.md)                 │
+│  - Manejo de GIL                     │
 └──────────────┬──────────────────────┘
                │
                ▼
@@ -40,8 +39,10 @@ description: "Framework de Rust para crear extensiones de Python y bindings bidi
 │  impl VantaEmbedded { ... }          │
 └─────────────────────────────────────┘
 ```
+*Concurrency management:* [[gil|GIL]]
 
-### Ejemplo de Binding
+
+### Binding Example
 
 ```rust
 use pyo3::prelude::*;
@@ -76,9 +77,9 @@ fn vantadb(_py: Python, m: &PyModule) -> PyResult<()> {
 }
 ```
 
-## Uso en VantaDB
+## Usage in VantaDB
 
-### Estructura del SDK Python
+### Python SDK Structure
 
 ```
 vantadb-python/
@@ -92,7 +93,7 @@ vantadb-python/
         └── _vantadb.so  # Binario compilado
 ```
 
-### Instalación
+### Facility
 
 ```bash
 # Desde PyPI (binarios precompilados)
@@ -103,44 +104,44 @@ pip install maturin
 maturin develop
 ```
 
-### Uso desde Python
+### Use from Python
 
 ```python
 from vantadb import VantaEmbedded
 
-# Crear instancia
+# Create instance
 db = VantaEmbedded("./agent_memory")
 
-# Insertar documento con vector
+# Insert document with vector
 db.put(
     key="doc1",
     vector=[0.12, -0.34, 0.56, ...],
-    text="VantaDB es una base de datos embebida",
+    text="VantaDB is an embedded database",
     metadata={"source": "web", "date": "2026-06-12"}
 )
 
-# Buscar por similitud vectorial
+# Search by vector similarity
 results = db.search(
     vector=[0.11, -0.33, 0.55, ...],
     top_k=10
 )
 
-# busqueda-hibrida (vectorial + léxica)
+# hybrid-search (vector + lexical)
 results = db.search(
     vector=[0.11, -0.33, 0.55, ...],
-    text="base de datos",
+    text="database",
     top_k=10,
     mode="hybrid"
 )
 ```
 
-## Gestión del [GIL](GIL.md)
+## Management of [[gil]]
 
-### El Problema
+### The Problem
 
-El [GIL](GIL.md) (Global Interpreter Lock) de Python impide que múltiples threads ejecuten código Python simultáneamente. Si una operación Rust es larga y mantiene el GIL, **bloquea todo el intérprete Python**.
+Python's [[gil]] (Global Interpreter Lock) prevents multiple threads from executing Python code simultaneously. If a Rust operation is long and keeps the GIL, it **crashes the entire Python interpreter**.
 
-### Solución: `py.allow_threads()`
+### Solution: `py.allow_threads()`
 
 ```rust
 fn search(&self, py: Python<'_>, vector: Vec<f32>, top_k: usize) -> PyResult<Vec<SearchResult>> {
@@ -154,14 +155,14 @@ fn search(&self, py: Python<'_>, vector: Vec<f32>, top_k: usize) -> PyResult<Vec
 }
 ```
 
-### Reglas Críticas
+### Critical Rules
 
-1. ✅ **Liberar GIL** para operaciones >10ms
-2. ❌ **NO acceder** a objetos Python dentro de `allow_threads`
-3. ✅ **Clonar datos** antes de liberar GIL
-4. ❌ **NO hacer callbacks** a Python desde código sin GIL
+1. ✅ **Release GIL** for operations >10ms
+2. ❌ **DO NOT access** Python objects within `allow_threads`
+3. ✅ **Clone data** before releasing GIL
+4. ❌ **DO NOT make callbacks** to Python from code without GIL
 
-### Ejemplo Correcto
+### Correct Example
 
 ```rust
 fn put(&self, py: Python<'_>, key: String, vector: Vec<f32>, metadata: HashMap<String, String>) -> PyResult<()> {
@@ -179,9 +180,9 @@ fn put(&self, py: Python<'_>, key: String, vector: Vec<f32>, metadata: HashMap<S
 }
 ```
 
-## Conversión de Tipos
+## Type Conversion
 
-### Tipos Soportados
+### Supported Types
 
 | Python | Rust | PyO3 |
 |--------|------|------|
@@ -193,7 +194,7 @@ fn put(&self, py: Python<'_>, key: String, vector: Vec<f32>, metadata: HashMap<S
 | `None` | `Option<T>` | ✅ Automático |
 | `bytes` | `Vec<u8>`, `&[u8]` | ✅ Automático |
 
-### Tipos Personalizados
+### Custom Types
 
 ```rust
 #[pyclass]
@@ -214,7 +215,7 @@ impl SearchResult {
 }
 ```
 
-## Compilación con Maturin
+## Compilation with Maturin
 
 ### pyproject.toml
 
@@ -229,7 +230,7 @@ version = "0.1.4"
 requires-python = ">=3.8"
 
 [tool.maturin]
-bindings = "pyo3"
+bindings="pyo3"
 features = ["pyo3/extension-module"]
 ```
 
@@ -239,10 +240,10 @@ features = ["pyo3/extension-module"]
 # Desarrollo (instala en el entorno actual)
 maturin develop
 
-# Release (genera wheel)
+# Release (generate wheel)
 maturin build --release
 
-# Publicar en PyPI
+# Publish to PyPI
 maturin publish
 ```
 
@@ -255,7 +256,7 @@ PyO3 + Maturin generan wheels para:
 - macOS ARM64 (Apple Silicon)
 - Windows x86_64
 
-## Ventajas de PyO3
+## Advantages of PyO3
 
 | Ventaja | Descripción |
 |---------|-------------|
@@ -274,25 +275,25 @@ PyO3 + Maturin generan wheels para:
 | **Overhead FFI** | Cruce de frontera tiene costo (~1-10μs) |
 | **Learning curve** | Requiere entender Rust + PyO3 |
 
-## Problemas Conocidos en VantaDB
+## Known Issues in VantaDB
 
-### AUD-01: GIL No Liberado Consistentemente
+### AUD-01: GIL Not Consistently Released
 
-**Severidad:** ⚠️ Alta
+**Severity:** ⚠️ High
 
-Algunas operaciones pesadas no liberan el GIL, causando bloqueos en aplicaciones multi-thread.
+Some heavy operations do not release the GIL, causing crashes in multi-threaded applications.
 
-**Mitigación:** Auditoría de todos los `#[pymethods]` para asegurar `py.allow_threads()`.
+**Mitigation:** Audit all `#[pymethods]` to ensure `py.allow_threads()`.
 
-### AUD-03: Conversión de Tipos Incompleta
+### AUD-03: Incomplete Type Conversion
 
-**Severidad:** ℹ️ Media
+**Severity:** ℹ️ Medium
 
-Algunos tipos de metadata no se validan correctamente en la frontera FFI.
+Some metadata types are not validated correctly at the FFI border.
 
-**Mitigación:** Validación estricta de tipos en el boundary.
+**Mitigation:** Strict type validation at the boundary.
 
-## Comparación con Alternativas
+## Comparison with Alternatives
 
 | Framework | Lenguaje | Performance | Ergonomía | Caso de Uso |
 |-----------|----------|-------------|-----------|-------------|
@@ -302,11 +303,11 @@ Algunos tipos de metadata no se validan correctamente en la frontera FFI.
 | **ctypes** | C | Regular | Baja | Prototipos rápidos |
 | **SWIG** | Multi | Variable | Baja | Legacy multi-lenguaje |
 
-## Véase También
+## See Also
 
-- [GIL](GIL.md) — Lock que PyO3 debe gestionar
-- [FFI](FFI.md) — Frontera que PyO3 cruza
-- [Transaccional](Transaccional.md) — Garantías que se mantienen a través de FFI
+- [[gil]] — Lock that PyO3 must manage
+- [[ffi]] — Boundary that PyO3 crosses
+- [[transactional]] — Guarantees maintained through FFI
 
 ---
 

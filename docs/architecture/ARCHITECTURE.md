@@ -25,11 +25,12 @@ VantaDB is an **embedded library**, not a service. The core (`vantadb-core`) has
 │  ┌────────────────────────────────────┐ │
 │  │     vantadb-core (linked library)   │ │
 │  │  ┌──────┐  ┌──────┐  ┌──────────┐ │ │
-│  │  │ [[wal|WAL]]  │  │ [[hnsw|HNSW]] │  │ Storage  │ │ │
+│  │  │ WAL  │  │ HNSW │  │ Storage  │ │ │
 │  │  └──────┘  └──────┘  └──────────┘ │ │
 │  └────────────────────────────────────┘ │
 └─────────────────────────────────────────┘
 ```
+*Components:* [[wal|WAL]], [[hnsw|HNSW]]
 
 ### 2. Canonical Data + Derived Indexes
 
@@ -42,10 +43,11 @@ Source of Truth (Canonical):
 └── Graph (edges)
 
 Derived Indexes (Rebuildable):
-├── [[hnsw|HNSW]] (vector ANN search)
-├── [[bm25|BM25]] (lexical search)
+├── HNSW (vector ANN search)
+├── BM25 (lexical search)
 └── Payload indexes (structured filters)
 ```
+*Derived Indexes:* [[hnsw|HNSW]], [[bm25|BM25]]
 
 ### 3. Zero-Cost Abstractions
 
@@ -87,9 +89,10 @@ The Write-Ahead Log guarantees durability before any mutation is applied to stor
 │ ├── Text: [u8]                      │
 │ └── Metadata: [u8]                  │
 ├─────────────────────────────────────┤
-│ Checksum: u32 ([[crc32c|CRC32C]])              │
+│ Checksum: u32 (CRC32C)              │
 └─────────────────────────────────────┘
 ```
+*Verification:* [[crc32c|CRC32C]] Checksum
 
 ### Write Flow
 
@@ -174,7 +177,7 @@ Client: db.put("doc1", vector, text, metadata)
            │
            ▼
 ┌────────────────────────┐
-│ 5. Apply to [[fjall|Fjall]]      │
+│ 5. Apply to Fjall      │
 │    - Insert document   │
 │    - Insert vector     │
 │    - Insert metadata   │
@@ -183,13 +186,14 @@ Client: db.put("doc1", vector, text, metadata)
            ▼
 ┌────────────────────────┐
 │ 6. Update indexes      │
-│    - [[hnsw|HNSW]]: add vector  │
-│    - [[bm25|BM25]]: index text  │
+│    - HNSW: add vector  │
+│    - BM25: index text  │
 └──────────┬─────────────┘
            │
            ▼
       ACK to client
 ```
+*Backend and indexes details:* [[fjall|Fjall]], [[hnsw|HNSW]], [[bm25|BM25]]
 
 ### Hybrid Search Path
 
