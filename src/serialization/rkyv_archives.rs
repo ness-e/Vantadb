@@ -1,14 +1,19 @@
 /// Zero-copy HNSW graph archive format using `repr(C)` structs
 /// that can be memory-mapped and accessed directly.
 ///
-/// Layout:
-///   [ArchivedHnswHeader]
-///   [ArchivedHnswNode; node_count]
-///   [u64; neighbor_count_total]
+/// Layout (version 8):
+///   [ArchivedHnswHeader]             — 40 bytes, align 8
+///   [padding]                        — 8 bytes for 16-byte alignment
+///   [ArchivedHnswNode; node_count]   — 48 bytes each, align 16
+///   [u64; neighbor_count_total]      — align 8
+///
+/// Version 7 (deprecated) had no padding between header and nodes,
+/// causing misaligned ArchivedHnswNode accesses on ARM/WASM.
 use crate::index::{CPIndex, HnswConfig, HnswNode};
 use crate::node::{DistanceMetric, VectorRepresentations};
 
 const HNSW_MAGIC: [u8; 8] = *b"VNTHNSW\0";
+const HNSW_VERSION: u64 = 8;
 
 /// File header, always at offset 0.
 #[repr(C)]
@@ -47,7 +52,14 @@ impl<'a> ArchivedHnswGraph<'a> {
     pub fn from_bytes(data: &'a [u8]) -> Option<Self> {
         let header_size = std::mem::size_of::<ArchivedHnswHeader>();
         let node_size = std::mem::size_of::<ArchivedHnswNode>();
+        let node_align = std::mem::align_of::<ArchivedHnswNode>();
+
         if data.len() < header_size {
+            return None;
+        }
+
+        let addr = data.as_ptr() as usize;
+        if !addr.is_multiple_of(std::mem::align_of::<ArchivedHnswHeader>()) {
             return None;
         }
         let header: &'a ArchivedHnswHeader =
@@ -55,12 +67,24 @@ impl<'a> ArchivedHnswGraph<'a> {
         if header.magic != HNSW_MAGIC {
             return None;
         }
+        if header.version != HNSW_VERSION {
+            return None;
+        }
+
         let node_count = header.node_count as usize;
-        let nodes_start = header_size;
+
+        // Round up header_size to node_align to get nodes_start
+        let nodes_start = (header_size + node_align - 1) & !(node_align - 1);
         let nodes_end = nodes_start + node_count * node_size;
         if data.len() < nodes_end {
             return None;
         }
+
+        let nodes_addr = data.as_ptr() as usize + nodes_start;
+        debug_assert!(
+            nodes_addr.is_multiple_of(node_align),
+            "ArchivedHnswNode array misaligned"
+        );
         let nodes: &'a [ArchivedHnswNode] = unsafe {
             std::slice::from_raw_parts(
                 data.as_ptr().add(nodes_start) as *const ArchivedHnswNode,
@@ -68,6 +92,10 @@ impl<'a> ArchivedHnswGraph<'a> {
             )
         };
         let neighbor_bytes = &data[nodes_end..];
+        debug_assert!(
+            (neighbor_bytes.as_ptr() as usize).is_multiple_of(std::mem::align_of::<u64>()),
+            "neighbor_data misaligned"
+        );
         let neighbor_data: &'a [u64] = unsafe {
             std::slice::from_raw_parts(
                 neighbor_bytes.as_ptr() as *const u64,
@@ -114,12 +142,18 @@ impl CPIndex {
 
         let header = ArchivedHnswHeader {
             magic: HNSW_MAGIC,
-            version: 7,
+            version: HNSW_VERSION,
             entry_point,
             node_count,
             max_layer,
             distance_metric: distance_metric_byte,
         };
+
+        let header_size = std::mem::size_of::<ArchivedHnswHeader>();
+        let node_size = std::mem::size_of::<ArchivedHnswNode>();
+        let node_align = std::mem::align_of::<ArchivedHnswNode>();
+        let padding = (node_align - (header_size % node_align)) % node_align;
+        let nodes_start = header_size + padding;
 
         let header_bytes = unsafe {
             std::slice::from_raw_parts(
@@ -129,11 +163,12 @@ impl CPIndex {
         };
 
         let mut buf = Vec::with_capacity(
-            std::mem::size_of::<ArchivedHnswHeader>()
-                + (node_count as usize) * std::mem::size_of::<ArchivedHnswNode>()
+            nodes_start
+                + (node_count as usize) * node_size
                 + (node_count as usize) * self.config.m * 2 * 8,
         );
         buf.extend_from_slice(header_bytes);
+        buf.extend(std::iter::repeat_n(0u8, padding));
 
         let mut neighbor_data: Vec<u64> = Vec::new();
         for node_id in self.serialization_order() {
@@ -155,7 +190,7 @@ impl CPIndex {
             let node_bytes = unsafe {
                 std::slice::from_raw_parts(
                     &archived as *const ArchivedHnswNode as *const u8,
-                    std::mem::size_of::<ArchivedHnswNode>(),
+                    node_size,
                 )
             };
             buf.extend_from_slice(node_bytes);
@@ -209,5 +244,85 @@ impl CPIndex {
         }
 
         Ok(index)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::index::f32_l2_norm;
+    use crate::node::DistanceMetric;
+
+    fn make_test_index() -> CPIndex {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 64,
+            ef_search: 32,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+        });
+        for i in 0u64..8 {
+            let raw = [
+                (i as f32 * 0.1).sin(),
+                (i as f32 * 0.2).cos(),
+                (i as f32 * 0.3).sin(),
+                (i as f32 * 0.4).cos(),
+            ];
+            let norm = f32_l2_norm(&raw);
+            let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
+            index.add(i + 1, 0, VectorRepresentations::Full(normalized), 0);
+        }
+        index
+    }
+
+    #[test]
+    fn test_rkyv_round_trip() {
+        let index = make_test_index();
+        let bytes = index.serialize_to_rkyv().expect("serialize");
+        let restored = CPIndex::load_from_rkyv(&bytes).expect("load_from_rkyv");
+        assert_eq!(restored.nodes.len(), index.nodes.len());
+        assert_eq!(restored.get_entry_point(), index.get_entry_point());
+    }
+
+    #[test]
+    fn test_rkyv_version_check_rejects_v7() {
+        let header = ArchivedHnswHeader {
+            magic: HNSW_MAGIC,
+            version: 7,
+            entry_point: u64::MAX,
+            node_count: 0,
+            max_layer: 0,
+            distance_metric: 0,
+        };
+        let header_bytes = unsafe {
+            std::slice::from_raw_parts(
+                &header as *const ArchivedHnswHeader as *const u8,
+                std::mem::size_of::<ArchivedHnswHeader>(),
+            )
+        };
+        assert!(ArchivedHnswGraph::from_bytes(header_bytes).is_none());
+    }
+
+    #[test]
+    fn test_rkyv_alignment_correct_in_serialized_output() {
+        let index = make_test_index();
+        let bytes = index.serialize_to_rkyv().expect("serialize");
+        let header_size = std::mem::size_of::<ArchivedHnswHeader>();
+        let node_align = std::mem::align_of::<ArchivedHnswNode>();
+        let nodes_start = (header_size + node_align - 1) & !(node_align - 1);
+        let nodes_addr = bytes.as_ptr() as usize + nodes_start;
+        assert!(
+            nodes_addr.is_multiple_of(node_align),
+            "nodes array must be {node_align}-byte aligned"
+        );
+    }
+
+    #[test]
+    fn test_rkyv_truncated_data_rejected() {
+        let index = make_test_index();
+        let bytes = index.serialize_to_rkyv().expect("serialize");
+        let truncated = &bytes[..bytes.len() / 2];
+        assert!(CPIndex::load_from_rkyv(truncated).is_err());
     }
 }

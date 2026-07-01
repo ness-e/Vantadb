@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
@@ -52,8 +52,6 @@ pub struct InMemoryEngine {
     nodes: RwLock<HashMap<u64, UnifiedNode>>,
     wal: Mutex<Option<WalWriter>>,
     next_id: AtomicU64,
-    #[allow(dead_code)]
-    wal_path: Option<PathBuf>,
 }
 
 impl InMemoryEngine {
@@ -63,7 +61,6 @@ impl InMemoryEngine {
             nodes: RwLock::new(HashMap::with_capacity(1024)),
             wal: Mutex::new(None),
             next_id: AtomicU64::new(1),
-            wal_path: None,
         }
     }
 
@@ -101,7 +98,6 @@ impl InMemoryEngine {
             nodes: RwLock::new(nodes_map),
             wal: Mutex::new(Some(writer)),
             next_id: AtomicU64::new(max_id + 1),
-            wal_path: Some(path),
         })
     }
 

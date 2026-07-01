@@ -341,15 +341,6 @@ pub fn get_resident_bytes(_addr: *const u8, _len: usize) -> Option<u64> {
     None
 }
 
-/// Legacy helper kept for backward compatibility.
-/// Prefer `engine_mmap_resident_bytes` or `StorageEngine::get_memory_stats()` for accurate telemetry.
-#[allow(dead_code)]
-fn mapped_file_resident_bytes(path: &Path) -> Option<u64> {
-    let file = File::open(path).ok()?;
-    let mmap = unsafe { Mmap::map(&file).ok()? };
-    get_resident_bytes(mmap.as_ptr(), mmap.len())
-}
-
 /// Computes the approximate Resident Set Size (RSS) of memory-mapped regions
 /// used by the HNSW index backend and the vector store file.
 ///
@@ -444,7 +435,7 @@ impl VantaFile {
         Self::open_with_mode(path, 0, true)
     }
 
-    /// Create a purely in-memory VantaFile backed by Vec<u8>.
+    /// Create a purely in-memory VantaFile backed by `Vec<u8>`.
     /// No file I/O involved — used for WASM / true in-memory mode.
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(64);
@@ -567,9 +558,12 @@ impl VantaFile {
         if let VantaFileMap::InMemory(_) = &self.mmap {
             return Ok(());
         }
+        let file = self.file.as_ref().ok_or_else(|| {
+            VantaError::Execution("VantaFile: cannot remap without backing file".into())
+        })?;
         self.mmap = VantaFileMap::ReadWrite(unsafe {
             MmapOptions::new()
-                .map_mut(self.file.as_ref().unwrap())
+                .map_mut(file)
                 .map_err(VantaError::IoError)?
         });
         Ok(())
@@ -623,11 +617,11 @@ impl VantaFile {
                 self.size = new_size;
                 Ok(())
             }
-            _ => {
-                self.file
-                    .as_ref()
-                    .unwrap()
-                    .set_len(new_size)
+            VantaFileMap::ReadOnly(_) | VantaFileMap::ReadWrite(_) => {
+                let file = self.file.as_ref().ok_or_else(|| {
+                    VantaError::Execution("VantaFile: grow_to requires backing file".into())
+                })?;
+                file.set_len(new_size)
                     .map_err(VantaError::IoError)?;
                 self.size = new_size;
                 self.remap_mut()
@@ -2268,23 +2262,77 @@ impl StorageEngine {
     ///
     /// This is intentionally not a hot path. It supports early product APIs
     /// such as namespace listing before secondary indexes exist.
+    ///
+    /// Unlike `get()`, this parses the metadata directly from the scan
+    /// result to avoid one backend lookup per node.
     pub fn scan_nodes(&self) -> Result<Vec<UnifiedNode>> {
         let entries = self.backend.scan(BackendPartition::Default)?;
-        let mut nodes = Vec::new();
+        let mut nodes = Vec::with_capacity(entries.len());
+        let hnsw = self.hnsw.load();
+        let vstore = self.vector_store.read();
 
-        for (key, _value) in entries {
+        for (key, value) in entries {
             if key.len() != std::mem::size_of::<u64>() {
                 continue;
             }
 
-            let mut id_bytes = [0u8; 8];
-            id_bytes.copy_from_slice(&key);
-            let id = u64::from_le_bytes(id_bytes);
+            let id = u64::from_le_bytes(key.as_slice().try_into().unwrap());
 
-            if let Some(node) = self.get(id)? {
-                nodes.push(node);
+            let metadata: NodeMetadata = match bincode::serde::decode_from_slice(
+                &value,
+                bincode::config::standard(),
+            ) {
+                Ok((m, _)) => m,
+                Err(_) => continue,
+            };
+
+            let index_node = match hnsw.nodes.get(&id) {
+                Some(n) => n,
+                None => continue,
+            };
+            let storage_offset = index_node.storage_offset;
+
+            let header = match vstore.read_header(storage_offset) {
+                Some(h) => h,
+                None => continue,
+            };
+
+            if (header.flags & 0x8) != 0 {
+                continue;
             }
+
+            let vec_start = header.vector_offset as usize;
+            let vec_end = vec_start + (header.vector_len as usize * 4);
+            if vec_end > vstore.size as usize {
+                continue;
+            }
+
+            let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+            let f32_vec: &[f32] = unsafe {
+                std::slice::from_raw_parts(
+                    vec_bytes.as_ptr() as *const f32,
+                    header.vector_len as usize,
+                )
+            };
+
+            let mut node = UnifiedNode::new(id);
+            node.bitset = header.bitset;
+            node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
+            node.relational = metadata.relational;
+            node.edges = metadata.edges;
+            node.confidence_score = header.confidence_score;
+            node.importance = header.importance;
+            node.tier = if header.tier == 1 {
+                crate::node::NodeTier::Hot
+            } else {
+                crate::node::NodeTier::Cold
+            };
+            node.flags = crate::node::NodeFlags(header.flags);
+            nodes.push(node);
         }
+
+        drop(vstore);
+        drop(hnsw);
 
         Ok(nodes)
     }

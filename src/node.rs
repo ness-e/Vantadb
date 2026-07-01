@@ -63,6 +63,8 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => Some(v.clone()),
             VectorRepresentations::MmapFull(ptr, len) => {
+                debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in to_f32");
+                debug_assert!(*len > 0, "MmapFull len is zero in to_f32");
                 let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                 Some(slice.to_vec())
             }
@@ -80,6 +82,8 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => Some(v.as_slice()),
             VectorRepresentations::MmapFull(ptr, len) => {
+                debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in as_f32_slice");
+                debug_assert!(*len > 0, "MmapFull len is zero in as_f32_slice");
                 Some(unsafe { std::slice::from_raw_parts(ptr.0, *len) })
             }
             _ => None,

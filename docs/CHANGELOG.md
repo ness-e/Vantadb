@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- +26 doc comments on public API functions in `sdk.rs` (AUD-14).
+- +19 unit tests in `error.rs` and `binary_header.rs` (AUD-16).
+- `parse_env_or::<T>()` helper with `tracing::warn!` on invalid env var values, applied to 5 config fields (AUD-13).
+
+### Performance
+
+- `scan_nodes()` parses metadata directly from scan via `bincode::decode_from_slice`, avoiding N individual `backend.get()` calls per node (AUD-06).
+- `ensure_indexes_current()` unifies 3 scans into 1 startup scan; new `ensure_*_with()` / `count_*_from()` variants accept pre-scanned `&[UnifiedNode]` (AUD-07).
+- `memory_record_to_node_owned()` uses `std::mem::take` to move strings temporarily, reducing clones in `put()` callers (AUD-08).
+
+### Removed
+
+- 4 dead CLI handlers: `cmd_search_similar`, `cmd_count`, `cmd_delete_by_filter`, `cmd_repl`, `cmd_tui` (~560 LOC). Removed `rustyline` + `strsim` dependencies from Cargo.toml (AUD-09).
+- `mapped_file_resident_bytes()` dead function in `storage.rs` (AUD-10).
+- `wal_path: Option<PathBuf>` dead field from `InMemoryEngine` (AUD-11).
+- 3 unused dependencies: `anyhow`, `num-traits`, `color-eyre` from Cargo.toml (AUD-12).
+- `DuplicatePreventionFilter` and `OriginCollisionTracker` removed from public re-exports in `lib.rs` and `utils/mod.rs` (AUD-17).
+
+### Fixed
+
+- 6 broken links in Backlog.md corrected with `VantaDB-MPTS/` prefix (AUD-15).
+- 5 broken intra-doc links in `wal.rs` and 1 unclosed HTML tag in `storage.rs` (AUD-15).
+- Config parsing now emits `tracing::warn!` for invalid env var values instead of silent fallback (AUD-13).
+
 ## [v0.1.5] - 2026-06-22
 
 ### Added

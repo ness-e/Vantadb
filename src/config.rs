@@ -2,7 +2,9 @@ use crate::backend::BackendKind;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
 use std::env;
+use std::str::FromStr;
 use tracing::debug;
+use tracing::warn;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
@@ -157,6 +159,23 @@ pub struct VantaConfig {
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
 
+fn parse_env_or<T: FromStr>(key: &str, default: T) -> T {
+    match env::var(key) {
+        Ok(val) => match val.parse::<T>() {
+            Ok(v) => v,
+            Err(_) => {
+                warn!("Invalid value for {}: \"{}\" — using default", key, val);
+                default
+            }
+        },
+        Err(env::VarError::NotPresent) => default,
+        Err(env::VarError::NotUnicode(_)) => {
+            warn!("Non-Unicode value for {} — using default", key);
+            default
+        }
+    }
+}
+
 impl Default for VantaConfig {
     fn default() -> Self {
         Self {
@@ -174,11 +193,7 @@ impl Default for VantaConfig {
                 v
             },
             port: {
-                let v = env::var("VANTADB_PORT")
-                    .or_else(|_| env::var("PORT"))
-                    .ok()
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(8080);
+                let v = parse_env_or("VANTADB_PORT", 8080u16);
                 debug!(val = v, "VANTADB_PORT");
                 v
             },
@@ -204,14 +219,30 @@ impl Default for VantaConfig {
             force_mmap: false,
             mmap_hnsw: true,
             prefetch_mode: {
-                let mode = env::var("VANTA_PREFETCH")
-                    .ok()
-                    .map(|v| PrefetchMode::from_env_value(&v));
+                let raw = env::var("VANTA_PREFETCH").ok();
+                let mode = raw
+                    .as_deref()
+                    .map(PrefetchMode::from_env_value);
                 let disable = env::var("VANTA_DISABLE_PREFETCH")
                     .ok()
                     .map(|v| v == "1" || v == "true");
                 let v = match (mode, disable) {
-                    (Some(m), _) => m,
+                    (Some(m), _) => {
+                        if let Some(ref val) = raw {
+                            let trimmed = val.trim().to_lowercase();
+                            let known = [
+                                "auto", "disabled", "off", "0", "false",
+                                "enabled", "on", "1", "true",
+                            ];
+                            if m == PrefetchMode::Auto && !known.contains(&trimmed.as_str()) {
+                                warn!(
+                                    "Unrecognized VANTA_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Auto",
+                                    val
+                                );
+                            }
+                        }
+                        m
+                    }
                     (_, Some(true)) => PrefetchMode::Disabled,
                     _ => PrefetchMode::Auto,
                 };
@@ -228,33 +259,31 @@ impl Default for VantaConfig {
                 let v = match env::var("VANTA_BACKEND").ok().as_deref() {
                     Some("rocksdb") => BackendKind::RocksDb,
                     Some("memory") => BackendKind::InMemory,
-                    _ => BackendKind::Fjall,
+                    Some(other) => {
+                        warn!(
+                            "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
+                            other
+                        );
+                        BackendKind::Fjall
+                    }
+                    None => BackendKind::Fjall,
                 };
                 debug!(?v, "VANTA_BACKEND");
                 v
             },
             max_blocking_threads: {
-                let v = env::var("VANTADB_MAX_BLOCKING_THREADS")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(16);
+                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", 16usize);
                 debug!(val = v, "VANTADB_MAX_BLOCKING_THREADS");
                 v
             },
             sync_mode: SyncMode::default(),
             insert_lock_timeout_ms: {
-                let v = env::var("VANTADB_INSERT_LOCK_TIMEOUT_MS")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(2000);
+                let v = parse_env_or("VANTADB_INSERT_LOCK_TIMEOUT_MS", 2000u64);
                 debug!(val = v, "VANTADB_INSERT_LOCK_TIMEOUT_MS");
                 v
             },
             file_lock_timeout_ms: {
-                let v = env::var("VANTADB_FILE_LOCK_TIMEOUT_MS")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(1000);
+                let v = parse_env_or("VANTADB_FILE_LOCK_TIMEOUT_MS", 1000u64);
                 debug!(val = v, "VANTADB_FILE_LOCK_TIMEOUT_MS");
                 v
             },
@@ -264,10 +293,7 @@ impl Default for VantaConfig {
                 v
             },
             rate_limit_rpm: {
-                let v = env::var("VANTADB_RATE_LIMIT_RPM")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(100);
+                let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 100u32);
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
                 v
             },
@@ -289,10 +315,22 @@ impl Default for VantaConfig {
                     if legacy {
                         LogFormat::Json
                     } else {
-                        env::var("VANTADB_LOG_FORMAT")
-                            .ok()
-                            .map(|v| LogFormat::from_env_value(&v))
-                            .unwrap_or_default()
+                        match env::var("VANTADB_LOG_FORMAT") {
+                            Ok(raw) => {
+                                let trimmed = raw.trim().to_lowercase();
+                                let parsed = LogFormat::from_env_value(&raw);
+                                if parsed == LogFormat::Compact
+                                    && trimmed != "compact"
+                                {
+                                    warn!(
+                                        "Unrecognized VANTADB_LOG_FORMAT=\"{}\" — expected \"compact\", \"json\", or \"full\". Using default: Compact",
+                                        raw
+                                    );
+                                }
+                                parsed
+                            }
+                            Err(_) => LogFormat::Compact,
+                        }
                     }
                 };
                 debug!(?v, "VANTADB_LOG_FORMAT");

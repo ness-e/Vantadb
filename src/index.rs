@@ -15,6 +15,7 @@ use tracing::{info, warn};
 use twox_hash::XxHash64;
 
 const ENTRY_POINT_NONE: u64 = u64::MAX;
+const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 
 pub use crate::node::{DistanceMetric, SendPtr, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
@@ -362,6 +363,8 @@ pub fn calculate_similarity(
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f),
         },
         VectorRepresentations::MmapFull(ptr, len) => {
+            debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in compute_similarity");
+            debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in compute_similarity");
             let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
             match metric {
                 DistanceMetric::Cosine => match query_norm {
@@ -1417,6 +1420,8 @@ impl CPIndex {
                     if padding > 0 {
                         buf.extend(std::iter::repeat_n(0, padding));
                     }
+                    debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in serialize");
+                    debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in serialize");
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
                         buf.extend_from_slice(&val.to_le_bytes());
@@ -1614,6 +1619,18 @@ impl CPIndex {
                         VectorRepresentations::Full(v)
                     } else {
                         let ptr = vec_bytes.as_ptr() as *const f32;
+                        if ptr.is_null() {
+                            return Err(Error::new(
+                                ErrorKind::InvalidData,
+                                "MmapFull: null pointer from vec_bytes",
+                            ));
+                        }
+                        if vec_len == 0 || vec_len > MAX_VEC_F32_LEN {
+                            return Err(Error::new(
+                                ErrorKind::InvalidData,
+                                format!("MmapFull: invalid vec_len {vec_len}"),
+                            ));
+                        }
                         VectorRepresentations::MmapFull(SendPtr(ptr), vec_len)
                     }
                 }
@@ -1698,6 +1715,8 @@ impl CPIndex {
                         }
                     }
                     VectorRepresentations::MmapFull(ptr, len) => {
+                        debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in inv_norm");
+                        debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in inv_norm");
                         let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                         let norm = f32_l2_norm(s);
                         if norm > f32::EPSILON {

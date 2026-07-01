@@ -7,6 +7,7 @@ use crate::index::{cosine_sim_f32, set_prefetch_mode};
 use crate::node::{DistanceMetric, FieldValue, UnifiedNode, VectorRepresentations};
 use crate::storage::{IndexRebuildReport, StorageEngine};
 use parking_lot::RwLock;
+use tracing;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
@@ -66,6 +67,8 @@ pub enum VantaValue {
 }
 
 impl VantaValue {
+    /// Flatten list variants into individual scalar values for index storage.
+    /// Non-list variants return a single-element vector containing a clone of self.
     pub fn to_index_values(&self) -> Vec<VantaValue> {
         match self {
             VantaValue::ListString(vec) => {
@@ -103,6 +106,9 @@ pub struct VantaMemoryInput {
 }
 
 impl VantaMemoryInput {
+    /// Create a new memory input with the given namespace, key, and payload.
+    ///
+    /// Metadata defaults to empty, vector is `None`, and TTL is `None` (no expiry).
     pub fn new(
         namespace: impl Into<String>,
         key: impl Into<String>,
@@ -463,6 +469,8 @@ pub struct VantaNodeInput {
 }
 
 impl VantaNodeInput {
+    /// Create a new node input with the given id.
+    /// Content, vector, and fields default to empty/None.
     pub fn new(id: u64) -> Self {
         Self {
             id,
@@ -765,14 +773,17 @@ fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
     })
 }
 
-fn memory_record_to_node(record: &VantaMemoryRecord) -> UnifiedNode {
+fn memory_record_to_node_owned(mut record: VantaMemoryRecord) -> (UnifiedNode, VantaMemoryRecord) {
+    let namespace = std::mem::take(&mut record.namespace);
+    let key = std::mem::take(&mut record.key);
+    let payload = std::mem::take(&mut record.payload);
+    let metadata = std::mem::take(&mut record.metadata);
+    let vector = record.vector.take();
+
     let mut node = UnifiedNode::new(record.node_id);
-    node.set_field(
-        FIELD_NAMESPACE,
-        FieldValue::String(record.namespace.clone()),
-    );
-    node.set_field(FIELD_KEY, FieldValue::String(record.key.clone()));
-    node.set_field(FIELD_PAYLOAD, FieldValue::String(record.payload.clone()));
+    node.set_field(FIELD_NAMESPACE, FieldValue::String(namespace.clone()));
+    node.set_field(FIELD_KEY, FieldValue::String(key.clone()));
+    node.set_field(FIELD_PAYLOAD, FieldValue::String(payload.clone()));
     node.set_field(
         FIELD_CREATED_AT_MS,
         FieldValue::Int(record.created_at_ms as i64),
@@ -787,16 +798,23 @@ fn memory_record_to_node(record: &VantaMemoryRecord) -> UnifiedNode {
         node.set_field(FIELD_EXPIRES_AT_MS, FieldValue::Int(expires_at as i64));
     }
 
-    for (key, value) in record.metadata.clone() {
-        node.set_field(key, value.into());
+    for (k, v) in metadata.clone() {
+        node.set_field(k, v.into());
     }
 
-    if let Some(vector) = record.vector.clone().filter(|vector| !vector.is_empty()) {
-        node.vector = VectorRepresentations::Full(vector);
+    let vector = vector.filter(|v| !v.is_empty());
+    if let Some(ref vec) = vector {
+        node.vector = VectorRepresentations::Full(vec.clone());
         node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
     }
 
-    node
+    record.namespace = namespace;
+    record.key = key;
+    record.payload = payload;
+    record.metadata = metadata;
+    record.vector = vector;
+
+    (node, record)
 }
 
 pub(crate) fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
@@ -844,6 +862,8 @@ fn matches_memory_filters(record: &VantaMemoryRecord, filters: &VantaMemoryMetad
 }
 
 impl VantaEmbedded {
+    /// Wrap an existing engine handle in a VantaEmbedded instance.
+    /// Copies the engine's config for use as the embedded config.
     #[tracing::instrument(skip(engine))]
     pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
         let config = engine.config.clone();
@@ -853,6 +873,7 @@ impl VantaEmbedded {
         }
     }
 
+    /// Open a VantaDB database at the given path with default configuration.
     #[tracing::instrument(skip(path), err)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let config = VantaConfig {
@@ -862,6 +883,7 @@ impl VantaEmbedded {
         Self::open_with_config(config)
     }
 
+    /// Open a VantaDB database with a fully custom configuration.
     #[tracing::instrument(skip(config), err)]
     pub fn open_with_config(config: VantaConfig) -> Result<Self> {
         let final_config = config.clone();
@@ -876,10 +898,121 @@ impl VantaEmbedded {
             config: final_config,
         };
         if !embedded.config.read_only {
-            embedded.ensure_derived_indexes_current()?;
-            embedded.ensure_text_index_current()?;
+            embedded.ensure_indexes_current()?;
         }
         Ok(embedded)
+    }
+
+    fn ensure_indexes_current(&self) -> Result<()> {
+        let engine = self.engine_handle()?;
+        let nodes = engine.scan_nodes()?;
+
+        self.ensure_derived_indexes_current_with(&engine, &nodes)?;
+        self.ensure_text_index_current_with(&engine, &nodes)?;
+
+        Ok(())
+    }
+
+    fn ensure_derived_indexes_current_with(
+        &self,
+        engine: &Arc<StorageEngine>,
+        nodes: &[UnifiedNode],
+    ) -> Result<()> {
+        let state = match Self::load_derived_index_state(engine) {
+            Ok(state) => state,
+            Err(_) => {
+                self.rebuild_derived_indexes_with_report()?;
+                return Ok(());
+            }
+        };
+
+        let canonical_records = Self::count_memory_records_from(nodes);
+        let (namespace_entries, payload_entries) = Self::current_derived_index_counts(engine)?;
+
+        let has_state = state.is_some();
+        let needs_rebuild = match &state {
+            Some(state) => {
+                state.schema_version != DERIVED_INDEX_SCHEMA_VERSION
+                    || state.record_count != canonical_records
+                    || state.namespace_entries != namespace_entries
+                    || state.payload_entries != payload_entries
+                    || namespace_entries < canonical_records
+            }
+            None => canonical_records > 0 || namespace_entries > 0 || payload_entries > 0,
+        };
+
+        if needs_rebuild {
+            self.rebuild_derived_indexes_with_report()?;
+        } else if !has_state {
+            Self::write_derived_index_state(
+                engine,
+                &DerivedIndexState {
+                    schema_version: DERIVED_INDEX_SCHEMA_VERSION,
+                    rebuilt_at_ms: now_ms(),
+                    record_count: canonical_records,
+                    namespace_entries,
+                    payload_entries,
+                },
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn ensure_text_index_current_with(
+        &self,
+        engine: &Arc<StorageEngine>,
+        nodes: &[UnifiedNode],
+    ) -> Result<()> {
+        let state = match Self::load_text_index_state(engine) {
+            Ok(state) => state,
+            Err(_) => {
+                crate::metrics::record_text_index_repair();
+                self.rebuild_text_index_with_report()?;
+                return Ok(());
+            }
+        };
+
+        let expected = Self::expected_text_index_counts_from(nodes);
+        let current = Self::current_text_index_counts(engine)?;
+
+        let has_state = state.is_some();
+        let needs_rebuild = match &state {
+            Some(state) => {
+                !Self::text_index_state_matches_spec(state)
+                    || state.record_count != expected.record_count
+                    || state.posting_entries != current.posting_entries
+                    || state.posting_entries != expected.posting_entries
+                    || state.doc_stats_entries != current.doc_stats_entries
+                    || state.doc_stats_entries != expected.doc_stats_entries
+                    || state.term_stats_entries != current.term_stats_entries
+                    || state.term_stats_entries != expected.term_stats_entries
+                    || state.namespace_stats_entries != current.namespace_stats_entries
+                    || state.namespace_stats_entries != expected.namespace_stats_entries
+                    || current.posting_entries != expected.posting_entries
+                    || current.doc_stats_entries != expected.doc_stats_entries
+                    || current.term_stats_entries != expected.term_stats_entries
+                    || current.namespace_stats_entries != expected.namespace_stats_entries
+                    || current.unknown_entries != 0
+            }
+            None => {
+                expected.record_count > 0
+                    || current.posting_entries > 0
+                    || current.doc_stats_entries > 0
+                    || current.term_stats_entries > 0
+                    || current.namespace_stats_entries > 0
+                    || current.unknown_entries > 0
+            }
+        };
+
+        if needs_rebuild {
+            crate::metrics::record_text_index_repair();
+            self.rebuild_text_index_with_report()?;
+        } else if !has_state {
+            Self::write_text_index_state(engine, &Self::fresh_text_index_state(expected))?;
+        }
+
+        Ok(())
     }
 
     fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
@@ -956,23 +1089,23 @@ impl VantaEmbedded {
             && state.key_format == spec.key_format
     }
 
-    fn count_memory_records(engine: &StorageEngine) -> Result<u64> {
+    fn count_memory_records_from(nodes: &[UnifiedNode]) -> u64 {
         let mut count = 0u64;
-        for node in engine.scan_nodes()? {
-            if memory_record_from_node(node).is_some() {
+        for node in nodes {
+            if memory_record_from_node(node.clone()).is_some() {
                 count += 1;
             }
         }
-        Ok(count)
+        count
     }
 
-    fn expected_text_index_counts(engine: &StorageEngine) -> Result<TextIndexCounts> {
+    fn expected_text_index_counts_from(nodes: &[UnifiedNode]) -> TextIndexCounts {
         let mut counts = TextIndexCounts::default();
         let mut terms = BTreeSet::new();
         let mut namespaces = BTreeSet::new();
 
-        for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(node) {
+        for node in nodes {
+            if let Some(record) = memory_record_from_node(node.clone()) {
                 counts.record_count += 1;
                 counts.posting_entries += crate::text_index::posting_count(&record.payload);
                 counts.doc_stats_entries += 1;
@@ -985,7 +1118,7 @@ impl VantaEmbedded {
 
         counts.term_stats_entries = terms.len() as u64;
         counts.namespace_stats_entries = namespaces.len() as u64;
-        Ok(counts)
+        counts
     }
 
     fn current_text_index_counts(engine: &StorageEngine) -> Result<TextIndexCounts> {
@@ -1348,8 +1481,20 @@ impl VantaEmbedded {
             .strip_prefix(INTERNAL_PREFIX)?
             .strip_prefix(TERM_STATS_TAG)?;
         let pos = remainder.iter().position(|&b| b == 0)?;
-        let ns = String::from_utf8(remainder[..pos].to_vec()).ok()?;
-        let token = String::from_utf8(remainder[pos + 1..].to_vec()).ok()?;
+        let ns = match String::from_utf8(remainder[..pos].to_vec()) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(?e, raw = ?&remainder[..pos], "Invalid UTF-8 namespace in term stats key");
+                return None;
+            }
+        };
+        let token = match String::from_utf8(remainder[pos + 1..].to_vec()) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(?e, raw = ?&remainder[pos + 1..], "Invalid UTF-8 token in term stats key");
+                return None;
+            }
+        };
         Some((ns, token))
     }
 
@@ -1359,7 +1504,13 @@ impl VantaEmbedded {
         let remainder = key
             .strip_prefix(INTERNAL_PREFIX)?
             .strip_prefix(NAMESPACE_STATS_TAG)?;
-        String::from_utf8(remainder.to_vec()).ok()
+        match String::from_utf8(remainder.to_vec()) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                tracing::warn!(?e, raw = ?remainder, "Invalid UTF-8 in namespace stats key");
+                None
+            }
+        }
     }
 
     fn adjust_derived_index_state_after_replace(
@@ -1447,102 +1598,6 @@ impl VantaEmbedded {
             Self::apply_u64_delta(state.namespace_stats_entries, report.namespace_stats_delta);
 
         Self::write_text_index_state(engine, &state)
-    }
-
-    fn ensure_derived_indexes_current(&self) -> Result<()> {
-        let engine = self.engine_handle()?;
-        let state = match Self::load_derived_index_state(&engine) {
-            Ok(state) => state,
-            Err(_) => {
-                self.rebuild_derived_indexes_with_report()?;
-                return Ok(());
-            }
-        };
-
-        let canonical_records = Self::count_memory_records(&engine)?;
-        let (namespace_entries, payload_entries) = Self::current_derived_index_counts(&engine)?;
-
-        let has_state = state.is_some();
-        let needs_rebuild = match &state {
-            Some(state) => {
-                state.schema_version != DERIVED_INDEX_SCHEMA_VERSION
-                    || state.record_count != canonical_records
-                    || state.namespace_entries != namespace_entries
-                    || state.payload_entries != payload_entries
-                    || namespace_entries < canonical_records
-            }
-            None => canonical_records > 0 || namespace_entries > 0 || payload_entries > 0,
-        };
-
-        if needs_rebuild {
-            self.rebuild_derived_indexes_with_report()?;
-        } else if !has_state {
-            Self::write_derived_index_state(
-                &engine,
-                &DerivedIndexState {
-                    schema_version: DERIVED_INDEX_SCHEMA_VERSION,
-                    rebuilt_at_ms: now_ms(),
-                    record_count: canonical_records,
-                    namespace_entries,
-                    payload_entries,
-                },
-            )?;
-        }
-
-        Ok(())
-    }
-
-    fn ensure_text_index_current(&self) -> Result<()> {
-        let engine = self.engine_handle()?;
-        let state = match Self::load_text_index_state(&engine) {
-            Ok(state) => state,
-            Err(_) => {
-                crate::metrics::record_text_index_repair();
-                self.rebuild_text_index_with_report()?;
-                return Ok(());
-            }
-        };
-
-        let expected = Self::expected_text_index_counts(&engine)?;
-        let current = Self::current_text_index_counts(&engine)?;
-
-        let has_state = state.is_some();
-        let needs_rebuild = match &state {
-            Some(state) => {
-                !Self::text_index_state_matches_spec(state)
-                    || state.record_count != expected.record_count
-                    || state.posting_entries != current.posting_entries
-                    || state.posting_entries != expected.posting_entries
-                    || state.doc_stats_entries != current.doc_stats_entries
-                    || state.doc_stats_entries != expected.doc_stats_entries
-                    || state.term_stats_entries != current.term_stats_entries
-                    || state.term_stats_entries != expected.term_stats_entries
-                    || state.namespace_stats_entries != current.namespace_stats_entries
-                    || state.namespace_stats_entries != expected.namespace_stats_entries
-                    || current.posting_entries != expected.posting_entries
-                    || current.doc_stats_entries != expected.doc_stats_entries
-                    || current.term_stats_entries != expected.term_stats_entries
-                    || current.namespace_stats_entries != expected.namespace_stats_entries
-                    || current.unknown_entries != 0
-            }
-            None => {
-                expected.record_count > 0
-                    || current.posting_entries > 0
-                    || current.doc_stats_entries > 0
-                    || current.term_stats_entries > 0
-                    || current.namespace_stats_entries > 0
-                    || current.unknown_entries > 0
-            }
-        };
-
-        if needs_rebuild {
-            crate::metrics::record_text_index_repair();
-            self.rebuild_text_index_with_report()?;
-        } else if !has_state {
-            Self::write_text_index_state(&engine, &Self::fresh_text_index_state(expected))?;
-        }
-
-        Ok(())
     }
 
     fn rebuild_derived_indexes_with_report(&self) -> Result<DerivedIndexRebuildReport> {
@@ -2488,13 +2543,14 @@ impl VantaEmbedded {
             None => None,
         };
 
-        let node = memory_record_to_node(&record);
+        let (node, record) = memory_record_to_node_owned(record);
         engine.insert(&node)?;
         self.replace_derived_indexes(&engine, previous.as_ref(), Some(&record))?;
 
         Ok(record)
     }
 
+    /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
     #[tracing::instrument(skip(self), err)]
     pub fn insert_node(&self, input: VantaNodeInput) -> Result<()> {
         let engine = self.engine_handle()?;
@@ -2516,6 +2572,7 @@ impl VantaEmbedded {
         engine.insert(&node)
     }
 
+    /// Retrieve a node by its numeric id. Returns `None` if the id does not exist.
     #[tracing::instrument(skip(self), err)]
     pub fn get_node(&self, id: u64) -> Result<Option<VantaNodeRecord>> {
         self.engine_handle()?
@@ -2523,6 +2580,7 @@ impl VantaEmbedded {
             .map(|node| node.map(Into::into))
     }
 
+    /// Delete a node by its numeric id. The `reason` string is recorded for auditing.
     #[tracing::instrument(skip(self), err)]
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<()> {
         self.engine_handle()?.delete(id, reason)
@@ -2597,7 +2655,7 @@ impl VantaEmbedded {
                 vector: input.vector.filter(|v| !v.is_empty()),
                 expires_at_ms,
             };
-            let node = memory_record_to_node(&record);
+            let (node, record) = memory_record_to_node_owned(record);
             engine.insert(&node)?;
             self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
             Ok(record)
@@ -2607,6 +2665,8 @@ impl VantaEmbedded {
         results.into_iter().collect()
     }
 
+    /// Insert or update a persistent memory record.
+    /// Returns the created/updated record with system-assigned timestamps and version.
     #[tracing::instrument(skip(self, input), err)]
     pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
         validate_namespace(&input.namespace)?;
@@ -2649,13 +2709,15 @@ impl VantaEmbedded {
             vector: input.vector.filter(|v| !v.is_empty()),
             expires_at_ms,
         };
-        let node = memory_record_to_node(&record);
+        let (node, record) = memory_record_to_node_owned(record);
         engine.insert(&node)?;
         self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
 
         Ok(record)
     }
 
+    /// Retrieve a single memory record by namespace and key.
+    /// Returns `None` if the record does not exist or has expired.
     #[tracing::instrument(skip(self), err)]
     pub fn get(&self, namespace: &str, key: &str) -> Result<Option<VantaMemoryRecord>> {
         validate_namespace(namespace)?;
@@ -2676,6 +2738,8 @@ impl VantaEmbedded {
         }
     }
 
+    /// Delete a memory record by namespace and key.
+    /// Returns `true` if a record was actually deleted, `false` if it did not exist.
     #[tracing::instrument(skip(self), err)]
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool> {
         validate_namespace(namespace)?;
@@ -2692,6 +2756,8 @@ impl VantaEmbedded {
         Ok(true)
     }
 
+    /// List all namespaces that contain at least one memory record.
+    /// Scans the NamespaceIndex partition or falls back to a full node scan.
     #[tracing::instrument(skip(self), err)]
     pub fn list_namespaces(&self) -> Result<Vec<String>> {
         let engine = self.engine_handle()?;
@@ -2717,6 +2783,7 @@ impl VantaEmbedded {
         Ok(namespaces.into_iter().collect())
     }
 
+    /// List memory records in a namespace with optional filters, cursor-based pagination, and limit.
     #[tracing::instrument(skip(self), err)]
     pub fn list(
         &self,
@@ -2739,6 +2806,8 @@ impl VantaEmbedded {
         })
     }
 
+    /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
+    /// Route selection (text-only, vector-only, hybrid) is automatic based on the request payload.
     #[tracing::instrument(skip(self, request), err)]
     pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
         validate_namespace(&request.namespace)?;
@@ -2853,6 +2922,8 @@ impl VantaEmbedded {
         }
     }
 
+    /// Rebuild the HNSW vector index, derived indexes (namespace/payload), and text index
+    /// from scratch. Returns a report with per-index duration and entry counts.
     #[tracing::instrument(skip(self), err)]
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
         if self.config.read_only {
@@ -2886,6 +2957,7 @@ impl VantaEmbedded {
         self.engine_handle()?.compact_layout_bfs()
     }
 
+    /// Export all records from a single namespace to a JSONL file.
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_namespace(
         &self,
@@ -2898,6 +2970,7 @@ impl VantaEmbedded {
         self.write_export_file(path.as_ref(), records, vec![namespace.to_string()], started)
     }
 
+    /// Export all records across all namespaces to a single JSONL file.
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_all(&self, path: impl AsRef<Path>) -> Result<VantaExportReport> {
         let started = Instant::now();
@@ -2941,6 +3014,8 @@ impl VantaEmbedded {
         })
     }
 
+    /// Import memory records from an in-memory vector. Rebuilds derived and text indexes after import.
+    /// Reports counts of inserted, updated, skipped, and errored records.
     #[tracing::instrument(skip(self, records), err)]
     pub fn import_records(&self, records: Vec<VantaMemoryRecord>) -> Result<VantaImportReport> {
         if self.config.read_only {
@@ -2973,6 +3048,8 @@ impl VantaEmbedded {
         Ok(report)
     }
 
+    /// Import records from a JSONL file (one record per line).
+    /// Skips empty lines and reports parse errors separately from import errors.
     #[tracing::instrument(skip(self, path), err)]
     pub fn import_file(&self, path: impl AsRef<Path>) -> Result<VantaImportReport> {
         if self.config.read_only {
@@ -3066,6 +3143,8 @@ impl VantaEmbedded {
         })
     }
 
+    /// Snapshot of current process-level operational metrics: RSS, virtual memory,
+    /// HNSW node count, mmap residency, and volatile cache usage.
     #[tracing::instrument(skip(self))]
     pub fn operational_metrics(&self) -> VantaOperationalMetrics {
         if let Ok(engine) = self.engine_handle() {
@@ -3527,6 +3606,8 @@ impl VantaEmbedded {
         }
     }
 
+    /// Explain the search plan for a memory search request without executing it.
+    /// Returns route, budget breakdown, per-route candidate counts, and fusion strategy.
     #[tracing::instrument(skip(self, request), err)]
     pub fn explain_memory_search(
         &self,
@@ -3894,6 +3975,8 @@ impl VantaEmbedded {
         result
     }
 
+    /// Breadth-first traversal from one or more root nodes up to `max_depth`.
+    /// Returns visited node ids in BFS order.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_bfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
@@ -3901,6 +3984,8 @@ impl VantaEmbedded {
         traverser.bfs_traverse(roots, max_depth)
     }
 
+    /// Depth-first traversal from one or more root nodes up to `max_depth`.
+    /// Returns visited node ids in DFS order.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_dfs(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
@@ -3908,6 +3993,8 @@ impl VantaEmbedded {
         traverser.dfs_traverse(roots, max_depth)
     }
 
+    /// Topological sort starting from the given root nodes.
+    /// Returns an error if the graph contains a cycle.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_topological_sort(&self, roots: &[u64]) -> Result<Vec<u64>> {
         let engine = self.engine_handle()?;
@@ -3915,6 +4002,7 @@ impl VantaEmbedded {
         traverser.topological_sort(roots)
     }
 
+    /// Check whether the subgraph reachable from `roots` is a directed acyclic graph (DAG).
     #[tracing::instrument(skip(self), err)]
     pub fn graph_is_dag(&self, roots: &[u64]) -> Result<bool> {
         let engine = self.engine_handle()?;
@@ -4014,6 +4102,60 @@ impl From<FieldValue> for VantaValue {
             FieldValue::ListDateTime(value) => VantaValue::ListDateTime(value),
             FieldValue::Null => VantaValue::Null,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_term_stats_key_valid() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
+        let result = VantaEmbedded::parse_term_stats_key(key);
+        assert_eq!(result, Some(("myns".into(), "mytoken".into())));
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_invalid_utf8() {
+        let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
+        let result = VantaEmbedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_invalid_namespace_utf8() {
+        let key = b"\xffvanta_text_v3\0term\0\xff\xfe\0token";
+        let result = VantaEmbedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_term_stats_key_truncated() {
+        let key = b"\xffvanta_text_v3\0term";
+        let result = VantaEmbedded::parse_term_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_valid() {
+        let key = b"\xffvanta_text_v3\0ns\0myns";
+        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        assert_eq!(result, Some("myns".into()));
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_invalid_utf8() {
+        let key = b"\xffvanta_text_v3\0ns\0\xff\xfe";
+        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_namespace_stats_key_truncated() {
+        let key = b"\xffvanta_text_v3\0ns";
+        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        assert_eq!(result, None);
     }
 }
 

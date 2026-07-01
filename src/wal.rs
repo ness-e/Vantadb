@@ -117,8 +117,8 @@ impl WalHeader {
 
 /// Append-only WAL writer with CRC32C integrity checks and structured header.
 ///
-/// File format: [WalHeader(20 bytes)][Record1][Record2]...
-/// Record format: [len:u32][payload:bincode][crc:u32]
+/// File format: \[WalHeader(20 bytes)\]\[Record1\]\[Record2\]...
+/// Record format: \[len:u32\]\[payload:bincode\]\[crc:u32\]
 pub struct WalWriter {
     writer: BufWriter<File>,
     path: PathBuf,
