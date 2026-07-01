@@ -1289,10 +1289,11 @@ mod tests {
 
     #[test]
     fn test_record_text_postings_written_accumulates() {
+        let before = operational_metrics_snapshot().text_postings_written;
         record_text_postings_written(100);
         record_text_postings_written(200);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.text_postings_written, 300);
+        let after = operational_metrics_snapshot().text_postings_written;
+        assert_eq!(after - before, 300);
     }
 
     #[test]
@@ -1305,23 +1306,24 @@ mod tests {
 
     #[test]
     fn test_record_text_lexical_query() {
+        let before = operational_metrics_snapshot();
         record_text_lexical_query(42, 500);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.text_lexical_query_ms, 42);
-        assert_eq!(snap.text_candidates_scored, 500);
-        // Counter incremented by 1
-        assert_eq!(snap.text_lexical_queries, 1);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.text_lexical_query_ms, 42);
+        assert_eq!(after.text_candidates_scored - before.text_candidates_scored, 500);
+        assert_eq!(after.text_lexical_queries - before.text_lexical_queries, 1);
     }
 
     #[test]
     fn test_record_text_lexical_query_multi() {
+        let before = operational_metrics_snapshot();
         record_text_lexical_query(10, 50);
         record_text_lexical_query(20, 100);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.text_lexical_queries, 2);
-        assert_eq!(snap.text_candidates_scored, 150);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.text_lexical_queries - before.text_lexical_queries, 2);
+        assert_eq!(after.text_candidates_scored - before.text_candidates_scored, 150);
         // Last duration overwrites
-        assert_eq!(snap.text_lexical_query_ms, 20);
+        assert_eq!(after.text_lexical_query_ms, 20);
     }
 
     #[test]
@@ -1344,10 +1346,11 @@ mod tests {
 
     #[test]
     fn test_record_hybrid_query() {
+        let before = operational_metrics_snapshot().hybrid_candidates_fused;
         record_hybrid_query(150, 25);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.hybrid_query_ms, 150);
-        assert_eq!(snap.hybrid_candidates_fused, 25);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.hybrid_query_ms, 150);
+        assert_eq!(after.hybrid_candidates_fused - before, 25);
     }
 
     #[test]
@@ -1359,14 +1362,15 @@ mod tests {
 
     #[test]
     fn test_record_planner_queries() {
+        let before = operational_metrics_snapshot();
         record_planner_hybrid_query();
         record_planner_text_only_query();
         record_planner_vector_only_query();
 
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.planner_hybrid_queries, 1);
-        assert_eq!(snap.planner_text_only_queries, 1);
-        assert_eq!(snap.planner_vector_only_queries, 1);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.planner_hybrid_queries - before.planner_hybrid_queries, 1);
+        assert_eq!(after.planner_text_only_queries - before.planner_text_only_queries, 1);
+        assert_eq!(after.planner_vector_only_queries - before.planner_vector_only_queries, 1);
     }
 
     #[test]
@@ -1387,31 +1391,35 @@ mod tests {
 
     #[test]
     fn test_record_export() {
+        let before = operational_metrics_snapshot().records_exported;
         record_export(100);
-        assert_eq!(operational_metrics_snapshot().records_exported, 100);
+        assert_eq!(operational_metrics_snapshot().records_exported - before, 100);
     }
 
     #[test]
     fn test_record_export_accumulates() {
+        let before = operational_metrics_snapshot().records_exported;
         record_export(50);
         record_export(25);
-        assert_eq!(operational_metrics_snapshot().records_exported, 75);
+        assert_eq!(operational_metrics_snapshot().records_exported - before, 75);
     }
 
     #[test]
     fn test_record_import() {
+        let before = operational_metrics_snapshot();
         record_import(200, 3);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.records_imported, 200);
-        assert_eq!(snap.import_errors, 3);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.records_imported - before.records_imported, 200);
+        assert_eq!(after.import_errors - before.import_errors, 3);
     }
 
     #[test]
     fn test_record_import_no_errors() {
+        let before = operational_metrics_snapshot();
         record_import(50, 0);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.records_imported, 50);
-        assert_eq!(snap.import_errors, 0);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.records_imported - before.records_imported, 50);
+        assert_eq!(after.import_errors - before.import_errors, 0);
     }
 
     // ── Derived scans ──────────────────────────────────────────
@@ -1428,10 +1436,11 @@ mod tests {
 
     #[test]
     fn test_record_derived_scan_accumulates() {
+        let before = operational_metrics_snapshot().derived_prefix_scans;
         for _ in 0..7 {
             record_derived_prefix_scan();
         }
-        assert_eq!(operational_metrics_snapshot().derived_prefix_scans, 7);
+        assert_eq!(operational_metrics_snapshot().derived_prefix_scans - before, 7);
     }
 
     // ── Memory breakdown ───────────────────────────────────────
@@ -1475,12 +1484,12 @@ mod tests {
         assert_eq!(snap.memory.mmap_resident_bytes, Some(77));
     }
 
-    // ── Export (non-prometheus, always empty string) ────────────
+    // ── Export ─────────────────────────────────────────────────
 
     #[test]
-    fn test_export_metrics_text_without_prometheus() {
-        // Without the prometheus feature, export returns empty string
+    fn test_export_metrics_text_non_empty() {
+        // With default features (prometheus enabled), export returns prometheus text
         let text = export_metrics_text();
-        assert_eq!(text, "");
+        assert!(!text.is_empty(), "export_metrics_text() should return non-empty prometheus output");
     }
 }
