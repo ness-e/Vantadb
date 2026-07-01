@@ -5,15 +5,21 @@
 Este proyecto VantaDB usa un skill de progreso para mantener el historial unificado:
 `./.opencode/skills/progreso/SKILL.md`
 
-- **Al iniciar una nueva tarea:** carga el skill `progreso` y sigue sus triggers.
+- **Al iniciar una nueva tarea:** carga el skill `progreso` y sigue sus triggers (Trigger 2 primero).
 - **Al completar una tarea:** aplica el skill `progreso` (Trigger 1) ANTES de cualquier mensaje de resumen.
-- **Backlog maestro:** `C:\Users\Eros\Obsidian\Eros\Backlog.md`
-- **Changelog:** `C:\Users\Eros\Obsidian\Eros\Changelog.md`
+- **Backlog:** `./docs/Backlog.md` — tareas pendientes priorizadas
+- **Changelog:** `./docs/CHANGELOG.md` — release notes formales por versión
 
 ## Comportamiento General
 
 - Preserva siempre el contenido de `./docs/progreso/README.md` — es el historial inmutable del proyecto.
 - No sobrescribas archivos de planificación sin antes haber consolidado la tarea anterior en el historial unificado.
+- Los docs técnicos (API, arquitectura, operaciones) están en **inglés** — no los traduzcas.
+- Los docs de planificación (Backlog, progreso, MPTS, investigaciones) están en **español**.
+- Los MPTS en español llevan cross-references a los docs técnicos en inglés. No dupliques contenido técnico en español.
+- **Doc-Driven Development**: Para features nuevas, documenta la superficie (API, config, CLI) en los docs en inglés ANTES de implementar el código.
+- **Definition of Done**: Cada tarea completa debe pasar el checklist del skill `progreso` que incluye verificar que los docs afectados por los archivos modificados fueron actualizados.
+- **Validación automática**: El script `scripts/validate-docs-coverage.ps1` debe ejecutarse como paso final antes de marcar una tarea como completada. Si reporta gaps, hay que resolverlos.
 
 ---
 
@@ -122,4 +128,19 @@ Estos skills están en `./skills/` y `./.opencode/skills/`:
 
 - **`vantadb-mcp`** (`./skills/vantadb-mcp/SKILL.md`): Integración MCP de VantaDB para memoria persistente AI.
 - **`vantadb`** (`./skills/vantadb/SKILL.md`): Guía experta de VantaDB — core operations, hybrid search, SDK Python/Rust, integraciones LangChain/LlamaIndex.
-- **`progreso`** (`./.opencode/skills/progreso/SKILL.md`): Historial unificado de progreso del proyecto.
+- **`progreso`** (`./.opencode/skills/progreso/SKILL.md`): Historial unificado de progreso. **Cargar siempre al iniciar/completar tareas.** Mueve tareas de `docs/Backlog.md` a `docs/progreso/README.md`, registra investigaciones, y mantiene cross-references con `docs/CHANGELOG.md` y `docs/Investigaciones/`.
+
+### Estructura de Documentación Local
+
+```
+docs/
+├── Backlog.md           ← Tareas pendientes
+├── CHANGELOG.md         ← Release notes formales por versión
+├── progreso/README.md   ← Historial de tareas completadas + hitos + auditorías
+├── Investigaciones/     ← Research artifacts por tema (01_*.md ... 05_*.md)
+├── Investigaciones.md   ← Índice de investigaciones
+├── VantaDB-MPTS/        ← Docs estratégicos en español (cross-ref a docs técnicos en inglés)
+├── api/                 ← SDK/API en inglés (fuente de verdad técnica)
+├── architecture/        ← Arquitectura en inglés
+└── operations/          ← Operaciones/CI en inglés
+```

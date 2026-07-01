@@ -106,10 +106,36 @@ Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 requests per mi
 
 When `tls_cert_path` and `tls_key_path` are configured, the server binds with HTTPS. Requires the `tls` feature.
 
+## Starting the Server
+
+```bash
+# HTTP server only
+vanta-cli server --http --port 8080 --host 127.0.0.1 --db ./vanta_data
+
+# Full MCP + HTTP
+vanta-cli server --http --mcp --port 8080 --db ./vanta_data
+
+# With TLS
+vanta-cli server --http --port 443 --db ./vanta_data
+# Requires VANTADB_TLS_CERT and VANTADB_TLS_KEY env vars
+```
+
 ## Route Summary
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/health` | No | Liveness check |
-| `GET` | `/metrics` | No | Prometheus metrics |
+| `GET` | `/metrics` | No | Prometheus metrics (OpenMetrics format) |
 | `POST` | `/api/v2/query` | Bearer | Execute IQL query |
+
+## Rate Limiting
+
+Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 req/min). When exceeded, returns `HTTP 429 Too Many Requests` with a `Retry-After` header.
+
+## TLS
+
+When `VANTADB_TLS_CERT` and `VANTADB_TLS_KEY` are configured, the server binds with HTTPS on the specified port. Requires the `tls` Cargo feature. Self-signed certificates are not recommended for production.
+
+## CORS
+
+The server currently does not set CORS headers. For browser-based clients, a reverse proxy (nginx, Caddy) is recommended to add CORS support.

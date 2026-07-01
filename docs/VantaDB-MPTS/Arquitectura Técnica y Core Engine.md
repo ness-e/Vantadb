@@ -10,8 +10,10 @@ aliases: [Arquitectura, Core Engine, Diseño Técnico]
 
 # Arquitectura Técnica y Core Engine
 
-> **Dominio:** Técnico
+> **Dominio:** Técnico (Español)
 > **Propósito:** Documentar la arquitectura interna, componentes y flujos de datos de VantaDB
+> **Referencia técnica en inglés:** [`docs/architecture/ARCHITECTURE.md`](../architecture/ARCHITECTURE.md) (implementación actualizada)
+> **SDK Reference:** [`docs/api/EMBEDDED_SDK.md`](../api/EMBEDDED_SDK.md)
 
 ---
 

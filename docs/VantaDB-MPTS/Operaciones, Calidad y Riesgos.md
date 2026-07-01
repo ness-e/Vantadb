@@ -10,8 +10,11 @@ aliases: [Operaciones, Calidad, Riesgos, Testing, CI/CD]
 
 # Operaciones, Calidad y Riesgos
 
-> **Dominio:** Técnico & Operaciones
+> **Dominio:** Técnico & Operaciones (Español)
 > **Propósito:** Documentar estrategia de testing, CI/CD, benchmarks y riesgos conocidos
+> **Referencia técnica actualizada:** [`docs/operations/CONFIGURATION.md`](../operations/CONFIGURATION.md) (configuración)
+> **Benchmarks:** [`docs/operations/BENCHMARKS.md`](../operations/BENCHMARKS.md)
+> **Durabilidad:** [`docs/operations/DURABILITY_GUARANTEES.md`](../operations/DURABILITY_GUARANTEES.md)
 
 ---
 

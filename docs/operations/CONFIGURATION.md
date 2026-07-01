@@ -21,10 +21,12 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_weight_confidence` | `f64` | `2.0` | — | Weight for confidence score in eviction |
 | `eviction_weight_importance` | `f64` | `3.0` | — | Weight for importance score in eviction |
 | `eviction_weight_recency` | `f64` | `1.0` | — | Weight for recency in eviction |
-| `eviction_ratio` | `f64` | `0.20` | — | Fraction of cold nodes to evict per cycle |
+| `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
 | `backend_kind` | `BackendKind` | `Fjall` | `VANTA_BACKEND` | KV backend: `fjall`, `rocksdb`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `sync_mode` | `SyncMode` | `Periodic` | — | WAL sync: `Always`, `Periodic`, `Never` |
+| `insert_lock_timeout_ms` | `u64` | `2000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | HNSW insert lock timeout in ms |
+| `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
 | `tls_cert_path` | `Option<String>` | `None` | `VANTADB_TLS_CERT` | Path to TLS certificate PEM file |
@@ -82,6 +84,8 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 |------|---------|---------|-------------|
 | `--db` / `-d` | `VANTA_DB` | `./db` | Path to the database directory |
 | `--verbose` / `-v` | — | `false` | Enable verbose output |
+| `--json` | — | `false` | Output in JSON format |
+| `--quiet` | — | `false` | Suppress non-essential output |
 
 ### Commands
 
@@ -90,18 +94,28 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `put --namespace <ns> --key <k> --payload <text> [--vector <v>]` | Save a key-value pair to persistent memory |
 | `get --namespace <ns> --key <k>` | Retrieve a value from persistent memory |
 | `delete --namespace <ns> --key <k>` | Delete a record by namespace and key |
+| `delete-by-filter --namespace <ns> --filter <json>` | Delete records matching metadata filters |
+| `count [--namespace <ns>] [--filter <json>]` | Count records, optionally filtered |
 | `list --namespace <ns> [--limit <N>]` | List keys and values in a namespace |
-| `search --namespace <ns> --query <q> [--query_vector <v>] [--limit <N>] [--json]` | Search records semantically across a namespace |
+| `search --namespace <ns> --query <q> [--query-vector <v>] [--limit <N>] [--json]` | Search records semantically across a namespace |
+| `search-similar --namespace <ns> --key <k> [--limit <N>]` | Search by vector similarity from an existing key |
 | `query <iql_string> [--limit <N>]` | Execute a structured IQL/hybrid query |
 | `status` | Display database health diagnostics and system status |
+| `stats [--json]` | Database statistics (formatted or JSON) |
+| `doctor` | Health diagnostics (WAL, backend, memory, HNSW) |
+| `inspect --key <k>` | Inspect a complete record |
 | `rebuild-index` | Rebuild all database indexes (HNSW, text index, derived indexes) |
 | `audit-index [--namespace <ns>] [--json] [--deep]` | Validate text index integrity without repairing |
 | `repair-text-index` | Repair text index if inconsistencies are detected |
-| `export [--namespace <ns>] --out <path>` | Export records to a JSON file |
-| `import --in <path>` | Import records from a JSON file |
+| `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
+| `restore --from <path> [--rebuild]` | Restore from backup, verify CRC32, optional rebuild |
+| `export [--namespace <ns>] --out <path>` | Export records to a JSONL file |
+| `import --in <path>` | Import records from a JSONL file |
 | `namespace list` | List all namespaces |
 | `namespace info --namespace <ns>` | Show record count and details for a namespace |
 | `server [--http] [--mcp] [--port <N>] [--host <host>]` | Start the HTTP or MCP server wrapper |
+| `repl` | Interactive rustyline REPL with tab autocomplete |
+| `tui` | Live dashboard refreshing every 2s |
 | `completions --shell <bash|zsh|fish|powershell>` | Generate shell completion scripts |
 
 ### Examples
@@ -110,15 +124,22 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 vanta-cli put --db ./vanta_data --namespace agent/main --key memory-1 --payload "hello"
 vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
 vanta-cli list --db ./vanta_data --namespace agent/main
-vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --limit 5
+vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --query-vector "0.1,0.2,0.3" --limit 10
+vanta-cli search-similar --db ./vanta_data --namespace agent/main --key memory-1 --limit 5
+vanta-cli count --db ./vanta_data --namespace agent/main
 vanta-cli status --db ./vanta_data
+vanta-cli stats --db ./vanta_data --json
+vanta-cli doctor --db ./vanta_data
 vanta-cli audit-index --db ./vanta_data --deep
 vanta-cli rebuild-index --db ./vanta_data
+vanta-cli backup --db ./vanta_data --out ./vanta_data.bak
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jsonl
 vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
 vanta-cli namespace list --db ./vanta_data
 vanta-cli namespace info --db ./vanta_data --namespace agent/main
 vanta-cli server --http --port 8080 --db ./vanta_data
+vanta-cli repl --db ./vanta_data
+vanta-cli tui --db ./vanta_data
 vanta-cli completions --shell powershell
 ```
 
@@ -166,6 +187,21 @@ Build-time feature flags in `Cargo.toml`:
 | `failpoints` | `fail` | Fault-injection testing |
 | `custom-allocator` | `mimalloc` | mimalloc global allocator |
 
-## 8. SIMD and Build Behavior
+## 9. OpenTelemetry Tracing Environment
+
+Activated by building with `--features opentelemetry`. All spans are exported via OTLP (gRPC) to a collector.
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint |
+| `OTEL_SERVICE_NAME` | `vantadb-server` | Logical service name for trace identification |
+| `RUST_LOG` | `info` | Tracing filter (`trace`, `debug`, `warn`, `error`, or module-level like `vantadb=debug`) |
+
+Span coverage includes:
+- All public SDK methods (`VantaMemory::put`, `get`, `search`, etc.) — `src/sdk.rs`
+- All CLI command handlers (`cmd_put`, `cmd_get`, etc.) — `src/cli_handlers.rs`
+- HTTP route handlers (`/health`, `/metrics`, `/api/v2/query`) — `src/cli_server.rs`
+
+## 10. SIMD and Build Behavior
 
 VantaDB still uses the runtime hardware profile to choose fast paths where available, but public claims should stay tied to validated behavior rather than to a specific SIMD tier alone.

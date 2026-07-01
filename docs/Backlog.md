@@ -22,7 +22,30 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 
 | ID | Tarea | Prioridad | Estado |
 |----|-------|-----------|--------|
-| `TSK-09` | OpenTelemetry traces (prematuro sin Prometheus básico) | 🟢 | ⏸️ Postpuesto |
+| `TSK-09` | OpenTelemetry traces (prematuro sin Prometheus básico) | 🟢 | ✅ |
+
+### 3.D Auditoría de Código — Julio 2026
+
+| ID | Tarea | Prioridad | Estado |
+|----|-------|-----------|--------|
+| `AUD-01` | 🔴 OTel startup `expect()` panics if endpoint unreachable (`cli_server.rs:366`) | 🔴 | ❌ |
+| `AUD-02` | 🔴 `unwrap()` on Option in mmap hot path (`storage.rs:572,629`) | 🔴 | ❌ |
+| `AUD-03` | 🔴 `from_raw_parts` sin bounds check en hot path (`index.rs:1420,1701`) | 🔴 | ❌ |
+| `AUD-04` | 🔴 Cast unsafe sin verificación de alineación (`rkyv_archives.rs:54-71`) | 🔴 | ❌ |
+| `AUD-05` | 🔴 `.ok()` silencia errores UTF-8 en parsing de claves (`sdk.rs:1351-1362`) | 🔴 | ❌ |
+| `AUD-06` | 🔴 N+1 query: `scan_nodes()` hace 1+N gets individuales (`storage.rs:2271`) | 🔴 | ❌ |
+| `AUD-07` | 🔴 `ensure_text_index_current` hace 3 full scans por startup (`sdk.rs:1495`) | 🔴 | ❌ |
+| `AUD-08` | 🔴 Redundant clone metadata+vector en cada `put()` (`sdk.rs:768`) | 🔴 | ❌ |
+| `AUD-09` | 🟡 5 dead CLI handlers: `cmd_search_similar`, `cmd_count`, `cmd_delete_by_filter`, `cmd_repl`, `cmd_tui` | 🟡 | ❌ |
+| `AUD-10` | 🟡 Dead function `mapped_file_resident_bytes()` (`storage.rs:346`) | 🟡 | ❌ |
+| `AUD-11` | 🟡 `wal_path` asignado pero nunca leído (`engine.rs:55`) | 🟡 | ❌ |
+| `AUD-12` | 🟡 5 unused deps: `anyhow`, `num-traits`, `rustyline`, `strsim`, `color-eyre` | 🟡 | ❌ |
+| `AUD-13` | 🟡 Config parse falla silenciosamente con env vars inválidas (`config.rs:179-293`) | 🟡 | ❌ |
+| `AUD-14` | 🟢 39 `pub fn` sin doc comments (74% de `sdk.rs`) | 🟢 | ❌ |
+| `AUD-15` | 🟢 6 broken links en Backlog.md (apuntan a `docs/` raíz, deben ser `docs/VantaDB-MPTS/`) | 🟢 | ❌ |
+| `AUD-16` | 🟢 15 módulos sin tests unitarios | 🟢 | ❌ |
+| `AUD-17` | 🟢 Dead code en `utils/` (`DuplicatePreventionFilter`, `OriginCollisionTracker`) | 🟢 | ❌ |
+| `AUD-18` | 🟢 `#[allow(dead_code)]` obsoleto en `physical_plan.rs:query_vec_text` | 🟢 | ❌ |
 
 ## FASE 4 — Launch (Jul-Sep 2026)
 
@@ -90,7 +113,7 @@ last_refined: 2026-06-21 (CLI-EPIC + TUI + Py3.13 + ARM64 + Rust examples + Docs
 | `TSK-132` | Investigar checkpoint API en Fjall upstream o contribuirla | 🟢 | ❌ |
 | `TSK-133` | Backup incremental (full snapshot + WAL deltas) | 🟢 | ❌ |
 | `TSK-48` | Cuantización dinámica (f32→SQ8 para nodos fríos) | 🟢 | ❌ |
-| `LOW-01` | TLS 1.3 en vantadb-server | 🟢 | ⏸️ Postpuesto |
+| `LOW-01` | TLS 1.3 en vantadb-server | 🟢 | ✅ |
 | `TSK-142` | Investigar y prototipar persistencia WASM mediante OPFS y Web Workers | 🟡 | ❌ |
 | `TSK-143` | Benchmark de paridad de performance Fjall vs RocksDB para depreciación de RocksDB | 🟡 | ❌ |
 | `TSK-144` | Benchmarking cuantitativo de Recall vs Latencia de HNSW custom vs hnswlib | 🟠 | ❌ |
@@ -176,8 +199,6 @@ Tareas que no entran en el roadmap actual pero se mantienen como registro. Sin p
 | ID | Tarea | Razón |
 |----|-------|-------|
 | `LOW-02` | Background compaction en Fjall | Fjall maneja su propia compactación |
-| `LOW-03` | OpenTelemetry traces | Prematuro sin Prometheus básico |
-
 ---
 
 ## ❌ No Hacer (hasta post-seed con equipo)
