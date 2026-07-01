@@ -22,4 +22,4 @@ tags: [vantadb, research, analysis]
 ## Documentos Relacionados
 
 - [Backlog Activo](Backlog.md) — Tareas priorizadas del proyecto
-- [Plan de Implementación](plans/2026-06-18-memory-management.md) — Plan de gestión de memoria
+- [Plan de Implementación (archivado)](archive/2026-06-18-memory-management.md) — Plan de gestión de memoria

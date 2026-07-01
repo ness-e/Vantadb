@@ -429,6 +429,23 @@ path = "tests/fuzz_proptest.rs"
 name = "multilingual_tokenizer_integration"
 path = "tests/multilingual_tokenizer_integration.rs"
 
+# ── Examples ──
+[[example]]
+name = "basic"
+path = "examples/rust/basic.rs"
+
+[[example]]
+name = "hybrid"
+path = "examples/rust/hybrid.rs"
+
+[[example]]
+name = "graphrag"
+path = "examples/rust/graphrag.rs"
+
+[[example]]
+name = "concurrent"
+path = "examples/rust/concurrent.rs"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

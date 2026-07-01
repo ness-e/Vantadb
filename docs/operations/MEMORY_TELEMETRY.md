@@ -1,26 +1,26 @@
-# Telemetría de Memoria, Baselines y Contratos de Datos
+# Memory Telemetry — Schema and Validation
 
-Este documento define el contrato de observabilidad de memoria de VantaDB, las métricas operacionales expuestas por Prometheus y el baseline histórico de la persistencia de datos en memoria.
+This document defines the VantaDB memory observability contract, the operational metrics exposed via Prometheus, and the historical baseline for in-memory data persistence.
 
 ---
 
-## 📊 1. Desglose de Telemetría por Subsistema
+## 1. Telemetry Breakdown by Subsystem
 
-VantaDB reporta el uso de memoria a nivel del host (hardware total) y a nivel del proceso (internos del motor y RSS del sistema operativo).
+VantaDB reports memory usage at the host level (total hardware) and at the process level (engine internals and OS RSS).
 
-| Métrica | Origen en Código | Unidad | Propósito / Alcance |
+| Metric | Code Source | Unit | Purpose / Scope |
 | :--- | :--- | :--- | :--- |
-| `HardwareCapabilities::total_memory` | `sysinfo::System::total_memory()` | Bytes | Capacidad de memoria del host. |
-| `process_rss_bytes` | `sysinfo::Process::memory()` | Bytes | Memoria física residente del proceso. |
-| `process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | Bytes | Memoria virtual asignada al proceso. |
-| `hnsw_nodes_count` | `CPIndex::nodes.len()` | Conteo | Nodos cargados en el índice vectorial. |
-| `hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | Bytes | Estimación lógica determinista del grafo. |
-| `mmap_resident_bytes` | Syscalls `mincore` (Unix) / `QueryWorkingSetEx` (Win) | Bytes | Páginas residentes de archivos mapeados. |
-| `volatile_cache_entries` | `volatile_cache.len()` | Conteo | Entradas activas en la caché LRU. |
+| `HardwareCapabilities::total_memory` | `sysinfo::System::total_memory()` | Bytes | Host total memory capacity. |
+| `process_rss_bytes` | `sysinfo::Process::memory()` | Bytes | Physical resident memory of the process. |
+| `process_virtual_bytes` | `sysinfo::Process::virtual_memory()` | Bytes | Virtual memory allocated to the process. |
+| `hnsw_nodes_count` | `CPIndex::nodes.len()` | Count | Nodes loaded in the vector index. |
+| `hnsw_logical_bytes` | `CPIndex::estimate_memory_bytes()` | Bytes | Deterministic logical estimation of the graph. |
+| `mmap_resident_bytes` | Syscalls `mincore` (Unix) / `QueryWorkingSetEx` (Win) | Bytes | Resident pages of mapped files. |
+| `volatile_cache_entries` | `volatile_cache.len()` | Count | Active entries in the LRU cache. |
 
-### Métricas de Prometheus
+### Prometheus Metrics
 
-Los siguientes gauges son registrados en `METRICS_REGISTRY` y se exponen en `/metrics` en `vantadb-server`:
+The following gauges are registered in `METRICS_REGISTRY` and exposed at `/metrics` in `vantadb-server`:
 * `vanta_process_rss_bytes`
 * `vanta_process_virtual_bytes`
 * `vanta_hnsw_nodes_count`
@@ -29,30 +29,30 @@ Los siguientes gauges son registrados en `METRICS_REGISTRY` y se exponen en `/me
 
 ---
 
-## 🏗️ 2. Contrato de Datos y Estado Derivado
+## 2. Data Contract and Derived State
 
-VantaDB opera con un contrato estructurado en memoria y disco para asegurar consistencia:
+VantaDB operates with a structured contract across memory and disk to ensure consistency:
 
-* **Identidad (Keys):** Generada a partir de `namespace + "\0" + key`.
-* **Payload:** Carga útil en formato UTF-8 serializado.
-* **Metadata:** Atributos planos compuestos únicamente por valores del enum `FieldValue` (Strings, Enteros, Flotantes, Booleanos). No se admiten objetos JSON anidados para preservar la eficiencia.
-* **Vectores:** Almacenados opcionalmente en formato contiguo de precisión `f32` dentro de `vector_store.vanta`.
+* **Identity (Keys):** Generated from `namespace + "\0" + key`.
+* **Payload:** Serialized UTF-8 content.
+* **Metadata:** Flat attributes composed solely of `FieldValue` enum values (Strings, Integers, Floats, Booleans). Nested JSON objects are not supported to preserve efficiency.
+* **Vectors:** Optionally stored in contiguous `f32` precision format within `vector_store.vanta`.
 
-### Índices Derivados en Memoria
-El motor lee el almacenamiento de clave-valor canónico y materializa en frío las siguientes estructuras que pueden ser reconstruidas en su totalidad mediante `rebuild_index`:
-1. **`NamespaceIndex`:** Mapea el prefijo de namespace a identificadores de nodos lógicos.
-2. **`PayloadIndex`:** Mapea campos escalares para búsquedas rápidas con filtrado relacional.
-3. **`TextIndex`:** Índices invertidos del motor BM25 para búsquedas léxicas FTS.
+### In-Memory Derived Indexes
+The engine reads the canonical key-value storage and materializes the following structures cold, which can be fully rebuilt via `rebuild_index`:
+1. **`NamespaceIndex`:** Maps namespace prefix to logical node identifiers.
+2. **`PayloadIndex`:** Maps scalar fields for fast relational filtered lookups.
+3. **`TextIndex`:** BM25 inverted indexes for full-text lexical search.
 
 ---
 
-## 🧪 3. Verificación de Telemetría de Memoria
+## 3. Memory Telemetry Verification
 
-Para realizar mediciones de estabilidad locales y perfilado de consumo de memoria bajo inserciones continuas, ejecuta el arnés de control:
+To run local stability measurements and profile memory consumption under continuous inserts, execute the test harness:
 
 ```powershell
-# Setear reporte en archivo local
+# Set report file path
 $env:VANTA_CERT_REPORT="target/memory_telemetry.json"
 cargo test --test memory_telemetry -- --nocapture
 ```
-Esto valida que la memoria RSS no sufra fugas y que las páginas MMap se liberen correctamente al vaciar el índice a disco.
+This validates that RSS memory does not leak and that MMap pages are released correctly when the index is flushed to disk.

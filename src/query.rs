@@ -1,3 +1,8 @@
+//! Query types, logical plan nodes, and statement builders.
+//!
+//! Defines [`Statement`], [`LogicalPlan`], [`LogicalOperator`], and
+//! related types that represent parsed queries before execution.
+
 use crate::node::FieldValue;
 use std::collections::BTreeMap;
 

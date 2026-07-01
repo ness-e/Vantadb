@@ -1,3 +1,8 @@
+//! Hardware capability detection and CPU feature probing.
+//!
+//! Detects available SIMD instruction sets (AVX2, AVX-512, NEON, SVE)
+//! and system topology, enabling runtime dispatch in vector transforms.
+
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "sysinfo")]
 use std::collections::hash_map::DefaultHasher;

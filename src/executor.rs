@@ -1,3 +1,8 @@
+//! Query execution engine that translates logical plans into results.
+//!
+//! Evaluates [`LogicalOperator`] trees against the [`StorageEngine`],
+//! returning materialized [`ExecutionResult`] variants.
+
 use crate::error::{Result, VantaError};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::parse_statement;

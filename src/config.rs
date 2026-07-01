@@ -1,3 +1,8 @@
+//! Configuration system for VantaDB engine.
+//!
+//! Defines [`VantaConfig`] with typed fields, environment variable parsing,
+//! and per-backend configuration options with fallback defaults.
+
 use crate::backend::BackendKind;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
@@ -220,9 +225,7 @@ impl Default for VantaConfig {
             mmap_hnsw: true,
             prefetch_mode: {
                 let raw = env::var("VANTA_PREFETCH").ok();
-                let mode = raw
-                    .as_deref()
-                    .map(PrefetchMode::from_env_value);
+                let mode = raw.as_deref().map(PrefetchMode::from_env_value);
                 let disable = env::var("VANTA_DISABLE_PREFETCH")
                     .ok()
                     .map(|v| v == "1" || v == "true");
@@ -231,8 +234,8 @@ impl Default for VantaConfig {
                         if let Some(ref val) = raw {
                             let trimmed = val.trim().to_lowercase();
                             let known = [
-                                "auto", "disabled", "off", "0", "false",
-                                "enabled", "on", "1", "true",
+                                "auto", "disabled", "off", "0", "false", "enabled", "on", "1",
+                                "true",
                             ];
                             if m == PrefetchMode::Auto && !known.contains(&trimmed.as_str()) {
                                 warn!(
@@ -319,9 +322,7 @@ impl Default for VantaConfig {
                             Ok(raw) => {
                                 let trimmed = raw.trim().to_lowercase();
                                 let parsed = LogFormat::from_env_value(&raw);
-                                if parsed == LogFormat::Compact
-                                    && trimmed != "compact"
-                                {
+                                if parsed == LogFormat::Compact && trimmed != "compact" {
                                     warn!(
                                         "Unrecognized VANTADB_LOG_FORMAT=\"{}\" — expected \"compact\", \"json\", or \"full\". Using default: Compact",
                                         raw

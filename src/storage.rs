@@ -1,3 +1,9 @@
+//! Persistent storage engine coordinating backends, indexes, and WAL recovery.
+//!
+//! [`StorageEngine`] is the central persistence façade—it owns the backend
+//! (in-memory, Fjall, or RocksDB), manages column-family partitions, and
+//! drives node archival / recovery.
+
 pub use crate::backend::BackendPartition;
 use crate::backend::{BackendWriteOp, StorageBackend};
 #[cfg(feature = "fjall")]
@@ -621,8 +627,7 @@ impl VantaFile {
                 let file = self.file.as_ref().ok_or_else(|| {
                     VantaError::Execution("VantaFile: grow_to requires backing file".into())
                 })?;
-                file.set_len(new_size)
-                    .map_err(VantaError::IoError)?;
+                file.set_len(new_size).map_err(VantaError::IoError)?;
                 self.size = new_size;
                 self.remap_mut()
             }
@@ -2276,15 +2281,13 @@ impl StorageEngine {
                 continue;
             }
 
-            let id = u64::from_le_bytes(key.as_slice().try_into().unwrap());
+            let id = u64::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 8] after length guard"));
 
-            let metadata: NodeMetadata = match bincode::serde::decode_from_slice(
-                &value,
-                bincode::config::standard(),
-            ) {
-                Ok((m, _)) => m,
-                Err(_) => continue,
-            };
+            let metadata: NodeMetadata =
+                match bincode::serde::decode_from_slice(&value, bincode::config::standard()) {
+                    Ok((m, _)) => m,
+                    Err(_) => continue,
+                };
 
             let index_node = match hnsw.nodes.get(&id) {
                 Some(n) => n,

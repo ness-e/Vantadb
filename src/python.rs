@@ -1,4 +1,9 @@
 #![cfg(feature = "python_sdk")]
+//! Python bindings for VantaDB via PyO3.
+//!
+//! Exposes [`ClientEngine`] as a `pyclass` so Python code can open a
+//! storage engine, insert nodes, and run similarity searches.
+
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::storage::StorageEngine;
 use pyo3::prelude::*;

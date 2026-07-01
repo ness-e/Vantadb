@@ -1,3 +1,8 @@
+//! Vector transformations including the Fast Walsh–Hadamard Transform.
+//!
+//! [`fwht`] redistributes variance across dimensions to minimize
+//! quantization error; dispatches to SIMD paths based on hardware caps.
+
 use crate::hardware::{HardwareCapabilities, InstructionSet};
 use wide::f32x8;
 

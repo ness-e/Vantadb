@@ -1,3 +1,8 @@
+//! Apache Arrow columnar conversion for unified nodes.
+//!
+//! Converts [`UnifiedNode`] collections into Arrow [`RecordBatch`]es,
+//! enabling zero-copy analytical scans and Python/Polars interop.
+
 use crate::error::Result;
 use crate::node::UnifiedNode;
 use arrow::array::{Float32Array, UInt64Array};

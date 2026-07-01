@@ -74,8 +74,14 @@ mod tests {
 
     #[test]
     fn display_dimension_mismatch() {
-        let e = VantaError::DimensionMismatch { expected: 128, got: 64 };
-        assert_eq!(e.to_string(), "Vector dimension mismatch: expected 128, got 64");
+        let e = VantaError::DimensionMismatch {
+            expected: 128,
+            got: 64,
+        };
+        assert_eq!(
+            e.to_string(),
+            "Vector dimension mismatch: expected 128, got 64"
+        );
     }
 
     #[test]
@@ -136,7 +142,10 @@ mod tests {
     fn debug_format() {
         let e = VantaError::NodeNotFound(7);
         let debug = format!("{:?}", e);
-        assert!(debug.contains("NodeNotFound"), "Debug should contain variant name");
+        assert!(
+            debug.contains("NodeNotFound"),
+            "Debug should contain variant name"
+        );
         assert!(debug.contains("7"), "Debug should contain the value");
     }
 }

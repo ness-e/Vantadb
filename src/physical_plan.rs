@@ -1,3 +1,8 @@
+//! Physical query plan operators executed against storage.
+//!
+//! [`PhysicalScan`] and related operators translate logical plan nodes
+//! into concrete storage reads, filtering, and projection.
+
 use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;

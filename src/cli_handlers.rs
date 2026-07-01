@@ -1507,8 +1507,6 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     Ok(())
 }
 
-
-
 #[tracing::instrument]
 pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()> {
     let src = std::path::Path::new(db_path);
