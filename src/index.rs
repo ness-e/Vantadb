@@ -363,8 +363,14 @@ pub fn calculate_similarity(
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f),
         },
         VectorRepresentations::MmapFull(ptr, len) => {
-            debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in compute_similarity");
-            debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in compute_similarity");
+            debug_assert!(
+                !ptr.0.is_null(),
+                "MmapFull pointer is null in compute_similarity"
+            );
+            debug_assert!(
+                *len > 0 && *len <= MAX_VEC_F32_LEN,
+                "MmapFull len out of range in compute_similarity"
+            );
             let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
             match metric {
                 DistanceMetric::Cosine => match query_norm {
@@ -1421,7 +1427,10 @@ impl CPIndex {
                         buf.extend(std::iter::repeat_n(0, padding));
                     }
                     debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in serialize");
-                    debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in serialize");
+                    debug_assert!(
+                        *len > 0 && *len <= MAX_VEC_F32_LEN,
+                        "MmapFull len out of range in serialize"
+                    );
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
                         buf.extend_from_slice(&val.to_le_bytes());
@@ -1716,7 +1725,10 @@ impl CPIndex {
                     }
                     VectorRepresentations::MmapFull(ptr, len) => {
                         debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in inv_norm");
-                        debug_assert!(*len > 0 && *len <= MAX_VEC_F32_LEN, "MmapFull len out of range in inv_norm");
+                        debug_assert!(
+                            *len > 0 && *len <= MAX_VEC_F32_LEN,
+                            "MmapFull len out of range in inv_norm"
+                        );
                         let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                         let norm = f32_l2_norm(s);
                         if norm > f32::EPSILON {

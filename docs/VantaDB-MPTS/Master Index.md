@@ -104,13 +104,7 @@ tags: [vantadb, documentation, index, master-index]
 
 ## Architecture Audits
 
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [2026-05-04 Total Review](../architecture/audits/2026-05-04-total-review.md) | Full codebase audit and architecture review |
-| 2 | [2026-05-04 Test Report](../architecture/audits/2026-05-04-test-report.md) | Test coverage and quality assessment |
-| 3 | [2026-05-04 Cleanup Candidates](../architecture/audits/2026-05-04-cleanup-candidates.md) | Technical debt and cleanup opportunities |
-| 4 | [2026-05-19 Fase 5 Certification Report](../architecture/audits/2026-05-19-fase-5-certification-report.md) | Phase 5 certification and compliance audit |
-| 5 | [2026-05-19 Plan de Acción Alto Rendimiento](../architecture/audits/2026-05-19-plan-accion-alto-rendimiento.md) | High-performance action plan |
+*(Historical audit reports moved to [`docs/archive/audits/`](../archive/audits/))*
 
 ---
 
@@ -158,40 +152,26 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description |
 |---|----------|-------------|
-| 1 | [Plan: Memory Management (2026-06-18)](../plans/2026-06-18-memory-management.md) | Memory management optimization plan |
-| 2 | [Backlog](../Backlog.md) | Full project backlog and feature tracking |
-| 3 | [CHANGELOG](../CHANGELOG.md) | Release history and version changelog |
-| 4 | [QUICKSTART](../QUICKSTART.md) | Quickstart guide for new users |
-| 5 | [Documentation Overview](../README.md) | Docs landing page and reading guide |
-| 6 | [Bitácora](../Bitácora.md) | Development log and daily notes |
-| 7 | [Investigaciones](../Investigaciones.md) | Research index and investigation notes |
+| 1 | [Backlog](../Backlog.md) | Full project backlog and feature tracking |
+| 2 | [CHANGELOG](../CHANGELOG.md) | Release history and version changelog |
+| 3 | [QUICKSTART](../QUICKSTART.md) | Quickstart guide for new users |
+| 4 | [Documentation Overview](../README.md) | Docs landing page and reading guide |
+| 5 | [Bitácora](../Bitácora.md) | Development log and daily notes |
+| 6 | [Investigaciones](../Investigaciones.md) | Research index and investigation notes |
 
 ## MPTS Vault
 
-| # | Document | Description |
-|---|----------|-------------|
-| 1 | [Arquitectura Técnica y Core Engine](Arquitectura%20T%C3%A9cnica%20y%20Core%20Engine.md) | Technical architecture and core engine (ES) |
-| 2 | [Especificaciones Funcionales y SDK API](Especificaciones%20Funcionales%20y%20SDK%20API.md) | Functional specs and SDK API (ES) |
-| 3 | [Estrategia de Ecosistema y GTM](Estrategia%20de%20Ecosistema%20y%20GTM.md) | Ecosystem strategy and go-to-market (ES) |
-| 4 | [Operaciones, Calidad y Riesgos](Operaciones%2C%20Calidad%20y%20Riesgos.md) | Operations, quality and risk (ES) |
-| 5 | [Roadmap e Hitos de Ingeniería](Roadmap%20e%20Hitos%20de%20Ingenier%C3%ADa.md) | Engineering roadmap and milestones (ES) |
-| 6 | [Visión y Posicionamiento Estratégico](Visi%C3%B3n%20y%20Posicionamiento%20Estrat%C3%A9gico.md) | Vision and strategic positioning (ES) |
+*(6 main section docs archived to [`docs/archive/`](../archive/) — keep English docs as source of truth)*
 
 ---
 
 ## Progress
 
-See [`docs/progreso/README.md`](../progreso/README.md) for the full unified progress log.
+See [`docs/CHANGELOG.md`](../CHANGELOG.md) for version history and [`docs/Backlog.md`](../Backlog.md) for active tasks.
 
 ---
 
-## MPTS Checkpoints
 
-| File | Description |
-|------|-------------|
-| [`Checkpoint.md`](Checkpoint.md) | Vault anchored summary — coverage, backlog, state (2026-06-22) |
-
----
 
 ## Meta / Configuration
 

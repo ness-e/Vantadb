@@ -1,3 +1,31 @@
+# Bitácora — Development Log
+
+## Julio 2026
+
+### Semana 1 (2026-07-01) — Documentation Audit, Rust Examples & Certification
+
+Today's work focused on auditing and improving project documentation:
+
+- **AUD-06 — Documentation audit:** Reviewed all docs for consistency, fixed mixed-language content, and expanded coverage.
+- **AUD-07 — FAQ created:** `docs/FAQ.md` added with common questions on general usage, configuration, and troubleshooting.
+- **AUD-08 — Rust examples shipped:** Created 4 compilable examples in `examples/rust/`:
+  - `basic.rs` — CRUD operations with `VantaEmbedded`
+  - `hybrid.rs` — Combined text + vector search
+  - `graphrag.rs` — Knowledge graph traversal with BFS
+  - `concurrent.rs` — Multi-threaded concurrent access
+- **AUD-09 — Memory Telemetry doc fixed:** `docs/operations/MEMORY_TELEMETRY.md` title and content unified to English.
+- **AUD-10 — Master Index verified:** All internal links confirmed valid.
+- **AUD-11 — Performance optimizations:** Review and tune HNSW insert lock timeout defaults, reduce allocation hot paths in planner.
+- **AUD-12 — Dead code removal:** Stripped unused imports, deprecated `VantaOpenOptions`, removed commented-out hardware profile references.
+- **AUD-13 — Config hardening:** Validated all `VantaConfig` defaults, added env-var overrides for lock timeouts.
+- **AUD-14 — Documentation improvements:** Unified terminology across `CONFIGURATION.md`, `DURABILITY_GUARANTEES.md`, and SDK references.
+- **AUD-15 — Test expansion:** Extended WAL resilience tests, added edge cases for zero-vector and TTL-expired searches.
+- **AUD-16 — Doc consolidation:** Archived redundant Spanish MPTS sections to `docs/archive/`, removed stale wikilinks.
+- **AUD-17 — CI hardening:** Enabled failpoint-based chaos tests in CI, added `cargo audit` step.
+- **AUD-18 — Changelog update:** Backfilled missing entries in `CHANGELOG.md` for v0.1.3–v0.1.5.
+
+---
+
 ### 2. Riesgos Estructurales y Deuda Técnica Detectada
 
 Bajo un escrutinio estricto de escalabilidad y rendimiento, existen puntos de fricción que requieren atención antes de consolidar la versión `v0.2.0`:

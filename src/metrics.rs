@@ -1,3 +1,8 @@
+//! Prometheus and internal metrics collection.
+//!
+//! Registers counters, histograms, and gauges under the `prometheus`
+//! feature flag; provides atomic gauges for use without the feature.
+
 #[cfg(feature = "prometheus")]
 use prometheus::{
     exponential_buckets, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge, Registry,

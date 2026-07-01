@@ -1,3 +1,8 @@
+//! Rate limiting and backpressure for query execution.
+//!
+//! Tracks in-flight memory allocation via [`ALLOCATED_BYTES`] and gates
+//! query admission based on budget limits derived from [`LogicalPlan`] cost.
+
 use crate::error::{Result, VantaError};
 use crate::query::LogicalPlan;
 use std::sync::atomic::{AtomicUsize, Ordering};

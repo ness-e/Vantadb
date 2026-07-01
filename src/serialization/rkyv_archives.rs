@@ -1,3 +1,8 @@
+//! Zero-copy HNSW archive definitions for memory-mapped index access.
+//!
+//! Defines `repr(C)` archive structs used by the rkyv-based persistence
+//! layer, designed for direct mmap reads without deserialization.
+
 /// Zero-copy HNSW graph archive format using `repr(C)` structs
 /// that can be memory-mapped and accessed directly.
 ///

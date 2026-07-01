@@ -1,3 +1,8 @@
+//! TTL-based garbage collection for expired nodes.
+//!
+//! [`GcWorker`] tracks node expiration timestamps via a [`BTreeMap`] and
+//! evicts expired entries from the [`StorageEngine`] on each sweep.
+
 use crate::error::{Result, VantaError};
 use crate::storage::StorageEngine;
 use std::collections::BTreeMap;

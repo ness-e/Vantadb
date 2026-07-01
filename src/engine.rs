@@ -1,3 +1,8 @@
+//! Core in-memory engine driving VantaDB's query lifecycle.
+//!
+//! Owns the [`RwLock`]-guarded node map, handles insert/update/delete/relate
+//! operations, and coordinates with the WAL, GC, and storage layers.
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
