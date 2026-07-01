@@ -524,7 +524,7 @@ pub async fn wait_for_shutdown_signal() {
 }
 
 #[cfg(feature = "tls")]
-async fn build_tls13_config(
+pub async fn build_tls13_config(
     cert_path: &str,
     key_path: &str,
 ) -> std::io::Result<rustls::ServerConfig> {

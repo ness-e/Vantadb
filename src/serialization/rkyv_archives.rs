@@ -52,7 +52,7 @@ impl<'a> ArchivedHnswGraph<'a> {
         }
         let header: &'a ArchivedHnswHeader =
             unsafe { &*(data.as_ptr() as *const ArchivedHnswHeader) };
-        if &header.magic != &HNSW_MAGIC {
+        if header.magic != HNSW_MAGIC {
             return None;
         }
         let node_count = header.node_count as usize;

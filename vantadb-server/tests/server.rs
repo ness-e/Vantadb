@@ -12,6 +12,7 @@ use axum::{
 use common::{TerminalReporter, VantaHarness};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use tower::ServiceExt;
 use vantadb::storage::StorageEngine;
@@ -301,6 +302,30 @@ async fn test_tls_config_loading() {
     assert!(
         result.is_ok(),
         "RustlsConfig should load from valid PEM files"
+    );
+}
+
+#[cfg(feature = "tls")]
+#[tokio::test]
+async fn test_build_tls13_config_loading() {
+    setup_tls();
+    let dir = tempfile::tempdir().unwrap();
+    let (cert_path, key_path) = generate_test_cert(dir.path());
+
+    let config = vantadb::cli_server::build_tls13_config(
+        cert_path.to_str().unwrap(),
+        key_path.to_str().unwrap(),
+    )
+    .await
+    .expect("build_tls13_config should load valid PEM files");
+
+    assert!(
+        config.alpn_protocols.contains(&b"h2".to_vec()),
+        "ALPN should include h2"
+    );
+    assert!(
+        config.alpn_protocols.contains(&b"http/1.1".to_vec()),
+        "ALPN should include http/1.1"
     );
 }
 
