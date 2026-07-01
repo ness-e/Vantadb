@@ -320,6 +320,10 @@ fn safe_unmap(mmap: Mmap, path: &Path) -> Result<()> {
 - [Vectores](Vectores.md) — Datos almacenados vía mmap
 - [Zero-Config](Zero-Config.md) — mmap habilita carga instantánea
 
+### Documentación de Implementación Relacionada
+- [[../architecture/HNSW_INDEX|HNSW Index Architecture]]
+- [[../operations/MEMORY_TELEMETRY|Memory Telemetry]]
+
 ---
 
 *mmap es la tecnología que permite a VantaDB manejar datasets más grandes que la RAM disponible.*

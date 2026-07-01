@@ -1,29 +1,28 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [python, concurrencia, lock, threading]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Global Interpreter Lock, Python GIL]
-description: "Mutex global en el intérprete CPython que protege el acceso a objetos Python, asegurando que solo un thread pueda ejecutar bytecode Python a la vez dentro de un proceso"
+description: "Global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
 ---
+#GIL—Global Interpreter Lock
 
-# GIL — Global Interpreter Lock
+##Definition
 
-## Definición
+The **GIL** (Global Interpreter Lock) is a **global mutex** in the CPython interpreter that protects access to Python objects, ensuring that **only one thread can execute Python bytecode at a time** within a process.
 
-El **GIL** (Global Interpreter Lock) es un **mutex global** en el intérprete CPython que protege el acceso a objetos Python, asegurando que **solo un thread pueda ejecutar bytecode Python a la vez** dentro de un proceso.
+## Why does the GIL exist?
 
-## Por Qué Existe el GIL
+### Historical Reasons
 
-### Razones Históricas
+1. **Memory management:** CPython reference counting is not thread-safe
+2. **Simplicity:** Avoid granular locks on each Python object
+3. **Single-thread performance:** No locking overhead in sequential code
+4. **C Integration:** C extensions do not need to worry about concurrency
 
-1. **Gestión de memoria:** El reference counting de CPython no es thread-safe
-2. **Simplicidad:** Evita locks granulares en cada objeto Python
-3. **Performance single-thread:** Sin overhead de locking en código secuencial
-4. **Integración C:** Extensiones C no necesitan preocuparse por concurrencia
-
-### Consecuencia
+### Consequence
 
 ```python
 import threading
@@ -34,21 +33,21 @@ def cpu_bound_task():
         total += i
     return total
 
-# Single-thread: 1 segundo
+# Single-thread: 1 second
 cpu_bound_task()
 
-# Multi-thread (4 threads): ¡También ~1 segundo!
-# El GIL impide paralelismo real
+# Multi-thread (4 threads): Also ~1 second!
+# The GIL prevents real parallelism
 threads = [threading.Thread(target=cpu_bound_task) for _ in range(4)]
 for t in threads:
     t.start()
 ```
 
-**Resultado:** Threads Python no logran paralelismo en CPU-bound tasks.
+**Result:** Python threads do not achieve parallelism in CPU-bound tasks.
 
-## Cómo el GIL Afecta a VantaDB
+## How the GIL Affects VantaDB
 
-### Escenario Problemático
+### Problematic Scenario
 
 ```python
 from vantadb import VantaEmbedded
@@ -57,18 +56,18 @@ import threading
 db = VantaEmbedded("./data")
 
 def search_task(query_vector):
-    # Si PyO3 NO libera el GIL:
-    # Este thread bloquea todos los otros threads Python
+    # If PyO3 does NOT release the GIL:
+    # This thread blocks all other Python threads
     return db.search(vector=query_vector, top_k=10)
 
 # 4 threads buscando simultáneamente
 threads = [threading.Thread(target=search_task, args=(v,)) for v in vectors]
 
-# Sin liberar GIL: búsquedas secuenciales (4x más lento)
-# Con liberar GIL: búsquedas paralelas (4x más rápido)
+# Without freeing GIL: sequential lookups (4x slower)
+# With release GIL: parallel searches (4x faster)
 ```
 
-### Solución: Liberar el GIL en PyO3
+### Solution: Release the GIL in PyO3
 
 ```rust
 #[pymethods]
@@ -85,9 +84,9 @@ impl VantaEmbedded {
 }
 ```
 
-## Cuándo Liberar el GIL
+## When to Release the GIL
 
-### ✅ Liberar GIL (Operaciones Largas)
+### ✅ Release GIL (Long Operations)
 
 | Operación | Duración Típica | Liberar GIL |
 |-----------|----------------|-------------|
@@ -98,7 +97,7 @@ impl VantaEmbedded {
 | Lectura de disco | 1-100 ms | ✅ Sí |
 | Cálculo de distancias | 1-10 ms | ✅ Sí |
 
-### ❌ NO Liberar GIL (Operaciones Rápidas)
+### ❌ DO NOT Release GIL (Quick Operations)
 
 | Operación | Duración Típica | Liberar GIL |
 |-----------|----------------|-------------|
@@ -106,9 +105,9 @@ impl VantaEmbedded {
 | Metadata lookup | <1 ms | ❌ No |
 | Conversión de tipos | <0.1 ms | ❌ No |
 
-## Reglas Críticas para `allow_threads`
+## Critical rules for `allow_threads`
 
-### 1. NO Acceder a Objetos Python
+### 1. DO NOT Access Python Objects
 
 ```rust
 // ❌ INCORRECTO: Acceder a PyAny dentro de allow_threads
@@ -121,21 +120,21 @@ fn bad_example(&self, py: Python<'_>, py_dict: &PyDict) -> PyResult<()> {
     })
 }
 
-// ✅ CORRECTO: Extraer datos ANTES de liberar GIL
+// ✅ CORRECT: Extract data BEFORE releasing GIL
 fn good_example(&self, py: Python<'_>, py_dict: &PyDict) -> PyResult<()> {
-    // Extraer datos con GIL
+    // Extract data with GIL
     let key: String = py_dict.get_item("key")
         .unwrap()
         .extract()?;
     
     py.allow_threads(move || {
-        // Usar solo datos extraídos (tipos Rust)
+        // Use only extracted data (Rust types)
         self.engine.process(&key)
     })
 }
 ```
 
-### 2. NO Hacer Callbacks a Python
+### 2. DO NOT Make Callbacks to Python
 
 ```rust
 // ❌ INCORRECTO: Callback a Python sin GIL
@@ -147,15 +146,15 @@ fn bad_callback(&self, py: Python<'_>, callback: &PyAny) -> PyResult<()> {
     })
 }
 
-// ✅ CORRECTO: Callback con GIL
+// ✅ CORRECT: Callback with GIL
 fn good_callback(&self, py: Python<'_>, callback: &PyAny) -> PyResult<()> {
-    // Mantener GIL para callbacks
+    // Maintain GIL for callbacks
     callback.call0()?;
     Ok(())
 }
 ```
 
-### 3. Clonar Datos Antes de Liberar
+### 3. Clone Data Before Release
 
 ```rust
 // ✅ CORRECTO: Clonar antes de liberar
@@ -169,9 +168,9 @@ fn search(&self, py: Python<'_>, vector: Vec<f32>) -> PyResult<Vec<SearchResult>
 }
 ```
 
-## Impacto en Performance
+## Impact on Performance
 
-### Benchmark: Búsqueda Concurrente
+### Benchmark: Concurrent Search
 
 | Configuración | 1 Thread | 4 Threads | Speedup |
 |--------------|----------|-----------|---------|
@@ -185,12 +184,12 @@ fn search(&self, py: Python<'_>, vector: Vec<f32>) -> PyResult<Vec<SearchResult>
 CPU usage: 25% (1 core de 4)
 Throughput: 16 queries/segundo
 
-# Con liberar GIL
-CPU usage: 95% (4 cores de 4)
-Throughput: 220 queries/segundo  # 13.75x más throughput
+# With release GIL
+CPU usage: 95% (4 cores of 4)
+Throughput: 220 queries/second # 13.75x more throughput
 ```
 
-## Alternativas al GIL
+## Alternatives to GIL
 
 ### 1. Multiprocessing
 
@@ -200,8 +199,8 @@ from multiprocessing import Process
 # Cada proceso tiene su propio GIL
 processes = [Process(target=search_task, args=(v,)) for v in vectors]
 
-# Ventaja: Paralelismo real
-# Desventaja: Overhead de IPC, memoria duplicada
+# Advantage: True parallelism
+# Disadvantage: IPC overhead, duplicate memory
 ```
 
 ### 2. Async/Await
@@ -210,11 +209,11 @@ processes = [Process(target=search_task, args=(v,)) for v in vectors]
 import asyncio
 
 async def async_search(vector):
-    # No libera GIL, pero permite I/O concurrente
+    # Does not release GIL, but allows concurrent I/O
     return await loop.run_in_executor(None, db.search, vector)
 
-# Ventaja: Concurrencia en I/O-bound
-# Desventaja: No ayuda en CPU-bound
+# Advantage: I/O-bound concurrency
+# Disadvantage: Does not help in CPU-bound
 ```
 
 ### 3. Subinterpreters (Python 3.12+)
@@ -224,7 +223,7 @@ async def async_search(vector):
 # Futuro: Paralelismo real en Python puro
 ```
 
-### 4. VantaDB (Solución Real)
+### 4. VantaDB (Real Solution)
 
 ```python
 # PyO3 + allow_threads = paralelismo real en código Rust
@@ -232,15 +231,15 @@ async def async_search(vector):
 db.search(vector=v, top_k=10)  # Libera GIL internamente
 ```
 
-## Problemas Conocidos en VantaDB
+## Known Issues in VantaDB
 
-### AUD-01: GIL No Liberado Consistentemente
+### AUD-01: GIL Not Consistently Released
 
-**Severidad:** ⚠️ Alta
+**Severity:** ⚠️ High
 
-**Descripción:** Algunas operaciones pesadas (rebuild_index, export) no liberan el GIL.
+**Description:** Some heavy operations (rebuild_index, export) do not release the GIL.
 
-**Impacto:** Aplicaciones multi-thread se bloquean durante estas operaciones.
+**Impact:** Multi-threaded applications hang during these operations.
 
 **Mitigación:**
 ```rust
@@ -252,16 +251,16 @@ fn rebuild_index(&self, py: Python<'_>) -> PyResult<()> {
 }
 ```
 
-## Debugging de Problemas de GIL
+## Debugging GIL Issues
 
-### Síntomas de GIL No Liberado
+### Symptoms of Unreleased GIL
 
-1. **CPU usage bajo** en operaciones multi-thread
-2. **Throughput no escala** con más threads
-3. **Latencia alta** bajo concurrencia
-4. **Otros threads Python se congelan** durante operaciones largas
+1. **Low CPU usage** in multi-thread operations
+2. **Throughput does not scale** with more threads
+3. **High latency** under concurrency
+4. **Other Python threads freeze** during long operations
 
-### Herramientas de Diagnóstico
+### Diagnostic Tools
 
 ```python
 import threading
@@ -279,12 +278,12 @@ def measure_concurrency():
         t.join()
     elapsed = time.time() - start
     
-    # Si elapsed ≈ 4x single-thread time:
-    # GIL no se está liberando
+    # If elapsed ≈ 4x single-thread time:
+    # GIL is not being released
     print(f"Speedup: {single_thread_time / elapsed}")
 ```
 
-## Comparación con Otros Lenguajes
+## Comparison with Other Languages
 
 | Lenguaje | Lock Global | Paralelismo Real |
 |----------|-------------|------------------|
@@ -296,13 +295,13 @@ def measure_concurrency():
 | **Go** | ❌ No | ✅ Sí (goroutines) |
 | **Java** | ❌ No | ✅ Sí (threads JVM) |
 
-## Véase También
+## See Also
 
-- [PyO3](PyO3.md) — Framework que gestiona el GIL
-- [FFI](FFI.md) — Frontera donde el GIL se libera
-- [RwLock](RwLock.md) — Concurrencia interna en Rust (sin GIL)
+- [[pyo3]] — Framework that manages the GIL
+- [[ffi]] — Border where the GIL is released
+- [[rwlock]] — Internal concurrency in Rust (without GIL)
 
 ---
 
-*El GIL es una limitación de CPython, no de VantaDB. PyO3 + allow_threads lo mitigan completamente.*
+*The GIL is a limitation of CPython, not VantaDB. PyO3 + allow_threads mitigates this completely.*
 

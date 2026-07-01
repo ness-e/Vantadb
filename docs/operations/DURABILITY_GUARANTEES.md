@@ -21,10 +21,10 @@ specific failure mode:
 
 | Layer | Role | Durability mechanism |
 |---|---|---|
-| **[[wal|WAL]]** (`vanta.wal`) | Ordered journal of every mutation | [[crc32c|CRC32C]] per record, auto-healing scan-forward, optional per-write `fsync` |
-| **Backend KV** ([[fjall|Fjall]]) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
+| **[[wal\|WAL]]** (`vanta.wal`) | Ordered journal of every mutation | [[crc32c\|CRC32C]] per record, auto-healing scan-forward, optional per-write `fsync` |
+| **Backend KV** ([[fjall\|Fjall]]) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
 | **Vector store** (`vector_store.vanta`) | Dense vector storage ([[mmap]]) | `msync` on flush, atomic RCU rename |
-| **[[hnsw|HNSW]] index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
+| **[[hnsw\|HNSW]] index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
 
 The write path is: **WAL first, then data, then indexes**. If the process
 crashes mid-write, the WAL contains the mutation and replay restores it.

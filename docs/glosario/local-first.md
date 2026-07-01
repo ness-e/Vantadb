@@ -1,38 +1,37 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
-tags: [concepto, filosofia, local-first, privacidad]
+tags: [concept, filosofia, local-first, privacidad]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
-aliases: [Local-First Software, Software Local-Primero]
-description: "Filosofía de diseño de software que prioriza que los datos y el procesamiento ocurran en el dispositivo del usuario, con la nube como respaldo opcional y no como requisito"
+links: "[[README.md]]"
+aliases: [Local-First Software, Local-First Software]
+description: "Software design philosophy that prioritizes data and processing occurring on the user's device, with the cloud as an optional backup and not a requirement"
 ---
+#Local-First
 
-# Local-First
+##Definition
 
-## Definición
+**Local-First** is a software design philosophy that prioritizes **data and processing occurring on the user's device**, with the cloud as an optional backup and not a requirement. The software works completely offline and synchronization is an improvement, not a dependency.
 
-**Local-First** es una filosofía de diseño de software que prioriza que **los datos y el procesamiento ocurran en el dispositivo del usuario**, con la nube como respaldo opcional y no como requisito. El software funciona completamente offline y la sincronización es una mejora, no una dependencia.
+## Local-First Principles
 
-## Principios Local-First
+The 7 ideals of local-first software (according to Ink & Switch):
 
-Los 7 ideales del software local-first (según Ink & Switch):
+1. **No Wait**: Instant operations, no network latency
+2. **Multi-device**: Your data on all your devices
+3. **Creation first**: Creation requires no connection
+4. **Optional collaboration**: Collaborate without depending on servers
+5. **Secure network**: You don't need to trust the network
+6. **Default privacy**: Data does not leave the device
+7. **You are the owner**: Full control over your data
 
-1. **Sin espera**: Operaciones instantáneas, sin latencia de red
-2. **Multi-dispositivo**: Tus datos en todos tus dispositivos
-3. **Creación primero**: La creación no requiere conexión
-4. **Colaboración opcional**: Colaborar sin depender de servidores
-5. **Red segura**: No necesitas confiar en la red
-6. **Privacidad por defecto**: Los datos no salen del dispositivo
-7. **Tú eres el dueño**: Control total sobre tus datos
+##Why it Matters in VantaDB
 
-## Por Qué Importa en VantaDB
-
-VantaDB encarna la filosofía local-first para **agentes de IA y pipelines de conocimiento**:
+VantaDB embodies the local-first philosophy for **AI agents and knowledge pipelines**:
 
 | Principio Local-First | Implementación en VantaDB |
 |----------------------|--------------------------|
-| **Sin espera** | Latencia sub-ms al ser [Embebido](Embebido.md) |
+| **Sin espera** | Latencia sub-ms al ser [[embedded]] |
 | **Privacidad por defecto** | Datos nunca salen del host sin consentimiento |
 | **Funciona offline** | No requiere conexión a APIs de vectores externas |
 | **Tú eres el dueño** | Archivos locales, sin vendor lock-in de cloud |
@@ -55,7 +54,7 @@ VantaDB encarna la filosofía local-first para **agentes de IA y pipelines de co
 └─────────────────────────────────────────────────┘
 ```
 
-## Comparación: Local-First vs Cloud-First
+## Comparison: Local-First vs Cloud-First
 
 | Dimensión | Local-First (VantaDB) | Cloud-First (Pinecone, Weaviate Cloud) |
 |-----------|----------------------|---------------------------------------|
@@ -66,28 +65,28 @@ VantaDB encarna la filosofía local-first para **agentes de IA y pipelines de co
 | **Vendor Lock-in** | Ninguno (archivos locales) | Alto (API propietaria) |
 | **Compliance** | HIPAA/GDPR trivial (datos locales) | Requiere auditoría del proveedor |
 
-## Ventajas Estratégicas del Enfoque Local-First
+## Strategic Advantages of the Local-First Approach
 
 ### 1. Privacidad y Compliance
 - Datos sensibles (médicos, legales, financieros) nunca abandonan la organización
 - Cumplimiento regulatorio trivial: si los datos no salen, no hay transferencia internacional
 
-### 2. Reducción de Costos
-- Sin costos de API de vectores externas (Pinecone cobra por vector almacenado)
-- Sin costos de egress de datos
-- Sin costos de infraestructura cloud para la DB
+### 2. Cost Reduction
+- No external vector API costs (Pinecone charges per stored vector)
+- No data egress costs
+- No cloud infrastructure costs for the DB
 
-### 3. Determinismo y Performance
-- Sin variables de red (latencia, packet loss, DNS)
-- Performance predecible y reproducible
-- Sin cold starts de servicios cloud
+### 3. Determinism and Performance
+- No network variables (latency, packet loss, DNS)
+- Predictable and reproducible performance
+- No cold starts of cloud services
 
 ### 4. Developer Experience
-- `pip install vantadb-py` y funciona
-- Sin cuentas, API keys, ni dashboards de cloud
-- Testing local sin mocks de servicios externos
+- `pip install vantadb-py` and it works
+- No accounts, API keys, or cloud dashboards
+- Local testing without mocks of external services
 
-## Trade-offs Aceptados
+## Accepted Trade-offs
 
 | Ventaja Local-First | Costo |
 |---------------------|-------|
@@ -95,23 +94,23 @@ VantaDB encarna la filosofía local-first para **agentes de IA y pipelines de co
 | Cero dependencia de red | Backup manual o self-managed |
 | Performance determinista | Escalabilidad limitada al hardware local |
 
-## Relación con Otras Filosofías
+## Relationship with Other Philosophies
 
 ```
 Local-First
-    ├── [Embebido](Embebido.md) (implementación técnica)
-    ├── [Zero-Config](Zero-Config.md) (experiencia de usuario)
+    ├── [[embedded]] (implementación técnica)
+    ├── [[zero-config]] (experiencia de usuario)
     └── Privacy-by-Design (principio legal)
 ```
 
-## Véase También
+## See Also
 
-- [Embebido](Embebido.md) — La implementación técnica del local-first
-- [Zero-Config](Zero-Config.md) — Experiencia que habilita
-- [Transaccional](Transaccional.md) — Garantía de integridad en datos locales
-- [RAG](RAG.md) — Caso de uso que se beneficia de privacidad local
+- [[embedded]] — The technical implementation of local-first
+- [[zero-config]] — Enabling experience
+- [[transactional]] — Integrity guarantee in local data
+- [[rag]] — Use case that benefits from local privacy
 
 ---
 
-*Local-first no es solo una feature, es la identidad filosófica de VantaDB.*
+*Local-first is not just a feature, it is the philosophical identity of VantaDB.*
 

@@ -114,7 +114,7 @@ Automatic when accumulated size exceeds 256 MB (`compact_wal()`):
 
 ## Storage Backend: [[fjall|Fjall]] vs [[rocksdb|RocksDB]]
 
-| Feature | [[fjall|Fjall]] (Default) | [[rocksdb|RocksDB]] (Fallback) |
+| Feature | [[fjall\|Fjall]] (Default) | [[rocksdb\|RocksDB]] (Fallback) |
 |---------|-----------------|-------------------|
 | Language | 100% Rust | C++ (C bindings) |
 | Build Time | ~30s | ~5-10min |

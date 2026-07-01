@@ -51,7 +51,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `delete(namespace, key)` | Delete a record. Returns `bool` (true if existed) |
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
-| `search(request: VantaMemorySearchRequest)` | [[hybrid-search|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
+| `search(request: VantaMemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 
 ### `VantaMemoryInput`
@@ -112,7 +112,7 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_dfs(roots, max_depth)` | DFS traversal. Returns `Vec<u64>` |
 | `graph_topological_sort(roots)` | Topological sort. Returns `Vec<u64>` |
 | `graph_is_dag(roots)` | Check if subgraph is a DAG. Returns `bool` |
-| `search_vector(vector, top_k)` | Pure [[hnsw|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
+| `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
 
 ### `VantaNodeInput`
@@ -149,10 +149,10 @@ pub struct VantaNodeRecord {
 
 | Method | Description |
 |--------|-------------|
-| `flush()` | Flush [[wal|WAL]] + [[hnsw|HNSW]] to disk for durability |
-| `compact_wal()` | Archive [[wal|WAL]] file and start fresh |
+| `flush()` | Flush [[wal\|WAL]] + [[hnsw\|HNSW]] to disk for durability |
+| `compact_wal()` | Archive [[wal\|WAL]] file and start fresh |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
-| `rebuild_index()` | Rebuild ANN ([[hnsw|HNSW]]), derived, and text indexes. Returns `VantaIndexRebuildReport` |
+| `rebuild_index()` | Rebuild ANN ([[hnsw\|HNSW]]), derived, and text indexes. Returns `VantaIndexRebuildReport` |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 
 ## Export / Import

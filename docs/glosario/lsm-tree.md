@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
 tags: [storage, lsm, estructura-datos, write-optimized]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Log-Structured Merge-Tree, LSM Tree]
-description: "Estructura de datos optimizada para escrituras secuenciales que mantiene datos en memoria (MemTable) y los vuelca periódicamente a disco en archivos inmutables (SSTables)"
+description: "Sequential write-optimized data structure that maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables)"
 ---
+# LSM-Tree—Log-Structured Merge-Tree
 
-# LSM-Tree — Log-Structured Merge-Tree
+##Definition
 
-## Definición
+A **LSM-Tree** (Log-Structured Merge-Tree) is a data structure optimized for **sequential writes**, which maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables), with background compaction to maintain read performance.
 
-Un **LSM-Tree** (Log-Structured Merge-Tree) es una estructura de datos optimizada para **escrituras secuenciales**, que mantiene datos en memoria (MemTable) y los vuelca periódicamente a disco en archivos inmutables (SSTables), con compactación en background para mantener performance de lectura.
+## How It Works
 
-## Cómo Funciona
-
-### Arquitectura General
+### General Architecture
 
 ```
 ┌─────────────────────────────────────┐
@@ -47,33 +46,33 @@ Un **LSM-Tree** (Log-Structured Merge-Tree) es una estructura de datos optimizad
 └─────────────────────────────────────┘
 ```
 
-## Ventajas y Desventajas
+## Advantages and Disadvantages
 
-### Ventajas
-- **Escrituras rápidas** (append-only, secuencial)
-- **Write amplification baja** vs B-trees
-- **Compresión eficiente** (SSTables inmutables)
-- **Escalabilidad** para datasets > RAM
+### Advantages
+- **Fast writes** (append-only, sequential)
+- **Write amplification low** vs B-trees
+- **Efficient compression** (immutable SSTables)
+- **Scalability** for datasets > RAM
 
-### Desventajas
-- **Read amplification** (lectura busca en múltiples niveles)
-- **Write amplification** por compactación
-- **Latencia variable** durante compactación
+### Disadvantages
+- **Read amplification** (read searches at multiple levels)
+- **Write amplification** by compaction
+- **Variable latency** during compaction
 
-## Uso en VantaDB
+## Usage in VantaDB
 
-VantaDB usa LSM-trees a través de:
-- **[Fjall](Fjall.md)** — Backend default (100% Rust)
-- **[RocksDB](RocksDB.md)** — Backend alternativo (C++)
+VantaDB uses LSM-trees via:
+- **[[fjall]]** — Backend default (100% Rust)
+- **[[rocksdb]]** — Alternative backend (C++)
 
-## Véase También
+## See Also
 
-- [Fjall](Fjall.md) — Implementación LSM-tree en Rust
-- [RocksDB](RocksDB.md) — Implementación LSM-tree en C++
-- [WAL](WAL.md) — Durabilidad para writes
-- [MVCC](MVCC.md) — Concurrencia en LSM-trees
+- [[fjall]] — LSM-tree implementation in Rust
+- [[rocksdb]] — LSM-tree implementation in C++
+- [[wal]] — Durability for writes
+- [[mvcc]] — Concurrency in LSM-trees
 
 ---
 
-*LSM-trees son la estructura de almacenamiento subyacente de VantaDB.*
+*LSM-trees are the underlying storage structure of VantaDB.*
 

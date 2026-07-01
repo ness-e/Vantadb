@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
-tags: [indice, ann, busqueda-vectorial, hnsw]
+tags: [indice, ann, busqueda-vector, hnsw]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Hierarchical Navigable Small World, HNSW Index]
-description: "Algoritmo de indexación para búsqueda aproximada de vecinos más cercanos (ANN) que construye un grafo multi-capa de vectores, permitiendo búsquedas en tiempo logarítmico"
+description: "Indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time"
 ---
+#HNSW—Hierarchical Navigable Small World
 
-# HNSW — Hierarchical Navigable Small World
+##Definition
 
-## Definición
+**HNSW** is an indexing algorithm for **approximate nearest neighbor search (ANN)** that constructs a multi-layer graph of vectors, allowing searches in **logarithmic** time ($O(\log N)$) with high recall (>0.95).
 
-**HNSW** es un algoritmo de indexación para **búsqueda aproximada de vecinos más cercanos (ANN)** que construye un grafo multi-capa de vectores, permitiendo búsquedas en tiempo **logarítmico** ($O(\log N)$) con alto recall (>0.95).
+## The Problem It Solves
 
-## El Problema que Resuelve
-
-### Búsqueda Exhaustiva (Brute Force)
+### Exhaustive Search (Brute Force)
 
 ```
 Query: vector q
@@ -26,7 +25,7 @@ Ordenar por distancia
 Retornar top-K
 ```
 
-**Complejidad:** $O(N \cdot d)$ donde N = vectores, d = dimensiones
+**Complexity:** $O(N \cdot d)$ where N = vectors, d = dimensions
 
 | N (vectores) | Tiempo (384d) |
 |--------------|---------------|
@@ -36,14 +35,14 @@ Retornar top-K
 
 ### Solución: Búsqueda Aproximada (ANN)
 
-HNSW encuentra vectores **cercanos al óptimo** sin comparar con todos:
+HNSW finds vectors **close to the optimal** without comparing them all:
 
 | N (vectores) | Brute Force | HNSW | Speedup |
 |--------------|-------------|------|---------|
 | 100,000 | 100 ms | 6 ms | 16x |
 | 1,000,000 | 1 segundo | 15 ms | 66x |
 
-## Estructura del Grafo HNSW
+## Structure of the HNSW Graph
 
 ```
 Capa 2 (más dispersa):
@@ -51,36 +50,36 @@ Capa 2 (más dispersa):
      │              │
      └──── [C] ─────┘
 
-Capa 1 (intermedia):
+Layer 1 (intermediate):
     [A] ─── [B] ─── [D]
-     │       │       │
+     │ │ │
     [E] ─── [C] ─── [F]
 
-Capa 0 (más densa, todos los vectores):
+Layer 0 (densest, all vectors):
     [A]─[B]─[C]─[D]─[E]─[F]─[G]─[H]─[I]─[J]
 ```
 
-### Propiedades Clave
+### Key Properties
 
-1. **Multi-capa:** Capas superiores tienen menos nodos (navegación rápida)
-2. **Small World:** Cualquier nodo es alcanzable en pocos saltos
-3. **Navegable:** Búsquedas greedy convergen al óptimo local
+1. **Multi-layer:** Higher layers have fewer nodes (fast navigation)
+2. **Small World:** Any node is reachable in a few hops
+3. **Navigable:** Greedy searches converge to local optimum
 
-## Algoritmo de Búsqueda
+## Search Algorithm
 
 ```
 Input: query q, K (top-K), ef (ef search)
 
-1. Iniciar en nodo de entrada de capa más alta
-2. Para cada capa (de arriba a abajo):
-     Greedy search hasta converger
-3. En capa 0:
-     Búsqueda con lista de candidatos (ef)
-     Mantener top-K más cercanos
-4. Retornar top-K
+1. Start at the highest layer entry node
+2. For each layer (top to bottom):
+     Greedy search until converge
+3. At layer 0:
+     Search with candidate list (ef)
+     Keep top-K closest
+4. Return top-K
 ```
 
-### Parámetros Clave
+### Key Parameters
 
 | Parámetro | Descripción | Valor Típico | Impacto |
 |-----------|-------------|--------------|---------|
@@ -88,9 +87,9 @@ Input: query q, K (top-K), ef (ef search)
 | **ef_construction** | Candidatos durante construcción | 200-500 | Mayor = mejor grafo, más lento construir |
 | **ef_search** | Candidatos durante búsqueda | 50-200 | Mayor = mejor recall, más lento buscar |
 
-## Implementación en VantaDB
+## Implementation in VantaDB
 
-### Estructura de Datos
+### Data Structure
 
 ```rust
 pub struct HnswIndex {
@@ -106,12 +105,12 @@ pub struct HnswLayer {
 
 pub struct HnswNode {
     id: NodeId,
-    vector: Vec<f32>,  // O mmap pointer
+    vector: Vec<f32>, // Or mmap pointer
     neighbors: Vec<NodeId>,
 }
 ```
 
-### Búsqueda en VantaDB
+### Search in VantaDB
 
 ```python
 # busqueda-vectorial
@@ -122,9 +121,9 @@ results = db.search(
 )
 ```
 
-### Persistencia del Índice
+### Index Persistence
 
-VantaDB persiste el índice HNSW mediante **[mmap](mmap.md)**:
+VantaDB persists the HNSW index using **[[mmap]]**:
 
 ```
 Disco: vector_store.vanta
@@ -134,12 +133,12 @@ Disco: vector_store.vanta
 ├── ...
 └── Layer N nodes
 
-Runtime: mmap() → acceso directo sin copiar a RAM
+Runtime: mmap() → shortcut without copying to RAM
 ```
 
-**Ventaja:** Carga instantánea (no reconstrucción desde cero).
+**Advantage:** Instant loading (no rebuilding from scratch).
 
-## Métricas de Performance en VantaDB
+## Performance Metrics in VantaDB
 
 ### Recall vs Latencia (SIFT1M, 128d)
 
@@ -157,11 +156,11 @@ Runtime: mmap() → acceso directo sin copiar a RAM
 | 50K vectores | 1.000 | 6.1 ms | ~58 MB |
 | 100K vectores | 0.998 | 12.4 ms | ~117 MB |
 
-**Factor de escalado:** 4.88x (sub-lineal, mejor que $O(N)$)
+**Scaling factor:** 4.88x (sub-linear, better than $O(N)$)
 
-## Optimizaciones en VantaDB
+## Optimizations in VantaDB
 
-### 1. SIMD para Distancias
+### 1. SIMD for Distances
 
 ```rust
 #[cfg(target_arch = "x86_64")]
@@ -191,12 +190,12 @@ impl FlatVectors {
 
 ### 3. Cuantización SQ8 (Roadmap)
 
-Reducir `f32` (4 bytes) → `u8` (1 byte):
-- **4x menos memoria**
-- **2-4x más rápido** en búsquedas
-- **~1-2% pérdida de recall**
+Reduce `f32` (4 bytes) → `u8` (1 byte):
+- **4x less memory**
+- **2-4x faster** in searches
+- **~1-2% recall loss**
 
-## Comparación con Otros Algoritmos ANN
+## Comparison with Other ANN Algorithms
 
 | Algoritmo | Estructura | Construcción | Búsqueda | Memoria | Caso de Uso |
 |-----------|-----------|--------------|----------|---------|-------------|
@@ -206,14 +205,14 @@ Reducir `f32` (4 bytes) → `u8` (1 byte):
 | **ScaNN** | Cuantización + reranking | Media | Muy rápida | Media | Google-scale |
 | **FAISS** | Múltiples (IVF, PQ, HNSW) | Variable | Variable | Variable | Research |
 
-### Por Qué VantaDB Elige HNSW
+### Why VantaDB Chooses HNSW
 
-1. **Balance recall/latencia:** Mejor trade-off para datasets medianos
-2. **Simple de implementar:** Sin training de centroids
-3. **Persistencia directa:** Grafo se puede mmap-ear
-4. **No requiere training:** Funciona immediately
+1. **Balance recall/latency:** Best trade-off for medium datasets
+2. **Simple to implement:** No centroid training
+3. **Direct persistence:** Graph can be mmap-eared
+4. **No training required:** Works immediately
 
-## Trade-offs de HNSW
+## HNSW Trade-offs
 
 | Ventaja | Costo |
 |---------|-------|
@@ -222,33 +221,36 @@ Reducir `f32` (4 bytes) → `u8` (1 byte):
 | Simple de usar | Parámetros requieren tuning |
 | Persistencia mmap | Reconstrucción costosa si se corrompe |
 
-## Problemas Conocidos
+## Known Issues
 
-### AUD-03: Concurrencia en Rebuild
+### AUD-03: Concurrency in Rebuild
 
-**Severidad:** ⚠️ Alta
+**Severity:** ⚠️ High
 
-Si `rebuild_index()` se ejecuta concurrentemente con búsquedas, los lectores pueden ver un índice inconsistente.
+If `rebuild_index()` is run concurrently with lookups, readers may see an inconsistent index.
 
-**Mitigación:** [RwLock](RwLock.md) global o estrategia de doble buffer.
+**Mitigation:** [[rwlock]] global or double buffer strategy.
 
 ### AUD-04: Validación de SIMD
 
-**Severidad:** ℹ️ Media
+**Severity:** ℹ️ Medium
 
-El fallback escalar y la ruta SIMD conviven sin tests de equivalencia numérica.
+The scalar fallback and the SIMD route coexist without numerical equivalence tests.
 
-**Mitigación:** Tests property-based comparando SIMD vs escalar.
+**Mitigation:** Property-based tests comparing SIMD vs scalar.
 
-## Véase También
+## See Also
 
-- [Vectores](Vectores.md) — Lo que HNSW indexa
-- [Vector Similarity](Vector Similarity.md) — Métricas de distancia
-- [mmap](mmap.md) — Persistencia del índice
-- [BM25](BM25.md) — Índice complementario (léxico)
-- [RRF](RRF.md) — Fusión de HNSW + BM25
+- [[vectors]] — What HNSW indexes
+- [[vector-similarity]] — Distance metrics
+- [[mmap]] — Index persistence
+- [[bm25]] — Supplementary index (lexicon)
+- [[rrf]] — HNSW + BM25 merger
+
+### Related Implementation Documentation
+- [[../architecture/hnsw_index|HNSW Index Architecture]]
 
 ---
 
-*HNSW es el estándar de facto para busqueda-vectorial ANN en producción.*
+*HNSW is the de facto standard for ANN vector search in production.*
 

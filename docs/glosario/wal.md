@@ -216,6 +216,9 @@ Sin [CRC32C](CRC32C.md) en cada registro, el recovery no puede distinguir entre:
 - [Transaccional](Transaccional.md) — Propiedad que el WAL habilita
 - [Chaos Testing](Chaos Testing.md) — Cómo validar durabilidad
 
+### Documentación de Implementación Relacionada
+- [[../architecture/WAL_DURABILITY|WAL Durability Architecture]]
+
 ---
 
 *El WAL es el contrato de durabilidad de una base de datos. Sin él, no hay garantías.*

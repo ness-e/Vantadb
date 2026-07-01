@@ -149,8 +149,8 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 |--------|-------------|
 | **ICP** | Developers and AI enthusiasts running LLMs locally |
 | **Typical Stack** | Ollama (inference) + AnythingLLM (frontend) + vector database (memory) |
-| **Current Pain** | AnythingLLM defaults to LanceDB. LanceDB lacks [[bm25|BM25]] and graphs. No native hybrid search. |
-| **VantaDB Value Prop** | Drop-in LanceDB replacement with hybrid search ([[hnsw|HNSW]] + [[bm25|BM25]] + RRF) — no architecture changes |
+| **Current Pain** | AnythingLLM defaults to LanceDB. LanceDB lacks [[bm25\|BM25]] and graphs. No native hybrid search. |
+| **VantaDB Value Prop** | Drop-in LanceDB replacement with hybrid search ([[hnsw\|HNSW]] + [[bm25\|BM25]] + RRF) — no architecture changes |
 | **Immediate Action** | Docker Compose: Ollama + VantaDB + AnythingLLM. LanceDB → VantaDB migration guide. |
 | **Priority** | 🟠 HIGH |
 
@@ -180,7 +180,7 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 | **ICP** | Developers using AI IDEs who lose context between sessions |
 | **Typical Stack** | CLAUDE.md (plain text) + claude-mem (SQLite, 89K★ on GitHub) |
 | **Current Pain** | Claude Code has no persistent memory between sessions. CLAUDE.md helps but doesn't solve history, search, or isolation. |
-| **VantaDB Value Prop** | Semantic upgrade to claude-mem: hybrid search, [[graphrag|GraphRAG]], per-project isolation. |
+| **VantaDB Value Prop** | Semantic upgrade to claude-mem: hybrid search, [[graphrag\|GraphRAG]], per-project isolation. |
 | **Immediate Action** | MCP server already implemented. Setup docs for each IDE. Blog post: "VantaDB as Claude Code memory." |
 | **Priority** | 🟠 HIGH |
 
