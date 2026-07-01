@@ -105,6 +105,9 @@ db.put("function_auth", text="def authenticate()...",
 - [HNSW](HNSW.md) — busqueda-vectorial para nodos semilla
 - [RRF](RRF.md) — Fusión de resultados híbridos
 
+### Documentación de Implementación Relacionada
+- [[../api/GRAPH_RAG|GraphRAG API]]
+
 ---
 
 *GraphRAG es una capacidad diferenciadora de VantaDB que reduce costos de inferencia LLM y mejora la precisión de respuestas.*

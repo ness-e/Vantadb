@@ -275,6 +275,10 @@ vanta migrate --from rocksdb --to fjall --data ./vantadb_data
 - [[wal]] — Durability
 - [[transactional]] — ACID Guarantees
 
+### Related Implementation Docs
+- [[../operations/CONFIGURATION|Backend Configuration]]
+- [[../operations/BACKUP_POLICY|Backup Policy]]
+
 ---
 
 *Fjall represents VantaDB's commitment to a 100% Rust, secure and embeddable stack.*

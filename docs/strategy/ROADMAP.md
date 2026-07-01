@@ -28,7 +28,7 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline]
 | Phase | Status | Description |
 |-------|--------|-------------|
 | **FASE 0** | ✅ 100% | Post-quarantine stabilization |
-| **FASE 1** | ✅ 100% | [[hnsw|HNSW]] scalability & performance |
+| **FASE 1** | ✅ 100% | [[hnsw\|HNSW]] scalability & performance |
 | **FASE 2** | ✅ 100% | Architectural hardening |
 | **FASE 3** | ✅ 100% | Pre-launch: AUD-01→44 complete, crates.io published |
 | **FASE 4** | 🔄 ~50% | Community launch + ecosystem |
@@ -49,8 +49,8 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline]
 
 | Risk | Severity | Status |
 |------|----------|--------|
-| AUD-01: [[wal|WAL]] durability (fsync before ACK) | 🔒 Blocking | ✅ Resolved |
-| AUD-02: [[wal|WAL]] missing checksums | 🔒 Blocking | ✅ Resolved ([[crc32c|CRC32C]]) |
+| AUD-01: [[wal\|WAL]] durability (fsync before ACK) | 🔒 Blocking | ✅ Resolved |
+| AUD-02: [[wal\|WAL]] missing checksums | 🔒 Blocking | ✅ Resolved ([[crc32c\|CRC32C]]) |
 | AUD-03: Rebuild concurrency | ⚠️ High | ✅ Resolved (exclusive lock) |
 | AUD-04: Missing file locking | ⚠️ High | ✅ Resolved (fs2) |
 | AUD-05: GIL not released consistently | ⚠️ High | ✅ Resolved (py.allow_threads) |
@@ -164,7 +164,7 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline]
 | **A:** Stay single-node | ✅ Embedded coherence | ❌ Enterprise ceiling |
 | **B:** Async master-slave replication | ✅ Read scalability | ❌ Eventual consistency |
 | **C:** Sharding + Raft | ✅ Full scale | ❌ Massive complexity |
-| **Decision:** Deferred to Phase 5+. [[wal|WAL]] shipping (BIZ-02) as intermediate step. |
+| **Decision:** Deferred to Phase 5+. [[wal\|WAL]] shipping (BIZ-02) as intermediate step. |
 
 ### 3. Licensing
 

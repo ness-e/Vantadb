@@ -41,6 +41,7 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 | [[crc32c]] | Hardware-accelerated checksum | WAL record integrity |
 | [[lsm-tree]] | Log-Structured Merge-Tree | Underlying storage engine pattern |
 | [[mvcc]] | Multi-Version Concurrency Control | Transactional isolation |
+| [[crdt]] | Conflict-free Replicated Data Type | Distributed concurrency |
 
 ---
 
@@ -84,6 +85,7 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 | [[oidc]] | OpenID Connect | Secure publishing to PyPI |
 | [[sigstore]] | Artifact signing | Verifiable build provenance |
 | [[slsa]] | Supply-chain Levels for Software Artifacts | Build security framework |
+| [[opentelemetry]] | OpenTelemetry tracing and metrics | System observability |
 
 ---
 
@@ -95,6 +97,7 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 | [[graphrag]] | RAG with graph traversal | Reducing context tokens by 40-60% |
 | [[ai-agents]] | Autonomous agent systems with memory | Core target user profile |
 | [[mcp]] | Model Context Protocol | Integration with IDEs and agents |
+| [[wasm]] | WebAssembly | Portability for Edge execution |
 
 ---
 

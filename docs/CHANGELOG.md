@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
+
 - +26 doc comments on public API functions in `sdk.rs` (AUD-14).
 - +19 unit tests in `error.rs` and `binary_header.rs` (AUD-16).
 - `parse_env_or::<T>()` helper with `tracing::warn!` on invalid env var values, applied to 5 config fields (AUD-13).
@@ -43,6 +45,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [v0.1.5] - 2026-06-22
 
 ### Added
+
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
 
 - Instrumentación de heap memory drift: jemalloc stats (`allocated`, `active`, `metadata`, `resident`, `mapped`, `retained` bytes) expuestos en Prometheus, `MemoryBreakdownSnapshot`, `VantaOperationalMetrics`, y SDK de Python (TSK-130).
 - Error hardening: all production `unwrap()` calls replaced with `?` propagation or graceful fallback (Phase 5 M1).
@@ -218,6 +222,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
+
 - sccache caching for faster CI builds.
 - SLSA3 provenance attestations for release binaries.
 
@@ -243,6 +249,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
+
 - Python wheels CI with automated TestPyPI publication.
 - Code coverage job (`cargo-llvm-cov`).
 - Mailmap for contributor unification.
@@ -267,6 +275,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [v0.1.1] - 2026-05-13
 
 ### Added
+
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
 
 - Five-minute quickstart covering CLI memory operations, Python source install, vector search, BM25 text search, Hybrid Retrieval v1, JSONL export, and text-index audit.
 - Python package README and cleaner `vantadb-py` metadata for wheel and TestPyPI validation.
@@ -341,6 +351,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
+
 - Checksums SHA256 in release assets.
 - Basic smoke test (`dev-tools/smoke_test.sh`).
 - Native PowerShell smoke test for Windows (`dev-tools/smoke_test.ps1`).
@@ -356,6 +368,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [v0.1.0-rc1] - MVP Release Candidate
 
 ### Added
+
+- Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
 
 - Fjall integration as the default StorageBackend, with RocksDB as an explicit fallback, establishing robust BackendCapabilities.
 - WAL replay and crash recovery mechanisms specifically for Fjall.
@@ -535,3 +549,4 @@ Ademas: `repl` (REPL interactivo), `tui` (dashboard en vivo 2s), flags globales 
 *Keep a Changelog format maintained in English above. Detailed Spanish progress log below.*
 *For the full task-level progress tracking, see [`docs/progreso/README.md`](progreso/README.md).*
 *Updated 2026-06-30.*
+

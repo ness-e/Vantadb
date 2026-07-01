@@ -221,6 +221,9 @@ LLM: "Esta semana se discutieron 3 temas principales..."
 - [GraphRAG](GraphRAG.md) — Búsqueda con contexto relacional
 - [Agentes de IA](Agentes de IA.md) — Consumidores del protocolo
 
+### Documentación de Implementación Relacionada
+- [[../api/MCP|MCP API Integration]]
+
 ---
 
 *MCP permite que VantaDB sea la capa de memoria estándar para herramientas de desarrollo con IA.*

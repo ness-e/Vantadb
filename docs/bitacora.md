@@ -39,11 +39,11 @@ Today's work focused on auditing and improving project documentation:
 Under strict scalability and performance scrutiny, there are friction points that require attention before consolidating version `v0.2.0`:
 
 - **Ingestion Bottleneck (Single-Writer):** Although the Python SDK exposes a parallelized `put_batch` via Rayon, the underlying HNSW graph construction still exhibits fine-grained locking (despite the transition from `RwLock` to `DashMap` and `ArcSwap`). Under high-density continuous insertion workloads, this becomes the main limiting factor compared to server-based vector databases.
-    
+
 - **Primitive Default BM25 Tokenization:** The base text indexer (`lowercase-ascii-alnum`) is insufficient for multilingual production searches. Although the `advanced-tokenizer` feature based on Tantivy (v4 schema) exists, keeping the tokenizer simple by default postpones stemming, stopwords, and Unicode folding issues for end-users.
-    
+
 - **Process Concurrency Management:** The engine relies on an exclusive lock file (`.vanta.lock`). Although resilience tests (`file_locking_stress.rs`) exist for stale locks, in environments where concurrent agents attempt to instantiate the engine from multiple independent Python processes, hard contention failures (`DatabaseBusy`) will occur.
-    
+
 - **Lack of Point-in-Time Recovery (PITR) Support:** Fjall does not natively support checkpoints like RocksDB. The current backup policy relies on logical backups (JSONL) or cold copies (Cold Copy), adding latency and operational complexity if the volume of the agent's memory data grows significantly.
   
 ### Strategic Direction (Towards v0.2.0)
@@ -51,7 +51,7 @@ Under strict scalability and performance scrutiny, there are friction points tha
 The project is at an optimal stage for transitioning core development to distribution stabilization. Execution priorities should be aligned as follows:
 
 1. **Promotion of Search Quality v2:** Transition the `advanced-tokenizer` (Tantivy) as the default option in release builds to ensure semantic parity in lexical retrieval. Expose snippet and highlighting capabilities in the public Python API.
-    
+
 2. **Pilot Program in Real Environments:** Freeze the addition of new architectural features (experimental LISP/IQL) and focus telemetry on the real behavior of heap memory drift under AI agents in Phase 3.4.
-    
+
 3. **CI/CD Pipeline Hardening:** Complete SLSA Level 2 certification via GitHub Attestations and execute the transition of the TestPyPI flow to the PyPI production registry to enable zero-friction adoption in the local-first community.

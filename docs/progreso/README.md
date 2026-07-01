@@ -750,3 +750,16 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `tests/sdk_serialization.rs` — metrics serialization test
 - `.github/workflows/release.yml` — pagefile/swap in CI/CD Windows/macOS
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
+## Tareas Completadas (Migradas desde Backlog)
+
+### DOC-09: Obsidian Documentation Enrichment (Wikilinks & Glossary)
+- **Fecha:** 2026-07-01
+- **Objetivo:** Inject internal wikilinks into docs/ and enrich the glosario/ to establish a bidirectional knowledge graph.
+- **Checklist Completado:**
+  - [x] Inject wikilinks into architecture/, api/, operations/, strategy/.
+  - [x] Create missing glossary terms (bincode, serde, wasm, crdt, opentelemetry, lancedb, qdrant).
+  - [x] Establish bidirectional references from glossary back to implementation docs.
+  - [x] Remove orphan files (archive/VantaDB_CLI_TUI_Design_Spec.md).
+  - [x] Update community-plugins.json for Obsidian.
+- **Archivos Modificados:** 35+ Markdown files in docs/
+- **Walkthrough:** [[walkthrough.md]]

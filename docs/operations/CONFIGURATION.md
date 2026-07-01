@@ -22,7 +22,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `memory_limit` | `Option<u64>` | `None` | — | Memory budget hint for backend and mmap selection |
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
-| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw|HNSW]] index |
+| `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
 | `prefetch_mode` | `PrefetchMode` | `Auto` | `VANTA_PREFETCH`, `VANTA_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled) |
 | `rss_threshold` | `f64` | `0.80` | — | RSS pressure threshold for backpressure eviction (0.0-1.0) |
 | `eviction_weight_hits` | `f64` | `1.0` | — | Weight for access frequency in eviction score |
@@ -32,8 +32,8 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
 | `backend_kind` | `BackendKind` | `Fjall` | `VANTA_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
-| `sync_mode` | `SyncMode` | `Periodic` | — | [[wal|WAL]] sync: `Always`, `Periodic`, `Never` |
-| `insert_lock_timeout_ms` | `u64` | `2000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw|HNSW]] insert lock timeout in ms |
+| `sync_mode` | `SyncMode` | `Periodic` | — | [[wal\|WAL]] sync: `Always`, `Periodic`, `Never` |
+| `insert_lock_timeout_ms` | `u64` | `2000` | `VANTADB_INSERT_LOCK_TIMEOUT_MS` | [[hnsw\|HNSW]] insert lock timeout in ms |
 | `file_lock_timeout_ms` | `u64` | `1000` | `VANTADB_FILE_LOCK_TIMEOUT_MS` | .vanta.lock file lock timeout in ms |
 | `api_key` | `Option<String>` | `None` | `VANTADB_API_KEY` | Bearer token for HTTP auth |
 | `rate_limit_rpm` | `u32` | `100` | `VANTADB_RATE_LIMIT_RPM` | Rate limit in requests per minute |
@@ -50,9 +50,9 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | Enum | Variants | Description |
 |------|----------|-------------|
 | `LogFormat` | `Compact`, `Json`, `Full` | Log output format |
-| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal|WAL]] durability sync mode |
+| `SyncMode` | `Always` (fsync every write), `Periodic` (fsync every 5s), `Never` | [[wal\|WAL]] durability sync mode |
 | `PrefetchMode` | `Auto` (detect), `Enabled`, `Disabled` | MMap prefetch strategy |
-| `BackendKind` | `[[fjall|Fjall]]` (default), `[[rocksdb|RocksDb]]`, `InMemory` | KV storage backend |
+| `BackendKind` | `[[fjall\|Fjall]]` (default), `[[rocksdb\|RocksDb]]`, `InMemory` | KV storage backend |
 
 ## 2. Python Constructor
 

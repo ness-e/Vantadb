@@ -1,30 +1,29 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
-tags: [concepto, graph, knowledge-graph, relaciones]
+tags: [concept, graph, knowledge-graph, relaciones]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
-aliases: [Graph, Knowledge Graph, Grafo de Conocimiento, Property Graph]
-description: "Estructura de datos compuesta por nodos (entidades) y aristas (relaciones), donde ambos pueden tener propiedades asociadas, modelando conectividad y relaciones explícitas"
+links: "[[README.md]]"
+aliases: [Graph, Knowledge Graph, Knowledge Graph, Property Graph]
+description: "Data structure composed of nodes (entities) and edges (relationships), where both can have associated properties, modeling connectivity and explicit relationships"
 ---
-
 # Grafo
 
-## Definición
+##Definition
 
-Un **grafo** (o **grafo de propiedades**) es una estructura de datos compuesta por **nodos** (entidades) y **aristas** (relaciones), donde ambos pueden tener propiedades asociadas. Los grafos modelan **conectividad y relaciones explícitas** entre entidades, permitiendo consultas de traversal y razonamiento multi-hop.
+A **graph** (or **property graph**) is a data structure composed of **nodes** (entities) and **edges** (relationships), where both can have associated properties. Graphs model **connectivity and explicit relationships** between entities, allowing traversal queries and multi-hop reasoning.
 
-## Estructura Matemática
+## Mathematical Structure
 
 $$
 G = (V, E)
 $$
 
-Donde:
-- $V$ = conjunto de vértices (nodos)
-- $E \subseteq V \times V$ = conjunto de aristas (edges)
+Where:
+- $V$ = set of vertices (nodes)
+- $E \subseteq V \times V$ = set of edges
 
-### Ejemplo: Knowledge Graph
+### Example: Knowledge Graph
 
 ```
 [Alice] ──trabaja_en──▶ [Acme Corp]
@@ -34,9 +33,9 @@ Donde:
    └──amigo_de──▶ [Bob] ──usa──▶ [VantaDB]
 ```
 
-## Grafo de Propiedades (Property Graph Model)
+## Property Graph Model
 
-En un **property graph**, tanto nodos como aristas tienen propiedades:
+In a **property graph**, both nodes and edges have properties:
 
 ```
 Nodo: Alice
@@ -47,7 +46,7 @@ Nodo: Alice
 │   └── email: "alice@example.com"
 └── outgoing_edges: [trabaja_en, amigo_de]
 
-Arista: trabaja_en
+Arista: works_at
 ├── source: Alice
 ├── target: Acme Corp
 ├── label: "WORKS_AT"
@@ -56,11 +55,11 @@ Arista: trabaja_en
     └── role: "Engineer"
 ```
 
-## Por Qué Importa en VantaDB
+##Why it Matters in VantaDB
 
-VantaDB implementa un **modelo multimodelo** que incluye grafos nativamente:
+VantaDB implements a **multi-model** that includes graphs natively:
 
-### UnifiedNode = Documento + Vector + Grafo
+### UnifiedNode = Document + Vector + Graph
 
 ```rust
 struct UnifiedNode {
@@ -72,23 +71,23 @@ struct UnifiedNode {
 }
 ```
 
-### Caso de Uso: GraphRAG
+### Use Case: GraphRAG
 
-El **GraphRAG** combina busqueda-vectorial con traversal de grafo:
+**GraphRAG** ​​combines vector-search with graph traversal:
 
 ```
 Query: "¿Quién trabaja en Acme Corp y usa VantaDB?"
 
-Paso 1: busqueda-vectorial → Nodos semilla relevantes
-Paso 2: Traversal de grafo → Expandir relaciones
-Paso 3: Filtrar por propiedades → Respuesta precisa
+Step 1: vector-search → Relevant seed nodes
+Step 2: Graph Traversal → Expand Relationships
+Step 3: Filter by properties → Precise response
 ```
 
-**Resultado:** Contexto más rico y preciso que solo busqueda-vectorial.
+**Result:** Richer and more precise context than just vector-search.
 
-## Tipos de Consultas de Grafo
+## Types of Graph Queries
 
-### 1. Traversal (Recorrido)
+### 1. Traversal (Rourse)
 
 ```cypher
 -- Cypher (Neo4j)
@@ -97,7 +96,7 @@ WHERE c.name = "Acme Corp"
 RETURN p.name
 ```
 
-### 2. Path Finding (Encontrar Caminos)
+### 2. Path Finding
 
 ```cypher
 -- Camino más corto entre Alice y Bob
@@ -115,9 +114,9 @@ MATCH (a)-[r1]->(b)-[r2]->(c)-[r3]->(a)
 RETURN a, b, c
 ```
 
-## Implementación en VantaDB
+## Implementation in VantaDB
 
-### Estructura de Datos
+### Data Structure
 
 ```rust
 struct Edge {
@@ -127,42 +126,42 @@ struct Edge {
     weight: f32,             // Peso opcional
 }
 
-// En UnifiedNode:
+// On UnifiedNode:
 edges: Vec<Edge>
 ```
 
-### Almacenamiento
+### Storage
 
-- **Nodos:** Almacenados como `UnifiedNode` en el backend ([Fjall](Fjall.md)/[RocksDB](RocksDB.md))
+- **Nodos:** Almacenados como `UnifiedNode` en el backend ([[fjall]]/[[rocksdb]])
 - **Aristas:** Embebidas en el nodo fuente (edge list)
 - **Índice de adyacencia:** Para lookup rápido de relaciones
 
-### Traversal en VantaDB
+### Traversal in VantaDB
 
 ```python
 # Obtener nodo
 alice = db.get("alice")
 
-# Traversal 1-hop: amigos de Alice
+# Traversal 1-hop: Alice's friends
 friends = [
     db.get(edge.target_key)
     for edge in alice.edges
-    if edge.edge_type == "amigo_de"
+    if edge.edge_type == "friend_of"
 ]
 
-# Traversal 2-hop: amigos de amigos
+# Traversal 2-hop: friends of friends
 friends_of_friends = []
 for friend in friends:
     for edge in friend.edges:
-        if edge.edge_type == "amigo_de":
+        if edge.edge_type == "friend_of":
             friends_of_friends.append(db.get(edge.target_key))
 ```
 
-## Ventajas del Grafo en VantaDB
+## Advantages of the Graph in VantaDB
 
-### 1. Contexto Enriquecido para LLMs
+### 1. Rich Context for LLMs
 
-En lugar de recuperar solo documentos aislados, recuperas **subgrafos contextuales**:
+Instead of retrieving only isolated documents, you retrieve **contextual subgraphs**:
 
 ```
 Sin Grafo: "Alice es ingeniera"
@@ -171,9 +170,9 @@ Con Grafo: "Alice es ingeniera en Acme Corp (Madrid),
             reporta a Carlos (CTO)"
 ```
 
-### 2. Reducción de Tokens en Prompts
+### 2. Reduction of Tokens in Prompts
 
-GraphRAG reduce tokens del prompt en **40-60%** vs RAG tradicional:
+GraphRAG reduces prompt tokens by **40-60%** vs traditional RAG:
 
 | Enfoque | Tokens en Prompt | Precisión |
 |---------|-----------------|-----------|
@@ -182,9 +181,9 @@ GraphRAG reduce tokens del prompt en **40-60%** vs RAG tradicional:
 | **GraphRAG (2 hops)** | **42%** | **Muy alta** |
 | GraphRAG (TSV format) | 26% | Muy alta |
 
-### 3. Razonamiento Multi-Hop
+### 3. Multi-Hop Reasoning
 
-Preguntas que requieren conectar información dispersa:
+Questions that require connecting scattered information:
 
 ```
 Pregunta: "¿Qué tecnologías usan las personas que trabajan en startups de Madrid?"
@@ -196,9 +195,9 @@ Requiere:
 4. Agregar resultados
 ```
 
-Esto es **natural en grafos**, pero **muy costoso en busqueda-vectorial pura**.
+This is **natural in graphs**, but **very expensive in pure vector-search**.
 
-## Comparación con Bases de Datos de Grafo Dedicadas
+## Comparison with Dedicated Graph Databases
 
 | Sistema | Modelo | Integración con Vectores | Caso de Uso |
 |---------|--------|-------------------------|-------------|
@@ -207,9 +206,9 @@ Esto es **natural en grafos**, pero **muy costoso en busqueda-vectorial pura**.
 | **VantaDB** | Multi-model (Doc+Vector+Graph) | **Nativo y unificado** | Agentes de IA, GraphRAG |
 | **TigerGraph** | Property Graph | No nativo | Analytics de grafos masivos |
 
-### Ventaja de VantaDB
+### VantaDB Advantage
 
-En VantaDB, **grafo y vectores coexisten en la misma transacción**:
+In VantaDB, **graph and vectors coexist in the same transaction**:
 
 ```python
 # Actualizar documento, vector y grafo atómicamente
@@ -224,12 +223,12 @@ db.put(
 )
 ```
 
-En sistemas separados (Neo4j + Pinecone), necesitarías:
-1. Actualizar en Neo4j
-2. Actualizar en Pinecone
-3. Manejar inconsistencia si uno falla
+On separate systems (Neo4j + Pinecone), you would need:
+1. Update in Neo4j
+2. Update in Pinecone
+3. Handle inconsistency if one fails
 
-## Trade-offs del Grafo Embebido
+## Trade-offs of the Embedded Graph
 
 | Ventaja | Costo |
 |---------|-------|
@@ -237,12 +236,12 @@ En sistemas separados (Neo4j + Pinecone), necesitarías:
 | Transaccional con vectores | Escalabilidad limitada vs grafos distribuidos |
 | Zero-config | Sin optimizaciones avanzadas de grafos (partitioning) |
 
-## Véase También
+## See Also
 
-- [Vectores](Vectores.md) — Modelo complementario (semántica vs relaciones)
-- [RAG](RAG.md) — GraphRAG mejora RAG tradicional
-- [Transaccional](Transaccional.md) — Atomicidad entre grafo y vectores
-- [RRF](RRF.md) — Fusión de busqueda-vectorial + traversal de grafo
+- [[vectors]] — Complementary model (semantics vs relationships)
+- [[rag]] — GraphRAG improves traditional RAG
+- [[transactional]] — Atomicity between graph and vectors
+- [[rrf]] — Vector-search fusion + graph traversal
 
 ---
 
