@@ -170,8 +170,10 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[web/docs/README.md\|Web Site Overview]] | Documentation index for the VantaDB website project | Active |
-| 2 | [[web/docs/backlog.md\|Web Site Backlog]] | Design, content, and frontend task tracking for the website | Active |
+| 1 | [[web/README.md\|Web Site Overview]] | Documentation index for the VantaDB website project | Active |
+| 2 | [[web/design/DiseñoNuevo.md\|Design System]] | Master design specification (Swiss High-Contrast Minimal) | Active |
+| 3 | [[web/brand/BRAND_PLATFORM.md\|Brand Platform]] | Brand strategy, purpose, vision, and positioning | Active |
+| 4 | [[web/brand/VERBAL_IDENTITY.md\|Verbal Identity]] | Tone of voice and editorial guidelines | Active |
 
 ---
 

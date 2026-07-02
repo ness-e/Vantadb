@@ -99,6 +99,18 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 | `DOC-07` | Unify naming convention to kebab-case without accents or spaces | 🟢 | ✅ |
 | `DOC-08` | Archive `TEXT_INDEX_PHASE_1_CLOSEOUT.md`, `RELEASE_V0.1.1.md`, `MILESTONE_V0.2.0.md` (historical) | 🟢 | ✅ |
 
+### 4.J Web Frontend
+
+| ID | Task | Priority | Status |
+|----|-------|-----------|--------|
+| `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ⏳ |
+| `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ❌ |
+| `WEB-04` | Fase 3: Redesign Hero (Swiss High-Contrast Minimal, terminal effect, tech labels) | 🔴 | ❌ |
+| `WEB-05` | Fase 3: Implement missing GSAP animations (ScrollTrigger, count-up numbers) | 🟡 | ❌ |
+| `WEB-06` | Fase 4: Migrate 637 inline styles to CSS Modules | 🟡 | ❌ |
+| `WEB-07` | Fase 4: Configure Vitest and Playwright E2E for web | 🟡 | ❌ |
+| `WEB-08` | Fase 5: Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ❌ |
+
 ## PHASE 5 — Post-Launch / Pre-Seed (November-December 2026)
 
 ### 5.A Enterprise Readiness
