@@ -1213,6 +1213,7 @@ mod tests {
     use super::*;
 
     /// Reset all atomic statics to zero so each test starts clean.
+    #[allow(dead_code)]
     fn reset_metrics() {
         LAST_STARTUP_MS.store(0, Ordering::Relaxed);
         LAST_WAL_REPLAY_MS.store(0, Ordering::Relaxed);
