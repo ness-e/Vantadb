@@ -3005,9 +3005,7 @@ mod tests {
             let hnsw = engine.hnsw.load();
             hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
         };
-        engine
-            .refresh_index(&node, offset)
-            .expect("refresh index");
+        engine.refresh_index(&node, offset).expect("refresh index");
         let retrieved = engine.get(42).expect("get").unwrap();
         assert_eq!(retrieved.id, 42);
     }

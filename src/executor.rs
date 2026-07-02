@@ -147,13 +147,14 @@ impl<'a> Executor<'a> {
                 // Phase 30: Archaeological Interception (Non-blocking)
                 let mut filtered_nodes = Vec::with_capacity(nodes.len());
                 for node in nodes {
-                    let is_low_confidence_summary = if let Some(crate::node::FieldValue::String(node_type)) =
-                        node.relational.get("type")
-                    {
-                        node_type == "SemanticSummary" && node.confidence_score() < 0.4
-                    } else {
-                        false
-                    };
+                    let is_low_confidence_summary =
+                        if let Some(crate::node::FieldValue::String(node_type)) =
+                            node.relational.get("type")
+                        {
+                            node_type == "SemanticSummary" && node.confidence_score() < 0.4
+                        } else {
+                            false
+                        };
 
                     if is_low_confidence_summary {
                         tracing::warn!(
