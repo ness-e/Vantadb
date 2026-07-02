@@ -2,6 +2,7 @@
    VantaDB — Modular Styles
    Import order: fonts → tokens → swiss-grid → effects → layout → components → pages
    ═══════════════════════════════════════════════════════════ */
+/* rebuild */
 
 /* Self-hosted variable fonts (no Google CDN dependency) */
 @import "@fontsource-variable/space-grotesk";
