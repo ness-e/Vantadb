@@ -1,20 +1,19 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
-tags: [concepto, ux, developer-experience, zero-config]
+tags: [concept, ux, developer-experience, zero-config]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
-aliases: [Zero Configuration, Sin Configuración, Cero Config]
-description: "Principio de diseño donde el software funciona correctamente inmediatamente después de la instalación, sin requerir archivos de configuración ni pasos de setup manual"
+links: "[[README.md]]"
+aliases: [Zero Configuration, No Configuration, Zero Config]
+description: "Design principle where the software works correctly immediately after installation, without requiring configuration files or manual setup steps"
 ---
+#Zero-Config
 
-# Zero-Config
+##Definition
 
-## Definición
+**Zero-Config** is a design principle where software works correctly **immediately after installation**, without requiring configuration files, environment variables, external services, or manual setup steps.
 
-**Zero-Config** (cero configuración) es un principio de diseño donde el software funciona correctamente **inmediatamente después de la instalación**, sin requerir archivos de configuración, variables de entorno, servicios externos ni pasos de setup manual.
-
-## Características de un Sistema Zero-Config
+## Characteristics of a Zero-Config System
 
 | Característica | Descripción |
 |---------------|-------------|
@@ -24,23 +23,23 @@ description: "Principio de diseño donde el software funciona correctamente inme
 | **Sin dependencias externas** | No necesita Redis, PostgreSQL, ni servicios adicionales |
 | **Funciona out-of-the-box** | `pip install` → `import` → funciona |
 
-## Por Qué Importa en VantaDB
+##Why it Matters in VantaDB
 
-VantaDB compite contra alternativas que requieren infraestructura compleja:
+VantaDB competes against alternatives that require complex infrastructure:
 
-### Comparación de Setup
+### Setup Comparison
 
 **Pinecone (Cloud Vector DB):**
 ```bash
-1. Crear cuenta en pinecone.io
-2. Verificar email
-3. Crear proyecto
-4. Generar API key
-5. Configurar variables de entorno
+1. Create an account on pinecone.io
+2. Verify email
+3. Create project
+4. Generate API key
+5. Configure environment variables
 6. pip install pinecone-client
-7. Inicializar cliente con API key
-8. Crear índice (esperar provisioning)
-9. Empezar a usar
+7. Initialize client with API key
+8. Create index (wait provisioning)
+9. Start using
 ```
 
 **VantaDB (Zero-Config):**
@@ -51,25 +50,25 @@ pip install vantadb-py
 ```python
 from vantadb import VantaEmbedded
 
-db = VantaEmbedded("./mi_memoria")
-db.put("doc1", vector=[0.1, 0.2, ...], text="Hola mundo")
+db = VantaEmbedded("./my_memory")
+db.put("doc1", vector=[0.1, 0.2, ...], text="Hello world")
 results = db.search(vector=[0.1, 0.2, ...], top_k=10)
 ```
 
-**Eso es todo.** Sin cuentas, sin API keys, sin provisioning.
+**That's all.** No accounts, no API keys, no provisioning.
 
-## Implementación Técnica en VantaDB
+## Technical Implementation in VantaDB
 
 | Aspecto | Decisión Zero-Config |
 |---------|---------------------|
-| **Backend** | [Fjall](Fjall.md) por defecto (no requiere instalación de C++) |
-| **Índice vectorial** | [HNSW](HNSW.md) con parámetros auto-tuneados según dataset size |
+| **Backend** | [[fjall]] por defecto (no requiere instalación de C++) |
+| **Índice vectorial** | [[hnsw]] con parámetros auto-tuneados según dataset size |
 | **Tokenizador** | BM25 con defaults razonables (lowercase, sin stopwords) |
 | **Persistencia** | Directorio local, sin configuración de conexión |
-| **Concurrencia** | [File Locking](File Locking.md) automático al abrir |
+| **Concurrencia** | [[file-locking]] automático al abrir |
 | **Memoria** | Detección automática de RAM disponible |
 
-## Ejemplo: Experiencia Zero-Config Completa
+## Example: Complete Zero-Config Experience
 
 ```python
 # Instalación
@@ -77,14 +76,14 @@ results = db.search(vector=[0.1, 0.2, ...], top_k=10)
 
 from vantadb import VantaEmbedded
 
-# 1. Crear instancia (sin configuración)
+#1. Create instance (without configuration)
 db = VantaEmbedded("./agent_memory")
 
-# 2. Guardar memoria (sin schema previo)
+#2. Save memory (without prior schema)
 db.put(
     key="conversation_001",
-    vector=[0.12, -0.34, 0.56, ...],  # 384 dimensiones
-    text="El usuario prefiere respuestas concisas",
+    vector=[0.12, -0.34, 0.56, ...], # 384 dimensions
+    text="The user prefers concise answers",
     metadata={
         "timestamp": "2026-06-12T10:30:00Z",
         "user_id": "user_123",
@@ -92,17 +91,17 @@ db.put(
     }
 )
 
-# 3. Buscar (sin configurar índices)
+#3. Search (without setting indexes)
 results = db.search(
     vector=[0.11, -0.33, 0.55, ...],
     top_k=5,
     filter={"user_id": "user_123"}
 )
 
-# 4. Todo funciona. Sin configuración.
+#4. Everything works. No configuration.
 ```
 
-## Trade-offs del Zero-Config
+## Zero-Config Trade-offs
 
 | Ventaja | Costo |
 |---------|-------|
@@ -110,15 +109,15 @@ results = db.search(
 | Sin errores de configuración | Defaults pueden no ser óptimos para casos edge |
 | Ideal para prototipos | Producción puede requerir tuning posterior |
 
-### Escape Hatch: Configuración Cuando se Necesita
+### Escape Hatch: Configuration When Needed
 
-VantaDB permite configuración avanzada **cuando es necesaria**, pero no la exige:
+VantaDB allows advanced configuration **when necessary**, but does not require it:
 
 ```python
 # Zero-config (default)
 db = VantaEmbedded("./data")
 
-# Configuración avanzada (opcional)
+# Advanced settings (optional)
 db = VantaEmbedded(
     "./data",
     config={
@@ -129,7 +128,7 @@ db = VantaEmbedded(
 )
 ```
 
-## Zero-Config vs "Easy-Config"
+##Zero-Config vs "Easy-Config"
 
 | Enfoque | Ejemplo | Problema |
 |---------|---------|----------|
@@ -137,13 +136,13 @@ db = VantaEmbedded(
 | **Easy-Config** | MongoDB (defaults razonables) | Aún requiere `mongod` corriendo |
 | **Config-Heavy** | PostgreSQL, Elasticsearch | Requiere DBA o DevOps |
 
-## Véase También
+## See Also
 
-- [Embebido](Embebido.md) — Habilita zero-config al no requerir servidor
-- [Local-First](Local-First.md) — Filosofía compatible con zero-config
-- [Fjall](Fjall.md) — Backend que no requiere instalación de dependencias C++
+- [[embedded]] — Habilita zero-config al no requerir servidor
+- [[local-first]] — Filosofía compatible con zero-config
+- [[fjall]] — Backend que no requiere instalación de dependencias C++
 
 ---
 
-*Zero-config no es pereza de diseño, es respeto por el tiempo del desarrollador.*
+*Zero-config is not design laziness, it is respect for the developer's time.*
 

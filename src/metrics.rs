@@ -1212,6 +1212,34 @@ pub fn export_metrics_text() -> String {
 mod tests {
     use super::*;
 
+    /// Reset all atomic statics to zero so each test starts clean.
+    fn reset_metrics() {
+        LAST_STARTUP_MS.store(0, Ordering::Relaxed);
+        LAST_WAL_REPLAY_MS.store(0, Ordering::Relaxed);
+        LAST_WAL_RECORDS_REPLAYED.store(0, Ordering::Relaxed);
+        LAST_ANN_REBUILD_MS.store(0, Ordering::Relaxed);
+        LAST_ANN_REBUILD_SCANNED_NODES.store(0, Ordering::Relaxed);
+        LAST_DERIVED_REBUILD_MS.store(0, Ordering::Relaxed);
+        LAST_TEXT_INDEX_REBUILD_MS.store(0, Ordering::Relaxed);
+        LAST_TEXT_LEXICAL_QUERY_MS.store(0, Ordering::Relaxed);
+        RECORDS_EXPORTED_TOTAL.store(0, Ordering::Relaxed);
+        RECORDS_IMPORTED_TOTAL.store(0, Ordering::Relaxed);
+        IMPORT_ERRORS_TOTAL.store(0, Ordering::Relaxed);
+        DERIVED_PREFIX_SCANS_TOTAL.store(0, Ordering::Relaxed);
+        DERIVED_FULL_SCAN_FALLBACKS_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_POSTINGS_WRITTEN_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_INDEX_REPAIRS_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_LEXICAL_QUERIES_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_CANDIDATES_SCORED_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_CONSISTENCY_AUDITS_TOTAL.store(0, Ordering::Relaxed);
+        TEXT_CONSISTENCY_AUDIT_FAILURES_TOTAL.store(0, Ordering::Relaxed);
+        LAST_HYBRID_QUERY_MS.store(0, Ordering::Relaxed);
+        HYBRID_CANDIDATES_FUSED_TOTAL.store(0, Ordering::Relaxed);
+        PLANNER_HYBRID_QUERIES_TOTAL.store(0, Ordering::Relaxed);
+        PLANNER_TEXT_ONLY_QUERIES_TOTAL.store(0, Ordering::Relaxed);
+        PLANNER_VECTOR_ONLY_QUERIES_TOTAL.store(0, Ordering::Relaxed);
+    }
+
     // ── Snapshot defaults ──────────────────────────────────────
 
     #[test]
@@ -1239,6 +1267,7 @@ mod tests {
 
     #[test]
     fn test_record_startup() {
+        reset_metrics();
         record_startup(100, 25, 500);
         let snap = operational_metrics_snapshot();
         assert_eq!(snap.startup_ms, 100);
@@ -1248,6 +1277,7 @@ mod tests {
 
     #[test]
     fn test_record_startup_idempotent() {
+        reset_metrics();
         record_startup(1, 2, 3);
         record_startup(10, 20, 30);
         let snap = operational_metrics_snapshot();
@@ -1258,6 +1288,7 @@ mod tests {
 
     #[test]
     fn test_record_ann_rebuild() {
+        reset_metrics();
         record_ann_rebuild(250, 10_000);
         let snap = operational_metrics_snapshot();
         assert_eq!(snap.ann_rebuild_ms, 250);
@@ -1266,6 +1297,7 @@ mod tests {
 
     #[test]
     fn test_record_derived_rebuild() {
+        reset_metrics();
         record_derived_rebuild(75);
         let snap = operational_metrics_snapshot();
         assert_eq!(snap.derived_rebuild_ms, 75);
@@ -1273,6 +1305,7 @@ mod tests {
 
     #[test]
     fn test_record_text_index_rebuild() {
+        reset_metrics();
         record_text_index_rebuild(300, 1500);
         let snap = operational_metrics_snapshot();
         assert_eq!(snap.text_index_rebuild_ms, 300);
@@ -1281,6 +1314,7 @@ mod tests {
 
     #[test]
     fn test_record_text_postings_written_zero_guard() {
+        reset_metrics();
         let snap_before = operational_metrics_snapshot();
         record_text_postings_written(0);
         let snap_after = operational_metrics_snapshot();
@@ -1289,6 +1323,7 @@ mod tests {
 
     #[test]
     fn test_record_text_postings_written_accumulates() {
+        reset_metrics();
         let before = operational_metrics_snapshot().text_postings_written;
         record_text_postings_written(100);
         record_text_postings_written(200);
@@ -1298,63 +1333,62 @@ mod tests {
 
     #[test]
     fn test_record_text_index_repair() {
-        let snap_before = operational_metrics_snapshot();
+        reset_metrics();
         record_text_index_repair();
-        let snap_after = operational_metrics_snapshot();
-        assert_eq!(snap_after.text_index_repairs, snap_before.text_index_repairs + 1);
+        assert_eq!(operational_metrics_snapshot().text_index_repairs, 1);
     }
 
     #[test]
     fn test_record_text_lexical_query() {
-        let before = operational_metrics_snapshot();
+        reset_metrics();
         record_text_lexical_query(42, 500);
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.text_lexical_query_ms, 42);
-        assert_eq!(after.text_candidates_scored - before.text_candidates_scored, 500);
-        assert_eq!(after.text_lexical_queries - before.text_lexical_queries, 1);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_lexical_query_ms, 42);
+        assert_eq!(snap.text_candidates_scored, 500);
+        assert_eq!(snap.text_lexical_queries, 1);
     }
 
     #[test]
     fn test_record_text_lexical_query_multi() {
-        let before = operational_metrics_snapshot();
+        reset_metrics();
         record_text_lexical_query(10, 50);
         record_text_lexical_query(20, 100);
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.text_lexical_queries - before.text_lexical_queries, 2);
-        assert_eq!(after.text_candidates_scored - before.text_candidates_scored, 150);
-        // Last duration overwrites
-        assert_eq!(after.text_lexical_query_ms, 20);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_lexical_queries, 2);
+        assert_eq!(snap.text_candidates_scored, 150);
+        assert_eq!(snap.text_lexical_query_ms, 20);
     }
 
     #[test]
     fn test_record_text_consistency_audit_no_failure() {
-        let snap_before = operational_metrics_snapshot();
+        reset_metrics();
         record_text_consistency_audit(false);
-        let snap_after = operational_metrics_snapshot();
-        assert_eq!(snap_after.text_consistency_audits, snap_before.text_consistency_audits + 1);
-        assert_eq!(snap_after.text_consistency_audit_failures, snap_before.text_consistency_audit_failures);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_consistency_audits, 1);
+        assert_eq!(snap.text_consistency_audit_failures, 0);
     }
 
     #[test]
     fn test_record_text_consistency_audit_with_failure() {
-        let snap_before = operational_metrics_snapshot();
+        reset_metrics();
         record_text_consistency_audit(true);
-        let snap_after = operational_metrics_snapshot();
-        assert_eq!(snap_after.text_consistency_audits, snap_before.text_consistency_audits + 1);
-        assert_eq!(snap_after.text_consistency_audit_failures, snap_before.text_consistency_audit_failures + 1);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.text_consistency_audits, 1);
+        assert_eq!(snap.text_consistency_audit_failures, 1);
     }
 
     #[test]
     fn test_record_hybrid_query() {
-        let before = operational_metrics_snapshot().hybrid_candidates_fused;
+        reset_metrics();
         record_hybrid_query(150, 25);
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.hybrid_query_ms, 150);
-        assert_eq!(after.hybrid_candidates_fused - before, 25);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.hybrid_query_ms, 150);
+        assert_eq!(snap.hybrid_candidates_fused, 25);
     }
 
     #[test]
     fn test_record_hybrid_query_accumulates() {
+        reset_metrics();
         record_hybrid_query(10, 5);
         record_hybrid_query(20, 3);
         assert_eq!(operational_metrics_snapshot().hybrid_candidates_fused, 8);
@@ -1362,19 +1396,20 @@ mod tests {
 
     #[test]
     fn test_record_planner_queries() {
-        let before = operational_metrics_snapshot();
+        reset_metrics();
         record_planner_hybrid_query();
         record_planner_text_only_query();
         record_planner_vector_only_query();
 
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.planner_hybrid_queries - before.planner_hybrid_queries, 1);
-        assert_eq!(after.planner_text_only_queries - before.planner_text_only_queries, 1);
-        assert_eq!(after.planner_vector_only_queries - before.planner_vector_only_queries, 1);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.planner_hybrid_queries, 1);
+        assert_eq!(snap.planner_text_only_queries, 1);
+        assert_eq!(snap.planner_vector_only_queries, 1);
     }
 
     #[test]
     fn test_record_planner_accumulates() {
+        reset_metrics();
         for _ in 0..5 {
             record_planner_hybrid_query();
         }
@@ -1391,41 +1426,42 @@ mod tests {
 
     #[test]
     fn test_record_export() {
-        let before = operational_metrics_snapshot().records_exported;
+        reset_metrics();
         record_export(100);
-        assert_eq!(operational_metrics_snapshot().records_exported - before, 100);
+        assert_eq!(operational_metrics_snapshot().records_exported, 100);
     }
 
     #[test]
     fn test_record_export_accumulates() {
-        let before = operational_metrics_snapshot().records_exported;
+        reset_metrics();
         record_export(50);
         record_export(25);
-        assert_eq!(operational_metrics_snapshot().records_exported - before, 75);
+        assert_eq!(operational_metrics_snapshot().records_exported, 75);
     }
 
     #[test]
     fn test_record_import() {
-        let before = operational_metrics_snapshot();
+        reset_metrics();
         record_import(200, 3);
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.records_imported - before.records_imported, 200);
-        assert_eq!(after.import_errors - before.import_errors, 3);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.records_imported, 200);
+        assert_eq!(snap.import_errors, 3);
     }
 
     #[test]
     fn test_record_import_no_errors() {
-        let before = operational_metrics_snapshot();
+        reset_metrics();
         record_import(50, 0);
-        let after = operational_metrics_snapshot();
-        assert_eq!(after.records_imported - before.records_imported, 50);
-        assert_eq!(after.import_errors - before.import_errors, 0);
+        let snap = operational_metrics_snapshot();
+        assert_eq!(snap.records_imported, 50);
+        assert_eq!(snap.import_errors, 0);
     }
 
     // ── Derived scans ──────────────────────────────────────────
 
     #[test]
     fn test_record_derived_scan() {
+        reset_metrics();
         record_derived_prefix_scan();
         record_derived_full_scan_fallback();
 
@@ -1436,17 +1472,18 @@ mod tests {
 
     #[test]
     fn test_record_derived_scan_accumulates() {
-        let before = operational_metrics_snapshot().derived_prefix_scans;
+        reset_metrics();
         for _ in 0..7 {
             record_derived_prefix_scan();
         }
-        assert_eq!(operational_metrics_snapshot().derived_prefix_scans - before, 7);
+        assert_eq!(operational_metrics_snapshot().derived_prefix_scans, 7);
     }
 
     // ── Memory breakdown ───────────────────────────────────────
 
     #[test]
     fn test_record_memory_breakdown() {
+        reset_metrics();
         record_memory_breakdown(1000, 50_000_000, Some(8_000_000), 500, 100_000_000);
         let snap = memory_breakdown_snapshot();
         assert_eq!(snap.hnsw_nodes_count, 1000);
@@ -1458,6 +1495,7 @@ mod tests {
 
     #[test]
     fn test_record_memory_breakdown_no_mmap() {
+        reset_metrics();
         record_memory_breakdown(0, 0, None, 0, 0);
         let snap = memory_breakdown_snapshot();
         assert_eq!(snap.mmap_resident_bytes, None);
@@ -1465,6 +1503,7 @@ mod tests {
 
     #[test]
     fn test_record_memory_breakdown_idempotent() {
+        reset_metrics();
         record_memory_breakdown(1, 100, Some(10), 2, 200);
         record_memory_breakdown(2, 200, None, 3, 300);
         let snap = memory_breakdown_snapshot();
@@ -1477,6 +1516,7 @@ mod tests {
 
     #[test]
     fn test_operational_snapshot_includes_memory() {
+        reset_metrics();
         record_memory_breakdown(42, 99_000, Some(77), 5, 10_000);
         let snap = operational_metrics_snapshot();
         assert_eq!(snap.memory.hnsw_nodes_count, 42);
@@ -1488,7 +1528,7 @@ mod tests {
 
     #[test]
     fn test_export_metrics_text_non_empty() {
-        // With default features (prometheus enabled), export returns prometheus text
+        reset_metrics();
         let text = export_metrics_text();
         assert!(!text.is_empty(), "export_metrics_text() should return non-empty prometheus output");
     }
