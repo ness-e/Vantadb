@@ -1,22 +1,21 @@
 ---
-type: glosario-entry
+type: glossary-entry
 status: stable
-tags: [persistencia, wal, durabilidad, recovery]
+tags: [persistence, wal, durabilidad, recovery]
 last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+links: "[[README.md]]"
 aliases: [Write-Ahead Log, Journal, Transaction Log]
-description: "Mecanismo de journaling donde las mutaciones se escriben primero en un log secuencial antes de aplicarse al storage principal, garantizando durabilidad ACID"
+description: "Journaling mechanism where mutations are first written to a sequential log before being applied to the main storage, guaranteeing ACID durability"
 ---
+#WAL—Write-Ahead Log
 
-# WAL — Write-Ahead Log
+## Definition
 
-## Definición
+The **Write-Ahead Log (WAL)** is a sequential, append-only record of all data mutations, where **each change is written to the log BEFORE being applied to the main database**. This guarantees durability and allows recovery after crashes.
 
-El **Write-Ahead Log (WAL)** es un registro secuencial y append-only de todas las mutaciones de datos, donde **cada cambio se escribe en el log ANTES de aplicarse a la base de datos principal**. Esto garantiza durabilidad y permite recuperación tras crashes.
+## Fundamental Principle
 
-## Principio Fundamental
-
-> **Regla de Oro del WAL:** Ninguna mutación se confirma al cliente hasta que su registro esté físicamente escrito en disco (fsync).
+> **WAL Golden Rule:** No mutation is committed to the client until its record is physically written to disk (fsync).
 
 ```
 Orden correcto:
@@ -25,10 +24,10 @@ Orden correcto:
 3. Aplicar cambio al storage
 4. ACK al cliente
 
-Orden INCORRECTO (pérdida de datos):
-1. Aplicar cambio al storage
-2. ACK al cliente
-3. Append al WAL (asíncrono)
+INCORRECT order (data loss):
+1. Apply change to storage
+2. ACK to the client
+3. Append to WAL (asynchronous)
 ```
 
 ## Estructura de un Registro WAL
@@ -50,9 +49,9 @@ Orden INCORRECTO (pérdida de datos):
 └─────────────────────────────────────┘
 ```
 
-## Implementación en VantaDB
+## Implementation in VantaDB
 
-### Flujo de Escritura
+### Writing Flow
 
 ```
 Cliente: put("doc1", vector, text, metadata)
@@ -86,7 +85,7 @@ Cliente: put("doc1", vector, text, metadata)
       ACK al cliente
 ```
 
-### Flujo de Recovery
+### Recovery Flow
 
 ```
 Arranque tras crash
@@ -119,9 +118,9 @@ Arranque tras crash
 
 El WAL crece indefinidamente si no se gestiona. **Checkpointing** es el proceso de:
 
-1. **Flush** de todos los datos pendientes al storage principal
-2. **Truncar** el WAL (eliminar registros ya aplicados)
-3. **Marcar** el nuevo punto de inicio
+1. **Flush** of all pending data to main storage
+2. **Truncate** the WAL (remove already applied records)
+3. **Mark** the new starting point
 
 ```
 WAL antes de checkpoint:
@@ -133,7 +132,7 @@ WAL después de checkpoint:
 [rec5][rec6][rec7][rec8]  ← Solo registros nuevos
 ```
 
-## Modos de Durabilidad
+## Durability Modes
 
 | Modo | fsync | Latencia | Riesgo de Pérdida |
 |------|-------|----------|-------------------|
@@ -143,32 +142,32 @@ WAL después de checkpoint:
 
 ## Garantías del WAL en VantaDB
 
-### Lo que WAL Garantiza
+### What WAL Guarantees
 
-✅ **Durabilidad:** Una vez confirmado, el dato sobrevive a crashes
-✅ **Atomicidad:** Transacciones completas o ninguna
-✅ **Recuperación determinista:** Replay produce el mismo estado
+✅ **Durability:** Once confirmed, the data survives crashes
+✅ **Atomicity:** Complete transactions or none
+✅ **Deterministic recovery:** Replay produces the same state
 
 ### Lo que WAL NO Garantiza
 
-❌ **Consistencia entre índices:** Eso depende del protocolo de coherencia
-❌ **Aislamiento de concurrencia:** Eso depende de locks/MVCC
-❌ **Performance:** fsync síncrono añade latencia
+❌ **Consistency between indexes:** That depends on the coherence protocol
+❌ **Concurrency isolation:** That depends on locks/MVCC
+❌ **Performance:** Synchronous fsync adds latency
 
-## Problemas Conocidos (Auditoría)
+## Known Issues (Audit)
 
-### AUD-01: Falta de fsync Configurable
+### AUD-01: Configurable fsync missing
 
-**Severidad:** 🔒 Bloqueante
+**Severity:** 🔒 Blocking
 
 El snapshot no demuestra que VantaDB implemente fsync síncrono antes del ACK. Sin esto, los claims de durabilidad no son verificables.
 
-**Mitigación requerida:**
-```rust
+**Mitigation required:**
+``rust
 pub enum SyncMode {
-    Always,    // fsync en cada write
-    Periodic(Duration), // fsync cada N ms
-    Never,     // OS decide
+    Always, // fsync on each write
+    Periodic(Duration), // fsync every N ms
+    Never, // OS decides
 }
 
 impl VantaEmbedded {
@@ -178,27 +177,27 @@ impl VantaEmbedded {
         match self.sync_mode {
             SyncMode::Always => self.wal.fsync()?,
             SyncMode::Periodic(_) => {/* batch */},
-            SyncMode::Never => {/* no fsync */},
+            SyncMode::Never => {/* not fsync */},
         }
         
         self.apply_to_storage(&mutation)?;
-        Ok(()) // ACK solo después de fsync
+        Ok(()) // ACK only after fsync
     }
 }
 ```
 
-### AUD-02: Recovery sin Checksums
+### AUD-02: Recovery without Checksums
 
-**Severidad:** 🔒 Bloqueante
+**Severity:** 🔒 Blocking
 
-Sin [CRC32C](CRC32C.md) en cada registro, el recovery no puede distinguir entre:
+Sin [[crc32c]] en cada registro, el recovery no puede distinguir entre:
 - Registro válido
 - Registro corrupto (debe ignorarse)
 - Registro parcialmente escrito (debe truncarse)
 
-**Mitigación:** Añadir checksum a cada registro y validar en replay.
+**Mitigation:** Add checksum to each record and validate in replay.
 
-## Comparación con Otros Sistemas
+## Comparison with Other Systems
 
 | Sistema | WAL | fsync Default | Checksum | Recovery |
 |---------|-----|---------------|----------|----------|
@@ -208,18 +207,18 @@ Sin [CRC32C](CRC32C.md) en cada registro, el recovery no puede distinguir entre:
 | **RocksDB** | ✅ | Configurable | ✅ CRC32 | ✅ Automático |
 | **FAISS** | ❌ | N/A | N/A | ❌ Sin persistencia |
 
-## Véase También
+## See Also
 
-- [fsync](fsync.md) — Garantía de persistencia física
-- [CRC32C](CRC32C.md) — Integridad de registros
-- [Fjall](Fjall.md) — Backend con WAL propio
-- [Transaccional](Transaccional.md) — Propiedad que el WAL habilita
-- [Chaos Testing](Chaos Testing.md) — Cómo validar durabilidad
+- [[fsync]] — Garantía de persistencia física
+- [[crc32c]] — Integridad de registros
+- [[fjall]] — Backend con WAL propio
+- [[transactional]] — Propiedad que el WAL habilita
+- [[chaos-testing]] — Cómo validar durabilidad
 
-### Documentación de Implementación Relacionada
-- [[../architecture/WAL_DURABILITY|WAL Durability Architecture]]
+### Related Implementation Documentation
+- [[../architecture/wal_durability|WAL Durability Architecture]]
 
 ---
 
-*El WAL es el contrato de durabilidad de una base de datos. Sin él, no hay garantías.*
+*The WAL is the durability contract of a database. Without it, there are no guarantees.*
 
