@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UseCasesRouteImport } from './routes/use-cases'
 import { Route as StorageRouteImport } from './routes/storage'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as MaintRouteImport } from './routes/maint'
 import { Route as LatencyRouteImport } from './routes/latency'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as EngineRouteImport } from './routes/engine'
+import { Route as DocsApiRouteImport } from './routes/docs-api'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CostRouteImport } from './routes/cost'
 import { Route as ConfigRouteImport } from './routes/config'
@@ -27,7 +29,9 @@ import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as SolutionsLocalRagRouteImport } from './routes/solutions/local-rag'
 import { Route as SolutionsAiIdeToolingRouteImport } from './routes/solutions/ai-ide-tooling'
 import { Route as SolutionsAiAgentsRouteImport } from './routes/solutions/ai-agents'
+import { Route as ProductBenchmarksRouteImport } from './routes/product/benchmarks'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as AboutRoadmapRouteImport } from './routes/about/roadmap'
 import { Route as AboutContactRouteImport } from './routes/about/contact'
 import { Route as AboutCompanyRouteImport } from './routes/about/company'
 import { Route as AboutCommunityRouteImport } from './routes/about/community'
@@ -40,6 +44,11 @@ const UseCasesRoute = UseCasesRouteImport.update({
 const StorageRoute = StorageRouteImport.update({
   id: '/storage',
   path: '/storage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -65,6 +74,11 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
 const EngineRoute = EngineRouteImport.update({
   id: '/engine',
   path: '/engine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsApiRoute = DocsApiRouteImport.update({
+  id: '/docs-api',
+  path: '/docs-api',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -122,9 +136,19 @@ const SolutionsAiAgentsRoute = SolutionsAiAgentsRouteImport.update({
   path: '/solutions/ai-agents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductBenchmarksRoute = ProductBenchmarksRouteImport.update({
+  id: '/product/benchmarks',
+  path: '/product/benchmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoadmapRoute = AboutRoadmapRouteImport.update({
+  id: '/about/roadmap',
+  path: '/about/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutContactRoute = AboutContactRouteImport.update({
@@ -150,17 +174,21 @@ export interface FileRoutesByFullPath {
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
   '/docs': typeof DocsRoute
+  '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
   '/pricing': typeof PricingRoute
+  '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
@@ -174,17 +202,21 @@ export interface FileRoutesByTo {
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
   '/docs': typeof DocsRoute
+  '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
   '/pricing': typeof PricingRoute
+  '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
@@ -199,17 +231,21 @@ export interface FileRoutesById {
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
   '/docs': typeof DocsRoute
+  '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
   '/pricing': typeof PricingRoute
+  '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
@@ -225,17 +261,21 @@ export interface FileRouteTypes {
     | '/config'
     | '/cost'
     | '/docs'
+    | '/docs-api'
     | '/engine'
     | '/integrations'
     | '/latency'
     | '/maint'
     | '/pricing'
+    | '/security'
     | '/storage'
     | '/use-cases'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/roadmap'
     | '/blog/$slug'
+    | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
@@ -249,17 +289,21 @@ export interface FileRouteTypes {
     | '/config'
     | '/cost'
     | '/docs'
+    | '/docs-api'
     | '/engine'
     | '/integrations'
     | '/latency'
     | '/maint'
     | '/pricing'
+    | '/security'
     | '/storage'
     | '/use-cases'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/roadmap'
     | '/blog/$slug'
+    | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
@@ -273,17 +317,21 @@ export interface FileRouteTypes {
     | '/config'
     | '/cost'
     | '/docs'
+    | '/docs-api'
     | '/engine'
     | '/integrations'
     | '/latency'
     | '/maint'
     | '/pricing'
+    | '/security'
     | '/storage'
     | '/use-cases'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/roadmap'
     | '/blog/$slug'
+    | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
@@ -298,17 +346,21 @@ export interface RootRouteChildren {
   ConfigRoute: typeof ConfigRoute
   CostRoute: typeof CostRoute
   DocsRoute: typeof DocsRoute
+  DocsApiRoute: typeof DocsApiRoute
   EngineRoute: typeof EngineRoute
   IntegrationsRoute: typeof IntegrationsRoute
   LatencyRoute: typeof LatencyRoute
   MaintRoute: typeof MaintRoute
   PricingRoute: typeof PricingRoute
+  SecurityRoute: typeof SecurityRoute
   StorageRoute: typeof StorageRoute
   UseCasesRoute: typeof UseCasesRoute
   AboutCommunityRoute: typeof AboutCommunityRoute
   AboutCompanyRoute: typeof AboutCompanyRoute
   AboutContactRoute: typeof AboutContactRoute
+  AboutRoadmapRoute: typeof AboutRoadmapRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  ProductBenchmarksRoute: typeof ProductBenchmarksRoute
   SolutionsAiAgentsRoute: typeof SolutionsAiAgentsRoute
   SolutionsAiIdeToolingRoute: typeof SolutionsAiIdeToolingRoute
   SolutionsLocalRagRoute: typeof SolutionsLocalRagRoute
@@ -330,6 +382,13 @@ declare module '@tanstack/react-router' {
       path: '/storage'
       fullPath: '/storage'
       preLoaderRoute: typeof StorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -365,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/engine'
       fullPath: '/engine'
       preLoaderRoute: typeof EngineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs-api': {
+      id: '/docs-api'
+      path: '/docs-api'
+      fullPath: '/docs-api'
+      preLoaderRoute: typeof DocsApiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -444,11 +510,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SolutionsAiAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/product/benchmarks': {
+      id: '/product/benchmarks'
+      path: '/product/benchmarks'
+      fullPath: '/product/benchmarks'
+      preLoaderRoute: typeof ProductBenchmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/$slug': {
       id: '/blog/$slug'
       path: '/blog/$slug'
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about/roadmap': {
+      id: '/about/roadmap'
+      path: '/about/roadmap'
+      fullPath: '/about/roadmap'
+      preLoaderRoute: typeof AboutRoadmapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about/contact': {
@@ -482,17 +562,21 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigRoute: ConfigRoute,
   CostRoute: CostRoute,
   DocsRoute: DocsRoute,
+  DocsApiRoute: DocsApiRoute,
   EngineRoute: EngineRoute,
   IntegrationsRoute: IntegrationsRoute,
   LatencyRoute: LatencyRoute,
   MaintRoute: MaintRoute,
   PricingRoute: PricingRoute,
+  SecurityRoute: SecurityRoute,
   StorageRoute: StorageRoute,
   UseCasesRoute: UseCasesRoute,
   AboutCommunityRoute: AboutCommunityRoute,
   AboutCompanyRoute: AboutCompanyRoute,
   AboutContactRoute: AboutContactRoute,
+  AboutRoadmapRoute: AboutRoadmapRoute,
   BlogSlugRoute: BlogSlugRoute,
+  ProductBenchmarksRoute: ProductBenchmarksRoute,
   SolutionsAiAgentsRoute: SolutionsAiAgentsRoute,
   SolutionsAiIdeToolingRoute: SolutionsAiIdeToolingRoute,
   SolutionsLocalRagRoute: SolutionsLocalRagRoute,

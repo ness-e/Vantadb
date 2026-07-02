@@ -537,6 +537,8 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 These tasks reached 100% completion and were moved here from the active backlog.
 
 | `TSK-56` | Fix Windows CI runner (windows-latest) | 🔴 | ✅ |
+| `WEB-02` | Fase 2: Publish 3 Technical Blog Posts (Why I Built, SQLite for AI, Hybrid Search) | 🔴 | ✅ |
+| `WEB-03` | Fase 2: Create real product pages (`/product/benchmarks`, `/security`, `/about/roadmap`, `/docs-api`) | 🔴 | ✅ |
 | `DISC-05` | Fix telemetría de memoria (~225 GB falsos en 34 GB) | 🔴 | ✅ (pendiente reverificación formal) |
 | `TSK-52` | SIGTERM shutdown handler (flush WAL + Fjall) | 🔴 | ✅ |
 | `TSK-68` | Zero-copy FFI: NumPy arrays → 62ms→<20ms | 🔴 | ✅ |
