@@ -1403,8 +1403,9 @@ mod tests {
         let before = operational_metrics_snapshot().hybrid_candidates_fused;
         record_hybrid_query(10, 5);
         record_hybrid_query(20, 3);
-        let delta =
-            operational_metrics_snapshot().hybrid_candidates_fused.saturating_sub(before);
+        let delta = operational_metrics_snapshot()
+            .hybrid_candidates_fused
+            .saturating_sub(before);
         assert!(delta >= 8, "expected delta >= 8, got {delta}");
     }
 

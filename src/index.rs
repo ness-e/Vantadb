@@ -612,7 +612,8 @@ impl CPIndex {
                 VectorRepresentations::None => {}
             }
             for layer in &node.neighbors {
-                total += layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<NeighborVec>();
+                total +=
+                    layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<NeighborVec>();
             }
             total += std::mem::size_of::<HnswNode>();
         }

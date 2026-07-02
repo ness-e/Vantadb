@@ -70,7 +70,10 @@ fn string_literal(input: &str) -> IResult<&str, String> {
         }
     }
 
-    Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
+    Err(nom::Err::Error(nom::error::Error::new(
+        input,
+        nom::error::ErrorKind::Tag,
+    )))
 }
 
 fn parse_u64_id(i: &str) -> IResult<&str, u64> {
