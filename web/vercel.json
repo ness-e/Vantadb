@@ -1,12 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/admin(.*)",
-      "destination": "/admin/index.html"
+      "source": "/admin/:path*",
+      "destination": "/admin/index"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ],
   "cleanUrls": true,
