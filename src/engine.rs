@@ -622,7 +622,7 @@ mod tests {
             .unwrap();
         let result = engine.vector_search(&[1.0, 0.0], 10, 0.0, None);
         assert_eq!(result.source_type, SourceType::VectorSearch);
-        assert!(result.is_partial == false);
+        assert!(!result.is_partial);
         assert_eq!(result.exhaustivity, 1.0);
     }
 
