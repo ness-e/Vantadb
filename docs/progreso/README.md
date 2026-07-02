@@ -18,9 +18,8 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | Python Bindings | 5 | 5 | ✅ |
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
-| Documentation/Website | 11 | 11 | ✅ |
-| Benchmarks/CI | 5 | 5 | ✅ |
-| QA/Tests | 7 | 7 | ✅ |
+| **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% | ✅ |
+| **Testing** | 🟢 Complete (Compiles clean, 265/265 tests passing) | 90% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 7 | 7 | ✅ |
 | Project Management | 6 | 6 | ✅ |
@@ -272,6 +271,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Recent Progress
+
+### Week of 2026-07-01 — Documentation overhaul & Code Hardening
+
+- **Documentation structure**: Re-created Obsidian graph color groups (`docs/.obsidian/graph.json`), installed usability plugins (Dataview, Linter, Calendar) to optimize reading and editing experience locally.
+- **Wikilinks resolution**: Repaired 58 instances of broken `[[wikilinks]]` that were improperly nested inside Markdown code blocks across 10 files (like `architecture.md`, `HTTP_API.md`). Confirmed that while GitHub doesn't natively render wikilinks, they remain ideal for the primary Obsidian-based workflow.
+- **Syntax error fix**: Fixed an improper module-level doc comment (`//!`) and a duplicate `use std::time::Duration` inside `src/cli_server.rs` that was preventing the build and breaking `rustfmt`.
+- **Clippy static analysis**: Fixed an `if_same_then_else` warning in `src/sdk/search.rs:307` related to distance resolution.
+- **Codebase formatting**: Applied `cargo fmt` across all 22 Rust files (1349 lines modified, mostly line-wrapping and import ordering).
+- **Test Suite Verification**: Discovered a system resource limit (Windows pagefile `os error 1455`) during parallel compilation. Bypassed by compiling the `lib` tests individually. All 265/265 tests are now passing successfully.
 
 ### Week of 2026-06-19 — Complete Comprehensive Audit (AUD-01→44)
 

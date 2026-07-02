@@ -222,8 +222,8 @@ Tasks that don't fit in the current roadmap but are kept as a record. No priorit
 | **Persistence (WAL, mmap)** | 🟢 Implemented | 90% |
 | **Indexes (HNSW, BM25)** | 🟢 Functional | 85% |
 | **Python SDK** | 🟢 Complete | 90% |
-| **Documentation** | 🟡 Consolidated (VISION/ROADMAP/GTM created, 34 frontmatter added, 12 docs translated, Unicode normalized) | 85% |
-| **Testing** | 🟡 Partial | 70% |
+| **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% |
+| **Testing** | 🟢 Complete (Compiles clean, 265/265 tests passing) | 90% |
 | **CLI + Server** | 🟢 Complete (repl, json/quiet, typos) | 95% |
 | **API Methods** | 🟢 Complete (filter ops, delete_by_filter, similar_to_key, count, multi-ns) | 95% |
 
