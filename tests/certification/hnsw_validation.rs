@@ -360,7 +360,7 @@ fn hnsw_hard_validation_certification() {
                 r.value()
                     .neighbors
                     .iter()
-                    .map(|l: &Vec<u64>| l.len())
+                    .map(|l| l.len())
                     .sum::<usize>()
             })
             .sum();
@@ -371,7 +371,7 @@ fn hnsw_hard_validation_certification() {
                 r.value()
                     .neighbors
                     .iter()
-                    .map(|l: &Vec<u64>| l.len())
+                    .map(|l| l.len())
                     .sum::<usize>()
             })
             .sum();
