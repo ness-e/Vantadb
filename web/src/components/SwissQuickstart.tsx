@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { gsap, useGSAP, TextPlugin } from "../lib/gsap";
+import { gsap, useGSAP, TextPlugin, ScrollTrigger } from "../lib/gsap";
 
 const STEPS = [
   {
