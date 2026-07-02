@@ -771,3 +771,29 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Update community-plugins.json for Obsidian.
 - **Archivos Modificados:** 35+ Markdown files in docs/
 - **Walkthrough:** [[walkthrough.md]]
+
+### WEB-01: Vercel Deploy & Web Infrastructure Setup (Plan/CI_CD_INTEGRATION.md)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Diagnosticar y corregir el despliegue de la SPA en Vercel: resolver errores 404 en rutas internas, unificar configuración de `vercel.json` y corregir el crash crítico de GSAP en producción que dejaba la página en blanco.
+- **Checklist Completado:**
+  - [x] Auditar estructura completa del proyecto (monorepo Rust + web/)
+  - [x] Eliminar `vercel.json` redundante en la raíz del monorepo
+  - [x] Centralizar configuración en `web/vercel.json` con `buildCommand`, `outputDirectory`, `cleanUrls` y reglas de reescritura SPA
+  - [x] Diagnosticar por qué la SPA mostraba 404 al acceder directamente a rutas internas (`/engine`, `/docs`)
+  - [x] Verificar via CLI de Vercel (`npx vercel ls`) el estado de los despliegues en producción
+  - [x] Diagnosticar crash crítico de GSAP (`TypeError: aS is not a function`) via errores de consola del browser
+  - [x] Resolver race condition de inicialización de módulos en Rollup/producción: mover `gsap.registerPlugin()` a `main.tsx` como primera instrucción del entry point
+  - [x] Corregir errores de compilación Rust en `tests/certification/hnsw_validation.rs` (tipos explícitos para `SmallVec<[u64; 32]>` en closures)
+  - [x] Suprimir advertencia de `dead_code` en `src/metrics.rs::reset_metrics` con `#[allow(dead_code)]`
+  - [x] Añadir `optimizeDeps` en `vite.config.ts` para pre-empaquetar módulos GSAP
+- **Archivos Modificados:**
+  - `web/vercel.json` — Centralización de configuración Vercel
+  - `web/src/main.tsx` — Registro de GSAP como primera instrucción del entry point
+  - `web/src/lib/gsap.ts` — Limpieza de imports y exportaciones duplicadas
+  - `web/vite.config.ts` — Adición de `optimizeDeps` para GSAP
+  - `tests/certification/hnsw_validation.rs` — Corrección de tipos `SmallVec` en closures
+  - `src/metrics.rs` — Supresión de `dead_code` en `reset_metrics()`
+  - `vercel.json` (raíz) — Eliminado
+- **Deuda Técnica Identificada (pendiente):**
+  - Múltiples errores de Clippy en `src/metrics.rs` (`int_plus_one`, `field_reassign_with_default`) y `vantadb-mcp/src/storage.rs` bloqueando el pre-push hook
+  - Carpeta `web/public/admin/` con artefactos de Decap CMS no utilizado
