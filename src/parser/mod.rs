@@ -37,10 +37,40 @@ fn parse_number(i: &str) -> IResult<&str, u32> {
     map_res(digit1, str::parse)(i)
 }
 
-fn string_literal(i: &str) -> IResult<&str, String> {
-    delimited(char('"'), take_while1(|c| c != '"'), char('"'))
-        .map(|s: &str| s.to_string())
-        .parse(i)
+fn string_literal(input: &str) -> IResult<&str, String> {
+    let (input, _) = char('"')(input)?;
+    let mut s = String::new();
+    let mut chars = input.chars().peekable();
+    let mut consumed = 0;
+
+    while let Some(c) = chars.next() {
+        consumed += c.len_utf8();
+        if c == '"' {
+            let remaining = &input[consumed..];
+            return Ok((remaining, s));
+        } else if c == '\\' {
+            if let Some(escaped_char) = chars.next() {
+                consumed += escaped_char.len_utf8();
+                match escaped_char {
+                    'n' => s.push('\n'),
+                    'r' => s.push('\r'),
+                    't' => s.push('\t'),
+                    '\\' => s.push('\\'),
+                    '"' => s.push('"'),
+                    other => {
+                        s.push('\\');
+                        s.push(other);
+                    }
+                }
+            } else {
+                s.push('\\');
+            }
+        } else {
+            s.push(c);
+        }
+    }
+
+    Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
 }
 
 fn parse_u64_id(i: &str) -> IResult<&str, u64> {
