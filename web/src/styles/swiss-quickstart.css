@@ -1,0 +1,200 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Quickstart (dark section)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Layout: 2-column split ── */
+.swiss-qs__layout {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: clamp(3rem, 6vw, 6rem);
+  align-items: start;
+}
+
+/* ── Left — Steps ── */
+.swiss-qs__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--block-dark-text);
+  margin: 1.5rem 0 2.5rem;
+}
+
+.swiss-qs__step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.swiss-qs__step {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--block-dark-border);
+  cursor: pointer;
+  transition: opacity 100ms var(--ease-cut);
+  align-items: flex-start;
+}
+
+.swiss-qs__step:first-child {
+  border-top: 1px solid var(--block-dark-border);
+}
+
+.swiss-qs__step:not(.is-active) {
+  opacity: 0.45;
+}
+
+.swiss-qs__step:hover:not(.is-active) {
+  opacity: 0.75;
+}
+
+.swiss-qs__step-num {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  padding-top: 0.15rem;
+  flex-shrink: 0;
+  min-width: 1.75rem;
+}
+
+.swiss-qs__step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.swiss-qs__step-title {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--block-dark-text);
+}
+
+.swiss-qs__step-desc {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--block-dark-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.swiss-qs__cta-row {
+  margin-top: 0.5rem;
+}
+
+/* ── Right — Terminal ── */
+.swiss-qs__terminal {
+  background: #000000;
+  border: 1px solid var(--block-dark-border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 100px;
+}
+
+.swiss-qs__terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.swiss-qs__terminal-step {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+}
+
+.swiss-qs__terminal-title {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.swiss-qs__terminal-body {
+  padding: 2rem 1.5rem;
+  flex: 1;
+  min-height: 180px;
+}
+
+.swiss-qs__terminal-code {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #e8e8e8;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.swiss-qs__terminal-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.swiss-qs__terminal-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.swiss-qs__prompt-dollar {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--amber);
+}
+
+.swiss-qs__prompt-cursor {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--block-dark-text);
+  animation: term-blink 1.2s step-end infinite;
+}
+
+@keyframes term-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.swiss-qs__terminal-py {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .swiss-qs__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .swiss-qs__terminal {
+    position: static;
+  }
+}

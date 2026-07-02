@@ -1,0 +1,112 @@
+/* ── Terminal base style — Swiss High-Contrast Minimal ── */
+
+.terminal-window {
+  background: var(--void);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm); /* 0px enforced by tokens */
+  overflow: hidden;
+  position: relative;
+  box-shadow: none; /* Anti-slop: zero shadows */
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.term-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--subtle); /* Monocromático, sin colores de semáforo Mac */
+}
+
+.term-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-left: 0.5rem;
+}
+
+.terminal-content {
+  padding: 1.5rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  line-height: 1.6;
+  color: var(--muted);
+  flex: 1;
+}
+
+/* ── Syntax Highlighting (Minimalist) ── */
+.term-line {
+  display: flex;
+  gap: 1rem;
+}
+
+.term-num {
+  color: var(--border);
+  user-select: none;
+  text-align: right;
+  min-width: 1.5rem;
+}
+
+.term-code {
+  color: var(--muted);
+}
+
+.term-keyword {
+  color: var(--foreground);
+}
+
+.term-string {
+  color: var(--amber);
+}
+
+.term-comment {
+  color: var(--steel);
+}
+
+.term-func {
+  color: var(--foreground);
+}
+
+.term-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  background-color: var(--amber);
+  vertical-align: text-bottom;
+  animation: term-blink 1s step-end infinite;
+}
+
+@keyframes term-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Interactive execution output ── */
+.term-output {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+  color: var(--foreground);
+}
+
+.term-output--success {
+  border-left: 2px solid var(--amber);
+  padding-left: 1rem;
+}

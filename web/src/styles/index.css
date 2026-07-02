@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Modular Styles
+   Import order: fonts → tokens → swiss-grid → effects → layout → components → pages
+   ═══════════════════════════════════════════════════════════ */
+
+/* Self-hosted variable fonts (no Google CDN dependency) */
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/jetbrains-mono";
+
+@import "./tokens.css";
+
+/* ── Swiss Design System (new) ── */
+@import "./swiss-grid.css";
+@import "./swiss-hero.css";
+@import "./swiss-benchmark.css";
+@import "./swiss-quickstart.css";
+@import "./swiss-core-engine.css";
+@import "./swiss-use-cases.css";
+@import "./swiss-ecosystem.css";
+@import "./swiss-architecture.css";
+@import "./swiss-subpage.css";
+@import "./swiss-cta.css";
+@import "./footer.css";
+
+@import "./animations.css";
+@import "./layout.css";
+@import "./buttons.css";
+@import "./nav.css";
+@import "./terminal.css";
+@import "./logo.css";
+@import "./engine.css";
+@import "./architecture.css";
+@import "./integrations.css";
+@import "./docs.css";
+@import "./swiss-back-to-top.css";
+@import "./pricing.css";
+@import "./utilities.css";

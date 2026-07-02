@@ -1,0 +1,22 @@
+backend:
+  name: github
+  repo: vantadb/vantadb.github.io
+  branch: main
+  site_domain: vantadb.dev
+
+media_folder: public/images/uploads
+public_folder: /images/uploads
+
+collections:
+  - name: blog
+    label: Blog
+    folder: content/blog
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - { label: Title, name: title, widget: string }
+      - { label: Publish Date, name: date, widget: datetime, format: "YYYY-MM-DD" }
+      - { label: Description, name: description, widget: string }
+      - { label: Author, name: author, widget: string, default: "VantaDB Team" }
+      - { label: Tags, name: tags, widget: list, required: false }
+      - { label: Body, name: body, widget: markdown }

@@ -1,0 +1,120 @@
+{
+  "name": "Landing Page Complete Pipeline",
+  "description": "End-to-end pipeline for a premium landing page with brand, animations, 3D, images, video, and SEO",
+  "version": "1.0.0",
+  "estimated_time": "2-4 hours",
+  "phases": [
+    {
+      "id": "discovery",
+      "name": "Discovery & Brief",
+      "skills": ["creative-director", "design-brief", "enhance-prompt"],
+      "input": "Brand name + value prop + target audience",
+      "output": "DESIGN.md with direction, audience, and constraints",
+      "command": "Load creative-director → design-brief → produce DESIGN.md"
+    },
+    {
+      "id": "brand",
+      "name": "Brand Identity",
+      "skills": ["brandkit", "color-expert", "theme-factory", "design-md"],
+      "input": "DESIGN.md from phase 1",
+      "output": "Brand board, color palette, typography system, theme",
+      "command": "brandkit generates overview → color-expert picks palette → theme-factory creates theme"
+    },
+    {
+      "id": "structure",
+      "name": "Structure & UX",
+      "skills": ["ux-heuristics", "frontend-design", "ux-strategy"],
+      "input": "Design direction from phase 2",
+      "output": "Semantic HTML structure, content hierarchy, trunk test",
+      "command": "ux-heuristics trunk-test → frontend-design semantic structure"
+    },
+    {
+      "id": "visual-design",
+      "name": "Visual Design",
+      "skills": ["ui-ux-pro-max", "ui-design", "taste-skill", "awesome-claude-design"],
+      "input": "HTML structure from phase 3",
+      "output": "Styled landing page with tokens, typography, grid",
+      "command": "ui-ux-pro-max tokens → ui-design applies → taste-skill refines → awesome-claude anti-slop"
+    },
+    {
+      "id": "motion",
+      "name": "Motion & Scroll Animations",
+      "skills": ["emilkowalski-motion", "gsap-scrolltrigger", "motion", "design-motion-principles"],
+      "input": "Styled page from phase 4",
+      "output": "Scroll-triggered reveals, hover micro-interactions, page transitions",
+      "command": "emilkowalski-motion micro-interactions → gsap-scrolltrigger reveals → design-motion-principles audit"
+    },
+    {
+      "id": "hero-3d",
+      "name": "Hero 3D / WebGL (Optional)",
+      "skills": ["threejs", "shader-dev", "frame-liquid-bg-hero"],
+      "input": "Motion page from phase 5",
+      "output": "Interactive 3D hero background or WebGL shader effect",
+      "command": "threejs scene setup → shader-dev custom effect → frame-liquid-bg-hero as fallback"
+    },
+    {
+      "id": "images",
+      "name": "Image Generation",
+      "skills": ["fal-generate", "imagegen", "poster-hero", "imagegen-frontend-web"],
+      "input": "Page sections needing imagery",
+      "output": "Hero images, section backgrounds, icons, screenshots",
+      "command": "fal-generate hero images → imagegen icons → poster-hero CTA sections"
+    },
+    {
+      "id": "video",
+      "name": "Video / Background (Optional)",
+      "skills": ["fal-kling-o3", "sora", "frame-logo-outro"],
+      "input": "Brand assets from phase 2",
+      "output": "Animated video background, logo outro animation",
+      "command": "fal-kling-o3 generate clip → frame-logo-outro brand animation"
+    },
+    {
+      "id": "responsive",
+      "name": "Responsive & Cross-Browser",
+      "skills": ["ui-design", "apple-hig", "platform-design"],
+      "input": "Desktop page from phase 4-8",
+      "output": "Fully responsive mobile/tablet/desktop with Apple HIG compliance",
+      "command": "ui-design responsive breakpoints → apple-hig iOS check → platform-design cross-platform"
+    },
+    {
+      "id": "seo",
+      "name": "SEO & AI Visibility",
+      "skills": ["ai-seo", "seo", "roier-seo"],
+      "input": "Final page content",
+      "output": "Meta tags, structured data, sitemap, llms.txt, OKF",
+      "command": "roier-seo lighthouse audit → ai-seo AI optimization → seo fixes"
+    },
+    {
+      "id": "audit",
+      "name": "Final Audit & Polish",
+      "skills": ["impeccable-design-polish", "visual-critique", "web-design-guidelines", "writing-guidelines", "react-best-practices"],
+      "input": "Complete page from phase 10",
+      "output": "Polished, production-ready landing page, all checks passed",
+      "command": "impeccable-design-polish full audit → visual-critique → web-design-guidelines → writing-guidelines"
+    },
+    {
+      "id": "figma",
+      "name": "Figma Library (Optional)",
+      "skills": ["figma-generate-library", "figma-code-connect-components"],
+      "input": "Design tokens from phase 4",
+      "output": "Figma design library synced with code",
+      "command": "figma-generate-library from tokens → figma-code-connect-components"
+    }
+  ],
+  "quality_gates": {
+    "wcag_aa": true,
+    "lighthouse_90": true,
+    "slop_test_pass": true,
+    "responsive_three_devices": true,
+    "reduced_motion": true
+  },
+  "exit_criteria": [
+    "All 12 phases completed or explicitly skipped",
+    "Visual-critique rating: all pass",
+    "Lighthouse scores >90 (SEO + Performance + Accessibility)",
+    "AI SEO: llms.txt + OKF generated",
+    "WCAG AA: contrast, focus, aria verified",
+    "prefers-reduced-motion: implemented",
+    "Figma library synced (if applicable)"
+  ]
+}

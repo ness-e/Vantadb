@@ -1,0 +1,101 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Use Cases Stylesheet
+   ═══════════════════════════════════════════════════════════ */
+
+.swiss-use-cases-section {
+  border-top: 1px solid var(--border);
+  padding: var(--section-gap) 0;
+  background: var(--background);
+}
+
+.swiss-use-cases-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-top: 3rem;
+}
+
+.swiss-use-case-card {
+  background: var(--background);
+  padding: 3rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  transition: background-color 200ms var(--ease-cut);
+  position: relative;
+}
+
+.swiss-use-case-card:hover {
+  background: var(--surface-raised);
+}
+
+.swiss-use-case-num {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--steel);
+  letter-spacing: 0.1em;
+}
+
+.swiss-use-case-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  margin-bottom: 0.5rem;
+}
+
+.swiss-use-case-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.swiss-use-case-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+  flex-grow: 1;
+}
+
+.swiss-use-case-link {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--foreground);
+  text-decoration: none;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: color 150ms var(--ease-cut);
+  margin-top: auto;
+}
+
+.swiss-use-case-card:hover .swiss-use-case-link {
+  color: var(--amber);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .swiss-use-cases-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .swiss-use-case-card {
+    padding: 2.5rem 2rem;
+  }
+}

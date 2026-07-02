@@ -1,0 +1,276 @@
+/* ═══════════════════════════════════════════════
+   VANTADB LOGO SYSTEM
+   ═══════════════════════════════════════════════ */
+
+/* ─── KEYFRAMES ─── */
+
+@keyframes vdbDrawStroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes vdbOrbitAppear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vdbOrbitSpin {
+  from {
+    transform: rotate(-12deg);
+  }
+  to {
+    transform: rotate(348deg);
+  }
+}
+
+@keyframes vdbOrbitSpinReverse {
+  from {
+    transform: rotate(-12deg);
+  }
+  to {
+    transform: rotate(-372deg);
+  }
+}
+
+@keyframes vdbSingularityPulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgba(255, 106, 0, 0.6));
+  }
+  50% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 8px rgba(255, 106, 0, 1));
+  }
+}
+
+@keyframes vdbCoreAppear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── MARK BASE ─── */
+
+.vdb-mark {
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+/* ─── V LEGS ─── */
+
+.vdb-mark .vdb-v-leg {
+  stroke-dasharray: 54;
+  stroke-dashoffset: 54;
+  animation: vdbDrawStroke 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  will-change: stroke-dashoffset;
+}
+
+.vdb-mark .vdb-v-leg--left {
+  animation-delay: 0ms;
+}
+
+.vdb-mark .vdb-v-leg--right {
+  animation-delay: 80ms;
+}
+
+/* ─── ORBIT RINGS ─── */
+
+.vdb-mark g:has(.vdb-orbit:not(.vdb-orbit--outer)) {
+  transform-origin: 32px 54px;
+  animation: vdbOrbitSpin 8s linear infinite;
+  will-change: transform;
+}
+
+.vdb-mark g:has(.vdb-orbit--outer) {
+  transform-origin: 32px 54px;
+  animation: vdbOrbitSpinReverse 14s linear infinite;
+  will-change: transform;
+}
+
+.vdb-mark .vdb-orbit {
+  opacity: 0;
+  animation: vdbOrbitAppear 0.4s var(--ease-out) 0.6s forwards;
+}
+
+.vdb-mark .vdb-orbit--outer {
+  animation: vdbOrbitAppear 0.4s var(--ease-out) 0.75s forwards;
+  opacity: 0;
+}
+
+/* ─── SINGULARITY + VOID ─── */
+
+.vdb-mark .vdb-singularity {
+  opacity: 0;
+  animation:
+    vdbCoreAppear 0.3s var(--ease-out) 0.5s forwards,
+    vdbSingularityPulse 3.5s ease-in-out 1s infinite;
+  will-change: opacity, filter;
+}
+
+.vdb-mark .vdb-void-core {
+  opacity: 0;
+  animation: vdbCoreAppear 0.3s var(--ease-out) 0.5s forwards;
+}
+
+/* ─── HOVER ─── */
+
+@media (hover: hover) and (pointer: fine) {
+  .vdb-mark:hover .vdb-singularity {
+    filter: drop-shadow(0 0 12px rgba(255, 106, 0, 0.9));
+    transition: filter 200ms var(--ease-out);
+  }
+
+  .vdb-mark:hover .vdb-v-leg {
+    stroke: var(--amber-light);
+    transition: stroke 200ms var(--ease-out);
+  }
+
+  .vdb-mark:hover g:has(.vdb-orbit:not(.vdb-orbit--outer)) {
+    animation-duration: 3s;
+  }
+  .vdb-mark:hover g:has(.vdb-orbit--outer) {
+    animation-duration: 6s;
+  }
+}
+
+/* ─── FULL LOGO ─── */
+
+.vdb-logo-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  text-decoration: none;
+  cursor: default;
+}
+
+a.vdb-logo-full,
+.vdb-logo-full[role="link"] {
+  cursor: pointer;
+}
+
+/* ─── STACKED LOGO ─── */
+
+.vdb-logo-stacked {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  text-align: left;
+}
+
+/* ─── WORDMARK ─── */
+
+.vdb-wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--white);
+  line-height: 1;
+  user-select: none;
+}
+
+.vdb-wordmark-db {
+  color: var(--amber);
+}
+
+.vdb-wordmark--stacked {
+  letter-spacing: -0.02em;
+}
+
+/* ─── BADGE ─── */
+
+.vdb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid rgba(255, 106, 0, 0.15);
+  transition: border-color 200ms var(--ease-cut);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vdb-badge:hover {
+    border-color: rgba(255, 106, 0, 0.4);
+  }
+}
+
+/* ─── NO-ANIM ─── */
+
+.vdb-logo--no-anim .vdb-v-leg,
+.vdb-logo--no-anim .vdb-orbit,
+.vdb-logo--no-anim .vdb-singularity,
+.vdb-logo--no-anim .vdb-void-core {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
+  opacity: 1 !important;
+}
+
+.vdb-logo--no-anim g:has(.vdb-orbit) {
+  animation: none !important;
+}
+
+/* ─── REDUCED MOTION ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  .vdb-v-leg {
+    animation: vdbOrbitAppear 0.3s ease forwards !important;
+    stroke-dashoffset: 0 !important;
+  }
+
+  .vdb-orbit,
+  .vdb-singularity,
+  .vdb-void-core {
+    animation: vdbOrbitAppear 0.3s ease 0.1s forwards !important;
+  }
+
+  .vdb-mark g:has(.vdb-orbit),
+  .vdb-mark g:has(.vdb-orbit--outer) {
+    animation: none !important;
+    transform: rotate(-12deg);
+  }
+
+  .vdb-mark .vdb-singularity {
+    animation: vdbOrbitAppear 0.3s ease 0.1s forwards !important;
+  }
+}
+
+/* ─── FOOTER BRAND GROUP ─── */
+
+.footer-brand-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footer-brand-group .vdb-logo-full {
+  cursor: default;
+  pointer-events: none;
+}
+
+.footer-tagline {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 260px;
+}
+
+@media (max-width: 640px) {
+  .footer-brand-group {
+    align-items: center;
+    text-align: left;
+  }
+  .footer-tagline {
+    text-align: left;
+  }
+}

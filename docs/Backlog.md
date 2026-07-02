@@ -29,6 +29,9 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `MKT-06` | Logo and branding (SVG, palette, favicon) | 🔴 | ❌ |
+| `REL-01` | Bump workspace version v0.1.5 → v0.2.0 (SemVer: 340+ commits, nuevas APIs, 4 plataformas) | 🔴 | ❌ |
+| `LEG-01` | Register trademark "VantaDB" (USPTO + EUIPO) before Show HN | 🔴 | ❌ |
+| `LEG-02` | Add Contributor License Agreement (CLA) for future core contributions | 🟠 | ❌ |
 
 ### 4.B Framework Integrations
 
@@ -64,6 +67,7 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `TSK-121` | SHA256 hash verification of the wheel in tests | 🟢 | ❌ |
+| `REL-02` | Publish `vantadb-ts` npm package (WASM, 26/26 tests, examples listos) | 🔴 | ❌ |
 
 ### 4.G Developer Experience
 
@@ -71,6 +75,8 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 |----|-------|-----------|--------|
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB (showcase) | 🟠 | ❌ |
 | `TSK-103` | Public benchmark site (compare.py vs chroma/lancedb/qdrant) | 🟠 | ❌ |
+| `DX-01` | Refactor API: `VantaDB()` → `connect()` (eliminar redundancia, alinear con SQLite3/LanceDB/DuckDB) | 🟠 | ❌ |
+| `DX-02` | Python SDK latency optimization: reduce p50 from ~62ms to <20ms (PyO3 FFI overhead) | 🟠 | ❌ |
 
 
 ### 4.H Code Health & Security
@@ -121,7 +127,7 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 | `CLD-02` | Pitch Deck + one-pager (10 pre-seed slides) | 🟡 | ❌ |
 | `CLD-03` | Enterprise pilot program (3-5 early adopters) | 🟡 | ❌ |
 | `CLD-04` | Case Studies (minimum 2) | 🟡 | ❌ |
-| `BIZ-01` | Workspace open-source vs enterprise branch | 🟡 | ❌ |
+| `BIZ-01` | Enterprise crate structure: split features pagas a `vantadb-enterprise/` (crate propietario separado del core Apache 2.0) | 🟡 | ❌ |
 | `BIZ-03` | Pricing page (Free/Pro/Enterprise) | 🟡 | ❌ |
 
 **Phase 5 Exit Criteria:** 10 enterprise pilots ✓ | $10K MRR ✓ | 3 case studies ✓ | Pitch deck ✓
@@ -130,11 +136,12 @@ last_refined: 2026-07-01 (AUD-06..18 + sdk.rs split + docs consolidation + code 
 
 ## ⚠️ Risks of Not Doing (pre-launch)
 
-| Risk | Impact | Mitigation |
-|--------|---------|------------|
-| ~~Pending license audit~~ | ✅ Mitigated — `cargo deny check licenses` passes clean, all deps Apache 2.0 compatible |
-| Trademark "VantaDB" not registered | Someone else claims the name | Register trademark at USPTO + EUIPO before Show HN |
-| CI/CD for external forks | Community PRs can break CI or inject malicious code | Workflow approval for first-time contributors + restricted secrets |
+| Risk | Impact | Mitigation | Tracked as |
+|--------|---------|------------|------------|
+| ~~Pending license audit~~ | ✅ Mitigated — `cargo deny check licenses` passes clean, all deps Apache 2.0 compatible | — |
+| Trademark "VantaDB" not registered | Someone else claims the name | Register trademark at USPTO + EUIPO before Show HN | `LEG-01` |
+| No CLA for external contributors | Can't relicense or use contributions commercially | Add CLA before accepting PRs | `LEG-02` |
+| CI/CD for external forks | Community PRs can break CI or inject malicious code | Workflow approval for first-time contributors + restricted secrets | — |
 
 ---
 
@@ -226,6 +233,13 @@ Tasks that don't fit in the current roadmap but are kept as a record. No priorit
 | **Testing** | 🟢 Complete (Compiles clean, 265/265 tests passing) | 90% |
 | **CLI + Server** | 🟢 Complete (repl, json/quiet, typos) | 95% |
 | **API Methods** | 🟢 Complete (filter ops, delete_by_filter, similar_to_key, count, multi-ns) | 95% |
+
+## Web Site
+
+The website project has its own backlog at `web/docs/backlog.md`,
+tracking design, content, and frontend tasks.
+
+See also: [[web/docs/README.md]]
 
 ---
 

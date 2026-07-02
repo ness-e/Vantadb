@@ -1,0 +1,34 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Architecture Page Stylesheet
+   ═══════════════════════════════════════════════════════════ */
+
+.arch-spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  background: var(--background);
+}
+
+.spec-table-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.spec-table-row:last-child {
+  border-bottom: none;
+}
+
+.spec-table-cell {
+  padding: 1.25rem 1rem;
+  vertical-align: top;
+}
+
+.spec-table-desc {
+  padding: 1.25rem 1rem;
+  vertical-align: top;
+}
+
+@media (max-width: 768px) {
+  .arch-spec-table {
+    min-width: 600px;
+  }
+}
