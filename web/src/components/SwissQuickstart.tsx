@@ -77,7 +77,7 @@ export function SwissQuickstart() {
   }, [activeStep, hasEntered]);
 
   return (
-    <section className="swiss-section" style={{ background: "var(--background)", borderTop: "1px solid var(--border)", paddingTop: "120px", paddingBottom: "120px" }}>
+    <section ref={sectionRef} className="swiss-section" style={{ background: "var(--background)", borderTop: "1px solid var(--border)", paddingTop: "120px", paddingBottom: "120px" }}>
       <div className="swiss-grid" style={{ gap: "24px" }}>
         
         {/* Left: Steps nav (4 columnas) */}

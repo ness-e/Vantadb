@@ -95,18 +95,6 @@ export function SwissCoreEngine() {
             scrub: 1,
           }
         });
-        
-        // Dibujar las líneas centrales
-        gsap.to(".swiss-ce-line-path", {
-          strokeDashoffset: 0,
-          ease: "none",
-          scrollTrigger: {
-            trigger: pinContainerRef.current,
-            start: "top top",
-            end: "+=150%",
-            scrub: 1,
-          }
-        });
       } else {
         // Simple fade in para móvil
         gsap.to(".swiss-ce-feature", {
