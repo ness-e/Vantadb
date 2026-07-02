@@ -2,9 +2,9 @@
 //! then search using combined BM25 lexical + HNSW vector similarity.
 //! VantaDB fuses results via Reciprocal Rank Fusion (RRF).
 
+use std::error::Error;
 use vantadb::config::VantaConfig;
 use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest, VantaValue};
-use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let db = VantaEmbedded::open_with_config(VantaConfig {
@@ -13,11 +13,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     let docs = vec![
-        ("hybrid-1", "Neural networks excel at pattern recognition in images"),
-        ("hybrid-2", "Transformer models revolutionized natural language processing"),
-        ("hybrid-3", "Vector databases store embeddings for similarity search"),
-        ("hybrid-4", "BM25 is a classic ranking function for full-text search"),
-        ("hybrid-5", "Reciprocal rank fusion combines multiple ranking signals"),
+        (
+            "hybrid-1",
+            "Neural networks excel at pattern recognition in images",
+        ),
+        (
+            "hybrid-2",
+            "Transformer models revolutionized natural language processing",
+        ),
+        (
+            "hybrid-3",
+            "Vector databases store embeddings for similarity search",
+        ),
+        (
+            "hybrid-4",
+            "BM25 is a classic ranking function for full-text search",
+        ),
+        (
+            "hybrid-5",
+            "Reciprocal rank fusion combines multiple ranking signals",
+        ),
     ];
 
     for (key, payload) in &docs {

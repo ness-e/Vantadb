@@ -1,6 +1,6 @@
-use tracing;
-use crate::error::Result;
 use super::builder::VantaEmbedded;
+use crate::error::Result;
+use tracing;
 
 impl VantaEmbedded {
     /// Breadth-first traversal from one or more root nodes up to `max_depth`.

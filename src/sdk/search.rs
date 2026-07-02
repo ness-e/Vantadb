@@ -1,3 +1,9 @@
+use super::builder::VantaEmbedded;
+use super::serialization::{
+    matches_memory_filters, memory_record_from_node, validate_metadata, validate_namespace,
+    DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY,
+};
+use super::types::*;
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::index::cosine_sim_f32;
@@ -5,12 +11,6 @@ use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing;
 use web_time::Instant;
-use super::builder::VantaEmbedded;
-use super::serialization::{
-    matches_memory_filters, memory_record_from_node, validate_metadata, validate_namespace,
-    DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY,
-};
-use super::types::*;
 
 impl VantaEmbedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
@@ -249,9 +249,7 @@ impl VantaEmbedded {
             }
             if let Some(node) = engine.get(node_id)? {
                 if let Some(record) = memory_record_from_node(node) {
-                    if record.namespace == namespace
-                        && matches_memory_filters(&record, filters)
-                    {
+                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
                         hits.push(VantaMemorySearchHit {
                             record,
                             score,
@@ -305,14 +303,8 @@ impl VantaEmbedded {
             }
             if let Some(node) = engine.get(node_id)? {
                 if let Some(record) = memory_record_from_node(node) {
-                    if record.namespace == namespace
-                        && matches_memory_filters(&record, filters)
-                    {
-                        let score = if distance_metric == crate::node::DistanceMetric::Euclidean {
-                            raw_score
-                        } else {
-                            raw_score
-                        };
+                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
+                        let score = raw_score;
                         hits.push(VantaMemorySearchHit {
                             score,
                             record,
@@ -332,9 +324,7 @@ impl VantaEmbedded {
                     continue;
                 }
                 let score = match distance_metric {
-                    crate::node::DistanceMetric::Cosine => {
-                        cosine_sim_f32(query_vector, vector)
-                    }
+                    crate::node::DistanceMetric::Cosine => cosine_sim_f32(query_vector, vector),
                     crate::node::DistanceMetric::Euclidean => {
                         -crate::index::euclidean_distance_squared_f32(query_vector, vector)
                     }

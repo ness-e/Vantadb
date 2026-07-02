@@ -333,10 +333,7 @@ mod tests {
 
         let result = traverser.topological_sort(&[0]);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Cycle detected"));
+        assert!(result.unwrap_err().to_string().contains("Cycle detected"));
     }
 
     #[test]

@@ -2,11 +2,11 @@
 //! using VantaEmbedded behind an Arc reference.
 //! VantaEmbedded is Send + Sync and safe to share across threads.
 
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 use std::error::Error;
 use std::sync::Arc;
 use std::thread;
+use vantadb::config::VantaConfig;
+use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let db = Arc::new(VantaEmbedded::open_with_config(VantaConfig {
@@ -53,10 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         for i in 0..50 {
             match db_clone.get("concurrent", &format!("key-{}", i)) {
                 Ok(Some(record)) => {
-                    assert_eq!(
-                        record.payload,
-                        format!("Concurrent record number {}", i)
-                    );
+                    assert_eq!(record.payload, format!("Concurrent record number {}", i));
                 }
                 Ok(None) => eprintln!("Reader: key-{} not found", i),
                 Err(e) => eprintln!("Reader error: {e}"),

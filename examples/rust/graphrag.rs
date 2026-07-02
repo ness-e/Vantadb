@@ -2,9 +2,9 @@
 //! connect them with directed edges, then traverse using BFS.
 //! Demonstrates the low-level Node/Graph API.
 
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaNodeInput, VantaFields};
 use std::error::Error;
+use vantadb::config::VantaConfig;
+use vantadb::{VantaEmbedded, VantaFields, VantaNodeInput};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let db = VantaEmbedded::open_with_config(VantaConfig {
@@ -14,11 +14,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // ── Insert graph nodes ──
     let nodes = vec![
-        (1, "VantaDB is an embedded vector database", vec![0.1, 0.2, 0.3]),
-        (2, "HNSW enables fast approximate nearest neighbor search", vec![0.2, 0.3, 0.4]),
-        (3, "BM25 provides full-text lexical retrieval", vec![0.3, 0.4, 0.5]),
-        (4, "Hybrid search fuses vector and text results via RRF", vec![0.4, 0.5, 0.6]),
-        (5, "WAL ensures crash-consistent durability", vec![0.5, 0.6, 0.7]),
+        (
+            1,
+            "VantaDB is an embedded vector database",
+            vec![0.1, 0.2, 0.3],
+        ),
+        (
+            2,
+            "HNSW enables fast approximate nearest neighbor search",
+            vec![0.2, 0.3, 0.4],
+        ),
+        (
+            3,
+            "BM25 provides full-text lexical retrieval",
+            vec![0.3, 0.4, 0.5],
+        ),
+        (
+            4,
+            "Hybrid search fuses vector and text results via RRF",
+            vec![0.4, 0.5, 0.6],
+        ),
+        (
+            5,
+            "WAL ensures crash-consistent durability",
+            vec![0.5, 0.6, 0.7],
+        ),
     ];
 
     for (id, content, vector) in &nodes {
@@ -47,7 +67,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\nBFS from node 1 (max_depth=3):");
     for id in &visited {
         if let Some(record) = db.get_node(*id)? {
-            let content = record.fields.get("content")
+            let content = record
+                .fields
+                .get("content")
                 .and_then(|v| {
                     if let vantadb::VantaValue::String(s) = v {
                         Some(s.as_str())

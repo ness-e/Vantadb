@@ -530,12 +530,21 @@ mod tests {
         assert_eq!(PrefetchMode::from_env_value("AUTO"), PrefetchMode::Auto);
         assert_eq!(PrefetchMode::from_env_value("unknown"), PrefetchMode::Auto);
 
-        assert_eq!(PrefetchMode::from_env_value("disabled"), PrefetchMode::Disabled);
+        assert_eq!(
+            PrefetchMode::from_env_value("disabled"),
+            PrefetchMode::Disabled
+        );
         assert_eq!(PrefetchMode::from_env_value("off"), PrefetchMode::Disabled);
         assert_eq!(PrefetchMode::from_env_value("0"), PrefetchMode::Disabled);
-        assert_eq!(PrefetchMode::from_env_value("false"), PrefetchMode::Disabled);
+        assert_eq!(
+            PrefetchMode::from_env_value("false"),
+            PrefetchMode::Disabled
+        );
 
-        assert_eq!(PrefetchMode::from_env_value("enabled"), PrefetchMode::Enabled);
+        assert_eq!(
+            PrefetchMode::from_env_value("enabled"),
+            PrefetchMode::Enabled
+        );
         assert_eq!(PrefetchMode::from_env_value("on"), PrefetchMode::Enabled);
         assert_eq!(PrefetchMode::from_env_value("1"), PrefetchMode::Enabled);
         assert_eq!(PrefetchMode::from_env_value("true"), PrefetchMode::Enabled);
@@ -636,8 +645,7 @@ mod tests {
 
     #[test]
     fn test_with_eviction_weights() {
-        let cfg = VantaConfig::default()
-            .with_eviction_weights(0.5, 1.5, 2.5, 3.5);
+        let cfg = VantaConfig::default().with_eviction_weights(0.5, 1.5, 2.5, 3.5);
         assert!((cfg.eviction_weight_hits - 0.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 1.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_importance - 2.5).abs() < 1e-9);
@@ -660,8 +668,7 @@ mod tests {
 
     #[test]
     fn test_eviction_weights_struct() {
-        let cfg = VantaConfig::default()
-            .with_eviction_weights(0.1, 0.2, 0.3, 0.4);
+        let cfg = VantaConfig::default().with_eviction_weights(0.1, 0.2, 0.3, 0.4);
         let w = cfg.eviction_weights();
         assert!((w.hits - 0.1).abs() < 1e-9);
         assert!((w.confidence - 0.2).abs() < 1e-9);
@@ -705,8 +712,7 @@ mod tests {
 
     #[test]
     fn test_with_tls() {
-        let cfg = VantaConfig::default()
-            .with_tls("cert.pem".into(), "key.pem".into());
+        let cfg = VantaConfig::default().with_tls("cert.pem".into(), "key.pem".into());
         assert_eq!(cfg.tls_cert_path, Some("cert.pem".into()));
         assert_eq!(cfg.tls_key_path, Some("key.pem".into()));
     }
@@ -719,8 +725,7 @@ mod tests {
 
     #[test]
     fn test_with_prefetch_mode() {
-        let cfg = VantaConfig::default()
-            .with_prefetch_mode(PrefetchMode::Disabled);
+        let cfg = VantaConfig::default().with_prefetch_mode(PrefetchMode::Disabled);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
     }
 

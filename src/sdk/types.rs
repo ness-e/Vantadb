@@ -1,6 +1,6 @@
+use crate::node::DistanceMetric;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use crate::node::DistanceMetric;
 
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

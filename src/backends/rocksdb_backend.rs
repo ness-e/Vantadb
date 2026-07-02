@@ -292,3 +292,158 @@ impl StorageBackend for RocksDbBackend {
         }
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "rocksdb")]
+mod tests {
+    use super::*;
+    use crate::backend::BackendWriteOp;
+    use crate::config::VantaConfig;
+    use tempfile::tempdir;
+
+    fn open_rocksdb() -> (RocksDbBackend, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            memory_limit: Some(256 * 1024 * 1024), // 256 MB to keep test lightweight
+            ..Default::default()
+        };
+        let backend = RocksDbBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
+        (backend, dir)
+    }
+
+    #[test]
+    fn test_rocksdb_open() {
+        let (_b, _dir) = open_rocksdb();
+    }
+
+    #[test]
+    fn test_rocksdb_put_get_default() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        let val = b
+            .get(BackendPartition::Default, b"k1")
+            .unwrap()
+            .expect("k1");
+        assert_eq!(val, b"v1");
+    }
+
+    #[test]
+    fn test_rocksdb_get_missing() {
+        let (b, _dir) = open_rocksdb();
+        assert!(b
+            .get(BackendPartition::Default, b"missing")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_delete() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.delete(BackendPartition::Default, b"k").unwrap();
+        assert!(b.get(BackendPartition::Default, b"k").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_write_batch() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"del", b"val").unwrap();
+
+        let ops = vec![
+            BackendWriteOp::Put {
+                partition: BackendPartition::Default,
+                key: b"a".to_vec(),
+                value: b"1".to_vec(),
+            },
+            BackendWriteOp::Put {
+                partition: BackendPartition::TextIndex,
+                key: b"b".to_vec(),
+                value: b"2".to_vec(),
+            },
+            BackendWriteOp::Delete {
+                partition: BackendPartition::Default,
+                key: b"del".to_vec(),
+            },
+        ];
+        b.write_batch(ops).unwrap();
+
+        assert_eq!(
+            b.get(BackendPartition::Default, b"a").unwrap().unwrap(),
+            b"1"
+        );
+        assert_eq!(
+            b.get(BackendPartition::TextIndex, b"b").unwrap().unwrap(),
+            b"2"
+        );
+        assert!(b.get(BackendPartition::Default, b"del").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_rocksdb_scan() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        b.put(BackendPartition::Default, b"k2", b"v2").unwrap();
+        let entries = b.scan(BackendPartition::Default).unwrap();
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_rocksdb_scan_prefix() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::PayloadIndex, b"abc", b"1").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"abd", b"2").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"zzz", b"3").unwrap();
+        let entries = b
+            .scan_prefix(BackendPartition::PayloadIndex, b"ab")
+            .unwrap();
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_rocksdb_scan_prefix_no_match() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"abc", b"1").unwrap();
+        assert!(b
+            .scan_prefix(BackendPartition::Default, b"zz")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_rocksdb_flush() {
+        let (b, _dir) = open_rocksdb();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.flush().unwrap();
+        assert_eq!(
+            b.get(BackendPartition::Default, b"k").unwrap().unwrap(),
+            b"v"
+        );
+    }
+
+    #[test]
+    fn test_rocksdb_checkpoint() {
+        let (b, _dir) = open_rocksdb();
+        let base = tempdir().unwrap();
+        let cp_path = base.path().join("checkpoint");
+        b.put(BackendPartition::Default, b"ck", b"cv").unwrap();
+        b.flush().unwrap();
+        b.checkpoint(&cp_path).unwrap();
+
+        assert!(cp_path.join("CURRENT").exists());
+    }
+
+    #[test]
+    fn test_rocksdb_compact() {
+        let (b, _dir) = open_rocksdb();
+        b.compact(); // should not panic
+    }
+
+    #[test]
+    fn test_rocksdb_capabilities() {
+        let (b, _dir) = open_rocksdb();
+        let caps = b.capabilities();
+        assert!(caps.supports_checkpoint);
+        assert!(caps.supports_manual_compaction);
+        assert_eq!(caps.kind, crate::backend::BackendKind::RocksDb);
+    }
+}
