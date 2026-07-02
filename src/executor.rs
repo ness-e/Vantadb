@@ -10,6 +10,7 @@ use crate::query::{LogicalOperator, LogicalPlan, Statement};
 use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+#[derive(Debug)]
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
     Write {
@@ -376,5 +377,376 @@ impl<'a> Executor<'a> {
         physical_op.close()?;
         governor.free_allocation(estimated_mem_cost);
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::BackendKind;
+    use crate::config::VantaConfig;
+    use crate::node::FieldValue;
+    use crate::query::{DeleteStatement, InsertStatement, RelateStatement, UpdateStatement};
+    use std::collections::BTreeMap;
+    use tempfile::tempdir;
+
+    fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+        (storage, dir)
+    }
+
+    // ── Construction ──
+
+    #[test]
+    fn test_new_executor_defaults() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        assert_eq!(ex.certitude, CertitudeMode::Balanced);
+        assert_eq!(ex.path_mode, SearchPathMode::Standard);
+        assert_eq!(ex.io_consumed(), 0.0);
+    }
+
+    #[test]
+    fn test_with_certitude() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Strict);
+        assert_eq!(ex.certitude, CertitudeMode::Strict);
+    }
+
+    #[test]
+    fn test_with_path_mode_changes_mode() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage).with_path_mode(SearchPathMode::Uncertain);
+        assert_eq!(ex.path_mode, SearchPathMode::Uncertain);
+    }
+
+    // ── CertitudeMode ──
+
+    #[test]
+    fn test_certitude_io_multiplier() {
+        assert_eq!(CertitudeMode::Fast.io_quota_multiplier(), 1.0);
+        assert_eq!(CertitudeMode::Balanced.io_quota_multiplier(), 1.5);
+        assert_eq!(CertitudeMode::Strict.io_quota_multiplier(), 3.0);
+    }
+
+    // ── I/O tracking ──
+
+    #[test]
+    fn test_io_consumed_starts_zero() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Fast);
+        assert_eq!(ex.io_consumed(), 0.0);
+    }
+
+    #[test]
+    fn test_consume_io_increases_budget() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Fast);
+        ex.consume_io(5.0);
+        assert_eq!(ex.io_consumed(), 5.0);
+    }
+
+    #[test]
+    fn test_consume_io_accumulates() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Fast);
+        ex.consume_io(1.0);
+        ex.consume_io(2.0);
+        assert_eq!(ex.io_consumed(), 3.0);
+    }
+
+    #[test]
+    fn test_consume_io_applies_multiplier() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Strict);
+        ex.consume_io(10.0);
+        assert_eq!(ex.io_consumed(), 30.0); // 10 * 3.0
+    }
+
+    #[test]
+    fn test_consume_io_fast_mode() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::with_certitude(&storage, CertitudeMode::Fast);
+        ex.consume_io(7.0);
+        assert_eq!(ex.io_consumed(), 7.0); // 7 * 1.0
+    }
+
+    // ── insert_node ──
+
+    #[test]
+    fn test_insert_node_stores_in_storage() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let node = UnifiedNode::new(42);
+        ex.insert_node(&node).unwrap();
+        let fetched = storage.get(42).unwrap().unwrap();
+        assert_eq!(fetched.id, 42);
+    }
+
+    // ── execute_hybrid ──
+
+    #[test]
+    fn test_execute_hybrid_rejects_lisp() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("(match ...)").unwrap_err();
+        assert!(matches!(err, VantaError::Execution(_)));
+        assert!(err.to_string().contains("LISP"));
+    }
+
+    #[test]
+    fn test_execute_hybrid_parse_error() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+        let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
+        assert!(matches!(err, VantaError::Execution(_)));
+        assert!(err.to_string().contains("Parse Error"));
+    }
+
+    // ── execute_statement: Insert ──
+
+    #[test]
+    fn test_execute_insert_statement() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("name".into(), FieldValue::String("alice".into()));
+
+        let stmt = Statement::Insert(InsertStatement {
+            node_id: 10,
+            node_type: "Person".into(),
+            fields,
+            vector: Some(vec![0.1, 0.2, 0.3]),
+        });
+
+        let result = ex.execute_statement(stmt).unwrap();
+        match result {
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert_eq!(node_id, Some(10));
+                assert!(message.contains("inserted"));
+            }
+            _ => panic!("expected Write result"),
+        }
+
+        let node = storage.get(10).unwrap().unwrap();
+        assert_eq!(
+            node.get_field("name"),
+            Some(&FieldValue::String("alice".into()))
+        );
+    }
+
+    #[test]
+    fn test_execute_insert_without_vector_emits_warning() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("text".into(), FieldValue::String("hello".into()));
+
+        let stmt = Statement::Insert(InsertStatement {
+            node_id: 20,
+            node_type: "Message".into(),
+            fields,
+            vector: None,
+        });
+
+        // Without remote-inference feature, it inserts with a warning but no vector
+        let result = ex.execute_statement(stmt).unwrap();
+        match result {
+            ExecutionResult::Write { affected_nodes, .. } => {
+                assert_eq!(affected_nodes, 1);
+            }
+            _ => panic!("expected Write result"),
+        }
+
+        let node = storage.get(20).unwrap().unwrap();
+        assert!(node.vector.is_none());
+    }
+
+    // ── execute_statement: Update ──
+
+    #[test]
+    fn test_execute_update_statement() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        // Insert first
+        let insert = Statement::Insert(InsertStatement {
+            node_id: 30,
+            node_type: "Person".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        });
+        ex.execute_statement(insert).unwrap();
+
+        // Update
+        let mut fields = BTreeMap::new();
+        fields.insert("age".into(), FieldValue::Int(25));
+        let update = Statement::Update(UpdateStatement {
+            node_id: 30,
+            fields,
+            vector: None,
+        });
+        let result = ex.execute_statement(update).unwrap();
+        match result {
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                ..
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert!(message.contains("updated"));
+            }
+            _ => panic!("expected Write result"),
+        }
+
+        let node = storage.get(30).unwrap().unwrap();
+        assert_eq!(node.get_field("age"), Some(&FieldValue::Int(25)));
+    }
+
+    #[test]
+    fn test_execute_update_nonexistent_errors() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let update = Statement::Update(UpdateStatement {
+            node_id: 999,
+            fields: BTreeMap::new(),
+            vector: None,
+        });
+        let err = ex.execute_statement(update).unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    // ── execute_statement: Delete ──
+
+    #[test]
+    fn test_execute_delete_statement() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let insert = Statement::Insert(InsertStatement {
+            node_id: 40,
+            node_type: "Temp".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        });
+        ex.execute_statement(insert).unwrap();
+
+        let delete = Statement::Delete(DeleteStatement { node_id: 40 });
+        let result = ex.execute_statement(delete).unwrap();
+        match result {
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                ..
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert!(message.contains("deleted"));
+            }
+            _ => panic!("expected Write result"),
+        }
+
+        assert!(storage.get(40).unwrap().is_none());
+    }
+
+    // ── execute_statement: Relate ──
+
+    #[test]
+    fn test_execute_relate_statement() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        // Insert two nodes
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 50,
+            node_type: "A".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        }))
+        .unwrap();
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 51,
+            node_type: "B".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        }))
+        .unwrap();
+
+        // Relate them
+        let relate = Statement::Relate(RelateStatement {
+            source_id: 50,
+            target_id: 51,
+            label: "knows".into(),
+            weight: Some(0.9),
+        });
+        let result = ex.execute_statement(relate).unwrap();
+        match result {
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                ..
+            } => {
+                assert_eq!(affected_nodes, 1);
+                assert!(message.contains("related"));
+            }
+            _ => panic!("expected Write result"),
+        }
+
+        let node = storage.get(50).unwrap().unwrap();
+        assert_eq!(node.edges.len(), 1);
+        assert_eq!(node.edges[0].target, 51);
+        assert_eq!(node.edges[0].label, "knows");
+        assert_eq!(node.edges[0].weight, 0.9);
+    }
+
+    #[test]
+    fn test_execute_relate_missing_source_errors() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let relate = Statement::Relate(RelateStatement {
+            source_id: 999,
+            target_id: 1,
+            label: "x".into(),
+            weight: None,
+        });
+        let err = ex.execute_statement(relate).unwrap_err();
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_execute_relate_missing_target_errors() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 60,
+            node_type: "A".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        }))
+        .unwrap();
+
+        let relate = Statement::Relate(RelateStatement {
+            source_id: 60,
+            target_id: 999,
+            label: "x".into(),
+            weight: None,
+        });
+        let err = ex.execute_statement(relate).unwrap_err();
+        assert!(err.to_string().contains("not exist") || err.to_string().contains("Tombstone"));
     }
 }

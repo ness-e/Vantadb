@@ -2281,7 +2281,11 @@ impl StorageEngine {
                 continue;
             }
 
-            let id = u64::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 8] after length guard"));
+            let id = u64::from_le_bytes(
+                key.as_slice()
+                    .try_into()
+                    .expect("key slice fits [u8; 8] after length guard"),
+            );
 
             let metadata: NodeMetadata =
                 match bincode::serde::decode_from_slice(&value, bincode::config::standard()) {

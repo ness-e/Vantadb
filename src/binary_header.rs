@@ -56,7 +56,11 @@ impl VantaHeader {
         magic.copy_from_slice(&bytes[0..4]);
         let format_version = u16::from_le_bytes([bytes[4], bytes[5]]);
         let schema_version = u16::from_le_bytes([bytes[6], bytes[7]]);
-        let timestamp = u64::from_le_bytes(bytes[8..16].try_into().expect("header bytes slice fits u64"));
+        let timestamp = u64::from_le_bytes(
+            bytes[8..16]
+                .try_into()
+                .expect("header bytes slice fits u64"),
+        );
         Ok(Self {
             magic,
             format_version,

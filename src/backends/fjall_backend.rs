@@ -236,3 +236,191 @@ impl StorageBackend for FjallBackend {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::BackendWriteOp;
+    use crate::config::VantaConfig;
+    use tempfile::tempdir;
+
+    fn open_fjall() -> (FjallBackend, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let config = VantaConfig::default();
+        let backend = FjallBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
+        (backend, dir)
+    }
+
+    #[test]
+    fn test_fjall_open() {
+        let (_b, _dir) = open_fjall();
+    }
+
+    #[test]
+    fn test_fjall_put_get_default() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        let val = b
+            .get(BackendPartition::Default, b"k1")
+            .unwrap()
+            .expect("k1");
+        assert_eq!(val, b"v1");
+    }
+
+    #[test]
+    fn test_fjall_get_missing() {
+        let (b, _dir) = open_fjall();
+        assert!(b
+            .get(BackendPartition::Default, b"missing")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn test_fjall_put_get_multi_partition() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"d", b"default").unwrap();
+        b.put(BackendPartition::Tombstones, b"t", b"tomb").unwrap();
+        b.put(BackendPartition::TextIndex, b"x", b"text").unwrap();
+        assert_eq!(
+            b.get(BackendPartition::Default, b"d").unwrap().unwrap(),
+            b"default"
+        );
+        assert_eq!(
+            b.get(BackendPartition::Tombstones, b"t").unwrap().unwrap(),
+            b"tomb"
+        );
+        assert_eq!(
+            b.get(BackendPartition::TextIndex, b"x").unwrap().unwrap(),
+            b"text"
+        );
+    }
+
+    #[test]
+    fn test_fjall_delete() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.delete(BackendPartition::Default, b"k").unwrap();
+        assert!(b.get(BackendPartition::Default, b"k").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_fjall_delete_missing() {
+        let (b, _dir) = open_fjall();
+        // Deleting a missing key should not error
+        b.delete(BackendPartition::Default, b"missing").unwrap();
+    }
+
+    #[test]
+    fn test_fjall_write_batch() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"del", b"val").unwrap();
+
+        let ops = vec![
+            BackendWriteOp::Put {
+                partition: BackendPartition::Default,
+                key: b"a".to_vec(),
+                value: b"1".to_vec(),
+            },
+            BackendWriteOp::Put {
+                partition: BackendPartition::NamespaceIndex,
+                key: b"b".to_vec(),
+                value: b"2".to_vec(),
+            },
+            BackendWriteOp::Delete {
+                partition: BackendPartition::Default,
+                key: b"del".to_vec(),
+            },
+        ];
+        b.write_batch(ops).unwrap();
+
+        assert_eq!(
+            b.get(BackendPartition::Default, b"a").unwrap().unwrap(),
+            b"1"
+        );
+        assert_eq!(
+            b.get(BackendPartition::NamespaceIndex, b"b")
+                .unwrap()
+                .unwrap(),
+            b"2"
+        );
+        assert!(b.get(BackendPartition::Default, b"del").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_fjall_scan() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"k1", b"v1").unwrap();
+        b.put(BackendPartition::Default, b"k2", b"v2").unwrap();
+        let entries = b.scan(BackendPartition::Default).unwrap();
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_fjall_scan_empty_partition() {
+        let (b, _dir) = open_fjall();
+        assert!(b
+            .scan(BackendPartition::CompressedArchive)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_fjall_scan_prefix() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::PayloadIndex, b"abc", b"1").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"abd", b"2").unwrap();
+        b.put(BackendPartition::PayloadIndex, b"zzz", b"3").unwrap();
+        let entries = b
+            .scan_prefix(BackendPartition::PayloadIndex, b"ab")
+            .unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, b"abc");
+        assert_eq!(entries[1].0, b"abd");
+    }
+
+    #[test]
+    fn test_fjall_scan_prefix_no_match() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"abc", b"1").unwrap();
+        assert!(b
+            .scan_prefix(BackendPartition::Default, b"zz")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_fjall_flush() {
+        let (b, _dir) = open_fjall();
+        b.put(BackendPartition::Default, b"k", b"v").unwrap();
+        b.flush().unwrap();
+        // After flush the value should still be there
+        assert_eq!(
+            b.get(BackendPartition::Default, b"k").unwrap().unwrap(),
+            b"v"
+        );
+    }
+
+    #[test]
+    fn test_fjall_checkpoint_not_supported() {
+        let (b, _dir) = open_fjall();
+        let dir = tempdir().unwrap();
+        let err = b.checkpoint(dir.path()).unwrap_err();
+        assert!(err.to_string().contains("not supported"));
+    }
+
+    #[test]
+    fn test_fjall_compact_noop() {
+        let (b, _dir) = open_fjall();
+        b.compact(); // should not panic
+    }
+
+    #[test]
+    fn test_fjall_capabilities() {
+        let (b, _dir) = open_fjall();
+        let caps = b.capabilities();
+        assert!(!caps.supports_checkpoint);
+        assert!(!caps.supports_manual_compaction);
+        assert_eq!(caps.kind, crate::backend::BackendKind::Fjall);
+    }
+}

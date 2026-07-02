@@ -1,9 +1,9 @@
 //! Basic CRUD example: create a VantaEmbedded instance, add memory records with
 //! vectors and metadata, search by vector similarity, and print results.
 
+use std::error::Error;
 use vantadb::config::VantaConfig;
 use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest, VantaValue};
-use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let db = VantaEmbedded::open_with_config(VantaConfig {
@@ -14,7 +14,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let records = vec![
         ("doc-1", "The quick brown fox jumps over the lazy dog"),
         ("doc-2", "A fast brown fox leaps over a sleepy hound"),
-        ("doc-3", "Vector databases store embeddings for similarity search"),
+        (
+            "doc-3",
+            "Vector databases store embeddings for similarity search",
+        ),
     ];
 
     for (key, payload) in &records {

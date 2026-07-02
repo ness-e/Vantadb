@@ -1318,7 +1318,10 @@ mod tests {
         let snap_before = operational_metrics_snapshot();
         record_text_postings_written(0);
         let snap_after = operational_metrics_snapshot();
-        assert_eq!(snap_before.text_postings_written, snap_after.text_postings_written);
+        assert_eq!(
+            snap_before.text_postings_written,
+            snap_after.text_postings_written
+        );
     }
 
     #[test]
@@ -1441,20 +1444,20 @@ mod tests {
 
     #[test]
     fn test_record_import() {
-        reset_metrics();
+        let before = operational_metrics_snapshot();
         record_import(200, 3);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.records_imported, 200);
-        assert_eq!(snap.import_errors, 3);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.records_imported - before.records_imported, 200);
+        assert_eq!(after.import_errors - before.import_errors, 3);
     }
 
     #[test]
     fn test_record_import_no_errors() {
-        reset_metrics();
+        let before = operational_metrics_snapshot();
         record_import(50, 0);
-        let snap = operational_metrics_snapshot();
-        assert_eq!(snap.records_imported, 50);
-        assert_eq!(snap.import_errors, 0);
+        let after = operational_metrics_snapshot();
+        assert_eq!(after.records_imported - before.records_imported, 50);
+        assert_eq!(after.import_errors - before.import_errors, 0);
     }
 
     // ── Derived scans ──────────────────────────────────────────
@@ -1530,6 +1533,9 @@ mod tests {
     fn test_export_metrics_text_non_empty() {
         reset_metrics();
         let text = export_metrics_text();
-        assert!(!text.is_empty(), "export_metrics_text() should return non-empty prometheus output");
+        assert!(
+            !text.is_empty(),
+            "export_metrics_text() should return non-empty prometheus output"
+        );
     }
 }

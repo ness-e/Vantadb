@@ -1,12 +1,11 @@
-use parking_lot::RwLock;
-use std::path::Path;
-use std::sync::Arc;
-use tracing;
 use crate::config::VantaConfig;
 use crate::error::{Result, VantaError};
 use crate::index::set_prefetch_mode;
 use crate::storage::StorageEngine;
-
+use parking_lot::RwLock;
+use std::path::Path;
+use std::sync::Arc;
+use tracing;
 
 /// Stable embedded database handle used by SDKs and bindings.
 #[derive(Clone)]

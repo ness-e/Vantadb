@@ -1,14 +1,14 @@
-use tracing;
-use crate::backend::BackendPartition;
-use crate::error::{Result, VantaError};
-use crate::executor::Executor;
-use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use super::builder::VantaEmbedded;
 use super::serialization::{
     memory_node_id, memory_record_from_node, memory_record_to_node_owned, now_ms, validate_key,
     validate_metadata, validate_namespace, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
 };
 use super::types::*;
+use crate::backend::BackendPartition;
+use crate::error::{Result, VantaError};
+use crate::executor::Executor;
+use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use tracing;
 
 impl VantaEmbedded {
     /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
@@ -459,14 +459,7 @@ impl VantaEmbedded {
         let results = {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store.read();
-            hnsw.search_nearest(
-                vector,
-                None,
-                None,
-                u128::MAX,
-                top_k,
-                Some(&*vs),
-            )
+            hnsw.search_nearest(vector, None, None, u128::MAX, top_k, Some(&*vs))
         };
         Ok(results
             .into_iter()

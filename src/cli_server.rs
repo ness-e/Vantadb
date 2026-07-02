@@ -6,6 +6,8 @@
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
 use std::sync::OnceLock;
+#[cfg(feature = "tls")]
+use std::time::Duration;
 
 use axum::{
     extract::State,
@@ -567,8 +569,12 @@ pub async fn build_tls13_config(
         ));
     }
 
-    let key = PrivateKeyDer::try_from(key_vec.pop().expect("key_vec has exactly one element after guard"))
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let key = PrivateKeyDer::try_from(
+        key_vec
+            .pop()
+            .expect("key_vec has exactly one element after guard"),
+    )
+    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
     let mut config =
         rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
@@ -589,14 +595,6 @@ async fn serve_http_or_tls(
 ) {
     #[cfg(feature = "tls")]
     if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
-//! HTTP server startup and route wiring for VantaDB's CLI server.
-//!
-//! Builds an [`axum`] application, mounts middleware and API routes,
-//! and binds to the configured address.
-
-use std::sync::Arc;
-        use std::time::Duration;
-
         let tls_config = match build_tls13_config(cert, key).await {
             Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
             Err(e) => {

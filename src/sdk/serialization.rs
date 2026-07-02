@@ -1,3 +1,5 @@
+use super::builder::VantaEmbedded;
+use super::types::*;
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::executor::ExecutionResult;
@@ -13,8 +15,6 @@ use tracing;
 use twox_hash::XxHash64;
 use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
-use super::builder::VantaEmbedded;
-use super::types::*;
 
 const RESERVED_PREFIX: &str = "__vanta_";
 pub const FIELD_NAMESPACE: &str = "__vanta_namespace";
@@ -479,10 +479,7 @@ impl VantaEmbedded {
             })
     }
 
-    fn write_derived_index_state(
-        engine: &StorageEngine,
-        state: &DerivedIndexState,
-    ) -> Result<()> {
+    fn write_derived_index_state(engine: &StorageEngine, state: &DerivedIndexState) -> Result<()> {
         let bytes = bincode::serde::encode_to_vec(state, bincode::config::standard())
             .map_err(|err| VantaError::SerializationError(err.to_string()))?;
         engine.put_to_partition(

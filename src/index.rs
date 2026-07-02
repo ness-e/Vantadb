@@ -1209,7 +1209,13 @@ impl CPIndex {
     }
 
     #[inline]
-    fn shrink_neighbors(&self, neighbor_id: u64, m_max: usize, current_neighbors: &[u64], layer: usize) {
+    fn shrink_neighbors(
+        &self,
+        neighbor_id: u64,
+        m_max: usize,
+        current_neighbors: &[u64],
+        layer: usize,
+    ) {
         let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
             Some(n) => (
                 n.vec_data.as_f32_slice().map(|s| s.to_vec()),
