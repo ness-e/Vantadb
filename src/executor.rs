@@ -145,18 +145,27 @@ impl<'a> Executor<'a> {
 
                 use crate::node::AccessTracker;
                 // Phase 30: Archaeological Interception (Non-blocking)
-                for node in &nodes {
-                    if let Some(crate::node::FieldValue::String(node_type)) =
+                let mut filtered_nodes = Vec::with_capacity(nodes.len());
+                for node in nodes {
+                    let is_low_confidence_summary = if let Some(crate::node::FieldValue::String(node_type)) =
                         node.relational.get("type")
                     {
-                        if node_type == "SemanticSummary" && node.confidence_score() < 0.4 {
-                            tracing::warn!("[Executor] Supervised mode: Low-confidence summary detected (ID 0). Skipping.");
-                            continue;
-                        }
+                        node_type == "SemanticSummary" && node.confidence_score() < 0.4
+                    } else {
+                        false
+                    };
+
+                    if is_low_confidence_summary {
+                        tracing::warn!(
+                            "[Executor] Supervised mode: Low-confidence summary detected (ID {}). Skipping.",
+                            node.id
+                        );
+                    } else {
+                        filtered_nodes.push(node);
                     }
                 }
 
-                Ok(ExecutionResult::Read(nodes))
+                Ok(ExecutionResult::Read(filtered_nodes))
             }
             Statement::Insert(insert) => {
                 let mut node = UnifiedNode::new(insert.node_id);

@@ -76,6 +76,15 @@ fn dql_parser_certification() {
             assert_eq!(del.node_id, 5);
         }
 
+        TerminalReporter::sub_step("Testing INSERT MESSAGE with escaped quotes and backslashes...");
+        let q_msg = r#"INSERT MESSAGE SYSTEM "Hello \"world\" \\ test \n newline" TO THREAD#200"#;
+        let (_, stmt_msg) = parse_statement(q_msg).expect("Insert message parse failed");
+        if let Statement::InsertMessage(msg) = stmt_msg {
+            assert_eq!(msg.msg_role, "system");
+            assert_eq!(msg.content, "Hello \"world\" \\ test \n newline");
+            assert_eq!(msg.thread_id, 200);
+        }
+
         TerminalReporter::success("DML statement family parsing complete.");
     });
 }

@@ -938,9 +938,10 @@ pub fn handle_tools_call(
                 .as_u64()
                 .ok_or_else(|| json!({"code": -32602, "message": "Missing 'thread_id'"}))?;
 
+            let escaped_content = content.replace('\\', "\\\\").replace('"', "\\\"");
             let query = format!(
                 "INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}",
-                content, thread_id
+                escaped_content, thread_id
             );
             match executor.execute_hybrid(&query) {
                 Ok(ExecutionResult::Write {
