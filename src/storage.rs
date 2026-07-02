@@ -2629,17 +2629,21 @@ mod tests {
 
     /// Create a StorageEngine with InMemory backend for testing.
     fn in_memory_engine() -> StorageEngine {
-        let mut config = VantaConfig::default();
-        config.backend_kind = BackendKind::InMemory;
-        config.read_only = false;
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            read_only: false,
+            ..VantaConfig::default()
+        };
         StorageEngine::open_with_config(":memory:", Some(config))
             .expect("Failed to open in-memory engine")
     }
 
     fn in_memory_read_only() -> StorageEngine {
-        let mut config = VantaConfig::default();
-        config.backend_kind = BackendKind::InMemory;
-        config.read_only = true;
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            read_only: true,
+            ..VantaConfig::default()
+        };
         StorageEngine::open_with_config(":memory:", Some(config))
             .expect("Failed to open read-only in-memory engine")
     }
@@ -2798,8 +2802,10 @@ mod tests {
 
     #[test]
     fn test_guard_write_allowed_read_only() {
-        let mut config = VantaConfig::default();
-        config.read_only = true;
+        let config = VantaConfig {
+            read_only: true,
+            ..VantaConfig::default()
+        };
         let result = StorageEngine::guard_write_allowed(&config);
         assert!(result.is_err());
         assert!(result.err().unwrap().to_string().contains("read-only"));
@@ -2913,9 +2919,11 @@ mod tests {
 
     #[test]
     fn test_check_memory_pressure_disabled() {
-        let mut config = VantaConfig::default();
-        config.backend_kind = BackendKind::InMemory;
-        config.rss_threshold = 0.0; // disabled
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            rss_threshold: 0.0, // disabled
+            ..VantaConfig::default()
+        };
         let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
         assert!(engine.check_memory_pressure().is_ok());
     }
@@ -3273,10 +3281,12 @@ mod tests {
 
     #[test]
     fn test_insert_fails_on_resource_limit() {
-        let mut config = VantaConfig::default();
-        config.backend_kind = BackendKind::InMemory;
-        config.rss_threshold = 0.0001;
-        config.memory_limit = Some(1);
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            rss_threshold: 0.0001,
+            memory_limit: Some(1),
+            ..VantaConfig::default()
+        };
         let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
         let result = engine.insert(&sample_node(1));
         // may succeed or fail with ResourceLimit depending on mincore

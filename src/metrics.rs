@@ -1337,7 +1337,7 @@ mod tests {
         let before = operational_metrics_snapshot().text_index_repairs;
         record_text_index_repair();
         let after = operational_metrics_snapshot().text_index_repairs;
-        assert!(after >= before + 1);
+        assert!(after > before);
     }
 
     #[test]
@@ -1348,8 +1348,8 @@ mod tests {
         // text_lexical_query_ms uses store semantics
         assert!(snap.text_lexical_query_ms >= 42);
         // text_candidates_scored and text_lexical_queries use fetch_add
-        assert!(snap.text_candidates_scored >= before.text_candidates_scored + 500);
-        assert!(snap.text_lexical_queries >= before.text_lexical_queries + 1);
+        assert!(snap.text_candidates_scored > before.text_candidates_scored + 499);
+        assert!(snap.text_lexical_queries > before.text_lexical_queries);
     }
 
     #[test]
@@ -1370,7 +1370,7 @@ mod tests {
         let before = operational_metrics_snapshot();
         record_text_consistency_audit(false);
         let snap = operational_metrics_snapshot();
-        assert!(snap.text_consistency_audits >= before.text_consistency_audits + 1);
+        assert!(snap.text_consistency_audits > before.text_consistency_audits);
         assert_eq!(
             snap.text_consistency_audit_failures,
             before.text_consistency_audit_failures
@@ -1382,8 +1382,8 @@ mod tests {
         let before = operational_metrics_snapshot();
         record_text_consistency_audit(true);
         let snap = operational_metrics_snapshot();
-        assert!(snap.text_consistency_audits >= before.text_consistency_audits + 1);
-        assert!(snap.text_consistency_audit_failures >= before.text_consistency_audit_failures + 1);
+        assert!(snap.text_consistency_audits > before.text_consistency_audits);
+        assert!(snap.text_consistency_audit_failures > before.text_consistency_audit_failures);
     }
 
     #[test]
@@ -1417,9 +1417,9 @@ mod tests {
         record_planner_text_only_query();
         record_planner_vector_only_query();
         let snap = operational_metrics_snapshot();
-        assert!(snap.planner_hybrid_queries >= before.planner_hybrid_queries + 1);
-        assert!(snap.planner_text_only_queries >= before.planner_text_only_queries + 1);
-        assert!(snap.planner_vector_only_queries >= before.planner_vector_only_queries + 1);
+        assert!(snap.planner_hybrid_queries > before.planner_hybrid_queries);
+        assert!(snap.planner_text_only_queries > before.planner_text_only_queries);
+        assert!(snap.planner_vector_only_queries > before.planner_vector_only_queries);
     }
 
     #[test]
@@ -1486,8 +1486,8 @@ mod tests {
         record_derived_prefix_scan();
         record_derived_full_scan_fallback();
         let snap = operational_metrics_snapshot();
-        assert!(snap.derived_prefix_scans >= before.derived_prefix_scans + 1);
-        assert!(snap.derived_full_scan_fallbacks >= before.derived_full_scan_fallbacks + 1);
+        assert!(snap.derived_prefix_scans > before.derived_prefix_scans);
+        assert!(snap.derived_full_scan_fallbacks > before.derived_full_scan_fallbacks);
     }
 
     #[test]
