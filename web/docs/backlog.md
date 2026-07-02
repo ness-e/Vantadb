@@ -7,7 +7,7 @@
 >
 > Documentos fuente:
 > - `docs/ANALISIS_COMPLETO_Y_DECISIONES.md` (v4.0) — análisis web + decisiones
-> - `VantaDB/docs/REPORTE_INVESTIGACION_Y_DECISIONES.md` (v2.0) — investigaciones profundas
+> - `docs/archive/REPORTE_INVESTIGACION_Y_DECISIONES.md` (v2.0) — investigaciones profundas (archivado)
 
 ---
 

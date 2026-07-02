@@ -33,3 +33,5 @@ dist-ssr
 
 # Design reference images (not used in code)
 src/SourceDesign/
+
+.vercel
