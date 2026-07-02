@@ -2,7 +2,10 @@
   "name": "vantadb-website",
   "private": true,
   "license": "Apache-2.0",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css",
+    "src/lib/gsap.ts"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite dev",
