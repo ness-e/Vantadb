@@ -356,24 +356,12 @@ fn hnsw_hard_validation_certification() {
         let links1: usize = idx1
             .nodes
             .iter()
-            .map(|r| {
-                r.value()
-                    .neighbors
-                    .iter()
-                    .map(|l| l.len())
-                    .sum::<usize>()
-            })
+            .map(|r| r.value().neighbors.iter().map(|l| l.len()).sum::<usize>())
             .sum();
         let links5: usize = idx5
             .nodes
             .iter()
-            .map(|r| {
-                r.value()
-                    .neighbors
-                    .iter()
-                    .map(|l| l.len())
-                    .sum::<usize>()
-            })
+            .map(|r| r.value().neighbors.iter().map(|l| l.len()).sum::<usize>())
             .sum();
         let ratio = links5 as f64 / links1 as f64;
         TerminalReporter::info(&format!("Memory Growth Factor (5x N): {:.2}x links", ratio));
