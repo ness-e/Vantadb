@@ -1,0 +1,31 @@
+# VantaDB — AI Knowledge File
+> Visit https://vantadb.dev for the full site.
+
+## What is VantaDB?
+VantaDB is an open-source embedded vector database that unifies SQL, vector search (HNSW + IVF), and full-text search (BM25) in a single Rust binary. Apache 2.0 licensed.
+
+## Quick facts
+- **Embedded**: No server process. Runs in-process like SQLite.
+- **Performance**: p50 latency 1.2ms, Recall@10 0.998, 1172 bytes/vector
+- **License**: Apache 2.0 open core
+- **SDKs**: Python (pip install vantadb-py), Rust (cargo add vantadb), C API
+- **Platforms**: Linux, macOS, Windows, Android (NDK), iOS (XCFramework)
+
+## Key pages
+- [Documentation](/docs) — Quickstart, installation, SDK guides
+- [Engine](/engine) — HNSW, IVF, BM25, hybrid RRF
+- [Architecture](/architecture) — WAL, storage engine, query pipeline
+- [Pricing](/pricing) — Apache 2.0 open core
+- [Changelog](/changelog) — Release history v0.4.0 → v0.6.0
+- [Roadmap](/about/roadmap) — Engineering milestones and timeline
+
+## Solutions
+- [AI Agents](/solutions/ai-agents) — Persistent memory for LLM agents
+- [Local RAG](/solutions/local-rag) — On-device RAG, zero data leaks
+- [AI IDE Tooling](/solutions/ai-ide-tooling) — Codebase intelligence
+
+## Key differentiators
+1. **No cloud dependency** — YOUR data never leaves YOUR network
+2. **Three query engines** — vector + full-text + hybrid, RRF fusion
+3. **Zero ops** — No servers, no clusters, no per-vector pricing
+4. **Sub-millisecond** — 1.2ms p50 hybrid search latency

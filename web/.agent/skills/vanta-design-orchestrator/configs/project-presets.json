@@ -1,0 +1,262 @@
+{
+  "meta": {
+    "description": "Project type presets for Vanta Design Orchestrator",
+    "version": "2.2.0",
+    "total_presets": 20
+  },
+  "presets": {
+    "brand-strategy": {
+      "name": "Brand Strategy / Business Foundation",
+      "phases": {
+        "business": ["strategy/business-model-design", "strategy/decision-hierarchy"],
+        "brand": ["strategy/brand-platform", "strategy/verbal-identity", "strategy/sensory-identity"],
+        "metrics": ["strategy/metrics-framework", "strategy/lean-design"],
+        "legal": ["strategy/legal-protection", "strategy/trends-2026"],
+        "handoff": ["design-md", "reference-design-contract"],
+        "skills-sh": ["to-prd", "extract-design-system"]
+      },
+      "recommended_skills": ["creative-director", "design-brief", "design-consultation", "domain-name-brainstormer"]
+    },
+    "startup-consulting": {
+      "name": "Startup Consulting / Lean Validation",
+      "phases": {
+        "business-model": ["strategy/business-model-design", "strategy/lean-design"],
+        "brand-foundation": ["strategy/brand-platform", "strategy/decision-hierarchy"],
+        "mvp-scope": ["strategy/lean-design", "strategy/metrics-framework"],
+        "ux-validation": ["prototyping-testing", "design-research"],
+        "visual-mvp": ["ui-ux-pro-max", "ui-design", "frontend-design"],
+        "legal": ["strategy/legal-protection", "reference-design-contract"]
+      },
+      "recommended_skills": ["domain-name-brainstormer", "reference-design-contract", "design-brief", "creative-director", "prototype", "to-prd"]
+    },
+    "landing-page": {
+      "name": "Landing Page / Marketing Site",
+      "phases": {
+        "strategy": ["strategy/business-model-design", "strategy/brand-platform", "strategy/decision-hierarchy"],
+        "discovery": ["design-research", "ux-strategy"],
+        "structure": ["ux-heuristics", "frontend-design"],
+        "visual": ["ui-ux-pro-max", "ui-design", "awesome-claude-design", "gpt-tasteskill"],
+        "motion": ["emilkowalski-motion", "motion", "animejs"],
+        "audit": ["impeccable-design-polish", "visual-critique", "web-design-guidelines"],
+        "seo": ["ai-seo", "seo", "roier-seo"],
+        "branding": ["brandkit", "theme-factory"],
+        "imagegen": ["fal-generate", "imagegen"],
+        "skills-sh": ["extract-design-system", "prototype"]
+      },
+      "recommended_skills": ["shadcn-ui", "poster-hero", "screenshots-marketing"]
+    },
+    "saas-dashboard": {
+      "name": "SaaS Dashboard / Admin Panel",
+      "phases": {
+        "discovery": ["design-research", "ux-strategy"],
+        "structure": ["ux-heuristics", "frontend-design", "interaction-design"],
+        "visual": ["ui-ux-pro-max", "ui-design", "platform-design"],
+        "motion": ["emilkowalski-motion", "motion"],
+        "audit": ["impeccable-design-polish", "visual-critique", "react-best-practices"],
+        "data": ["d3-visualization", "frame-data-chart-nyt"],
+        "components": ["shadcn-ui", "ui-skills"]
+      },
+      "recommended_skills": ["color-expert", "login-flow", "faq-page", "paywall-upgrade-cro"]
+    },
+    "brand-identity": {
+      "name": "Brand Identity / Logo System",
+      "phases": {
+        "strategy": ["strategy/brand-platform", "strategy/sensory-identity", "strategy/verbal-identity"],
+        "discovery": ["creative-director", "design-brief", "design-consultation"],
+        "concept": ["brandkit", "color-expert", "design-md"],
+        "execution": ["canvas-design", "algorithmic-art", "theme-factory"],
+        "guidelines": ["brand-guidelines", "design-review"],
+        "assets": ["fal-generate", "fal-3d", "mockup-device-3d"]
+      },
+      "recommended_skills": ["docx", "pdf", "reference-design-contract"]
+    },
+    "mobile-app": {
+      "name": "Mobile App (iOS / Android)",
+      "phases": {
+        "foundation": ["apple-hig", "platform-design"],
+        "ios": ["swiftui-design", "flutter-animating-apps"],
+        "android": ["ui-design"],
+        "ux": ["ux-heuristics", "interaction-design"],
+        "screens": ["login-flow", "faq-page"],
+        "audit": ["impeccable-design-polish", "visual-critique"]
+      },
+      "recommended_skills": ["imagegen-frontend-mobile", "sleek-design-mobile-apps"]
+    },
+    "presentation-deck": {
+      "name": "Presentation / Slide Deck",
+      "phases": {
+        "structure": ["creative-director", "design-brief"],
+        "style": ["theme-factory", "color-expert"],
+        "deck": ["deck-swiss-international", "deck-open-slide-canvas", "deck-guizang-editorial"],
+        "pptx": ["pptx-generator", "pptx"],
+        "visuals": ["poster-hero", "d3-visualization"]
+      },
+      "recommended_skills": ["ppt-keynote", "html-ppt-retro-quarterly-review", "swiss-creative-mode-template"]
+    },
+    "video-production": {
+      "name": "Video Production / Motion Graphics",
+      "phases": {
+        "script": ["creative-director"],
+        "generation": ["sora", "fal-kling-o3", "fal-video-edit"],
+        "editing": ["video-hyperframes", "remotion", "hyperframes"],
+        "effects": ["frame-glitch-title", "frame-light-leak-cinema", "frame-liquid-bg-hero", "frame-logo-outro", "vfx-text-cursor"],
+        "audio": ["venice-audio-music", "venice-audio-speech", "speech"],
+        "finalize": ["fal-lip-sync", "video-downloader", "youtube-clipper"]
+      },
+      "recommended_skills": ["8-bit-orbit-video-template", "after-hours-editorial-template", "weread-year-in-review-video-template"]
+    },
+    "ecommerce": {
+      "name": "E-Commerce / Product Pages",
+      "phases": {
+        "structure": ["ux-heuristics", "frontend-design", "interaction-design"],
+        "visual": ["ui-ux-pro-max", "ui-design", "awesome-claude-design"],
+        "images": ["ecommerce-image-workflow", "fal-generate", "fal-tryon", "image-enhancer"],
+        "3d": ["fal-3d", "mockup-device-3d", "threejs"],
+        "cro": ["paywall-upgrade-cro", "ad-creative"],
+        "audit": ["impeccable-design-polish", "visual-critique"]
+      },
+      "recommended_skills": ["imagegen", "screenshots-marketing", "pixelbin-media"]
+    },
+    "data-report": {
+      "name": "Data Report / Analytics Dashboard",
+      "phases": {
+        "structure": ["design-brief", "design-md"],
+        "charts": ["d3-visualization", "frame-data-chart-nyt"],
+        "visual": ["ui-ux-pro-max", "ui-design"],
+        "docs": ["docx", "minimax-docx", "pdf", "minimax-pdf"],
+        "deck": ["deck-swiss-international", "field-notes-editorial-template"]
+      },
+      "recommended_skills": ["release-notes-one-pager", "color-expert", "theme-factory"]
+    },
+    "design-system": {
+      "name": "Design System / Token Library",
+      "phases": {
+        "audit": ["design-review", "visual-critique"],
+        "tokens": ["design-systems", "color-expert", "ui-ux-pro-max"],
+        "figma": ["figma-generate-library", "figma-code-connect-components", "figma-generate-design"],
+        "docs": ["design-md", "docx", "brand-guidelines"],
+        "components": ["shadcn-ui", "ui-skills", "stitch-skill"],
+        "review": ["impeccable-design-polish", "reference-design-contract"]
+      },
+      "recommended_skills": ["figma-create-new-file", "figma-use", "stitch-loop"]
+    },
+    "social-campaign": {
+      "name": "Social Media Campaign",
+      "phases": {
+        "strategy": ["creative-director", "ad-creative", "competitive-ads-extractor"],
+        "visuals": ["imagegen", "fal-generate", "poster-hero"],
+        "cards": ["social-x-post-card", "social-reddit-card", "social-spotify-card", "card-twitter", "card-xiaohongshu"],
+        "video": ["fal-kling-o3", "sora", "fal-video-edit"],
+        "gif": ["gif-sticker-maker", "slack-gif-creator"],
+        "copy": ["ad-creative", "enhance-prompt"]
+      },
+      "recommended_skills": ["screenshots-marketing", "full-page-screenshot", "venice-image-generate"]
+    },
+    "docs-site": {
+      "name": "Documentation / Help Center",
+      "phases": {
+        "structure": ["ux-heuristics", "frontend-design", "interaction-design"],
+        "faq": ["faq-page", "login-flow"],
+        "visual": ["ui-ux-pro-max", "ui-design"],
+        "docs": ["doc-kami-parchment", "doc", "docx", "pdf"],
+        "search": ["ai-seo", "seo"],
+        "audit": ["impeccable-design-polish", "web-design-guidelines"]
+      },
+      "recommended_skills": ["hand-drawn-diagrams", "d3-visualization", "release-notes-one-pager"]
+    },
+    "portfolio": {
+      "name": "Portfolio / Personal Website",
+      "phases": {
+        "style": ["taste-skill", "ui-ux-pro-max", "color-expert"],
+        "structure": ["frontend-design", "ui-design"],
+        "motion": ["emilkowalski-motion", "gsap-scrolltrigger", "gsap-timeline"],
+        "3d": ["threejs", "shader-dev", "frame-liquid-bg-hero"],
+        "images": ["imagegen", "fal-generate", "poster-hero"],
+        "audit": ["impeccable-design-polish", "visual-critique"]
+      },
+      "recommended_skills": ["mockup-device-3d", "canvas-design", "algorithmic-art"]
+    },
+    "figma-library": {
+      "name": "Figma Design System Library",
+      "phases": {
+        "setup": ["figma-create-new-file", "figma-use"],
+        "tokens": ["figma-generate-library", "design-systems", "color-expert"],
+        "components": ["figma-generate-design", "figma-code-connect-components"],
+        "docs": ["design-md", "brand-guidelines"],
+        "handoff": ["figma-implement-design", "reference-design-contract"]
+      },
+      "recommended_skills": ["stitch-skill", "stitch-loop", "shadcn-ui"]
+    },
+    "ai-agent-ui": {
+      "name": "AI Agent / Chat Interface",
+      "phases": {
+        "research": ["design-research", "ux-strategy"],
+        "structure": ["ux-heuristics", "interaction-design", "frontend-design"],
+        "visual": ["ui-ux-pro-max", "ui-design", "platform-design"],
+        "motion": ["emilkowalski-motion", "motion"],
+        "components": ["shadcn-ui", "login-flow", "faq-page"],
+        "audit": ["impeccable-design-polish", "react-best-practices", "ai-seo"]
+      },
+      "recommended_skills": ["web-artifacts-builder", "artifacts-builder", "vfx-text-cursor"]
+    },
+    "print-ready": {
+      "name": "Print-Ready / Editorial Design",
+      "phases": {
+        "concept": ["creative-director", "design-brief"],
+        "layout": ["deck-guizang-editorial", "editorial-burgundy-principles-template"],
+        "docs": ["pdf", "minimax-pdf", "docx", "minimax-docx"],
+        "art": ["canvas-design", "poster-hero", "doc-kami-parchment"],
+        "brand": ["brandkit", "theme-factory", "brand-guidelines"]
+      },
+      "recommended_skills": ["resume-modern", "article-magazine", "reference-design-contract"]
+    },
+    "full-product": {
+      "name": "Full Product (Landing + Dashboard + Docs + Brand)",
+      "phases": {
+        "strategy": ["strategy/business-model-design", "strategy/brand-platform", "strategy/decision-hierarchy"],
+        "discovery": ["design-research", "ux-strategy", "creative-director"],
+        "brand": ["brandkit", "color-expert", "design-md", "theme-factory"],
+        "landing": ["taste-skill", "frontend-design", "ui-ux-pro-max", "gpt-tasteskill"],
+        "dashboard": ["ux-heuristics", "shadcn-ui", "ui-design", "d3-visualization"],
+        "docs": ["faq-page", "login-flow", "doc-kami-parchment"],
+        "motion": ["emilkowalski-motion", "motion", "gsap-scrolltrigger"],
+        "images": ["fal-generate", "imagegen", "fal-3d", "mockup-device-3d"],
+        "video": ["fal-kling-o3", "sora", "frame-logo-outro"],
+        "seo": ["ai-seo", "roier-seo", "seo"],
+        "audit": ["impeccable-design-polish", "visual-critique", "react-best-practices", "web-design-guidelines"],
+        "figma": ["figma-generate-library", "figma-code-connect-components"]
+      },
+      "recommended_skills": ["pptx-generator", "screenshots-marketing", "release-notes-one-pager"]
+    },
+    "redesign": {
+      "name": "Redesign / Refactor Existing Project",
+      "phases": {
+        "strategy": ["strategy/business-model-design", "strategy/decision-hierarchy", "strategy/brand-platform"],
+        "audit": ["redesign-skill", "impeccable-design-polish", "visual-critique", "design-review"],
+        "research": ["design-research", "competitive-ads-extractor"],
+        "strategy": ["creative-director", "design-consultation"],
+        "visual": ["ui-ux-pro-max", "color-expert", "awesome-claude-design"],
+        "rebuild": ["taste-skill", "frontend-design", "shadcn-ui"],
+        "motion": ["emilkowalski-motion", "design-motion-principles"],
+        "seo": ["ai-seo", "roier-seo", "seo"],
+        "qa": ["pr-feedback-quality-gate", "react-best-practices"],
+        "skills-sh": ["extract-design-system", "just-scrape"]
+      },
+      "recommended_skills": ["reference-design-contract", "design-md", "docx"]
+    },
+    "content-creation": {
+      "name": "Content Creation / Blog / Social",
+      "phases": {
+        "ideas": ["creative-director", "enhance-prompt", "domain-name-brainstormer"],
+        "copy": ["ad-creative", "copywriting"],
+        "images": ["fal-generate", "imagegen", "imagen", "poster-hero"],
+        "cards": ["card-twitter", "social-x-post-card", "card-xiaohongshu"],
+        "video": ["fal-kling-o3", "sora", "youtube-clipper"],
+        "audio": ["venice-audio-speech", "venice-audio-music", "speech"],
+        "gif": ["gif-sticker-maker", "slack-gif-creator"],
+        "docs": ["docx", "release-notes-one-pager"]
+      },
+      "recommended_skills": ["screenshots-marketing", "full-page-screenshot", "fal-lip-sync"]
+    }
+  }
+}

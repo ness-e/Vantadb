@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Architecture Section Stylesheet
+   ═══════════════════════════════════════════════════════════ */
+
+.swiss-arch-section {
+  border-top: 1px solid var(--border);
+  padding: var(--section-gap) 0;
+  background: var(--background);
+}
+
+.swiss-arch-grid {
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 4rem;
+  margin-top: 3rem;
+  align-items: center;
+}
+
+.swiss-arch-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.swiss-arch-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.swiss-arch-body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+  max-width: 540px;
+}
+
+/* Blueprint SVG */
+.swiss-arch-visual {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2.5rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.swiss-blueprint-svg {
+  width: 100%;
+  height: auto;
+}
+
+.swiss-blueprint-box {
+  fill: var(--background);
+  stroke: var(--border);
+  stroke-width: 1px;
+  transition:
+    stroke 200ms var(--ease-cut),
+    fill 200ms var(--ease-cut);
+  cursor: pointer;
+}
+
+.swiss-blueprint-box:hover {
+  stroke: var(--amber);
+  fill: rgba(255, 85, 0, 0.02);
+}
+
+.swiss-blueprint-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  fill: var(--steel);
+  transition: fill 200ms var(--ease-cut);
+  pointer-events: none;
+}
+
+.swiss-blueprint-box:hover + .swiss-blueprint-text,
+.swiss-blueprint-box:hover ~ .swiss-blueprint-text {
+  fill: var(--foreground);
+}
+
+.swiss-blueprint-text--accent {
+  fill: var(--amber);
+}
+
+.swiss-blueprint-line {
+  stroke: var(--border);
+  stroke-width: 1px;
+  stroke-dasharray: 4 4;
+  fill: none;
+}
+
+.swiss-blueprint-line--active {
+  stroke: var(--amber);
+  stroke-dasharray: 8 4;
+  animation: blueprint-flow 15s linear infinite;
+}
+
+@keyframes blueprint-flow {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.swiss-blueprint-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--muted);
+}
+
+/* Info overlay dynamically changing on hover */
+.swiss-blueprint-info {
+  border-top: 1px solid var(--subtle);
+  padding-top: 1rem;
+  min-height: 4.5rem;
+}
+
+.swiss-blueprint-info-title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+
+.swiss-blueprint-info-desc {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .swiss-arch-grid {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+
+  .swiss-arch-visual {
+    padding: 1.5rem;
+  }
+}

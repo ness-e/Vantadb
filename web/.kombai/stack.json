@@ -1,0 +1,31 @@
+// Kombai Tech Stack Configuration
+// Each value must be a string or an array of strings.
+// Example: "Framework": "Vite" or "Project Type": ["React", "Vue"]
+{
+  "Documentation Tool": "Docusaurus",
+  "Deployment Platform": "Vercel",
+  "CI/CD Platform": "GitHub Actions",
+  "Package Manager": "npm",
+  "Animation Library": [
+    "Anime.js",
+    "Motion",
+    "GSAP"
+  ],
+  "Charting Library": "Recharts",
+  "Testing Framework": [
+    "Vitest",
+    "Playwright"
+  ],
+  "CSS Implementation": "Emotion",
+  "Project Type": "React",
+  "Framework": "Vite",
+  "Build Tool": "Vite",
+  "Tailwind Version": "v4",
+  "TS/JS": "TS",
+  "Router": "Tanstack Router",
+  "API Client": "TanStack Query",
+  "React Version": "19",
+  "Animation Library 2": "Motion",
+  "Animation Library 1": "GSAP",
+  "Animation Library 3": "Anime.js"
+}

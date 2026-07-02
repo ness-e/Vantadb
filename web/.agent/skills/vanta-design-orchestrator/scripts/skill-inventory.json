@@ -1,0 +1,238 @@
+{
+  "meta": {
+    "description": "Complete inventory of all 170+ skills in the VantaDB design ecosystem",
+    "version": "2.0.0",
+    "last_updated": "2026-06-19",
+    "total_skills": 170
+  },
+  "categories": {
+    "UI_UX": {
+      "name": "UI/UX Design Core",
+      "description": "Core UI/UX design skills for interfaces, components, and user experience",
+      "skills": [
+        "ui-ux-pro-max", "ui-design", "design-systems", "awesome-claude-design",
+        "ux-heuristics", "frontend-design", "ux-strategy",
+        "visual-critique", "impeccable", "impeccable-design-polish",
+        "gpt-taste", "gpt-tasteskill", "taste-skill", "taste-skill-v1",
+        "design-taste-frontend", "design-taste-frontend-v1",
+        "redesign-existing-projects", "redesign-skill",
+        "ui-skills", "platform-design", "wpds",
+        "shadcn-ui", "stitch-skill", "stitch-design-taste",
+        "stitch-loop", "web-design-guidelines",
+        "writing-guidelines", "brand-guidelines",
+        "reference-design-contract"
+      ]
+    },
+    "Motion_Animation": {
+      "name": "Motion & Animation",
+      "description": "Animation libraries, motion design, and scroll-driven effects",
+      "skills": [
+        "motion", "animejs", "gsap-core", "gsap-timeline",
+        "gsap-scrolltrigger", "gsap-react", "gsap-frameworks",
+        "gsap-performance", "gsap-plugins", "gsap-utils",
+        "design-motion-principles", "emil-design-eng",
+        "emilkowalski-motion", "interaction-design"
+      ]
+    },
+    "ThreeJS_3D_Shaders": {
+      "name": "Three.js / 3D / Shaders",
+      "description": "3D scene creation, WebGL, shader development, and 3D mockups",
+      "skills": [
+        "threejs", "threejs-fundamentals", "threejs-geometry",
+        "threejs-materials", "threejs-interaction", "threejs-animation",
+        "threejs-shaders", "shader-dev", "vfx-text-cursor",
+        "mockup-device-3d", "fal-3d"
+      ]
+    },
+    "FAL_AI": {
+      "name": "FAL.ai Pipeline",
+      "description": "AI image, video, 3D generation and editing via FAL.ai",
+      "skills": [
+        "fal-generate", "fal-image-edit", "fal-3d", "fal-kling-o3",
+        "fal-realtime", "fal-upscale", "fal-video-edit", "fal-lip-sync",
+        "fal-train", "fal-tryon", "fal-restore", "fal-vision"
+      ]
+    },
+    "Figma": {
+      "name": "Figma Integration",
+      "description": "Figma file creation, design libraries, code connect, and design-to-code",
+      "skills": [
+        "figma-generate-design", "figma-create-new-file",
+        "figma-generate-library", "figma-code-connect-components",
+        "figma-implement-design", "figma-use",
+        "figma-create-design-system-rules"
+      ]
+    },
+    "Deck_Presentation": {
+      "name": "Decks & Presentations",
+      "description": "Slide decks, PowerPoint, keynote-style presentations",
+      "skills": [
+        "deck-swiss-international", "deck-open-slide-canvas",
+        "deck-guizang-editorial", "digits-fintech-swiss-template",
+        "ppt-keynote", "pptx", "pptx-generator", "pptx-html-fidelity-audit",
+        "nanobanana-ppt", "html-ppt-retro-quarterly-review",
+        "swiss-creative-mode-template", "swiss-user-research-video-template",
+        "slides", "frontend-slides"
+      ]
+    },
+    "Frame_Effects": {
+      "name": "Frame Effects & Overlays",
+      "description": "Special effects frames: glitch, light-leak, liquid, logo, data, cursor",
+      "skills": [
+        "frame-glitch-title", "frame-light-leak-cinema",
+        "frame-liquid-bg-hero", "frame-logo-outro",
+        "frame-data-chart-nyt", "frame-flowchart-sticky",
+        "frame-macos-notification", "vfx-text-cursor"
+      ]
+    },
+    "Venice_AI": {
+      "name": "Venice.ai Pipeline",
+      "description": "Image, audio, speech, and video generation via Venice.ai",
+      "skills": [
+        "venice-image-generate", "venice-image-edit",
+        "venice-audio-music", "venice-audio-speech", "venice-video"
+      ]
+    },
+    "Social_Media": {
+      "name": "Social Media & Cards",
+      "description": "Social media cards, posts, and GIFs for multiple platforms",
+      "skills": [
+        "social-x-post-card", "social-reddit-card", "social-spotify-card",
+        "card-twitter", "card-xiaohongshu",
+        "slack-gif-creator", "gif-sticker-maker"
+      ]
+    },
+    "Video_Production": {
+      "name": "Video Production",
+      "description": "Video generation, editing, downloading, and templates",
+      "skills": [
+        "sora", "replicate", "video-hyperframes", "remotion",
+        "remotion-best-practices", "video-downloader", "youtube-clipper",
+        "hyperframes", "hyperframes-animation",
+        "8-bit-orbit-video-template", "after-hours-editorial-template",
+        "field-notes-editorial-template",
+        "weread-year-in-review-video-template", "ai-music-album"
+      ]
+    },
+    "Audio_Speech": {
+      "name": "Audio & Speech",
+      "description": "Text-to-speech, music generation, and voiceover",
+      "skills": [
+        "speech", "venice-audio-speech", "venice-audio-music"
+      ]
+    },
+    "Documents": {
+      "name": "Documents & Editorial",
+      "description": "DOCX, PDF, editorial documents, and print-ready output",
+      "skills": [
+        "doc", "docx", "minimax-docx", "doc-kami-parchment",
+        "pdf", "minimax-pdf",
+        "article-magazine", "editorial-burgundy-principles-template",
+        "resume-modern", "release-notes-one-pager"
+      ]
+    },
+    "Apple_Mobile": {
+      "name": "Apple / Mobile Native",
+      "description": "Apple HIG, SwiftUI, and Flutter for native mobile design",
+      "skills": [
+        "apple-hig", "swiftui-design", "flutter-animating-apps",
+        "sleek-design-mobile-apps", "imagegen-frontend-mobile"
+      ]
+    },
+    "Branding_Identity": {
+      "name": "Branding & Identity",
+      "description": "Brand identity, logo design, color science, creative direction",
+      "skills": [
+        "brandkit", "canvas-design", "algorithmic-art",
+        "theme-factory", "color-expert", "creative-director",
+        "design-brief", "design-consultation", "design-review",
+        "design-md", "design-ops", "designer-toolkit",
+        "design-research", "prototyping-testing",
+        "research-decision-room", "plan-design-review"
+      ]
+    },
+    "Image_Generation": {
+      "name": "Image Generation & Editing",
+      "description": "Image generation, enhancement, screenshots, and e-commerce images",
+      "skills": [
+        "imagegen", "imagen", "imagegen-frontend-web",
+        "poster-hero", "image-enhancer",
+        "ecommerce-image-workflow", "pixelbin-media",
+        "full-page-screenshot", "screenshot", "screenshots-marketing",
+        "image-to-code", "image-to-code-skill"
+      ]
+    },
+    "Data_Visualization": {
+      "name": "Data Visualization",
+      "description": "Charts, diagrams, and data visualization",
+      "skills": [
+        "d3-visualization", "hand-drawn-diagrams",
+        "frame-data-chart-nyt", "frame-flowchart-sticky"
+      ]
+    },
+    "Marketing_CRO": {
+      "name": "Marketing & CRO",
+      "description": "Marketing creative, ads, conversion optimization, copywriting",
+      "skills": [
+        "ad-creative", "competitive-ads-extractor",
+        "paywall-upgrade-cro", "copywriting",
+        "marketing-psychology", "marketing-ideas",
+        "social-content"
+      ]
+    },
+    "SEO_AI_Search": {
+      "name": "SEO & AI Search",
+      "description": "Search engine optimization, AI visibility, and technical SEO",
+      "skills": [
+        "ai-seo", "seo", "seo-audit", "roier-seo",
+        "programmatic-seo"
+      ]
+    },
+    "React_Performance": {
+      "name": "React & Performance",
+      "description": "React best practices, performance optimization, and Vercel",
+      "skills": [
+        "react-best-practices", "vercel-optimize",
+        "react-dev", "react-state-management",
+        "react-useeffect", "react-modernization",
+        "react-email", "react-native-best-practices",
+        "react-components"
+      ]
+    },
+    "Utility_Tools": {
+      "name": "Utility & Tools",
+      "description": "Utilities, prompts, exporting, PR feedback, and domain brainstorming",
+      "skills": [
+        "enhance-prompt", "export-download-debugging",
+        "pr-feedback-quality-gate", "domain-name-brainstormer",
+        "soft-skill", "output-skill",
+        "web-artifacts-builder", "artifacts-builder",
+        "hatch-pet", "fal-tryon"
+      ]
+    },
+    "Agent_Skills": {
+      "name": "Agent & AI Skills",
+      "description": "Agent development, browser automation, AI SDK, and database skills",
+      "skills": [
+        "agent-browser", "browser-use", "ai-sdk",
+        "brainstorming", "skill-creator", "find-skills",
+        "systematic-debugging", "writing-plans",
+        "database-design", "database-schema-designer",
+        "prisma", "prisma-expert",
+        "supabase-postgres-best-practices",
+        "api-design-principles",
+        "next-best-practices", "nodejs-backend-patterns"
+      ]
+    }
+  },
+  "routing_aliases": {
+    "impeccable": "impeccable-design-polish",
+    "gpt-taste": "gpt-tasteskill",
+    "emil-design-eng": "emilkowalski-motion",
+    "design-taste-frontend": "taste-skill",
+    "redesign-existing-projects": "redesign-skill",
+    "stitch-design-taste": "stitch-skill",
+    "minimalist-ui": "minimalist-skill",
+    "industrial-brutalist-ui": "brutalist-skill"
+  }
+}

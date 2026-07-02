@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Core Engine Section
+   ═══════════════════════════════════════════════════════════ */
+
+.swiss-core__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+  margin: 0;
+}
+
+/* ── Feature grid — 3 cols ── */
+.swiss-core__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.swiss-core__feature {
+  background: var(--background);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: background 150ms var(--ease-cut);
+  position: relative;
+}
+
+.swiss-core__feature:hover {
+  background: var(--surface-raised);
+}
+
+/* ── Feature meta ── */
+.swiss-core__feature-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.swiss-core__feature-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+}
+
+.swiss-core__feature-divider {
+  margin-bottom: 1.25rem;
+}
+
+/* ── Feature content ── */
+.swiss-core__feature-headline {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 1.5vw, 1.2rem);
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.75rem;
+}
+
+.swiss-core__feature-body {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+  flex: 1;
+}
+
+.swiss-core__feature-link {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--steel);
+  text-decoration: none;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--subtle);
+  transition: color 100ms var(--ease-cut);
+  display: block;
+}
+
+.swiss-core__feature-link:hover {
+  color: var(--amber);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .swiss-core__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .swiss-core__grid {
+    grid-template-columns: 1fr;
+  }
+}

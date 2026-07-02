@@ -14,9 +14,9 @@ tags: [vantadb, documentation, index, master-index]
 > Index of all documentation, architecture decisions, protocol definitions, and operational references for the VantaDB project.
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
-- **Version**: 0.1.5
-- **Last Updated**: 2026-07-01
-- **Repository**: `https://github.com/vantadb/vantadb`
+- **Version**: 0.2.0
+- **Last Updated**: 2026-07-02
+- **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros
 
 ---
@@ -163,6 +163,15 @@ The glossary lives in two complementary locations:
 |---|----------|-------------|--------|
 | 1 | [[experimental/IQL.md\|IQL — Interactive Query Language]] | Experimental query language for VantaDB | Draft |
 | 2 | [[graphrag/README.md\|GraphRAG]] | Graph-based RAG integration research | Research |
+
+---
+
+## Web Site
+
+| # | Document | Description | Status |
+|---|----------|-------------|--------|
+| 1 | [[web/docs/README.md\|Web Site Overview]] | Documentation index for the VantaDB website project | Active |
+| 2 | [[web/docs/backlog.md\|Web Site Backlog]] | Design, content, and frontend task tracking for the website | Active |
 
 ---
 

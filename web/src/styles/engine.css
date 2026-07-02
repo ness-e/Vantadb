@@ -1,0 +1,144 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Engine Page Stylesheet
+   ═══════════════════════════════════════════════════════════ */
+
+.engine-page {
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.engine-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 5vw, 4rem) 8rem;
+}
+
+.engine-section {
+  padding: var(--section-gap) 0;
+}
+
+.engine-section--bordered {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Graph SVG ── */
+.graph-topology-svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--subtle);
+  background: var(--background);
+}
+
+/* ── WAL Simulator ── */
+.wal-simulator {
+  width: 100%;
+}
+
+.wal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wal-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wal-status-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--foreground);
+}
+
+.wal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wal-console {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--surface);
+}
+
+.wal-console::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wal-console::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.wal-console::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+/* ── RRF Weights Slider ── */
+.slider-container {
+  width: 100%;
+}
+
+.rrf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.rrf-title {
+  color: var(--foreground);
+  margin: 0;
+}
+
+.rrf-latency {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.rrf-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  outline: none;
+}
+
+.rrf-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--amber);
+  cursor: pointer;
+  border: 1px solid var(--foreground);
+  transition: background-color 100ms var(--ease-cut);
+}
+
+.rrf-slider::-webkit-slider-thumb:hover {
+  background: var(--foreground);
+}
+
+.rrf-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--amber);
+  cursor: pointer;
+  border: 1px solid var(--foreground);
+}
+
+.rrf-slider::-moz-range-thumb:hover {
+  background: var(--foreground);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rrf-metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

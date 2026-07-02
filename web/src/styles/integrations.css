@@ -1,0 +1,189 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Integrations Section
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Integration page layout ── */
+.int-section {
+  padding: 4rem 0;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 6rem;
+  align-items: center;
+}
+
+.int-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.int-card-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Integration selector grid ── */
+.int-selector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0; /* hairline unificada */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.int-selector-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1.5rem;
+  background: #ffffff;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 150ms linear;
+  font-family: inherit;
+  color: inherit;
+  border-radius: 0;
+}
+
+.int-selector-card:nth-child(2n) {
+  border-right: none;
+}
+.int-selector-card:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+.int-selector-card:hover {
+  background: var(--surface);
+}
+
+.int-selector-card.active {
+  background: var(--surface);
+  border-left: 2px solid var(--amber);
+}
+
+.int-selector-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: color 150ms linear;
+}
+
+.int-selector-card.active .int-selector-icon {
+  color: var(--amber);
+}
+
+.int-selector-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.int-selector-card.active .int-selector-label {
+  color: var(--foreground);
+}
+
+/* ── Integration grid cards ── */
+.int-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.int-card-inner {
+  background: #ffffff;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.int-card-inner:nth-child(2n) {
+  border-right: none;
+}
+.int-card-inner:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+/* Swiss icon box — hairline negra */
+.int-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.int-name {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+.int-protocol {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+  letter-spacing: 0.06em;
+}
+
+/* Badge — fondo tenue claro */
+.int-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--amber);
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.int-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 1024px) {
+  .int-section {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+}

@@ -1,0 +1,175 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Benchmark Grid
+   Bento asymmetric layout, numbers as design elements
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Section header ── */
+.swiss-benchmark__header {
+  margin-bottom: 3rem;
+}
+
+.swiss-benchmark__header-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.swiss-benchmark__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+  margin: 0;
+}
+
+/* ── Bento grid ── */
+.swiss-benchmark__bento {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+/* ── Cells ── */
+.swiss-benchmark__cell {
+  background: var(--background);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+  transition: background 150ms var(--ease-cut);
+}
+
+.swiss-benchmark__cell:hover {
+  background: var(--surface-raised);
+}
+
+/* Hero cell — spans full height of left column */
+.swiss-benchmark__cell--hero {
+  background: var(--background);
+  border-right: none;
+  justify-content: flex-end;
+  min-height: 360px;
+  gap: 0.75rem;
+}
+
+.swiss-benchmark__cell--hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--amber);
+}
+
+.swiss-benchmark__cell--hero:hover {
+  background: var(--surface);
+}
+
+/* Right grid: 2×3 */
+.swiss-benchmark__grid-right {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ── Cell typography ── */
+.swiss-benchmark__cell-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.swiss-benchmark__cell-value--xl {
+  font-size: clamp(3.5rem, 7vw, 5.5rem);
+  color: var(--amber);
+}
+
+.swiss-benchmark__cell-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--foreground);
+}
+
+.swiss-benchmark__cell-sub {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.swiss-benchmark__cell-link {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-decoration: none;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  transition: opacity 100ms var(--ease-cut);
+}
+
+.swiss-benchmark__cell-link:hover {
+  opacity: 0.7;
+}
+
+/* ── Footnote ── */
+.swiss-benchmark__footnote {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--subtle);
+}
+
+.swiss-benchmark__footnote a {
+  color: var(--amber);
+  text-decoration: none;
+}
+
+.swiss-benchmark__footnote a:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .swiss-benchmark__header-split {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .swiss-benchmark__bento {
+    grid-template-columns: 1fr;
+  }
+
+  .swiss-benchmark__cell--hero {
+    min-height: auto;
+  }
+
+  .swiss-benchmark__grid-right {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .swiss-benchmark__grid-right {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+  }
+}

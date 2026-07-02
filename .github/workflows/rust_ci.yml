@@ -17,6 +17,7 @@ on:
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
       - 'integrations/**'
+      - '!web/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -33,6 +34,7 @@ on:
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
       - 'integrations/**'
+      - '!web/**'
   workflow_dispatch:
 
 env:

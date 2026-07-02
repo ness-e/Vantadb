@@ -1,0 +1,260 @@
+/* ═══════════════════════════════════════════════════════════
+   VantaDB — Swiss Pricing Section
+   Sin gradientes, sin sombras difusas, hairlines 1px
+   ═══════════════════════════════════════════════════════════ */
+
+.pricing-section-wrap {
+  padding: 4rem 0;
+}
+
+/* ── Pricing cards — Swiss plano ── */
+.pricing-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: border-color 150ms linear;
+}
+
+.pricing-card:hover {
+  border-color: var(--foreground);
+}
+
+/* Featured: acento naranja top-border 3px + fondo levemente cálido */
+.pricing-card--featured {
+  background: #fff7f0;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--amber);
+  z-index: 1;
+}
+
+/* Badge — rectangular Swiss, sin border-radius pill */
+.pricing-badge {
+  position: absolute;
+  top: -1px;
+  right: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: var(--amber);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.pricing-name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.04em;
+  margin-bottom: 0.3rem;
+}
+
+.pricing-tagline {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+  font-family: var(--font-sans);
+}
+
+.pricing-price-wrap {
+  margin-bottom: 2rem;
+}
+
+.pricing-price {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.05em;
+  display: inline-block;
+}
+
+.pricing-period {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+
+/* ── Feature list ── */
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.pricing-feature-item {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pricing-feature-item:last-child {
+  border-bottom: none;
+}
+
+.pricing-feature-check {
+  color: var(--amber);
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.pricing-cta-wrap {
+  margin-top: 2rem;
+}
+
+.pricing-cta {
+  width: 100%;
+  text-align: left;
+  display: block;
+}
+
+/* Featured CTA — fondo naranja, texto blanco */
+.pricing-cta--featured {
+  background: var(--amber);
+  color: #ffffff;
+  border-color: var(--amber);
+  font-weight: 700;
+}
+
+.pricing-cta--featured:hover {
+  background: var(--foreground);
+  border-color: var(--foreground);
+}
+
+/* Default CTA — outline negro */
+.pricing-cta--default {
+  background: transparent;
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.pricing-cta--default:hover {
+  background: var(--foreground);
+  color: #ffffff;
+}
+
+/* ── Comparison table ── */
+.pricing-compare-wrap {
+  overflow-x: auto;
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  margin-top: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.pricing-table thead tr {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pricing-table th {
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.pricing-table th:first-child {
+  text-align: left;
+  color: var(--muted);
+}
+
+.pricing-table th:not(:first-child) {
+  text-align: left;
+}
+
+.pricing-table .th-free {
+  color: var(--foreground);
+  font-weight: 700;
+}
+.pricing-table .th-pro {
+  color: var(--amber);
+  font-weight: 700;
+}
+.pricing-table .th-ent {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.pricing-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--subtle);
+  background: #ffffff;
+}
+
+.pricing-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pricing-table td:first-child {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.pricing-table td:not(:first-child) {
+  text-align: left;
+}
+
+.pricing-table .td-free {
+  color: var(--muted);
+}
+.pricing-table .td-pro {
+  color: var(--amber);
+  font-weight: 700;
+}
+.pricing-table .td-ent {
+  color: var(--muted);
+}
+
+/* ── FAQ ── */
+.pricing-faq-list {
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.pricing-faq-item {
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 0;
+}
+
+.pricing-faq-q {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.pricing-faq-a {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.7;
+  font-family: var(--font-sans);
+}
+
+.pricing-section-noborder {
+  border-bottom: none;
+}

@@ -1,0 +1,96 @@
+{
+  "name": "Video Production Complete Pipeline",
+  "description": "Full video production from script to final rendered clip with effects, voiceover, and music",
+  "version": "1.0.0",
+  "estimated_time": "1-3 hours",
+  "phases": [
+    {
+      "id": "script",
+      "name": "Script & Storyboard",
+      "skills": ["creative-director", "enhance-prompt"],
+      "input": "Video concept, duration, platform",
+      "output": "Shot-by-shot script with visual direction",
+      "command": "creative-director structure → enhance-prompt refine"
+    },
+    {
+      "id": "generate-fal",
+      "name": "Video Generation (FAL.ai)",
+      "skills": ["fal-kling-o3", "fal-video-edit", "fal-realtime"],
+      "input": "Script shots from phase 1",
+      "output": "Raw video clips from text prompts",
+      "command": "fal-kling-o3 text-to-video → fal-video-edit polish"
+    },
+    {
+      "id": "generate-sora",
+      "name": "Video Generation (OpenAI Sora)",
+      "skills": ["sora", "replicate"],
+      "input": "Script shots from phase 1",
+      "output": "Cinematic video clips",
+      "command": "sora generate → replicate enhance"
+    },
+    {
+      "id": "effects",
+      "name": "Frame Effects & Titles",
+      "skills": ["frame-glitch-title", "frame-light-leak-cinema", "frame-logo-outro", "vfx-text-cursor"],
+      "input": "Raw clips from phases 2-3",
+      "output": "Enhanced clips with glitch, light-leak, logo outro, text cursor effects",
+      "command": "frame-glitch-title transition → frame-light-leak-cinema opening → frame-logo-outro ending → vfx-text-cursor quotes"
+    },
+    {
+      "id": "lip-sync",
+      "name": "Lip Sync & Avatar",
+      "skills": ["fal-lip-sync"],
+      "input": "Video clip + audio script",
+      "output": "Talking head / lip-synced avatar video",
+      "command": "fal-lip-sync audio-to-video sync"
+    },
+    {
+      "id": "audio-music",
+      "name": "Background Music",
+      "skills": ["venice-audio-music", "ai-music-album"],
+      "input": "Video mood/style from script",
+      "output": "Background music track or jingle",
+      "command": "venice-audio-music generate → ai-music-album style"
+    },
+    {
+      "id": "voiceover",
+      "name": "Voiceover / Narration",
+      "skills": ["venice-audio-speech", "speech"],
+      "input": "Script text",
+      "output": "Voiceover audio file",
+      "command": "venice-audio-speech TTS → speech alternative voice"
+    },
+    {
+      "id": "compose",
+      "name": "Video Composition",
+      "skills": ["video-hyperframes", "remotion", "hyperframes"],
+      "input": "All assets (clips, effects, audio, voiceover)",
+      "output": "Composed video with transitions, subtitles, and multi-track audio",
+      "command": "video-hyperframes frame assembly → remotion React composition"
+    },
+    {
+      "id": "finalize",
+      "name": "Export & Delivery",
+      "skills": ["video-downloader", "youtube-clipper", "export-download-debugging"],
+      "input": "Final composed video",
+      "output": "Exported video file in multiple formats",
+      "command": "video-downloader export → youtube-clipper social clips → export-download-debugging fix issues"
+    }
+  ],
+  "platform_presets": {
+    "youtube_shorts": { "aspect_ratio": "9:16", "max_duration": 60, "focus": "hook_first_3s" },
+    "instagram_reel": { "aspect_ratio": "9:16", "max_duration": 90, "focus": "trending_audio" },
+    "tiktok": { "aspect_ratio": "9:16", "max_duration": 180, "focus": "fast_pacing" },
+    "linkedin": { "aspect_ratio": "16:9", "max_duration": 120, "focus": "professional" },
+    "twitter_x": { "aspect_ratio": "16:9", "max_duration": 140, "focus": "caption_heavy" },
+    "youtube": { "aspect_ratio": "16:9", "max_duration": 600, "focus": "storytelling" }
+  },
+  "exit_criteria": [
+    "Final video rendered in target aspect ratio",
+    "Voiceover synced with video",
+    "Background music added at appropriate levels",
+    "Frame effects applied (titles, transitions, outros)",
+    "Lip-sync verified (if applicable)",
+    "Export in correct format for target platform"
+  ]
+}

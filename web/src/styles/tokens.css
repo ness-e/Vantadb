@@ -1,0 +1,130 @@
+@import "tailwindcss" source(none);
+@source "../../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --black: #000000;
+  --deep-space: oklch(96% 0.003 85);
+  --void: oklch(94% 0.004 85);
+  --surface: #ffffff;
+  --surface-hover: #f5f3ec;
+  --surface-alt: #f0eee8;
+  --surface-raised: oklch(92% 0.003 85);
+  --surface-glass: rgba(249, 248, 246, 0.85);
+  --surface-overlay: #ffffff;
+
+  --amber: #ff5500;
+  --amber-light: #ff3300;
+  --amber-soft: #ff7733;
+  --amber-dim: rgba(255, 85, 0, 0.08);
+  --success: #00aa30;
+  --warn: #dd9900;
+  --danger: #cc1100;
+
+  --steel: oklch(35% 0.01 240);
+  --steel-light: oklch(25% 0.015 240);
+  --steel-dim: rgba(35, 35, 45, 0.06);
+
+  --crimson: var(--danger);
+
+  --white: #000000; /* In Swiss light design, 'white' titles map to black for high contrast */
+  --frost: oklch(20% 0.005 85);
+  --muted: oklch(35% 0.01 80); /* Más oscuro para mejor contraste */
+  --subtle: oklch(85% 0.005 85); /* Un gris claro más notorio para divisores sutiles */
+  --border: oklch(15% 0.008 265);
+  --border-hover: var(--foreground);
+  --border-strong: #000000;
+
+  --background: #f9f8f6;
+  --foreground: #000000;
+
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-pill: 0px;
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-glow: none;
+
+  --text-hero: clamp(3.8rem, 8vw, 7.5rem);
+  --text-subhero: clamp(0.95rem, 1.4vw, 1.1rem);
+  --text-display: clamp(2.2rem, 5vw, 4rem);
+  --text-body: 1.05rem;
+  --text-label: 0.72rem;
+  --text-code: 0.82rem;
+  --tracking-tight: -0.05em;
+  --tracking-wide: 0.14em;
+  --tracking-display: -0.04em;
+  --weight-bold: 700;
+  --weight-semibold: 600;
+  --weight-medium: 500;
+
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-cut: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* ── Inverted dark-block tokens ── */
+  --block-dark-bg: #0a0a0a;
+  --block-dark-text: #f0f0f0;
+  --block-dark-muted: #808080;
+  --block-dark-border: rgba(255, 255, 255, 0.08);
+
+  /* ── Macro spacing scale ── */
+  --section-gap: 96px;
+  --section-gap-lg: 160px;
+
+  /* ── Swiss grid ── */
+  --grid-cols: 12;
+  --grid-gap: 1px;
+  --grid-hairline: oklch(15% 0.008 265);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+    background-color: var(--background);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--void);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 0px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--amber);
+  }
+
+  ::selection {
+    background: var(--amber-dim);
+    color: var(--foreground);
+  }
+}
