@@ -148,10 +148,12 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 51. **[TSK-93]** Prometheus histograms HTTP — ✅
 - p50/p95/p99, axum middleware, 6/6 E2E, commit `37ee241`
 52. **[TSK-97]** Elimination of runtime panics — ✅
-- 6 locations, 48+33+7+6 tests, commit `98edf4c`
-53. **[TSK-56]** Fix Windows CI runner — ✅
+- Remove unwrap() from public APIs, `std::panic::catch_unwind` in C FFI, commit `c89e1a2`
+53. **[WEB-01]** Centralización de documentación (Monorepo) — ✅
+- Unificación total de `web/docs/` → `docs/web/`, integración del backlog web en el raíz, eliminación de artefactos de migración (`plan/`).
+54. **[TSK-56]** Fix Windows CI runner — ✅
 - Timeouts, pin image, OIDC trusted publishing, commits `afa141d`..`84d862c`
-54. **[TSK-55]** Real CI datasets — ✅
+55. **[TSK-55]** Real CI datasets — ✅
 - GloVe-100 in CI, `benchmark_datasets.rs`, scripts sh/ps1, step in `rust_ci.yml`
 55. **[TSK-79]** Benchmark regression alerts — ✅
 - `scripts/bench_regression.py` (extract/compare/update-baseline), nightly workflow with GitHub Issue creation
