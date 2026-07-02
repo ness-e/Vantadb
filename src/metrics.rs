@@ -1545,7 +1545,9 @@ mod tests {
     // ── Export ─────────────────────────────────────────────────
 
     #[test]
+    #[cfg(feature = "prometheus")]
     fn test_export_metrics_text_non_empty() {
+        record_memory_breakdown(1, 100, Some(50), 10, 200);
         let text = export_metrics_text();
         assert!(
             !text.is_empty(),
