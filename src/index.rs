@@ -5,6 +5,7 @@ use dashmap::DashMap;
 use memmap2::MmapMut;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use std::collections::BinaryHeap;
 use std::fs::{File, OpenOptions};
 use std::hash::BuildHasherDefault;
@@ -13,6 +14,14 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tracing::{info, warn};
 use twox_hash::XxHash64;
+
+/// Stack-inline neighbor list for HNSW graph edges.
+///
+/// Capacity 32 matches the default `HnswConfig::m` value. Lists with ≤32
+/// elements live entirely on the stack (zero heap allocation). Layer 0 lists
+/// that exceed 32 (up to `m_max0 = 64`) spill to the heap transparently,
+/// equivalent to the previous `Vec<u64>` behavior.
+pub type NeighborVec = SmallVec<[u64; 32]>;
 
 const ENTRY_POINT_NONE: u64 = u64::MAX;
 const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
@@ -404,7 +413,7 @@ pub struct HnswNode {
     pub id: u64,
     pub bitset: u128,
     pub vec_data: VectorRepresentations,
-    pub neighbors: Vec<Vec<u64>>,
+    pub neighbors: Vec<NeighborVec>,
     /// Offset into the VantaFile (Phase 3)
     pub storage_offset: u64,
     /// Pre-computed inverse L2 norm (1.0 / L2_norm) for Cosine fast-path. 0.0 = not cached.
@@ -603,7 +612,7 @@ impl CPIndex {
                 VectorRepresentations::None => {}
             }
             for layer in &node.neighbors {
-                total += layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<Vec<u64>>();
+                total += layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<NeighborVec>();
             }
             total += std::mem::size_of::<HnswNode>();
         }
@@ -912,7 +921,7 @@ impl CPIndex {
     ///   reject if similarity(candidate, selected) > similarity(candidate, query)
     /// This is the correct inversion of the paper's distance-based condition
     /// because cosine similarity is monotonically inverse to angular distance.
-    fn select_neighbors(&self, candidates: BinaryHeap<NodeSimMin>, m: usize) -> Vec<u64> {
+    fn select_neighbors(&self, candidates: BinaryHeap<NodeSimMin>, m: usize) -> NeighborVec {
         // Consumes the heap directly. Callers must extract entry_points
         // BEFORE calling this function if they need the original heap data.
         let sorted = candidates.into_sorted_vec();
@@ -1009,7 +1018,7 @@ impl CPIndex {
 
         // keepPrunedConnections: fill remaining slots with discarded candidates.
         // HNSW relies on keeping degree close to M.
-        let mut final_selected: Vec<u64> = selected.into_iter().map(|s| s.id).collect();
+        let mut final_selected: NeighborVec = selected.into_iter().map(|s| s.id).collect();
         for &disc_id in discarded.iter() {
             if final_selected.len() >= m {
                 break;
@@ -1041,7 +1050,7 @@ impl CPIndex {
                     id,
                     bitset,
                     vec_data: vec_data.clone(),
-                    neighbors: vec![Vec::new()],
+                    neighbors: vec![NeighborVec::new()],
                     storage_offset,
                     inv_cached_norm: 0.0,
                 },
@@ -1097,7 +1106,7 @@ impl CPIndex {
             id,
             bitset,
             vec_data,
-            neighbors: vec![Vec::new(); level + 1],
+            neighbors: vec![NeighborVec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
         };
@@ -1189,13 +1198,13 @@ impl CPIndex {
                             if neighbor_node.neighbors[layer].len() > m_max {
                                 (true, neighbor_node.neighbors[layer].clone())
                             } else {
-                                (false, Vec::new())
+                                (false, NeighborVec::new())
                             }
                         } else {
-                            (false, Vec::new())
+                            (false, NeighborVec::new())
                         }
                     } else {
-                        (false, Vec::new())
+                        (false, NeighborVec::new())
                     }
                 };
 
@@ -1713,7 +1722,7 @@ impl CPIndex {
                     .checked_mul(8)
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "neighbor_count overflow"))?;
                 let nbr_bytes = take_bytes(data, &mut pos, byte_len, "neighbor ids")?;
-                let mut layer_neighbors = Vec::with_capacity(neighbor_count);
+                let mut layer_neighbors = NeighborVec::with_capacity(neighbor_count);
                 for i in 0..neighbor_count {
                     let start = i * 8;
                     layer_neighbors.push(u64::from_le_bytes(
