@@ -1,14 +1,10 @@
 ---
-title: "How Hybrid Search Works: BM25 + HNSW + RRF in Practice"
-type: article
-status: active
-tags: [vantadb, articles]
-last_reviewed: 2026-07-01
+title: "How Hybrid Search Works"
+date: "2026-07-02"
+description: "Deep dive into the engineering behind VantaDB's hybrid search architecture: BM25, HNSW, Volcano iterator model and Reciprocal Rank Fusion."
+author: "VantaDB Team"
+tags: ["engineering", "search", "rust"]
 ---
-
-# How Hybrid Search Works: BM25 + HNSW + RRF in Practice
-
-*By the VantaDB Team*
 
 Modern search systems are increasingly hybrid. Semantic search using dense vector embeddings (like HNSW) has revolutionized how applications find conceptually related information. However, semantic search has a famous blind spot: it is terrible at matching exact keywords, unique identifiers, serial numbers, or specific terminology. For that, classic lexical retrieval (like BM25) remains undefeated.
 
@@ -25,9 +21,9 @@ Before diving into the code, let's look at the mathematical and logical differen
 ### Lexical Search (BM25)
 BM25 (Best Matching 25) is a sparse retrieval model based on term statistics. It scores documents based on the occurrence of query terms:
 
-$$\text{Score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
+$$\\text{Score}(D, Q) = \\sum_{i=1}^{n} \\text{IDF}(q_i) \\cdot \\frac{f(q_i, D) \\cdot (k_1 + 1)}{f(q_i, D) + k_1 \\cdot \\left(1 - b + b \\cdot \\frac{|D|}{\\text{avgdl}}\\right)}$$
 
-* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`VantaHeader`), and negative keyword filtering.
+* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (\`VantaHeader\`), and negative keyword filtering.
 * **Weaknesses:** Cannot handle synonyms (e.g., matching "compute" to "processor") or conceptual similarity.
 
 ### Semantic Search (HNSW)
@@ -48,7 +44,7 @@ When a text payload is inserted into VantaDB:
 3. Statistics (total document count, document lengths, and term document frequencies) are updated in a derived index namespace.
 
 ### Quoted Phrase Search Support
-Because VantaDB stores token positions within the posting lists, it supports quoted phrase queries (e.g., `"MMap BFS layout"`). During query execution, the engine retrieves posting lists for each term and filters out documents where the tokens do not appear consecutively, ensuring lexical precision matching.
+Because VantaDB stores token positions within the posting lists, it supports quoted phrase queries (e.g., \`"MMap BFS layout"\`). During query execution, the engine retrieves posting lists for each term and filters out documents where the tokens do not appear consecutively, ensuring lexical precision matching.
 
 ---
 
@@ -57,9 +53,9 @@ Because VantaDB stores token positions within the posting lists, it supports quo
 For semantic search, VantaDB implements a Hierarchical Navigable Small World (HNSW) graph.
 
 ### Multi-Layer Traversal
-The graph is organized into layers. The search begins at the top layer (`max_layer`), where nodes are sparse, allowing the engine to traverse large topological distances quickly. Once a local minimum is reached in a layer, the search drops to the next layer down, using the current minimum as the entry point, until reaching Layer 0, where the nearest neighbors are collected:
+The graph is organized into layers. The search begins at the top layer (\`max_layer\`), where nodes are sparse, allowing the engine to traverse large topological distances quickly. Once a local minimum is reached in a layer, the search drops to the next layer down, using the current minimum as the entry point, until reaching Layer 0, where the nearest neighbors are collected:
 
-```
+\`\`\`text
 Layer 2:  [Entry] ───► [Node A]
                            │
                            ▼
@@ -67,12 +63,12 @@ Layer 1:               [Node A] ───────► [Node B]
                                              │
                                              ▼
 Layer 0:                                 [Node B] ───► [Result (K=1)]
-```
+\`\`\`
 
 ### SIMD Acceleration
-To make graph traversal fast on local CPUs, VantaDB utilizes SIMD (Single Instruction, Multiple Data) intrinsics for distance calculations. Using the `wide::f32x8` crate, we compute Euclidean ($L_2$) and Cosine distances by processing 8 floating-point coordinates in a single CPU clock cycle:
+To make graph traversal fast on local CPUs, VantaDB utilizes SIMD (Single Instruction, Multiple Data) intrinsics for distance calculations. Using the \`wide::f32x8\` crate, we compute Euclidean ($L_2$) and Cosine distances by processing 8 floating-point coordinates in a single CPU clock cycle:
 
-```rust
+\`\`\`rust
 // A snippet of VantaDB's SIMD L2 distance calculations
 use wide::f32x8;
 
@@ -91,7 +87,7 @@ pub fn SIMD_l2_distance(a: &[f32], b: &[f32]) -> f32 {
     // process remaining elements (modulo 8)...
     total
 }
-```
+\`\`\`
 
 ---
 
@@ -99,25 +95,25 @@ pub fn SIMD_l2_distance(a: &[f32], b: &[f32]) -> f32 {
 
 Unlike primitive vector stores that perform vector search first and filter results post-hoc (often returning zero results if filters are strict), VantaDB uses a structured query planner based on the **Volcano Iterator Model**.
 
-When a hybrid query arrives, it is parsed and compiled into a physical execution tree where each node implements an iterator trait (`open`, `next`, `close`):
+When a hybrid query arrives, it is parsed and compiled into a physical execution tree where each node implements an iterator trait (\`open\`, \`next\`, \`close\`):
 
-```
+\`\`\`text
        [LimitOperator]
               │
       [FuseRRFOperator]
-         /         \
-        /           \
+         /         \\
+        /           \\
   [BM25Operator]   [VectorSearchOperator]
         │                     │
   [FilterOperator]     [RefineOperator]
         │                     │
   [ScanOperator]       [FilterOperator]
-```
+\`\`\`
 
 ### Cost-Based Optimizer Routing
 Before execution, our CBO evaluates the selectivity of relational filters. It uses the following heuristics:
-1. **High Selectivity ($<10\%$):** If a metadata query filters out more than $90\%$ of the collection, traversing the HNSW graph is inefficient (and can easily get stuck in isolated graph sub-graphs). The CBO compiles the query to a **Scan + Relational Filter + Vector Refine** plan.
-2. **Low Selectivity ($>10\%$):** If the filter matches almost all documents, the CBO compiles the query to a **Vector Search + Relational Post-Filter** plan, utilizing the HNSW graph fully.
+1. **High Selectivity ($<10\\%$):** If a metadata query filters out more than $90\\%$ of the collection, traversing the HNSW graph is inefficient (and can easily get stuck in isolated graph sub-graphs). The CBO compiles the query to a **Scan + Relational Filter + Vector Refine** plan.
+2. **Low Selectivity ($>10\\%$):** If the filter matches almost all documents, the CBO compiles the query to a **Vector Search + Relational Post-Filter** plan, utilizing the HNSW graph fully.
 
 ---
 
@@ -127,10 +123,10 @@ Once the lexical operator and semantic operator produce their top candidates, th
 
 VantaDB solves this by performing **Reciprocal Rank Fusion (RRF)**. RRF merges candidate lists based purely on their *rank* (position in the result list) rather than their raw score. The fused score for document $d$ is computed as:
 
-$$\text{RRF Score}(d) = \frac{1}{k + r_{\text{lexical}}(d)} + \frac{1}{k + r_{\text{semantic}}(d)}$$
+$$\\text{RRF Score}(d) = \\frac{1}{k + r_{\\text{lexical}}(d)} + \\frac{1}{k + r_{\\text{semantic}}(d)}$$
 
 Where:
-* $r(d)$ is the 1-based rank of document $d$ in the respective retrieval list (set to $\infty$ if the document did not appear in that list).
+* $r(d)$ is the 1-based rank of document $d$ in the respective retrieval list (set to $\\infty$ if the document did not appear in that list).
 * $k$ is a constant smoothing factor (defaulting to $60$), which prevents high ranks from dominating the score disproportionately.
 
 RRF is deterministic, computationally trivial, and guarantees that documents appearing high in both lists are promoted to the very top, providing a highly relevant context window payload for the AI agent.

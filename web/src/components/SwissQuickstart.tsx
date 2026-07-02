@@ -35,15 +35,34 @@ const STEPS = [
 
 export function SwissQuickstart() {
   const [activeStep, setActiveStep] = useState(0);
+  const [hasEntered, setHasEntered] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const codeRef = useRef<HTMLElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
+  useGSAP(
+    () => {
+      ScrollTrigger.create({
+        trigger: sectionRef.current,
+        start: "top 75%",
+        onEnter: () => setHasEntered(true),
+        once: true
+      });
+    },
+    { scope: sectionRef }
+  );
+
   useEffect(() => {
+    if (!hasEntered) return;
+    
     if (codeRef.current && outputRef.current) {
       // Ocultar output al principio
       gsap.set(outputRef.current, { opacity: 0 });
       
       const duration = Math.max(0.4, STEPS[activeStep]!.cmd.length * 0.015);
+      
+      // Matar animaciones previas para evitar conflictos si cambia rápido
+      gsap.killTweensOf(codeRef.current);
       
       gsap.to(codeRef.current, {
         duration: duration,
@@ -55,7 +74,7 @@ export function SwissQuickstart() {
         }
       });
     }
-  }, [activeStep]);
+  }, [activeStep, hasEntered]);
 
   return (
     <section className="swiss-section" style={{ background: "var(--background)", borderTop: "1px solid var(--border)", paddingTop: "120px", paddingBottom: "120px" }}>
