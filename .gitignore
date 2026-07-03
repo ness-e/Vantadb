@@ -118,6 +118,8 @@ vector_index.bin
 
 # Test artifacts
 ghost_out/
+Cargo_test.toml
+**/Cargo_test.toml
 .vercel
 .env*
 .playwright-mcp/
