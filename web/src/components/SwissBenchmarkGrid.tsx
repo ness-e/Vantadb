@@ -75,42 +75,43 @@ export function SwissBenchmarkGrid() {
 
   useGSAP(
     () => {
-      // Reveal cells with clip-path expansion
-      gsap.fromTo(
-        ".swiss-vs-cell",
-        { opacity: 0, y: 12 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          stagger: 0.06,
-          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-          scrollTrigger: {
-            trigger: ".swiss-vs-grid",
-            start: "top 80%",
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.fromTo(
+          ".swiss-vs-cell",
+          { opacity: 0, y: 12 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.06,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            scrollTrigger: {
+              trigger: ".swiss-vs-grid",
+              start: "top 80%",
+            },
           },
-        },
-      );
+        );
 
-      // Count-up ONLY for numeric values
-      document.querySelectorAll(".swiss-vs-value[data-numeric]").forEach((el) => {
-        const target = parseFloat(el.getAttribute("data-numeric")!);
-        const isDecimal = el.getAttribute("data-decimal") === "true";
-        const suffix = el.getAttribute("data-suffix") || "";
+        document.querySelectorAll(".swiss-vs-value[data-numeric]").forEach((el) => {
+          const target = parseFloat(el.getAttribute("data-numeric")!);
+          const isDecimal = el.getAttribute("data-decimal") === "true";
+          const suffix = el.getAttribute("data-suffix") || "";
 
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: target,
-          duration: 0.8,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: el,
-            start: "top 85%",
-          },
-          onUpdate: () => {
-            const formatted = isDecimal ? obj.val.toFixed(1) : Math.round(obj.val);
-            el.textContent = `${formatted}${suffix}`;
-          },
+          const obj = { val: 0 };
+          gsap.to(obj, {
+            val: target,
+            duration: 0.8,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 85%",
+            },
+            onUpdate: () => {
+              const formatted = isDecimal ? obj.val.toFixed(1) : Math.round(obj.val);
+              el.textContent = `${formatted}${suffix}`;
+            },
+          });
         });
       });
     },
@@ -119,48 +120,21 @@ export function SwissBenchmarkGrid() {
 
   return (
     <section
-      className="swiss-section"
+      className="swiss-section swiss-vs-section"
       ref={sectionRef}
-      style={{ background: "var(--background)", paddingTop: "160px" }}
     >
       <div className="swiss-inner">
         {/* Title — NO eyebrow per budget */}
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-display)",
-            fontWeight: 700,
-            margin: "0 0 24px 0",
-            letterSpacing: "-0.04em",
-            color: "var(--foreground)",
-          }}
-        >
+        <h2 className="swiss-vs-title">
           Embedded vs. Client/Server.
         </h2>
-        <p
-          style={{
-            fontSize: "var(--text-body)",
-            color: "var(--muted)",
-            maxWidth: "600px",
-            marginBottom: "64px",
-            lineHeight: 1.65,
-          }}
-        >
+        <p className="swiss-vs-subtitle">
           By removing the network boundary, VantaDB achieves latencies impossible for traditional
           vector databases.
         </p>
 
-        {/* Bento Grid — asymmetric layout */}
-        <div
-          className="swiss-vs-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(12, 1fr)",
-            gap: "1px",
-            background: "var(--border)",
-            border: "1px solid var(--border)",
-          }}
-        >
+        {/* VS Grid — asymmetric layout */}
+        <div className="swiss-vs-grid">
           {METRICS.map((m) => {
             // Featured metrics span 6 cols, regular span 3 cols (perfect 12-col fit)
             const isFeatured = m.featured;
@@ -169,16 +143,10 @@ export function SwissBenchmarkGrid() {
             return (
               <div
                 key={m.id}
-                className="swiss-vs-cell"
-                style={{
-                  gridColumn: isFeatured ? "span 6" : "span 3",
-                  background: "var(--background)",
-                  padding: isFeatured ? "48px 40px" : "32px 24px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
-                  transition: "border-color 100ms",
-                }}
+                className={
+                  `swiss-vs-cell ` +
+                  (isFeatured ? "swiss-vs-cell--featured" : "swiss-vs-cell--regular")
+                }
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "var(--surface)";
                 }}
@@ -186,20 +154,15 @@ export function SwissBenchmarkGrid() {
                   e.currentTarget.style.background = "var(--background)";
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    textTransform: "uppercase" as const,
-                    letterSpacing: "0.14em",
-                  }}
-                >
+                <span className="swiss-vs-cell-label">
                   {m.label}
                 </span>
 
                 <span
-                  className="swiss-vs-value"
+                  className={
+                    `swiss-vs-value ` +
+                    (isFeatured ? "swiss-vs-value--large" : "swiss-vs-value--small")
+                  }
                   {...(isNumeric
                     ? {
                         "data-numeric": String(m.numericTarget),
@@ -207,59 +170,21 @@ export function SwissBenchmarkGrid() {
                         "data-suffix": m.suffix,
                       }
                     : {})}
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: isFeatured ? "4.5rem" : "2.8rem",
-                    fontWeight: 700,
-                    lineHeight: 0.9,
-                    letterSpacing: "-0.04em",
-                    color: "var(--foreground)",
-                    fontVariantNumeric: "tabular-nums",
-                    marginTop: "8px",
-                  }}
                 >
                   {isNumeric ? "0" : m.vanta}
                 </span>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-end",
-                    marginTop: "auto",
-                    paddingTop: "24px",
-                    borderTop: "1px solid var(--border)",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--muted)",
-                        fontFamily: "var(--font-sans)",
-                      }}
-                    >
+                <div className="swiss-vs-cell-footer">
+                  <div className="swiss-vs-cell-trad">
+                    <span className="swiss-vs-cell-trad-label">
                       Traditional Stack
                     </span>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.9rem",
-                        color: "var(--foreground)",
-                      }}
-                    >
+                    <span className="swiss-vs-cell-trad-value">
                       {m.traditional}
                     </span>
                   </div>
 
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      color: "var(--amber)",
-                    }}
-                  >
+                  <span className="swiss-vs-cell-diff">
                     {m.diff}
                   </span>
                 </div>

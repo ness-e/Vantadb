@@ -30,21 +30,24 @@ export function SwissUseCases() {
 
   useGSAP(
     () => {
-      gsap.fromTo(
-        ".swiss-uc-card",
-        { opacity: 0, y: 12 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          stagger: 0.06,
-          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 70%",
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.fromTo(
+          ".swiss-uc-card",
+          { opacity: 0, y: 12 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.06,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top 70%",
+            },
           },
-        },
-      );
+        );
+      });
     },
     { scope: sectionRef },
   );
@@ -52,40 +55,20 @@ export function SwissUseCases() {
   return (
     <section
       ref={sectionRef}
-      className="swiss-section"
-      style={{ background: "var(--background)", paddingTop: "80px", paddingBottom: "160px" }}
+      className="swiss-section swiss-uc-section"
     >
       <div className="swiss-inner">
-        <div style={{ marginBottom: "64px" }}>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-display)",
-              fontWeight: 700,
-              margin: "0",
-              letterSpacing: "-0.04em",
-              color: "var(--foreground)",
-            }}
-          >
+        <div className="uc-header">
+          <h2 className="uc-heading">
             Applied Use Cases.
           </h2>
         </div>
 
-        <div
-          style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--border)" }}
-        >
+        <div className="uc-list">
           {CASES.map((uc) => (
             <div
               key={uc.id}
               className="swiss-uc-card"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "3fr 9fr",
-                padding: "48px 0",
-                borderBottom: "1px solid var(--border)",
-                transition: "all 200ms",
-                cursor: "default",
-              }}
               onMouseEnter={(e) => {
                 const num = e.currentTarget.querySelector(".swiss-uc-num");
                 if (num) {
@@ -95,75 +78,33 @@ export function SwissUseCases() {
               onMouseLeave={(e) => {
                 const num = e.currentTarget.querySelector(".swiss-uc-num");
                 if (num) {
-                  (num as HTMLElement).style.color = "var(--subtle, #e0e0e0)";
+                  (num as HTMLElement).style.color = "var(--subtle)";
                 }
               }}
             >
               {/* Columna Izquierda: Índice numérico grande */}
               <div>
-                <span
-                  className="swiss-uc-num"
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-display)",
-                    fontWeight: 700,
-                    color: "var(--subtle, #e0e0e0)",
-                    transition: "color 150ms",
-                  }}
-                >
+                <span className="swiss-uc-num">
                   {uc.id}
                 </span>
               </div>
 
               {/* Columna Derecha: Contenido */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.75rem",
-                    color: "var(--steel)",
-                    letterSpacing: "0.1em",
-                  }}
-                >
+              <div className="uc-content">
+                <span className="uc-industry">
                   [{uc.industry}]
                 </span>
 
-                <h3
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-display)",
-                    fontSize: "2rem",
-                    fontWeight: 600,
-                    color: "var(--foreground)",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
+                <h3 className="uc-title">
                   {uc.title}
                 </h3>
 
-                <p
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "1.1rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    maxWidth: "80%",
-                  }}
-                >
+                <p className="uc-desc">
                   {uc.desc}
                 </p>
 
-                <div style={{ marginTop: "16px" }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.85rem",
-                      color: "var(--foreground)",
-                      background: "var(--surface-raised, #f0f0f0)",
-                      padding: "4px 8px",
-                    }}
-                  >
+                <div className="uc-stack-wrap">
+                  <span className="uc-stack">
                     {uc.stack}
                   </span>
                 </div>

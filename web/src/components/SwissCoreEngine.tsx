@@ -46,22 +46,24 @@ export function SwissCoreEngine() {
 
   useGSAP(
     () => {
-      // Stagger reveal of rows
-      gsap.fromTo(
-        ".swiss-ce-row",
-        { opacity: 0, y: 12 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.5,
-          stagger: 0.06,
-          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 70%",
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.fromTo(
+          ".swiss-ce-row",
+          { opacity: 0, y: 12 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.06,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top 70%",
+            },
           },
-        },
-      );
+        );
+      });
     },
     { scope: sectionRef },
   );
@@ -69,38 +71,16 @@ export function SwissCoreEngine() {
   return (
     <section
       ref={sectionRef}
-      className="swiss-section"
-      style={{
-        background: "#0a0a0a",
-        color: "#f0f0f0",
-        position: "relative",
-        paddingTop: "120px",
-        paddingBottom: "160px",
-      }}
+      className="swiss-section swiss-section--dark swiss-ce-section"
     >
       <div className="swiss-inner">
         {/* Title — NO eyebrow per budget */}
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "var(--text-display)",
-            fontWeight: 700,
-            margin: "0 0 80px 0",
-            letterSpacing: "-0.04em",
-            color: "#f0f0f0",
-          }}
-        >
+        <h2 className="swiss-ce-title">
           Exploded Architecture.
         </h2>
 
         {/* Stacked Accordion Rows */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
+        <div className="swiss-ce-accordion">
           {FEATURES.map((feat) => {
             const isExpanded = expandedId === feat.id;
 
@@ -109,43 +89,18 @@ export function SwissCoreEngine() {
                 key={feat.id}
                 className="swiss-ce-row"
                 onClick={() => setExpandedId(isExpanded ? null : feat.id)}
-                style={{
-                  borderBottom: "1px solid rgba(255,255,255,0.08)",
-                  padding: "32px 0",
-                  cursor: "pointer",
-                  transition: "all 200ms cubic-bezier(0.25, 1, 0.5, 1)",
-                }}
               >
                 {/* Row Header */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "center",
-                    gap: "24px",
-                  }}
-                >
+                <div className="swiss-ce-row-header">
                   {/* Title */}
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-display)",
-                      fontSize: "clamp(1.5rem, 3vw, 2.2rem)",
-                      fontWeight: 600,
-                      color: "#f0f0f0",
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
+                  <h3 className="swiss-ce-row-title">
                     {feat.title}
                   </h3>
 
                   {/* Expand indicator */}
                   <span
+                    className="swiss-ce-row-expand"
                     style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "1.2rem",
-                      color: "#555555",
-                      transition: "transform 200ms cubic-bezier(0.25, 1, 0.5, 1)",
                       transform: isExpanded ? "rotate(45deg)" : "rotate(0deg)",
                     }}
                   >
@@ -155,25 +110,13 @@ export function SwissCoreEngine() {
 
                 {/* Expanded Content */}
                 <div
+                  className="swiss-ce-row-content"
                   style={{
                     maxHeight: isExpanded ? "200px" : "0px",
-                    overflow: "hidden",
-                    transition: "max-height 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 200ms",
                     opacity: isExpanded ? 1 : 0,
                   }}
                 >
-                  <p
-                    style={{
-                      margin: 0,
-                      paddingTop: "24px",
-                      paddingLeft: 0,
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "1.05rem",
-                      color: "#808080",
-                      lineHeight: 1.65,
-                      maxWidth: "600px",
-                    }}
-                  >
+                  <p className="swiss-ce-row-desc">
                     {feat.desc}
                   </p>
                 </div>

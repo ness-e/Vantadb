@@ -20,17 +20,17 @@ const STEPS = [
   {
     num: "03",
     title: "Store",
-    cmd: 'db.put(\n  key="user_42",\n  vector=[0.1, 0.2, 0.3],\n  metadata={"text": "Paris is the capital of France", "source": "wiki"}\n)',
-    desc: "Embeddings are generated automatically. No external model needed.",
+    cmd: 'db.put(\n  namespace="agent/main",\n  key="user_42",\n  payload="Paris is the capital of France",\n  metadata={"source": "wiki"},\n  vector=[0.1, 0.2, 0.3]\n)',
+    desc: "Schema-free. Store text payloads with optional metadata and vectors.",
     output: "[VantaDB] Inserted 1 record. Vector stored.",
   },
   {
     num: "04",
     title: "Query",
-    cmd: "results = db.search_memory(\n  query=[0.1, 0.2, 0.3],\n  top_k=5\n)",
+    cmd: "results = db.search_memory(\n  namespace=\"agent/main\",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)",
     desc: "Semantic + keyword in one call. No orchestration layer.",
     output:
-      "[{\n  'key': 'user_42',\n  'metadata': {'text': 'Paris is the capital of France'},\n  'score': 0.92\n}]",
+      "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
   },
 ];
 
@@ -43,11 +43,14 @@ export function SwissQuickstart() {
 
   useGSAP(
     () => {
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top 75%",
-        onEnter: () => setHasEntered(true),
-        once: true,
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top 75%",
+          onEnter: () => setHasEntered(true),
+          once: true,
+        });
       });
     },
     { scope: sectionRef },
@@ -56,107 +59,60 @@ export function SwissQuickstart() {
   useEffect(() => {
     if (!hasEntered) return;
 
-    if (codeRef.current && outputRef.current) {
-      // Ocultar output al principio
-      gsap.set(outputRef.current, { opacity: 0 });
+    const mm = gsap.matchMedia();
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      if (codeRef.current && outputRef.current) {
+        gsap.set(outputRef.current, { opacity: 0 });
 
-      const duration = Math.max(0.4, STEPS[activeStep]!.cmd.length * 0.015);
+        const duration = Math.max(0.4, STEPS[activeStep]!.cmd.length * 0.015);
 
-      // Matar animaciones previas para evitar conflictos si cambia rápido
-      gsap.killTweensOf(codeRef.current);
+        gsap.killTweensOf(codeRef.current);
 
-      gsap.to(codeRef.current, {
-        duration: duration,
-        text: STEPS[activeStep]!.cmd,
-        ease: "none",
-        onComplete: () => {
-          // Mostrar output instantáneamente al terminar de escribir
-          gsap.set(outputRef.current, { opacity: 1 });
-        },
-      });
-    }
+        gsap.to(codeRef.current, {
+          duration: duration,
+          text: STEPS[activeStep]!.cmd,
+          ease: "none",
+          onComplete: () => {
+            gsap.set(outputRef.current, { opacity: 1 });
+          },
+        });
+      }
+    });
+
+    return () => {
+      mm.revert();
+    };
   }, [activeStep, hasEntered]);
 
   return (
     <section
       ref={sectionRef}
-      className="swiss-section"
-      style={{
-        background: "var(--background)",
-        borderTop: "1px solid var(--border)",
-        paddingTop: "120px",
-        paddingBottom: "120px",
-      }}
+      className="swiss-section qs-section"
     >
-      <div className="swiss-grid" style={{ gap: "24px" }}>
+      <div className="swiss-grid qs-grid">
         {/* Left: Steps nav (4 columnas en desktop, 12 en mobile/tablet) */}
-        <div
-          className="quickstart-left"
-          style={{ gridColumn: "1 / 5", display: "flex", flexDirection: "column" }}
-        >
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-display)",
-              fontWeight: 700,
-              margin: "0 0 48px 0",
-              letterSpacing: "-0.04em",
-              color: "var(--foreground)",
-            }}
-          >
+        <div className="quickstart-left">
+          <h2 className="qs-heading">
             Zero to running.
           </h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="qs-steps">
             {STEPS.map((step, i) => {
               const isActive = activeStep === i;
               return (
                 <div
                   key={step.num}
                   onClick={() => setActiveStep(i)}
-                  style={{
-                    display: "flex",
-                    gap: "24px",
-                    padding: "16px 0",
-                    borderLeft: `2px solid ${isActive ? "var(--amber)" : "transparent"}`,
-                    paddingLeft: isActive ? "22px" : "24px",
-                    cursor: "pointer",
-                    transition: "all 150ms",
-                    opacity: isActive ? 1 : 0.5,
-                  }}
+                  className={`qs-step ${isActive ? "qs-step--active" : ""}`}
                 >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-label)",
-                      fontWeight: 600,
-                      color: isActive ? "var(--amber)" : "var(--steel)",
-                    }}
-                  >
+                  <span className="qs-step-num">
                     [{step.num}]
                   </span>
-                  <div>
-                    <span
-                      style={{
-                        display: "block",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.9rem",
-                        fontWeight: 600,
-                        color: isActive ? "var(--foreground)" : "var(--steel)",
-                        marginBottom: "8px",
-                      }}
-                    >
+                  <div className="qs-step-body">
+                    <span className="qs-step-title">
                       {step.title}
                     </span>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontFamily: "var(--font-sans)",
-                        fontSize: "0.95rem",
-                        color: "var(--muted)",
-                        lineHeight: 1.5,
-                      }}
-                    >
+                    <p className="qs-step-desc">
                       {step.desc}
                     </p>
                   </div>
@@ -165,128 +121,45 @@ export function SwissQuickstart() {
             })}
           </div>
 
-          <div style={{ marginTop: "48px" }}>
-            <Link to="/docs" className="swiss-button-ghost" style={{ display: "inline-block" }}>
+          <div className="qs-docs">
+            <Link to="/docs" className="btn-ghost btn-ghost--hero qs-docs-link">
               Read Documentation
             </Link>
           </div>
         </div>
 
         {/* Right: Code terminal (8 columnas en desktop, 12 en mobile/tablet) */}
-        <div className="quickstart-right" style={{ gridColumn: "6 / 13" }}>
-          <div
-            style={{
-              background: "#0a0a0a",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "0px",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
+        <div className="quickstart-right">
+          <div className="qs-terminal">
             {/* Terminal Header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "16px 24px",
-                borderBottom: "1px solid var(--border)",
-                background: "#111111",
-              }}
-            >
-              <div style={{ display: "flex", gap: "6px" }}>
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    background: "#333333",
-                    borderRadius: "50%",
-                  }}
-                />
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    background: "#333333",
-                    borderRadius: "50%",
-                  }}
-                />
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    background: "#333333",
-                    borderRadius: "50%",
-                  }}
-                />
+            <div className="qs-terminal-header">
+              <div className="qs-terminal-dots">
+                <div className="qs-terminal-dot" />
+                <div className="qs-terminal-dot" />
+                <div className="qs-terminal-dot" />
               </div>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.75rem",
-                  color: "#555555",
-                  marginLeft: "auto",
-                  textTransform: "uppercase" as const,
-                  letterSpacing: "0.1em",
-                }}
-              >
+              <span className="qs-terminal-label">
                 TERMINAL // PYTHON 3.9+
               </span>
             </div>
 
             {/* Terminal Body */}
-            <div
-              style={{
-                padding: "32px",
-                flexGrow: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-              }}
-            >
-              <pre style={{ margin: 0, padding: 0, background: "transparent", border: "none" }}>
+            <div className="qs-terminal-body">
+              <pre className="qs-code-pre">
                 <code
                   ref={codeRef}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.95rem",
-                    lineHeight: 1.6,
-                    color: "#e0e0e0",
-                  }}
+                  className="qs-code"
                 ></code>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.95rem",
-                    color: "var(--amber)",
-                    animation: "blink 1s step-end infinite",
-                    opacity: 0.8,
-                  }}
-                >
+                <span className="qs-cursor">
                   _
                 </span>
               </pre>
 
               <div
                 ref={outputRef}
-                style={{
-                  marginTop: "auto",
-                  paddingTop: "24px",
-                  borderTop: "1px dashed rgba(255,255,255,0.08)",
-                  borderLeft: "2px solid var(--amber)",
-                  paddingLeft: "16px",
-                }}
+                className="qs-output"
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.85rem",
-                    color: "#808080",
-                    whiteSpace: "pre-wrap" as const,
-                    display: "block",
-                  }}
-                >
+                <span className="qs-output-text">
                   {STEPS[activeStep]!.output}
                 </span>
               </div>
@@ -294,22 +167,6 @@ export function SwissQuickstart() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        @media (max-width: 960px) {
-          .quickstart-left {
-            grid-column: 1 / 13 !important;
-            margin-bottom: 40px;
-          }
-          .quickstart-right {
-            grid-column: 1 / 13 !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }

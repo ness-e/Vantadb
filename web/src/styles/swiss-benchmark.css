@@ -173,3 +173,112 @@
     grid-template-rows: auto;
   }
 }
+
+/* ── Embedded vs Client/Server VS Grid ── */
+
+.swiss-vs-section {
+  padding-top: 160px;
+}
+
+.swiss-vs-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  margin: 0 0 24px 0;
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+}
+
+.swiss-vs-subtitle {
+  font-size: var(--text-body);
+  color: var(--muted);
+  max-width: 600px;
+  margin-bottom: 64px;
+  line-height: 1.65;
+}
+
+.swiss-vs-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--grid-gap);
+  background: var(--grid-hairline);
+  border: 1px solid var(--border);
+}
+
+.swiss-vs-cell {
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: border-color 100ms;
+}
+
+.swiss-vs-cell--featured {
+  grid-column: span 6;
+  padding: 48px 40px;
+}
+
+.swiss-vs-cell--regular {
+  grid-column: span 3;
+  padding: 32px 24px;
+}
+
+.swiss-vs-cell-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.swiss-vs-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  margin-top: 8px;
+}
+
+.swiss-vs-value--large {
+  font-size: 4.5rem;
+}
+
+.swiss-vs-value--small {
+  font-size: 2.8rem;
+}
+
+.swiss-vs-cell-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.swiss-vs-cell-trad {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swiss-vs-cell-trad-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+
+.swiss-vs-cell-trad-value {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--foreground);
+}
+
+.swiss-vs-cell-diff {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: var(--weight-semibold);
+  color: var(--amber);
+}

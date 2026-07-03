@@ -152,3 +152,120 @@
     padding: 1.5rem;
   }
 }
+
+/* ── Architecture Layers Stack (No network / No latency section) ── */
+
+.swiss-arch-layers {
+  padding-top: 160px;
+  padding-bottom: 160px;
+}
+
+.swiss-arch-layers-grid {
+  gap: 24px;
+}
+
+.swiss-arch-layers-text {
+  grid-column: 1 / 5;
+}
+
+.swiss-arch-layers-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  margin: 0 0 48px 0;
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+}
+
+.swiss-arch-layers-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.swiss-arch-layers-diagram {
+  grid-column: 6 / 13;
+  position: relative;
+}
+
+.swiss-arch-layers-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 40px;
+}
+
+.swiss-arch-layer {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms var(--ease-cut);
+}
+
+.swiss-arch-layer--large {
+  height: 140px;
+}
+
+.swiss-arch-layer--medium {
+  height: 100px;
+}
+
+.swiss-arch-layer--small {
+  height: 80px;
+}
+
+.swiss-arch-layer-badge {
+  position: absolute;
+  top: -10px;
+  left: 24px;
+  background: var(--background);
+  padding: 0 8px;
+}
+
+.swiss-arch-layer-badge-text {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.1em;
+}
+
+.swiss-arch-layer-name {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.swiss-arch-layer-arrow {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.swiss-arch-layer-dim {
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swiss-arch-layer-dim-line {
+  width: 16px;
+  height: 1px;
+  background: var(--border);
+}
+
+.swiss-arch-layer-dim-text {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--steel);
+}
