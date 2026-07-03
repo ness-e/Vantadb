@@ -10,6 +10,9 @@ license = "Apache-2.0"
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[package.metadata.wasm-pack]
+wasm-opt = false
+
 [dependencies]
 vantadb = { path = "../", default-features = false, features = ["wasm"] }
 wasm-bindgen = "0.2"

@@ -25,7 +25,7 @@ VantaDB is an **embedded vector database** that runs inside your application pro
 | Recall@10 | 0.998 |
 | Latency p50 | 1.2ms |
 | Memory | 1172 bytes/vector |
-| License | MIT |
+| License | Apache 2.0 |
 
 ## Why embedded?
 
@@ -42,6 +42,6 @@ VantaDB eliminates the network hop, the serialization overhead, and the infrastr
 
 We're in active development toward our community launch. The roadmap is public, the code is open, and contributions are welcome.
 
-- [GitHub](https://github.com/vantadb/vantadb)
+- [GitHub](https://github.com/ness-e/Vantadb)
 - [Documentation](/docs)
 - [Roadmap](/about/roadmap)

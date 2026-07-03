@@ -1,0 +1,9 @@
+{
+  "name": "vantadb-wasm-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  }
+}
