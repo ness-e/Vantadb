@@ -96,7 +96,7 @@ pub(crate) fn compact_layout(
     }
 
     std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
-    vstore.remap_mut()?;
+    vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
     vstore.save_cursor()?;
     Ok((new_offset_map, new_file_size))
