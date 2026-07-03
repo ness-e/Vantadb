@@ -6,6 +6,8 @@ use crate::storage::vfile::VantaFile;
 use std::sync::Arc;
 use zerocopy::IntoBytes;
 
+const FLAG_TOMBSTONE: u32 = 0x8;
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct NodeMetadata {
     pub relational: crate::node::RelFields,
@@ -62,7 +64,7 @@ pub(crate) fn insert_node_to_backend(
         relational: node.relational.clone(),
         edges: node.edges.clone(),
     };
-    let val = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
+    let val = postcard::to_allocvec(&metadata)
         .map_err(|e| VantaError::SerializationError(e.to_string()))?;
     backend.put(partition, &key, &val)?;
     Ok(())
@@ -80,9 +82,8 @@ pub(crate) fn get_node_from_backend(
         Some(r) => r,
         None => return Ok(None),
     };
-    let (metadata, _): (NodeMetadata, usize) =
-        bincode::serde::decode_from_slice(&metadata_res, bincode::config::standard())
-            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+    let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
+        .map_err(|e| VantaError::SerializationError(e.to_string()))?;
     let index_node = match hnsw.nodes.get(&id) {
         Some(n) => n,
         None => return Ok(None),
@@ -91,7 +92,7 @@ pub(crate) fn get_node_from_backend(
         Some(h) => h,
         None => return Ok(None),
     };
-    if (header.flags & 0x8) != 0 {
+    if (header.flags & FLAG_TOMBSTONE) != 0 {
         return Ok(None);
     }
     let vec_start = header.vector_offset as usize;

@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 #[cfg(feature = "sysinfo")]
 use sysinfo::System;
 
+const GIB: u64 = 1024 * 1024 * 1024;
+
 /// Global Hardware Profile loaded once at startup.
 static CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
 
@@ -120,7 +122,7 @@ impl HardwareScout {
             let env_hash = 0;
             let instructions = Self::detect_instructions();
             let logical_cores = 1;
-            let total_memory = 1024 * 1024 * 1024; // Conservative 1GB default
+            let total_memory = GIB; // Conservative 1GB default
             let profile = Self::determine_profile(total_memory, instructions);
             let resource_score =
                 Self::calculate_resource_score(total_memory, logical_cores, instructions);
@@ -161,7 +163,7 @@ impl HardwareScout {
     }
 
     fn determine_profile(memory: u64, instructions: InstructionSet) -> HardwareProfile {
-        let memory_gb = memory / (1024 * 1024 * 1024);
+        let memory_gb = memory / GIB;
 
         if memory_gb >= 16 && instructions == InstructionSet::Avx512 {
             HardwareProfile::Enterprise
@@ -173,7 +175,7 @@ impl HardwareScout {
     }
 
     fn calculate_resource_score(memory: u64, cores: usize, instructions: InstructionSet) -> u32 {
-        let mem_score = (memory / (1024 * 1024 * 1024)) as u32;
+        let mem_score = (memory / GIB) as u32;
         let core_score = cores as u32;
         let instr_score = match instructions {
             InstructionSet::Avx512 => 10,
@@ -214,8 +216,8 @@ impl HardwareScout {
             HardwareProfile::LowResource => style(profile_label).red().bold(),
         };
 
-        let ram_gb = caps.total_memory / (1024 * 1024 * 1024);
-        let cache_gb = (caps.total_memory / 4) / (1024 * 1024 * 1024);
+        let ram_gb = caps.total_memory / GIB;
+        let cache_gb = (caps.total_memory / 4) / GIB;
         let source = if cached { "CACHED" } else { "DETECTED" };
 
         // Helper: render a plain-text version to measure, then build styled line
@@ -268,7 +270,7 @@ impl HardwareScout {
             "Hardware Profile: {:?} | Cores: {} | RAM: {}GB | Score: {}",
             caps.profile,
             caps.logical_cores,
-            caps.total_memory / (1024 * 1024 * 1024),
+            caps.total_memory / GIB,
             caps.resource_score
         );
     }

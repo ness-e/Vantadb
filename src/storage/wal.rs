@@ -8,6 +8,8 @@ use std::path::Path;
 use std::sync::Arc;
 use tracing::info;
 
+const FLAG_TOMBSTONE: u32 = 0x8;
+
 pub(crate) fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<WalWriter>> {
     if config.read_only {
         return Ok(None);
@@ -55,7 +57,7 @@ pub(crate) fn recover_state(
                     let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                     if let Some(index_node) = hnsw.nodes.get(&id) {
                         if let Some(mut h) = vector_store.read_header(index_node.storage_offset) {
-                            h.flags |= 0x8;
+                            h.flags |= FLAG_TOMBSTONE;
                             let _ = vector_store.write_header(index_node.storage_offset, &h);
                         }
                     }

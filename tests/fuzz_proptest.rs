@@ -19,21 +19,21 @@ proptest! {
     /// Test 1: WalRecord debe manejar bytes aleatorios sin panic
     #[test]
     fn test_wal_record_deserialize_random_bytes(data: Vec<u8>) {
-        let _: Result<(WalRecord, usize), _> = bincode::serde::decode_from_slice(&data, bincode::config::standard());
+        let _: Result<WalRecord, _> = postcard::from_bytes(&data);
     }
 
     /// Test 2: UnifiedNode debe manejar bytes aleatorios sin panic
     #[test]
     fn test_unified_node_deserialize_random_bytes(data: Vec<u8>) {
-        let _: Result<(UnifiedNode, usize), _> = bincode::serde::decode_from_slice(&data, bincode::config::standard());
+        let _: Result<UnifiedNode, _> = postcard::from_bytes(&data);
     }
 
     /// Test 3: Roundtrip con IDs generados aleatoriamente
     #[test]
     fn test_unified_node_roundtrip_with_random_id(id: u64) {
         let node = UnifiedNode::new(id);
-        let serialized = bincode::serde::encode_to_vec(&node, bincode::config::standard()).unwrap();
-        let (deserialized, _): (UnifiedNode, usize) = bincode::serde::decode_from_slice(&serialized, bincode::config::standard()).unwrap();
+        let serialized = postcard::to_allocvec(&node).unwrap();
+        let deserialized: UnifiedNode = postcard::from_bytes(&serialized).unwrap();
         prop_assert_eq!(node.id, deserialized.id);
     }
 

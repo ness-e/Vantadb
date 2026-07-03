@@ -42,3 +42,47 @@ pub fn reported_version() -> Cow<'static, str> {
 pub fn version_label() -> String {
     format!("v{}", reported_version())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pkg_name_is_set() {
+        assert!(!PKG_NAME.is_empty());
+    }
+
+    #[test]
+    fn test_pkg_version_is_set() {
+        assert!(!PKG_VERSION.is_empty());
+    }
+
+    #[test]
+    fn test_display_name() {
+        assert_eq!(DISPLAY_NAME, "VantaDB");
+    }
+
+    #[test]
+    fn test_mcp_server_info_name() {
+        assert_eq!(MCP_SERVER_INFO_NAME, "vantadb");
+    }
+
+    #[test]
+    fn test_env_reported_version_constant() {
+        assert_eq!(ENV_REPORTED_VERSION, "VANTADB_REPORTED_VERSION");
+    }
+
+    #[test]
+    fn test_reported_version_defaults_to_pkg_version() {
+        let version = reported_version();
+        assert!(!version.is_empty());
+        assert_eq!(version.as_ref(), PKG_VERSION);
+    }
+
+    #[test]
+    fn test_version_label_format() {
+        let label = version_label();
+        assert!(label.starts_with('v'));
+        assert_eq!(label, format!("v{}", PKG_VERSION));
+    }
+}

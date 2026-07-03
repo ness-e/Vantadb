@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
-use crc32c::crc32c; // ← Importar función específica para evitar conflicto de namespace
+
+const KIB: usize = 1024;
+use crc32c::crc32c; // ← Import specific function to avoid namespace conflict
 
 /// CRC32C (Castagnoli) using hardware-accelerated crate for performance
 /// Falls back to pure Rust implementation if hardware acceleration unavailable
@@ -18,7 +20,7 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
 
 // ─── WAL Record ────────────────────────────────────────────
 
-/// WAL record types (bincode-serialized)
+/// WAL record types (postcard-serialized)
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WalRecord {
     Insert(UnifiedNode),
@@ -44,7 +46,7 @@ pub enum WalRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
     pub base: crate::binary_header::VantaHeader, // 16 bytes: magic = b"VWAL", version = 1, schema = 0, timestamp
-    pub crc: u32,                                // 4 bytes: CRC32C de la cabecera base
+    pub crc: u32,                                // 4 bytes: CRC32C of the base header
 }
 
 impl WalHeader {
@@ -118,7 +120,7 @@ impl WalHeader {
 /// Append-only WAL writer with CRC32C integrity checks and structured header.
 ///
 /// File format: \[WalHeader(20 bytes)\]\[Record1\]\[Record2\]...
-/// Record format: \[len:u32\]\[payload:bincode\]\[crc:u32\]
+/// Record format: \[len:u32\]\[payload:postcard\]\[crc:u32\]
 pub struct WalWriter {
     writer: BufWriter<File>,
     path: PathBuf,
@@ -148,13 +150,13 @@ impl WalWriter {
             file.flush()?;
             bytes_written = WalHeader::SIZE as u64;
         } else {
-            // Leer el header existente
+            // Read the existing header
             let mut header_bytes = [0u8; WalHeader::SIZE];
             file.seek(SeekFrom::Start(0))?;
             file.read_exact(&mut header_bytes)?;
             let _header = WalHeader::deserialize(&header_bytes)?;
 
-            // Escanear para contar registros válidos y detectar corrupción final o intermedia (Scan-Forward Auto-healing)
+            // Scan to count valid records and detect tail or mid-file corruption (Scan-Forward Auto-healing)
             let mut valid_bytes_limit = WalHeader::SIZE as u64;
             {
                 let mut file_handle = File::open(&path)?;
@@ -174,7 +176,7 @@ impl WalWriter {
                     let len = u32::from_le_bytes(len_buf) as u64;
 
                     let mut is_valid = false;
-                    // FMEA-03: Evitar OOM limitando el tamaño máximo analizado por corrupción a 10MB
+                    // FMEA-03: Avoid OOM by limiting max corruption-scan size to 10MB
                     if len > 0 && len <= 10_000_000 && current_offset + 4 + len + 4 <= file_len {
                         let mut record_bytes = vec![0u8; len as usize + 4];
                         if file_handle.read_exact(&mut record_bytes).is_ok() {
@@ -191,13 +193,8 @@ impl WalWriter {
                             let computed_crc = crc32c(payload);
 
                             if stored_crc == computed_crc {
-                                // FMEA-02: Validar deserialización estructural para evitar colisiones accidentales de CRC
-                                if bincode::serde::decode_from_slice::<WalRecord, _>(
-                                    payload,
-                                    bincode::config::standard(),
-                                )
-                                .is_ok()
-                                {
+                                // FMEA-02: Validate structural deserialization to avoid accidental CRC collisions
+                                if postcard::from_bytes::<WalRecord>(payload).is_ok() {
                                     is_valid = true;
                                 }
                             }
@@ -209,7 +206,7 @@ impl WalWriter {
                         current_offset += 4 + len + 4;
                         valid_bytes_limit = current_offset;
                     } else {
-                        // Entramos en modo Scan-Forward (escanear hacia adelante byte a byte)
+                        // Entering Scan-Forward mode (scan forward byte by byte)
                         warn!(
                             path = %path.display(),
                             offset = current_offset,
@@ -246,11 +243,7 @@ impl WalWriter {
                                         let computed_crc = crc32c(payload);
 
                                         if stored_crc == computed_crc
-                                            && bincode::serde::decode_from_slice::<WalRecord, _>(
-                                                payload,
-                                                bincode::config::standard(),
-                                            )
-                                            .is_ok()
+                                            && postcard::from_bytes::<WalRecord>(payload).is_ok()
                                         {
                                             warn!(
                                                 path = %path.display(),
@@ -269,7 +262,7 @@ impl WalWriter {
                         }
 
                         if !found_next {
-                            // No hay más registros válidos en el archivo. La corrupción es final/truncada.
+                            // No more valid records in the file. Corruption is tail/truncated.
                             break;
                         }
                     }
@@ -291,7 +284,7 @@ impl WalWriter {
         }
 
         Ok(Self {
-            writer: BufWriter::with_capacity(64 * 1024, file),
+            writer: BufWriter::with_capacity(64 * KIB, file),
             path,
             bytes_written,
             record_count,
@@ -308,7 +301,7 @@ impl WalWriter {
             )))
         });
 
-        let payload = bincode::serde::encode_to_vec(record, bincode::config::standard())
+        let payload = postcard::to_allocvec(record)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
@@ -391,13 +384,13 @@ impl WalReader {
             ));
         }
 
-        // Leer y validar el header
+        // Read and validate the header
         let mut header_bytes = [0u8; WalHeader::SIZE];
         file.read_exact(&mut header_bytes)?;
         let _header = WalHeader::deserialize(&header_bytes)?;
 
         Ok(Self {
-            reader: BufReader::with_capacity(64 * 1024, file),
+            reader: BufReader::with_capacity(64 * KIB, file),
             records_read: 0,
         })
     }
@@ -412,7 +405,7 @@ impl WalReader {
                 return Ok(None);
             }
 
-            // Intentamos leer el prefijo de longitud
+            // Attempt to read the length prefix
             let mut len_buf = [0u8; 4];
             if let Err(e) = self.reader.read_exact(&mut len_buf) {
                 if e.kind() == std::io::ErrorKind::UnexpectedEof {
@@ -432,10 +425,7 @@ impl WalReader {
                         let stored_crc = u32::from_le_bytes(crc_buf);
                         let computed_crc = crc32c(&payload);
                         let is_crc_valid = stored_crc == computed_crc;
-                        let deserialize_res = bincode::serde::decode_from_slice::<WalRecord, _>(
-                            &payload,
-                            bincode::config::standard(),
-                        );
+                        let deserialize_res = postcard::from_bytes::<WalRecord>(&payload);
                         let is_deser_ok = deserialize_res.is_ok();
 
                         if is_crc_valid && is_deser_ok {
@@ -466,13 +456,12 @@ impl WalReader {
             }
 
             if is_valid {
-                let (record, _) =
-                    bincode::serde::decode_from_slice(&payload, bincode::config::standard())
-                        .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                let record: WalRecord = postcard::from_bytes(&payload)
+                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {
-                // Entramos en modo Scan-Forward para saltar la corrupción y buscar el siguiente bloque consistente
+                // Entering Scan-Forward mode to skip corruption and find the next consistent block
                 warn!(
                     offset = current_pos,
                     "WalReader detected corrupt record. Scanning forward to recover next valid transaction..."
@@ -497,11 +486,8 @@ impl WalReader {
                                         let stored_crc = u32::from_le_bytes(test_crc_buf);
                                         let computed_crc = crc32c(&test_payload);
                                         if stored_crc == computed_crc
-                                            && bincode::serde::decode_from_slice::<WalRecord, _>(
-                                                &test_payload,
-                                                bincode::config::standard(),
-                                            )
-                                            .is_ok()
+                                            && postcard::from_bytes::<WalRecord>(&test_payload)
+                                                .is_ok()
                                         {
                                             warn!(
                                                 corrupt_bytes_skipped = scan_pos - current_pos,
@@ -521,7 +507,7 @@ impl WalReader {
                 }
 
                 if !found_next {
-                    // No hay más registros válidos en todo el archivo, final real del stream
+                    // No more valid records in the entire file, actual end of stream
                     return Ok(None);
                 }
             }

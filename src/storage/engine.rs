@@ -7,6 +7,11 @@
 use super::ops::NodeMetadata;
 use super::vfile::MmapMut;
 pub use crate::backend::BackendPartition;
+
+const FLAG_TOMBSTONE: u32 = 0x8;
+const STORAGE_ALIGNMENT: u64 = 64;
+const MIB: u64 = 1024 * 1024;
+const GIB: u64 = 1024 * 1024 * 1024;
 use crate::backend::{BackendWriteOp, StorageBackend};
 #[cfg(feature = "fjall")]
 use crate::backends::fjall_backend::FjallBackend;
@@ -184,7 +189,7 @@ impl StorageEngine {
                 }
             };
 
-            // Intentar adquirir el bloqueo con reintentos y backoff exponencial (timeout total ~1000ms)
+            // Attempt to acquire the lock with retries and exponential backoff (total timeout ~1000ms)
             let mut delay = std::time::Duration::from_millis(5);
             let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
             let start_time = std::time::Instant::now();
@@ -216,7 +221,7 @@ impl StorageEngine {
                     break;
                 }
 
-                // Esperar con backoff exponencial
+                // Wait with exponential backoff
                 std::thread::sleep(delay);
                 delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
             }
@@ -309,7 +314,7 @@ impl StorageEngine {
         let use_mmap = config.mmap_hnsw
             && (config.force_mmap
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
-                || effective_memory < 16 * 1024 * 1024 * 1024);
+                || effective_memory < 16 * GIB);
 
         let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
             if use_mmap {
@@ -339,7 +344,7 @@ impl StorageEngine {
         let vector_store = if config.read_only {
             VantaFile::open_read_only(vector_store_path)?
         } else {
-            VantaFile::open(vector_store_path, 1024 * 1024 * 64)?
+            VantaFile::open(vector_store_path, 64 * MIB)?
         };
 
         Ok((hnsw, vector_store))
@@ -373,11 +378,7 @@ impl StorageEngine {
         let mut wal_records_replayed = 0u64;
         let checkpoint_seq: u64 = backend
             .get(BackendPartition::InternalMetadata, b"checkpoint_seq")?
-            .and_then(|bytes| {
-                bincode::serde::decode_from_slice::<u64, _>(&bytes, bincode::config::standard())
-                    .ok()
-                    .map(|(v, _)| v)
-            })
+            .and_then(|bytes| postcard::from_bytes::<u64>(&bytes).ok())
             .unwrap_or(0);
 
         if !config.read_only && wal_path.exists() {
@@ -404,7 +405,7 @@ impl StorageEngine {
                             let offset = index_node.storage_offset;
                             if let Some(h) = vector_store.read_header(offset) {
                                 let mut tombstoned = h;
-                                tombstoned.flags |= 0x8;
+                                tombstoned.flags |= FLAG_TOMBSTONE;
                                 vector_store.write_header(offset, &tombstoned)?;
                             }
                         }
@@ -438,7 +439,7 @@ impl StorageEngine {
         let (hnsw, vector_store, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
                 let hnsw = CPIndex::new();
-                let vector_store = VantaFile::create_in_memory(1024 * 1024 * 64);
+                let vector_store = VantaFile::create_in_memory(64 * MIB);
                 let wal_writer = None;
                 (hnsw, vector_store, wal_writer, 0u64, 0u64)
             } else {
@@ -479,8 +480,8 @@ impl StorageEngine {
         if hnsw.nodes.len() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
             tracing::warn!(
                 hnsw_nodes = hnsw.nodes.len(),
-                estimated_mb = estimated_hnsw_bytes / 1024 / 1024,
-                effective_mb = effective_memory / 1024 / 1024,
+                estimated_mb = estimated_hnsw_bytes / MIB,
+                effective_mb = effective_memory / MIB,
                 "HNSW index exceeds 50% of memory budget",
             );
         }
@@ -554,7 +555,7 @@ impl StorageEngine {
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
 
-        // Mitigación A-01: Serializar escrituras/rebuild adquiriendo insert_lock
+        // Mitigation A-01: Serialize writes/rebuild by acquiring insert_lock
         let _guard = self
             .insert_lock
             .try_lock_for(std::time::Duration::from_millis(
@@ -579,7 +580,7 @@ impl StorageEngine {
             Self::rebuild_hnsw_from_vstore(&mut rebuilt, &vstore, index_path)?
         };
 
-        // Mitigación A-03: Persistencia en disco previa al swap en memoria (Atomicidad)
+        // Mitigation A-03: Disk persistence before in-memory swap (Atomicity)
         if rebuilt.backend.is_mmap() {
             rebuilt.sync_to_mmap().map_err(VantaError::IoError)?;
         } else {
@@ -601,26 +602,25 @@ impl StorageEngine {
         Ok(report)
     }
 
-    /// Compacta el VantaFile (`vector_store.vanta`) reescribiendo los nodos en orden
-    /// BFS (Breadth-First Search) del grafo HNSW desde el entry point.
+    /// Compacts the VantaFile (`vector_store.vanta`) by rewriting nodes in BFS
+    /// (Breadth-First Search) order of the HNSW graph starting from the entry point.
     ///
-    /// ## Objetivo
-    /// Los nodos más conectados del HNSW (hubs y capas superiores) quedan ubicados
-    /// en las páginas virtuales iniciales del archivo. Una búsqueda semántica
-    /// accede primero a esos nodos, por lo que tras la compactación reduce
-    /// drásticamente los page-faults en accesos MMap.
+    /// ## Goal
+    /// The most connected HNSW nodes (hubs and upper layers) end up located
+    /// in the initial virtual pages of the file. A semantic search accesses
+    /// those nodes first, so compaction drastically reduces page-faults on MMap access.
     ///
-    /// ## Garantías
-    /// - WAL debe estar vacío/flushed antes de llamar a esta función.
-    /// - Los `storage_offset` de todos los nodos en el `DashMap` del HNSW se
-    ///   actualizan atómicamente al finalizar el swap.
-    /// - Los nodos no alcanzados por el BFS (aislados / sin vector) se añaden
-    ///   al final, preservando la reachability total del índice.
-    /// - Si el índice está vacío, la función retorna sin error.
+    /// ## Guarantees
+    /// - WAL must be empty/flushed before calling this function.
+    /// - The `storage_offset` of all nodes in the HNSW `DashMap` are
+    ///   atomically updated after the swap completes.
+    /// - Nodes not reached by BFS (orphaned / without vectors) are appended
+    ///   at the end, preserving total index reachability.
+    /// - If the index is empty, the function returns without error.
     pub fn compact_layout_bfs(&self) -> Result<u64> {
         self.ensure_writable()?;
 
-        // Mitigación A-01: Serializar mutaciones adquiriendo insert_lock
+        // Mitigation A-01: Serialize mutations by acquiring insert_lock
         let _guard_insert = self
             .insert_lock
             .try_lock_for(std::time::Duration::from_millis(
@@ -741,7 +741,7 @@ impl StorageEngine {
             relational: active_node.relational.clone(),
             edges: active_node.edges.clone(),
         };
-        let metadata_val = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
+        let metadata_val = postcard::to_allocvec(&metadata)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
@@ -787,7 +787,7 @@ impl StorageEngine {
     }
 
     pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
-        if !storage_offset.is_multiple_of(64) {
+        if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Ok(());
         }
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
@@ -840,7 +840,7 @@ impl StorageEngine {
             relational: persisted.relational.clone(),
             edges: persisted.edges.clone(),
         };
-        let metadata_val = bincode::serde::encode_to_vec(&metadata, bincode::config::standard())
+        let metadata_val = postcard::to_allocvec(&metadata)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
@@ -855,7 +855,7 @@ impl StorageEngine {
         };
         self.refresh_index(&persisted, offset)?;
 
-        // Libera páginas de memoria del vector store para nodos Cold (TSK-04)
+        // Release memory pages from the vector store for Cold nodes (TSK-04)
         // Esto reduce el RSS sin invalidar el mmap; las páginas se cargarán bajo demanda
         if offset > 0 {
             let vstore = self.vector_store.read();
@@ -949,7 +949,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         let partition = super::ops::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
-        let val = bincode::serde::encode_to_vec(node, bincode::config::standard())
+        let val = postcard::to_allocvec(node)
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend.put(partition, &key, &val)?;
 
@@ -984,9 +984,8 @@ impl StorageEngine {
             None => return Ok(None),
         };
 
-        let (metadata, _): (NodeMetadata, usize) =
-            bincode::serde::decode_from_slice(&metadata_res, bincode::config::standard())
-                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
+            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
 
         let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
@@ -1001,7 +1000,7 @@ impl StorageEngine {
             None => return Ok(None),
         };
 
-        if (header.flags & 0x8) != 0 {
+        if (header.flags & FLAG_TOMBSTONE) != 0 {
             return Ok(None);
         }
 
@@ -1106,10 +1105,7 @@ impl StorageEngine {
                 continue;
             };
 
-            let (metadata, _): (NodeMetadata, usize) = match bincode::serde::decode_from_slice(
-                metadata_bytes,
-                bincode::config::standard(),
-            ) {
+            let metadata: NodeMetadata = match postcard::from_bytes(metadata_bytes) {
                 Ok(m) => m,
                 Err(_) => continue,
             };
@@ -1123,7 +1119,7 @@ impl StorageEngine {
                 continue;
             };
 
-            if (header.flags & 0x8) != 0 {
+            if (header.flags & FLAG_TOMBSTONE) != 0 {
                 continue;
             }
 
@@ -1192,7 +1188,7 @@ impl StorageEngine {
 
             let mut vstore = self.vector_store.write();
             if let Some(mut header) = vstore.read_header(offset) {
-                header.flags |= 0x8;
+                header.flags |= FLAG_TOMBSTONE;
                 vstore.write_header(offset, &header)?;
             }
         }
@@ -1242,7 +1238,7 @@ impl StorageEngine {
             .filter(|r| {
                 let n = r.value();
                 if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & 0x8) != 0
+                    (h.flags & FLAG_TOMBSTONE) != 0
                 } else {
                     false
                 }
@@ -1276,9 +1272,8 @@ impl StorageEngine {
         };
 
         if current_wal_seq > 0 {
-            let seq_bytes =
-                bincode::serde::encode_to_vec(current_wal_seq, bincode::config::standard())
-                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+            let seq_bytes = postcard::to_allocvec(&current_wal_seq)
+                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
             self.backend.put(
                 BackendPartition::InternalMetadata,
                 b"checkpoint_seq",
@@ -1333,7 +1328,7 @@ impl StorageEngine {
         let current = self.hnsw.load();
 
         if current.backend.is_mmap() {
-            // Mitigación A-03: RCU para MMap (Atomicidad y Transaccionalidad)
+            // Mitigation A-03: RCU for MMap (Atomicity and Transactionality)
             let data = current.serialize_to_bytes();
             let temp_path = index_path.with_extension("bin.tmp");
 
@@ -1361,7 +1356,7 @@ impl StorageEngine {
                 };
 
                 drop(file);
-                // Intercambio atómico en disco
+                // Atomic swap on disk
                 std::fs::rename(&temp_path, &index_path)?;
                 Ok(Arc::new(new_index))
             })();
@@ -1375,7 +1370,7 @@ impl StorageEngine {
                 }
             }
         } else {
-            // InMemory no requiere re-mapeo, sólo persistencia
+            // InMemory does not require remapping, only persistence
             if let Err(e) = current.persist_to_file(&index_path) {
                 warn!(err = %e, "Failed to persist vector index to file");
             }
@@ -1408,11 +1403,7 @@ impl StorageEngine {
 
         let mut recovered = Vec::new();
         for (_k, v) in &entries {
-            if let Ok((mut node, _)) = bincode::serde::decode_from_slice::<
-                crate::node::UnifiedNode,
-                _,
-            >(v, bincode::config::standard())
-            {
+            if let Ok(mut node) = postcard::from_bytes::<crate::node::UnifiedNode>(v) {
                 if node
                     .edges
                     .iter()
@@ -1453,11 +1444,10 @@ impl StorageEngine {
                     .expect("key slice fits [u8; 8] after length guard"),
             );
 
-            let metadata: NodeMetadata =
-                match bincode::serde::decode_from_slice(&value, bincode::config::standard()) {
-                    Ok((m, _)) => m,
-                    Err(_) => continue,
-                };
+            let metadata: NodeMetadata = match postcard::from_bytes(&value) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
 
             let index_node = match hnsw.nodes.get(&id) {
                 Some(n) => n,
@@ -1470,7 +1460,7 @@ impl StorageEngine {
                 None => continue,
             };
 
-            if (header.flags & 0x8) != 0 {
+            if (header.flags & FLAG_TOMBSTONE) != 0 {
                 continue;
             }
 
@@ -1691,10 +1681,7 @@ impl StorageEngine {
         let mut stats: HashMap<String, HashMap<String, usize>> = HashMap::new();
         if let Ok(records) = backend.scan(BackendPartition::Default) {
             for (_key, val) in records {
-                if let Ok((metadata, _)) = bincode::serde::decode_from_slice::<NodeMetadata, _>(
-                    &val,
-                    bincode::config::standard(),
-                ) {
+                if let Ok(metadata) = postcard::from_bytes::<NodeMetadata>(&val) {
                     for (field, value) in metadata.relational {
                         let val_keys = value.to_cardinality_keys();
                         let val_map = stats.entry(field).or_default();

@@ -1,9 +1,53 @@
+# ── Build artifacts ──
 target/
+
+# ── Git ──
 .git/
 .gitignore
-web/
+
+# ── Docker ──
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# ── Node / Web ──
 node_modules/
+web/
+
+# ── IDE / OS ──
 .vanta*/
-archive/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Secrets (never ship) ──
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# ── Logs ──
+*.log
+
+# ── Docs (not needed for build) ──
 *.md
+docs/
+archive/
+
+# ── Tests, fuzz, benches ──
+tests/
 fuzz/
+benches/
+
+# ── Examples ──
+examples/
+
+# ── Python ──
+__pycache__/
+*.pyc
+
+# ── CI ──
+.github/

@@ -2,7 +2,7 @@
 
 ## Descripción del Objetivo
 
-Rediseñar **todo** el sitio web de VantaDB (index + todas las subpáginas + Nav + Footer) bajo el estilo **Swiss High-Contrast Minimal (Neon Precision)**. El documento de referencia técnica completo se encuentra en [DiseñoNuevo.md](file:///c:/Users/Eros/VantaDB%20Proyect/vantadb.github.io/DiseñoNuevo.md).
+Rediseñar **todo** el sitio web de VantaDB (index + todas las subpáginas + Nav + Footer) bajo el estilo **Swiss High-Contrast Minimal (Neon Precision)**. El documento de referencia técnica completo se encuentra en [`../design/DiseñoNuevo.md`](../design/DiseñoNuevo.md).
 
 ---
 

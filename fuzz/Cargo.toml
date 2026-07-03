@@ -13,7 +13,7 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-bincode = "3.0.0"
+postcard = "1.1"
 libfuzzer-sys = "0.4"
 
 [dependencies.vantadb]

@@ -11,6 +11,8 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use zerocopy::{FromBytes, IntoBytes};
 
+const STORAGE_ALIGNMENT: u64 = 64;
+
 #[cfg(feature = "memmap2")]
 pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
 
@@ -363,17 +365,17 @@ impl VantaFile {
     }
 
     pub fn create_in_memory(initial_size: u64) -> Self {
-        let size = initial_size.max(64);
+        let size = initial_size.max(STORAGE_ALIGNMENT);
         let mut data = vec![0u8; size as usize];
         let header = VantaHeader::new(*b"VFLE", 1, 0);
         data[0..16].copy_from_slice(&header.serialize());
-        data[16..24].copy_from_slice(&64u64.to_le_bytes());
+        data[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
         Self {
             file: None,
             mmap: VantaFileMap::InMemory(data),
             path: PathBuf::new(),
             size,
-            write_cursor: 64,
+            write_cursor: STORAGE_ALIGNMENT,
             read_only: false,
         }
     }
@@ -419,7 +421,7 @@ impl VantaFile {
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
             let header = VantaHeader::new(*b"VFLE", 1, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
-            mmap.as_mut_slice()?[16..24].copy_from_slice(&64u64.to_le_bytes());
+            mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
             mmap.flush()?;
         }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
@@ -427,8 +429,8 @@ impl VantaFile {
         let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
             VantaError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
         })?);
-        let write_cursor = if cursor < 64 || cursor > current_size {
-            64
+        let write_cursor = if cursor < STORAGE_ALIGNMENT || cursor > current_size {
+            STORAGE_ALIGNMENT
         } else {
             (cursor + 63) & !63
         };
@@ -502,7 +504,7 @@ impl VantaFile {
 
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        if offset + header_size > self.size || !offset.is_multiple_of(64) {
+        if offset + header_size > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return None;
         }
         let slice = &self.mmap_bytes()[offset as usize..(offset + header_size) as usize];
@@ -511,7 +513,7 @@ impl VantaFile {
 
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        if !offset.is_multiple_of(64) {
+        if !offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Err(VantaError::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "misaligned",

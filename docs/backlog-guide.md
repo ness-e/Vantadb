@@ -336,4 +336,4 @@ VantaDB ocupa un **nicho que NADIE más ocupa**: embebido + WASM + hybrid search
 ---
 
 *Documento generado el 2 de julio de 2026.*
-*Fuentes: `analisis_proyecto.md` (1067L), `docs/` (155+ archivos), 4 subagentes de investigación (competencia, industria, producto, documentación).*
+*Fuentes: `docs/reviews/analisis_proyecto.md` (1067L), `docs/` (155+ archivos), 4 subagentes de investigación (competencia, industria, producto, documentación).*

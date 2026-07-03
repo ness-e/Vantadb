@@ -395,9 +395,19 @@ async fn execute_query(
 
 pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let format = resolve_log_format(log_format);
+    let is_json = matches!(format, LogFormat::Json);
+    let is_full = matches!(format, LogFormat::Full);
 
-    // Resolve format: explicit arg > VantaConfig default > legacy VANTADB_LOG_JSON
-    let format = log_format.unwrap_or_else(|| {
+    #[cfg(feature = "opentelemetry")]
+    _init_telemetry_otel(is_mcp, is_json, is_full, env_filter);
+
+    #[cfg(not(feature = "opentelemetry"))]
+    init_telemetry_fmt(is_mcp, is_json, is_full, env_filter);
+}
+
+fn resolve_log_format(log_format: Option<LogFormat>) -> LogFormat {
+    log_format.unwrap_or_else(|| {
         let legacy = std::env::var("VANTADB_LOG_JSON")
             .map(|v| v == "1" || v == "true")
             .unwrap_or(false);
@@ -409,68 +419,47 @@ pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
                 .map(|v| LogFormat::from_env_value(&v))
                 .unwrap_or_default()
         }
-    });
+    })
+}
 
-    let is_json = matches!(format, LogFormat::Json);
-    let is_full = matches!(format, LogFormat::Full);
+#[cfg(not(feature = "opentelemetry"))]
+fn init_telemetry_fmt(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
+    let stderr = || Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>;
 
-    #[cfg(feature = "opentelemetry")]
-    _init_telemetry_otel(is_mcp, is_json, is_full, env_filter);
-
-    #[cfg(not(feature = "opentelemetry"))]
-    {
-        if is_json {
-            if is_mcp {
-                tracing_subscriber::fmt()
-                    .with_env_filter(env_filter)
-                    .json()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_ansi(false)
-                    .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
-                    .init();
-            } else {
-                tracing_subscriber::fmt()
-                    .with_env_filter(env_filter)
-                    .json()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_ansi(false)
-                    .init();
-            }
-        } else if is_full {
-            if is_mcp {
-                tracing_subscriber::fmt()
-                    .with_env_filter(env_filter)
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_ansi(true)
-                    .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
-                    .init();
-            } else {
-                tracing_subscriber::fmt()
-                    .with_env_filter(env_filter)
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true)
-                    .with_ansi(true)
-                    .init();
-            }
-        } else if is_mcp {
-            tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .with_writer(|| Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>)
-                .init();
+    if is_json {
+        let sub = tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .json()
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_file(true)
+            .with_line_number(true)
+            .with_ansi(false);
+        if is_mcp {
+            sub.with_writer(stderr).init();
         } else {
-            crate::console::init_logging(LogFormat::Compact);
+            sub.init();
         }
+    } else if is_full {
+        let sub = tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_file(true)
+            .with_line_number(true)
+            .with_ansi(true);
+        if is_mcp {
+            sub.with_writer(stderr).init();
+        } else {
+            sub.init();
+        }
+    } else if is_mcp {
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .with_writer(stderr)
+            .init();
+    } else {
+        crate::console::init_logging(LogFormat::Compact);
     }
 }
 
@@ -513,16 +502,14 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
     let tracer = provider.tracer(service_name.clone());
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
+    let subscriber = Registry::default().with(env_filter).with(telemetry);
+
     if is_mcp {
-        Registry::default()
-            .with(env_filter)
-            .with(telemetry)
+        subscriber
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .init();
     } else if is_json {
-        Registry::default()
-            .with(env_filter)
-            .with(telemetry)
+        subscriber
             .with(
                 tracing_subscriber::fmt::layer()
                     .json()
@@ -533,9 +520,7 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
             )
             .init();
     } else if is_full {
-        Registry::default()
-            .with(env_filter)
-            .with(telemetry)
+        subscriber
             .with(
                 tracing_subscriber::fmt::layer()
                     .with_target(true)
@@ -545,11 +530,7 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
             )
             .init();
     } else {
-        Registry::default()
-            .with(env_filter)
-            .with(telemetry)
-            .with(tracing_subscriber::fmt::layer())
-            .init();
+        subscriber.with(tracing_subscriber::fmt::layer()).init();
     }
 }
 
@@ -662,37 +643,30 @@ pub async fn build_tls13_config(
     cert_path: &str,
     key_path: &str,
 ) -> std::io::Result<rustls::ServerConfig> {
+    use rustls::pki_types::pem::PemObject;
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-    use rustls_pemfile::Item;
 
     let cert_bytes = tokio::fs::read(cert_path).await?;
     let key_bytes = tokio::fs::read(key_path).await?;
 
-    let certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut cert_bytes.as_ref())
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let certs: Vec<CertificateDer> = CertificateDer::pem_slice_iter(&cert_bytes)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    let mut key_vec: Vec<Vec<u8>> = rustls_pemfile::read_all(&mut key_bytes.as_ref())
-        .filter_map(|i| match i.ok()? {
-            Item::Sec1Key(k) => Some(k.secret_sec1_der().to_vec()),
-            Item::Pkcs1Key(k) => Some(k.secret_pkcs1_der().to_vec()),
-            Item::Pkcs8Key(k) => Some(k.secret_pkcs8_der().to_vec()),
-            _ => None,
-        })
-        .collect();
+    let mut keys: Vec<PrivateKeyDer> = PrivateKeyDer::pem_slice_iter(&key_bytes)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    if key_vec.len() != 1 {
+    if keys.len() != 1 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             "expected exactly one private key in PEM file",
         ));
     }
 
-    let key = PrivateKeyDer::try_from(
-        key_vec
-            .pop()
-            .expect("key_vec has exactly one element after guard"),
-    )
-    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let key = keys
+        .pop()
+        .expect("keys has exactly one element after guard");
 
     let mut config =
         rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])

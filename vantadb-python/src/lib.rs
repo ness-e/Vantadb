@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{

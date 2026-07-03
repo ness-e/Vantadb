@@ -12,6 +12,8 @@ use std::str::FromStr;
 use tracing::debug;
 use tracing::warn;
 
+const DEFAULT_RSS_THRESHOLD: f64 = 0.80;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
     /// Compact human-readable output (default for CLI). No targets, thread IDs,
@@ -259,7 +261,7 @@ impl Default for VantaConfig {
                 debug!(?v, "VANTA_PREFETCH");
                 v
             },
-            rss_threshold: 0.80,
+            rss_threshold: DEFAULT_RSS_THRESHOLD,
             eviction_weight_hits: 1.0,
             eviction_weight_confidence: 2.0,
             eviction_weight_importance: 3.0,
@@ -282,7 +284,10 @@ impl Default for VantaConfig {
                 v
             },
             max_blocking_threads: {
-                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", 16usize);
+                let default = std::thread::available_parallelism()
+                    .map(|n| n.get() * 2)
+                    .unwrap_or(16);
+                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", default);
                 debug!(val = v, "VANTADB_MAX_BLOCKING_THREADS");
                 v
             },
@@ -587,7 +592,7 @@ mod tests {
         assert!(!cfg.force_mmap);
         assert!(cfg.mmap_hnsw);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Auto);
-        assert!((cfg.rss_threshold - 0.80).abs() < 1e-9);
+        assert!((cfg.rss_threshold - DEFAULT_RSS_THRESHOLD).abs() < 1e-9);
         assert!((cfg.eviction_weight_hits - 1.0).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 2.0).abs() < 1e-9);
         assert!((cfg.eviction_weight_importance - 3.0).abs() < 1e-9);

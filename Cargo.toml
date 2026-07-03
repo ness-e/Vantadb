@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 # ── Core ──
 serde = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
-bincode = { version = "2.0", features = ["serde"] }
+postcard = { version = "1.1", features = ["alloc"] }
 thiserror = "2"
 parking_lot = "0.12"
 dashmap = "6"
@@ -54,7 +54,6 @@ tower_governor = { version = "0.8", optional = true }
 tower-http = { version = "0.6.11", features = ["trace"], optional = true }
 axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
 rustls = { version = "0.23", optional = true }
-rustls-pemfile = { version = "2", optional = true }
 opentelemetry_sdk = { version = "0.32.1", optional = true }
 opentelemetry-otlp = { version = "0.32.0", optional = true, features = ["grpc-tonic", "trace"] }
 
@@ -103,7 +102,7 @@ server = [
     "dep:tower_governor",
     "dep:tower-http",
 ]
-tls = ["dep:axum-server", "dep:rustls", "dep:rustls-pemfile"]
+tls = ["dep:axum-server", "dep:rustls"]
 
 [dependencies.mimalloc]
 version = "0.1"
@@ -189,6 +188,10 @@ test = false
 
 # ── Integration Tests ─────────────────────────────────────────────
 [[test]]
+name = "regression_certification"
+path = "tests/core/regression_certification.rs"
+
+[[test]]
 name = "basic_node"
 path = "tests/core/basic_node.rs"
 
@@ -237,6 +240,10 @@ path = "tests/storage/storage.rs"
 [[test]]
 name = "hnsw"
 path = "tests/core/hnsw.rs"
+
+[[test]]
+name = "snapshot_certification"
+path = "tests/core/snapshot_certification.rs"
 
 [[test]]
 name = "gc"
@@ -430,6 +437,10 @@ path = "tests/fuzz_proptest.rs"
 [[test]]
 name = "multilingual_tokenizer_integration"
 path = "tests/multilingual_tokenizer_integration.rs"
+
+[[test]]
+name = "security_audit"
+path = "tests/security/security_audit.rs"
 
 # ── Examples ──
 [[example]]

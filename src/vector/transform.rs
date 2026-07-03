@@ -138,7 +138,8 @@ mod tests {
 
     #[test]
     fn test_fwht_simd_vs_scalar() {
-        let mut d1 = vec![0.5f32; 1024];
+        const TEST_VECTOR_SIZE: usize = 1024;
+        let mut d1 = vec![0.5f32; TEST_VECTOR_SIZE];
         for (i, item) in d1.iter_mut().enumerate() {
             *item = (i as f32).sin();
         }
