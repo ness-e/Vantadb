@@ -17,8 +17,8 @@ jobs:
             target/
           key: sbom-${{ hashFiles('Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cargo-cyclonedx
-      - run: cargo cyclonedx --output-format json -o sbom.json
+      - run: cargo install cargo-cyclonedx --version 0.5.9
+      - run: cargo cyclonedx -f json && mv bom.json sbom.json
       - uses: actions/upload-artifact@v4
         with:
           name: sbom
