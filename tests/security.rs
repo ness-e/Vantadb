@@ -429,7 +429,7 @@ mod auth_security_tests {
             "null",
             "undefined",
         ];
-        for token in &tokens {
+        for token in tokens {
             // The server auth middleware extracts Bearer tokens;
             // test that our comparison logic would not panic
             let has_bearer = token.strip_prefix("Bearer ");

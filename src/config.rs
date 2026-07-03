@@ -6,6 +6,7 @@
 use crate::backend::BackendKind;
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::AdvancedTokenizerConfig;
+use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use tracing::debug;
@@ -86,6 +87,11 @@ impl PrefetchMode {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RbacConfig {
+    pub token_role_map: HashMap<String, String>,
+}
+
 /// Unified configuration for VantaDB.
 ///
 /// Consolidates engine, LLM, and server settings. Loads from environment
@@ -162,6 +168,7 @@ pub struct VantaConfig {
     pub file_lock_timeout_ms: u64,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
+    pub rbac_config: RbacConfig,
 }
 
 fn parse_env_or<T: FromStr>(key: &str, default: T) -> T {
@@ -339,6 +346,7 @@ impl Default for VantaConfig {
             },
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
+            rbac_config: RbacConfig::default(),
         }
     }
 }
@@ -475,6 +483,12 @@ impl VantaConfig {
     /// Sets the log output format.
     pub fn with_log_format(mut self, format: LogFormat) -> Self {
         self.log_format = format;
+        self
+    }
+
+    /// Sets the RBAC configuration for token-to-role mapping.
+    pub fn with_rbac_config(mut self, config: RbacConfig) -> Self {
+        self.rbac_config = config;
         self
     }
 

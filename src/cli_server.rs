@@ -3,11 +3,13 @@
 //! Builds an [`axum`] application, mounts middleware and API routes,
 //! and binds to the configured address.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
 use std::sync::OnceLock;
 #[cfg(feature = "tls")]
 use std::time::Duration;
+use std::time::Instant;
 
 use axum::{
     extract::State,
@@ -17,7 +19,9 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tracing_subscriber::EnvFilter;
@@ -26,11 +30,12 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry
 #[cfg(feature = "opentelemetry")]
 static OTEL_PROVIDER: OnceLock<opentelemetry_sdk::trace::SdkTracerProvider> = OnceLock::new();
 
-use crate::config::{LogFormat, VantaConfig};
+use crate::config::{LogFormat, RbacConfig, VantaConfig};
 use crate::console;
 use crate::error::Result;
 use crate::metrics;
 use crate::node::{FieldValue, UnifiedNode};
+use crate::rbac::{Permission, Rbac};
 use crate::storage::StorageEngine;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,17 +78,25 @@ pub struct ServerState {
     pub storage: Arc<StorageEngine>,
     pub semaphore: Arc<tokio::sync::Semaphore>,
     pub api_key: Option<Arc<str>>,
+    pub rbac_config: RbacConfig,
 }
 
 pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
-    let auth_state = AuthState::new(state.api_key.as_ref().map(|k| k.to_string()));
+    let rbac = Arc::new(Rbac::new());
+    rbac.add_role("admin", vec![Permission::Admin]);
+    rbac.add_role("reader", vec![Permission::Read]);
+    rbac.add_role("writer", vec![Permission::Read, Permission::Write]);
+    let auth_state = AuthState::new(
+        state.api_key.as_ref().map(|k| k.to_string()),
+        state.rbac_config.clone(),
+        rbac,
+    );
 
-    let public = Router::new()
-        .route("/health", get(health_check))
-        .route("/metrics", get(metrics_endpoint));
+    let public = Router::new().route("/health", get(health_check));
 
     let protected = Router::new()
         .route("/api/v2/query", post(execute_query))
+        .route("/metrics", get(metrics_endpoint))
         .layer(middleware::from_fn(auth_middleware));
 
     let protected = if rpm > 0 {
@@ -110,15 +123,66 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .with_state(state)
 }
 
+pub struct AuthRateLimiter {
+    failures: Mutex<HashMap<String, (u32, Instant)>>,
+    max_attempts: u32,
+    window_secs: u64,
+}
+
+impl AuthRateLimiter {
+    pub fn new(max_attempts: u32, window_secs: u64) -> Self {
+        Self {
+            failures: Mutex::new(HashMap::new()),
+            max_attempts,
+            window_secs,
+        }
+    }
+
+    pub fn is_rate_limited(&self, ip: &str) -> bool {
+        let mut failures = self.failures.lock();
+        let now = Instant::now();
+        if let Some((count, first)) = failures.get(ip) {
+            if now.duration_since(*first).as_secs() > self.window_secs {
+                failures.remove(ip);
+                return false;
+            }
+            *count >= self.max_attempts
+        } else {
+            false
+        }
+    }
+
+    pub fn record_failure(&self, ip: &str) {
+        let mut failures = self.failures.lock();
+        let now = Instant::now();
+        let entry = failures.entry(ip.to_string()).or_insert((0, now));
+        if now.duration_since(entry.1).as_secs() > self.window_secs {
+            *entry = (1, now);
+        } else {
+            entry.0 += 1;
+        }
+    }
+
+    pub fn reset(&self, ip: &str) {
+        self.failures.lock().remove(ip);
+    }
+}
+
 #[derive(Clone)]
 pub struct AuthState {
     pub api_key: Option<Arc<str>>,
+    pub(crate) token_role_map: HashMap<String, String>,
+    pub(crate) rbac: Arc<Rbac>,
+    pub(crate) rate_limiter: Arc<AuthRateLimiter>,
 }
 
 impl AuthState {
-    pub fn new(api_key: Option<String>) -> Self {
+    pub(crate) fn new(api_key: Option<String>, rbac_config: RbacConfig, rbac: Arc<Rbac>) -> Self {
         Self {
             api_key: api_key.map(|k| Arc::from(k.as_str())),
+            token_role_map: rbac_config.token_role_map,
+            rbac,
+            rate_limiter: Arc::new(AuthRateLimiter::new(5, 60)),
         }
     }
 }
@@ -128,25 +192,77 @@ pub async fn auth_middleware(
     req: axum::extract::Request,
     next: middleware::Next,
 ) -> Response {
+    // Health endpoint is always public
     if req.uri().path() == "/health" {
         return next.run(req).await;
     }
 
+    // No API key configured — allow all (dev mode)
     let Some(expected_key) = &auth.api_key else {
         return next.run(req).await;
     };
 
-    let authorized = req
+    // Extract client IP for rate limiting
+    let client_ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Check rate limiting before processing auth
+    if auth.rate_limiter.is_rate_limited(&client_ip) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Too many authentication failures. Try again later.",
+            })),
+        )
+            .into_response();
+    }
+
+    let token = req
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|token| token == expected_key.as_ref())
-        .unwrap_or(false);
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    let authorized = match token {
+        Some(token) => {
+            let token_bytes = token.as_bytes();
+            let expected_bytes = expected_key.as_bytes();
+            token_bytes.ct_eq(expected_bytes).into()
+        }
+        None => false,
+    };
 
     if authorized {
+        // Check RBAC permissions
+        if let Some(token_val) = token {
+            if let Some(role) = auth.token_role_map.get(token_val) {
+                let is_write = matches!(req.method().as_str(), "POST" | "PUT" | "PATCH" | "DELETE");
+                let permission = if is_write {
+                    Permission::Write
+                } else {
+                    Permission::Read
+                };
+                if !auth.rbac.has_permission(role, &permission) {
+                    auth.rate_limiter.reset(&client_ip);
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(serde_json::json!({
+                            "success": false,
+                            "error": "Forbidden: insufficient permissions for this operation",
+                        })),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        auth.rate_limiter.reset(&client_ip);
         next.run(req).await
     } else {
+        auth.rate_limiter.record_failure(&client_ip);
         (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
@@ -503,10 +619,12 @@ pub async fn run(config: VantaConfig) -> Result<()> {
 
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.max_blocking_threads));
+    let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
         semaphore,
         api_key,
+        rbac_config,
     });
 
     let rpm = config.rate_limit_rpm;
