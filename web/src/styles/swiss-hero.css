@@ -2,33 +2,34 @@
 
 .swiss-hero-section {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   background-color: var(--background);
+  border-bottom: 1px solid var(--border);
   overflow: hidden;
-  padding-top: 64px; /* offset para el navbar */
+  padding-top: 64px; /* Offset para el navbar */
 }
 
-/* ── Grid Visible (Hairlines) ── */
-.swiss-hero-grid-overlay {
+/* ── Grid SVG (Hairlines) ── */
+.swiss-hero-grid-svg {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
+  max-width: 1200px;
   height: 100%;
   pointer-events: none;
   z-index: 0;
 }
 
 .swiss-hero-grid-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background-color: var(--border);
-  /* Asegura la animación limpia de GSAP */
-  will-change: transform;
+  stroke: var(--border);
+  stroke-width: 1px;
+  stroke-dasharray: 1500;
+  stroke-dashoffset: 1500;
+  will-change: stroke-dashoffset;
 }
 
 /* ── Layout Asimétrico ── */
@@ -36,14 +37,15 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  padding: 0 clamp(1.5rem, 4vw, 4rem);
+  padding: 0 24px;
 }
 
 .swiss-hero-content {
-  grid-column: 1 / 9; /* Ocupa las columnas 1 a 8, dejando 9 a 12 vacías */
+  grid-column: 1 / 9; /* Ocupa columnas 1-8 en la grilla suiza */
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
+  padding: 96px 0 64px; /* pt-24 cap de impecable */
 }
 
 /* ── Labels Tácticos ── */
@@ -55,7 +57,11 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   color: var(--foreground);
-  margin-bottom: 2rem;
+}
+
+.swiss-hero-label span {
+  display: inline-block;
+  will-change: opacity, color;
 }
 
 /* ── Typographic Title ── */
@@ -72,6 +78,7 @@
 .swiss-hero-title-wrapper {
   display: block;
   overflow: hidden;
+  padding-bottom: 4px;
 }
 
 .swiss-hero-title-line {
@@ -79,58 +86,69 @@
   will-change: transform, clip-path;
 }
 
-/* ── Subtitle ── */
+/* ── Subtitle (Outfit Font, no mono) ── */
 .swiss-hero-subtitle {
   font-family: var(--font-sans);
   font-size: var(--text-display);
   font-weight: 400;
-  color: var(--foreground);
-  max-width: 80%;
-  margin-top: 1rem;
-  margin-bottom: 3rem;
   line-height: 1.1;
   letter-spacing: -0.02em;
+  color: var(--muted);
+  max-width: 100%;
+  margin: 16px 0 32px;
+}
+
+.swiss-hero-subtitle-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ── CTA Actions ── */
 .swiss-hero-actions {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   align-items: center;
+  will-change: opacity, transform;
 }
 
 .swiss-button-primary {
   background-color: var(--amber);
   color: #ffffff;
   padding: 12px 24px;
-  border-radius: 0px;
+  border-radius: var(--radius-sm, 0px);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
-  display: flex;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  transition: background-color 150ms var(--ease-spring);
 }
 
 .swiss-button-primary:hover {
   background-color: #000000;
-}
-
-.swiss-button-code {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.95rem;
+  color: #ffffff;
 }
 
 .swiss-button-ghost {
   background-color: transparent;
   color: var(--foreground);
   border: 1px solid var(--border);
-  padding: 12px 24px;
-  border-radius: 0px;
+  padding: 11px 24px;
+  border-radius: var(--radius-sm, 0px);
   font-family: var(--font-sans);
   font-weight: 600;
+  font-size: 0.95rem;
   text-decoration: none;
-  transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms var(--ease-spring);
 }
 
 .swiss-button-ghost:hover {
@@ -140,21 +158,30 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .swiss-hero-section {
+    min-height: auto;
+    padding-top: 80px;
+  }
+
   .swiss-hero-content {
-    grid-column: 1 / -1; /* Ocupa todo el ancho en móvil */
+    grid-column: 1 / -1; /* Ancho completo en móvil */
+    padding: 48px 0;
+    gap: 24px;
   }
 
   .swiss-hero-subtitle {
-    max-width: 100%;
+    font-size: 1.5rem;
   }
 
   .swiss-hero-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
-  
+
   .swiss-hero-label {
-    flex-direction: column;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 8px 16px;
   }
 }
+
