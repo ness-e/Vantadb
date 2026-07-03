@@ -156,8 +156,6 @@ impl VantaDBStore {
                         let py_ref = obj.bind(py);
                         if let Ok(s) = py_ref.extract::<String>() {
                             s
-                        } else if py_ref.cast::<PyDict>().is_ok() {
-                            String::new()
                         } else {
                             String::new()
                         }
