@@ -950,3 +950,31 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissBenchmarkGrid.tsx`
   - `web/src/components/SwissUseCases.tsx`
   - `web/src/components/SwissMonolith.tsx`
+
+### DOC-11: Fix Factual Errors in Blog Post
+- **Fecha:** 2026-07-02
+- **Objetivo:** Resolver errores factibles en la publicación del blog introductorio (`introducing-vantadb.md`) cambiando el tipo de licencia y la dirección del repositorio de GitHub.
+- **Checklist Completado:**
+  - [x] Corregir licencia de MIT a Apache 2.0 en la tabla de especificaciones.
+  - [x] Corregir URL del repositorio de `vantadb/vantadb` a `ness-e/Vantadb`.
+- **Archivos Modificados:**
+  - `web/content/blog/introducing-vantadb.md`
+
+### DOC-12: Update llms.txt Version Ranges
+- **Fecha:** 2026-07-02
+- **Objetivo:** Actualizar el archivo de especificación para consumo de LLMs (`llms.txt`) para reflejar la versión correcta del proyecto (v0.2.0) en la sección de historial de cambios.
+- **Checklist Completado:**
+  - [x] Cambiar rango de versiones de `v0.4.0 -> v0.6.0` a `v0.1.0 -> v0.2.0`.
+- **Archivos Modificados:**
+  - `web/public/llms.txt`
+
+### MKT-07 / BIZ-03: Pricing Page Multi-Tier Implementation
+- **Fecha:** 2026-07-02
+- **Objetivo:** Diseñar y publicar la página de precios (/pricing) mostrando los 4 tiers correspondientes del modelo de negocio de VantaDB (Self-Hosted, Cloud Pro, Cloud Business, Enterprise) y una matriz de desglose de características completa.
+- **Checklist Completado:**
+  - [x] Definición de los 4 tiers de producto en el componente.
+  - [x] Creación del grid de 4 columnas responsivo y con transiciones suizas (cubic-bezier).
+  - [x] Implementación de la tabla comparativa con 5 columnas adaptada a pantallas pequeñas.
+  - [x] Actualización de FAQ y hovers con inversión de colores.
+- **Archivos Modificados:**
+  - `web/src/routes/pricing.lazy.tsx`

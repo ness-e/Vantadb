@@ -167,7 +167,7 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `MKT-07` | Design and publish Pricing page (Free/Pro/Enterprise tiers). Signal pricing model before Show HN even if cloud is not ready | 🔴 | ❌ |
+| `MKT-07` | Design and publish Pricing page (Free/Pro/Enterprise tiers). Signal pricing model before Show HN even if cloud is not ready | 🔴 | ✅ |
 | `MKT-08` | Register trademark "VantaDB" (USPTO + EUIPO) — pre-Show HN requirement to prevent name squatting | 🔴 | ❌ |
 | `MKT-09` | Contributor License Agreement (CLA) for future core contributions | 🟠 | ❌ |
 | `BIZ-01` | Design enterprise crate structure: separate paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) | 🟡 | ❌ |
@@ -211,7 +211,7 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 | `CLD-06` | Stripe integration for cloud self-service signup + billing | 🟡 | ❌ |
 | `CLD-07` | Web dashboard (admin panel for cloud: collections, usage, billing, team management) | 🟡 | ❌ |
 | `BIZ-01` | Enterprise crate structure: split paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) | 🟡 | ❌ |
-| `BIZ-03` | Pricing page (Free/Pro/Enterprise) | 🟡 | ❌ |
+| `BIZ-03` | Pricing page (Free/Pro/Enterprise) | 🟡 | ✅ |
 
 **Phase 5 Exit Criteria:** 10 enterprise pilots ✓ | $10K MRR ✓ | 3 case studies ✓ | Pitch deck ✓
 
