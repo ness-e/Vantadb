@@ -280,7 +280,9 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
-### 2026-07-03 — Massive Adapter, WASM, Performance, Security & DX Batch (25 tareas completadas)
+### 2026-07-03 — Massive Adapter, WASM, Performance, Security, DX & Clippy Batch (26 tareas completadas)
+
+**fix: clippy warnings (commit `b11c0e7`):** Se resolvieron las 22 advertencias de `dead_code` en el código scaffolding (PERF-02/07/08/10, SEC-05, vfile sigbus, ops auxiliares, wal recovery) mediante `#[allow(dead_code)]`. Se corrigió un type mismatch en `rkyv_archives.rs` (`Vec<Vec<u64>>` → `Vec<NeighborVec>`). `cargo clippy` ahora emite 0 warnings y 342/342 tests pasan.
 
 Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas críticas:
 
