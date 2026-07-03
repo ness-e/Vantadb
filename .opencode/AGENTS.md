@@ -1,146 +1,146 @@
-# Directivas del Proyecto VantaDB (Rust Core)
+# VantaDB — AGENTS.md
 
-## Flujo de Progreso
+## Skills Manifest
 
-Este proyecto VantaDB usa un skill de progreso para mantener el historial unificado:
-`./.opencode/skills/progreso/SKILL.md`
+**Todas las skills están centralizadas en:**
+- `.agents/skills/` (proyecto, 154 skills)
+- Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
-- **Al iniciar una nueva tarea:** carga el skill `progreso` y sigue sus triggers (Trigger 2 primero).
-- **Al completar una tarea:** aplica el skill `progreso` (Trigger 1) ANTES de cualquier mensaje de resumen.
-- **Backlog:** `./docs/Backlog.md` — tareas pendientes priorizadas
-- **Changelog:** `./docs/CHANGELOG.md` — release notes formales por versión
+**Siempre preferir la copia del proyecto sobre la global.**
+Para cargar: `skill <nombre>` o leer el SKILL.md correspondiente.
 
-## Comportamiento General
+### Skill Loading Guide
 
-- Preserva siempre el contenido de `./docs/progreso/README.md` — es el historial inmutable del proyecto.
-- No sobrescribas archivos de planificación sin antes haber consolidado la tarea anterior en el historial unificado.
-- Los docs técnicos (API, arquitectura, operaciones) están en **inglés** — no los traduzcas.
-- Los docs de planificación (Backlog, progreso, MPTS, investigaciones) están en **español**.
-- Los MPTS en español llevan cross-references a los docs técnicos en inglés. No dupliques contenido técnico en español.
-- **Doc-Driven Development**: Para features nuevas, documenta la superficie (API, config, CLI) en los docs en inglés ANTES de implementar el código.
-- **Definition of Done**: Cada tarea completa debe pasar el checklist del skill `progreso` que incluye verificar que los docs afectados por los archivos modificados fueron actualizados.
-- **Validación automática**: El script `scripts/validate-docs-coverage.ps1` debe ejecutarse como paso final antes de marcar una tarea como completada. Si reporta gaps, hay que resolverlos.
+- **Diseño UI/Frontend**: `vanta-design-orchestrator` → `impeccable` → `design-taste-frontend`
+- **Animación**: `motion (motion.dev)` (preferido), `gsap-core` (alternativa GSAP)
+- **Corrección de bugs**: `systematic-debugging` → `writing-plans`
+- **Features multi-paso**: `brainstorming` → `writing-plans` → skills relevantes
+- **SEO**: `ai-seo` → `seo-audit` → `audit-website`
+- **Video/presentaciones**: `hyperframes` → deck skills según necesidad
+- **Branding/Arte**: `brandkit`, `canvas-design`, `algorithmic-art`, `theme-factory`, `color-expert`, `platform-design`
 
----
+## Progreso Skill (MUST USE)
 
-## Skills del Sistema Disponibles para Rust
+Load `progreso` at start and before completing every task:
+- **Start**: `skill progreso` — reads backlog, checks for in-progress work
+- **Complete**: `skill progreso` (Trigger 1) — moves done tasks from `docs/Backlog.md` → `docs/progreso/README.md` BEFORE any summary
 
-Estos skills están disponibles globalmente y deben cargarse cuando el caso de uso lo requiera. NO se cargan automáticamente.
+## Doc Language Split
 
-### Skills Base de Datos y Esquemas
-- **`prisma-expert`**: Schema design, migrations, query optimization, relations modeling. Cargar cuando se trabaje con prisma-client-rust o esquemas de DB.
-- **`prisma`**: Type-safe database operations y schema design con Prisma ORM.
-- **`database-schema-designer`**: Diseño de esquemas SQL/NoSQL — normalización, indexing, migraciones.
-- **`supabase-postgres-best-practices`**: Optimización Postgres, queries, schema design.
+| Language | Content |
+|----------|---------|
+| **English** (source of truth) | `docs/api/`, `docs/architecture/`, `docs/operations/`, `docs/QUICKSTART.md` |
+| **Spanish** (planning only) | `docs/VantaDB-MPTS/`, `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
 
-### Skills Calidad y Debugging
-- **`systematic-debugging`**: Debugging metódico — usar ANTE de proponer fixes ante cualquier bug o test failure.
-- **`pr-feedback-quality-gate`**: Tracking de PR feedback, resolución de merge conflicts, validación de fixes.
+Technical docs stay in English. Never duplicate technical content in Spanish.
 
-### Skills Diseño de APIs
-- **`api-design-principles`**: Diseño de APIs REST y GraphQL — usar al diseñar nuevas APIs Rust (axum, actix, tonic).
+**Doc-Driven Development**: For new features, write/update `docs/api/` or `docs/operations/` docs FIRST, then implement. Never leave docs behind code.
 
----
-
-## Herramientas CLI Esenciales para Rust
-
-Instalables bajo demanda. El agente puede proponer su instalación cuando el caso de uso lo requiera:
+## Pre-Flight Checks
 
 ```bash
-# === CALIDAD DE CÓDIGO ===
-cargo install cargo-machete       # Detectar dependencias no usadas
-cargo install cargo-audit         # Auditoría de vulnerabilidades (RustSec DB)
-cargo install cargo-deny          # Licencias, bans, advisories
-cargo install cargo-outdated      # Mostrar dependencias desactualizadas
-cargo install cargo-tree          # Árbol de dependencias visual
-cargo install cargo-llvm-cov      # Cobertura de código (LLVM)
-
-# === TESTING ===
-cargo install cargo-nextest       # Test runner paralelo más rápido
-cargo install cargo-watch         # Rebuild/test automático en save
-cargo install bacon               # Background check con feedback visual
-
-# === MACROS & METADATA ===
-cargo install cargo-expand        # Expandir macros para debugging
-cargo install cargo-edit          # add/rm/upgrade deps desde CLI
-cargo install cargo-modules       # Visualizar estructura de módulos
-
-# === MCP SERVERS ===
-cargo install cargo-mcp           # MCP server para comandos Cargo
-cargo install rust-mcp-server     # MCP server completo para Rust
-cargo install rust-analyzer-mcp   # MCP server para rust-analyzer LSP
+:: Order matters — stop on first failure
+cargo fmt --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo nextest run --profile audit --workspace --build-jobs 2
+scripts/validate-docs-coverage.ps1   # final step before marking done
 ```
 
----
+## Build System
 
-## MCP Servers para Rust (Configuración Referencial)
+- **Rust**: stable (rust-toolchain.toml: `1.94.1`+)
+- **Profile `ci`** (no LTO, opt-level=2, 16 codegen-units) — used by CI Fast Gate
+- **Profile `release`** (thin LTO, opt-level=3, 1 codegen-unit)
+- **Profile `dev`** (opt-level=1, debug=0) — faster local iteration
+- **Profile `test`** (opt-level=0, debug=0)
+- **Profile `audit`** — used by nextest for pre-flight/release validation
+- **Windows MSVC stack overflow workaround**: Always pass `--build-jobs 2` to nextest
+- **Windows linker**: `.cargo/config.toml` forces `link.exe` (rust-lld causes STATUS_STACK_BUFFER_OVERRUN with large crates)
 
-Estos MCP servers están disponibles para conectar asistentes AI al toolchain Rust. Se configuran en `opencode.json` bajo `mcpServers` cuando se necesiten.
+## Default Features
 
-### 1. cargo-mcp
-- **Qué hace**: Ejecuta `cargo check`, `clippy`, `test`, `build`, `fmt`, `add`, `remove`, `bench`, `run`
-- **Instalación**: `cargo install cargo-mcp`
-- **Config**:
-```json
-{
-  "cargo-mcp": {
-    "command": "cargo-mcp",
-    "args": ["serve"]
-  }
-}
+`cli` + `arrow` + `rocksdb` + `fjall` + `sysinfo` + `memmap2` + `fs2` + `prometheus` + `rayon` + `advanced-tokenizer`
+
+Key optional features:
+- `failpoints` — required for `chaos_integrity` test
+- `remote-inference` — enables `llm` module (reqwest-based)
+- `server` — enables axum HTTP server + tokio
+- `python_sdk` — enables PyO3 bindings
+
+## Test Suite
+
+```bash
+:: Fast Gate (audit profile)
+cargo nextest run --profile audit --workspace --build-jobs 2
+
+:: Single test (adapt to use nextest or cargo test as needed)
+cargo nextest run --profile audit -p vantadb --test <test_name>
+
+:: Tests that require specific features:
+cargo nextest run --profile audit --features "failpoints" --test chaos_integrity
+cargo nextest run --profile audit --features "cli" --test cli_tests
+cargo nextest run --profile audit --features "arrow" --test columnar
+
+:: Experimental tests (parser, executor, governor)
+cargo nextest run --profile experimental --workspace --features experimental-lisp,experimental-governance
+
+:: Fuzzing (requires nightly + Linux, in fuzz/ dir excluded from workspace)
+cd fuzz && cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
 ```
 
-### 2. rust-analyzer-mcp (zeenix)
-- **Qué hace**: Integración LSP completa — hover, goto def, references, completions, diagnostics, rename, format
-- **Instalación**: `cargo install rust-analyzer-mcp`
-- **Requiere**: `rustup component add rust-analyzer`
-- **Config**:
-```json
-{
-  "rust-analyzer-mcp": {
-    "command": "rust-analyzer-mcp"
-  }
-}
+Test categories: `tests/core/`, `tests/storage/`, `tests/logic/`, `tests/api/`, `tests/certification/`, `tests/memory/`, plus root-level integration tests.
+
+## CI Architecture (Two-Tier)
+
+1. **Fast Gate** (every PR/push): fmt, clippy, unit + fast integration tests. Must stay <5 min, deterministic, offline.
+2. **Heavy Certification** (manual/scheduled): stress_protocol, hnsw validation, SIFT, competitive_bench, chaos_integrity, wal_resilience. Takes up to 2hrs. Never in Fast Gate.
+
+See `docs/operations/CI_POLICY.md`.
+
+## Python SDK
+
+```bash
+:: Hermetic venv (tests MUST use this — never a global install)
+dev-tools/setup_venv.ps1         # creates target/audit-venv + maturin build
+target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py -v
+
+:: Editable install from source
+pip install -e ./vantadb-python
+
+:: PyPI name differs from import
+pip install vantadb-py      # distribution
+import vantadb_py            # module (underscore)
 ```
 
-### 3. rust-mcp-server
-- **Qué hace**: Bridge completo — build, test, deps, clippy, doc, project management, dependency management
-- **Instalación**: `cargo install rust-mcp-server`
-- **Config**:
-```json
-{
-  "rust-mcp": {
-    "command": "rust-mcp-server"
-  }
-}
-```
+Built via `maturin` with PyO3. Requires Python ≥3.11.
 
-### Notas sobre MCPs
-- Son GRATUITOS y corren 100% local (no requieren API keys externas).
-- Las tool definitions consumen ~500-1000 tokens c/u. Activar solo las necesarias.
-- El agente sugerirá activar un MCP server específico cuando detecte el caso de uso.
-
----
-
-## Skills Locales del Proyecto
-
-Estos skills están en `./skills/` y `./.opencode/skills/`:
-
-- **`vantadb-mcp`** (`./skills/vantadb-mcp/SKILL.md`): Integración MCP de VantaDB para memoria persistente AI.
-- **`vantadb`** (`./skills/vantadb/SKILL.md`): Guía experta de VantaDB — core operations, hybrid search, SDK Python/Rust, integraciones LangChain/LlamaIndex.
-- **`progreso`** (`./.opencode/skills/progreso/SKILL.md`): Historial unificado de progreso. **Cargar siempre al iniciar/completar tareas.** Mueve tareas de `docs/Backlog.md` a `docs/progreso/README.md`, registra investigaciones, y mantiene cross-references con `docs/CHANGELOG.md` y `docs/Investigaciones/`.
-
-### Estructura de Documentación Local
+## Architecture
 
 ```
-docs/
-├── Backlog.md           ← Tareas pendientes
-├── CHANGELOG.md         ← Release notes formales por versión
-├── progreso/README.md   ← Historial de tareas completadas + hitos + auditorías
-├── Investigaciones/     ← Research artifacts por tema (01_*.md ... 05_*.md)
-├── Investigaciones.md   ← Índice de investigaciones
-├── VantaDB-MPTS/        ← Docs estratégicos en español (cross-ref a docs técnicos en inglés)
-├── api/                 ← SDK/API en inglés (fuente de verdad técnica)
-├── architecture/        ← Arquitectura en inglés
-└── operations/          ← Operaciones/CI en inglés
+vantadb/ (src/)            ← core library (primary crate)
+  sdk/                     ← primary embedded API (VantaEmbedded, connect(), Vanta* types)
+  engine.rs                ← in-memory engine
+  storage/                 ← persistent backends (Fjall default, RocksDB fallback)
+  wal.rs                   ← Write-Ahead Log
+  vector/                  ← HNSW, distance metrics
+  node.rs                  ← UnifiedNode, FieldValue
+  cli.rs                   ← vanta-cli binary (#[cfg(feature = "cli")])
+  api/                     ← HTTP routes (feature-gated, stub)
+vantadb-python/            ← PyO3 bindings
+vantadb-server/            ← standalone HTTP server binary
+vantadb-wasm/              ← WASM build
+vantadb-mcp/               ← MCP integration
+vantadb-{openai,ollama,mem0,letta,crewai,dspy,haystack,litellm}/  ← thin integration crates
+packages/                  ← LangChain + LlamaIndex adapter packages
+fuzz/                      ← cargo-fuzz targets (nightly Linux only, excluded from workspace)
+benches/                   ← Criterion benchmarks ([[bench]] in Cargo.toml)
 ```
+
+## Key Conventions
+
+- **Commit style**: Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `perf:`) — see `.github/CONTRIBUTING.md`
+- **Changelog**: `docs/CHANGELOG.md` via `git-cliff` (config: `cliff.toml`)
+- **Licensing**: `cargo-deny` configured in `deny.toml` (MIT/Apache-2.0 only)
+- **Markdown linting**: `.markdownlint-cli2.yaml` — line length disabled, HTML `div`/`h1`/`p`/`br` allowed
+- **WASM**: vanta-wasm binary uses `opt-level = "s"` + strip in release
+- **No opencode.json**: only `package.json` with `@opencode-ai/plugin` dependency
