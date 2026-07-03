@@ -20,7 +20,7 @@ use vantadb::sdk::{
 use vantadb::DistanceMetric;
 
 thread_local! {
-    static BUFFER_CACHE: RefCell<Vec<u8>> = RefCell::new(Vec::new());
+    static BUFFER_CACHE: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 thread_local! {
