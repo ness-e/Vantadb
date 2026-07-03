@@ -130,9 +130,10 @@ impl VantaEmbedded {
                         Some(record)
                     }
                     _ => {
-                        return Err(VantaError::NodeIdCollision(
-                            memory_node_id(&input.namespace, &input.key),
-                        ));
+                        return Err(VantaError::NodeIdCollision(memory_node_id(
+                            &input.namespace,
+                            &input.key,
+                        )));
                     }
                 },
                 None => None,
@@ -350,7 +351,7 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn purge_expired(&self) -> Result<u64> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
+            return Err(VantaError::SearchError(
                 "purge_expired is not available when VantaDB is opened read-only".to_string(),
             ));
         }

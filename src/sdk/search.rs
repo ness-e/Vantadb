@@ -191,7 +191,7 @@ impl VantaEmbedded {
                     continue;
                 }
                 let posting = crate::text_index::decode_posting(&posting_value).map_err(|err| {
-                    VantaError::Execution(format!(
+                    VantaError::SearchError(format!(
                         "text_query found an unreadable posting; run rebuild_index: {err}"
                     ))
                 })?;
@@ -214,7 +214,7 @@ impl VantaEmbedded {
                     stats
                 };
                 if doc_stats.node_id != posting.node_id {
-                    return Err(VantaError::Execution(
+                    return Err(VantaError::SearchError(
                         "text_query found posting/doc stats mismatch; run rebuild_index"
                             .to_string(),
                     ));
@@ -405,11 +405,9 @@ impl VantaEmbedded {
     }
 
     fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<TextIndexState> {
-        let state = Self::load_text_index_state(engine).map_err(|_| {
-            VantaError::NotFound {
-                kind: "text_index_state".into(),
-                id: "bm25".into(),
-            }
+        let state = Self::load_text_index_state(engine).map_err(|_| VantaError::NotFound {
+            kind: "text_index_state".into(),
+            id: "bm25".into(),
         })?;
         let Some(state) = state else {
             return Err(VantaError::NotFound {
@@ -420,7 +418,9 @@ impl VantaEmbedded {
         if !Self::text_index_state_matches_spec(&state) {
             return Err(VantaError::ValidationError {
                 field: "text_index_schema".into(),
-                reason: "text_query requires text_index schema v3; reopen writable or run rebuild_index".into(),
+                reason:
+                    "text_query requires text_index schema v3; reopen writable or run rebuild_index"
+                        .into(),
             });
         }
         Ok(state)
@@ -488,7 +488,8 @@ impl VantaEmbedded {
         if self.config.read_only {
             return Err(VantaError::ValidationError {
                 field: "read_only".into(),
-                reason: "repair_text_index is not available when VantaDB is opened read-only".into(),
+                reason: "repair_text_index is not available when VantaDB is opened read-only"
+                    .into(),
             });
         }
         crate::metrics::record_text_index_repair();
