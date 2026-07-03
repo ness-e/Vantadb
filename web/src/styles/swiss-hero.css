@@ -5,7 +5,7 @@
   min-height: 100dvh;
   display: flex;
   align-items: center;
-  background-color: #0a0a0a;
+  background-color: var(--background, #f9f8f6);
   overflow: hidden;
 }
 
@@ -48,7 +48,7 @@
   font-size: var(--text-label);
   font-weight: 600;
   letter-spacing: 0.14em;
-  color: var(--amber);
+  color: var(--foreground);
   margin-bottom: 24px;
 }
 
@@ -64,7 +64,7 @@
   font-weight: 700;
   line-height: 0.95;
   letter-spacing: -0.05em;
-  color: #ffffff;
+  color: var(--foreground);
   margin: 0 0 16px 0;
   max-width: 700px;
 }
@@ -87,7 +87,7 @@
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.04em;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--foreground);
   margin: 0 0 20px 0;
   max-width: 600px;
 }
@@ -99,7 +99,7 @@
   font-weight: 400;
   line-height: 1.65;
   letter-spacing: -0.01em;
-  color: #808080;
+  color: var(--muted);
   max-width: 520px;
   margin: 0 0 32px 0;
 }
@@ -131,14 +131,14 @@
 }
 
 .swiss-button-primary:hover {
-  background-color: #ffffff;
-  color: #0a0a0a;
+  background-color: #000000;
+  color: #ffffff;
 }
 
 .swiss-button-ghost {
   background-color: transparent;
-  color: #f0f0f0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--foreground);
+  border: 1px solid var(--border);
   padding: 11px 24px;
   border-radius: 0px;
   font-family: var(--font-sans);
@@ -152,8 +152,8 @@
 }
 
 .swiss-button-ghost:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
+  background-color: var(--border);
+  border-color: var(--border-strong);
   color: #ffffff;
 }
 

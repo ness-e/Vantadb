@@ -39,7 +39,7 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       color: 0xff5500,
       wireframe: true,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.55,
     });
     const torus = new THREE.Mesh(torusGeo, torusMat);
     torus.rotation.x = Math.PI * 0.3;
@@ -49,10 +49,10 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     // ── Inner sphere wireframe ──
     const sphereGeo = new THREE.IcosahedronGeometry(0.8, 2);
     const sphereMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
+      color: 0x000000,
       wireframe: true,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.08,
     });
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
     scene.add(sphere);
@@ -72,9 +72,9 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     nodeGeo.setAttribute("position", new THREE.BufferAttribute(nodePositions, 3));
     const nodeMat = new THREE.PointsMaterial({
       color: 0xff5500,
-      size: 0.04,
+      size: 0.05,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.85,
       sizeAttenuation: true,
     });
     const nodes = new THREE.Points(nodeGeo, nodeMat);
@@ -104,7 +104,7 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     const lineMat = new THREE.LineBasicMaterial({
       color: 0xff5500,
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.12,
     });
     const lines = new THREE.LineSegments(lineGeo, lineMat);
     scene.add(lines);
@@ -202,7 +202,7 @@ export function SwissHero() {
           { opacity: 0, color: "#ff5500" },
           {
             opacity: 1,
-            color: "#ff5500",
+            color: "var(--foreground)",
             duration: 0.25,
             stagger: 0.08,
             ease: "power1.in",
