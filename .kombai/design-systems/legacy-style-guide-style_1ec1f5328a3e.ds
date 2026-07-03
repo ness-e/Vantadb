@@ -1,0 +1,101 @@
+---
+name: "[Legacy SG] VantaDB Brand System"
+slug: legacy-style-guide-style_1ec1f5328a3e
+modes: [light]
+color:
+  palette:
+    canvas: "#ffffff"
+    ink: "#1a1a1a"
+    ink-2: "#555555"
+    ink-3: "#8a8a8a"
+    line: "#e2e2e2"
+    primary: "#2563eb"
+    on-primary: "#ffffff"
+    background: "#050507"
+    surface: "#0f1014"
+    surface-raised: "#16181d"
+    amber: "#ff6a00"
+    steel: "#8b9eb7"
+    foreground: "#f7f5f2"
+    border: "#22252b"
+  semantic:
+    background.canvas: "{color.palette.canvas}"
+    surface.default: "{color.palette.canvas}"
+    surface.raised: "{color.palette.canvas}"
+    text.primary: "{color.palette.ink}"
+    text.secondary: "{color.palette.ink-2}"
+    text.tertiary: "{color.palette.ink-3}"
+    text.link: "{color.palette.primary}"
+    border.default: "{color.palette.line}"
+    border.focus: "{color.palette.primary}"
+    primary.bg: "{color.palette.primary}"
+    primary.fg: "{color.palette.on-primary}"
+typography:
+  family: { primary: "Space Grotesk" }
+  textStyle:
+    heading-lg: { fontFamily: "Space Grotesk", fontSize: "24px", fontWeight: 600, lineHeight: 1.2 }
+    body-md: { fontFamily: "Space Grotesk", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }
+spacing:
+  section: "96px"
+  gap: "24px"
+radius:
+  card: "12px"
+  button: "999px"
+---
+
+> Migrated from a legacy style guide.
+> The palette above is mapped from the original tokens, which are also preserved below.
+
+## Legacy style-guide tokens
+
+### Colors
+
+- `background`: `#050507`
+- `surface`: `#0f1014`
+- `surface-raised`: `#16181d`
+- `amber`: `#ff6a00`
+- `steel`: `#8b9eb7`
+- `foreground`: `#f7f5f2`
+- `border`: `#22252b`
+
+### Typography
+
+- `display`: `{"family":"Space Grotesk","size":"clamp(3.5rem, 7vw, 6.5rem)","url":"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600&display=swap"}`
+- `body`: `{"family":"Outfit","size":"1.05rem","url":"https://fonts.googleapis.com/css2?family=Outfit:wght@400;500&display=swap"}`
+- `mono`: `{"family":"JetBrains Mono","size":"0.9rem","url":"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"}`
+
+### Spacing
+
+- `section`: `96px`
+- `gap`: `24px`
+
+### Radius
+
+- `card`: `12px`
+- `button`: `999px`
+
+## Design instructions
+
+# VantaDB Design Language: The Dark Terminal
+
+## 1. The Amber Signal Rule
+Amber (#ff6a00) is never decorative. It is used on ≤15% of the screen as a "signal": interactive CTAs, the terminal cursor, active nav states, or critical data highlights. It cuts through the dark with absolute purpose.
+
+## 2. Tonal Layering
+Depth is created by shifting lightness in the near-black spectrum (oklch 265° hue).
+- Canvas: #050507 (The void)
+- Surface: #0f1014 (Section cards)
+- Raised: #16181d (Hover states/Modals)
+Avoid generic drop shadows. Use 1px borders in (--color-border) to define shapes at rest.
+
+## 3. Editorial Precision
+Headings in Space Grotesk are large, confident, and technical. Letter-spacing is tightened to -0.035em for display sizes. Body text in Outfit is balanced and warm, ensuring high readability for long technical descriptions. All labels, buttons, and metadata MUST use JetBrains Mono in uppercase with 0.12em tracking to maintain the terminal "voice."
+
+## 4. Material Honesty
+UI elements should feel like physical terminal equipment. Buttons are pill-shaped (keycap feel). Code snippets are not just blocks; they are focal points. Use "Scanlines" or fine "Dot-Grids" as subtle overlays to reinforce the digital hardware aesthetic.
+
+## 5. Kinetic Comprehension
+Animations (GSAP/Motion) must serve understanding. Use scroll-triggered reveals to show system relationships (e.g., how WAL connects to HNSW). Parallax is used to communicate depth in technical diagrams. Every movement should feel physically considered, with no "fluff" animations.
+
+## 6. Embedded Simplicity
+The design must embody "Simplicity." Collapse complex stacks into clear, monolithic sections. Show the FFI bridge, the single binary, and the `pip install` hero. Differentiation through restraint: fewer sections, clearer copy, faster path to value.

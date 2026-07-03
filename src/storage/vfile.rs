@@ -412,13 +412,12 @@ impl VantaFile {
                     .map_err(VantaError::IoError)?
             })
         };
-        if !read_only && current_size >= min_header_size
-            && &mmap.as_slice()[0..4] != b"VFLE" {
-                let header = VantaHeader::new(*b"VFLE", 1, 0);
-                mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
-                mmap.as_mut_slice()?[16..24].copy_from_slice(&64u64.to_le_bytes());
-                mmap.flush()?;
-            }
+        if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
+            let header = VantaHeader::new(*b"VFLE", 1, 0);
+            mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
+            mmap.as_mut_slice()?[16..24].copy_from_slice(&64u64.to_le_bytes());
+            mmap.flush()?;
+        }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
         header.validate(*b"VFLE", 1, "VantaFile format mismatch")?;
         let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
