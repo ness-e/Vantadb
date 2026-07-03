@@ -27,7 +27,7 @@ use tracing::{info, warn};
 use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
 
-use super::vfile::{engine_mmap_resident_bytes, VantaFile};
+use super::vfile::{engine_mmap_resident_bytes, install_sigbus_handler, VantaFile};
 
 // ─── Backend Kind ──────────────────────────────────────────
 
