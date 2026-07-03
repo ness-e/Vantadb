@@ -28,6 +28,7 @@ fn build_context(api_key: Option<&str>, concurrency: usize) -> TestContext {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
         api_key: api_key.map(Arc::from),
+        rbac_config: Default::default(),
     });
     TestContext {
         _temp_dir: temp_dir,
@@ -343,6 +344,7 @@ async fn test_tls_server_health_and_query() {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
         api_key: Some(Arc::from("tls-key")),
+        rbac_config: Default::default(),
     });
     let router = app(state, 0);
 
@@ -431,6 +433,7 @@ async fn api_server_certification() {
                 storage,
                 semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
                 api_key: None,
+                rbac_config: Default::default(),
             });
             let app = app(state, 100);
 
