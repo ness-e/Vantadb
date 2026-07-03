@@ -14,22 +14,24 @@
   justify-content: space-between;
   padding: 0 clamp(1.5rem, 5vw, 4rem);
   height: 64px;
-  background: rgba(249, 248, 246, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-  will-change: transform;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid transparent;
+  will-change: transform, background-color, backdrop-filter;
   transform: translateY(0);
   transition:
     transform 200ms var(--ease-cut),
     border-color 150ms var(--ease-cut),
-    background-color 150ms var(--ease-cut);
+    background-color 150ms var(--ease-cut),
+    backdrop-filter 150ms var(--ease-cut);
 }
 
 .vanta-nav--scrolled {
-  background: rgba(249, 248, 246, 0.95);
+  background: rgba(249, 248, 246, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .vanta-nav--hidden {
@@ -276,6 +278,12 @@
   z-index: 98;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
+  animation: navOverlayIn 200ms var(--ease-cut) both;
+}
+
+@keyframes navOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ── Mobile Drawer ── */
@@ -292,6 +300,12 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 200ms var(--ease-cut);
+}
+
+.nav-drawer[aria-hidden="false"] {
+  transform: translateX(0);
 }
 
 .nav-drawer-header {

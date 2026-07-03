@@ -46,55 +46,63 @@ pub(crate) fn memory_node_id(namespace: &str, key: &str) -> u64 {
 
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() {
-        return Err(VantaError::Execution(
-            "namespace must not be empty".to_string(),
-        ));
+        return Err(VantaError::ValidationError {
+            field: "namespace".into(),
+            reason: "namespace must not be empty".into(),
+        });
     }
     if namespace.len() > 128 {
-        return Err(VantaError::Execution(
-            "namespace must be at most 128 bytes".to_string(),
-        ));
+        return Err(VantaError::ValidationError {
+            field: "namespace".into(),
+            reason: "namespace must be at most 128 bytes".into(),
+        });
     }
     if !namespace
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'/' | b'-'))
     {
-        return Err(VantaError::Execution(
-            "namespace may contain only A-Z, a-z, 0-9, '.', '_', '/', '-'".to_string(),
-        ));
+        return Err(VantaError::ValidationError {
+            field: "namespace".into(),
+            reason: "namespace may contain only A-Z, a-z, 0-9, '.', '_', '/', '-'".into(),
+        });
     }
     Ok(())
 }
 
 pub(crate) fn validate_key(key: &str) -> Result<()> {
     if key.is_empty() {
-        return Err(VantaError::Execution("key must not be empty".to_string()));
+        return Err(VantaError::ValidationError {
+            field: "key".into(),
+            reason: "key must not be empty".into(),
+        });
     }
     if key.len() > 512 {
-        return Err(VantaError::Execution(
-            "key must be at most 512 bytes".to_string(),
-        ));
+        return Err(VantaError::ValidationError {
+            field: "key".into(),
+            reason: "key must be at most 512 bytes".into(),
+        });
     }
     if key.as_bytes().contains(&0) {
-        return Err(VantaError::Execution(
-            "key must not contain NUL bytes".to_string(),
-        ));
+        return Err(VantaError::ValidationError {
+            field: "key".into(),
+            reason: "key must not contain NUL bytes".into(),
+        });
     }
     Ok(())
 }
 
 pub(crate) fn validate_metadata(metadata: &VantaMemoryMetadata) -> Result<()> {
     if let Some(key) = metadata.keys().find(|key| key.starts_with(RESERVED_PREFIX)) {
-        return Err(VantaError::Execution(format!(
-            "metadata key '{}' is reserved for VantaDB internals",
-            key
-        )));
+        return Err(VantaError::ValidationError {
+            field: "metadata".into(),
+            reason: format!("metadata key '{}' is reserved for VantaDB internals", key),
+        });
     }
     if let Some(key) = metadata.keys().find(|key| key.as_bytes().contains(&0)) {
-        return Err(VantaError::Execution(format!(
-            "metadata key '{}' must not contain NUL bytes",
-            key
-        )));
+        return Err(VantaError::ValidationError {
+            field: "metadata".into(),
+            reason: format!("metadata key '{}' must not contain NUL bytes", key),
+        });
     }
     Ok(())
 }
@@ -142,9 +150,10 @@ pub(crate) fn encoded_scalar_value(value: &VantaValue) -> Result<Vec<u8>> {
         | VantaValue::ListInt(_)
         | VantaValue::ListFloat(_)
         | VantaValue::ListBool(_)
-        | VantaValue::ListDateTime(_) => Err(VantaError::Execution(
-            "Cannot encode list value as scalar index key".to_string(),
-        )),
+        | VantaValue::ListDateTime(_) => Err(VantaError::ValidationError {
+            field: "value".into(),
+            reason: "Cannot encode list value as scalar index key".into(),
+        }),
         VantaValue::Null => Ok(b"n:".to_vec()),
     }
 }
@@ -323,10 +332,10 @@ pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLi
 
 pub(crate) fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemoryRecord> {
     if line.schema_version != EXPORT_SCHEMA_VERSION {
-        return Err(VantaError::Execution(format!(
-            "unsupported memory export schema_version {}",
-            line.schema_version
-        )));
+        return Err(VantaError::ValidationError {
+            field: "schema_version".into(),
+            reason: format!("unsupported memory export schema_version {}", line.schema_version),
+        });
     }
 
     let node_id = memory_node_id(&line.namespace, &line.key);
@@ -712,12 +721,16 @@ impl VantaEmbedded {
 
     pub(crate) fn checked_stats_value(value: i128, label: &str) -> Result<u64> {
         if value < 0 {
-            return Err(VantaError::Execution(format!(
-                "text index {label} would become negative"
-            )));
+            return Err(VantaError::ValidationError {
+                field: "stats".into(),
+                reason: format!("text index {label} would become negative"),
+            });
         }
         u64::try_from(value).map_err(|_| {
-            VantaError::Execution(format!("text index {label} exceeds supported range"))
+            VantaError::ValidationError {
+                field: "stats".into(),
+                reason: format!("text index {label} exceeds supported range"),
+            }
         })
     }
 
@@ -1689,9 +1702,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self, records), err)]
     pub fn import_records(&self, records: Vec<VantaMemoryRecord>) -> Result<VantaImportReport> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "import_records is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "import_records is not available when VantaDB is opened read-only".into(),
+            });
         }
         let started = Instant::now();
         let mut report = VantaImportReport {
@@ -1723,9 +1737,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self, path), err)]
     pub fn import_file(&self, path: impl AsRef<Path>) -> Result<VantaImportReport> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "import_file is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "import_file is not available when VantaDB is opened read-only".into(),
+            });
         }
         let started = Instant::now();
         let file = File::open(path.as_ref()).map_err(VantaError::IoError)?;

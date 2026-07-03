@@ -141,7 +141,10 @@ impl RocksDbBackend {
     /// Helper: resolve a `BackendPartition` to its RocksDB column family handle.
     fn cf_handle(&self, partition: BackendPartition) -> Result<&rocksdb::ColumnFamily> {
         self.db.cf_handle(partition.cf_name()).ok_or_else(|| {
-            VantaError::Execution(format!("Column family '{}' not found", partition.cf_name()))
+            VantaError::NotFound {
+                kind: "column_family".into(),
+                id: partition.cf_name().into(),
+            }
         })
     }
 }

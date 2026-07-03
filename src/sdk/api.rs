@@ -130,10 +130,9 @@ impl VantaEmbedded {
                         Some(record)
                     }
                     _ => {
-                        return Err(VantaError::Execution(format!(
-                            "node id collision for namespace='{}' key='{}'",
-                            input.namespace, input.key
-                        )));
+                        return Err(VantaError::NodeIdCollision(
+                            memory_node_id(&input.namespace, &input.key),
+                        ));
                     }
                 },
                 None => None,
@@ -186,10 +185,7 @@ impl VantaEmbedded {
 
         match memory_record_from_node(node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
-            Some(_record) => Err(VantaError::Execution(format!(
-                "node id collision for namespace='{}' key='{}'",
-                namespace, key
-            ))),
+            Some(_record) => Err(VantaError::NodeIdCollision(memory_node_id(namespace, key))),
             None => Ok(None),
         }
     }
@@ -220,10 +216,10 @@ impl VantaEmbedded {
 
         let expected_node_id = memory_node_id(&record.namespace, &record.key);
         if record.node_id != expected_node_id {
-            return Err(VantaError::Execution(format!(
-                "node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'",
-                record.namespace, record.key
-            )));
+            return Err(VantaError::ValidationError {
+                field: "node_id".into(),
+                reason: format!("node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'", record.namespace, record.key),
+            });
         }
 
         let engine = self.engine_handle()?;
@@ -235,10 +231,7 @@ impl VantaEmbedded {
                     Some(previous)
                 }
                 _ => {
-                    return Err(VantaError::Execution(format!(
-                        "node id collision for namespace='{}' key='{}'",
-                        record.namespace, record.key
-                    )));
+                    return Err(VantaError::NodeIdCollision(record.node_id));
                 }
             },
             None => None,
@@ -304,9 +297,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "rebuild_index is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "rebuild_index is not available when VantaDB is opened read-only".into(),
+            });
         }
         let report = self.engine_handle()?.rebuild_vector_index()?;
         let derived = self.rebuild_derived_indexes_with_report()?;
@@ -320,9 +314,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn compact_layout(&self) -> Result<u64> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "compact_layout is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "compact_layout is not available when VantaDB is opened read-only".into(),
+            });
         }
         self.engine_handle()?.compact_layout_bfs()
     }
@@ -331,9 +326,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn flush(&self) -> Result<()> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "flush is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "flush is not available when VantaDB is opened read-only".into(),
+            });
         }
         self.engine_handle()?.flush()
     }
@@ -342,9 +338,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn compact_wal(&self) -> Result<()> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "compact_wal is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "compact_wal is not available when VantaDB is opened read-only".into(),
+            });
         }
         self.engine_handle()?.compact_wal()
     }

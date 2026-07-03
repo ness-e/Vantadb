@@ -165,15 +165,20 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       cancelAnimationFrame(frameId);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouse);
+      scene.remove(group);
+      group.clear();
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Points || child instanceof THREE.LineSegments) {
+          child.geometry?.dispose();
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => m.dispose());
+          } else {
+            child.material?.dispose();
+          }
+        }
+      });
       renderer.dispose();
-      torusGeo.dispose();
-      torusMat.dispose();
-      sphereGeo.dispose();
-      sphereMat.dispose();
-      nodeGeo.dispose();
-      nodeMat.dispose();
-      lineGeo.dispose();
-      lineMat.dispose();
+      renderer.forceContextLoss?.();
     };
   }, [canvasRef]);
 }
@@ -217,8 +222,8 @@ export function SwissHero() {
           {
             y: "0%",
             clipPath: "inset(0% 0% 0% 0%)",
-            duration: 0.8,
-            ease: "power3.out",
+            duration: 0.25,
+            ease: "power1.in",
             delay: 0.5,
           }
         );
@@ -227,21 +232,21 @@ export function SwissHero() {
         gsap.fromTo(
           ".swiss-hero-tagline",
           { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.6, ease: "power2.out", delay: 0.9 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 0.9 }
         );
 
         // 4. Description
         gsap.fromTo(
           ".swiss-hero-description",
           { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", delay: 1.1 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.1 }
         );
 
         // 5. CTAs
         gsap.fromTo(
           ".swiss-hero-actions",
           { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", delay: 1.3 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.3 }
         );
 
         // 6. Scanline glow
@@ -250,8 +255,8 @@ export function SwissHero() {
           { scaleX: 0 },
           {
             scaleX: 1,
-            duration: 1.2,
-            ease: "power2.inOut",
+            duration: 0.25,
+            ease: "power1.in",
             delay: 0.8,
           }
         );
