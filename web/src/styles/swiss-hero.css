@@ -1,14 +1,13 @@
-/* ── Swiss Hero Section ──────────────────────────────────────────────────────── */
+/* ── Swiss Hero Section v2 — Typographic Grid Hero ─────────────────────────── */
 
 .swiss-hero-section {
   position: relative;
   min-height: 100dvh;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   background-color: var(--background);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
-  padding-top: 64px; /* Offset para el navbar */
 }
 
 /* ── Grid SVG (Hairlines) ── */
@@ -21,7 +20,7 @@
   max-width: 1200px;
   height: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
 }
 
 .swiss-hero-grid-line {
@@ -32,26 +31,57 @@
   will-change: stroke-dashoffset;
 }
 
-/* ── Layout Asimétrico ── */
+/* ── Main Layout: 8/4 Asymmetric Split ── */
 .swiss-hero-layout {
   position: relative;
   z-index: 10;
   width: 100%;
-  padding: 0 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  min-height: 100dvh;
 }
 
+/* ── Left Zone: Warm Paper Content ── */
 .swiss-hero-content {
-  grid-column: 1 / 9; /* Ocupa columnas 1-8 en la grilla suiza */
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 96px 0 64px; /* pt-24 cap de impecable */
+  justify-content: center;
+  gap: 28px;
+  padding: 96px 24px 64px 24px;
+}
+
+/* ── Right Zone: OLED Telemetry Panel ── */
+.swiss-hero-telemetry {
+  background-color: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 96px 32px 64px 32px;
+  position: relative;
+  border-left: 1px solid var(--border);
+}
+
+/* Divider line animated */
+.swiss-hero-divider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background-color: var(--amber);
+  transform-origin: top;
+  transform: scaleY(0);
+  will-change: transform;
+  z-index: 20;
 }
 
 /* ── Labels Tácticos ── */
 .swiss-hero-label {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
   font-family: var(--font-mono);
   font-size: var(--text-label);
   font-weight: 600;
@@ -86,22 +116,27 @@
   will-change: transform, clip-path;
 }
 
-/* ── Subtitle (Outfit Font, no mono) ── */
-.swiss-hero-subtitle {
-  font-family: var(--font-sans);
+/* ── Tagline (Brand Platform hook) ── */
+.swiss-hero-tagline {
+  font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: var(--muted);
-  max-width: 100%;
-  margin: 16px 0 32px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+  margin: 0;
 }
 
-.swiss-hero-subtitle-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* ── Description ── */
+.swiss-hero-description {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+  max-width: 560px;
+  margin: 0;
 }
 
 /* ── CTA Actions ── */
@@ -116,7 +151,7 @@
   background-color: var(--amber);
   color: #ffffff;
   padding: 12px 24px;
-  border-radius: var(--radius-sm, 0px);
+  border-radius: 0px;
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: 0.9rem;
@@ -127,7 +162,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 150ms var(--ease-spring);
+  transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .swiss-button-primary:hover {
@@ -140,7 +175,7 @@
   color: var(--foreground);
   border: 1px solid var(--border);
   padding: 11px 24px;
-  border-radius: var(--radius-sm, 0px);
+  border-radius: 0px;
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 0.95rem;
@@ -148,7 +183,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms var(--ease-spring);
+  transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .swiss-button-ghost:hover {
@@ -156,21 +191,74 @@
   color: #ffffff;
 }
 
+/* ── Telemetry Metrics ── */
+.swiss-telemetry-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.swiss-telemetry-cell {
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  will-change: opacity;
+}
+
+.swiss-telemetry-cell:last-child {
+  border-bottom: none;
+}
+
+.swiss-telemetry-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #808080;
+  margin-bottom: 6px;
+}
+
+.swiss-telemetry-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #f0f0f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.swiss-telemetry-value--accent {
+  color: var(--amber);
+}
+
+.swiss-telemetry-unit {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: #808080;
+  margin-top: 4px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .swiss-hero-section {
+  .swiss-hero-layout {
+    grid-template-columns: 1fr;
     min-height: auto;
-    padding-top: 80px;
   }
 
   .swiss-hero-content {
-    grid-column: 1 / -1; /* Ancho completo en móvil */
-    padding: 48px 0;
+    padding: 96px 20px 48px;
     gap: 24px;
   }
 
-  .swiss-hero-subtitle {
-    font-size: 1.5rem;
+  .swiss-hero-title {
+    font-size: clamp(2.8rem, 12vw, 4.5rem);
+  }
+
+  .swiss-hero-tagline {
+    font-size: clamp(1.4rem, 5vw, 2rem);
   }
 
   .swiss-hero-actions {
@@ -180,8 +268,51 @@
   }
 
   .swiss-hero-label {
-    flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 8px 12px;
+  }
+
+  .swiss-hero-telemetry {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 32px 20px 48px;
+  }
+
+  .swiss-telemetry-stack {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .swiss-telemetry-cell {
+    padding: 16px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .swiss-telemetry-cell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .swiss-telemetry-cell:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+
+  .swiss-hero-divider {
+    display: none;
+  }
+
+  .swiss-hero-grid-svg {
+    display: none;
   }
 }
 
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .swiss-hero-grid-line {
+    stroke-dashoffset: 0;
+  }
+
+  .swiss-hero-divider {
+    transform: scaleY(1);
+  }
+}
