@@ -127,12 +127,18 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition: background-color 150ms, transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
 }
 
 .swiss-button-primary:hover {
   background-color: #000000;
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.swiss-button-primary:active {
+  transform: translateY(0);
 }
 
 .swiss-button-ghost {
@@ -148,13 +154,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 150ms, transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
 }
 
 .swiss-button-ghost:hover {
   background-color: var(--border);
   border-color: var(--border-strong);
   color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.swiss-button-ghost:active {
+  transform: translateY(0);
 }
 
 /* ── Scan Line (subtle decoration) ── */

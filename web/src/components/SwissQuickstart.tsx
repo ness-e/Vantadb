@@ -133,8 +133,8 @@ export function SwissQuickstart() {
         {/* Right: Code terminal (8 columnas) */}
         <div style={{ gridColumn: "6 / 13" }}>
           <div style={{ 
-            background: "var(--void, #f4f4f4)", 
-            border: "1px solid var(--border)", 
+            background: "#0a0a0a", 
+            border: "1px solid rgba(255,255,255,0.08)", 
             borderRadius: "0px",
             height: "100%",
             display: "flex",
@@ -147,14 +147,14 @@ export function SwissQuickstart() {
               gap: "12px", 
               padding: "16px 24px", 
               borderBottom: "1px solid var(--border)",
-              background: "var(--surface)"
+              background: "#111111"
             }}>
               <div style={{ display: "flex", gap: "6px" }}>
-                <div style={{ width: "8px", height: "8px", background: "var(--subtle, #e0e0e0)", borderRadius: "50%" }} />
-                <div style={{ width: "8px", height: "8px", background: "var(--subtle, #e0e0e0)", borderRadius: "50%" }} />
-                <div style={{ width: "8px", height: "8px", background: "var(--subtle, #e0e0e0)", borderRadius: "50%" }} />
+                <div style={{ width: "8px", height: "8px", background: "#333333", borderRadius: "50%" }} />
+                <div style={{ width: "8px", height: "8px", background: "#333333", borderRadius: "50%" }} />
+                <div style={{ width: "8px", height: "8px", background: "#333333", borderRadius: "50%" }} />
               </div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--steel)", marginLeft: "auto", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "#555555", marginLeft: "auto", textTransform: "uppercase" as const, letterSpacing: "0.1em" }}>
                 TERMINAL // PYTHON 3.9+
               </span>
             </div>
@@ -164,10 +164,10 @@ export function SwissQuickstart() {
               <pre style={{ margin: 0, padding: 0, background: "transparent", border: "none" }}>
                 <code 
                   ref={codeRef} 
-                  style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", lineHeight: 1.6, color: "var(--foreground)" }}
+                  style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", lineHeight: 1.6, color: "#e0e0e0" }}
                 >
                 </code>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", color: "var(--amber)", animation: "blink 1s step-end infinite" }}>_</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.95rem", color: "var(--amber)", animation: "blink 1s step-end infinite", opacity: 0.8 }}>_</span>
               </pre>
               
               <div 
@@ -175,12 +175,12 @@ export function SwissQuickstart() {
                 style={{ 
                   marginTop: "auto", 
                   paddingTop: "24px", 
-                  borderTop: "1px dashed var(--border)",
+                  borderTop: "1px dashed rgba(255,255,255,0.08)",
                   borderLeft: "2px solid var(--amber)",
                   paddingLeft: "16px"
                 }}
               >
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--muted)", whiteSpace: "pre-wrap", display: "block" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "#808080", whiteSpace: "pre-wrap" as const, display: "block" }}>
                   {STEPS[activeStep]!.output}
                 </span>
               </div>
