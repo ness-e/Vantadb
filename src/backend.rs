@@ -124,7 +124,11 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// The default implementation calls `get()` for each key sequentially.
     /// Backends with native multi-get support should override this for
     /// better performance.
-    fn get_many(&self, partition: BackendPartition, keys: &[&[u8]]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+    fn get_many(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         keys.iter()
             .filter_map(|k| match self.get(partition, k) {
                 Ok(Some(val)) => Some(Ok((k.to_vec(), val))),

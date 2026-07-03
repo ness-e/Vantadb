@@ -9,7 +9,9 @@ use vantadb::sdk::{
 };
 
 /// Parse a Mem0-style filter dict into VantaDB metadata pairs.
-fn py_dict_to_metadata(fields: Option<&Bound<'_, PyDict>>) -> PyResult<BTreeMap<String, vantadb::sdk::VantaValue>> {
+fn py_dict_to_metadata(
+    fields: Option<&Bound<'_, PyDict>>,
+) -> PyResult<BTreeMap<String, vantadb::sdk::VantaValue>> {
     let mut metadata = BTreeMap::new();
     if let Some(extra) = fields {
         for (key, value) in extra.iter() {
@@ -121,7 +123,13 @@ impl VantaDBStore {
 
     // ── Mem0 VectorStoreBase interface ──────────────────────────────────
 
-    fn create_col(&self, _py: Python, name: &str, _vector_size: i32, _distance: &str) -> PyResult<()> {
+    fn create_col(
+        &self,
+        _py: Python,
+        name: &str,
+        _vector_size: i32,
+        _distance: &str,
+    ) -> PyResult<()> {
         *self.collection_name.write().unwrap() = name.to_string();
         Ok(())
     }
@@ -207,10 +215,7 @@ impl VantaDBStore {
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
             let d = PyDict::new(py);
-            d.set_item(
-                "id",
-                format!("{}:{}", hit.record.namespace, hit.record.key),
-            )?;
+            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
             d.set_item(
                 "score",
                 vanta_distance_to_mem0_score(hit.score, &vantadb::DistanceMetric::Cosine),
@@ -309,7 +314,9 @@ impl VantaDBStore {
         for record in &page.records {
             self.engine
                 .delete(&record.namespace, &record.key)
-                .map_err(|e| PyRuntimeError::new_err(format!("Delete during delete_col error: {:?}", e)))?;
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!("Delete during delete_col error: {:?}", e))
+                })?;
         }
 
         Ok(())

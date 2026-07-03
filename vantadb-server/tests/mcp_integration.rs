@@ -48,7 +48,8 @@ async fn mcp_protocol_certification() {
             "arguments": { "node_id": 100 }
         }));
 
-        let tool_res = handle_tools_call(&params, &executor, &storage, &McpConfig::default()).expect("Tool call failed");
+        let tool_res = handle_tools_call(&params, &executor, &storage, &McpConfig::default())
+            .expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(
             text.contains("\"confidence_score\":0.99"),
@@ -62,8 +63,8 @@ async fn mcp_protocol_certification() {
             "name": "query_lisp",
             "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
-        let lisp_res =
-            handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default()).expect("Tool execution failed");
+        let lisp_res = handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default())
+            .expect("Tool execution failed");
         assert!(
             lisp_res["content"][0]["text"]
                 .as_str()

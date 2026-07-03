@@ -59,11 +59,10 @@ impl StorageHeader {
                 .try_into()
                 .map_err(|_| SchemaError::Invalid("cannot read flags field".into()))?,
         );
-        let min_compat_version = u32::from_le_bytes(
-            bytes[16..20]
-                .try_into()
-                .map_err(|_| SchemaError::Invalid("cannot read min_compat_version field".into()))?,
-        );
+        let min_compat_version =
+            u32::from_le_bytes(bytes[16..20].try_into().map_err(|_| {
+                SchemaError::Invalid("cannot read min_compat_version field".into())
+            })?);
         Ok(Self {
             version,
             flags,
@@ -120,9 +119,17 @@ impl StorageHeader {
 #[derive(Error, Debug)]
 pub enum SchemaError {
     #[error("Storage schema version {file_version} is too old. Minimum required: {min_required}")]
-    TooOld { file_version: u32, min_required: u32 },
-    #[error("Storage schema version {file_version} is too new. Maximum supported: {max_supported}")]
-    TooNew { file_version: u32, max_supported: u32 },
+    TooOld {
+        file_version: u32,
+        min_required: u32,
+    },
+    #[error(
+        "Storage schema version {file_version} is too new. Maximum supported: {max_supported}"
+    )]
+    TooNew {
+        file_version: u32,
+        max_supported: u32,
+    },
     #[error("Invalid storage header: {0}")]
     Invalid(String),
 }

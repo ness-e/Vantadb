@@ -3,7 +3,6 @@
 /// Tracks node access frequency and automatically transitions
 /// cold f32 vectors to SQ8 to save memory, promoting back
 /// to f32 when access frequency increases.
-
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -163,10 +162,7 @@ mod tests {
         let gov = QuantizationGovernor::new(config);
         gov.tick();
         gov.tick();
-        assert_eq!(
-            gov.evaluate("never-accessed"),
-            QuantizationAction::Quantize
-        );
+        assert_eq!(gov.evaluate("never-accessed"), QuantizationAction::Quantize);
     }
 
     #[test]

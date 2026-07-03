@@ -1,19 +1,27 @@
 import { useRef } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { gsap, useGSAP } from "../lib/gsap";
 
-const INTEGRATIONS = [
-  { id: "pydantic", name: "Pydantic AI", category: "FRAMEWORK" },
-  { id: "langchain", name: "LangChain", category: "FRAMEWORK" },
-  { id: "llamaindex", name: "LlamaIndex", category: "FRAMEWORK" },
-  { id: "crewai", name: "CrewAI", category: "AGENTS" },
-  { id: "autogen", name: "AutoGen", category: "AGENTS" },
-  { id: "smolagents", name: "smolagents", category: "AGENTS" },
-  { id: "openai", name: "OpenAI", category: "MODELS" },
-  { id: "anthropic", name: "Anthropic", category: "MODELS" },
-  { id: "fastapi", name: "FastAPI", category: "DEPLOY" },
-  { id: "modal", name: "Modal", category: "DEPLOY" },
-  { id: "ray", name: "Ray Serve", category: "DEPLOY" },
-  { id: "streamlit", name: "Streamlit", category: "UI" },
+const CATEGORIES = [
+  {
+    label: "FRAMEWORK",
+    items: ["Pydantic AI", "LangChain", "LlamaIndex"],
+  },
+  {
+    label: "AGENTS",
+    items: ["CrewAI", "AutoGen", "smolagents"],
+  },
+  {
+    label: "MODELS",
+    items: ["OpenAI", "Anthropic", "Ollama"],
+  },
+  {
+    label: "DEPLOY",
+    items: ["FastAPI", "Modal", "Ray Serve"],
+  },
+  {
+    label: "UI",
+    items: ["Streamlit", "Gradio"],
+  },
 ];
 
 export function SwissEcosystem() {
@@ -22,18 +30,18 @@ export function SwissEcosystem() {
   useGSAP(
     () => {
       gsap.fromTo(
-        ".swiss-eco-cell",
-        { opacity: 0, scale: 0.95 },
+        ".swiss-eco-row",
+        { opacity: 0, y: 12 },
         {
           opacity: 1,
-          scale: 1,
-          duration: 0.4,
-          stagger: 0.05,
-          ease: "power2.out",
+          y: 0,
+          duration: 0.5,
+          stagger: 0.06,
+          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
           scrollTrigger: {
-            trigger: ".swiss-eco-grid",
-            start: "top 80%",
-          }
+            trigger: sectionRef.current,
+            start: "top 75%",
+          },
         }
       );
     },
@@ -41,72 +49,113 @@ export function SwissEcosystem() {
   );
 
   return (
-    <section 
-      ref={sectionRef} 
-      className="swiss-section" 
-      style={{ background: "var(--background)", paddingTop: "120px", paddingBottom: "160px" }}
+    <section
+      ref={sectionRef}
+      className="swiss-section"
+      style={{
+        background: "var(--background)",
+        paddingTop: "120px",
+        paddingBottom: "160px",
+      }}
     >
       <div className="swiss-inner">
-        <div style={{ marginBottom: "64px" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-label)", fontWeight: 600, letterSpacing: "0.14em", color: "var(--steel)", textTransform: "uppercase" }}>
-            [ECOSYSTEM]
-          </span>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "24px 0 0 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
-            Integration Matrix.
-          </h2>
-        </div>
+        {/* Eyebrow — 2/3 budget */}
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-label)",
+            fontWeight: 600,
+            letterSpacing: "0.14em",
+            color: "var(--steel)",
+            textTransform: "uppercase" as const,
+          }}
+        >
+          [ECOSYSTEM]
+        </span>
+        <h2
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "var(--text-display)",
+            fontWeight: 700,
+            margin: "24px 0 80px 0",
+            letterSpacing: "-0.04em",
+            color: "var(--foreground)",
+          }}
+        >
+          Integration Matrix.
+        </h2>
 
-        <div className="swiss-eco-grid" style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
-          gap: "1px", 
-          background: "var(--border)", 
-          border: "1px solid var(--border)" 
-        }}>
-          {INTEGRATIONS.map((int) => (
-            <div 
-              key={int.id}
-              className="swiss-eco-cell"
+        {/* Category rows — grouped layout, NOT grid */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          {CATEGORIES.map((cat) => (
+            <div
+              key={cat.label}
+              className="swiss-eco-row"
               style={{
-                background: "var(--surface)",
-                padding: "32px 24px",
-                display: "flex",
-                flexDirection: "column",
+                display: "grid",
+                gridTemplateColumns: "160px 1fr",
+                padding: "32px 0",
+                borderBottom: "1px solid var(--border)",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: "16px",
-                transition: "all 150ms",
-                cursor: "pointer"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--amber-dim, rgba(255,85,0,0.05))";
-                const svg = e.currentTarget.querySelector('svg');
-                if (svg) { svg.style.stroke = "var(--amber)"; }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--surface)";
-                const svg = e.currentTarget.querySelector('svg');
-                if (svg) { svg.style.stroke = "var(--steel)"; }
+                gap: "24px",
               }}
             >
-              {/* Icono generico monoline de integración */}
-              <svg 
-                width="32" height="32" viewBox="0 0 24 24" 
-                fill="none" stroke="var(--steel)" strokeWidth="1.5"
-                style={{ transition: "stroke 150ms" }}
+              {/* Category label */}
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-label)",
+                  fontWeight: 600,
+                  color: "var(--steel)",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase" as const,
+                }}
               >
-                <rect x="4" y="4" width="16" height="16" />
-                <path d="M4 12h16M12 4v16" />
-                <circle cx="12" cy="12" r="3" fill="var(--background)" />
-              </svg>
+                [{cat.label}]
+              </span>
 
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem", fontWeight: 600, color: "var(--foreground)" }}>
-                {int.name}
-              </span>
-              
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--muted)", letterSpacing: "0.1em" }}>
-                [{int.category}]
-              </span>
+              {/* Integration chips */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                }}
+              >
+                {cat.items.map((item) => (
+                  <span
+                    key={item}
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.88rem",
+                      fontWeight: 500,
+                      color: "var(--foreground)",
+                      padding: "8px 16px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      transition:
+                        "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
+                      cursor: "default",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--amber)";
+                      e.currentTarget.style.color = "var(--amber)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--border)";
+                      e.currentTarget.style.color = "var(--foreground)";
+                    }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>

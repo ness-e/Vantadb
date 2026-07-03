@@ -138,14 +138,12 @@ impl StorageBackend for FjallBackend {
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let ks = self.keyspace(partition);
         keys.iter()
-            .filter_map(|k| {
-                match ks.get(k) {
-                    Ok(Some(val)) => Some(Ok((k.to_vec(), val.to_vec()))),
-                    Ok(None) => None,
-                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    )))),
-                }
+            .filter_map(|k| match ks.get(k) {
+                Ok(Some(val)) => Some(Ok((k.to_vec(), val.to_vec()))),
+                Ok(None) => None,
+                Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
+                    e.to_string(),
+                )))),
             })
             .collect()
     }
