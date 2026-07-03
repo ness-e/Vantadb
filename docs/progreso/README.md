@@ -921,3 +921,32 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Deuda Técnica Identificada (pendiente):**
   - Múltiples errores de Clippy en `src/metrics.rs` (`int_plus_one`, `field_reassign_with_default`) y `vantadb-mcp/src/storage.rs` bloqueando el pre-push hook
   - Carpeta `web/public/admin/` con artefactos de Decap CMS no utilizado
+
+### WEB-08: Anti-Slop Audit, Performance Budget, SEO Final Review
+- **Fecha:** 2026-07-02
+- **Objetivo:** Realizar una auditoría completa del frontend contra las guías de diseño anti-slop, implementar el presupuesto de eyebrows (máximo 3 en todo el index) y corregir bugs visuales y estructurales identificados en responsive.
+- **Checklist Completado:**
+  - [x] Rediseño de SwissBenchmarkGrid para usar un layout bento asimétrico y corregir el bug de count-up en valores no numéricos.
+  - [x] Rediseño de SwissCoreEngine convirtiendo la cuadrícula genérica de 3 columnas en un accordion stacked minimalista de fondo OLED.
+  - [x] Rediseño de SwissEcosystem agrupando integraciones por categorías en filas minimalistas con chips inline en lugar de celdas homogéneas idénticas.
+  - [x] Reducción de eyebrows en todo el index para cumplir el presupuesto estricto (máximo 3).
+  - [x] Adaptabilidad responsive (breakpoints 960px) en Quickstart y paddings adaptativos en CoreEngine.
+- **Archivos Modificados:**
+  - `web/src/components/SwissBenchmarkGrid.tsx`
+  - `web/src/components/SwissCoreEngine.tsx`
+  - `web/src/components/SwissEcosystem.tsx`
+  - `web/src/components/SwissQuickstart.tsx`
+  - `web/src/components/SwissArchSection.tsx`
+  - `web/src/components/SwissUseCases.tsx`
+
+### WEB-14: Implement missing GSAP animations per DiseñoNuevo.md
+- **Fecha:** 2026-07-02
+- **Objetivo:** Refinar e implementar las animaciones GSAP que faltaban o eran inconsistentes con el movimiento minimalista de 12px y custom easing definidos en la spec de diseño.
+- **Checklist Completado:**
+  - [x] Unificación del easing suizo a `cubic-bezier(0.25, 1, 0.5, 1)` (vía variables o inline transition).
+  - [x] Corrección de los parámetros de animación en el reveal de celdas en SwissBenchmarkGrid (stagger 0.06s).
+  - [x] Corrección de la animación de aparición y:30 a y:12 con el custom cubic-bezier en SwissMonolith.
+- **Archivos Modificados:**
+  - `web/src/components/SwissBenchmarkGrid.tsx`
+  - `web/src/components/SwissUseCases.tsx`
+  - `web/src/components/SwissMonolith.tsx`

@@ -148,8 +148,8 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 |----|-------|-----------|--------|
 | `WEB-06` | Migrate 637 inline styles to CSS Modules (engine.tsx 1085L inline, architecture.tsx 557L inline) | 🟡 | ❌ |
 
-| `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ❌ |
-| `WEB-14` | Implement missing GSAP animations per DiseñoNuevo.md: scroll-trigger reveals, count-up numbers | 🟡 | ❌ |
+| `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ✅ |
+| `WEB-14` | Implement missing GSAP animations per DiseñoNuevo.md: scroll-trigger reveals, count-up numbers | 🟡 | ✅ |
 | `WEB-17` | Evaluate TanStack Router necessity: 23 mostly-static pages. React Router would be simpler with fewer deps and no `routeTree.gen.ts` | 🟡 | ❌ |
 
 ### 4.K Testing Gaps
