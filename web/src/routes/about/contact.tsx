@@ -11,6 +11,7 @@ export const Route = createFileRoute("/about/contact")({
           "Get in touch with the VantaDB team. Enterprise inquiries, partnerships, security reports, or general questions.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/about/contact" }],
   }),
   component: ContactPage,
 });

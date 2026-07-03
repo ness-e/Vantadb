@@ -10,6 +10,7 @@ export const Route = createFileRoute("/docs-api")({
         content: "API reference and developer documentation for VantaDB.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/docs-api" }],
   }),
   component: DocsApiPage,
 });

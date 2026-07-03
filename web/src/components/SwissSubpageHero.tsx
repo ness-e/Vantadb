@@ -7,7 +7,7 @@ interface SwissSubpageHeroProps {
   sub?: string;
 }
 
-export function SwissSubpageHero({ num, eyebrow, title, sub }: SwissSubpageHeroProps) {
+const SwissSubpageHero: React.FC<SwissSubpageHeroProps> = React.memo(({ num, eyebrow, title, sub }) => {
   return (
     <header className="swiss-subpage-hero">
       <div className="swiss-inner">
@@ -24,4 +24,6 @@ export function SwissSubpageHero({ num, eyebrow, title, sub }: SwissSubpageHeroP
       </div>
     </header>
   );
-}
+});
+
+export { SwissSubpageHero };

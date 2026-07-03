@@ -10,6 +10,7 @@ export const Route = createFileRoute("/about/roadmap")({
         content: "The technical and strategic roadmap for VantaDB.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/about/roadmap" }],
   }),
   component: RoadmapPage,
 });

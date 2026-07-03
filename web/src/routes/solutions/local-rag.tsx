@@ -11,6 +11,7 @@ export const Route = createFileRoute("/solutions/local-rag")({
           "Run RAG entirely on-device. No vectors in the cloud. Embed documents locally, query with your local LLM, keep your data private.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/solutions/local-rag" }],
   }),
   component: LocalRagPage,
 });

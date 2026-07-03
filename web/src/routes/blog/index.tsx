@@ -12,6 +12,7 @@ export const Route = createFileRoute("/blog/")({
           "Engineering blog, release notes, and deep dives into embedded vector databases, AI agents, and local RAG.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/blog" }],
   }),
   component: BlogIndex,
 });
@@ -43,7 +44,7 @@ function BlogIndex() {
               style={{
                 border: "1px solid var(--border)",
                 padding: "4rem",
-                textAlign: "center",
+                textAlign: "left",
                 marginTop: "3rem",
               }}
             >

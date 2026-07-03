@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createFileRoute("/latency")({
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/latency")({
           "Rust Core 1.2ms p50 (Python SDK ~39.74ms p50) in-process latency vs 200ms+ for cloud vector databases. VantaDB eliminates network round-trips.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/latency" }],
   }),
   component: LatencyPage,
 });
@@ -43,10 +44,10 @@ const VANTA_ITEMS = [
 function LatencyPage() {
   const [pipelineSize, setPipelineSize] = useState(50);
   const [mode, setMode] = useState<"rust" | "python">("rust");
-  const vantaLatency = mode === "rust" ? 1.2 : 39.74;
-  const legacyTotal = pipelineSize * 200;
-  const vantaTotal = pipelineSize * vantaLatency;
-  const speedup = Math.round(legacyTotal / Math.max(vantaTotal, 0.1));
+  const vantaLatency = useMemo(() => mode === "rust" ? 1.2 : 39.74, [mode]);
+  const legacyTotal = useMemo(() => pipelineSize * 200, [pipelineSize]);
+  const vantaTotal = useMemo(() => pipelineSize * vantaLatency, [pipelineSize, vantaLatency]);
+  const speedup = useMemo(() => Math.round(legacyTotal / Math.max(vantaTotal, 0.1)), [legacyTotal, vantaTotal]);
 
   return (
     <div className="engine-page">
