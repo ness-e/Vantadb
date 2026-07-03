@@ -3,7 +3,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
+last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
 ---
 
 # Active Backlog — VantaDB
