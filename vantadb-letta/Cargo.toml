@@ -1,0 +1,24 @@
+[package]
+name = "vantadb-letta"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Letta/MemGPT vector store adapter for VantaDB — use VantaDB as a drop-in VectorStore for Letta AI agents"
+publish = false
+
+[lib]
+name = "vantadb_letta"
+crate-type = ["cdylib"]
+
+[features]
+default = ["python"]
+python = ["pyo3"]
+
+[dependencies]
+vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+
+pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
+chrono = { version = "0.4", features = ["serde"] }

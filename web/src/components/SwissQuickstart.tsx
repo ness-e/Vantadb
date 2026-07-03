@@ -80,8 +80,8 @@ export function SwissQuickstart() {
     <section ref={sectionRef} className="swiss-section" style={{ background: "var(--background)", borderTop: "1px solid var(--border)", paddingTop: "120px", paddingBottom: "120px" }}>
       <div className="swiss-grid" style={{ gap: "24px" }}>
         
-        {/* Left: Steps nav (4 columnas) */}
-        <div style={{ gridColumn: "1 / 5", display: "flex", flexDirection: "column" }}>
+        {/* Left: Steps nav (4 columnas en desktop, 12 en mobile/tablet) */}
+        <div className="quickstart-left" style={{ gridColumn: "1 / 5", display: "flex", flexDirection: "column" }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-label)", fontWeight: 600, letterSpacing: "0.14em", color: "var(--steel)", textTransform: "uppercase" }}>
             [QUICKSTART]
           </span>
@@ -130,8 +130,8 @@ export function SwissQuickstart() {
           </div>
         </div>
 
-        {/* Right: Code terminal (8 columnas) */}
-        <div style={{ gridColumn: "6 / 13" }}>
+        {/* Right: Code terminal (8 columnas en desktop, 12 en mobile/tablet) */}
+        <div className="quickstart-right" style={{ gridColumn: "6 / 13" }}>
           <div style={{ 
             background: "#0a0a0a", 
             border: "1px solid rgba(255,255,255,0.08)", 
@@ -194,6 +194,15 @@ export function SwissQuickstart() {
         @keyframes blink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0; }
+        }
+        @media (max-width: 960px) {
+          .quickstart-left {
+            grid-column: 1 / 13 !important;
+            margin-bottom: 40px;
+          }
+          .quickstart-right {
+            grid-column: 1 / 13 !important;
+          }
         }
       `}</style>
     </section>

@@ -4435,6 +4435,66 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-crewai"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-dspy"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-haystack"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-letta"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-litellm"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
 name = "vantadb-mcp"
 version = "0.1.5"
 dependencies = [
@@ -4448,6 +4508,30 @@ dependencies = [
 
 [[package]]
 name = "vantadb-mem0"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-ollama"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-openai"
 version = "0.1.5"
 dependencies = [
  "chrono",

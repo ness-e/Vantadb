@@ -69,11 +69,13 @@ export function SwissCoreEngine() {
   return (
     <section
       ref={sectionRef}
+      className="swiss-section"
       style={{
         background: "#0a0a0a",
         color: "#f0f0f0",
         position: "relative",
-        padding: "120px 0 160px 0",
+        paddingTop: "120px",
+        paddingBottom: "160px",
       }}
     >
       <div className="swiss-inner">
@@ -192,7 +194,7 @@ export function SwissCoreEngine() {
                     style={{
                       margin: 0,
                       paddingTop: "24px",
-                      paddingLeft: "104px",
+                      paddingLeft: "clamp(24px, 8vw, 104px)",
                       fontFamily: "var(--font-sans)",
                       fontSize: "1.05rem",
                       color: "#808080",

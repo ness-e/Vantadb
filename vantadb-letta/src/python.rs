@@ -1,0 +1,142 @@
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use vantadb::config::VantaConfig;
+use vantadb::sdk::{
+    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
+};
+
+fn ns_for(user_id: &str, agent_id: &str) -> String {
+    let safe = |s: &str| -> String {
+        s.replace(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '-', "_")
+    };
+    format!("letta_{}_{}", safe(user_id), safe(agent_id))
+}
+
+/// VantaDB vector store backend for Letta/MemGPT.
+///
+/// Implements the Letta ``VectorStore`` protocol with methods for storing,
+/// retrieving, listing, and deleting agent memories.
+///
+/// Usage::
+///
+///     from vantadb_letta import LettaStore
+///     store = LettaStore("/tmp/vantadb-letta")
+///     store.store_memory("user1", "agent1", "My memory content", [0.1, 0.2, ...])
+///     results = store.retrieve_memory("user1", "agent1", [0.1, 0.2, ...], top_k=5)
+#[pyclass(name = "LettaStore")]
+pub struct LettaStore {
+    engine: VantaEmbedded,
+}
+
+#[pymethods]
+impl LettaStore {
+    #[new]
+    #[pyo3(signature = (path, _collection_name = "letta_memories"))]
+    fn new(path: &str, _collection_name: &str) -> PyResult<Self> {
+        let config = VantaConfig {
+            storage_path: path.to_string(),
+            ..Default::default()
+        };
+        let engine = VantaEmbedded::open_with_config(config)
+            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        Ok(Self { engine })
+    }
+
+    fn store_memory(
+        &self,
+        user_id: &str,
+        agent_id: &str,
+        content: &str,
+        embedding: Vec<f32>,
+    ) -> PyResult<String> {
+        let namespace = ns_for(user_id, agent_id);
+        let key = format!("mem_{}", content.len());
+        let mut input = VantaMemoryInput::new(&namespace, &key, content);
+        input.vector = Some(embedding);
+
+        let record = self
+            .engine
+            .put(input)
+            .map_err(|e| PyRuntimeError::new_err(format!("store_memory error: {:?}", e)))?;
+        Ok(format!("{}:{}", record.namespace, record.key))
+    }
+
+    #[pyo3(signature = (user_id, agent_id, query_embedding, top_k = 5))]
+    fn retrieve_memory(
+        &self,
+        py: Python,
+        user_id: &str,
+        agent_id: &str,
+        query_embedding: Vec<f32>,
+        top_k: i32,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = ns_for(user_id, agent_id);
+        let request = VantaMemorySearchRequest {
+            namespace,
+            query_vector: query_embedding,
+            filters: Default::default(),
+            text_query: None,
+            top_k: top_k as usize,
+            distance_metric: vantadb::DistanceMetric::Cosine,
+            explain: false,
+        };
+
+        let hits = self
+            .engine
+            .search(request)
+            .map_err(|e| PyRuntimeError::new_err(format!("retrieve_memory error: {:?}", e)))?;
+
+        let mut results = Vec::with_capacity(hits.len());
+        for hit in hits {
+            let d = PyDict::new(py);
+            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
+            d.set_item("content", &hit.record.payload)?;
+            d.set_item("score", hit.score)?;
+            results.push(d.unbind().into());
+        }
+        Ok(results)
+    }
+
+    fn list_memories(
+        &self,
+        py: Python,
+        user_id: &str,
+        agent_id: &str,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = ns_for(user_id, agent_id);
+        let page = self
+            .engine
+            .list(&namespace, VantaMemoryListOptions::default())
+            .map_err(|e| PyRuntimeError::new_err(format!("list_memories error: {:?}", e)))?;
+
+        let mut results = Vec::with_capacity(page.records.len());
+        for record in &page.records {
+            let d = PyDict::new(py);
+            d.set_item("id", format!("{}:{}", record.namespace, record.key))?;
+            d.set_item("content", &record.payload)?;
+            results.push(d.unbind().into());
+        }
+        Ok(results)
+    }
+
+    fn delete_memory(&self, memory_id: &str) -> PyResult<()> {
+        let parts: Vec<&str> = memory_id.split(':').collect();
+        if parts.len() != 2 {
+            return Err(PyRuntimeError::new_err(format!(
+                "invalid memory_id: {memory_id}, expected namespace:key"
+            )));
+        }
+        self.engine
+            .delete(parts[0], parts[1])
+            .map_err(|e| PyRuntimeError::new_err(format!("delete_memory error: {:?}", e)))?;
+        Ok(())
+    }
+}
+
+#[pymodule]
+fn vantadb_letta(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<LettaStore>()?;
+    m.add("__version__", "0.1.5")?;
+    Ok(())
+}
