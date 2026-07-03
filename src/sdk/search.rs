@@ -1,10 +1,13 @@
 use super::builder::VantaEmbedded;
 use super::serialization::{
     matches_memory_filters, memory_record_from_node, validate_metadata, validate_namespace,
-    DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY,
 };
+#[cfg(debug_assertions)]
+use super::serialization::{DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY};
 use super::types::*;
-use crate::backend::{BackendPartition, BackendWriteOp};
+use crate::backend::BackendPartition;
+#[cfg(debug_assertions)]
+use crate::backend::BackendWriteOp;
 use crate::error::{Result, VantaError};
 use crate::index::cosine_sim_f32;
 use crate::node::UnifiedNode;
