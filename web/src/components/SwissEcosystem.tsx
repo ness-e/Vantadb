@@ -42,10 +42,10 @@ export function SwissEcosystem() {
             trigger: sectionRef.current,
             start: "top 75%",
           },
-        }
+        },
       );
     },
-    { scope: sectionRef }
+    { scope: sectionRef },
   );
 
   return (
@@ -139,8 +139,7 @@ export function SwissEcosystem() {
                       padding: "8px 16px",
                       border: "1px solid var(--border)",
                       background: "var(--surface)",
-                      transition:
-                        "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
+                      transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
                       cursor: "default",
                     }}
                     onMouseEnter={(e) => {

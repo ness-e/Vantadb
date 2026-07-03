@@ -131,7 +131,10 @@ function IntegrationsPage() {
   const [selectedId, setSelectedId] = useState<string>("langchain");
   const [copied, setCopied] = useState(false);
 
-  const active = useMemo(() => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0], [selectedId]);
+  const active = useMemo(
+    () => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0],
+    [selectedId],
+  );
 
   const handleCopy = () => {
     navigator.clipboard?.writeText(active.code).then(() => {

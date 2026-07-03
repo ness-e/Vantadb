@@ -60,10 +60,10 @@ export function SwissCoreEngine() {
             trigger: sectionRef.current,
             start: "top 70%",
           },
-        }
+        },
       );
     },
-    { scope: sectionRef }
+    { scope: sectionRef },
   );
 
   return (
@@ -158,8 +158,7 @@ export function SwissCoreEngine() {
                   style={{
                     maxHeight: isExpanded ? "200px" : "0px",
                     overflow: "hidden",
-                    transition:
-                      "max-height 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 200ms",
+                    transition: "max-height 300ms cubic-bezier(0.25, 1, 0.5, 1), opacity 200ms",
                     opacity: isExpanded ? 1 : 0,
                   }}
                 >

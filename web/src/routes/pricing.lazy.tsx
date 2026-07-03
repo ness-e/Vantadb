@@ -337,9 +337,7 @@ function PricingPage() {
                     textTransform: "uppercase" as const,
                     letterSpacing: "0.08em",
                     textDecoration: "none",
-                    border: tier.featured
-                      ? "1px solid var(--amber)"
-                      : "1px solid var(--border)",
+                    border: tier.featured ? "1px solid var(--amber)" : "1px solid var(--border)",
                     background: tier.featured ? "var(--amber)" : "transparent",
                     color: tier.featured ? "#000000" : "var(--foreground)",
                     transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
@@ -393,7 +391,9 @@ function PricingPage() {
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)", background: "var(--surface)" }}>
+                <tr
+                  style={{ borderBottom: "2px solid var(--border)", background: "var(--surface)" }}
+                >
                   {comparisonColumns.map((col, idx) => (
                     <th
                       key={col}
@@ -404,7 +404,12 @@ function PricingPage() {
                         fontSize: "0.7rem",
                         textTransform: "uppercase" as const,
                         letterSpacing: "0.08em",
-                        color: idx === 2 ? "var(--amber)" : idx === 0 ? "var(--foreground)" : "var(--steel)",
+                        color:
+                          idx === 2
+                            ? "var(--amber)"
+                            : idx === 0
+                              ? "var(--foreground)"
+                              : "var(--steel)",
                         fontWeight: 600,
                       }}
                     >
@@ -426,7 +431,8 @@ function PricingPage() {
                       e.currentTarget.style.background = "var(--surface-hover)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = i % 2 === 0 ? "var(--background)" : "var(--surface)";
+                      e.currentTarget.style.background =
+                        i % 2 === 0 ? "var(--background)" : "var(--surface)";
                     }}
                   >
                     <td
@@ -438,18 +444,20 @@ function PricingPage() {
                     >
                       {row.feature}
                     </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>
-                      {row.os}
-                    </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)", fontWeight: 500 }}>
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>{row.os}</td>
+                    <td
+                      style={{
+                        padding: "1rem 1.5rem",
+                        color: "var(--foreground)",
+                        fontWeight: 500,
+                      }}
+                    >
                       {row.pro}
                     </td>
                     <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>
                       {row.biz}
                     </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--muted)" }}>
-                      {row.ent}
-                    </td>
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--muted)" }}>{row.ent}</td>
                   </tr>
                 ))}
               </tbody>
@@ -511,7 +519,7 @@ function PricingPage() {
           </div>
         </section>
       </main>
-      
+
       <style>{`
         @media (max-width: 768px) {
           .faq-grid {

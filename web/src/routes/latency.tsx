@@ -44,10 +44,13 @@ const VANTA_ITEMS = [
 function LatencyPage() {
   const [pipelineSize, setPipelineSize] = useState(50);
   const [mode, setMode] = useState<"rust" | "python">("rust");
-  const vantaLatency = useMemo(() => mode === "rust" ? 1.2 : 39.74, [mode]);
+  const vantaLatency = useMemo(() => (mode === "rust" ? 1.2 : 39.74), [mode]);
   const legacyTotal = useMemo(() => pipelineSize * 200, [pipelineSize]);
   const vantaTotal = useMemo(() => pipelineSize * vantaLatency, [pipelineSize, vantaLatency]);
-  const speedup = useMemo(() => Math.round(legacyTotal / Math.max(vantaTotal, 0.1)), [legacyTotal, vantaTotal]);
+  const speedup = useMemo(
+    () => Math.round(legacyTotal / Math.max(vantaTotal, 0.1)),
+    [legacyTotal, vantaTotal],
+  );
 
   return (
     <div className="engine-page">
@@ -65,7 +68,9 @@ function LatencyPage() {
       />
 
       {/* Mode toggle */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", margin: "1.5rem 0 0" }}>
+      <div
+        style={{ display: "flex", justifyContent: "center", gap: "0.5rem", margin: "1.5rem 0 0" }}
+      >
         <button
           onClick={() => setMode("rust")}
           style={{
@@ -236,8 +241,8 @@ function LatencyPage() {
               >
                 <span style={{ color: "var(--amber)" }}>▲</span>{" "}
                 {mode === "rust"
-                  ? '1.2ms p50 applies to Rust Core (native). Python SDK adds ~39.74ms p50 (FFI + serialization). Toggle above to compare.'
-                  : 'Python SDK ~39.74ms p50 (~24.5% recall@10). Rust Core achieves 1.2ms p50 via zero-copy in-process access.'}
+                  ? "1.2ms p50 applies to Rust Core (native). Python SDK adds ~39.74ms p50 (FFI + serialization). Toggle above to compare."
+                  : "Python SDK ~39.74ms p50 (~24.5% recall@10). Rust Core achieves 1.2ms p50 via zero-copy in-process access."}
               </div>
             </div>
           </div>

@@ -23,7 +23,10 @@ export function useTextScramble() {
         const revealed = Math.floor(state.progress * length);
         let result = originalText.slice(0, revealed);
         for (let i = revealed; i < length; i++) {
-          result += originalText[i] === " " ? " " : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+          result +=
+            originalText[i] === " "
+              ? " "
+              : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
         }
         el.innerText = result;
       },

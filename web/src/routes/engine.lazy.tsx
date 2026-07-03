@@ -545,8 +545,8 @@ function EnginePage() {
                   lineHeight: 1.6,
                 }}
               >
-                VantaDB query planner optimizes combined metadata filters, HNSW vector similarity, and
-                BM25 full-text queries, synthesizing them into a single-pass execution plan.
+                VantaDB query planner optimizes combined metadata filters, HNSW vector similarity,
+                and BM25 full-text queries, synthesizing them into a single-pass execution plan.
               </p>
             </div>
 

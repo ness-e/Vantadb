@@ -10,12 +10,7 @@ export default defineConfig({
   optimizeDeps: {
     // Forzar que Vite pre-empaquete GSAP como una unidad cohesiva
     // sin tree-shaking agresivo que elimina el registerPlugin como side-effect
-    include: [
-      "gsap",
-      "gsap/ScrollTrigger",
-      "gsap/TextPlugin",
-      "@gsap/react",
-    ],
+    include: ["gsap", "gsap/ScrollTrigger", "gsap/TextPlugin", "@gsap/react"],
   },
   test: {
     globals: true,

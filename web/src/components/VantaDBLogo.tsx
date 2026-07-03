@@ -1,7 +1,7 @@
 /**
  * VantaDBLogo — Official Swiss Minimalist Identity System
  *
- * Design: 
+ * Design:
  * - An outer circle stroke in var(--foreground) (black in light mode)
  * - An inner solid circle core in var(--amber) (neon orange)
  *
@@ -38,11 +38,7 @@ const VantaDBMark: React.FC<{
   size?: number;
   accentColor?: string;
   className?: string;
-}> = ({
-  size = 40,
-  accentColor = "var(--amber, #ff5500)",
-  className = "",
-}) => {
+}> = ({ size = 40, accentColor = "var(--amber, #ff5500)", className = "" }) => {
   return (
     <svg
       width={size}
@@ -54,22 +50,10 @@ const VantaDBMark: React.FC<{
       className={`vdb-mark ${className}`}
     >
       {/* ── Outer Circle (Stroke) ──────────────── */}
-      <circle
-        cx="32"
-        cy="32"
-        r="24"
-        fill="none"
-        stroke="var(--foreground)"
-        strokeWidth="6"
-      />
+      <circle cx="32" cy="32" r="24" fill="none" stroke="var(--foreground)" strokeWidth="6" />
 
       {/* ── Inner Core (Solid Amber) ───────────── */}
-      <circle 
-        cx="32" 
-        cy="32" 
-        r="10" 
-        fill={accentColor} 
-      />
+      <circle cx="32" cy="32" r="10" fill={accentColor} />
     </svg>
   );
 };
@@ -89,14 +73,14 @@ export const VantaDBLogoFull: React.FC<{
       style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
     >
       <VantaDBMark size={markPx} />
-      <span 
-        className="vdb-wordmark" 
-        style={{ 
-          fontSize: `${fontPx}px`, 
-          fontWeight: 800, 
-          letterSpacing: "-0.02em", 
-          color: "var(--foreground)" 
-        }} 
+      <span
+        className="vdb-wordmark"
+        style={{
+          fontSize: `${fontPx}px`,
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
+          color: "var(--foreground)",
+        }}
         aria-hidden="true"
       >
         VantaDB
@@ -105,27 +89,29 @@ export const VantaDBLogoFull: React.FC<{
   );
 };
 
-const VantaDBLogo: React.FC<VantaDBLogoProps> = React.memo(({
-  variant = "full",
-  size = "md",
-  accentColor,
-  className = "",
-  "aria-label": ariaLabel = "VantaDB",
-}) => {
-  const markPx = SIZE_MAP[size];
+const VantaDBLogo: React.FC<VantaDBLogoProps> = React.memo(
+  ({
+    variant = "full",
+    size = "md",
+    accentColor,
+    className = "",
+    "aria-label": ariaLabel = "VantaDB",
+  }) => {
+    const markPx = SIZE_MAP[size];
 
-  switch (variant) {
-    case "mark":
-      return (
-        <div role="img" aria-label={ariaLabel} className={className}>
-          <VantaDBMark size={markPx} accentColor={accentColor} />
-        </div>
-      );
-    case "full":
-    default:
-      return <VantaDBLogoFull size={size} className={className} />;
-  }
-});
+    switch (variant) {
+      case "mark":
+        return (
+          <div role="img" aria-label={ariaLabel} className={className}>
+            <VantaDBMark size={markPx} accentColor={accentColor} />
+          </div>
+        );
+      case "full":
+      default:
+        return <VantaDBLogoFull size={size} className={className} />;
+    }
+  },
+);
 
 VantaDBLogo.displayName = "VantaDBLogo";
 

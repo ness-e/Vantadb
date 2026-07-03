@@ -127,7 +127,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background-color 150ms, transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition:
+    background-color 150ms,
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
 }
 
@@ -154,7 +156,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms, transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition:
+    all 150ms,
+    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
 }
 
