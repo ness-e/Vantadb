@@ -107,3 +107,71 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Exploded Architecture Accordion (dark block) ── */
+
+.swiss-ce-section {
+  padding-top: 120px;
+  padding-bottom: 160px;
+}
+
+.swiss-ce-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  margin: 0 0 80px 0;
+  letter-spacing: var(--tracking-display);
+  color: var(--block-dark-text);
+}
+
+.swiss-ce-accordion {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--block-dark-border);
+}
+
+.swiss-ce-row {
+  border-bottom: 1px solid var(--block-dark-border);
+  padding: 32px 0;
+  cursor: pointer;
+  transition: all 200ms var(--ease-cut);
+}
+
+.swiss-ce-row-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.swiss-ce-row-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-weight: var(--weight-semibold);
+  color: var(--block-dark-text);
+  letter-spacing: -0.02em;
+}
+
+.swiss-ce-row-expand {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  color: #555555;
+  transition: transform 200ms var(--ease-cut);
+}
+
+.swiss-ce-row-content {
+  overflow: hidden;
+  transition: max-height 300ms var(--ease-cut), opacity 200ms;
+}
+
+.swiss-ce-row-desc {
+  margin: 0;
+  padding-top: 24px;
+  padding-left: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--block-dark-muted);
+  line-height: 1.65;
+  max-width: 600px;
+}
