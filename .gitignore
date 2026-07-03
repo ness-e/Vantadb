@@ -1,3 +1,8 @@
+# Test database artifacts (large binary fixtures)
+**/test_load_db_*/
+vantadb-python/test_load_db_4cbc46ae/
+vantadb-ts/test_load_db*/
+
 # Rust build artifacts
 target/
 **/target/
