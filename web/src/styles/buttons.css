@@ -178,6 +178,50 @@ button:focus-visible {
   top: 1rem;
 }
 
+/* ── Hero button variants (large CTAs, no uppercase) ── */
+.btn-primary--hero {
+  font-size: 0.9rem;
+  padding: 12px 24px;
+  text-transform: none;
+  letter-spacing: normal;
+  transition:
+    background 150ms var(--ease-cut),
+    transform 150ms var(--ease-cut);
+  will-change: transform;
+}
+
+.btn-primary--hero:hover {
+  transform: translateY(-1px);
+  background: #000000;
+}
+
+.btn-primary--hero:active {
+  transform: translateY(0);
+  background: #111111;
+}
+
+.btn-ghost--hero {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  padding: 11px 24px;
+  text-transform: none;
+  letter-spacing: normal;
+  transition:
+    background 150ms var(--ease-cut),
+    color 150ms var(--ease-cut),
+    border-color 100ms,
+    transform 150ms var(--ease-cut);
+  will-change: transform;
+}
+
+.btn-ghost--hero:hover {
+  transform: translateY(-1px);
+}
+
+.btn-ghost--hero:active {
+  transform: translateY(0);
+}
+
 /* ── WAL button overrides ── */
 .btn-ghost.wal-btn-sm:disabled {
   color: var(--steel);

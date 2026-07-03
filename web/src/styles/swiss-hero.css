@@ -112,66 +112,7 @@
   will-change: opacity, transform;
 }
 
-.swiss-button-primary {
-  background-color: var(--amber);
-  color: #ffffff;
-  padding: 12px 24px;
-  border-radius: 0px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  border: none;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition:
-    background-color 150ms,
-    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: transform;
-}
-
-.swiss-button-primary:hover {
-  background-color: #000000;
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-
-.swiss-button-primary:active {
-  transform: translateY(0);
-}
-
-.swiss-button-ghost {
-  background-color: transparent;
-  color: var(--foreground);
-  border: 1px solid var(--border);
-  padding: 11px 24px;
-  border-radius: 0px;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.95rem;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    all 150ms,
-    transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: transform;
-}
-
-.swiss-button-ghost:hover {
-  background-color: var(--border);
-  border-color: var(--border-strong);
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-
-.swiss-button-ghost:active {
-  transform: translateY(0);
-}
+/* ── Buttons defined in buttons.css (.btn-primary, .btn-ghost, .btn-primary--hero, .btn-ghost--hero) ── */
 
 /* ── Scan Line (subtle decoration) ── */
 .swiss-hero-scanline {
