@@ -49,7 +49,7 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
 | Run as a local server | [Server Mode](#optional-server-mode) |
 | Read architecture docs | [Documentation](#documentation) |
-| Contribute safely | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Report a vulnerability | [SECURITY.md](.github/SECURITY.md) |
 | Get support | [SUPPORT.md](.github/SUPPORT.md) |
 
@@ -315,7 +315,7 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 
 ## Contributing & Security
 
-- Contributions must follow [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+- Contributions must follow [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security reports must follow [SECURITY.md](.github/SECURITY.md).
 - Support and triage channels are described in [SUPPORT.md](.github/SUPPORT.md).
 

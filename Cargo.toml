@@ -474,6 +474,7 @@ members = [
     "vantadb-server",
     "vantadb-mcp",
     "vantadb-wasm",
+    "vantadb-mem0",
 ]
 
 [workspace.package]

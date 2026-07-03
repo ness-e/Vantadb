@@ -5,6 +5,10 @@ use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::*;
 
+fn default_config() -> vantadb_mcp::McpConfig {
+    vantadb_mcp::McpConfig::default()
+}
+
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
@@ -298,7 +302,7 @@ fn test_mcp_tool_flow_crud() {
         }
     }));
 
-    let put_res = handle_tools_call(&put_params, &executor, &storage);
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
     assert!(put_res.is_ok(), "memory_put tool call should succeed");
     let put_val = put_res.unwrap();
     assert!(
@@ -323,7 +327,7 @@ fn test_mcp_tool_flow_crud() {
             "key": "user_status"
         }
     }));
-    let get_res = handle_tools_call(&get_params, &executor, &storage);
+    let get_res = handle_tools_call(&get_params, &executor, &storage, &default_config());
     assert!(get_res.is_ok(), "memory_get tool call should succeed");
     let get_val = get_res.unwrap();
     assert!(
@@ -343,7 +347,7 @@ fn test_mcp_tool_flow_crud() {
             "namespace": "test_ns"
         }
     }));
-    let list_res = handle_tools_call(&list_params, &executor, &storage);
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
     assert!(list_res.is_ok(), "memory_list tool call should succeed");
     let list_val = list_res.unwrap();
     assert!(
@@ -361,7 +365,7 @@ fn test_mcp_tool_flow_crud() {
         "name": "memory_list_namespaces",
         "arguments": {}
     }));
-    let ns_res = handle_tools_call(&ns_params, &executor, &storage);
+    let ns_res = handle_tools_call(&ns_params, &executor, &storage, &default_config());
     assert!(
         ns_res.is_ok(),
         "memory_list_namespaces tool call should succeed"
@@ -385,7 +389,7 @@ fn test_mcp_tool_flow_crud() {
             "key": "user_status"
         }
     }));
-    let del_res = handle_tools_call(&del_params, &executor, &storage);
+    let del_res = handle_tools_call(&del_params, &executor, &storage, &default_config());
     assert!(del_res.is_ok(), "memory_delete tool call should succeed");
     let del_val = del_res.unwrap();
     assert!(
@@ -399,7 +403,7 @@ fn test_mcp_tool_flow_crud() {
     );
 
     // 6. Verify get after delete
-    let get_res_after = handle_tools_call(&get_params, &executor, &storage);
+    let get_res_after = handle_tools_call(&get_params, &executor, &storage, &default_config());
     assert!(
         get_res_after.is_ok(),
         "memory_get after delete should still return a response"
@@ -420,7 +424,7 @@ fn test_mcp_tool_query_iql() {
             "query": "INSERT NODE#999 TYPE TestNode { tier: \"Cold\" }"
         }
     }));
-    let write_res = handle_tools_call(&iql_write, &executor, &storage);
+    let write_res = handle_tools_call(&iql_write, &executor, &storage, &default_config());
     assert!(write_res.is_ok(), "IQL INSERT should succeed");
     let write_val = write_res.unwrap();
     assert!(
@@ -444,7 +448,7 @@ fn test_mcp_tool_query_iql() {
             "query": "FROM NODE#999"
         }
     }));
-    let read_res = handle_tools_call(&iql_read, &executor, &storage);
+    let read_res = handle_tools_call(&iql_read, &executor, &storage, &default_config());
     assert!(read_res.is_ok(), "IQL FROM query should succeed");
     let read_val = read_res.unwrap();
     assert!(
@@ -480,7 +484,7 @@ fn test_mcp_tool_search() {
             "vector": v1
         }
     }));
-    handle_tools_call(&put_params_1, &executor, &storage).unwrap();
+    handle_tools_call(&put_params_1, &executor, &storage, &default_config()).unwrap();
 
     let put_params_2 = Some(json!({
         "name": "memory_put",
@@ -491,7 +495,7 @@ fn test_mcp_tool_search() {
             "vector": v2
         }
     }));
-    handle_tools_call(&put_params_2, &executor, &storage).unwrap();
+    handle_tools_call(&put_params_2, &executor, &storage, &default_config()).unwrap();
 
     // Test search_semantic (raw vector index)
     let search_sem_params = Some(json!({
@@ -501,7 +505,7 @@ fn test_mcp_tool_search() {
             "k": 1
         }
     }));
-    let sem_res = handle_tools_call(&search_sem_params, &executor, &storage);
+    let sem_res = handle_tools_call(&search_sem_params, &executor, &storage, &default_config());
     assert!(sem_res.is_ok(), "search_semantic tool call should succeed");
     let sem_val = sem_res.unwrap();
     let sem_text = sem_val["content"][0]["text"].as_str().unwrap();
@@ -520,7 +524,7 @@ fn test_mcp_tool_search() {
             "top_k": 2
         }
     }));
-    let mem_res = handle_tools_call(&search_mem_params, &executor, &storage);
+    let mem_res = handle_tools_call(&search_mem_params, &executor, &storage, &default_config());
     assert!(mem_res.is_ok(), "search_memory tool call should succeed");
     let mem_val = mem_res.unwrap();
     // search_memory should return a valid response (even if empty for vector-only without text index)

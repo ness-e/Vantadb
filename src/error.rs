@@ -49,6 +49,9 @@ pub enum VantaError {
     // Tracking: https://github.com/ness-e/Vantadb/issues (C4)
     Execution(String),
 
+    #[error("Schema error: {0}")]
+    SchemaError(String),
+
     #[error("Database busy: {0}")]
     DatabaseBusy(String),
 }

@@ -7,6 +7,7 @@ use super::types::*;
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::index::cosine_sim_f32;
+use crate::node::UnifiedNode;
 use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing;
@@ -239,6 +240,12 @@ impl VantaEmbedded {
         }
 
         let mut hits = Vec::new();
+        let node_ids: Vec<u64> = scores.keys().copied().collect();
+        let node_map: std::collections::HashMap<u64, UnifiedNode> = engine
+            .get_many(&node_ids)?
+            .into_iter()
+            .map(|n| (n.id, n))
+            .collect();
         for (node_id, score) in scores {
             let positions_match = candidate_positions
                 .get(&node_id)
@@ -247,8 +254,8 @@ impl VantaEmbedded {
             if !positions_match {
                 continue;
             }
-            if let Some(node) = engine.get(node_id)? {
-                if let Some(record) = memory_record_from_node(node) {
+            if let Some(node) = node_map.get(&node_id) {
+                if let Some(record) = memory_record_from_node(node.clone()) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
                         hits.push(VantaMemorySearchHit {
                             record,
@@ -297,19 +304,29 @@ impl VantaEmbedded {
         };
 
         let mut hits = Vec::with_capacity(top_k);
-        for (node_id, raw_score) in candidates {
-            if hits.len() >= top_k {
-                break;
-            }
-            if let Some(node) = engine.get(node_id)? {
-                if let Some(record) = memory_record_from_node(node) {
-                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
-                        let score = raw_score;
-                        hits.push(VantaMemorySearchHit {
-                            score,
-                            record,
-                            explanation: None,
-                        });
+        {
+            let candidate_ids: Vec<u64> = candidates.iter().map(|(id, _)| *id).collect();
+            let node_map: std::collections::HashMap<u64, UnifiedNode> = engine
+                .get_many(&candidate_ids)?
+                .into_iter()
+                .map(|n| (n.id, n))
+                .collect();
+            for (node_id, raw_score) in candidates {
+                if hits.len() >= top_k {
+                    break;
+                }
+                if let Some(node) = node_map.get(&node_id) {
+                    if let Some(record) = memory_record_from_node(node.clone()) {
+                        if record.namespace == namespace
+                            && matches_memory_filters(&record, filters)
+                        {
+                            let score = raw_score;
+                            hits.push(VantaMemorySearchHit {
+                                score,
+                                record,
+                                explanation: None,
+                            });
+                        }
                     }
                 }
             }

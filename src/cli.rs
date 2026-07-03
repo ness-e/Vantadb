@@ -145,6 +145,13 @@ pub enum Commands {
         key: String,
     },
 
+    /// Migrate a database to the latest storage schema version
+    Migrate {
+        /// Path to the database directory to migrate
+        #[arg(long, default_value = "./db")]
+        target: String,
+    },
+
     /// Manage namespaces
     #[command(subcommand)]
     Namespace(NamespaceCommand),

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve VantaDB
+about: Create a report to help us improve
 title: ''
 labels: bug
 assignees: ''
@@ -12,23 +12,19 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Use '...' API / SDK
-2. With config '...'
-3. See error
+1. Initialize VantaDB with '...'
+2. Insert data '...'
+3. Run query '...'
+4. See error
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Logs / Output**
-```
-If applicable, add logs or output. Set `VANTADB_LOG_FORMAT=full` for verbose logging.
-```
-
-**Environment (please complete the following information):**
- - OS: [e.g. Ubuntu 22.04, Windows 11, macOS 14]
- - VantaDB version: [e.g. v0.1.4, commit hash]
- - Rust version: [if building from source]
- - Python version: [if using Python SDK]
+**Environment (please complete the following):**
+- OS: [e.g. Ubuntu 24.04, macOS 15, Windows 11]
+- VantaDB version [e.g. 0.1.5]
+- Python version (if using Python SDK)
+- Browser (if using WASM):
 
 **Additional context**
 Add any other context about the problem here.

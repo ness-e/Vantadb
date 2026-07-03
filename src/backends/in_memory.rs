@@ -59,6 +59,21 @@ impl StorageBackend for InMemoryBackend {
             .and_then(|btree| btree.get(key).cloned()))
     }
 
+    fn get_many(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let parts = self.partitions.read();
+        let Some(btree) = parts.get(&partition) else {
+            return Ok(Vec::new());
+        };
+        Ok(keys
+            .iter()
+            .filter_map(|k| btree.get(*k).map(|v| (k.to_vec(), v.clone())))
+            .collect())
+    }
+
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
         let mut parts = self.partitions.write();
         if let Some(btree) = parts.get_mut(&partition) {

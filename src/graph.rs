@@ -5,7 +5,7 @@
 
 use crate::error::Result;
 use crate::storage::StorageEngine;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 pub struct GraphTraverser<'a> {
     storage: &'a StorageEngine,
@@ -18,33 +18,46 @@ impl<'a> GraphTraverser<'a> {
 
     /// Evaluates a Breadth-First-Search starting from a designated set of root IDs,
     /// up to a maximum depth, returning the discovered distinct Node IDs.
+    ///
+    /// Uses level-at-a-time batching (`get_many`) to avoid N+1 storage lookups.
     pub fn bfs_traverse(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
         let mut visited = HashSet::new();
-        let mut queue = VecDeque::new();
         let mut results = Vec::new();
+        let mut current_level: Vec<u64> = roots.to_vec();
 
-        for &root in roots {
-            queue.push_back((root, 0));
-        }
-
-        while let Some((curr_id, depth)) = queue.pop_front() {
-            if !visited.insert(curr_id) {
-                continue; // Already processed
+        for depth in 0..=max_depth {
+            if current_level.is_empty() {
+                break;
             }
 
-            // Return all visited items
-            results.push(curr_id);
+            // Deduplicate and filter already-visited nodes
+            let mut next_level = Vec::new();
+            let mut unvisited = Vec::new();
+            for &id in &current_level {
+                if visited.insert(id) {
+                    unvisited.push(id);
+                    results.push(id);
+                }
+            }
 
-            if depth < max_depth {
-                // Fetch the node from the storage engine
-                if let Ok(Some(node)) = self.storage.get(curr_id) {
-                    for edge in &node.edges {
-                        if !visited.contains(&edge.target) {
-                            queue.push_back((edge.target, depth + 1));
-                        }
+            if depth == max_depth || unvisited.is_empty() {
+                continue;
+            }
+
+            // Batch-fetch all nodes at the current depth
+            let nodes = self.storage.get_many(&unvisited)?;
+            for node in &nodes {
+                for edge in &node.edges {
+                    if !visited.contains(&edge.target) {
+                        next_level.push(edge.target);
                     }
                 }
             }
+
+            // Deduplicate next_level before the next iteration
+            next_level.sort();
+            next_level.dedup();
+            current_level = next_level;
         }
 
         Ok(results)

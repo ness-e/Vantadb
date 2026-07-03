@@ -48,7 +48,7 @@ VantaDB es un motor de base de datos embebido y local-first diseñado para agent
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebido) |
 | Ejecutar como servidor local | [Modo Servidor](#modo-servidor-opcional) |
 | Leer documentación de arquitectura | [Documentación](#documentación) |
-| Contribuir de forma segura | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Contribuir de forma segura | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Reportar una vulnerabilidad | [SECURITY.md](.github/SECURITY.md) |
 | Obtener soporte | [SUPPORT.md](.github/SUPPORT.md) |
 
@@ -314,7 +314,7 @@ Los resultados se imprimirán directamente en la consola y se escribirán en `va
 
 ## Contribución y Seguridad
 
-- Las contribuciones deben seguir [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+- Las contribuciones deben seguir [CONTRIBUTING.md](CONTRIBUTING.md).
 - Los reportes de seguridad deben seguir [SECURITY.md](.github/SECURITY.md).
 - Los canales de soporte y triaje se describen en [SUPPORT.md](.github/SUPPORT.md).
 

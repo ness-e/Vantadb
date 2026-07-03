@@ -13,7 +13,7 @@ use crate::storage::StorageEngine;
 pub struct PhysicalScan<'a> {
     storage: &'a StorageEngine,
     entity: String,
-    records: Vec<(Vec<u8>, Vec<u8>)>,
+    prefetched: Vec<UnifiedNode>,
     cursor: usize,
 }
 
@@ -22,7 +22,7 @@ impl<'a> PhysicalScan<'a> {
         Self {
             storage,
             entity,
-            records: Vec::new(),
+            prefetched: Vec::new(),
             cursor: 0,
         }
     }
@@ -30,56 +30,53 @@ impl<'a> PhysicalScan<'a> {
 
 impl PhysicalOperator for PhysicalScan<'_> {
     fn open(&mut self) -> Result<()> {
+        self.prefetched.clear();
+        self.cursor = 0;
+
         let parts: Vec<&str> = self.entity.split('#').collect();
         if parts.len() == 2 {
             if let Ok(id) = parts[1].parse::<u64>() {
-                self.records.clear();
-                let key = id.to_le_bytes();
-                if let Some(val) = self
+                let raw = self
                     .storage
                     .backend
-                    .get(crate::backend::BackendPartition::Default, &key)?
-                {
-                    self.records.push((key.to_vec(), val));
+                    .get(crate::backend::BackendPartition::Default, &id.to_le_bytes())?;
+                if raw.is_some() {
+                    self.prefetched = self.storage.get_many(&[id])?;
                 }
-                self.cursor = 0;
                 return Ok(());
             }
         }
 
-        self.records = self
+        let records = self
             .storage
             .backend
             .scan(crate::backend::BackendPartition::Default)?;
-        self.cursor = 0;
+        let ids: Vec<u64> = records
+            .iter()
+            .filter_map(|(key_bytes, _)| {
+                let arr: [u8; 8] = key_bytes.as_slice().try_into().ok()?;
+                Some(u64::from_le_bytes(arr))
+            })
+            .collect();
+        self.prefetched = self.storage.get_many(&ids)?;
         Ok(())
     }
 
     fn next(&mut self) -> Result<Option<UnifiedNode>> {
-        while self.cursor < self.records.len() {
-            let (key_bytes, _val_bytes) = &self.records[self.cursor];
+        while self.cursor < self.prefetched.len() {
+            let node = &self.prefetched[self.cursor];
             self.cursor += 1;
 
-            let id = u64::from_le_bytes(key_bytes.as_slice().try_into().map_err(|_| {
-                crate::error::VantaError::SerializationError(
-                    "Invalid node ID key bytes".to_string(),
-                )
-            })?);
-
-            if self.storage.is_deleted(id)? {
+            if self.storage.is_deleted(node.id)? {
                 continue;
             }
 
-            if let Some(node) = self.storage.get(id)? {
-                // Si la entidad tiene una almohadilla, se valida el ID específico que ya filtramos en open,
-                // por lo tanto, devolvemos el nodo directamente.
-                if self.entity.contains('#') || self.entity == "*" {
-                    return Ok(Some(node));
-                }
-                if let Some(crate::node::FieldValue::String(t)) = node.relational.get("type") {
-                    if t == &self.entity {
-                        return Ok(Some(node));
-                    }
+            if self.entity.contains('#') || self.entity == "*" {
+                return Ok(Some(node.clone()));
+            }
+            if let Some(crate::node::FieldValue::String(t)) = node.relational.get("type") {
+                if t == &self.entity {
+                    return Ok(Some(node.clone()));
                 }
             }
         }
@@ -87,7 +84,7 @@ impl PhysicalOperator for PhysicalScan<'_> {
     }
 
     fn close(&mut self) -> Result<()> {
-        self.records.clear();
+        self.prefetched.clear();
         Ok(())
     }
 }
@@ -193,6 +190,7 @@ pub struct PhysicalVectorSearch<'a> {
     query_vec_text: String,
     min_score: f32,
     results: Vec<u64>,
+    prefetched: Vec<UnifiedNode>,
     cursor: usize,
 }
 
@@ -203,6 +201,7 @@ impl<'a> PhysicalVectorSearch<'a> {
             query_vec_text: query_text,
             min_score,
             results: Vec::new(),
+            prefetched: Vec::new(),
             cursor: 0,
         }
     }
@@ -211,6 +210,7 @@ impl<'a> PhysicalVectorSearch<'a> {
 impl PhysicalOperator for PhysicalVectorSearch<'_> {
     fn open(&mut self) -> Result<()> {
         self.results.clear();
+        self.prefetched.clear();
         self.cursor = 0;
 
         #[allow(unused_mut)]
@@ -237,27 +237,28 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
             }
         }
 
+        self.prefetched = self.storage.get_many(&self.results)?;
+
         Ok(())
     }
 
     fn next(&mut self) -> Result<Option<UnifiedNode>> {
-        while self.cursor < self.results.len() {
-            let id = self.results[self.cursor];
+        while self.cursor < self.prefetched.len() {
+            let node = &self.prefetched[self.cursor];
             self.cursor += 1;
 
-            if self.storage.is_deleted(id)? {
+            if self.storage.is_deleted(node.id)? {
                 continue;
             }
 
-            if let Some(node) = self.storage.get(id)? {
-                return Ok(Some(node));
-            }
+            return Ok(Some(node.clone()));
         }
         Ok(None)
     }
 
     fn close(&mut self) -> Result<()> {
         self.results.clear();
+        self.prefetched.clear();
         Ok(())
     }
 }

@@ -9,7 +9,7 @@ use serde_json::json;
 use vantadb::executor::Executor;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list};
+use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list, McpConfig};
 
 #[tokio::test]
 async fn mcp_protocol_certification() {
@@ -48,7 +48,7 @@ async fn mcp_protocol_certification() {
             "arguments": { "node_id": 100 }
         }));
 
-        let tool_res = handle_tools_call(&params, &executor, &storage).expect("Tool call failed");
+        let tool_res = handle_tools_call(&params, &executor, &storage, &McpConfig::default()).expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(
             text.contains("\"confidence_score\":0.99"),
@@ -63,7 +63,7 @@ async fn mcp_protocol_certification() {
             "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
         let lisp_res =
-            handle_tools_call(&lisp_params, &executor, &storage).expect("Tool execution failed");
+            handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default()).expect("Tool execution failed");
         assert!(
             lisp_res["content"][0]["text"]
                 .as_str()

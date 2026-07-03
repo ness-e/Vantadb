@@ -8,7 +8,7 @@ homepage = "https://vantadb.dev"
 license = "Apache-2.0"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 vantadb = { path = "../", default-features = false, features = ["wasm"] }
@@ -20,6 +20,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-wasm = "0.2"
 js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [dev-dependencies]
