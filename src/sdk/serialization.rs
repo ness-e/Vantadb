@@ -334,7 +334,10 @@ pub(crate) fn record_from_export_line(line: VantaMemoryExportLine) -> Result<Van
     if line.schema_version != EXPORT_SCHEMA_VERSION {
         return Err(VantaError::ValidationError {
             field: "schema_version".into(),
-            reason: format!("unsupported memory export schema_version {}", line.schema_version),
+            reason: format!(
+                "unsupported memory export schema_version {}",
+                line.schema_version
+            ),
         });
     }
 
@@ -726,11 +729,9 @@ impl VantaEmbedded {
                 reason: format!("text index {label} would become negative"),
             });
         }
-        u64::try_from(value).map_err(|_| {
-            VantaError::ValidationError {
-                field: "stats".into(),
-                reason: format!("text index {label} exceeds supported range"),
-            }
+        u64::try_from(value).map_err(|_| VantaError::ValidationError {
+            field: "stats".into(),
+            reason: format!("text index {label} exceeds supported range"),
         })
     }
 

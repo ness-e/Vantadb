@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::hash::{Hash, Hasher};
 use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -237,6 +238,62 @@ pub enum FieldValue {
     ListBool(Vec<bool>),
     ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
     Null,
+}
+
+impl Eq for FieldValue {}
+
+impl Hash for FieldValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            FieldValue::String(s) => {
+                0u8.hash(state);
+                s.hash(state);
+            }
+            FieldValue::Int(i) => {
+                1u8.hash(state);
+                i.hash(state);
+            }
+            FieldValue::Float(f) => {
+                2u8.hash(state);
+                f.to_bits().hash(state);
+            }
+            FieldValue::Bool(b) => {
+                3u8.hash(state);
+                b.hash(state);
+            }
+            FieldValue::DateTime(dt) => {
+                4u8.hash(state);
+                dt.timestamp_nanos_opt().unwrap_or(0).hash(state);
+            }
+            FieldValue::ListString(v) => {
+                5u8.hash(state);
+                v.hash(state);
+            }
+            FieldValue::ListInt(v) => {
+                6u8.hash(state);
+                v.hash(state);
+            }
+            FieldValue::ListFloat(v) => {
+                7u8.hash(state);
+                for f in v {
+                    f.to_bits().hash(state);
+                }
+            }
+            FieldValue::ListBool(v) => {
+                8u8.hash(state);
+                v.hash(state);
+            }
+            FieldValue::ListDateTime(v) => {
+                9u8.hash(state);
+                for dt in v {
+                    dt.timestamp_nanos_opt().unwrap_or(0).hash(state);
+                }
+            }
+            FieldValue::Null => {
+                10u8.hash(state);
+            }
+        }
+    }
 }
 
 impl FieldValue {
