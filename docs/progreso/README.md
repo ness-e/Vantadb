@@ -151,6 +151,12 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 - Remove unwrap() from public APIs, `std::panic::catch_unwind` in C FFI, commit `c89e1a2`
 53. **[WEB-01]** Centralización de documentación (Monorepo) — ✅
 - Unificación total de `web/docs/` → `docs/web/`, integración del backlog web en el raíz, eliminación de artefactos de migración (`plan/`).
+54. **[WEB-14a]** Rediseño del Hero (Swiss Typographic Grid) — ✅
+- Rediseñado SwissHero.tsx y swiss-hero.css siguiendo el manifiesto de diseño suizo.
+- Implementado dibujo del grid de 1px usando SVG con stroke-dashoffset y stagger animado en GSAP.
+- Eliminada animación de typewriter en subtítulo, mostrando texto inmediatamente en Outfit a tamaño display.
+- Agregada interactividad de click-to-copy con feedback visual en el comando de instalación.
+- Removidos todos los inline styles de SwissHero.
 54. **[TSK-56]** Fix Windows CI runner — ✅
 - Timeouts, pin image, OIDC trusted publishing, commits `afa141d`..`84d862c`
 55. **[TSK-55]** Real CI datasets — ✅
