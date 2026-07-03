@@ -844,7 +844,7 @@ fn test_mcp_concurrent_requests() {
         let storage = storage.clone();
         let cfg = config.clone();
         handles.push(thread::spawn(move || {
-            let executor = Executor::new(&*storage);
+            let executor = Executor::new(&storage);
             let params = Some(json!({
                 "name": "memory_put",
                 "arguments": {
