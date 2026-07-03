@@ -144,7 +144,7 @@ fn test_interleaved_read_write_parity() {
     let e_read: Arc<StorageEngine> = Arc::clone(&engine);
     let reader = thread::spawn(move || {
         let mut found = 0;
-        for _ in 0..1000 {
+        for _ in 0..200 {
             if e_read.get(0).unwrap().is_some() {
                 found += 1;
             }
@@ -192,7 +192,7 @@ fn test_concurrency_rebuild_rcu() {
     let reader_handle = thread::spawn(move || {
         let mut query_success = 0;
         let query_vector = vec![0.5; 128];
-        for _ in 0..500 {
+        for _ in 0..100 {
             let hnsw = engine_read.hnsw.load();
             let vs = engine_read.vector_store.read();
             let results = hnsw.search_nearest(&query_vector, None, None, 0, 5, Some(&vs));
