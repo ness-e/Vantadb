@@ -117,14 +117,14 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            Err(VantaError::Execution(
+            Err(VantaError::IqlError(
                 "LISP queries require the experimental-lisp extension/crate.".to_string(),
             ))
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),
                 Err(e) => Err(VantaError::IqlParseError {
-                    source: e.to_string(),
+                    msg: e.to_string(),
                     line: 0,
                     col: 0,
                 }),
@@ -353,7 +353,7 @@ impl<'a> Executor<'a> {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
-                    return Err(VantaError::Execution(
+                    return Err(VantaError::IqlError(
                         "Conflict entity scan requires the experimental-governance extension/crate."
                             .to_string(),
                     ));
@@ -510,7 +510,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("(match ...)").unwrap_err();
-        assert!(matches!(err, VantaError::Execution(_)));
+        assert!(matches!(err, VantaError::IqlError(_)));
         assert!(err.to_string().contains("LISP"));
     }
 
@@ -760,6 +760,6 @@ mod tests {
             weight: None,
         });
         let err = ex.execute_statement(relate).unwrap_err();
-        assert!(err.to_string().contains("not exist") || err.to_string().contains("Tombstone"));
+        assert!(err.to_string().contains("not found") || err.to_string().contains("Tombstone"));
     }
 }

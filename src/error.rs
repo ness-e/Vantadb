@@ -49,9 +49,9 @@ pub enum VantaError {
     #[error("Cycle detected in graph operation")]
     CycleDetected,
 
-    #[error("IQL parse error at line {line}, col {col}: {source}")]
+    #[error("IQL parse error at line {line}, col {col}: {msg}")]
     IqlParseError {
-        source: String,
+        msg: String,
         line: usize,
         col: usize,
     },
@@ -63,19 +63,36 @@ pub enum VantaError {
     ValidationError { field: String, reason: String },
 
     #[error("Operation {operation} timed out after {duration_ms}ms")]
-    Timeout {
-        operation: String,
-        duration_ms: u64,
-    },
+    Timeout { operation: String, duration_ms: u64 },
 
     #[error("Execution error: {0}")]
     Execution(String),
+
+    #[error("IQL error: {0}")]
+    IqlError(String),
+
+    #[error("CLI error: {0}")]
+    CliError(String),
+
+    #[error("Search error: {0}")]
+    SearchError(String),
+
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
+
+    #[error("Restore error: {0}")]
+    RestoreError(String),
+
+    #[error("Backup error: {0}")]
+    BackupError(String),
 
     #[error("Generic error: {0}")]
     Generic(String),
 
     #[error("Serialization error: {0}")]
-    #[deprecated(note = "Use the non-deprecated SerializationError variant or a more specific variant")]
+    #[deprecated(
+        note = "Use the non-deprecated SerializationError variant or a more specific variant"
+    )]
     OldSerializationError(String),
 
     #[error("Backend error: {0}")]
@@ -175,7 +192,7 @@ mod tests {
     #[test]
     fn display_iql_parse_error() {
         let e = VantaError::IqlParseError {
-            source: "unexpected token".into(),
+            msg: "unexpected token".into(),
             line: 3,
             col: 15,
         };
@@ -200,10 +217,7 @@ mod tests {
             field: "name".into(),
             reason: "cannot be empty".into(),
         };
-        assert_eq!(
-            e.to_string(),
-            "Validation error on name: cannot be empty"
-        );
+        assert_eq!(e.to_string(), "Validation error on name: cannot be empty");
     }
 
     #[test]
@@ -212,10 +226,7 @@ mod tests {
             operation: "search".into(),
             duration_ms: 5000,
         };
-        assert_eq!(
-            e.to_string(),
-            "Operation search timed out after 5000ms"
-        );
+        assert_eq!(e.to_string(), "Operation search timed out after 5000ms");
     }
 
     #[test]

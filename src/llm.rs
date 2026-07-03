@@ -62,7 +62,7 @@ impl LlmClient {
         };
 
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::Execution(format!(
+            VantaError::Generic(format!(
                 "Network error communicating with Inference Bridge: {}",
                 e
             ))
@@ -70,14 +70,14 @@ impl LlmClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::Execution(format!(
+            return Err(VantaError::Generic(format!(
                 "Inference Bridge returned error status: {}",
                 status
             )));
         }
 
         let result: OllamaEmbeddingResponse = response.json().map_err(|e| {
-            VantaError::Execution(format!(
+            VantaError::Generic(format!(
                 "Invalid response format from Inference Bridge: {}",
                 e
             ))
@@ -122,7 +122,7 @@ impl LlmClient {
         let full_context = context_blocks.join("\n\n");
 
         if full_context.trim().is_empty() {
-            return Err(VantaError::Execution(
+            return Err(VantaError::InvalidInput(
                 "No summarizable content found in node group".to_string(),
             ));
         }
@@ -153,7 +153,7 @@ impl LlmClient {
         };
 
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::Execution(format!(
+            VantaError::Generic(format!(
                 "Network error during Semantic Summarization: {}",
                 e
             ))
@@ -161,14 +161,14 @@ impl LlmClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::Execution(format!(
+            return Err(VantaError::Generic(format!(
                 "Inference Bridge returned error status during summarization: {}",
                 status
             )));
         }
 
         let result: OllamaGenerateResponse = response.json().map_err(|e| {
-            VantaError::Execution(format!(
+            VantaError::Generic(format!(
                 "Invalid response format from Inference Bridge (summarize): {}",
                 e
             ))

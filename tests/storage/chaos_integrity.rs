@@ -55,13 +55,13 @@ fn chaos_integrity_certification() {
         result_ghost.is_err(),
         "Axiom Failure: Relation to ghost node was not blocked"
     );
-    if let Err(VantaError::Execution(msg)) = result_ghost {
+    if let Err(VantaError::IqlError(msg)) = result_ghost {
         assert!(
             msg.contains("Topological Axiom violated"),
             "Wrong error message for ghost node"
         );
     } else {
-        panic!("Expected Execution error for Topological Axiom");
+        panic!("Expected IqlError for Topological Axiom");
     }
 
     s1.success("Ghost node protection verified.");
