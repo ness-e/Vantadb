@@ -139,7 +139,7 @@ mod tests {
         let a = [1.0, 2.0, 3.0];
         let b = [4.0, 5.0, 6.0];
         let r = cosine_distance_simd(&a, &b);
-        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
+        assert!(!r.is_nan() && (-1.0..=1.0).contains(&r));
     }
 
     #[test]
@@ -147,7 +147,7 @@ mod tests {
         let a = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
         let b = [7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
         let r = cosine_distance_simd(&a, &b);
-        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
+        assert!(!r.is_nan() && (-1.0..=1.0).contains(&r));
     }
 
     #[test]
@@ -155,7 +155,7 @@ mod tests {
         let a: Vec<f32> = (0..256).map(|i| i as f32).collect();
         let b: Vec<f32> = (0..256).map(|i| (255 - i) as f32).collect();
         let r = cosine_distance_simd(&a, &b);
-        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
+        assert!(!r.is_nan() && (-1.0..=1.0).contains(&r));
     }
 
     #[test]
@@ -185,7 +185,7 @@ mod tests {
         let a: Vec<f32> = (0..128).map(|i| i as f32 * 0.5).collect();
         let b: Vec<f32> = (0..128).map(|i| i as f32 * 0.3 + 1.0).collect();
         let r = cosine_distance_simd(&a, &b);
-        assert!(r >= -1.0 && r <= 1.0);
+        assert!((-1.0..=1.0).contains(&r));
     }
 
     #[test]
