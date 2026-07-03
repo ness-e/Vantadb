@@ -41,7 +41,7 @@ export function Nav() {
         
         {/* Logo Izquierda */}
         <Link to="/" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none" }}>
-          <VantaDBLogo variant="full" size="sm" noAnimation />
+          <VantaDBLogo variant="full" size="sm" />
         </Link>
 
         {/* Links Centro */}
