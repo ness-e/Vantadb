@@ -1,5 +1,6 @@
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::Arc;
+use std::thread;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
@@ -531,5 +532,416 @@ fn test_mcp_tool_search() {
     assert!(
         mem_val["isError"].is_null() || mem_val["content"][0]["text"].is_string(),
         "search_memory response should have no error or valid text content"
+    );
+}
+
+// ── MCP-04: Collection Management Tests ─────────────────────────────────
+
+#[test]
+fn test_collection_stats() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Put records in a namespace
+    for i in 0..3 {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "stats_ns",
+                "key": format!("k{}", i),
+                "payload": format!("record {}", i),
+                "metadata": { "idx": i }
+            }
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+    // Put one record with a vector
+    let params_with_vec = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "stats_ns",
+            "key": "k_vec",
+            "payload": "has vector",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    handle_tools_call(&params_with_vec, &executor, &storage, &default_config()).unwrap();
+
+    // Call collection_stats
+    let params = Some(json!({
+        "name": "collection_stats",
+        "arguments": { "namespace": "stats_ns" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(val["isError"].is_null(), "collection_stats should not error");
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let stats: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(stats["total_records"], 4);
+    assert!(stats["total_bytes"].as_u64().unwrap_or(0) > 0);
+    assert_eq!(stats["vector_count"], 1);
+    assert!(stats["created_at"].as_u64().unwrap_or(0) > 0);
+}
+
+#[test]
+fn test_collection_list() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Create records in 2 namespaces
+    for ns in &["list_a", "list_b"] {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": ns,
+                "key": "item",
+                "payload": format!("in {}", ns)
+            }
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // Call collection_list
+    let params = Some(json!({
+        "name": "collection_list",
+        "arguments": {}
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(val["isError"].is_null(), "collection_list should not error");
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let collections: Vec<Value> = serde_json::from_str(text).unwrap();
+    let names: Vec<&str> = collections.iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert!(names.contains(&"list_a"), "collections should include list_a");
+    assert!(names.contains(&"list_b"), "collections should include list_b");
+    for c in &collections {
+        assert_eq!(c["record_count"], 1);
+    }
+}
+
+#[test]
+fn test_collection_delete() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Create namespace with records
+    for i in 0..3 {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "del_ns",
+                "key": format!("k{}", i),
+                "payload": "to delete"
+            }
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // Verify records exist
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "del_ns" }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
+    let list_text = list_res["content"][0]["text"].as_str().unwrap();
+    assert!(list_text.contains("k0"), "records should exist before delete");
+
+    // Delete without confirm should fail
+    let del_no_confirm = Some(json!({
+        "name": "collection_delete",
+        "arguments": { "namespace": "del_ns", "confirm": "no" }
+    }));
+    let res = handle_tools_call(&del_no_confirm, &executor, &storage, &default_config());
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap()["isError"], true);
+
+    // Delete with confirm
+    let del_params = Some(json!({
+        "name": "collection_delete",
+        "arguments": { "namespace": "del_ns", "confirm": "yes" }
+    }));
+    let del_res = handle_tools_call(&del_params, &executor, &storage, &default_config());
+    assert!(del_res.is_ok());
+    let del_val = del_res.unwrap();
+    assert!(del_val["isError"].is_null());
+    let del_text = del_val["content"][0]["text"].as_str().unwrap();
+    let result: Value = serde_json::from_str(del_text).unwrap();
+    assert_eq!(result["deleted"], true);
+    assert_eq!(result["records_removed"], 3);
+
+    // Verify namespace is empty
+    let list_after = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
+    let after_text = list_after["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(after_text).unwrap();
+    let records = page["records"].as_array().unwrap();
+    assert!(records.is_empty(), "namespace should be empty after delete");
+}
+
+// ── Error Handling Tests ───────────────────────────────────────────────
+
+#[test]
+fn test_mcp_invalid_json() {
+    // Test that serde_json rejects malformed input
+    let malformed = "{invalid json here";
+    let parse_result = serde_json::from_str::<Value>(malformed);
+    assert!(parse_result.is_err(), "malformed JSON should fail to parse");
+
+    // Test McpError::parse_error produces correct JSON-RPC structure
+    let err = McpError::parse_error("Expected value at line 1 column 2");
+    assert_eq!(err.code, -32700);
+    let err_json = err.to_json();
+    assert_eq!(err_json["code"], -32700);
+    assert!(err_json["message"].as_str().unwrap().contains("Parse error"));
+
+    // Verify that handle_tools_call with None params fails with invalid params,
+    // confirming that the dispatch correctly catches malformed input at the handler level
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let res = handle_tools_call(&None, &executor, &storage, &default_config());
+    assert!(res.is_err());
+    let err_val = res.unwrap_err();
+    assert_eq!(err_val["code"], -32602);
+}
+
+#[test]
+fn test_mcp_unknown_method() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let params = Some(json!({
+        "name": "nonexistent_tool",
+        "arguments": {}
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_err(), "unknown tool should return error");
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32601, "should be method not found");
+    assert!(
+        err["message"].as_str().unwrap().contains("nonexistent_tool"),
+        "error message should include tool name"
+    );
+}
+
+#[test]
+fn test_mcp_missing_params() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Call memory_list without required 'namespace'
+    let params = Some(json!({
+        "name": "memory_list",
+        "arguments": {}
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_err(), "missing required params should return error");
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32602, "should be invalid params");
+}
+
+#[test]
+fn test_mcp_oversized_payload() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let huge = "a".repeat(2 * 1024 * 1024);
+    let params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "test",
+            "key": "big",
+            "payload": huge
+        }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_err(), "oversized payload should return error");
+}
+
+// ── Edge Cases Tests ───────────────────────────────────────────────────
+
+#[test]
+fn test_mcp_empty_namespace() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // List on non-existent namespace should return empty list
+    let params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "nonexistent_ns" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(val["isError"].is_null());
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(text).unwrap();
+    assert!(
+        page["records"].as_array().unwrap().is_empty(),
+        "records for empty namespace should be empty"
+    );
+}
+
+#[test]
+fn test_mcp_empty_key() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "test",
+            "key": "",
+            "payload": "test payload"
+        }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_err(), "empty key should return error");
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32602);
+}
+
+#[test]
+fn test_mcp_concurrent_requests() {
+    let (_dir, storage) = setup_storage();
+    let config = default_config();
+
+    let mut handles = Vec::new();
+    for i in 0..5u64 {
+        let storage = storage.clone();
+        let cfg = config.clone();
+        handles.push(thread::spawn(move || {
+            let executor = Executor::new(&*storage);
+            let params = Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "concurrent_ns",
+                    "key": format!("key_{}", i),
+                    "payload": format!("Concurrent payload {}", i)
+                }
+            }));
+            handle_tools_call(&params, &executor, &storage, &cfg)
+        }));
+    }
+
+    for (i, handle) in handles.into_iter().enumerate() {
+        let res = handle.join().expect("thread panicked");
+        assert!(res.is_ok(), "concurrent request {} should succeed", i);
+        let val = res.unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "concurrent request {} should not error",
+            i
+        );
+    }
+
+    // Verify all 5 records were created
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "concurrent_ns", "limit": 100 }
+    }));
+    let executor = Executor::new(&storage);
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &config).unwrap();
+    let list_text = list_res["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).unwrap();
+    assert_eq!(
+        page["records"].as_array().unwrap().len(),
+        5,
+        "should have 5 concurrent records"
+    );
+}
+
+#[test]
+fn test_mcp_search_no_results() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Insert a record with a known vector
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "search_empty_ns",
+            "key": "item1",
+            "payload": "test item",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
+
+    // Search with a very different vector - expect empty results
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "search_empty_ns",
+            "query_vector": [-100.0, -100.0, -100.0],
+            "top_k": 5
+        }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(val["isError"].is_null());
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Vec<Value> = serde_json::from_str(text).unwrap();
+    assert!(
+        hits.is_empty(),
+        "search with mismatched vector should return empty results"
+    );
+}
+
+// ── Resource & Prompt Tests ────────────────────────────────────────────
+
+#[test]
+fn test_mcp_resource_schema() {
+    let (_dir, storage) = setup_storage();
+
+    let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage);
+    assert!(res.is_ok(), "schema:// resource should be readable");
+    let val = res.unwrap();
+    assert_eq!(val["contents"][0]["uri"], "schema://");
+    assert_eq!(val["contents"][0]["mimeType"], "application/json");
+    let text = val["contents"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("hnsw_nodes_count"),
+        "schema response should contain hnsw_nodes_count"
+    );
+}
+
+#[test]
+fn test_mcp_resource_invalid() {
+    let (_dir, storage) = setup_storage();
+
+    let res = handle_resources_read(&Some(json!({"uri": "nonexistent://resource"})), &storage);
+    assert!(res.is_err(), "non-existent resource URI should return error");
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32601, "should be method not found");
+}
+
+#[test]
+fn test_mcp_prompt_empty_args() {
+    // Get search_memory prompt without providing optional arguments
+    let res = handle_prompts_get(Some(&json!({
+        "name": "search_memory"
+    })));
+    assert!(res.is_ok(), "prompt without optional args should succeed");
+    let val = res.unwrap();
+    let text = val["messages"][0]["content"]["text"].as_str().unwrap();
+    assert!(
+        text.contains("search_memory"),
+        "prompt text should reference the prompt name"
+    );
+}
+
+#[test]
+fn test_mcp_prompt_invalid_name() {
+    let res = handle_prompts_get(Some(&json!({
+        "name": "nonexistent_prompt_name"
+    })));
+    assert!(res.is_err(), "non-existent prompt name should return error");
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32602, "should be invalid params");
+    assert!(
+        err["message"].as_str().unwrap().contains("nonexistent_prompt_name"),
+        "error message should include prompt name"
     );
 }

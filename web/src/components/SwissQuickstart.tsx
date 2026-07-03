@@ -82,10 +82,7 @@ export function SwissQuickstart() {
         
         {/* Left: Steps nav (4 columnas en desktop, 12 en mobile/tablet) */}
         <div className="quickstart-left" style={{ gridColumn: "1 / 5", display: "flex", flexDirection: "column" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-label)", fontWeight: 600, letterSpacing: "0.14em", color: "var(--steel)", textTransform: "uppercase" }}>
-            [QUICKSTART]
-          </span>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "24px 0 48px 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "0 0 48px 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
             Zero to running.
           </h2>
 

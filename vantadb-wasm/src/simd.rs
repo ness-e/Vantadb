@@ -9,7 +9,6 @@
 ///
 /// # Panics
 /// Panics if `a` and `b` have different lengths.
-#[cfg(any(target_arch = "wasm32", doc))]
 pub fn cosine_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len(), "vectors must have equal length");
 
@@ -121,54 +120,41 @@ mod tests {
     }
 
     #[test]
-    fn test_subset_alignment() {
+    fn test_subset_aligned() {
         let a = [2.0, 3.0, 0.0, 0.0];
         let b = [1.0, 1.5, 0.0, 0.0];
-        let result = cosine_distance_simd(&a, &b);
-        assert!((result - 1.0).abs() < 1e-5);
+        assert!((cosine_distance_simd(&a, &b) - 1.0).abs() < 1e-5);
     }
 
     #[test]
-    fn test_non_simd_aligned_length() {
+    fn test_non_simd_aligned_len() {
         let a = [1.0, 2.0, 3.0];
         let b = [4.0, 5.0, 6.0];
-        let result = cosine_distance_simd(&a, &b);
-        assert!(!result.is_nan());
-        assert!(result >= -1.0 && result <= 1.0);
+        let r = cosine_distance_simd(&a, &b);
+        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
     }
 
     #[test]
-    fn test_7_element_vector() {
+    fn test_seven_elements() {
         let a = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
         let b = [7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
-        let result = cosine_distance_simd(&a, &b);
-        assert!(!result.is_nan());
-        assert!(result >= -1.0 && result <= 1.0);
+        let r = cosine_distance_simd(&a, &b);
+        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
     }
 
     #[test]
     fn test_large_vectors() {
         let a: Vec<f32> = (0..256).map(|i| i as f32).collect();
         let b: Vec<f32> = (0..256).map(|i| (255 - i) as f32).collect();
-        let result = cosine_distance_simd(&a, &b);
-        assert!(!result.is_nan());
-        assert!(result >= -1.0 && result <= 1.0);
+        let r = cosine_distance_simd(&a, &b);
+        assert!(!r.is_nan() && r >= -1.0 && r <= 1.0);
     }
 
     #[test]
-    fn test_range_bounds() {
-        let a: Vec<f32> = (0..128).map(|i| (i as f32) * 0.5).collect();
-        let b: Vec<f32> = (0..128).map(|i| (i as f32) * 0.3 + 1.0).collect();
-        let result = cosine_distance_simd(&a, &b);
-        assert!(result >= -1.0 && result <= 1.0);
-    }
-
-    #[test]
-    #[should_panic(expected = "vectors must have equal length")]
-    fn test_mismatched_lengths() {
-        let a = [1.0, 2.0, 3.0];
-        let b = [1.0, 2.0];
-        cosine_distance_simd(&a, &b);
+    fn test_partial_identical() {
+        let a = [1.0, 2.0, 3.0, 4.0];
+        let b = [2.0, 4.0, 6.0, 8.0];
+        assert!((cosine_distance_simd(&a, &b) - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -179,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn test_two_element() {
+    fn test_two_elements() {
         let a = [1.0, 0.0];
         let b = [1.0, 1.0];
         let expected = 1.0 / 2.0f32.sqrt();
@@ -187,9 +173,18 @@ mod tests {
     }
 
     #[test]
-    fn test_partial_similarity() {
-        let a = [1.0, 2.0, 3.0, 4.0];
-        let b = [2.0, 4.0, 6.0, 8.0];
-        assert!((cosine_distance_simd(&a, &b) - 1.0).abs() < 1e-6);
+    fn test_range_bounds() {
+        let a: Vec<f32> = (0..128).map(|i| i as f32 * 0.5).collect();
+        let b: Vec<f32> = (0..128).map(|i| i as f32 * 0.3 + 1.0).collect();
+        let r = cosine_distance_simd(&a, &b);
+        assert!(r >= -1.0 && r <= 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "vectors must have equal length")]
+    fn test_mismatched_lengths() {
+        let a = [1.0, 2.0, 3.0];
+        let b = [1.0, 2.0];
+        cosine_distance_simd(&a, &b);
     }
 }

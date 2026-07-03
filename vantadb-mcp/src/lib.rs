@@ -245,6 +245,39 @@ fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
 }
 
+/// Collect all memory records from a namespace via cursor-paginated list.
+fn collect_all_records(
+    embedded: &vantadb::VantaEmbedded,
+    namespace: &str,
+    config: &McpConfig,
+) -> Result<Vec<vantadb::sdk::VantaMemoryRecord>, String> {
+    let mut all_records = Vec::new();
+    let mut cursor: Option<usize> = None;
+    loop {
+        let options = vantadb::sdk::VantaMemoryListOptions {
+            limit: config.max_list_limit,
+            cursor,
+            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+        };
+        match embedded.list(namespace, options) {
+            Ok(page) => {
+                let count = page.records.len();
+                all_records.extend(page.records);
+                if count == 0 {
+                    break;
+                }
+                if let Some(next) = page.next_cursor {
+                    cursor = Some(next);
+                } else {
+                    break;
+                }
+            }
+            Err(e) => return Err(format!("{}", e)),
+        }
+    }
+    Ok(all_records)
+}
+
 // ── Stdio server (main entry point) ───────────────────────────────────────
 
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
@@ -783,6 +816,34 @@ pub fn handle_tools_list() -> Result<Value, Value> {
                 "name": "read_axioms",
                 "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
                 "inputSchema": { "type": "object", "properties": {}, "required": [] }
+            },
+            {
+                "name": "collection_stats",
+                "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace" }
+                    },
+                    "required": ["namespace"]
+                }
+            },
+            {
+                "name": "collection_list",
+                "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
+                "inputSchema": { "type": "object", "properties": {}, "required": [] }
+            },
+            {
+                "name": "collection_delete",
+                "description": "Deletes an entire namespace/collection and all its records. Requires 'confirm' set to 'yes'.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "namespace": { "type": "string", "description": "Target namespace to delete" },
+                        "confirm": { "type": "string", "description": "Must be 'yes' to confirm deletion" }
+                    },
+                    "required": ["namespace", "confirm"]
+                }
             }
         ]
     }))
@@ -1107,6 +1168,108 @@ pub fn handle_tools_call(
                 {"id": 4, "name": "Resource Allocation", "description": "Maintenance: 5% of memory reserved for nodes with semantic priority >= 0.8."}
             ]);
             Ok(text_content(serialize_content(&axioms)))
+        }
+
+        "collection_stats" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let metrics = embedded.operational_metrics();
+
+            let records = match collect_all_records(&embedded, namespace, config) {
+                Ok(r) => r,
+                Err(e) => return Ok(error_content(format!("Collection stats error: {}", e))),
+            };
+
+            let total_records = records.len();
+            let total_bytes: usize = records.iter().map(|r| {
+                r.payload.len()
+                    + r.metadata.iter().fold(0, |acc, (k, v)| {
+                        acc + k.len() + format!("{:?}", v).len()
+                    })
+            }).sum();
+            let vector_count = records.iter().filter(|r| r.vector.is_some()).count();
+            let created_at = records.iter().map(|r| r.created_at_ms).min().unwrap_or(0);
+
+            let result = json!({
+                "total_records": total_records,
+                "total_bytes": total_bytes,
+                "has_vector_index": metrics.hnsw_nodes_count > 0,
+                "vector_count": vector_count,
+                "created_at": created_at,
+            });
+            Ok(text_content(serialize_content(&result)))
+        }
+
+        "collection_list" => {
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+
+            let namespaces = match embedded.list_namespaces() {
+                Ok(ns) => ns,
+                Err(e) => return Ok(error_content(format!("List collections error: {}", e))),
+            };
+
+            let mut collections = Vec::new();
+            for ns in &namespaces {
+                let records = match collect_all_records(&embedded, ns, config) {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
+
+                let record_count = records.len();
+                let has_vector = records.iter().any(|r| r.vector.is_some());
+                let created_at = records.iter().map(|r| r.created_at_ms).min().unwrap_or(0);
+
+                collections.push(json!({
+                    "name": ns,
+                    "record_count": record_count,
+                    "has_vector_index": has_vector,
+                    "created_at": created_at,
+                }));
+            }
+
+            Ok(text_content(serialize_content(&collections)))
+        }
+
+        "collection_delete" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let confirm = args["confirm"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'confirm' (must be 'yes')").to_json())?;
+
+            if confirm != "yes" {
+                return Ok(error_content("Confirmation required: set 'confirm' to 'yes'"));
+            }
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+
+            let records = match collect_all_records(&embedded, namespace, config) {
+                Ok(r) => r,
+                Err(e) => return Ok(error_content(format!("Collection delete error: {}", e))),
+            };
+
+            let records_removed = records.len();
+            for record in &records {
+                if let Err(e) = embedded.delete(namespace, &record.key) {
+                    warn!(error = %e, key = %record.key, "Failed to delete record during collection_delete");
+                }
+            }
+
+            let result = json!({
+                "deleted": true,
+                "records_removed": records_removed,
+            });
+            Ok(text_content(serialize_content(&result)))
         }
 
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),

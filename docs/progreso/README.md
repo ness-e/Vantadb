@@ -978,3 +978,16 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Actualización de FAQ y hovers con inversión de colores.
 - **Archivos Modificados:**
   - `web/src/routes/pricing.lazy.tsx`
+
+### WEB-08-Refinement: Index Refinements & Anti-AI-Slop Cleanups
+- **Fecha:** 2026-07-02
+- **Objetivo:** Refinar elementos estéticos en el index de acuerdo a la auditoría aprobada para romper las firmas visuales de plantillas automatizadas (AI Tells).
+- **Checklist Completado:**
+  - [x] Remover numeración redundante de acordeón `[01]`, `[02]`, etc. en `SwissCoreEngine.tsx` y alinear a la izquierda.
+  - [x] Eliminar eyebrow `[QUICKSTART]` de sección en `SwissQuickstart.tsx` para mayor asimetría.
+  - [x] Suavizar el eyebrow `[ECOSYSTEM]` en `SwissEcosystem.tsx` a texto itálico de diario suizo (`Ecosystem Matrix`).
+- **Archivos Modificados:**
+  - `web/src/components/SwissCoreEngine.tsx`
+  - `web/src/components/SwissQuickstart.tsx`
+  - `web/src/components/SwissEcosystem.tsx`
+
