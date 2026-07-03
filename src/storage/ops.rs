@@ -1,10 +1,9 @@
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backend::{BackendPartition, StorageBackend};
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use crate::storage::vfile::VantaFile;
 use std::sync::Arc;
-use tracing::warn;
 use zerocopy::IntoBytes;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -51,6 +50,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     Ok(offset)
 }
 
+#[allow(dead_code)]
 pub(crate) fn insert_node_to_backend(
     backend: &Arc<dyn StorageBackend>,
     node: &UnifiedNode,
@@ -68,6 +68,7 @@ pub(crate) fn insert_node_to_backend(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub(crate) fn get_node_from_backend(
     backend: &dyn StorageBackend,
     id: u64,

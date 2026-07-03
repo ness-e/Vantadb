@@ -1,4 +1,5 @@
-use crate::error::{Result, VantaError};
+#![allow(dead_code)]
+use crate::error::Result;
 use crate::wal::WalWriter;
 use parking_lot::Mutex;
 use std::path::{Path, PathBuf};

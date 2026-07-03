@@ -1,9 +1,6 @@
+#![allow(dead_code)]
 use crate::config::VantaConfig;
-use crate::error::Result;
-use crate::storage::EvictionReport;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use web_time::Instant;
 
 pub(crate) struct MemoryGovernor {
     memory_limit: u64,

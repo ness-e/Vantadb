@@ -2,7 +2,6 @@ use crate::backend::{BackendPartition, StorageBackend};
 use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
-use crate::node::VectorRepresentations;
 use crate::storage::vfile::VantaFile;
 use crate::wal::{WalReader, WalRecord, WalWriter};
 use std::path::Path;
@@ -17,6 +16,7 @@ pub(crate) fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<W
     Ok(Some(WalWriter::open(&wal_path, config.sync_mode)?))
 }
 
+#[allow(dead_code)]
 pub(crate) fn recover_state(
     data_dir: &Path,
     config: &VantaConfig,
