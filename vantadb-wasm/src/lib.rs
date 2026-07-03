@@ -6,6 +6,9 @@ use vantadb::BackendKind;
 use vantadb::VantaError;
 use wasm_bindgen::prelude::*;
 
+mod opfs;
+pub use opfs::OpfsStorage;
+
 static TRACING_INIT: AtomicBool = AtomicBool::new(false);
 
 fn init_tracing() {
@@ -273,6 +276,7 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
 #[wasm_bindgen]
 pub struct VantaDB {
     inner: VantaEmbedded,
+    opfs: Option<OpfsStorage>,
 }
 
 #[wasm_bindgen]
@@ -286,7 +290,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB { inner })
+        Ok(VantaDB { inner, opfs: None })
     }
 
     pub fn open(path: &str) -> Result<VantaDB, JsValue> {
@@ -297,7 +301,62 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB { inner })
+        Ok(VantaDB { inner, opfs: None })
+    }
+
+    pub async fn connect_persistent(path: &str) -> Result<VantaDB, JsValue> {
+        init_tracing();
+        let opfs = OpfsStorage::open(path).await.ok();
+        let wasm_cfg = WasmConfig {
+            storage_path: path.to_string(),
+            ..WasmConfig::default()
+        };
+        let config = build_config(wasm_cfg);
+        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let db = VantaDB {
+            inner,
+            opfs,
+        };
+        db.load().await?;
+        Ok(db)
+    }
+
+    pub async fn save(&self) -> Result<(), JsValue> {
+        let opfs = match &self.opfs {
+            Some(o) => o,
+            None => return Ok(()),
+        };
+        let mut state: Vec<VantaMemoryRecord> = Vec::new();
+        let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
+        for ns in &namespaces {
+            let opts = VantaMemoryListOptions {
+                filters: VantaMemoryMetadata::new(),
+                limit: usize::MAX,
+                cursor: None,
+            };
+            let page = self.inner.list(ns, opts).map_err(to_js_err)?;
+            state.extend(page.records);
+        }
+        let data = serde_json::to_vec(&state)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        opfs.write_file("db_state.json", &data).await
+    }
+
+    pub async fn load(&self) -> Result<(), JsValue> {
+        let opfs = match &self.opfs {
+            Some(o) => o,
+            None => return Ok(()),
+        };
+        let data = match opfs.read_file("db_state.json").await? {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+        let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        if !records.is_empty() {
+            self.inner.import_records(records).map_err(to_js_err)?;
+        }
+        Ok(())
     }
 
     pub fn close(&self) -> Result<(), JsValue> {

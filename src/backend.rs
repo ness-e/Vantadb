@@ -116,6 +116,24 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// Read a value by key from the given partition.
     fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>>;
 
+    /// Retrieve multiple values by their keys in a single batch operation.
+    ///
+    /// Returns a `Vec` of `(key, value)` pairs for every key that was found.
+    /// Keys that do not exist are silently omitted from the result.
+    ///
+    /// The default implementation calls `get()` for each key sequentially.
+    /// Backends with native multi-get support should override this for
+    /// better performance.
+    fn get_many(&self, partition: BackendPartition, keys: &[&[u8]]) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        keys.iter()
+            .filter_map(|k| match self.get(partition, k) {
+                Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
+                Ok(None) => None,
+                Err(e) => Some(Err(e)),
+            })
+            .collect()
+    }
+
     /// Delete a key from the given partition.
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()>;
 

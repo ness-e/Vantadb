@@ -173,6 +173,47 @@ impl StorageBackend for RocksDbBackend {
         }
     }
 
+    fn get_many(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        if partition == BackendPartition::Default {
+            let results = self
+                .db
+                .multi_get(keys)
+                .into_iter()
+                .zip(keys.iter())
+                .filter_map(|(res, k)| match res {
+                    Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
+                        e.to_string(),
+                    )))),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(results)
+        } else {
+            let cf = self.cf_handle(partition)?;
+            let keys_and_cfs: Vec<(&rocksdb::ColumnFamily, &[u8])> =
+                keys.iter().copied().map(|k| (cf, k)).collect();
+            let results = self
+                .db
+                .multi_get_cf(keys_and_cfs)
+                .into_iter()
+                .zip(keys.iter())
+                .filter_map(|(res, k)| match res {
+                    Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
+                        e.to_string(),
+                    )))),
+                })
+                .collect::<Result<Vec<_>>>()?;
+            Ok(results)
+        }
+    }
+
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
         if partition == BackendPartition::Default {
             self.db

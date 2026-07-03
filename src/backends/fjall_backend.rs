@@ -131,6 +131,25 @@ impl StorageBackend for FjallBackend {
             .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
     }
 
+    fn get_many(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        let ks = self.keyspace(partition);
+        keys.iter()
+            .filter_map(|k| {
+                match ks.get(k) {
+                    Ok(Some(val)) => Some(Ok((k.to_vec(), val.to_vec()))),
+                    Ok(None) => None,
+                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
+                        e.to_string(),
+                    )))),
+                }
+            })
+            .collect()
+    }
+
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
         self.keyspace(partition)
             .remove(key)

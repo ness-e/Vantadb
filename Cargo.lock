@@ -4447,6 +4447,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-mem0"
+version = "0.1.5"
+dependencies = [
+ "chrono",
+ "pyo3",
+ "serde",
+ "serde_json",
+ "tracing",
+ "vantadb",
+]
+
+[[package]]
 name = "vantadb-server"
 version = "0.1.5"
 dependencies = [
@@ -4488,6 +4500,7 @@ dependencies = [
  "tracing-wasm",
  "vantadb",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
 ]
 

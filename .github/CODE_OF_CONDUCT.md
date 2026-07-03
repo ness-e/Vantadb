@@ -1,30 +1,37 @@
-# Code of Conduct
+# Contributor Covenant Code of Conduct
 
-VantaDB uses a practical contributor standard: discussions should stay respectful, technical, and
-focused on improving the project.
+## Our Pledge
 
-## Expected Behavior
+We as members, contributors, and leaders pledge to make participation in our
+community a harassment-free experience for everyone, regardless of age, body
+size, visible or invisible disability, ethnicity, sex characteristics, gender
+identity and expression, level of experience, education, socio-economic status,
+nationality, personal appearance, race, religion, or sexual identity
+and orientation.
 
-- Be direct without being hostile.
-- Assume good intent, but ask for evidence when claims affect correctness, safety, or performance.
-- Keep issues and pull requests focused on reproducible facts, tradeoffs, and project goals.
-- Respect maintainer decisions about product scope, release timing, and CI cost.
+## Our Standards
 
-## Unacceptable Behavior
+Examples of behavior that contributes to a positive environment:
+- Using welcoming and inclusive language
+- Being respectful of differing viewpoints and experiences
+- Gracefully accepting constructive criticism
+- Focusing on what is best for the community
+- Showing empathy towards other community members
 
-- Harassment, threats, personal attacks, or discriminatory language.
-- Publishing private information, secrets, exploit details, or local data without permission.
-- Repeatedly derailing issues or pull requests after maintainers ask to refocus.
-- Misrepresenting benchmarks, security impact, or project capabilities.
-
-## Reporting
-
-For conduct concerns, open a minimal issue asking for a private coordination path. Do not include
-sensitive personal information publicly.
-
-Security issues should follow [SECURITY.md](SECURITY.md), not this document.
+Examples of unacceptable behavior:
+- The use of sexualized language or imagery
+- Trolling, insulting/derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information without explicit permission
+- Other conduct which could reasonably be considered inappropriate
 
 ## Enforcement
 
-Maintainers may edit, hide, lock, or remove comments that violate this standard. Repeated or severe
-violations may lead to blocked participation.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported to the community leaders at conduct@vantadb.dev.
+All complaints will be reviewed and investigated promptly and fairly.
+
+## Attribution
+
+This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org),
+version 2.1.

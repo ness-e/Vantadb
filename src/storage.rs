@@ -888,6 +888,14 @@ impl StorageEngine {
             }
         }
 
+        // ── Storage schema version check ────────────────────────────
+        if !config.read_only {
+            crate::schema::load_or_create_schema(&base_path)?;
+            info!("Storage schema: version={} flags={}", crate::schema::CURRENT_SCHEMA_VERSION, 0);
+        } else {
+            crate::schema::check_schema_compatibility(&base_path)?;
+        }
+
         // ── KV Backend initialization ──
         let backend: Arc<dyn StorageBackend> = match config.backend_kind {
             #[cfg(feature = "rocksdb")]
@@ -1995,6 +2003,133 @@ impl StorageEngine {
         Ok(Some(node))
     }
 
+    /// Retrieve multiple nodes by ID in a single batch operation.
+    ///
+    /// Uses `backend.get_many` to eliminate N+1 query patterns. Returns only
+    /// the nodes that were found (missing IDs are silently omitted).
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn get_many(&self, ids: &[u64]) -> Result<Vec<UnifiedNode>> {
+        self.touch_activity();
+
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut results: Vec<UnifiedNode> = Vec::with_capacity(ids.len());
+
+        let ids_with_keys: Vec<(u64, Vec<u8>)> = ids
+            .iter()
+            .map(|id| (*id, id.to_le_bytes().to_vec()))
+            .collect();
+
+        let mut remaining_indices: Vec<usize> = Vec::new();
+        {
+            let mut cache = self.volatile_cache.write();
+            for (i, &id) in ids.iter().enumerate() {
+                if let Some(node) = cache.get_mut(&id) {
+                    if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
+                        continue;
+                    }
+                    node.hits += 1;
+                    node.last_accessed = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    results.push(node.clone());
+                } else {
+                    remaining_indices.push(i);
+                }
+            }
+        }
+
+        if remaining_indices.is_empty() {
+            return Ok(results);
+        }
+
+        let remaining_keys: Vec<&[u8]> = remaining_indices
+            .iter()
+            .map(|&i| ids_with_keys[i].1.as_slice())
+            .collect();
+
+        let backend_results =
+            self.backend
+                .get_many(BackendPartition::Default, &remaining_keys)?;
+
+        let backend_map: std::collections::HashMap<u64, Vec<u8>> = backend_results
+            .into_iter()
+            .map(|(k, v)| {
+                let id = u64::from_le_bytes(
+                    k.as_slice()
+                        .try_into()
+                        .expect("backend key must be 8 bytes"),
+                );
+                (id, v)
+            })
+            .collect();
+
+        let hnsw = self.hnsw.load();
+        let vstore = self.vector_store.read();
+
+        for &i in &remaining_indices {
+            let id = ids[i];
+            let Some(metadata_bytes) = backend_map.get(&id) else {
+                continue;
+            };
+
+            let (metadata, _): (NodeMetadata, usize) =
+                match bincode::serde::decode_from_slice(metadata_bytes, bincode::config::standard())
+                {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+
+            let Some(index_node) = hnsw.nodes.get(&id) else {
+                continue;
+            };
+            let storage_offset = index_node.storage_offset;
+
+            let Some(header) = vstore.read_header(storage_offset) else {
+                continue;
+            };
+
+            if (header.flags & 0x8) != 0 {
+                continue;
+            }
+
+            let vec_start = header.vector_offset as usize;
+            let vec_end = vec_start + (header.vector_len as usize * 4);
+            if vec_end > vstore.size as usize {
+                continue;
+            }
+
+            let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+            let f32_vec: &[f32] = unsafe {
+                std::slice::from_raw_parts(
+                    vec_bytes.as_ptr() as *const f32,
+                    header.vector_len as usize,
+                )
+            };
+
+            let mut node = UnifiedNode::new(id);
+            node.bitset = header.bitset;
+            node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
+            node.relational = metadata.relational;
+            node.edges = metadata.edges;
+            node.confidence_score = header.confidence_score;
+            node.importance = header.importance;
+            node.tier = if header.tier == 1 {
+                crate::node::NodeTier::Hot
+            } else {
+                crate::node::NodeTier::Cold
+            };
+            node.flags = crate::node::NodeFlags(header.flags);
+
+            results.push(node);
+        }
+
+        Ok(results)
+    }
+
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
         self.check_memory_pressure()?;
@@ -2389,6 +2524,16 @@ impl StorageEngine {
         key: &[u8],
     ) -> Result<Option<Vec<u8>>> {
         self.backend.get(partition, key)
+    }
+
+    /// Retrieve multiple raw values from a partition in a single batch.
+    #[allow(dead_code)]
+    pub(crate) fn get_many_from_partition(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.get_many(partition, keys)
     }
 
     /// Request backend compaction.

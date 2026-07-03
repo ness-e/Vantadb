@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  vantadb:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - vantadb-data:/var/lib/vantadb
+    environment:
+      - VANTADB_STORAGE_PATH=/var/lib/vantadb
+      - VANTADB_HOST=0.0.0.0
+      - VANTADB_PORT=8080
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  vantadb-data:

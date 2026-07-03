@@ -1,0 +1,25 @@
+[package]
+name = "vantadb-mem0"
+version.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Mem0 vector store backend for VantaDB — use VantaDB as a drop-in memory store for Mem0 AI agents"
+publish = false
+
+[lib]
+name = "vantadb_mem0"
+crate-type = ["cdylib"]
+
+[features]
+default = ["python"]
+python = ["pyo3"]
+
+[dependencies]
+vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+
+# Python bindings via PyO3 (optional: disable via `--no-default-features` for pure-Rust usage)
+pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
+chrono = { version = "0.4", features = ["serde"] }

@@ -2088,6 +2088,109 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
 }
 
 #[tracing::instrument]
+pub fn cmd_migrate(target_path: &str, _db_path: &str, verbose: bool) -> Result<()> {
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║           VantaDB Schema Migration                       ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
+    ));
+    let _ = term.write_line("");
+
+    use crate::schema::{StorageHeader, CURRENT_SCHEMA_VERSION, HEADER_SIZE};
+
+    let target = std::path::Path::new(target_path);
+    if !target.exists() {
+        print_error(&format!("Database directory not found: {}", target_path));
+        return Err(crate::error::VantaError::Execution(format!(
+            "Database path does not exist: {}",
+            target_path
+        )));
+    }
+
+    let schema_path = target.join(".vanta.schema");
+    let current_header = match crate::schema::StorageHeader::read_from(&schema_path)? {
+        Some(header) => {
+            if verbose {
+                print_info(&format!(
+                    "Current schema: version={}, min_compat={}, flags={}",
+                    header.version, header.min_compat_version, header.flags
+                ));
+            }
+            header
+        }
+        None => {
+            print_warning("No schema file found; database may be pre-versioning.");
+            print_info("Writing current schema header...");
+            let header = StorageHeader::current();
+            header.write_to(&schema_path)?;
+            print_success(&format!(
+                "Schema header written: version={}",
+                CURRENT_SCHEMA_VERSION
+            ));
+            return Ok(());
+        }
+    };
+
+    if current_header.version == CURRENT_SCHEMA_VERSION {
+        print_success(&format!(
+            "Database is already at the latest schema version ({})",
+            CURRENT_SCHEMA_VERSION
+        ));
+        return Ok(());
+    }
+
+    if current_header.version > CURRENT_SCHEMA_VERSION {
+        print_error(&format!(
+            "Database schema version {} is newer than this software (max {})",
+            current_header.version,
+            CURRENT_SCHEMA_VERSION
+        ));
+        return Err(crate::error::VantaError::SchemaError(format!(
+            "Schema version {} is too new for this version of VantaDB",
+            current_header.version
+        )));
+    }
+
+    // ── Migration steps: chain from old to new ─────────────
+    let spinner = create_spinner("Migrating schema...");
+    let start = Instant::now();
+
+    // v0/v1 -> v1: write the current schema header (already exists if we got here)
+    // Future migrations would go here:
+    //   if current_header.version < 2 { migrate_v1_to_v2(...)?; }
+    //   if current_header.version < 3 { migrate_v2_to_v3(...)?; }
+
+    let new_header = StorageHeader::current();
+    new_header.write_to(&schema_path)?;
+
+    let elapsed = start.elapsed();
+    spinner.finish_and_clear();
+
+    print_success(&format!(
+        "Schema migrated: version {} → {} ({} ms)",
+        current_header.version,
+        CURRENT_SCHEMA_VERSION,
+        elapsed.as_millis()
+    ));
+
+    if verbose {
+        print_info(&format!("Schema file: {}", schema_path.display()));
+        print_info(&format!("Header size: {} bytes", HEADER_SIZE));
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
 
 fn human_readable_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];

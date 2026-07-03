@@ -1,112 +1,148 @@
 # DiseñoNuevo.md — Swiss High-Contrast Minimal (Neon Precision) para VantaDB
 
-> Documento maestro de especificación visual, interactiva y técnica para el rediseño completo del sitio web de VantaDB.
-> Fecha: 2026-06-23 | Versión: 2.0
+> Documento maestro de especificación visual, interactiva y técnica.
+> Versión: 3.0 | Fecha: 2026-07-02
+> Sintetiza: `industrial-brutalist-ui`, `high-end-visual-design`, `emil-design-eng`,
+> `design-taste-frontend`, `minimalist-ui`, `impeccable-design-polish`
 
 ---
 
-## 0. Manifiesto de Diseño
+## 0. Manifiesto
 
 **"La precisión es el lujo. El espacio vacío es la confianza. El neón es la señal, no la decoración."**
 
-VantaDB es un motor de base de datos embebido escrito en Rust. Su interfaz web debe comunicar **velocidad mecánica**, **rigor ingenieril** y **transparencia técnica**. No vendemos promesas; mostramos datos, arquitectura y rendimiento real.
+VantaDB es un motor de base de datos embebido escrito en Rust. Su interfaz web comunica
+**velocidad mecánica**, **rigor ingenieril** y **transparencia técnica**. No vendemos
+promesas; mostramos datos, arquitectura y rendimiento real.
 
-El estilo **Swiss High-Contrast Minimal (Neon Precision)** fusiona la disciplina de la Escuela Suiza de Diseño (Müller-Brockmann, Hofmann, Ruder) con la estética de interfaces de telemetría de alta precisión.
+El estilo **Swiss High-Contrast Minimal (Neon Precision)** fusiona la disciplina de la
+Escuela Suiza de Diseño (Müller-Brockmann, Hofmann, Ruder) con la estética de interfaces
+de telemetría de alta precisión y las reglas anti-slop de producción de
+`design-taste-frontend` y `impeccable-design-polish`.
+
+### Design Read (Contexto del Agente)
+
+> "Reading this as: B2B technical infrastructure landing for AI engineers,
+> with a Swiss-industrial typographic language, leaning toward vanilla CSS +
+> Space Grotesk + GSAP ScrollTrigger + Three.js wireframe."
+
+### Dials (design-taste-frontend §1)
+
+| Dial | Valor | Justificación |
+|:---|:---|:---|
+| `DESIGN_VARIANCE` | **7** | Asimetría Swiss, nunca caótico |
+| `MOTION_INTENSITY` | **5** | Mecánico y cortante, nunca cinematic |
+| `VISUAL_DENSITY` | **6** | Densidad tipo telemetría, respira con macro-spacing |
 
 ---
 
-## 1. Principios Fundamentales del Swiss Design Aplicados
+## 1. Principios Fundamentales
 
 ### 1.1 Del Swiss Clásico (1950-1970)
-| Principio | Implementación Web |
-|:---|:---|
-| **Sistemas de rejilla (Grids)** | CSS Grid de 12 columnas con líneas visibles de 1px. Gap de 1px sólido `oklch(15% 0.008 265)` |
-| **Tipografía sans-serif** | Space Grotesk (display), Outfit (body), JetBrains Mono (datos/código) |
-| **Asimetría** | Títulos que arrancan en columna 3/12 o 5/12. Bloques de contenido desplazados del centro |
-| **Jerarquía visual estricta** | Contraste de peso 100 (Hairline) vs 900 (Black) en la misma pantalla. Tamaños de `0.72rem` a `7.5rem` |
-| **Alineación a la izquierda (Bandera)** | `text-align: left` por defecto. Nunca `justify`. Nunca centrado excepto en CTAs aislados |
-| **Espacio negativo** | Macro-spacing de `96px`–`160px` entre secciones. Columnas enteras vacías intencionalmente |
-| **Color funcional** | El naranja Safety Orange `#ff5500` solo para: estados activos, datos críticos, CTAs principales |
-| **Sin decoración** | Cero ornamentos, cero bordes redondeados innecesarios, cero sombras difusas |
-| **Enfoque universal** | Copys técnicos directos en inglés. Sin metáforas vacías ni buzzwords de marketing |
-| **Geometría matemática** | Proporciones basadas en múltiplos de 8px. Ángulos de 90° y 45° exclusivamente |
 
-### 1.2 De la Variante Neon Precision
-| Principio | Implementación Web |
+| Principio | Implementación |
 |:---|:---|
-| **Contraste OLED absoluto** | Fondo warm paper `#f9f8f6` con bloques de negro puro `#000000`. Contraste >15:1 |
-| **Acentos de neón** | Safety Orange `#ff5500` como único color cromático. Glow de radio corto, alta intensidad |
-| **Grosor tipográfico extremo** | Display 700 + Label 600 (ALL CAPS 0.72rem). Contraste máximo de escala |
-| **Líneas de rejilla visibles** | Bordes de 1px `var(--border)` dibujados explícitamente como elementos de diseño |
-| **Microinteracciones precisas** | Duraciones 100ms-250ms. Easing lineal/cortante. Sin bounce ni elastic |
-| **Densidad de información** | Paneles tipo telemetría con datos organizados en grid compacto |
-| **Cero texturas** | Superficies planas digitales. Sin gradientes difusos, sin ruido excesivo, sin imitación de materiales |
+| **Grid rígido** | CSS Grid 12 columnas, gap 1px sólido `var(--border)`. Grid tracks visibles como elementos de diseño (industrial-brutalist §5) |
+| **Tipografía sans-serif** | Space Grotesk (display), Outfit (body), JetBrains Mono (datos/código). Nunca Inter, Roboto, Arial, Open Sans, Helvetica (high-end §2, minimalist §2) |
+| **Asimetría** | Títulos arrancan en columna 1-8/12. Bloques desplazados del centro. ANTI-CENTER BIAS activo cuando `DESIGN_VARIANCE > 4` (design-taste §4.3) |
+| **Jerarquía escalar** | Contraste de peso 400 vs 700 en la misma pantalla. Tamaños de `0.72rem` a `7.5rem` con `clamp()` (industrial-brutalist §3.1) |
+| **Bandera izquierda** | `text-align: left` por defecto. Nunca justify. Centro SOLO en CTAs aislados (design-taste §4.3) |
+| **Espacio negativo** | Macro-spacing `96px`–`160px` entre secciones. Columnas enteras vacías. Secciones usan `py-24` mínimo (high-end §4.C) |
+| **Color funcional** | Safety Orange `#ff5500` SOLO para: hover/focus, datos críticos, CTAs principales. Regla 95/5 |
+| **Sin decoración** | Cero ornamentos, cero `border-radius > 6px`, cero `box-shadow`, cero gradientes difusos |
+| **Geometría 90°** | Proporciones basadas en múltiplos de 8px. Ángulos de 90° exclusivamente. `border-radius: 0px` en botones (industrial-brutalist §5) |
+
+### 1.2 Anti-Slop Layer (Reglas que el agente DEBE verificar)
+
+| Regla | Fuente |
+|:---|:---|
+| Nunca generar el mismo layout dos veces consecutivas | high-end §2 |
+| Nunca usar 3-card feature rows genéricas | impeccable §4 |
+| Nunca usar gradientes purple/blue sin razón de producto | design-taste §4.2 |
+| Nunca usar copys genéricos: "Elevate", "Seamless", "Unleash", "Next-Gen" | minimalist §2 |
+| Max 1 eyebrow por cada 3 secciones | design-taste §4.7 |
+| Split-header (left big H + right small P) PROHIBIDO como default | design-taste §4.7 |
+| Zigzag alternation max 2 secciones consecutivas | design-taste §4.7 |
+| Section-Layout-Repetition Ban: cada layout family max 1 vez por página | design-taste §4.7 |
+| Bento cells = exact content count, nunca celdas vacías | design-taste §4.7 |
+| Hero MUST fit initial viewport: H1 max 2 líneas, subtext max 20 words | design-taste §4.7 |
+| Hero top padding max `pt-24` (6rem) | design-taste §4.7 |
+| Hero stack max 4 text elements (eyebrow + H1 + subtext + CTAs) | design-taste §4.7 |
+| Nav single-line en desktop, height max 80px | design-taste §4.7 |
+| Button text MUST fit 1 line en desktop | design-taste §4.5 |
+| No duplicate CTA intent en la misma página | design-taste §4.5 |
 
 ---
 
-## 2. Paleta de Color Definitiva
+## 2. Paleta de Color
 
-### 2.1 Colores Primarios
+### 2.1 Primarios
+
 ```
---background:       #f9f8f6          /* Warm paper (lienzo principal) */
---foreground:       #000000          /* Negro absoluto (texto principal) */
---amber:            #ff5500          /* Safety Orange (ÚNICO acento cromático) */
+--background:       #f9f8f6          /* Warm paper (lienzo) */
+--foreground:       #000000          /* Negro absoluto */
+--amber:            #ff5500          /* Safety Orange — ÚNICO acento */
 ```
 
 ### 2.2 Superficies
+
 ```
 --surface:          #ffffff          /* Tarjetas resting */
 --surface-raised:   oklch(92% 0.003 85) /* Tarjetas hover */
---surface-glass:    rgba(249,248,246,0.85) /* Nav flotante + blur */
+--surface-glass:    rgba(249,248,246,0.85) /* Nav + blur */
 --deep-space:       oklch(96% 0.003 85) /* Fondo alternativo */
---void:             oklch(94% 0.004 85) /* Terminales y bloques de código */
+--void:             oklch(94% 0.004 85) /* Terminales */
 ```
 
-### 2.3 Bloques Invertidos (Secciones oscuras)
+### 2.3 Bloques Invertidos (Secciones OLED)
+
 ```
---block-dark-bg:    #0a0a0a          /* Fondo negro OLED para secciones invertidas */
---block-dark-text:  #f0f0f0          /* Texto claro sobre fondo oscuro */
---block-dark-muted: #808080          /* Texto secundario sobre fondo oscuro */
---block-dark-border: rgba(255,255,255,0.08) /* Bordes sutiles en modo oscuro */
+--block-dark-bg:    #0a0a0a
+--block-dark-text:  #f0f0f0
+--block-dark-muted: #808080
+--block-dark-border: rgba(255,255,255,0.08)
 ```
 
-### 2.4 Estados y Señales
+### 2.4 Estados
+
 ```
---amber-light:      #ff3300          /* Hover en elementos naranja */
---amber-soft:       #ff7733          /* Sub-indicadores activos */
---amber-dim:        rgba(255,85,0,0.08) /* Fondo sutil de elementos activos */
---success:          #00aa30          /* Validaciones */
---warn:             #dd9900          /* Advertencias */
---danger:           #cc1100          /* Errores */
+--amber-light:      #ff3300          /* Hover naranja */
+--amber-dim:        rgba(255,85,0,0.08) /* Fondo activo sutil */
+--success:          #00aa30
+--danger:           #cc1100
 ```
 
 ### 2.5 Texto y Bordes
+
 ```
 --muted:            oklch(40% 0.01 80)  /* Texto secundario */
---steel:            oklch(35% 0.01 240) /* Etiquetas y metadatos */
---border:           oklch(15% 0.008 265) /* Líneas divisorias de 1px */
---border-strong:    #000000             /* Bordes de acción principal */
---subtle:           oklch(88% 0.004 85) /* Guías de grilla secundarias */
+--steel:            oklch(35% 0.01 240) /* Labels, metadatos */
+--border:           oklch(15% 0.008 265) /* Líneas 1px */
+--border-strong:    #000000             /* Bordes hover/acción */
+--subtle:           oklch(88% 0.004 85) /* Guías secundarias */
 ```
 
 ### 2.6 Regla del 95/5
-- **95%** de la pantalla: monocromática (negro, blancos, grises)
-- **5%** máximo: naranja Safety Orange para señales activas
-- El neón NO se usa para texto de lectura, solo para: hover/focus, datos en tiempo real, CTAs
+
+- **95%** monocromática (negro, blancos, grises)
+- **5%** naranja Safety Orange para señales activas
+- COLOR CONSISTENCY LOCK: el naranja se usa en TODA la página. No cambiar de accent mid-page (design-taste §4.2)
 
 ---
 
 ## 3. Tipografía
 
 ### 3.1 Familias
-| Rol | Familia | Uso |
+
+| Rol | Familia | Prohibidas |
 |:---|:---|:---|
-| **Display** | Space Grotesk | Títulos masivos, números gigantes, hero |
-| **Body** | Outfit | Párrafos, descripciones, navegación |
-| **Mono/Label** | JetBrains Mono | Código, datos tabulares, etiquetas ALL CAPS |
+| **Display** | Space Grotesk 700 | Inter, Roboto, Arial, Open Sans, Helvetica |
+| **Body** | Outfit 400 | Mismas prohibidas |
+| **Mono/Label** | JetBrains Mono 600 | — |
 
 ### 3.2 Escala Tipográfica
-| Token | Tamaño | Peso | Letter-spacing | Line-height |
+
+| Token | Tamaño | Peso | Spacing | Height |
 |:---|:---|:---|:---|:---|
 | `--text-hero` | `clamp(3.8rem, 8vw, 7.5rem)` | 700 | `-0.05em` | 0.95 |
 | `--text-display` | `clamp(2.2rem, 5vw, 4rem)` | 700 | `-0.04em` | 1.05 |
@@ -115,18 +151,21 @@ El estilo **Swiss High-Contrast Minimal (Neon Precision)** fusiona la disciplina
 | `--text-label` | `0.72rem` | 600 | `0.14em` | 1.2 (ALL CAPS) |
 | `--text-code` | `0.88rem` | 400 | `normal` | 1.5 |
 
-### 3.3 Reglas Tipográficas Estrictas
-- **Nunca** usar text-align: center en bloques de contenido (solo en CTAs aislados)
-- **Nunca** justificar texto
-- Etiquetas de datos en `font-variant-numeric: tabular-nums` para estabilidad numérica
-- Textos largos en `--muted` (#666), NUNCA en naranja
-- Títulos masivos pueden usar `mix-blend-mode: difference` para efecto de inversión
+### 3.3 Reglas Estrictas
+
+- `text-align: left` always. Centro SOLO en CTA Monolith
+- `font-variant-numeric: tabular-nums` en datos numéricos
+- Textos largos en `--muted`, NUNCA en naranja
+- Labels ALL CAPS con tracking `0.14em` — estilo industrial-brutalist §3.2
+- Etiquetas de datos en JetBrains Mono para estabilidad numérica
+- SERIF PROHIBIDO como default. Solo si la marca lo exige explícitamente (design-taste §4.1)
 
 ---
 
 ## 4. Sistema de Grid
 
 ### 4.1 Grid Principal
+
 ```css
 .swiss-grid {
   display: grid;
@@ -137,429 +176,378 @@ El estilo **Swiss High-Contrast Minimal (Neon Precision)** fusiona la disciplina
 }
 ```
 
-### 4.2 Líneas Visibles
-Las líneas de la cuadrícula son elementos de diseño, no guías invisibles:
+### 4.2 Líneas Visibles (Elemento de diseño, no guías)
+
 ```css
-.grid-line-v { 
-  width: 1px; 
-  background: var(--border); 
-  position: absolute; 
-}
-.grid-line-h { 
-  height: 1px; 
-  background: var(--subtle); 
-}
+.grid-line-v { width: 1px; background: var(--border); position: absolute; }
+.grid-line-h { height: 1px; background: var(--subtle); }
 ```
 
-### 4.3 Asimetría Intencional
-- Hero: título en columnas 1-8, espacio vacío en 9-12
-- Secciones de datos: grid asimétrico `2fr 1fr` o `1fr 2fr`
-- Labels/indices en columna estrecha izquierda, contenido en columna ancha derecha
+### 4.3 Compartimentalización (industrial-brutalist §5)
+
+- Bordes `1px solid var(--border)` delinean zonas de información
+- Líneas horizontales `<hr>` span full container para segregar unidades
+- Densidad bimodal: datos compactos monospace + macro-whitespace masivo
 
 ---
 
 ## 5. Bordes, Elevación y Profundidad
 
-### 5.1 Sin Sombras
-- `box-shadow: none` en todo el sistema
-- La profundidad se logra exclusivamente con:
-  - Cambio de color de fondo (resting → hover)
-  - Cambio de borde de `--border` a `--border-strong`
-  - Contraste de secciones claras/oscuras
+### 5.1 Sin Sombras — ABSOLUTO
+
+- `box-shadow: none` en TODO el sistema (industrial-brutalist §4, high-end §2)
+- Profundidad SOLO con:
+  - Cambio de fondo (resting → hover)
+  - Cambio de borde `--border` → `--border-strong`
+  - Contraste secciones claras/oscuras
 
 ### 5.2 Border Radius
+
 ```
---radius-sm: 0px   /* Botones, inputs, tarjetas */
+--radius-sm: 0px   /* Botones, inputs, tarjetas — RECTANGULARES */
 --radius-md: 2px   /* Mínimo suavizado */
 --radius-lg: 4px   /* Terminales */
---radius-xl: 6px   /* Máximo del sistema */
+--radius-xl: 6px   /* MÁXIMO del sistema — NUNCA > 6px */
 ```
-**Regla:** Nunca `border-radius > 6px`. Los botones son rectangulares.
+
+**SHAPE CONSISTENCY LOCK**: todo-sharp (radius 0) es el default del sistema.
+Nunca mezclar border-radius entre componentes (design-taste §4.4).
 
 ---
 
 ## 6. Motion & Animación
 
-### 6.1 Principios
-- **Rápido y mecánico**: 100ms–250ms máximo
-- **Easing cortante**: `cubic-bezier(0.25, 1, 0.5, 1)` o `cubic-bezier(0.2, 0.8, 0.2, 1)`
-- **Sin bounce, sin elastic, sin spring suave**
-- **Cortes editoriales**: Transiciones secas y directas entre estados
+### 6.1 Decision Framework (emil-design-eng §2)
 
-### 6.2 Scroll Animations (GSAP + ScrollTrigger)
-- Revelado por máscara tipográfica: `clip-path` o `overflow: hidden` con `translateY`
-- Expansión desde líneas de cuadrícula: elementos que crecen desde bordes de 1px
-- Contadores numéricos que avanzan rápidamente al entrar en viewport
-- Líneas de grid que se "dibujan" con `stroke-dashoffset` animado
+Antes de animar CUALQUIER elemento, responder en orden:
 
-### 6.3 Microinteracciones
-- Hover en botones: transición de fondo en 150ms, sin transform
-- Hover en tarjetas: borde cambia de `--border` a `--border-strong` en 100ms
-- Links: underline que se expande de izquierda a derecha en 200ms
-- Labels `[01]`, `[OK]` que cambian de `--steel` a `--amber` al hover del padre
+1. **¿Debe animarse?** Si el usuario lo ve 100+ veces/día → NO. Si es ocasional → sí.
+2. **¿Cuál es el propósito?** Feedback, spatial consistency, state indication, o preventing jarring changes.
+3. **¿Qué easing?** Entrando → `ease-out`. Moviéndose → `ease-in-out`. Hover → `ease`. Constante → `linear`.
+4. **¿Cuán rápido?** UI < 300ms siempre. Buttons 100-160ms. Tooltips 125-200ms. Modals 200-500ms.
 
-### 6.4 Respeto a `prefers-reduced-motion`
-- Si `reduce`: todas las animaciones se desactivan, elementos visibles inmediatamente
-- GSAP `matchMedia` para manejar este caso
+### 6.2 Custom Easing Curves (OBLIGATORIAS — nunca CSS defaults)
+
+```css
+/* Swiss mechanical — cortante y rápido */
+--ease-swiss: cubic-bezier(0.25, 1, 0.5, 1);
+
+/* Strong ease-out for UI (emil) */
+--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+/* Strong ease-in-out for on-screen movement */
+--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+```
+
+**PROHIBIDO**: `ease-in` para UI (se siente sluggish — emil §3).
+**PROHIBIDO**: `linear` o `ease-in-out` genéricos de CSS (high-end §2).
+**PROHIBIDO**: bounce, elastic, spring suave.
+
+### 6.3 Scroll Animations (GSAP + ScrollTrigger)
+
+- Revelado por máscara: `clip-path: inset()` (emil §clip-path)
+- Expansión desde líneas de grid: elementos que crecen desde bordes 1px
+- Contadores numéricos: count-up rápido (200ms) al entrar en viewport
+- Líneas SVG: `stroke-dashoffset` animado
+- Stagger: 30-80ms entre items, nunca bloquear interacción (emil §stagger)
+
+### 6.4 Microinteracciones
+
+- Hover botones: fondo 150ms, `scale(0.97)` en `:active` (emil §buttons)
+- Hover tarjetas: borde `--border` → `--border-strong` en 100ms
+- Labels `[01]` cambian de `--steel` a `--amber` al hover del padre
+- Nunca `scale(0)` para entrada — empezar desde `scale(0.95)` + `opacity: 0` (emil §never-scale-0)
+
+### 6.5 Performance (OBLIGATORIO)
+
+- Animar SOLO `transform` y `opacity` — nunca `top`, `left`, `width`, `height` (emil §performance, high-end §6)
+- `backdrop-blur` SOLO en elementos fixed/sticky (nav) — nunca en scrolling containers
+- `will-change: transform` solo en elementos activamente animándose
+- `prefers-reduced-motion`: todas las animaciones OFF, elementos visibles inmediatamente
 
 ---
 
-## 7. Componentes del Sistema
+## 7. Elemento 3D — Logo VantaDB Interactivo
 
-### 7.1 Navegación (Nav)
-- Barra fija superior, fondo `--surface-glass` con `backdrop-filter: blur(12px)`
-- Altura: 64px
+### 7.1 Concepto
+
+El elemento 3D del hero es una representación tridimensional del logo VantaDB:
+**torus negro (anillo exterior) + esfera naranja sólida (core central)**.
+
+### 7.2 Estilo Visual — Swiss Wireframe (NO LISO)
+
+El 3D DEBE sentirse Swiss-industrial, no plástico-render:
+
+- **Torus exterior**: wireframe negro `#0a0a0a`, `MeshBasicMaterial` con `wireframe: true`
+  - Grosor visual: radio de tubo fino (0.12-0.18)
+  - Segmentos: suficientes para que las líneas del wireframe sean visibles (24-32)
+  - El wireframe ES el diseño — líneas de 1px como los bordes del grid system
+- **Esfera central**: `MeshBasicMaterial` naranja `#ff5500`, `wireframe: true`
+  - Geometría: `IcosahedronGeometry` (facetas geométricas, no esfera perfecta)
+  - El wireframe naranja brilla sutilmente sobre fondo claro
+- **Nodos de red**: puntos flotantes `#ff5500` alrededor de la estructura
+  - Tamaño: 0.03-0.05 (pequeños, tipo datos en telemetría)
+  - Conexiones: `LineBasicMaterial` negro `#0a0a0a`, opacidad 0.06
+- **Sin luces**: `MeshBasicMaterial` no requiere luces → render más limpio y Swiss
+- **Sin sombras**: coherente con `box-shadow: none` del sistema
+
+### 7.3 Interacción
+
+- Rotación vinculada al mouse con interpolación suave (lerp 0.05)
+- Rotación base lenta: `0.001` rad/frame en Y, `0.0005` en X
+- NO rotación en saltos de 15° — suave pero con inercia mecánica
+- `prefers-reduced-motion`: rotación OFF, wireframe estático visible
+
+### 7.4 Rendimiento
+
+- Geometría mínima (<1500 polígonos total)
+- Sin post-processing (bloom, DOF, SSAO)
+- Canvas `opacity: 0.4` en mobile para no saturar
+- Lazy-load del chunk Three.js vía `import()` dinámico
+
+---
+
+## 8. Componentes del Sistema
+
+### 8.1 Navegación (Nav)
+
+- Fijo superior, `--surface-glass` + `backdrop-filter: blur(12px)`
+- Altura: 64px, max 80px (design-taste §4.7)
 - Borde inferior: `1px solid var(--border)`
-- Logo izquierda, links centro, CTA derecha
-- Links en `--text-label` (ALL CAPS, 0.72rem, 0.14em tracking)
-- Hover: color cambia de `--steel` a `--foreground` en 100ms
-- Mobile: hamburger → panel lateral con fondo `--surface-overlay`
+- Links en `--text-label` (ALL CAPS, 0.72rem, 0.14em)
+- Hover: `--steel` → `--foreground` en 100ms
+- MUST render single-line en desktop (design-taste §4.7)
 
-### 7.2 Footer
-- Fondo: `#0a0a0a` (bloque invertido negro OLED)
-- Grid de 4 columnas con links en `--block-dark-muted`
-- Hover: links cambian a `#ffffff`
-- Líneas divisorias de 1px `rgba(255,255,255,0.08)`
-- Copyright en `--text-label` con `--block-dark-muted`
+### 8.2 Botones
 
-### 7.3 Botones
-- **Primary**: fondo `--amber`, texto `#ffffff`, border-radius `0px`, padding `10px 24px`
+- **Primary**: fondo `--amber`, texto `#ffffff`, `border-radius: 0px`, padding `10px 24px`
   - Hover: fondo `#000000`, texto `#ffffff`
+  - Active: `scale(0.97)` (emil §buttons)
 - **Ghost**: fondo transparente, borde `1px solid var(--border)`, texto `--foreground`
-  - Hover: fondo `--border`, texto `#ffffff`
-- **Link**: texto `--amber`, sin fondo, underline animado de izquierda a derecha
+  - Hover: fondo `var(--border)`, texto `#ffffff`
+- **Link**: texto `--amber`, underline animado left→right 200ms
+- Button text MUST fit 1 line (design-taste §4.5)
+- No duplicate CTA intent (design-taste §4.5)
 
-### 7.4 Tarjetas / Bloques
+### 8.3 Tarjetas / Bloques
+
 - Fondo `--surface`, borde `1px solid var(--border)`
 - Padding `24px`
-- Hover: borde cambia a `--border-strong`
-- Index label en esquina superior izquierda: `[01]` en `--text-label`
-- Sin sombras, sin border-radius > 4px
+- Hover: borde → `--border-strong` en 100ms
+- Index label esquina superior izquierda: `[01]` en `--text-label`
+- Sin sombras. Sin `border-radius > 4px`
 
-### 7.5 Terminal / Code Block
-- Fondo `--void`
-- Borde `1px solid var(--border)`
-- Header con 3 dots falsos en `--subtle` y título en `--text-label`
-- Código en JetBrains Mono
-- Syntax highlighting mínimo: keywords en `--foreground`, strings en `--amber`, comments en `--muted`
+### 8.4 Terminal / Code Block
+
+- Fondo `--void`, borde `1px solid var(--border)`
+- Header: 3 dots en `--subtle` + título en `--text-label`
+- JetBrains Mono
+- Syntax: keywords `--foreground`, strings `--amber`, comments `--muted`
+- Nunca `box-shadow`. Nunca `border-radius > 4px`
+
+### 8.5 Footer
+
+- Fondo `#0a0a0a` (OLED invertido)
+- Grid 4 columnas, links `--block-dark-muted`
+- Hover: links → `#ffffff`
+- Bordes `rgba(255,255,255,0.08)`
 
 ---
 
-## 8. Diseño del Index (Landing Page)
+## 9. Diseño del Index (Landing Page)
 
-### 8.1 HERO — "Typographic Grid Hero"
-**Concepto:** Hero sin estadísticas. Tipografía masiva asimétrica con grid de hairlines visible.
+### 9.1 HERO — "Typographic Grid + 3D Logo Wireframe"
+
+**Concepto:** Tipografía masiva asimétrica con elemento 3D wireframe del logo VantaDB.
 
 **Layout:**
-- Fondo: bloques alternados de `--background` y `#0a0a0a`
-- Grid de 12 columnas con líneas verticales visibles de 1px
-- Título "VantaDB" en `--text-hero` (7.5rem), peso 700, alineado a la izquierda columnas 1-8
-- Subtítulo técnico debajo: "Embedded cognitive memory for AI agents" en `--text-title`, peso 400
-- Label superior: `[RUST-NATIVE] [IN-PROCESS] [ZERO-SERVERS]` en `--text-label` con `--amber`
-- CTA: dos botones rectangulares — "pip install vantadb" (primary) + "Read Docs" (ghost)
-- Columnas 9-12: vacías o con un elemento 3D wireframe minimalista (cubo/monolito de Three.js)
+- Fondo: `--background` (warm paper `#f9f8f6`)
+- Texto: columnas 1-7 (izquierda)
+- 3D wireframe: columnas 8-12 (derecha), `position: absolute`, `z-index: 1`
+- Título "VantaDB" en `--text-hero`, peso 700, left-aligned
+- Tagline: "Embedded cognitive memory for AI agents" en `--text-title`, peso 600
+- Descripción: max 20 words en `--muted`
+- Labels: `[RUST-NATIVE] [IN-PROCESS] [ZERO-SERVERS]` en `--text-label`, `--foreground`
+- CTAs: "pip install vantadb" (primary) + "Read Docs" (ghost)
 
 **Interacción:**
-- Las líneas verticales del grid se dibujan con `stroke-dashoffset` de arriba a abajo al cargar
-- El título se revela por máscara tipográfica desde abajo con `clip-path`
-- Labels parpadean una vez en naranja al cargar y luego quedan estáticos
-- Objeto 3D (si se incluye) rota ortogonalmente con el mouse (no suave, sino en saltos de 15°)
+- Labels flash naranja → foreground al cargar (GSAP stagger 80ms)
+- Título: mask reveal con `clip-path: inset(0 0 100% 0)` → `inset(0)` (emil §clip-path)
+- Tagline/desc/CTAs: fade secuencial con `opacity` + `translateY(8px)` (minimalist §7)
+- 3D wireframe: rotación con mouse
 
-**Lo que NO tiene:**
-- Sin estadísticas de downloads, stars, etc.
+**Lo que NO tiene (Anti-Slop):**
+- Sin estadísticas de downloads/stars
 - Sin partículas flotantes
 - Sin gradientes difusos
-- Sin animación de typewriter
+- Sin animación typewriter
+- Sin "Used by" logos en el hero (→ sección separada abajo per design-taste §4.7)
+- Sin bounce/elastic en ninguna animación
 
-### 8.2 COMPARATIVA — "Swiss Benchmark Grid"
-**Concepto:** Grilla Bento asimétrica que compara VantaDB vs arquitecturas cliente-servidor.
+### 9.2 COMPARATIVA — "Swiss Benchmark Grid"
 
-**Layout:**
-- Grid Bento de tamaños variados (2x2, 1x1, 3x1) con bordes de 1px
-- Columna izquierda estrecha: label vertical `[VANTADB]` vs `[TRADITIONAL]`
-- Cada celda contiene UNA métrica:
-  - Número gigante (Space Grotesk 700, tamaño display)
-  - Unidad pequeña debajo (JetBrains Mono label)
-  - Indicador de diferencia: flecha `↓` en `--amber` para "mejor" o `↑` en `--danger` para "peor"
+**Concepto:** Bento asimétrico VantaDB vs cliente-servidor.
 
-**Métricas a mostrar:**
-| Métrica | VantaDB | Traditional | Indicador |
-|:---|:---|:---|:---|
-| Query Latency (p99) | 0.8ms | 12ms | ↓ 15x faster |
-| Memory Overhead | 2MB | 180MB | ↓ 90x less |
-| Setup Time | 1 line | 45 min | ↓ Instant |
-| Dependencies | 0 | 12+ | ↓ Zero |
-| Crash Recovery | WAL | Manual | Automatic |
-| Search Type | Hybrid (BM25+HNSW) | Single | Full-spectrum |
+- Grid Bento con tamaños variados y bordes 1px
+- Números gigantes Space Grotesk 700 display
+- Indicadores `↓` naranja (mejor) / `↑` rojo (peor)
+- Count-up 200ms al entrar viewport
+- Hover: borde → `--amber`, label `[01]` iluminado
+- Celdas se expanden desde líneas del grid (no fade-in)
+- Exact content count = exact cell count (design-taste §4.7)
 
-**Interacción:**
-- Al hacer scroll, las celdas se expanden desde las líneas de la cuadrícula (no fade-in)
-- Los números hacen count-up rápido (200ms) al entrar en viewport
-- Hover en celda: borde cambia a `--amber`, label index `[01]` se ilumina
+### 9.3 QUICKSTART — "Precision Terminal"
 
-### 8.3 ESTADÍSTICAS — ELIMINADA
-Se eliminan completamente: downloads, github stars, uptime, license, p99 query latency, max vector dims, bm25 recall, external dependencies.
+- Grid 2 columnas: izquierda = pasos `[01]-[04]`, derecha = terminal
+- Paso activo: número `--amber`, borde izquierdo 2px `--amber`
+- Terminal: `--void`, JetBrains Mono
+- Typewriter rápido, output instantáneo con borde `--amber`
+- Layout DIFERENTE a secciones anteriores (section-layout-repetition ban)
 
-### 8.4 QUICKSTART — "Precision Terminal"
-**Concepto:** Terminal + pasos animados 01-04, rediseñados al estilo Swiss.
+### 9.4 CORE ENGINE — "Exploded Architecture"
 
-**Layout:**
-- Grid 2 columnas: izquierda (4col) = lista de pasos, derecha (8col) = terminal
-- Pasos numerados `[01]` `[02]` `[03]` `[04]` en `--text-label`
-- Paso activo: número en `--amber`, borde izquierdo de 2px `--amber`
-- Terminal: fondo `--void`, borde `1px solid var(--border)`, sin sombras
+- Fondo invertido `#0a0a0a` (OLED)
+- Grid 3 columnas con features
+- Iconos monoline 1px naranja
+- GSAP ScrollTrigger: pin + reveal secuencial
+- Líneas SVG `stroke-dashoffset` animado
 
-**Interacción:**
-- Animación de escritura de código en la terminal (typewriter a velocidad rápida)
-- Al completar un paso, el siguiente se activa con transición de 150ms
-- Labels de paso cambian de `--steel` a `--foreground` al activarse
-- Output del código aparece instantáneamente (no fade) con borde izquierdo `--amber`
+### 9.5 ARCHITECTURE — "Blueprint Cross-Section"
 
-### 8.5 CORE ENGINE — "Exploded Architecture"
-**Concepto:** Las ventajas del core engine reveladas con scroll, estilo diagrama de patente.
+- SVG capas apiladas con bordes 1px
+- Labels con líneas de cota y coordenadas monoespaciadas
+- Scroll: exploded view (capas se separan)
+- Hover: borde `--amber`, demás `opacity: 0.3`
 
-**Layout:**
-- Sección con fondo invertido `#0a0a0a` (bloque oscuro OLED)
-- Grid de 3 columnas con bloques de features
-- Cada bloque: icono monoline (contorno de 1px naranja), título en blanco, descripción en `--block-dark-muted`
-- Centro: diagrama de arquitectura simplificado con líneas ortogonales y labels técnicos
+### 9.6 USE CASES — "Case Study Cards"
 
-**Features a mostrar:**
-1. Rust Core → velocidad y seguridad de memoria
-2. HNSW Index → búsqueda vectorial de alta dimensión
-3. BM25 Engine → búsqueda textual full-spectrum
-4. WAL Durability → crash-safe, zero data loss
-5. PyO3 Bridge → Python bindings nativos
-6. Zero-Copy Serde → serialización sin overhead
+- Stack vertical de tarjetas horizontales full-width
+- Grid `3fr 9fr`: número display + contenido
+- Hover: número `--subtle` → `--amber`
+- Borde superior 1px separa tarjetas
+- Layout DIFERENTE a benchmark grid y quickstart
 
-**Interacción (GSAP ScrollTrigger):**
-- Pin de la sección durante el scroll
-- Cada feature se revela secuencialmente al scrollear
-- Líneas de conexión se dibujan con `stroke-dashoffset` animado
-- Labels técnicos aparecen con clip-path desde la izquierda
-- Al completar todas las features, la sección se des-pinea
+### 9.7 CTA FINAL — "The Monolith"
 
-### 8.6 ARCHITECTURE — "Blueprint Cross-Section"
-**Concepto:** Rediseño completo como diagrama de corte transversal tipo plano industrial.
-
-**Layout:**
-- Diagrama SVG de capas apiladas (Python App → PyO3 Bridge → Rust Core → Storage)
-- Cada capa: rectángulo con borde de 1px, relleno semi-transparente
-- Labels con líneas de cota (flechas de medición) y coordenadas
-- Tipografía monoespaciada para todas las etiquetas técnicas
-
-**Interacción:**
-- Al hacer scroll, las capas se separan verticalmente (exploded view)
-- Las flechas de flujo de datos se animan con `stroke-dasharray`
-- Hover en capa: se resalta con borde `--amber` y las demás se atenúan a `opacity: 0.3`
-
-### 8.7 ECOSYSTEM — "Integration Matrix"
-**Concepto:** Grid limpio de integraciones con iconos monoline.
-
-**Layout:**
-- Grid de 4x3 con bordes de 1px
-- Cada celda: icono SVG monoline (contorno de 1px, sin relleno) + nombre en `--text-label`
-- Categorías: `[FRAMEWORKS]` `[VECTOR-STORES]` `[LLM-PROVIDERS]` `[DEPLOYMENT]`
-
-**Interacción:**
-- Hover en celda: icono cambia de `--steel` a `--amber`, fondo a `--amber-dim`
-- Al hacer scroll, las celdas aparecen en stagger desde las líneas del grid
-
-### 8.8 USE CASES — "Case Study Cards"
-**Concepto:** Tarjetas horizontales con diseño editorial.
-
-**Layout:**
-- Stack vertical de tarjetas horizontales (full-width)
-- Cada tarjeta: grid `3fr 9fr` → índice numérico grande + contenido
-- Número del caso en tamaño display `--text-display` en `--subtle`
-- Título del caso + descripción + label de industria
-
-**Interacción:**
-- Hover: el número del caso cambia de `--subtle` a `--amber`
-- Borde superior de 1px `--border` separa cada tarjeta
-- Click expande para mostrar más detalle (optional)
-
-### 8.9 ÚLTIMA SECCIÓN — "CTA Monolith"
-**Opciones propuestas:**
-
-**Opción A: "The Monolith"**
-- Bloque negro OLED full-width con un solo texto centrado masivo:
-  `"pip install vantadb"` en `--text-hero`, peso 700, color `#ffffff`
-- Debajo: `"Zero servers. One line. Infinite context."` en `--text-body`, color `--block-dark-muted`
-- Un botón primary centrado: "Get Started" en naranja
-
-**Opción B: "Swiss Grid CTA"**
-- Grid 2 columnas: izquierda = estadística impactante ("0.8ms p99 latency"), derecha = CTA + descripción breve
-- Fondo `--deep-space` con bordes visibles
-
-**Opción C: "Terminal Echo"**
-- Terminal completa que muestra el output de `pip install vantadb` + `import vantadb` + resultado exitoso
-- Debajo: link a docs y GitHub
+- Bloque OLED full-width, texto centrado masivo (EXCEPCIÓN al left-align rule)
+- `"pip install vantadb"` en `--text-hero`, `#ffffff`
+- `"Zero servers. One line. Infinite context."` en `--block-dark-muted`
+- Un botón primary centrado naranja
+- Sin estadísticas. Sin feature list. Solo el comando.
 
 ---
 
-## 9. Diseño de Subpáginas
+## 10. Contraste Invertido por Secciones
 
-### 9.1 Patrón Común de Subpágina
-Todas las subpáginas siguen este esqueleto:
-1. **Hero compacto**: título masivo asimétrico + breadcrumb label + descripción
-2. **Secciones de contenido**: alternando fondo claro/oscuro con grid visible
-3. **Diagrams/Illustrations**: SVG monoline con etiquetas técnicas
-4. **CTA bottom**: bloque negro con comando de terminal
-
-### 9.2 /engine
-- Hero: "The Rust Core" con diagrama de capas del motor
-- Secciones: HNSW, BM25, WAL, PyO3, cada una con benchmark real
-- Scroll animations: GSAP ScrollTrigger con pin para revelar capas
-- Fondo alternado: warm paper → OLED black → warm paper
-
-### 9.3 /architecture
-- Hero: "Architecture" con diagrama de corte transversal
-- Sección principal: SVG interactivo de la arquitectura completa
-- Secciones secundarias: detalle de cada capa con código ejemplo
-
-### 9.4 /integrations
-- Grid matrix de integraciones con iconos monoline
-- Categorías con labels `[CATEGORY]`
-- Cada integración: card con código de ejemplo en terminal
-
-### 9.5 /use-cases
-- Lista editorial de casos de uso con tarjetas horizontales
-- Cada caso: número display + descripción + stack técnico
-
-### 9.6 /cost
-- Comparativa de costos: grid Bento con VantaDB vs alternativas
-- Números gigantes para precios/savings
-- Gráfico de barras minimalista (SVG)
-
-### 9.7 /latency
-- Benchmarks de latencia: gráficos de barras horizontales
-- Tabla de métricas p50/p95/p99 en grid monoespaciado
-- Comparativa con competidores
-
-### 9.8 /storage
-- Diagramas de almacenamiento WAL + HNSW + BM25
-- Métricas de compresión y overhead
-- Explicación visual del crash recovery
-
-### 9.9 /config
-- Referencia de configuración en formato de terminal
-- Cada opción: nombre + tipo + default + descripción
-- Estilo de documentación técnica
-
-### 9.10 /maint
-- Guía de mantenimiento con pasos numerados
-- Diagramas de flujo de operaciones
-
-### 9.11 /solutions/ai-agents, /solutions/local-rag, /solutions/ai-ide-tooling
-- Hero específico por solución
-- Diagrama de arquitectura de la solución
-- Features grid + código ejemplo + CTA
-
-### 9.12 /docs
-- Layout de documentación: sidebar izquierda + contenido derecho
-- Sidebar con navegación de secciones
-- Código con syntax highlighting mínimo
-
-### 9.13 /pricing
-- Grid de planes con borde de 1px
-- Plan destacado: borde `--amber`
-- Números de precio en tamaño display
-- Feature comparison table con checks/crosses
-
-### 9.14 /about
-- Información de empresa con diseño editorial
-- Grid de equipo/valores
-- Timeline de hitos
-
-### 9.15 /about/roadmap → ELIMINADA
-- Archivo `roadmap.tsx` será eliminado
-- Links al roadmap serán removidos de la navegación
-
-### 9.16 /blog
-- Lista de posts con diseño editorial
-- Tarjetas con fecha + categoría + título
-- Grid de 2 columnas en desktop
-
-### 9.17 /about/community
-- Links a comunidad y recursos
-- Grid de canales (Discord, GitHub, etc.)
-
-### 9.18 /about/contact
-- Formulario minimalista con campos rectangulares
-- Labels en `--text-label`
-- Botón submit en naranja
-
----
-
-## 10. Iconografía — "Planos Técnicos"
-
-### 10.1 Estilo
-- **Monoline**: grosor de trazo constante (1.5px)
-- **Sin relleno**: solo contornos
-- **Color**: `--steel` en reposo, `--amber` en hover/activo
-- **Geometría**: ángulos de 90° y 45° exclusivamente
-- **Labels**: texto diminuto monoespaciado junto a las ilustraciones
-
-### 10.2 Diagramas
-- Flechas ortogonales (nunca curvas)
-- Líneas de cota con medidas
-- Coordenadas y labels técnicos en las esquinas
-- Estilo de patente industrial / manual de arquitectura de software
-
----
-
-## 11. Elemento 3D — "The Monolith" (Opcional)
-
-### 11.1 Concepto
-Un cubo o monolito wireframe minimalista que representa la base de datos embebida.
-
-### 11.2 Especificaciones
-- **Estilo**: wireframe con líneas de 1px en `--border` o `--amber`
-- **Material**: sin relleno sólido, solo bordes (MeshBasicMaterial con wireframe: true)
-- **Interacción**: rotación ortogonal vinculada al mouse (saltos de 15°, no suave)
-- **Scroll**: al avanzar, el cubo se separa en capas (exploded view) revelando la arquitectura interna
-- **Rendimiento**: geometría mínima (<1000 polígonos), sin post-processing pesado
-
----
-
-## 12. Contraste Invertido por Secciones
-
-### 12.1 Patrón de alternancia
 ```
-[Warm Paper] Hero
-[OLED Black] Core Engine
-[Warm Paper] Architecture
-[OLED Black] CTA Final / Footer
+[Warm Paper #f9f8f6]  → Hero
+[Warm Paper]          → Comparativa
+[Warm Paper]          → Quickstart
+[OLED #0a0a0a]        → Core Engine
+[Warm Paper]          → Architecture
+[Warm Paper]          → Use Cases
+[OLED #0a0a0a]        → CTA Monolith + Footer
 ```
 
-### 12.2 Reglas de inversión
-- En secciones oscuras: texto en `#f0f0f0`, muted en `#808080`
+**Reglas de inversión:**
+- Secciones oscuras: texto `#f0f0f0`, muted `#808080`
 - Bordes: `rgba(255,255,255,0.08)`
-- El naranja mantiene su valor `#ff5500` en ambos modos
-- Los botones primary mantienen su apariencia naranja
-- Los botones ghost invierten: borde blanco, texto blanco
+- Naranja `#ff5500` mantiene valor en AMBOS modos
+- Botones ghost invierten: borde blanco, texto blanco
 
 ---
 
-## 13. Anti-Slop Checklist
+## 11. Iconografía — "Planos Técnicos"
 
-Cada componente DEBE pasar esta verificación antes de ser aceptado:
+- **Monoline**: trazo 1.5px constante
+- **Sin relleno**: solo contornos
+- **Color**: `--steel` resting → `--amber` hover/activo
+- **Geometría**: 90° exclusivamente (industrial-brutalist §6)
+- **Diagramas**: flechas ortogonales, líneas de cota, coordenadas técnicas
+- **Nunca**: Lucide, FontAwesome, Material Icons genéricos (high-end §2, minimalist §2)
+- **Permitidos**: Phosphor Bold, Radix UI Icons, o SVG monoline custom
 
-- [ ] ¿`border-radius` ≤ 6px? (Nunca > 6px)
-- [ ] ¿Sin sombras difusas? (`box-shadow: none`)
-- [ ] ¿Sin gradientes decorativos?
-- [ ] ¿Naranja usado SOLO para señales activas/CTAs?
-- [ ] ¿Texto alineado a la izquierda? (Nunca centrado excepto CTAs aislados)
-- [ ] ¿Tipografía del sistema? (Space Grotesk / Outfit / JetBrains Mono)
-- [ ] ¿Bordes de 1px presentes?
-- [ ] ¿Animaciones ≤ 250ms?
-- [ ] ¿Sin ilustraciones 3D de plástico brillante?
-- [ ] ¿Sin copys genéricos de marketing?
-- [ ] ¿Espaciado macro entre secciones (≥ 96px)?
-- [ ] ¿Grid asimétrico?
-- [ ] ¿`prefers-reduced-motion` respetado?
-- [ ] ¿`font-variant-numeric: tabular-nums` en datos numéricos?
+---
+
+## 12. Diseño de Subpáginas
+
+### 12.1 Patrón Común
+
+1. Hero compacto: título masivo asimétrico + breadcrumb label + descripción
+2. Secciones alternando warm paper / OLED con grid visible
+3. Diagramas SVG monoline con etiquetas técnicas
+4. CTA bottom: bloque OLED con comando de terminal
+
+### 12.2 Páginas
+
+| Ruta | Hero | Contenido principal |
+|:---|:---|:---|
+| `/engine` | "The Rust Core" | HNSW, BM25, WAL, PyO3 con benchmarks |
+| `/architecture` | "Architecture" | SVG interactivo de capas |
+| `/pricing` | "Pricing" | Grid de planes, borde `--amber` en destacado |
+
+---
+
+## 13. Pre-Flight Checklist (OBLIGATORIO antes de merge)
+
+Cada componente y cada página DEBE pasar esta verificación completa:
+
+### 13.1 Swiss System
+
+- [ ] `border-radius` ≤ 6px en todo
+- [ ] Sin `box-shadow` en ningún elemento
+- [ ] Sin gradientes decorativos
+- [ ] Naranja usado SOLO para señales activas/CTAs (regla 95/5)
+- [ ] `text-align: left` en bloques de contenido
+- [ ] Tipografía del sistema: Space Grotesk / Outfit / JetBrains Mono
+- [ ] Bordes de 1px presentes como elementos de diseño
+- [ ] Grid asimétrico (nunca 3 columnas iguales genéricas)
+- [ ] `font-variant-numeric: tabular-nums` en datos numéricos
+- [ ] Macro-spacing ≥ 96px entre secciones
+
+### 13.2 Anti-Slop (design-taste + impeccable)
+
+- [ ] Sin purple/blue AI glow gradients
+- [ ] Sin copys genéricos: "Elevate", "Seamless", "Unleash"
+- [ ] Sin 3-card feature rows idénticas
+- [ ] Max 1 eyebrow por 3 secciones
+- [ ] Sin split-header (left H + right P) como default
+- [ ] Max 2 zigzag secciones consecutivas
+- [ ] Cada layout family aparece max 1 vez por página
+- [ ] Bento cells = exact content count
+- [ ] Sin ilustraciones 3D de plástico brillante
+- [ ] Sin emojis en código ni markup
+
+### 13.3 Hero Específico
+
+- [ ] Hero cabe en viewport inicial
+- [ ] H1 max 2 líneas desktop
+- [ ] Subtext max 20 words
+- [ ] Max 4 text elements (eyebrow + H1 + subtext + CTAs)
+- [ ] "Used by" / trust logos DEBAJO del hero, nunca dentro
+- [ ] Top padding max `pt-24`
+- [ ] Sin feature list ni pricing teaser dentro del hero
+
+### 13.4 Motion (emil + industrial-brutalist)
+
+- [ ] Animaciones ≤ 300ms para UI
+- [ ] Custom easing curves (nunca `linear` o `ease-in-out` genéricos)
+- [ ] Nunca `ease-in` para UI
+- [ ] Nunca `scale(0)` para entrada — empezar desde `scale(0.95)`
+- [ ] Solo `transform` y `opacity` animados
+- [ ] `backdrop-blur` solo en fixed/sticky elements
+- [ ] `prefers-reduced-motion` respetado
+- [ ] Stagger 30-80ms, nunca bloquea interacción
+- [ ] Sin bounce, elastic, ni spring suave
+
+### 13.5 Accesibilidad
+
+- [ ] Contraste WCAG AA en todos los textos
+- [ ] Button text contraste verificado contra background
+- [ ] Form inputs con label, helper, error text
+- [ ] Focus states visibles
+- [ ] Touch targets ≥ 44px
+- [ ] Nav single-line en desktop
 
 ---
 
@@ -570,30 +558,25 @@ Cada componente DEBE pasar esta verificación antes de ser aceptado:
 | Framework | React 19 + TypeScript 5 |
 | Routing | TanStack Router (file-based) |
 | Bundler | Vite 8 + Rolldown |
-| CSS | Tailwind CSS v4 + CSS custom properties |
+| CSS | Vanilla CSS + CSS custom properties |
 | Animaciones | GSAP + ScrollTrigger |
-| 3D (opcional) | Three.js (wireframe solo) |
+| 3D | Three.js (wireframe, MeshBasicMaterial) |
 | Fonts | Google Fonts: Space Grotesk, Outfit, JetBrains Mono |
 | Hosting | Vercel SPA |
 
 ---
 
-## 15. Skills y Herramientas a Utilizar
+## 15. Skills y Herramientas del Agente
 
-| Skill | Uso |
-|:---|:---|
-| `vanta-design-orchestrator` | Validación de identidad visual y routing de skills |
-| `design-taste-frontend` | Anti-slop frontend, evitar estética genérica |
-| `high-end-visual-design` | Fonts, spacing, shadows, card structures |
-| `emil-design-eng` | Micro-interacciones y polish de UI |
-| `emilkowalski-motion` | Motion design con restraint |
-| `industrial-brutalist-ui` | Grids rígidos, escala tipográfica extrema |
-| `minimalist-ui` | Composición editorial limpia |
-| `gpt-taste` | GSAP ScrollTriggers, bento grids, editorial typography |
-| `awesome-claude-design` | Design systems y anti-slop |
-| `frontend-design` | Componentes production-grade |
-| `color-expert` | Paleta OKLCH, contraste WCAG |
-| `plan-design-review` | Gate de calidad antes de merge |
-| `design-review` | Auditoría visual con before/after |
-| `impeccable-design-polish` | Polish final antes de ship |
-| `threejs` | Wireframe 3D del monolito (si se incluye) |
+| Skill | Uso | Fase |
+|:---|:---|:---|
+| `design-taste-frontend` | Brief inference, anti-slop rules, layout diversification | Pre-diseño |
+| `industrial-brutalist-ui` | Grids rígidos, escala tipográfica, compartimentalización | Diseño |
+| `high-end-visual-design` | Anti-patterns, variance engine, motion choreography | Diseño |
+| `minimalist-ui` | Composición editorial, warm monochrome, bento flat | Diseño |
+| `emil-design-eng` | Animation decision framework, clip-path, performance | Motion |
+| `emilkowalski-motion` | Motion restraint, microinteracciones | Motion |
+| `impeccable-design-polish` | Audit → Critique → Polish → Animate → Harden → Live | Post-diseño |
+| `plan-design-review` | Gate de calidad 0-10 por dimensión | Pre-merge |
+| `threejs` | Wireframe 3D del logo | Implementación |
+| `color-expert` | Verificación OKLCH, contraste WCAG | QA |

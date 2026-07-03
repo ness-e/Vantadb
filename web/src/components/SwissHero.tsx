@@ -33,43 +33,29 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     camera.position.set(0, 0, 6);
 
-    // ── Torus (outer ring — black, matching logo stroke) ──
-    const torusGeo = new THREE.TorusGeometry(1.8, 0.18, 32, 100);
-    const torusMat = new THREE.MeshStandardMaterial({
+    // ── Torus (outer ring — black wireframe, matching logo stroke) ──
+    const torusGeo = new THREE.TorusGeometry(1.8, 0.15, 28, 80);
+    const torusMat = new THREE.MeshBasicMaterial({
       color: 0x0a0a0a,
-      roughness: 0.3,
-      metalness: 0.6,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.7,
     });
     const torus = new THREE.Mesh(torusGeo, torusMat);
     torus.rotation.x = Math.PI * 0.35;
     torus.rotation.z = Math.PI * 0.08;
     scene.add(torus);
 
-    // ── Inner Core Sphere (solid amber — matching logo core) ──
-    const sphereGeo = new THREE.SphereGeometry(0.75, 48, 48);
-    const sphereMat = new THREE.MeshStandardMaterial({
+    // ── Inner Core (orange wireframe icosahedron — faceted, not smooth) ──
+    const sphereGeo = new THREE.IcosahedronGeometry(0.7, 1);
+    const sphereMat = new THREE.MeshBasicMaterial({
       color: 0xff5500,
-      roughness: 0.25,
-      metalness: 0.4,
-      emissive: 0xff5500,
-      emissiveIntensity: 0.15,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.85,
     });
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
     scene.add(sphere);
-
-    // ── Ambient light ──
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    // ── Directional light ──
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(3, 4, 5);
-    scene.add(dirLight);
-
-    // ── Rim light (subtle backlight) ──
-    const rimLight = new THREE.DirectionalLight(0xff5500, 0.3);
-    rimLight.position.set(-3, -2, -4);
-    scene.add(rimLight);
 
     // ── Network nodes (floating points around the structure) ──
     const nodeCount = 50;

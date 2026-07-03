@@ -186,6 +186,17 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(migrate)
+_arguments "${_arguments_options[@]}" : \
+'--target=[Path to the database directory to migrate]:TARGET:_default' \
+'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (namespace)
 _arguments "${_arguments_options[@]}" : \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
@@ -336,6 +347,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(migrate)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
 (namespace)
 _arguments "${_arguments_options[@]}" : \
 ":: :_vanta-cli__subcmd__help__subcmd__namespace_commands" \
@@ -393,6 +408,7 @@ _vanta-cli_commands() {
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
+'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -440,6 +456,7 @@ _vanta-cli__subcmd__help_commands() {
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
+'migrate:Migrate a database to the latest storage schema version' \
 'namespace:Manage namespaces' \
 'server:Start the HTTP or MCP server wrapper' \
 'help:Print this message or the help of the given subcommand(s)' \
@@ -485,6 +502,11 @@ _vanta-cli__subcmd__help__subcmd__import_commands() {
 _vanta-cli__subcmd__help__subcmd__list_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__migrate_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__migrate_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help migrate commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__namespace_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__namespace_commands() {
@@ -548,6 +570,11 @@ _vanta-cli__subcmd__import_commands() {
 _vanta-cli__subcmd__list_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli list commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__migrate_commands] )) ||
+_vanta-cli__subcmd__migrate_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli migrate commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__namespace_commands] )) ||
 _vanta-cli__subcmd__namespace_commands() {

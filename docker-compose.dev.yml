@@ -1,0 +1,38 @@
+version: "3.9"
+
+# Development compose — hot-reload via cargo-watch, exposed metrics, debug port
+services:
+  vantadb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    ports:
+      - "8080:8080"
+      - "2345:2345"
+    volumes:
+      - .:/build
+      - cargo-registry:/usr/local/cargo/registry
+      - vantadb-data-dev:/var/lib/vantadb
+    environment:
+      - VANTADB_STORAGE_PATH=/var/lib/vantadb
+      - VANTADB_HOST=0.0.0.0
+      - VANTADB_PORT=8080
+      - RUST_LOG=debug
+      - VANTADB_LOG_FORMAT=compact
+      - CARGO_BUILD_JOBS=4
+    working_dir: /build
+    entrypoint: >
+      sh -c "
+        cargo install cargo-watch 2>/dev/null; 
+        cargo watch -x 'run --package vantadb-server' --poll
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vantadb-data-dev:
+  cargo-registry:

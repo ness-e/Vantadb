@@ -42,6 +42,7 @@ pub mod query;
 pub mod sdk;
 pub mod serialization;
 
+pub mod schema;
 pub mod storage;
 pub(crate) mod text_index;
 #[cfg(feature = "advanced-tokenizer")]

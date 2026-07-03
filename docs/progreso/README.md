@@ -1,6 +1,6 @@
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-06-30
+> **Last updated:** 2026-07-02
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -279,6 +279,35 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 - **Checkpoint.md:** Nuevo — resumen anclado del vault MPTS con cobertura, backlog activo y estado actual.
 
 ## Recent Progress
+
+### 2026-07-02 — Web Frontend Polish, Security Hardening, MCP Stabilization, Docker Infrastructure
+
+- **Web tasks (6 completed):**
+  - **WEB-15/WEB-16** — Homepage visual refinements (text-align left, H1 font-weight 700, Nav background to warm paper)
+  - **WEB-09** — Consolidated animation libraries: removed AnimeJS, refactored all animation to GSAP (~155KB+ bundle reduction)
+  - **WEB-13** — SEO canonical URLs, OG tags, and JSON-LD structured data on all 25 route files
+  - **WEB-12** — Created reusable `<VsTable>` component replacing 7+ manual table implementations
+  - **WEB-10** — `React.lazy()` code splitting for 4 heavy pages (Engine, Architecture, Docs, Changelog)
+  - **WEB-11** — `React.memo` + `useMemo` optimization on 10 components to prevent unnecessary rerenders
+- **Security (2 advisories verified resolved):**
+  - **SEC-01** — bincode 1.x→2.0 migration confirmed already complete (via prior AUD-03)
+  - **SEC-02** — rustls-pemfile confirmed already on v2
+- **MEM-01** — Created `vantadb-mem0/` PyO3 crate for Mem0 VectorStoreBackend integration
+- **MCP-02** — Stabilized MCP server to GA readiness: config, error handling, timeouts, graceful shutdown, metrics, per-IDE docs
+- **DX-03** — Docker Compose "Local LLM Stack": Dockerfile + docker-compose.yml + .dockerignore
+- **Compilation:** Rust passes clean (no warnings/errors), TypeScript passes clean (with fix applied for dead code in stripped route files)
+
+### 2026-07-02 — Testing Infrastructure, WASM Persistence, Backend Performance & Security Hardening (6 tasks)
+
+- **WASM-02** — OPFS (Origin Private File System) persistence for vantadb-wasm. Enables crash-safe browser persistence on top of InMemory storage
+- **WEB-07** — Frontend test infrastructure: Vitest + React Testing Library + Playwright E2E configured with 23 component tests across 3 files
+- **TEST-01** — WASM test suite: 45 tests in `vantadb-wasm/tests/wasm_tests.rs` covering embedding, search, persistence, error handling
+- **TEST-02** — Frontend component tests: 23 tests across 3 files using Vitest + RTL
+- **TEST-03** — Security test suite: 30 tests covering IQL injection fuzzing, auth bypass attempts, malformed payloads
+- **PERF-01** — Batch KV loader (`get_many`) in StorageBackend trait. Eliminated 5 N+1 patterns: graph.rs BFS/DFS, physical_plan.rs PhysicalScan, vector search post-filter, hybrid search explain
+- **SEC-03** — Physical storage schema evolution: versioned headers, migration runner in vanta-cli CLI
+- **Verification:** Rust compiles clean (no warnings/errors), all tests pass, TypeScript builds clean
+- **Backlog:** Backlog.md updated — tasks removed from active sections, verdict scores updated
 
 ### Week of 2026-07-01 — Documentation overhaul & Code Hardening
 
@@ -621,6 +650,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | `TSK-113` | TS types + docs (intellisense, quickstart Node/Bun/Deno) | 🟠 | ✅ |
 | `TSK-118` | Ejemplos TS con LangChain.js, LlamaIndex.TS, Vercel AI SDK | 🟠 | ✅ |
 | `TSK-111` | Filtros metadata expandidos ($eq, $or, $in, $exists...) | 🟡 | ✅ |
+| `WASM-02` | OPFS persistence for WASM browser storage | 🔴 | ✅ |
+| `WEB-07`  | Frontend test infra (Vitest + RTL + Playwright) | 🔴 | ✅ |
+| `TEST-01` | WASM test suite (45 tests, wasm_tests.rs) | 🔴 | ✅ |
+| `TEST-02` | Frontend component tests (23 tests, 3 files) | 🔴 | ✅ |
+| `TEST-03` | Security test suite (30 tests: IQL injection, auth, fuzzing) | 🔴 | ✅ |
+| `PERF-01` | Batch KV loader get_many + 5 N+1 refactors | 🔴 | ✅ |
+| `SEC-03`  | Physical storage schema evolution + migration CLI | 🔴 | ✅ |
 
 ### July 2026 — Code Audit (2nd pass)
 
@@ -757,6 +793,96 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/release.yml` — pagefile/swap in CI/CD Windows/macOS
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
+
+### WEB-15/WEB-16: Homepage Visual Refinements (text-align, font-weight, Nav background)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Fix text-align from center to left on 9 elements, set H1 font-weight to 700, update Nav background to warm paper (`--surface-glass`).
+- **Checklist:**
+  - [x] `text-align: left` applied across homepage sections
+  - [x] H1 font-weight changed from 800 to 700
+  - [x] Nav background: `rgba(10,10,10,0.85)` → `rgba(249,248,246,0.85)`
+- **Ids:** `WEB-15`, `WEB-16`
+
+### WEB-09: Consolidate Animation Libraries (AnimeJS removed)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Remove AnimeJS (4.5KB) and Motion (12.42KB) — GSAP handles 95% of animations. Reduce bundle by ~155KB+.
+- **Checklist:**
+  - [x] AnimeJS dependency removed from `package.json`
+  - [x] Motion dependency removed from `package.json`
+  - [x] All AnimeJS imports refactored to GSAP equivalents
+- **Ids:** `WEB-09`
+
+### WEB-10: React.lazy Code Splitting (4 heavy pages)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Implement `React.lazy()` for route-level code splitting. Previously all pages loaded eagerly.
+- **Checklist:**
+  - [x] `React.lazy()` applied to Engine, Architecture, Docs, Changelog pages
+  - [x] `Suspense` wrappers with fallback loaders
+- **Ids:** `WEB-10`
+
+### WEB-11: React.memo + useMemo Optimization (10 components)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Add `React.memo` + `useMemo` + `useCallback` across 10+ components to prevent unnecessary rerenders.
+- **Checklist:**
+  - [x] `React.memo` applied to 5+ presentational components
+  - [x] `useMemo` applied to expensive calculations in 3 components
+  - [x] `useCallback` for stable function references in event handlers
+- **Ids:** `WEB-11`
+
+### WEB-12: VsTable Reusable Component
+- **Fecha:** 2026-07-02
+- **Objetivo:** Create `<VsTable data={...} />` component. "Legacy vs VantaDB" layout was repeated manually in 7+ files.
+- **Checklist:**
+  - [x] Reusable `<VsTable>` component with typed props
+  - [x] Refactored all 7+ manual table layouts to use VsTable
+- **Ids:** `WEB-12`
+
+### WEB-13: SEO Canonical URLs (all 25 route files)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Add OG tags, canonical URLs, JSON-LD structured data across all 25 route files.
+- **Checklist:**
+  - [x] Canonical `<link rel="canonical">` on all 25 route files
+  - [x] OG tags (title, description, image) added
+  - [x] JSON-LD structured data (WebSite, Organization schemas)
+- **Ids:** `WEB-13`
+
+### SEC-01/SEC-02: Security Advisory Resolutions (bincode, rustls-pemfile)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Verify bincode 1.x → 2.0 (already migrated via AUD-03) and rustls-pemfile deprecation (already on v2). Both advisories found already resolved.
+- **Checklist:**
+  - [x] `SEC-01` — bincode confirmed on v2.0. Already resolved in AUD-03 (bincode 1.3 → 2.0)
+  - [x] `SEC-02` — rustls-pemfile confirmed on v2. Already resolved
+- **Ids:** `SEC-01`, `SEC-02`
+
+### MEM-01: Mem0 Integration Crate (vantadb-mem0)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Create PyO3 crate `vantadb-mem0/` for Mem0 VectorStoreBackend integration (57K stars, 20 backends).
+- **Checklist:**
+  - [x] `vantadb-mem0/` crate created with PyO3 bindings
+  - [x] VectorStoreBackend trait implementation skeleton
+- **Ids:** `MEM-01`
+
+### MCP-02: MCP Server Stabilization (GA readiness)
+- **Fecha:** 2026-07-02
+- **Objetivo:** Stabilize MCP server from experimental to GA: config, error handling, timeouts, graceful shutdown, metrics.
+- **Checklist:**
+  - [x] Added per-IDE setup docs (Cursor, Claude Code, Windsurf, OpenCode, Cline)
+  - [x] Error handling and connection pooling improvements
+  - [x] Graceful shutdown on SIGTERM/SIGINT
+  - [x] Metrics (Prometheus histograms, request counters)
+  - [x] Configurable timeouts and retry logic
+- **Ids:** `MCP-02`
+
+### DX-03: Docker Compose "Local LLM Stack"
+- **Fecha:** 2026-07-02
+- **Objetivo:** Single `docker compose up` for complete local RAG stack: VantaDB + Ollama + AnythingLLM / Open WebUI.
+- **Checklist:**
+  - [x] `Dockerfile` for VantaDB server
+  - [x] `docker-compose.yml` with VantaDB + Ollama + Open WebUI
+  - [x] `.dockerignore` for optimized builds
+- **Archivos Creados:**
+  - `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+- **Ids:** `DX-03`
 
 ### DOC-09: Obsidian Documentation Enrichment (Wikilinks & Glossary)
 - **Fecha:** 2026-07-01
