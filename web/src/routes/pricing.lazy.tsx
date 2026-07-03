@@ -28,7 +28,7 @@ const tiers = [
   },
   {
     name: "Cloud Pro",
-    tagline: "Managed cloud database. Currently in early access.",
+    tagline: "Managed cloud database. Aspirational — coming in a future release.",
     price: "$29",
     period: "per month",
     features: [
@@ -43,7 +43,7 @@ const tiers = [
     ],
     cta: "Join Waitlist",
     href: "/about/contact",
-    featured: true,
+    featured: false,
   },
   {
     name: "Cloud Business",
@@ -180,7 +180,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Do you offer a free trial for Cloud plans?",
-    a: "Cloud plans are currently in early access. Join the waitlist and we'll notify you when we launch. In the meantime, the self-hosted version is free and fully functional.",
+    a: "Cloud plans are aspirational and coming in a future release. In the meantime, the self-hosted version is free and fully functional.",
   },
   {
     q: "What happens when I exceed 1M vectors in Cloud Pro?",

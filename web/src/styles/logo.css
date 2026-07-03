@@ -41,11 +41,9 @@
   0%,
   100% {
     opacity: 1;
-    filter: drop-shadow(0 0 3px rgba(255, 106, 0, 0.6));
   }
   50% {
-    opacity: 0.85;
-    filter: drop-shadow(0 0 8px rgba(255, 106, 0, 1));
+    opacity: 0.7;
   }
 }
 
@@ -114,7 +112,7 @@
   animation:
     vdbCoreAppear 0.3s var(--ease-out) 0.5s forwards,
     vdbSingularityPulse 3.5s ease-in-out 1s infinite;
-  will-change: opacity, filter;
+  will-change: opacity;
 }
 
 .vdb-mark .vdb-void-core {
@@ -125,11 +123,6 @@
 /* ─── HOVER ─── */
 
 @media (hover: hover) and (pointer: fine) {
-  .vdb-mark:hover .vdb-singularity {
-    filter: drop-shadow(0 0 12px rgba(255, 106, 0, 0.9));
-    transition: filter 200ms var(--ease-out);
-  }
-
   .vdb-mark:hover .vdb-v-leg {
     stroke: var(--amber-light);
     transition: stroke 200ms var(--ease-out);
@@ -172,9 +165,9 @@ a.vdb-logo-full,
 
 .vdb-wordmark {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  color: var(--white);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
   line-height: 1;
   user-select: none;
 }
@@ -194,14 +187,20 @@ a.vdb-logo-full,
   align-items: center;
   justify-content: center;
   background: var(--surface);
-  border: 1px solid rgba(255, 106, 0, 0.15);
+  border: 1px solid var(--amber-dim);
   transition: border-color 200ms var(--ease-cut);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .vdb-badge:hover {
-    border-color: rgba(255, 106, 0, 0.4);
+    border-color: var(--amber);
   }
+}
+
+/* ─── Inverted (dark background) ─── */
+.vdb-mark--inverted,
+.vdb-logo-full--inverted {
+  --foreground: var(--text-on-dark);
 }
 
 /* ─── NO-ANIM ─── */

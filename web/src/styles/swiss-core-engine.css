@@ -156,13 +156,24 @@
 .swiss-ce-row-expand {
   font-family: var(--font-mono);
   font-size: 1.2rem;
-  color: #555555;
+  color: var(--block-dark-muted);
   transition: transform 200ms var(--ease-cut);
 }
 
+.swiss-ce-row-expand--open {
+  transform: rotate(45deg);
+}
+
 .swiss-ce-row-content {
+  max-height: 0;
+  opacity: 0;
   overflow: hidden;
-  transition: max-height 300ms var(--ease-cut), opacity 200ms;
+  transition: max-height 300ms var(--ease-cut), opacity 200ms var(--ease-cut);
+}
+
+.swiss-ce-row-content--open {
+  max-height: 200px;
+  opacity: 1;
 }
 
 .swiss-ce-row-desc {

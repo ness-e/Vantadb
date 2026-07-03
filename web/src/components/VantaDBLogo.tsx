@@ -41,7 +41,7 @@ const VantaDBMark: React.FC<{
   accentColor?: string;
   className?: string;
   inverted?: boolean;
-}> = ({ size = 40, accentColor = "var(--amber, #ff5500)", className = "", inverted }) => {
+}> = ({ size = 40, accentColor = "var(--amber)", className = "", inverted }) => {
   return (
     <svg
       width={size}
@@ -50,8 +50,7 @@ const VantaDBMark: React.FC<{
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className={`vdb-mark ${className}`}
-      style={inverted ? { "--foreground": "#ffffff" } as React.CSSProperties : undefined}
+      className={`vdb-mark ${className}${inverted ? " vdb-mark--inverted" : ""}`}
     >
       {/* ── Outer Circle (Stroke) ──────────────── */}
       <circle cx="32" cy="32" r="24" fill="none" stroke="var(--foreground)" strokeWidth="6" />
@@ -72,25 +71,14 @@ export const VantaDBLogoFull: React.FC<{
 
   return (
     <div
-      className={`vdb-logo-full ${className}`}
+      className={`vdb-logo-full ${className}${inverted ? " vdb-logo-full--inverted" : ""}`}
       role="img"
       aria-label="VantaDB"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
-        ...(inverted ? { "--foreground": "#ffffff" } as React.CSSProperties : {}),
-      }}
     >
       <VantaDBMark size={markPx} inverted={inverted} />
       <span
         className="vdb-wordmark"
-        style={{
-          fontSize: `${fontPx}px`,
-          fontWeight: 800,
-          letterSpacing: "-0.02em",
-          color: "var(--foreground)",
-        }}
+        style={{ fontSize: `${fontPx}px` }}
         aria-hidden="true"
       >
         VantaDB

@@ -41,23 +41,23 @@ describe("Nav", () => {
 
   it("toggles mobile menu on hamburger click", () => {
     render(<Nav />);
-    const hamburger = screen.getByLabelText("Open menu");
+    const hamburger = screen.getByLabelText("Menu");
     expect(hamburger).toBeInTheDocument();
 
     fireEvent.click(hamburger);
     const closeButtons = screen.getAllByLabelText("Close menu");
-    expect(closeButtons.length).toBe(2);
+    expect(closeButtons.length).toBe(1);
 
     fireEvent.click(closeButtons[0]);
-    expect(screen.getByLabelText("Open menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
   });
 
   it("shows overlay when mobile menu is open", () => {
     render(<Nav />);
-    fireEvent.click(screen.getByLabelText("Open menu"));
+    fireEvent.click(screen.getByLabelText("Menu"));
     const overlay = document.querySelector(".nav-overlay")!;
     expect(overlay).toBeInTheDocument();
     fireEvent.click(overlay);
-    expect(screen.getByLabelText("Open menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
   });
 });

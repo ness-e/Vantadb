@@ -86,40 +86,21 @@ export function SwissArchSection() {
               {LAYERS.map((layer, index) => (
                 <div
                   key={layer.id}
-                  className={
-                    `swiss-arch-layer ` +
-                    (layer.size === "large"
-                      ? "swiss-arch-layer--large"
-                      : layer.size === "medium"
-                        ? "swiss-arch-layer--medium"
-                        : "swiss-arch-layer--small")
-                  }
-                  style={{
-                    background: "rgba(249, 248, 246, 0.5)",
-                    border: `1px solid ${layer.color}`,
-                    zIndex: 10 - index,
-                  }}
+                  className={`swiss-arch-layer swiss-arch-layer--${layer.size} ${layer.id === "pyo3" ? "swiss-arch-layer--accent" : ""}`}
                   onMouseEnter={(e) => {
-                    const allLayers = document.querySelectorAll(".swiss-arch-layer");
-                    allLayers.forEach((l) => {
-                      if (l !== e.currentTarget) (l as HTMLElement).style.opacity = "0.3";
-                    });
-                    e.currentTarget.style.border = "1px solid var(--amber)";
-                    e.currentTarget.style.background = "var(--surface)";
+                    const parent = e.currentTarget.closest(".swiss-arch-layers-stack");
+                    parent?.classList.add("swiss-arch-stack--hovered");
+                    e.currentTarget.classList.add("swiss-arch-layer--active");
                   }}
                   onMouseLeave={(e) => {
-                    const allLayers = document.querySelectorAll(".swiss-arch-layer");
-                    allLayers.forEach((l, i) => {
-                      (l as HTMLElement).style.opacity = "1";
-                      (l as HTMLElement).style.border = `1px solid ${LAYERS[i].color}`;
-                      (l as HTMLElement).style.background = "rgba(249, 248, 246, 0.5)";
-                    });
+                    const parent = e.currentTarget.closest(".swiss-arch-layers-stack");
+                    parent?.classList.remove("swiss-arch-stack--hovered");
+                    e.currentTarget.classList.remove("swiss-arch-layer--active");
                   }}
                 >
                   <div className="swiss-arch-layer-badge">
                     <span
-                      className="swiss-arch-layer-badge-text"
-                      style={{ color: layer.color }}
+                      className={`swiss-arch-layer-badge-text ${layer.id === "pyo3" ? "swiss-arch-layer-badge-text--accent" : ""}`}
                     >
                       {layer.type}
                     </span>
@@ -141,11 +122,8 @@ export function SwissArchSection() {
                         y1="0"
                         x2="10"
                         y2="40"
-                        stroke="var(--border)"
-                        strokeWidth="1"
-                        strokeDasharray="4 4"
                       />
-                      <polygon points="5,35 15,35 10,40" fill="var(--border)" />
+                      <polygon points="5,35 15,35 10,40" />
                     </svg>
                   )}
 

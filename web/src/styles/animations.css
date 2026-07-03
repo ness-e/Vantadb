@@ -23,7 +23,7 @@
 .reveal-mask__inner {
   transform: translateY(110%);
   will-change: transform;
-  transition: transform 350ms var(--ease-cut);
+  transition: transform 300ms var(--ease-cut);
 }
 
 .reveal-mask__inner.is-visible {
@@ -147,8 +147,7 @@
 /* Swiss: plano, sin gradiente, borde 1px rígido */
 .scroll-panel-inner {
   padding: 3rem;
-  border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   max-width: 560px;
 }
@@ -159,11 +158,10 @@
 
 /* ── Tactile cards — Swiss flat variant ── */
 .tactile-card {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   padding: 2rem;
-  transition: border-color 150ms linear;
+  transition: border-color 150ms var(--ease-cut);
 }
 
 .tactile-card:hover {
@@ -193,7 +191,7 @@
   align-items: center;
   gap: 0.5rem;
   background: var(--amber);
-  color: #ffffff;
+  color: var(--text-on-dark);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
@@ -201,15 +199,14 @@
   text-transform: uppercase;
   text-decoration: none;
   padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
-  transition: background 150ms linear;
+  transition: background 150ms var(--ease-cut);
 }
 
 .tactile-btn:hover {
   background: var(--foreground);
-  color: #ffffff;
+  color: var(--text-on-dark);
 }
 
 .tactile-btn:active {

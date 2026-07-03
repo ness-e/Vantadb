@@ -114,7 +114,7 @@ function MaintPage() {
                   >
                     <span
                       style={{
-                        color: "#ff3b30",
+                        color: "var(--steel)",
                         fontWeight: 700,
                         minWidth: "1rem",
                         fontFamily: "var(--font-mono)",
@@ -260,24 +260,24 @@ function MaintPage() {
                       lineHeight: 1.4,
                     }}
                   >
+                      <span
+                        style={{
+                          color: "var(--steel)",
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        ✗
+                      </span>
+                      {item.task}
+                    </div>
                     <span
                       style={{
-                        color: "#ff3b30",
                         fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✗
-                    </span>
-                    {item.task}
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "#ff3b30",
-                      textAlign: "right",
+                        fontSize: "0.65rem",
+                        color: "var(--steel)",
+                        textAlign: "right",
                     }}
                   >
                     {item.time}
@@ -291,7 +291,7 @@ function MaintPage() {
                   fontSize: "1.4rem",
                   fontWeight: 800,
                   letterSpacing: "-0.04em",
-                  color: "#ff3b30",
+                  color: "var(--steel)",
                 }}
               >
                 ~4h / week

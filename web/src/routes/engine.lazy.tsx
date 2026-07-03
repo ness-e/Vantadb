@@ -421,7 +421,7 @@ function ArchitecturePipeline() {
     { name: "BM25", desc: "Lexical Score", color: "var(--steel)" },
     { name: "HNSW", desc: "Vector Recall", color: "var(--steel)" },
     { name: "RRF", desc: "Fused Ranker", color: "var(--amber)" },
-    { name: "GraphRAG", desc: "Traversal", color: "var(--steel)" },
+    { name: "Edges", desc: "Local Graph", color: "var(--steel)" },
     { name: "WAL", desc: "Durable Write", color: "var(--steel)" },
   ];
 
@@ -518,7 +518,7 @@ function EnginePage() {
             One atomic contract.
           </span>
         }
-        sub="VantaDB consolidates lexical matching, HNSW vector search, Graph traversal nodes and transactional persistence in a zero-dependency Rust local-first library database."
+        sub="VantaDB consolidates lexical matching, HNSW vector search, local graph edges and transactional persistence in a zero-dependency Rust local-first library database."
       />
 
       <main className="engine-main">
@@ -779,7 +779,7 @@ function EnginePage() {
                   style={{ fontSize: "0.85rem", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}
                 >
                   Hover nodes to explore in-memory relations. VantaDB stores directed adjacency
-                  lists alongside vectors for seamless GraphRAG implementations.
+                  lists alongside vectors for graph-based agent memory applications.
                 </p>
               </div>
             </div>

@@ -68,7 +68,6 @@ function BlogPost() {
                     color: "var(--steel)",
                     background: "var(--surface)",
                     padding: "0.15rem 0.5rem",
-                    borderRadius: "var(--radius-pill)",
                   }}
                 >
                   {t}

@@ -99,10 +99,7 @@ export function SwissCoreEngine() {
 
                   {/* Expand indicator */}
                   <span
-                    className="swiss-ce-row-expand"
-                    style={{
-                      transform: isExpanded ? "rotate(45deg)" : "rotate(0deg)",
-                    }}
+                    className={`swiss-ce-row-expand ${isExpanded ? "swiss-ce-row-expand--open" : ""}`}
                   >
                     +
                   </span>
@@ -110,11 +107,7 @@ export function SwissCoreEngine() {
 
                 {/* Expanded Content */}
                 <div
-                  className="swiss-ce-row-content"
-                  style={{
-                    maxHeight: isExpanded ? "200px" : "0px",
-                    opacity: isExpanded ? 1 : 0,
-                  }}
+                  className={`swiss-ce-row-content ${isExpanded ? "swiss-ce-row-content--open" : ""}`}
                 >
                   <p className="swiss-ce-row-desc">
                     {feat.desc}

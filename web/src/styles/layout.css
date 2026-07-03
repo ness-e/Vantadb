@@ -118,6 +118,14 @@
   background-color: var(--background);
   position: relative;
   overflow: hidden;
+  width: 100%;
+}
+
+.swiss-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 5vw, 4rem);
+  width: 100%;
 }
 
 .page-header-extended {
@@ -230,7 +238,7 @@
   display: grid;
   grid-template-columns: 80px repeat(4, 1fr);
   gap: 1px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--void);
 }
 
 .chart-table-header {
@@ -264,7 +272,7 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--foreground);
-  border-left: 1px solid rgba(255, 255, 255, 0.03);
+  border-left: 1px solid var(--subtle);
 }
 
 .chart-table-col-vis {
@@ -316,22 +324,19 @@
 .stack-card {
   width: 100%;
   padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+  transition: border-color 0.2s;
   border-left: 3px solid var(--accent, var(--amber));
 }
 
 .stack-card--single {
   border-left-color: var(--amber);
   background: var(--amber-dim);
-  border-color: rgba(255, 106, 0, 0.15);
+  border-color: var(--amber-dim);
 }
 
 .stack-card-name {
@@ -453,7 +458,7 @@
   z-index: 10000;
   padding: 0.5rem 1rem;
   background: var(--amber);
-  color: #000;
+  color: var(--black);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   text-decoration: none;
@@ -612,14 +617,12 @@ section {
   font-size: 0.82em;
   background: var(--surface);
   padding: 0.15em 0.4em;
-  border-radius: var(--radius-sm);
   border: 1px solid var(--subtle);
   color: var(--amber);
 }
 .article-body pre {
   background: var(--surface);
   border: 1px solid var(--subtle);
-  border-radius: var(--radius-md);
   padding: 1.25rem 1.5rem;
   overflow-x: auto;
   margin: 1.5rem 0;
@@ -659,7 +662,6 @@ section {
   margin: 1.5rem 0;
   padding: 1rem 1.5rem;
   background: var(--surface);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--frost);
   font-style: italic;
   line-height: 1.7;
@@ -775,9 +777,8 @@ section {
 }
 
 .action-btn:hover {
-  background: #000000;
-  color: #ffffff;
-  transform: translateY(-1px);
+  background: var(--black);
+  color: var(--text-on-dark);
 }
 
 .cl-release-header {
@@ -808,7 +809,6 @@ section {
   color: var(--amber);
   background: var(--amber-dim);
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 .cl-changes {
@@ -829,7 +829,6 @@ section {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-sm);
   border: 1px solid;
   white-space: nowrap;
   flex-shrink: 0;
