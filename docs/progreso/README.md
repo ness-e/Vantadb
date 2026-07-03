@@ -280,6 +280,17 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-03 — Massive Adapter, WASM, Performance, Security & DX Batch (25 tareas completadas)
+
+Se completan 25 tareas en una gran tanda pre-lanzamiento que abarca 7 áreas críticas:
+
+- **Framework Adapters (7):** MEM-02 (vantadb-letta), TSK-89 (vantadb-crewai), TSK-91 (vantadb-dspy), TSK-92 (vantadb-haystack), TSK-95 (vantadb-litellm), TSK-116 (vantadb-openai), TSK-117 (vantadb-ollama)
+- **WASM (3):** WASM-03 (demo Transformers.js + OPFS), WASM-04 (bundle 394.5 KB gzip), WASM-05 (SIMD f32x4 cosine distance)
+- **MCP (2):** MCP-04 (collection management tools), MCP-05 (25 tests)
+- **Performance (6):** PERF-02 (Sharded WAL), PERF-04 (typed error variants), PERF-05 (module split), PERF-07 (edge index + referential integrity), PERF-08 (secondary scalar indexes), PERF-10 (memory governor + eviction metrics)
+- **Developer Experience (3):** DX-01 (connect()), DX-02 (Python SDK latency — LRU cache, buffer reuse), DX-04 (55 TS tests)
+- **Security (4):** SEC-04 (auth hardening — subtle::ConstantTimeEq, rate limiting, /metrics auth), SEC-05 (RBAC design), SEC-06 (SBOM workflow), SEC-07 (CodeQL + cargo-deny CI)
+
 ### 2026-07-02 — Web Frontend Polish, Security Hardening, MCP Stabilization, Docker Infrastructure
 
 - **Web tasks (6 completed):**

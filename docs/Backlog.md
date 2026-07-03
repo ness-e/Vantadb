@@ -38,13 +38,13 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 |----|-------|-----------|--------|
 | `INT-01` | LangChain adapter (PyPI + PR langchain-community) | 🔴 | ❌ |
 | `INT-02` | LlamaIndex adapter (PyPI + PR llama-index) | 🔴 | ❌ |
-| `MEM-02` | Letta (fka MemGPT): VantaDB as memory backend (23K stars) | 🟡 | ❌ |
-| `TSK-89` | CrewAI: VantaDBMemory for multi-agent crews | 🟡 | ❌ |
-| `TSK-91` | DSPy: VantaDBRM (Retrieval Module) | 🟡 | ❌ |
-| `TSK-92` | Haystack: VantaDBDocumentStore | 🟡 | ❌ |
-| `TSK-116` | vantadb-openai (optional embedding package) | 🟡 | ❌ |
-| `TSK-117` | vantadb-ollama (local offline embedding) | 🟡 | ❌ |
-| `TSK-95` | vantadb-litellm (universal gateway embeddings) | 🟡 | ❌ |
+| `MEM-02` | Letta (fka MemGPT): VantaDB as memory backend (23K stars) | 🟡 | ✅ |
+| `TSK-89` | CrewAI: VantaDBMemory for multi-agent crews | 🟡 | ✅ |
+| `TSK-91` | DSPy: VantaDBRM (Retrieval Module) | 🟡 | ✅ |
+| `TSK-92` | Haystack: VantaDBDocumentStore | 🟡 | ✅ |
+| `TSK-116` | vantadb-openai (optional embedding package) | 🟡 | ✅ |
+| `TSK-117` | vantadb-ollama (local offline embedding) | 🟡 | ✅ |
+| `TSK-95` | vantadb-litellm (universal gateway embeddings) | 🟡 | ✅ |
 
 ### 4.C MCP & WASM Differentiation (Unique Competitive Advantage)
 
@@ -52,11 +52,11 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 |----|-------|-----------|--------|
 | `MCP-03` | Publish benchmarks and feature comparison vs WASM vector DBs (EdgeVec, minimemory, altor-vec, lattice-db). Establish "most feature-complete WASM vector DB" narrative | 🔴 | ❌ |
 
-| `WASM-03` | Build demo: AI Agent running entirely in browser (Transformers.js + VantaDB WASM + persistent OPFS memory). No competitor enables this | 🟡 | ❌ |
-| `WASM-04` | WASM bundle size optimization (target: <500KB gzip). Currently unmeasured | 🟡 | ❌ |
-| `WASM-05` | SIMD acceleration for WASM build (expose f32x8 cosine distance in browser) | 🟡 | ❌ |
-| `MCP-04` | MCP server: add tool for collection management (list, delete, stats) and streaming search results | 🟡 | ❌ |
-| `MCP-05` | MCP server: write integration test suite (currently 9 tests, target 25+) | 🟡 | ❌ |
+| `WASM-03` | Build demo: AI Agent running entirely in browser (Transformers.js + VantaDB WASM + persistent OPFS memory). No competitor enables this | 🟡 | ✅ |
+| `WASM-04` | WASM bundle size optimization (target: <500KB gzip). Currently unmeasured | 🟡 | ✅ |
+| `WASM-05` | SIMD acceleration for WASM build (expose f32x8 cosine distance in browser) | 🟡 | ✅ |
+| `MCP-04` | MCP server: add tool for collection management (list, delete, stats) and streaming search results | 🟡 | ✅ |
+| `MCP-05` | MCP server: write integration test suite (currently 9 tests, target 25+) | 🟡 | ✅ |
 
 ### 4.D Launch Campaign
 
@@ -80,15 +80,15 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 
-| `PERF-02` | Refactor WAL Mutex contention (`Mutex<Option<WalWriter>>` serializes all writes). Evaluate `async-lock` or sharded WAL segments | 🟡 | ❌ |
+| `PERF-02` | Refactor WAL Mutex contention (`Mutex<Option<WalWriter>>` serializes all writes). Evaluate `async-lock` or sharded WAL segments | 🟡 | ✅ |
 | `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) | 🟠 | ❌ |
-| `PERF-04` | Refactor `Execution(String)` catch-all → typed error variants (TODO in source) | 🟡 | ❌ |
-| `PERF-05` | Split monolithic files: `storage.rs` (2624L), `index.rs` (2044L), `metrics.rs` (1300L), `cli_server.rs` (687L) into modules | 🟡 | ❌ |
+| `PERF-04` | Refactor `Execution(String)` catch-all → typed error variants (TODO in source) | 🟡 | ✅ |
+| `PERF-05` | Split monolithic files: `storage.rs` (2624L), `index.rs` (2044L), `metrics.rs` (1300L), `cli_server.rs` (687L) into modules | 🟡 | ✅ |
 | `PERF-06` | Eliminate duplicated `append_to_vstore` / `write_node_to_vstore` (40L near-identical, storage.rs:1170-1257) | 🟢 | ❌ |
-| `PERF-07` | Global edge index + referential integrity (ON DELETE CASCADE for dangling edges) | 🟡 | ❌ |
-| `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ❌ |
+| `PERF-07` | Global edge index + referential integrity (ON DELETE CASCADE for dangling edges) | 🟡 | ✅ |
+| `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ✅ |
 | `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ❌ |
-| `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ❌ |
+| `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ✅ |
 
 ### 4.F Distribution
 
@@ -106,9 +106,9 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 |----|-------|-----------|--------|
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB (showcase) | 🟠 | ❌ |
 | `TSK-103` | Public benchmark site (compare.py vs chroma/lancedb/qdrant) | 🟠 | ❌ |
-| `DX-01` | Refactor API: `VantaDB()` → `connect()` (eliminar redundancia, alinear con SQLite3/LanceDB/DuckDB) | 🟠 | ❌ |
-| `DX-02` | Python SDK latency optimization: reduce p50 from ~62ms to <20ms (PyO3 FFI overhead) | 🟠 | ❌ |
-| `DX-04` | TypeScript SDK: improve from 18 tests to 50+ covering edge cases, error handling, concurrent access | 🟡 | ❌ |
+| `DX-01` | Refactor API: `VantaDB()` → `connect()` (eliminar redundancia, alinear con SQLite3/LanceDB/DuckDB) | 🟠 | ✅ |
+| `DX-02` | Python SDK latency optimization: reduce p50 from ~62ms to <20ms (PyO3 FFI overhead) | 🟠 | ✅ |
+| `DX-04` | TypeScript SDK: improve from 18 tests to 50+ covering edge cases, error handling, concurrent access | 🟡 | ✅ |
 
 
 ### 4.H Code Health & Security
@@ -116,10 +116,10 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 
-| `SEC-04` | Auth hardening: constant-time comparison (`subtle::ConstantEq`), rate limiting on auth failures, make `/metrics` auth-required | 🟠 | ❌ |
-| `SEC-05` | RBAC design: scoped API tokens (read-only, namespace-scoped, time-limited) for multi-user server deployments | 🟡 | ❌ |
-| `SEC-06` | SBOM (SPDX/CycloneDX) generation in each release | 🟡 | ❌ |
-| `SEC-07` | CodeQL + cargo-deny in CI for vulnerability scanning on every PR | 🟡 | ❌ |
+| `SEC-04` | Auth hardening: constant-time comparison (`subtle::ConstantEq`), rate limiting on auth failures, make `/metrics` auth-required | 🟠 | ✅ |
+| `SEC-05` | RBAC design: scoped API tokens (read-only, namespace-scoped, time-limited) for multi-user server deployments | 🟡 | ✅ |
+| `SEC-06` | SBOM (SPDX/CycloneDX) generation in each release | 🟡 | ✅ |
+| `SEC-07` | CodeQL + cargo-deny in CI for vulnerability scanning on every PR | 🟡 | ✅ |
 | `DOC-01` | Unit tests: 34/48 modules without `#[cfg(test)]`. Priority: `config.rs`, `engine.rs`, `executor.rs`, `gc.rs`, `metrics.rs`, `storage.rs`, `graph.rs`, `backends/` | 🟡 | ⏳ |
 | `DOC-02` | Refactor `insert_hnsw()` in `src/index.rs` (177L → 3 functions: `compute_inv_cached_norm`, `shrink_neighbors`, `insert_hnsw`) | 🟡 | ✅ |
 | `DOC-03` | Normalize 6 files with Unicode/accent in filename to pure ASCII (avoids cross-platform issues) | 🟢 | ✅ |
