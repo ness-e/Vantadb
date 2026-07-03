@@ -1,62 +1,23 @@
 import { Link } from "@tanstack/react-router";
 import { memo } from "react";
+import VantaDBLogo from "./VantaDBLogo";
 
 export const SwissFooter = memo(function SwissFooter() {
   return (
-    <footer
-      style={{
-        background: "var(--block-dark-bg, #0a0a0a)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
-        padding: "80px 24px 40px 24px",
-        color: "var(--block-dark-text, #f0f0f0)",
-      }}
-    >
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "48px",
-            marginBottom: "80px",
-          }}
-        >
+    <footer className="swiss-footer">
+      <div className="swiss-inner">
+        <div className="footer-grid">
           {/* Logo Column */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "1.5rem",
-                fontWeight: 700,
-                letterSpacing: "-0.04em",
-                color: "#ffffff",
-              }}
-            >
-              VantaDB
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.75rem",
-                color: "var(--block-dark-muted, #808080)",
-                letterSpacing: "0.1em",
-              }}
-            >
+          <div className="footer-col">
+            <VantaDBLogo variant="full" size="lg" inverted />
+            <span className="footer-tagline">
               Embedded Cognitive Memory.
             </span>
           </div>
 
           {/* Links Columns */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.75rem",
-                color: "#ffffff",
-                letterSpacing: "0.1em",
-              }}
-            >
-              PRODUCT
-            </span>
+          <div className="footer-col">
+            <span className="footer-col-label">PRODUCT</span>
             <Link to="/engine" className="footer-link">
               Core Engine
             </Link>
@@ -66,44 +27,41 @@ export const SwissFooter = memo(function SwissFooter() {
             <Link to="/integrations" className="footer-link">
               Integrations
             </Link>
+            <Link to="/solutions/ai-agents" className="footer-link">
+              AI Agents
+            </Link>
+            <Link to="/solutions/local-rag" className="footer-link">
+              Local RAG
+            </Link>
             <Link to="/pricing" className="footer-link">
               Pricing
             </Link>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.75rem",
-                color: "#ffffff",
-                letterSpacing: "0.1em",
-              }}
-            >
-              RESOURCES
-            </span>
+          <div className="footer-col">
+            <span className="footer-col-label">RESOURCES</span>
             <Link to="/docs" className="footer-link">
               Documentation
             </Link>
             <Link to="/use-cases" className="footer-link">
               Use Cases
             </Link>
+            <Link to="/security" className="footer-link">
+              Security
+            </Link>
+            <Link to="/changelog" className="footer-link">
+              Changelog
+            </Link>
+            <Link to="/product/benchmarks" className="footer-link">
+              Benchmarks
+            </Link>
             <Link to="/blog" className="footer-link">
               Blog
             </Link>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.75rem",
-                color: "#ffffff",
-                letterSpacing: "0.1em",
-              }}
-            >
-              COMPANY
-            </span>
+          <div className="footer-col">
+            <span className="footer-col-label">COMPANY</span>
             <Link to="/about" className="footer-link">
               About
             </Link>
@@ -117,36 +75,17 @@ export const SwissFooter = memo(function SwissFooter() {
         </div>
 
         {/* Bottom bar */}
-        <div
-          style={{
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-            paddingTop: "32px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "16px",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.75rem",
-              color: "var(--block-dark-muted, #808080)",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
+        <div className="footer-bottom">
+          <span className="footer-copyright">
             © {new Date().getFullYear()} VantaDB. All rights reserved.
           </span>
 
-          <div style={{ display: "flex", gap: "24px" }}>
+          <div className="footer-social">
             <a
               href="https://github.com/ness-e/Vantadb"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
-              style={{ fontSize: "0.75rem", textTransform: "uppercase" }}
+              className="footer-link footer-link--sm"
             >
               GitHub
             </a>
@@ -154,8 +93,7 @@ export const SwissFooter = memo(function SwissFooter() {
               href="https://twitter.com/vantadb"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
-              style={{ fontSize: "0.75rem", textTransform: "uppercase" }}
+              className="footer-link footer-link--sm"
             >
               Twitter
             </a>
@@ -163,27 +101,13 @@ export const SwissFooter = memo(function SwissFooter() {
               href="https://discord.gg/vantadb"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
-              style={{ fontSize: "0.75rem", textTransform: "uppercase" }}
+              className="footer-link footer-link--sm"
             >
               Discord
             </a>
           </div>
         </div>
       </div>
-
-      <style>{`
-        .footer-link {
-          font-family: var(--font-sans);
-          font-size: 0.95rem;
-          color: var(--block-dark-muted, #808080);
-          text-decoration: none;
-          transition: color 150ms;
-        }
-        .footer-link:hover {
-          color: #ffffff;
-        }
-      `}</style>
     </footer>
   );
 });
