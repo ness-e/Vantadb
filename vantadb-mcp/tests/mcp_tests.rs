@@ -576,14 +576,26 @@ fn test_collection_stats() {
     let res = handle_tools_call(&params, &executor, &storage, &default_config());
     assert!(res.is_ok());
     let val = res.unwrap();
-    assert!(val["isError"].is_null(), "collection_stats should not error");
+    assert!(
+        val["isError"].is_null(),
+        "collection_stats should not error"
+    );
     let text = val["content"][0]["text"].as_str().unwrap();
     let stats: Value = serde_json::from_str(text).unwrap();
-    assert!(stats["total_records"].as_u64().unwrap_or(0) >= 1, "should have at least 1 record");
+    assert!(
+        stats["total_records"].as_u64().unwrap_or(0) >= 1,
+        "should have at least 1 record"
+    );
     let vector_count = stats["vector_count"].as_u64().unwrap_or(0);
     assert!(vector_count >= 1, "should have at least 1 vector");
-    assert!(stats["total_bytes"].as_u64().unwrap_or(0) > 0, "total_bytes should be positive");
-    assert!(stats["created_at"].as_u64().unwrap_or(0) > 0, "created_at should be positive");
+    assert!(
+        stats["total_bytes"].as_u64().unwrap_or(0) > 0,
+        "total_bytes should be positive"
+    );
+    assert!(
+        stats["created_at"].as_u64().unwrap_or(0) > 0,
+        "created_at should be positive"
+    );
 }
 
 #[test]
@@ -615,9 +627,18 @@ fn test_collection_list() {
     assert!(val["isError"].is_null(), "collection_list should not error");
     let text = val["content"][0]["text"].as_str().unwrap();
     let collections: Vec<Value> = serde_json::from_str(text).unwrap();
-    let names: Vec<&str> = collections.iter().map(|c| c["name"].as_str().unwrap()).collect();
-    assert!(names.contains(&"list_a"), "collections should include list_a");
-    assert!(names.contains(&"list_b"), "collections should include list_b");
+    let names: Vec<&str> = collections
+        .iter()
+        .map(|c| c["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"list_a"),
+        "collections should include list_a"
+    );
+    assert!(
+        names.contains(&"list_b"),
+        "collections should include list_b"
+    );
     for c in &collections {
         assert_eq!(c["record_count"], 1);
     }
@@ -648,7 +669,10 @@ fn test_collection_delete() {
     }));
     let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
     let list_text = list_res["content"][0]["text"].as_str().unwrap();
-    assert!(list_text.contains("k0"), "records should exist before delete");
+    assert!(
+        list_text.contains("k0"),
+        "records should exist before delete"
+    );
 
     // Delete without confirm should fail
     let del_no_confirm = Some(json!({
@@ -674,7 +698,8 @@ fn test_collection_delete() {
     assert_eq!(result["records_removed"], 3);
 
     // Verify namespace is empty
-    let list_after = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
+    let list_after =
+        handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
     let after_text = list_after["content"][0]["text"].as_str().unwrap();
     let page: Value = serde_json::from_str(after_text).unwrap();
     let records = page["records"].as_array().unwrap();
@@ -695,7 +720,10 @@ fn test_mcp_invalid_json() {
     assert_eq!(err.code, -32700);
     let err_json = err.to_json();
     assert_eq!(err_json["code"], -32700);
-    assert!(err_json["message"].as_str().unwrap().contains("Parse error"));
+    assert!(err_json["message"]
+        .as_str()
+        .unwrap()
+        .contains("Parse error"));
 
     // Verify that handle_tools_call with None params fails with invalid params,
     // confirming that the dispatch correctly catches malformed input at the handler level
@@ -721,7 +749,10 @@ fn test_mcp_unknown_method() {
     let err = res.unwrap_err();
     assert_eq!(err["code"], -32601, "should be method not found");
     assert!(
-        err["message"].as_str().unwrap().contains("nonexistent_tool"),
+        err["message"]
+            .as_str()
+            .unwrap()
+            .contains("nonexistent_tool"),
         "error message should include tool name"
     );
 }
@@ -910,7 +941,10 @@ fn test_mcp_resource_invalid() {
     let (_dir, storage) = setup_storage();
 
     let res = handle_resources_read(&Some(json!({"uri": "nonexistent://resource"})), &storage);
-    assert!(res.is_err(), "non-existent resource URI should return error");
+    assert!(
+        res.is_err(),
+        "non-existent resource URI should return error"
+    );
     let err = res.unwrap_err();
     assert_eq!(err["code"], -32601, "should be method not found");
 }
@@ -944,7 +978,10 @@ fn test_mcp_prompt_invalid_name() {
     let err = res.unwrap_err();
     assert_eq!(err["code"], -32602, "should be invalid params");
     assert!(
-        err["message"].as_str().unwrap().contains("nonexistent_prompt_name"),
+        err["message"]
+            .as_str()
+            .unwrap()
+            .contains("nonexistent_prompt_name"),
         "error message should include prompt name"
     );
 }
