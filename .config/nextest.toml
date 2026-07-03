@@ -62,7 +62,8 @@ status-level = "slow"
 final-status-level = "slow"
 slow-timeout = { period = "60s", terminate-after = 3 }
 leak-timeout = { period = "500ms", result = "fail" }
-[profile.audit.overrides."cfg(target_os = \"windows\")"]
+[[profile.audit.overrides]]
+filter = "cfg(target_os = \"windows\")"
 test-threads = 2
 
 [profile.audit.junit]
