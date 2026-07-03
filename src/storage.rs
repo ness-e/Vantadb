@@ -1175,52 +1175,7 @@ impl StorageEngine {
         self.last_query_timestamp.store(now, Ordering::Release);
     }
 
-    fn append_to_vstore(&self, node: &UnifiedNode) -> Result<u64> {
-        let mut vstore = self.vector_store.write();
-        let offset = vstore.write_cursor;
-
-        let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
-        let vec_len = if let crate::node::VectorRepresentations::Full(ref v) = node.vector {
-            v.len()
-        } else {
-            0
-        };
-        let vec_size = (vec_len * 4) as u64;
-        let total_needed = offset + header_size + vec_size;
-
-        if total_needed > vstore.size {
-            let new_size = vstore.size * 2;
-            vstore.grow_to(new_size)?;
-        }
-
-        let mut header = DiskNodeHeader::new(node.id);
-        header.vector_offset = offset + header_size;
-        header.vector_len = vec_len as u32;
-        header.flags = node.flags.0;
-        header.bitset = node.bitset;
-        header.confidence_score = node.confidence_score;
-        header.importance = node.importance;
-        header.tier = match node.tier {
-            crate::node::NodeTier::Hot => 1u8,
-            crate::node::NodeTier::Cold => 0u8,
-        };
-        header.edge_count = node.edges.len() as u16;
-
-        vstore.write_header(offset, &header)?;
-
-        if let crate::node::VectorRepresentations::Full(ref vec) = node.vector {
-            let vec_bytes = vec.as_bytes();
-            vstore.mmap_bytes_mut()?
-                [(offset + header_size) as usize..(offset + header_size + vec_size) as usize]
-                .copy_from_slice(vec_bytes);
-        }
-
-        vstore.write_cursor = (total_needed + 63) & !63; // Align next header to 64B
-        vstore.save_cursor()?;
-        Ok(offset)
-    }
-
-    /// Write a node to VantaFile during WAL replay (before engine is fully constructed).
+    /// Write a node to VantaFile.
     fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
         let offset = vstore.write_cursor;
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
@@ -1704,7 +1659,8 @@ impl StorageEngine {
             wal_writer.append(&crate::wal::WalRecord::Insert(active_node.clone()))?;
         }
 
-        let storage_offset = self.append_to_vstore(&active_node)?;
+        let mut vstore = self.vector_store.write();
+        let storage_offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
 
         let key = active_node.id.to_le_bytes();
         let metadata = NodeMetadata {
@@ -1924,7 +1880,8 @@ impl StorageEngine {
             .map_err(|e| VantaError::SerializationError(e.to_string()))?;
         self.backend.put(partition, &key, &val)?;
 
-        let storage_offset = self.append_to_vstore(node)?;
+        let mut vstore = self.vector_store.write();
+        let storage_offset = Self::write_node_to_vstore(&mut vstore, node)?;
         self.refresh_index(node, storage_offset)?;
         Ok(())
     }

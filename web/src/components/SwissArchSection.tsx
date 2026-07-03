@@ -51,10 +51,7 @@ export function SwissArchSection() {
           
           {/* Texto Descriptivo - Columna 1-4 */}
           <div style={{ gridColumn: "1 / 5" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-label)", fontWeight: 600, letterSpacing: "0.14em", color: "var(--steel)", textTransform: "uppercase" }}>
-              [BLUEPRINT CROSS-SECTION]
-            </span>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "24px 0 48px 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "0 0 48px 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
               No network.<br />No latency.
             </h2>
             <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--muted)", lineHeight: 1.6 }}>
@@ -81,7 +78,7 @@ export function SwissArchSection() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    transition: "all 300ms",
+                    transition: "all 200ms cubic-bezier(0.25, 1, 0.5, 1)",
                     zIndex: 10 - index
                   }}
                   onMouseEnter={(e) => {

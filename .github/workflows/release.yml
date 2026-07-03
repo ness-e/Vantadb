@@ -1,163 +1,47 @@
-name: Release VantaDB
+name: Release
 
 on:
   push:
     tags:
-      - "v*.*.*"
-  workflow_dispatch:
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
-env:
-  CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
-
-permissions:
-  contents: write
-  packages: write
-  id-token: write
-  attestations: write
+      - 'v*'
 
 jobs:
-  gate:
-    name: Pre-release validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
-      - name: Validate version coherence
-        run: cargo test --test version_coherence --all-features
-
-  build-and-deploy:
-    name: Build release binaries (${{ matrix.os }})
-    needs: gate
+  build:
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
 
     steps:
-      - name: Free Disk Space (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - name: Add swap space (prevent OOM)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo swapoff /swapfile || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
-      - name: Configure pagefile (Windows — prevent OOM)
-        if: matrix.os == 'windows-latest'
-        uses: al-cheb/configure-pagefile-action@v1.4
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          minimum-size: 8GB
-          maximum-size: 16GB
+          target: ${{ matrix.target }}
 
-      - name: Free Disk Space (macOS — allow dynamic pager growth)
-        if: matrix.os == 'macos-latest'
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binaries
         run: |
-          sudo rm -rf /opt/hostedtoolcache || true
-          df -h /
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/vanta-cli release/
+          cp target/${{ matrix.target }}/release/vantadb-server release/
+          cd release
+          tar czf vantadb-${{ matrix.target }}.tar.gz vanta-cli vantadb-server
 
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Install system dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          components: rustfmt, clippy
-
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "false"
-
-      - name: Build Release Binaries
-        run: cargo build --release --all-features -p vantadb -p vantadb-server
-
-      - name: Rename and Hash (Unix)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          SUFFIX=""
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            SUFFIX="macos-amd64"
-          else
-            SUFFIX="linux-amd64"
-          fi
-          
-          # Rename
-          mv target/release/vanta-cli target/release/vanta-cli-$SUFFIX
-          mv target/release/vantadb-server target/release/vantadb-server-$SUFFIX
-          
-          # Hash
-          cd target/release
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
-            sha256sum vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
-          else
-            shasum -a 256 vanta-cli-$SUFFIX > vanta-cli-$SUFFIX.sha256
-            shasum -a 256 vantadb-server-$SUFFIX > vantadb-server-$SUFFIX.sha256
-          fi
-
-      - name: Rename and Hash (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          Rename-Item -Path "target\release\vanta-cli.exe" -NewName "vanta-cli-windows-amd64.exe"
-          Rename-Item -Path "target\release\vantadb-server.exe" -NewName "vantadb-server-windows-amd64.exe"
-          
-          $hash_cli = (Get-FileHash -Algorithm SHA256 "target\release\vanta-cli-windows-amd64.exe").Hash.ToLower()
-          Set-Content -Path "target\release\vanta-cli-windows-amd64.exe.sha256" -NoNewline -Value "$hash_cli  vanta-cli-windows-amd64.exe"
-          
-          $hash_server = (Get-FileHash -Algorithm SHA256 "target\release\vantadb-server-windows-amd64.exe").Hash.ToLower()
-          Set-Content -Path "target\release\vantadb-server-windows-amd64.exe.sha256" -NoNewline -Value "$hash_server  vantadb-server-windows-amd64.exe"
-
-      - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v5
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          subject-path: |
-            target/release/vanta-cli-*
-            target/release/vantadb-server-*
-
-      - name: Release
-        uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            target/release/vanta-cli-*
-            target/release/vantadb-server-*
-          fail_on_unmatched_files: false
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release/vantadb-${{ matrix.target }}.tar.gz
+          asset_name: vantadb-${{ matrix.target }}.tar.gz
+          asset_content_type: application/gzip

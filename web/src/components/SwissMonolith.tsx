@@ -75,10 +75,11 @@ export const SwissMonolith = memo(function SwissMonolith() {
               fontSize: "1.1rem",
               textDecoration: "none",
               display: "inline-block",
-              transition: "background 150ms"
+              transition: "all 200ms cubic-bezier(0.25, 1, 0.5, 1)",
+              willChange: "transform"
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#ffffff"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "var(--amber)"}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#ffffff"; e.currentTarget.style.color = "#000000"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--amber)"; e.currentTarget.style.color = "#ffffff"; e.currentTarget.style.transform = "translateY(0)"; }}
           >
             Get Started
           </Link>
