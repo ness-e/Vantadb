@@ -3,7 +3,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
+last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 ---
 
 # Active Backlog — VantaDB
@@ -36,8 +36,8 @@ last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `INT-01` | LangChain adapter (PyPI + PR langchain-community) | 🔴 | ❌ |
-| `INT-02` | LlamaIndex adapter (PyPI + PR llama-index) | 🔴 | ❌ |
+| `INT-01` | LangChain adapter (PyPI + PR langchain-community) — code exists in `integrations/langchain/`, pending PyPI publish + upstream PR | 🔴 | ❌ |
+| `INT-02` | LlamaIndex adapter (PyPI + PR llama-index) — code exists in `integrations/llamaindex/`, pending PyPI publish + upstream PR | 🔴 | ❌ |
 | `MEM-02` | Letta (fka MemGPT): VantaDB as memory backend (23K stars) | 🟡 | ✅ |
 | `TSK-89` | CrewAI: VantaDBMemory for multi-agent crews | 🟡 | ✅ |
 | `TSK-91` | DSPy: VantaDBRM (Retrieval Module) | 🟡 | ✅ |
@@ -81,13 +81,13 @@ last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
 |----|-------|-----------|--------|
 
 | `PERF-02` | Refactor WAL Mutex contention (`Mutex<Option<WalWriter>>` serializes all writes). Evaluate `async-lock` or sharded WAL segments | 🟡 | ✅ |
-| `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) | 🟠 | ❌ |
+| `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) — configurable via `VANTADB_MAX_BLOCKING_THREADS` ✅, dynamic auto-scale pending | 🟠 | ⏳ |
 | `PERF-04` | Refactor `Execution(String)` catch-all → typed error variants (TODO in source) | 🟡 | ✅ |
 | `PERF-05` | Split monolithic files: `storage.rs` (2624L), `index.rs` (2044L), `metrics.rs` (1300L), `cli_server.rs` (687L) into modules | 🟡 | ✅ |
-| `PERF-06` | Eliminate duplicated `append_to_vstore` / `write_node_to_vstore` (40L near-identical, storage.rs:1170-1257) | 🟢 | ❌ |
+| `PERF-06` | Eliminate duplicated `append_to_vstore` / `write_node_to_vstore` (40L near-identical, storage.rs:1170-1257) | 🟢 | ✅ |
 | `PERF-07` | Global edge index + referential integrity (ON DELETE CASCADE for dangling edges) | 🟡 | ✅ |
 | `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ✅ |
-| `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ❌ |
+| `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ✅ |
 | `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ✅ |
 
 ### 4.F Distribution
@@ -157,11 +157,11 @@ last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 
-| `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (0 currently) | 🟡 | ❌ |
+| `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (2 tests in `core_invariants.rs`, not comprehensive) | 🟡 | ⏳ |
 | `TEST-05` | Snapshot testing: HNSW recall certification snapshots, export/import format versioning, WAL format integrity | 🟡 | ❌ |
 | `TEST-06` | Load/stress tests for Python and TypeScript SDKs (currently only Rust has stress tests) | 🟡 | ❌ |
-| `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) | 🟢 | ❌ |
-| `TEST-08` | Fix `chaos_integrity` missing `required-features = ["failpoints"]` in Cargo.toml | 🟠 | ❌ |
+| `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) — global `test-threads=2` removed ✅, falta Windows-specific override | 🟢 | ⏳ |
+| `TEST-08` | Fix `chaos_integrity` missing `required-features = ["failpoints"]` in Cargo.toml | 🟠 | ✅ |
 
 ### 4.L Pricing & Monetization Strategy
 
@@ -183,13 +183,13 @@ last_refined: 2026-07-03 (CI workflow fixes + heavy certification repairs)
 |----|-------|-----------|--------|
 | `TSK-72` | AES-256-GCM at-rest encryption | 🟡 | ❌ |
 | `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 | ❌ |
-| `TSK-110` | SBOM (SPDX/CycloneDX) in each release | 🟡 | ❌ |
+| `TSK-110` | SBOM (SPDX/CycloneDX) in each release — implemented via `SEC-06`, `.github/workflows/sbom.yml` | 🟡 | ✅ |
 | `BIZ-02` | Asynchronous WAL Shipping (replication without Raft) | 🟡 | ❌ |
 | `TSK-122` | Sharded-slab for HNSW lock-free (mitigates `insert_lock` bottleneck) | 🟡 | ❌ |
 | `TSK-131` | Implement PITR via archival WAL (archive + point-in-time replay) | 🟡 | ❌ |
-| `TSK-132` | Research checkpoint API in Fjall upstream or contribute it | 🟢 | ❌ |
+| `TSK-132` | Research checkpoint API in Fjall upstream or contribute it — `StorageEngine::create_checkpoint()` + `WalRecord::Checkpoint` implemented | 🟢 | ✅ |
 | `TSK-133` | Incremental backup (full snapshot + WAL deltas) | 🟢 | ❌ |
-| `TSK-48` | Dynamic quantization (f32→SQ8 for cold nodes) | 🟢 | ❌ |
+| `TSK-48` | Dynamic quantization (f32→SQ8 for cold nodes) — same as `PERF-09`, implemented in `src/vector/governor.rs` | 🟢 | ✅ |
 | `LOW-01` | TLS 1.3 on vantadb-server | 🟢 | ✅ |
 | `TSK-142` | Investigate and prototype WASM persistence using OPFS and Web Workers | 🟡 | ❌ |
 | `TSK-143` | Fjall vs RocksDB Performance Parity Benchmark for RocksDB Depreciation | 🟡 | ❌ |
