@@ -3,6 +3,7 @@ import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/pricing")({
   component: PricingPage,
+  pendingComponent: PendingComponent,
 });
 
 const tiers = [
@@ -27,7 +28,7 @@ const tiers = [
   },
   {
     name: "Cloud Pro",
-    tagline: "Managed cloud database for growing projects.",
+    tagline: "Managed cloud database. Currently in early access.",
     price: "$29",
     period: "per month",
     features: [
@@ -36,36 +37,36 @@ const tiers = [
       "Automated daily backups",
       "HTTPS client API & SDK access",
       "Priority email support",
-      "99.9% uptime SLA guarantee",
+      "99.9% uptime SLA guarantee (coming soon)",
       "Standard encryption in-transit & at-rest",
       "Single-user API token auth",
     ],
-    cta: "Deploy Now",
+    cta: "Join Waitlist",
     href: "/about/contact",
     featured: true,
   },
   {
     name: "Cloud Business",
-    tagline: "Dedicated cloud clusters for production use cases.",
+    tagline: "Dedicated cloud clusters. Coming soon.",
     price: "$149",
     period: "per month",
     features: [
       "Dedicated database instance hosting",
       "Up to 10M vectors & 100GB storage",
       "Continuous point-in-time recovery",
-      "Multi-region replica synchronization",
+      "Multi-region replica synchronization (coming soon)",
       "Dedicated Slack channel & fast SLA support",
-      "99.99% uptime SLA guarantee",
+      "99.99% uptime SLA guarantee (coming soon)",
       "Advanced encryption at-rest (AES-256)",
-      "Team authentication & SSO/SAML",
+      "Team authentication & SSO/SAML (coming soon)",
     ],
-    cta: "Deploy Business",
+    cta: "Join Waitlist",
     href: "/about/contact",
     featured: false,
   },
   {
     name: "Enterprise",
-    tagline: "SLA, compliance, and dedicated support for organizations.",
+    tagline: "Custom licensing and dedicated support available.",
     price: "Custom",
     period: "tailored pricing",
     features: [
@@ -73,7 +74,7 @@ const tiers = [
       "On-premises, VPC, or hybrid cloud deployment",
       "Dedicated SLA support with 24/7/365 coverage",
       "Enterprise security: RBAC & custom keys",
-      "Compliance exports (SOC 2, HIPAA ready)",
+      "Enterprise compliance: SOC 2 & HIPAA (coming soon)",
       "Custom query hooks & raw hardware access",
       "Dedicated systems architect support",
       "Flexible custom licensing options",
@@ -96,8 +97,8 @@ const comparisonRows = [
   },
   {
     feature: "Vector limit",
-    os: "Unlimited",
-    pro: "1M Vectors",
+    os: "Limited by hardware",
+    pro: "1M Vectors (scalable)",
     biz: "10M Vectors",
     ent: "Unlimited",
   },
@@ -169,6 +170,22 @@ const FAQ_ITEMS = [
     q: "Do you offer custom SLAs?",
     a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA).",
   },
+  {
+    q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?",
+    a: "VantaDB is embedded — it runs in your process with zero servers. No network hop, no per-vector pricing, no ops team required. While cloud vector databases charge $70-175/mo, VantaDB is free (Apache 2.0) and runs locally.",
+  },
+  {
+    q: "Can I migrate from Pinecone/ChromaDB to VantaDB?",
+    a: "Yes. We provide migration guides from ChromaDB and LanceDB in our documentation. The process typically involves exporting your vectors and re-indexing with VantaDB's Python SDK.",
+  },
+  {
+    q: "Do you offer a free trial for Cloud plans?",
+    a: "Cloud plans are currently in early access. Join the waitlist and we'll notify you when we launch. In the meantime, the self-hosted version is free and fully functional.",
+  },
+  {
+    q: "What happens when I exceed 1M vectors in Cloud Pro?",
+    a: "Cloud Pro includes up to 1M vectors. If you need more, you can upgrade to Cloud Business (10M) or Enterprise (unlimited). Self-hosted has no artificial caps — your only limit is your hardware.",
+  },
 ];
 
 function PricingPage() {
@@ -220,6 +237,7 @@ function PricingPage() {
               >
                 {tier.featured && (
                   <span
+                    className="pricing-badge"
                     style={{
                       position: "absolute",
                       top: "1.25rem",
@@ -230,11 +248,11 @@ function PricingPage() {
                       textTransform: "uppercase" as const,
                       letterSpacing: "0.1em",
                       color: "var(--amber)",
-                      background: "rgba(255, 85, 0, 0.1)",
+                      background: "var(--amber-dim)",
                       padding: "0.2rem 0.6rem",
                     }}
                   >
-                    POPULAR
+                    EARLY ACCESS
                   </span>
                 )}
 
@@ -327,41 +345,7 @@ function PricingPage() {
 
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  style={{
-                    display: "block",
-                    textAlign: "center",
-                    padding: "0.85rem 1.5rem",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    textTransform: "uppercase" as const,
-                    letterSpacing: "0.08em",
-                    textDecoration: "none",
-                    border: tier.featured ? "1px solid var(--amber)" : "1px solid var(--border)",
-                    background: tier.featured ? "var(--amber)" : "transparent",
-                    color: tier.featured ? "#000000" : "var(--foreground)",
-                    transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (tier.featured) {
-                      e.currentTarget.style.background = "#000000";
-                      e.currentTarget.style.color = "#ffffff";
-                      e.currentTarget.style.borderColor = "#000000";
-                    } else {
-                      e.currentTarget.style.background = "var(--border)";
-                      e.currentTarget.style.color = "#ffffff";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (tier.featured) {
-                      e.currentTarget.style.background = "var(--amber)";
-                      e.currentTarget.style.color = "#000000";
-                      e.currentTarget.style.borderColor = "var(--amber)";
-                    } else {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--foreground)";
-                    }
-                  }}
+                  className={`pricing-cta ${tier.featured ? "pricing-cta--featured" : "pricing-cta--default"}`}
                 >
                   {tier.cta}
                 </Link>
@@ -527,6 +511,14 @@ function PricingPage() {
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+export function PendingComponent() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <div>Loading...</div>
     </div>
   );
 }
