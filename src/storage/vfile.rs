@@ -112,6 +112,12 @@ pub(crate) use mmap_shim::{Mmap, MmapMut, MmapOptions};
 
 #[cfg(unix)]
 use std::sync::atomic::AtomicBool as AtomicBoolUnix;
+#[cfg(unix)]
+use std::sync::atomic::AtomicPtr;
+#[cfg(unix)]
+use std::sync::atomic::Ordering;
+#[cfg(unix)]
+use tracing::warn;
 
 #[cfg(unix)]
 use libc;
@@ -122,7 +128,7 @@ static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
 static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
 #[cfg(unix)]
-fn install_sigbus_handler() -> Result<()> {
+pub(crate) fn install_sigbus_handler() -> Result<()> {
     use std::sync::Once;
     static INSTALL_ONCE: Once = Once::new();
     INSTALL_ONCE.call_once(|| unsafe {
