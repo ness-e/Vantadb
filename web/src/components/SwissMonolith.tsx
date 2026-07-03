@@ -1,6 +1,6 @@
 import { useRef, memo } from "react";
 import { Link } from "@tanstack/react-router";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { gsap, useGSAP } from "../lib/gsap";
 
 export const SwissMonolith = memo(function SwissMonolith() {
   const containerRef = useRef<HTMLElement>(null);
@@ -10,13 +10,13 @@ export const SwissMonolith = memo(function SwissMonolith() {
       // Sencilla animación de aparición
       gsap.fromTo(
         ".swiss-monolith-content > *",
-        { opacity: 0, y: 30 },
+        { opacity: 0, y: 12 },
         { 
           opacity: 1, 
           y: 0, 
-          duration: 0.8, 
-          stagger: 0.1, 
-          ease: "power2.out",
+          duration: 0.5, 
+          stagger: 0.06, 
+          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
           scrollTrigger: {
             trigger: containerRef.current,
             start: "top 75%"

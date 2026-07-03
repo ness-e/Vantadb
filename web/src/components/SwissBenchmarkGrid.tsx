@@ -155,15 +155,14 @@ export function SwissBenchmarkGrid() {
           className="swiss-vs-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
-            gridTemplateRows: "auto auto",
+            gridTemplateColumns: "repeat(12, 1fr)",
             gap: "1px",
             background: "var(--border)",
             border: "1px solid var(--border)",
           }}
         >
           {METRICS.map((m) => {
-            // Featured metrics span 3 cols, regular span 1-2
+            // Featured metrics span 6 cols, regular span 3 cols (perfect 12-col fit)
             const isFeatured = m.featured;
             const isNumeric = m.numericTarget !== null;
 
@@ -172,7 +171,7 @@ export function SwissBenchmarkGrid() {
                 key={m.id}
                 className="swiss-vs-cell"
                 style={{
-                  gridColumn: isFeatured ? "span 3" : "span 2",
+                  gridColumn: isFeatured ? "span 6" : "span 3",
                   background: "var(--background)",
                   padding: isFeatured ? "48px 40px" : "32px 24px",
                   display: "flex",

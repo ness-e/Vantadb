@@ -475,6 +475,13 @@ members = [
     "vantadb-mcp",
     "vantadb-wasm",
     "vantadb-mem0",
+    "vantadb-letta",
+    "vantadb-crewai",
+    "vantadb-dspy",
+    "vantadb-haystack",
+    "vantadb-litellm",
+    "vantadb-openai",
+    "vantadb-ollama",
 ]
 
 [workspace.package]
