@@ -154,11 +154,7 @@ impl VantaDBStore {
                 Some(list) if i < list.len() => match &list[i] {
                     Some(obj) => {
                         let py_ref = obj.bind(py);
-                        if let Ok(s) = py_ref.extract::<String>() {
-                            s
-                        } else {
-                            String::new()
-                        }
+                        py_ref.extract::<String>().unwrap_or_default()
                     }
                     None => String::new(),
                 },
