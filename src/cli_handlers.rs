@@ -126,7 +126,7 @@ pub fn cmd_put(
             Err(e) => {
                 spinner.finish_and_clear();
                 print_error(&format!("Invalid vector format: {}", e));
-                return Err(crate::error::VantaError::Execution(format!(
+                return Err(crate::error::VantaError::CliError(format!(
                     "Vector must be comma-separated f32 values: {}",
                     e
                 )));
@@ -510,7 +510,7 @@ pub fn cmd_audit_index(
         println!(
             "{}",
             serde_json::to_string_pretty(&report).map_err(|err| {
-                crate::error::VantaError::Execution(format!("failed to encode audit report: {err}"))
+                crate::error::VantaError::CliError(format!("failed to encode audit report: {err}"))
             })?
         );
     } else {
@@ -765,7 +765,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::VantaError::Execution(format!(
+        return Err(crate::error::VantaError::CliError(format!(
             "Input file not found: {}",
             input_path
         )));
@@ -1091,7 +1091,7 @@ pub fn cmd_server(
     #[cfg(feature = "server")]
     {
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            crate::error::VantaError::Execution(format!("Failed to start tokio runtime: {e}"))
+            crate::error::VantaError::RuntimeError(format!("Failed to start tokio runtime: {e}"))
         })?;
 
         rt.block_on(cmd_server_http(db_path, port, host))
@@ -1099,7 +1099,7 @@ pub fn cmd_server(
 
     #[cfg(not(feature = "server"))]
     {
-        Err(crate::error::VantaError::Execution(
+        Err(crate::error::VantaError::CliError(
             "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server"
                 .to_string(),
         ))
@@ -1151,13 +1151,13 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
                 current_exe.set_file_name(&exe_name);
                 if current_exe.exists() {
                     build_cmd(&current_exe).spawn().map_err(|e| {
-                        VantaError::Execution(format!(
+                        VantaError::CliError(format!(
                             "Failed to start vantadb-server from {}: {e}",
                             current_exe.display()
                         ))
                     })?
                 } else {
-                    return Err(VantaError::Execution(format!(
+                    return Err(VantaError::CliError(format!(
                         "vantadb-server binary not found. \
                          Searched PATH for '{}' and CLI directory for '{}'. \
                          The MCP server requires the vantadb-server binary (compiled with the 'server' feature). \
@@ -1167,7 +1167,7 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
                     )));
                 }
             } else {
-                return Err(VantaError::Execution(format!(
+                return Err(VantaError::CliError(format!(
                     "vantadb-server binary '{}' not found in PATH. \
                      Current executable path could not be determined. \
                      Ensure vantadb-server is installed and available in PATH.",
@@ -1176,7 +1176,7 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
             }
         }
         Err(e) => {
-            return Err(VantaError::Execution(format!(
+            return Err(VantaError::CliError(format!(
                 "Failed to spawn vantadb-server process (db_path={}): {e}",
                 db_path
             )));
@@ -1184,7 +1184,7 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
     };
 
     let status = child.wait().map_err(|e| {
-        VantaError::Execution(format!(
+        VantaError::CliError(format!(
             "Error waiting for vantadb-server process (db_path={}): {e}",
             db_path
         ))
@@ -1196,7 +1196,7 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
             std::process::exit(code);
         } else {
             // Subprocess was terminated by a signal
-            return Err(VantaError::Execution(format!(
+            return Err(VantaError::CliError(format!(
                 "vantadb-server terminated by signal (db_path={})",
                 db_path
             )));
@@ -1243,7 +1243,7 @@ pub fn cmd_search(
         qv.split(',')
             .map(|s| {
                 s.trim().parse::<f32>().map_err(|e| {
-                    crate::error::VantaError::Execution(format!(
+                    crate::error::VantaError::InvalidInput(format!(
                         "Invalid vector component '{s}': {e}"
                     ))
                 })
@@ -1281,7 +1281,7 @@ pub fn cmd_search(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+                crate::error::VantaError::CliError(format!("JSON serialization error: {e}"))
             })?
         );
         return Ok(());
@@ -1531,7 +1531,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     };
 
     if backup_dir.join("vantadb.dat").exists() || backup_dir.join("vantadb.wal").exists() {
-        return Err(crate::error::VantaError::Execution(format!(
+        return Err(crate::error::VantaError::CliError(format!(
             "Backup destination '{}' already contains database files. Choose a different location or remove existing files.",
             backup_dir.display()
         )));
@@ -1565,7 +1565,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     }
 
     copy_dir(src, &backup_dir, Some(&backup_dir)).map_err(|e| {
-        crate::error::VantaError::Execution(format!("Failed to copy database to backup: {e}"))
+        crate::error::VantaError::BackupError(format!("Failed to copy database to backup: {e}"))
     })?;
 
     let spinner = create_spinner("Verifying backup...");
@@ -1600,7 +1600,7 @@ pub fn cmd_restore(
 ) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.exists() {
-        return Err(crate::error::VantaError::Execution(format!(
+        return Err(crate::error::VantaError::RestoreError(format!(
             "Backup directory does not exist at '{}'",
             input
         )));
@@ -1609,7 +1609,7 @@ pub fn cmd_restore(
     let dst = std::path::Path::new(db_path);
 
     if dst.exists() && !force {
-        return Err(crate::error::VantaError::Execution(
+        return Err(crate::error::VantaError::RestoreError(
             "Destination database directory already exists. Use --force to overwrite.".to_string(),
         ));
     }
@@ -1618,14 +1618,14 @@ pub fn cmd_restore(
 
     if dst.exists() && force {
         std::fs::remove_dir_all(dst).map_err(|e| {
-            crate::error::VantaError::Execution(format!(
+            crate::error::VantaError::RestoreError(format!(
                 "Failed to remove existing database directory: {e}"
             ))
         })?;
     }
 
     std::fs::create_dir_all(dst).map_err(|e| {
-        crate::error::VantaError::Execution(format!("Failed to create database directory: {e}"))
+        crate::error::VantaError::RestoreError(format!("Failed to create database directory: {e}"))
     })?;
 
     fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -1645,7 +1645,7 @@ pub fn cmd_restore(
     }
 
     copy_dir(src, dst).map_err(|e| {
-        crate::error::VantaError::Execution(format!("Failed to restore from backup: {e}"))
+        crate::error::VantaError::RestoreError(format!("Failed to restore from backup: {e}"))
     })?;
 
     spinner.set_message("Verifying restored database...");
@@ -1654,7 +1654,9 @@ pub fn cmd_restore(
         spinner.set_message("Rebuilding indexes...");
         let db = open_embedded(db_path, false)?;
         db.rebuild_index().map_err(|e| {
-            crate::error::VantaError::Execution(format!("Index rebuild after restore failed: {e}"))
+            crate::error::VantaError::RestoreError(format!(
+                "Index rebuild after restore failed: {e}"
+            ))
         })?;
     }
 
@@ -2009,7 +2011,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&result).map_err(|e| {
-                crate::error::VantaError::Execution(format!("JSON serialization error: {e}"))
+                crate::error::VantaError::CliError(format!("JSON serialization error: {e}"))
             })?
         );
         return Ok(());
@@ -2110,7 +2112,7 @@ pub fn cmd_migrate(target_path: &str, _db_path: &str, verbose: bool) -> Result<(
     let target = std::path::Path::new(target_path);
     if !target.exists() {
         print_error(&format!("Database directory not found: {}", target_path));
-        return Err(crate::error::VantaError::Execution(format!(
+        return Err(crate::error::VantaError::CliError(format!(
             "Database path does not exist: {}",
             target_path
         )));

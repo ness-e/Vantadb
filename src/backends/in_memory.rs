@@ -133,7 +133,7 @@ impl StorageBackend for InMemoryBackend {
     }
 
     fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(VantaError::Execution(
+        Err(VantaError::BackendError(
             "Checkpoint not supported by InMemoryBackend".to_string(),
         ))
     }
