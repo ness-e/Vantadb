@@ -1,7 +1,6 @@
+#![allow(dead_code)]
 use crate::error::Result;
-use crate::storage::StorageEngine;
 use dashmap::DashSet;
-use std::sync::Arc;
 
 pub(crate) struct EdgeIndex {
     edges: DashSet<(u64, u64)>,

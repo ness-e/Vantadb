@@ -1,8 +1,7 @@
-use crate::error::Result;
+#![allow(dead_code)]
 use crate::node::FieldValue;
 use dashmap::DashMap;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 pub(crate) struct ScalarIndex {
     indexes: DashMap<String, HashMap<FieldValue, Vec<u64>>>,

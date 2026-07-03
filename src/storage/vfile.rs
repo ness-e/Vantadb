@@ -7,9 +7,8 @@ use std::fs::{File, OpenOptions};
 use std::io::Read;
 #[cfg(not(feature = "memmap2"))]
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
-use tracing::warn;
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use zerocopy::{FromBytes, IntoBytes};
 
 #[cfg(feature = "memmap2")]
@@ -117,6 +116,7 @@ use std::sync::atomic::AtomicBool as AtomicBoolUnix;
 #[cfg(unix)]
 use libc;
 
+#[allow(dead_code)]
 static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
 #[cfg(unix)]
 static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
@@ -155,26 +155,32 @@ unsafe extern "C" fn sigbus_handler(
 }
 
 #[cfg(unix)]
+#[allow(dead_code)]
 pub fn check_sigbus() -> bool {
     SIGBUS_OCCURRED.swap(false, Ordering::SeqCst)
 }
 
 #[cfg(unix)]
+#[allow(dead_code)]
 pub fn get_sigbus_fault_addr() -> *mut u8 {
     SIGBUS_FAULT_ADDR.load(Ordering::SeqCst)
 }
 
 #[cfg(not(unix))]
+#[allow(dead_code)]
 pub fn check_sigbus() -> bool {
     false
 }
 
 #[cfg(not(unix))]
+#[allow(dead_code)]
 pub fn get_sigbus_fault_addr() -> *mut u8 {
     std::ptr::null_mut()
 }
 
+#[allow(dead_code)]
 pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
+#[allow(dead_code)]
 pub const VANTA_FILE_VERSION: u32 = 1;
 
 pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
@@ -406,14 +412,13 @@ impl VantaFile {
                     .map_err(VantaError::IoError)?
             })
         };
-        if !read_only && current_size >= min_header_size {
-            if &mmap.as_slice()[0..4] != b"VFLE" {
+        if !read_only && current_size >= min_header_size
+            && &mmap.as_slice()[0..4] != b"VFLE" {
                 let header = VantaHeader::new(*b"VFLE", 1, 0);
                 mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
                 mmap.as_mut_slice()?[16..24].copy_from_slice(&64u64.to_le_bytes());
                 mmap.flush()?;
             }
-        }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
         header.validate(*b"VFLE", 1, "VantaFile format mismatch")?;
         let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {

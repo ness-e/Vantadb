@@ -232,9 +232,9 @@ impl CPIndex {
         for archived in graph.nodes {
             let start = archived.neighbor_offset_u64 as usize;
             let end = start + archived.neighbor_count as usize;
-            let mut neighbors: Vec<Vec<u64>> = Vec::new();
+            let mut neighbors: Vec<crate::index::NeighborVec> = Vec::new();
             if end <= graph.neighbor_data.len() {
-                neighbors.push(graph.neighbor_data[start..end].to_vec());
+                neighbors.push(crate::index::NeighborVec::from(&graph.neighbor_data[start..end]));
             }
 
             let node = HnswNode {

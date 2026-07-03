@@ -5,7 +5,7 @@
 //! drives node archival / recovery.
 
 use super::ops::NodeMetadata;
-use super::vfile::{MmapMut, MmapOptions};
+use super::vfile::MmapMut;
 pub use crate::backend::BackendPartition;
 use crate::backend::{BackendWriteOp, StorageBackend};
 #[cfg(feature = "fjall")]
@@ -18,19 +18,16 @@ use crate::index::{CPIndex, IndexBackend};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use arc_swap::ArcSwap;
 use parking_lot::RwLock;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tracing::{info, warn};
 use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
 
-use super::archive::{self, traverse_graph};
-use super::ops::{self, write_node_to_vstore};
 use super::vfile::{engine_mmap_resident_bytes, VantaFile};
-use super::wal;
 
 // ─── Backend Kind ──────────────────────────────────────────
 
@@ -104,10 +101,13 @@ pub struct StorageEngine {
     /// Write-Ahead Log for durability
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
     /// Memory governor for adaptive eviction
+    #[allow(dead_code)]
     pub(crate) memory_governor: Option<std::sync::Arc<crate::memory_governor::MemoryGovernor>>,
     /// Global edge index for referential integrity
+    #[allow(dead_code)]
     pub(crate) edge_index: Option<std::sync::Arc<crate::edge_index::EdgeIndex>>,
     /// Secondary scalar indexes
+    #[allow(dead_code)]
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock
     pub(crate) _lock_file: Option<File>,
@@ -2356,22 +2356,22 @@ mod tests {
     #[test]
     fn test_partition_from_cf_name_valid() {
         assert_eq!(
-            super::ops::partition_from_cf_name("default").unwrap(),
+            crate::storage::ops::partition_from_cf_name("default").unwrap(),
             BackendPartition::Default
         );
         assert_eq!(
-            super::ops::partition_from_cf_name("tombstones").unwrap(),
+            crate::storage::ops::partition_from_cf_name("tombstones").unwrap(),
             BackendPartition::Tombstones
         );
         assert_eq!(
-            super::ops::partition_from_cf_name("text_index").unwrap(),
+            crate::storage::ops::partition_from_cf_name("text_index").unwrap(),
             BackendPartition::TextIndex
         );
     }
 
     #[test]
     fn test_partition_from_cf_name_invalid() {
-        let result = super::ops::partition_from_cf_name("nonexistent");
+        let result = crate::storage::ops::partition_from_cf_name("nonexistent");
         assert!(result.is_err());
         assert!(result.err().unwrap().to_string().contains("Unknown"));
     }
