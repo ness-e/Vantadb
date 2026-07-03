@@ -111,8 +111,6 @@ pub(crate) mod mmap_shim {
 pub(crate) use mmap_shim::{Mmap, MmapMut, MmapOptions};
 
 #[cfg(unix)]
-use std::sync::atomic::AtomicBool as AtomicBoolUnix;
-#[cfg(unix)]
 use std::sync::atomic::AtomicPtr;
 #[cfg(unix)]
 use std::sync::atomic::Ordering;
