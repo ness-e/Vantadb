@@ -1,4 +1,3 @@
-use js_sys;
 use vantadb_wasm::{OpfsStorage, VantaDB};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
@@ -281,7 +280,7 @@ fn test_put_and_get_multiple_namespaces() {
 fn test_vector_insert_and_search() {
     let db = create_db();
 
-    let vectors = vec![
+    let vectors = [
         (0..4).map(|i| i as f32 * 0.1).collect::<Vec<f32>>(),
         (0..4).map(|i| 1.0 + i as f32 * 0.1).collect::<Vec<f32>>(),
         (0..4).map(|i| 2.0 + i as f32 * 0.1).collect::<Vec<f32>>(),
