@@ -57,15 +57,17 @@ export const VsTable = React.memo(function VsTable({ rows, title, className = ""
   return (
     <div className={className} style={{ overflowX: "auto" }}>
       {title && (
-        <h3 style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label, 0.72rem)",
-          fontWeight: 600,
-          letterSpacing: "0.14em",
-          textTransform: "uppercase",
-          marginBottom: "16px",
-          color: "var(--foreground)",
-        }}>
+        <h3
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-label, 0.72rem)",
+            fontWeight: 600,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            marginBottom: "16px",
+            color: "var(--foreground)",
+          }}
+        >
           {title}
         </h3>
       )}

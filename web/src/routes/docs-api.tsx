@@ -34,17 +34,56 @@ function DocsApiPage() {
       <main className="engine-main">
         <section className="engine-section">
           <span className="swiss-eyebrow">Quick Start</span>
-          
+
           <div style={{ marginTop: "3rem" }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "var(--amber)", fontFamily: "var(--font-mono)", fontSize: "1rem" }}>Install the Python SDK</h3>
-            <pre style={{ background: "var(--surface-raised)", padding: "1.5rem", border: "1px solid var(--border)", overflowX: "auto", fontFamily: "var(--font-mono)", fontSize: "0.9rem", color: "var(--steel)" }}>
+            <h3
+              style={{
+                margin: "0 0 1rem 0",
+                color: "var(--amber)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "1rem",
+              }}
+            >
+              Install the Python SDK
+            </h3>
+            <pre
+              style={{
+                background: "var(--surface-raised)",
+                padding: "1.5rem",
+                border: "1px solid var(--border)",
+                overflowX: "auto",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.9rem",
+                color: "var(--steel)",
+              }}
+            >
               <code>pip install vantadb-py</code>
             </pre>
 
-            <h3 style={{ margin: "3rem 0 1rem 0", color: "var(--amber)", fontFamily: "var(--font-mono)", fontSize: "1rem" }}>Basic Initialization</h3>
-            <pre style={{ background: "var(--surface-raised)", padding: "1.5rem", border: "1px solid var(--border)", overflowX: "auto", fontFamily: "var(--font-mono)", fontSize: "0.9rem", color: "var(--steel)", lineHeight: "1.5" }}>
+            <h3
+              style={{
+                margin: "3rem 0 1rem 0",
+                color: "var(--amber)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "1rem",
+              }}
+            >
+              Basic Initialization
+            </h3>
+            <pre
+              style={{
+                background: "var(--surface-raised)",
+                padding: "1.5rem",
+                border: "1px solid var(--border)",
+                overflowX: "auto",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.9rem",
+                color: "var(--steel)",
+                lineHeight: "1.5",
+              }}
+            >
               <code>
-{`import vantadb
+                {`import vantadb
 
 # Initialize the engine
 db = vantadb.VantaDB("./vanta_data")
@@ -63,10 +102,20 @@ db.insert("agent_memory", {
           </div>
 
           <p style={{ marginTop: "3rem", color: "var(--steel)", lineHeight: "1.6" }}>
-            The complete API documentation and SDK integration guides are currently hosted on our GitHub repository.
+            The complete API documentation and SDK integration guides are currently hosted on our
+            GitHub repository.
             <br />
             <br />
-            <a href="https://github.com/ness-e/Vantadb" target="_blank" rel="noopener noreferrer" style={{ color: "var(--amber)", textDecoration: "none", borderBottom: "1px solid var(--amber)" }}>
+            <a
+              href="https://github.com/ness-e/Vantadb"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--amber)",
+                textDecoration: "none",
+                borderBottom: "1px solid var(--amber)",
+              }}
+            >
               View GitHub Repository →
             </a>
           </p>

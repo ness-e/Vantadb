@@ -15,9 +15,7 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     if (!canvas) return;
 
     // Check reduced motion
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // ── Renderer ──
     const renderer = new THREE.WebGLRenderer({
@@ -90,17 +88,18 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (dist < 1.1) {
           linePositions.push(
-            nodePositions[i * 3], nodePositions[i * 3 + 1], nodePositions[i * 3 + 2],
-            nodePositions[j * 3], nodePositions[j * 3 + 1], nodePositions[j * 3 + 2]
+            nodePositions[i * 3],
+            nodePositions[i * 3 + 1],
+            nodePositions[i * 3 + 2],
+            nodePositions[j * 3],
+            nodePositions[j * 3 + 1],
+            nodePositions[j * 3 + 2],
           );
         }
       }
     }
     const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(linePositions, 3)
-    );
+    lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
     const lineMat = new THREE.LineBasicMaterial({
       color: 0x0a0a0a,
       transparent: true,
@@ -168,7 +167,11 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       scene.remove(group);
       group.clear();
       scene.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Points || child instanceof THREE.LineSegments) {
+        if (
+          child instanceof THREE.Mesh ||
+          child instanceof THREE.Points ||
+          child instanceof THREE.LineSegments
+        ) {
           child.geometry?.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach((m) => m.dispose());
@@ -212,7 +215,7 @@ export function SwissHero() {
             stagger: 0.08,
             ease: "power1.in",
             delay: 0.3,
-          }
+          },
         );
 
         // 2. Title mask reveal
@@ -225,28 +228,28 @@ export function SwissHero() {
             duration: 0.25,
             ease: "power1.in",
             delay: 0.5,
-          }
+          },
         );
 
         // 3. Tagline
         gsap.fromTo(
           ".swiss-hero-tagline",
           { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 0.9 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 0.9 },
         );
 
         // 4. Description
         gsap.fromTo(
           ".swiss-hero-description",
           { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.1 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.1 },
         );
 
         // 5. CTAs
         gsap.fromTo(
           ".swiss-hero-actions",
           { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.3 }
+          { opacity: 1, y: 0, duration: 0.25, ease: "power1.in", delay: 1.3 },
         );
 
         // 6. Scanline glow
@@ -258,11 +261,11 @@ export function SwissHero() {
             duration: 0.25,
             ease: "power1.in",
             delay: 0.8,
-          }
+          },
         );
       });
     },
-    { scope: containerRef }
+    { scope: containerRef },
   );
 
   const handleCopy = useCallback(async () => {
@@ -294,13 +297,11 @@ export function SwissHero() {
           </span>
         </h1>
 
-        <h2 className="swiss-hero-tagline">
-          The database that thinks with you.
-        </h2>
+        <h2 className="swiss-hero-tagline">The database that thinks with you.</h2>
 
         <p className="swiss-hero-description">
-          One pip install. Vector search, SQL, and full-text search in a single
-          binary. Zero servers. Zero ops. Sub-millisecond.
+          One pip install. Vector search, SQL, and full-text search in a single binary. Zero
+          servers. Zero ops. Sub-millisecond.
         </p>
 
         <div className="swiss-hero-actions">

@@ -265,13 +265,17 @@ const ALL_TYPES = ["all", "feature", "perf", "fix", "security", "breaking"];
 function ChangelogPage() {
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const filteredReleases = useMemo(() => releases
-    .map((r) => ({
-      ...r,
-      changes:
-        activeFilter === "all" ? r.changes : r.changes.filter((c) => c.type === activeFilter),
-    }))
-    .filter((r) => r.changes.length > 0), [activeFilter]);
+  const filteredReleases = useMemo(
+    () =>
+      releases
+        .map((r) => ({
+          ...r,
+          changes:
+            activeFilter === "all" ? r.changes : r.changes.filter((c) => c.type === activeFilter),
+        }))
+        .filter((r) => r.changes.length > 0),
+    [activeFilter],
+  );
 
   return (
     <div className="engine-page">

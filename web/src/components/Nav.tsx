@@ -28,7 +28,9 @@ export function Nav() {
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [drawerOpen]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -62,7 +64,9 @@ export function Nav() {
         </div>
 
         <div className="nav-actions">
-          <Link to="/docs" className="nav-cta">Docs</Link>
+          <Link to="/docs" className="nav-cta">
+            Docs
+          </Link>
           <a
             href="https://github.com/ness-e/Vantadb"
             target="_blank"
@@ -79,13 +83,13 @@ export function Nav() {
           aria-label={drawerOpen ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={drawerOpen}
         >
-          <span /><span /><span />
+          <span />
+          <span />
+          <span />
         </button>
       </nav>
 
-      {drawerOpen && (
-        <div className="nav-overlay" onClick={closeDrawer} aria-hidden="true" />
-      )}
+      {drawerOpen && <div className="nav-overlay" onClick={closeDrawer} aria-hidden="true" />}
 
       <div
         className="nav-drawer"
@@ -96,12 +100,16 @@ export function Nav() {
       >
         <div className="nav-drawer-header">
           <VantaDBLogo variant="full" size="sm" />
-          <button
-            className="nav-drawer-close"
-            onClick={closeDrawer}
-            aria-label="Cerrar menú"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <button className="nav-drawer-close" onClick={closeDrawer} aria-label="Cerrar menú">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>

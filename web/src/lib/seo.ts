@@ -13,7 +13,15 @@ type MetaTag =
   | { title?: never; name: string; content: string }
   | { title?: never; property: string; content: string };
 
-export function seo({ title, description, ogTitle, ogDescription, ogImage, canonical, noindex }: SEOProps) {
+export function seo({
+  title,
+  description,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  canonical,
+  noindex,
+}: SEOProps) {
   const tags: MetaTag[] = [
     { title },
     { name: "description", content: description },

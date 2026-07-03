@@ -89,7 +89,7 @@ export function SwissBenchmarkGrid() {
             trigger: ".swiss-vs-grid",
             start: "top 80%",
           },
-        }
+        },
       );
 
       // Count-up ONLY for numeric values
@@ -114,7 +114,7 @@ export function SwissBenchmarkGrid() {
         });
       });
     },
-    { scope: sectionRef }
+    { scope: sectionRef },
   );
 
   return (
@@ -146,8 +146,8 @@ export function SwissBenchmarkGrid() {
             lineHeight: 1.65,
           }}
         >
-          By removing the network boundary, VantaDB achieves latencies
-          impossible for traditional vector databases.
+          By removing the network boundary, VantaDB achieves latencies impossible for traditional
+          vector databases.
         </p>
 
         {/* Bento Grid — asymmetric layout */}

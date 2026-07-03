@@ -37,9 +37,7 @@ describe("SwissSubpageHero", () => {
 
   it("does not render subtitle when sub is omitted", () => {
     render(<SwissSubpageHero num="02" eyebrow="Test" title="No Sub" />);
-    expect(
-      screen.queryByText("Optional description text")
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Optional description text")).not.toBeInTheDocument();
   });
 
   it("renders with correct heading level", () => {
@@ -53,8 +51,12 @@ describe("SwissSubpageHero", () => {
       <SwissSubpageHero
         num="03"
         eyebrow="Rich Title"
-        title={<span>Rich <em>Title</em></span>}
-      />
+        title={
+          <span>
+            Rich <em>Title</em>
+          </span>
+        }
+      />,
     );
     expect(screen.getByText("Rich Title")).toBeInTheDocument();
     expect(screen.getAllByText(/Rich/)).toHaveLength(2);

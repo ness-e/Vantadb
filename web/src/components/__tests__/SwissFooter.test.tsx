@@ -50,9 +50,7 @@ describe("SwissFooter", () => {
   it("renders copyright with current year", () => {
     render(<SwissFooter />);
     const year = new Date().getFullYear();
-    expect(
-      screen.getByText(`© ${year} VantaDB. All rights reserved.`)
-    ).toBeInTheDocument();
+    expect(screen.getByText(`© ${year} VantaDB. All rights reserved.`)).toBeInTheDocument();
   });
 
   it("renders external social links", () => {

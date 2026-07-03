@@ -44,9 +44,7 @@ describe("VsTable", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(
-      <VsTable rows={sampleRows} className="custom-class" />
-    );
+    const { container } = render(<VsTable rows={sampleRows} className="custom-class" />);
     const div = container.firstChild as HTMLElement;
     expect(div.className).toBe("custom-class");
   });
