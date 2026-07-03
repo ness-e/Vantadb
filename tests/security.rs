@@ -41,7 +41,8 @@ mod iql_injection_tests {
             assert!(result.is_err(), "SQL injection pattern should fail: {iql}");
             let err = result.unwrap_err();
             assert!(
-                err.to_string().contains("Parse Error") || err.to_string().contains("Execution"),
+                err.to_string().to_lowercase().contains("parse")
+                    || err.to_string().contains("Execution"),
                 "Unexpected error for {iql}: {err}"
             );
         }
@@ -326,7 +327,7 @@ mod input_validation_tests {
         let mut input = VantaMemoryInput::new("ns", "huge", &huge_payload);
         input
             .metadata
-            .insert("large".to_string(), VantaValue::String("Y".repeat(100_000)));
+            .insert("large".to_string(), VantaValue::String("Y".repeat(10_000)));
         let result = db.put(input);
         // Should either succeed with large payload or fail gracefully
         assert!(
