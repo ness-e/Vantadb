@@ -11,6 +11,7 @@ import { SwissMonolith } from "@/components/SwissMonolith";
 
 export const Route = createLazyRoute("/")({
   component: IndexPage,
+  pendingComponent: PendingComponent,
 });
 
 function IndexPage() {
@@ -25,5 +26,13 @@ function IndexPage() {
       <SwissEcosystem />
       <SwissMonolith />
     </main>
+  );
+}
+
+export function PendingComponent() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <div>Loading...</div>
+    </div>
   );
 }
