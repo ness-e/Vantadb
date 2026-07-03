@@ -24,6 +24,8 @@ interface VantaDBLogoProps {
   className?: string;
   /** Accessible label */
   "aria-label"?: string;
+  /** Invert colors for dark backgrounds */
+  inverted?: boolean;
 }
 
 const SIZE_MAP: Record<LogoSize, number> = {
@@ -38,7 +40,8 @@ const VantaDBMark: React.FC<{
   size?: number;
   accentColor?: string;
   className?: string;
-}> = ({ size = 40, accentColor = "var(--amber, #ff5500)", className = "" }) => {
+  inverted?: boolean;
+}> = ({ size = 40, accentColor = "var(--amber, #ff5500)", className = "", inverted }) => {
   return (
     <svg
       width={size}
@@ -48,6 +51,7 @@ const VantaDBMark: React.FC<{
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       className={`vdb-mark ${className}`}
+      style={inverted ? { "--foreground": "#ffffff" } as React.CSSProperties : undefined}
     >
       {/* ── Outer Circle (Stroke) ──────────────── */}
       <circle cx="32" cy="32" r="24" fill="none" stroke="var(--foreground)" strokeWidth="6" />
@@ -61,7 +65,8 @@ const VantaDBMark: React.FC<{
 export const VantaDBLogoFull: React.FC<{
   size?: LogoSize;
   className?: string;
-}> = ({ size = "md", className = "" }) => {
+  inverted?: boolean;
+}> = ({ size = "md", className = "", inverted }) => {
   const markPx = SIZE_MAP[size];
   const fontPx = Math.round(markPx * 0.7);
 
@@ -70,9 +75,14 @@ export const VantaDBLogoFull: React.FC<{
       className={`vdb-logo-full ${className}`}
       role="img"
       aria-label="VantaDB"
-      style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        ...(inverted ? { "--foreground": "#ffffff" } as React.CSSProperties : {}),
+      }}
     >
-      <VantaDBMark size={markPx} />
+      <VantaDBMark size={markPx} inverted={inverted} />
       <span
         className="vdb-wordmark"
         style={{
@@ -96,6 +106,7 @@ const VantaDBLogo: React.FC<VantaDBLogoProps> = React.memo(
     accentColor,
     className = "",
     "aria-label": ariaLabel = "VantaDB",
+    inverted,
   }) => {
     const markPx = SIZE_MAP[size];
 
@@ -103,12 +114,12 @@ const VantaDBLogo: React.FC<VantaDBLogoProps> = React.memo(
       case "mark":
         return (
           <div role="img" aria-label={ariaLabel} className={className}>
-            <VantaDBMark size={markPx} accentColor={accentColor} />
+            <VantaDBMark size={markPx} accentColor={accentColor} inverted={inverted} />
           </div>
         );
       case "full":
       default:
-        return <VantaDBLogoFull size={size} className={className} />;
+        return <VantaDBLogoFull size={size} className={className} inverted={inverted} />;
     }
   },
 );

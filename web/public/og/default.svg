@@ -1,42 +1,42 @@
 <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="ogBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#08080c"/>
-      <stop offset="100%" stop-color="#050507"/>
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
     </linearGradient>
     <radialGradient id="ogGlow" cx="0.5" cy="0.4" r="0.6">
-      <stop offset="0%" stop-color="rgba(255,106,0,0.12)"/>
-      <stop offset="100%" stop-color="rgba(255,106,0,0)"/>
+      <stop offset="0%" stop-color="rgba(255,85,0,0.12)"/>
+      <stop offset="100%" stop-color="rgba(255,85,0,0)"/>
     </radialGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#ogBg)"/>
   <rect width="1200" height="630" fill="url(#ogGlow)"/>
   <g opacity="0.04">
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 80)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 160)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 240)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 320)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 400)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 480)"/>
-    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff6a00" stroke-width="0.3" transform="translate(0, 560)"/>
-    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff6a00" stroke-width="0.3" transform="translate(300, 0)"/>
-    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff6a00" stroke-width="0.3" transform="translate(600, 0)"/>
-    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff6a00" stroke-width="0.3" transform="translate(900, 0)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 80)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 160)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 240)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 320)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 400)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 480)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="#ff5500" stroke-width="0.3" transform="translate(0, 560)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff5500" stroke-width="0.3" transform="translate(300, 0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff5500" stroke-width="0.3" transform="translate(600, 0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="#ff5500" stroke-width="0.3" transform="translate(900, 0)"/>
   </g>
   <g opacity="0.06">
-    <circle cx="900" cy="315" r="200" fill="none" stroke="#ff6a00" stroke-width="0.5"/>
-    <circle cx="900" cy="315" r="140" fill="none" stroke="#ff6a00" stroke-width="0.3"/>
+    <circle cx="900" cy="315" r="200" fill="none" stroke="#ff5500" stroke-width="0.5"/>
+    <circle cx="900" cy="315" r="140" fill="none" stroke="#ff5500" stroke-width="0.3"/>
   </g>
   <text x="80" y="230" font-family="'Space Grotesk','Helvetica Neue',sans-serif" font-size="82" font-weight="700" fill="#ffffff" letter-spacing="-3">Vanta</text>
-  <text x="80" y="315" font-family="'Space Grotesk','Helvetica Neue',sans-serif" font-size="82" font-weight="700" fill="#ff6a00" letter-spacing="-3">DB</text>
-  <text x="80" y="385" font-family="'JetBrains Mono',monospace" font-size="20" fill="#8b9eb7" letter-spacing="0.5">the database that thinks with you</text>
-  <line x1="80" y1="415" x2="360" y2="415" stroke="rgba(255,106,0,0.25)" stroke-width="1"/>
-  <text x="80" y="460" font-family="'Outfit',sans-serif" font-size="15" fill="#5a6a7a" letter-spacing="0.3">Embedded vector database · Apache 2.0</text>
-  <text x="80" y="485" font-family="'Outfit',sans-serif" font-size="13" fill="#4a5a6a" letter-spacing="0.3">1.2ms p99 · 32K dims · 100% BM25 recall</text>
+  <text x="80" y="315" font-family="'Space Grotesk','Helvetica Neue',sans-serif" font-size="82" font-weight="700" fill="#ff5500" letter-spacing="-3">DB</text>
+  <text x="80" y="385" font-family="'JetBrains Mono',monospace" font-size="20" fill="#3a3a48" letter-spacing="0.5">the database that thinks with you</text>
+  <line x1="80" y1="415" x2="360" y2="415" stroke="rgba(255,85,0,0.25)" stroke-width="1"/>
+  <text x="80" y="460" font-family="'Outfit',sans-serif" font-size="15" fill="#4a4a58" letter-spacing="0.3">Embedded vector database · Apache 2.0</text>
+  <text x="80" y="485" font-family="'Outfit',sans-serif" font-size="13" fill="#3a3a48" letter-spacing="0.3">1.2ms p99 · 32K dims · 100% BM25 recall</text>
   <g opacity="0.08">
-    <rect x="1040" y="80" width="90" height="90" rx="6" fill="none" stroke="#ff6a00" stroke-width="0.8"/>
-    <text x="1075" y="135" font-family="'Space Grotesk',sans-serif" font-size="36" font-weight="700" fill="#ff6a00" text-anchor="middle">V</text>
-    <line x1="1050" y1="145" x2="1120" y2="145" stroke="#ff6a00" stroke-width="0.4"/>
-    <ellipse cx="1085" cy="145" rx="25" ry="6" fill="none" stroke="#ff6a00" stroke-width="0.3" transform="rotate(-12, 1085, 145)"/>
+    <rect x="1040" y="80" width="90" height="90" rx="6" fill="none" stroke="#ff5500" stroke-width="0.8"/>
+    <text x="1075" y="135" font-family="'Space Grotesk',sans-serif" font-size="36" font-weight="700" fill="#ff5500" text-anchor="middle">V</text>
+    <line x1="1050" y1="145" x2="1120" y2="145" stroke="#ff5500" stroke-width="0.4"/>
+    <ellipse cx="1085" cy="145" rx="25" ry="6" fill="none" stroke="#ff5500" stroke-width="0.3" transform="rotate(-12, 1085, 145)"/>
   </g>
 </svg>

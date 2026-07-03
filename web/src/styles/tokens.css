@@ -24,6 +24,7 @@
   --surface-overlay: #ffffff;
 
   --amber: #ff5500;
+  --orange: #ff5500;
   --amber-light: #ff3300;
   --amber-soft: #ff7733;
   --amber-dim: rgba(255, 85, 0, 0.08);
@@ -38,6 +39,7 @@
   --crimson: var(--danger);
 
   --white: #000000; /* In Swiss light design, 'white' titles map to black for high contrast */
+  --text-on-dark: #ffffff; /* White text for dark backgrounds */
   --frost: oklch(20% 0.005 85);
   --muted: oklch(35% 0.01 80); /* Más oscuro para mejor contraste */
   --subtle: oklch(85% 0.005 85); /* Un gris claro más notorio para divisores sutiles */
@@ -89,6 +91,25 @@
   --grid-cols: 12;
   --grid-gap: 1px;
   --grid-hairline: oklch(15% 0.008 265);
+
+  /* ── Spacing scale ── */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  /* ── Z-index scale ── */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
 }
 
 @layer base {
@@ -126,5 +147,17 @@
   ::selection {
     background: var(--amber-dim);
     color: var(--foreground);
+  }
+}
+
+/* ── Dark mode variables ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --surface: #0a0a0a;
+    --foreground: #ededed;
+    --muted: #666666;
+    --border: #1a1a1a;
+    --card: #0d0d0d;
   }
 }
