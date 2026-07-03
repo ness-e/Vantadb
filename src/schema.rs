@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn decode_invalid_magic() {
-        let mut bytes = vec![0u8; HEADER_SIZE];
+        let bytes = vec![0u8; HEADER_SIZE];
         let err = StorageHeader::decode(&bytes).unwrap_err();
         assert!(matches!(err, SchemaError::Invalid(_)));
     }
