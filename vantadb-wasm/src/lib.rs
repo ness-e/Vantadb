@@ -1,3 +1,5 @@
+#![cfg_attr(target_arch = "wasm32", no_main)]
+
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
 use vantadb::config::VantaConfig;

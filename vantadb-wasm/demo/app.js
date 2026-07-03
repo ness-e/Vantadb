@@ -1,4 +1,4 @@
-import init, { VantaDB } from "../pkg/vantadb_wasm.js";
+import { VantaDB } from "../pkg/vantadb_wasm.js";
 
 const NAMESPACE = "agent-memories";
 const SIMILARITY_THRESHOLD = 0.65;
@@ -27,11 +27,10 @@ function addMessage(role, content, memories = null) {
   el.appendChild(text);
 
   if (memories && memories.length > 0) {
-    const details = document.createElement("div");
-    details.className = "memories";
+    const det = document.createElement("details");
+    det.className = "memories";
     const summary = document.createElement("summary");
     summary.textContent = `Relevant memories (${memories.length})`;
-    const det = document.createElement("details");
     det.appendChild(summary);
     const ul = document.createElement("ul");
     for (const m of memories) {
@@ -40,8 +39,7 @@ function addMessage(role, content, memories = null) {
       ul.appendChild(li);
     }
     det.appendChild(ul);
-    details.appendChild(det);
-    el.appendChild(details);
+    el.appendChild(det);
   }
 
   chat.appendChild(el);
@@ -81,11 +79,7 @@ async function handleMessage() {
       .filter(h => h.score > SIMILARITY_THRESHOLD)
       .map(h => ({ key: h.record.key, payload: h.record.payload, score: h.score }));
 
-    if (memories.length > 0) {
-      addMessage("agent", generateResponse(text, memories), memories);
-    } else {
-      addMessage("agent", generateResponse(text, []));
-    }
+    addMessage("agent", generateResponse(text, memories), memories);
     setStatus("ready", "Memory saved");
   } catch (err) {
     addMessage("system", `Error: ${err.message || err}`);
@@ -147,10 +141,9 @@ async function initEmbedder() {
   }
 }
 
-async function init() {
+async function boot() {
   try {
     setStatus("", "Loading WASM…");
-    await init();
     setStatus("", "Loading embedder…");
     const usingMock = await initEmbedder();
     setStatus("", "Opening database…");
@@ -168,7 +161,7 @@ async function init() {
   }
 }
 
-init().catch((err) => {
+boot().catch((err) => {
   setStatus("error", "Fatal error");
   addMessage("system", `Fatal: ${err.message || err}`);
 });
