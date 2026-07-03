@@ -12,6 +12,15 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- CI: Fix `cargo cyclonedx` syntax in sbom workflow (`--output-format` → `-f`, pin v0.5.9)
+- CI: Fix `chaos_integrity` test error variant (`VantaError::IqlError` → `VantaError::NotFound`) after error refactor
+- CI: Fix `concurrency_parity` test timeout by reducing reader iterations (500→100, 1000→200)
+- Core: Fix stale mmap handle after HNSW `compact_layout_bfs` by adding `VantaFile::replace_backing_file()`
+
 ## [v0.2.0] - 2026-07-02
 
 ### Added

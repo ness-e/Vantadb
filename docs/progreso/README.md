@@ -1,6 +1,6 @@
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-02
+> **Last updated:** 2026-07-03
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -1003,4 +1003,26 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissCoreEngine.tsx`
   - `web/src/components/SwissQuickstart.tsx`
   - `web/src/components/SwissEcosystem.tsx`
+
+### CI-01: Fix All GitHub Actions Workflows
+- **Fecha:** 2026-07-03
+- **Objetivo:** Reparar workflows rotos de CI/CD — VantaDB CI, Web CI, cargo-deny, CodeQL, Performance Benchmarks, heavy_certification, sbom, python_wheels — dejando todos verdes en push a main.
+- **Checklist Completado:**
+  - [x] Fix imports faltantes `AtomicPtr`, `Ordering`, `tracing::warn` en `vfile.rs` bajo `#[cfg(unix)]`.
+  - [x] Fix `install_sigbus_handler` → `pub(crate)` en `vfile.rs`.
+  - [x] Fix 378 prettier errors en Web CI (auto-fix con `npx prettier --write`).
+  - [x] Fix `use super::vfile::install_sigbus_handler` cfg-gateado en `engine.rs` (no rompía Windows).
+  - [x] Fix `AtomicBool as AtomicBoolUnix` unused import en `vfile.rs`.
+  - [x] Limpieza de stray files (`Cargo_test.toml`, `AUDITORIA_COMPLETA_VantaDB_WEB.md`).
+  - [x] Fix sbom.yml: `cargo cyclonedx --output-format` obsoleto → `cargo cyclonedx -f`, pin v0.5.9.
+  - [x] Fix HNSW compaction bug: stale mmap handle post-rename (`VantaFile::replace_backing_file()`).
+  - [x] Fix chaos_integrity test: error variant `IqlError` → `NotFound` tras refactor `0b8ae46`.
+  - [x] Fix concurrency_parity timeout: reducir reader iterations 500→100 y 1000→200.
+- **Archivos Modificados:**
+  - `.github/workflows/sbom.yml`
+  - `src/storage/vfile.rs`
+  - `src/storage/archive.rs`
+  - `src/storage/engine.rs`
+  - `tests/storage/chaos_integrity.rs`
+  - `tests/concurrency_parity.rs`
 
