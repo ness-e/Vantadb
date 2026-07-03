@@ -1,26 +1,17 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import VantaDBLogo from "./VantaDBLogo";
 import { useState, useEffect, useCallback } from "react";
+import { motion, useScroll, useMotionValueEvent } from "motion/react";
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
-  useEffect(() => {
-    let ticking = false;
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          setScrolled(window.scrollY > 20);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    setScrolled(latest > 20);
+  });
 
   useEffect(() => {
     if (drawerOpen) {
@@ -34,6 +25,15 @@ export function Nav() {
   }, [drawerOpen]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  const navLinkVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      x: 0,
+      transition: { delay: i * 0.05, duration: 0.2, ease: [0.25, 1, 0.5, 1] },
+    }),
+  };
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -84,12 +84,23 @@ export function Nav() {
         <button
           className={`nav-hamburger${drawerOpen ? " nav-hamburger--open" : ""}`}
           onClick={() => setDrawerOpen((v) => !v)}
-          aria-label={drawerOpen ? "Close menu" : "Open menu"}
+          aria-label="Menu"
           aria-expanded={drawerOpen}
         >
-          <span />
-          <span />
-          <span />
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            {drawerOpen ? (
+              <>
+                <line x1="3" y1="3" x2="15" y2="15" />
+                <line x1="15" y1="3" x2="3" y2="15" />
+              </>
+            ) : (
+              <>
+                <line x1="2" y1="4.5" x2="16" y2="4.5" />
+                <line x1="2" y1="9" x2="16" y2="9" />
+                <line x1="2" y1="13.5" x2="16" y2="13.5" />
+              </>
+            )}
+          </svg>
         </button>
       </nav>
 
@@ -121,15 +132,23 @@ export function Nav() {
         </div>
 
         <div className="nav-drawer-body">
-          {navLinks.concat({ path: "/docs", label: "Docs" }).map((item) => (
-            <Link
+          {navLinks.concat({ path: "/docs", label: "Docs" }).map((item, i) => (
+            <motion.div
               key={item.path}
-              to={item.path}
-              className={`nav-drawer-link${isActive(item.path) ? " active" : ""}`}
-              onClick={closeDrawer}
+              custom={i}
+              variants={navLinkVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
             >
-              {item.label}
-            </Link>
+              <Link
+                to={item.path}
+                className={`nav-drawer-link${isActive(item.path) ? " active" : ""}`}
+                onClick={closeDrawer}
+              >
+                {item.label}
+              </Link>
+            </motion.div>
           ))}
         </div>
 

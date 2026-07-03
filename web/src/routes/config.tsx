@@ -125,7 +125,7 @@ function ConfigPage() {
                   >
                     <span
                       style={{
-                        color: "#ff3b30",
+                        color: "var(--steel)",
                         fontWeight: 700,
                         minWidth: "1rem",
                         fontFamily: "var(--font-mono)",
@@ -227,7 +227,7 @@ function ConfigPage() {
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.6rem",
-                    color: "#ff3b30",
+                    color: "var(--steel)",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
                   }}

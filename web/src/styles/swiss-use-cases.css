@@ -132,8 +132,16 @@
   grid-template-columns: 3fr 9fr;
   padding: 48px 0;
   border-bottom: 1px solid var(--border);
-  transition: all 200ms;
+  transition: background 150ms var(--ease-cut);
   cursor: default;
+}
+
+.swiss-uc-card:hover {
+  background: var(--surface);
+}
+
+.swiss-uc-card--hover .swiss-uc-num {
+  color: var(--amber);
 }
 
 .swiss-uc-num {

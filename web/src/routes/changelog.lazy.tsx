@@ -8,96 +8,33 @@ export const Route = createLazyRoute("/changelog")({
 
 const releases = [
   {
-    version: "v0.2.0",
-    date: "2026-07-02",
-    tag: "Ecosystem Expansion",
-    changes: [
-      {
-        type: "feature",
-        text: "LangChain integration — `VantaDBVectorStore` with hybrid search, metadata filtering, and batch operations.",
-      },
-      {
-        type: "feature",
-        text: "LlamaIndex integration — `VantaDBVectorStore` with graph traversal, hybrid search, and rich filtering.",
-      },
-      {
-        type: "feature",
-        text: "CLI: 7 new commands — `backup`, `restore`, `doctor`, `inspect`, `stats`, `count`, `search-similar`.",
-      },
-      {
-        type: "feature",
-        text: "CLI: Interactive REPL with tab autocomplete and history.",
-      },
-      {
-        type: "feature",
-        text: "CLI: TUI live dashboard — node count, memory, cache, HNSW, WAL, uptime.",
-      },
-      {
-        type: "feature",
-        text: "SQ8 8-bit scalar quantization — 4x memory reduction vs f32 vectors.",
-      },
-      {
-        type: "feature",
-        text: "Zero-copy HNSW graph archive via rkyv with `repr(C)` layout.",
-      },
-      {
-        type: "feature",
-        text: "Python 3.13+ support, ARM64 Linux wheels, Homebrew formula.",
-      },
-      {
-        type: "feature",
-        text: "WAL compaction (`compact_wal()`) and TTL-based memory eviction (`ttl_ms`).",
-      },
-      {
-        type: "feature",
-        text: "Batch put with Rayon parallelism (`put_batch()`) — faster bulk inserts.",
-      },
-      {
-        type: "feature",
-        text: "AsyncVantaDB Python wrapper with context manager support.",
-      },
-      {
-        type: "feature",
-        text: "Zero-copy NumPy FFI via buffer protocol for vector operations.",
-      },
-      {
-        type: "feature",
-        text: "Prometheus HTTP histograms with p50/p95/p99 latency tracking.",
-      },
-      {
-        type: "feature",
-        text: "MCP Server (Model Context Protocol) — production-grade, 12 tools.",
-      },
-      {
-        type: "perf",
-        text: "HNSW fine-grained locking with DashMap — reduced lock contention.",
-      },
-      {
-        type: "perf",
-        text: "Memory-mapped vector store with predictive prefetching and RSS telemetry.",
-      },
-      {
-        type: "security",
-        text: "Upgraded `pyo3` 0.24 → 0.29 (fixes RUSTSEC-2026-0176, RUSTSEC-2026-0177).",
-      },
-      {
-        type: "security",
-        text: "Complete unsafe block audit — 39 items reviewed, top 3 riskiest documented.",
-      },
-    ],
-  },
-  {
     version: "v0.1.5",
     date: "2026-06-22",
     tag: "Integrations + CLI Epic",
     changes: [
       {
         type: "feature",
-        text: "LangChain and LlamaIndex integration adapters with test suites.",
+        text: "10 integration crates: OpenAI, Ollama, Haystack, DSPy, LiteLLM, CrewAI, Mem0, Letta, MCP (experimental), WASM (experimental).",
       },
       {
         type: "feature",
-        text: "7 new CLI commands, interactive REPL, TUI dashboard, progress bars.",
+        text: "Python SDK: `put`, `put_batch`, `get`, `get_memory`, `delete`, `delete_memory`, `search`, `search_memory`, `query`, `flush`, `compact_wal`, `rebuild_index`, `add_edge`, `graph_bfs`, `graph_dfs`, `graph_topological_sort`, `graph_is_dag`, `export_namespace`, `export_all`, `import_file`, `audit_text_index`, `repair_text_index`, `purge_expired`, `capabilities`, `hardware_profile`, `operational_metrics`, `list_namespaces`, `generate_snippet`, `explain_memory_search`, `close`.",
+      },
+      {
+        type: "feature",
+        text: "AsyncVantaDB wrapper with full async SDK and context manager support.",
+      },
+      {
+        type: "feature",
+        text: "CLI: 10 subcommands — `put`, `get`, `delete`, `search`, `list`, `server`, `export`, `import`, `rebuild-index`, `stats`, `compact`.",
+      },
+      {
+        type: "feature",
+        text: "MCP interface (`vantadb-mcp`) — expose VantaDB as an MCP tool server.",
+      },
+      {
+        type: "feature",
+        text: "WASM bindings (`vantadb-wasm`) — in-browser vector search via WebAssembly.",
       },
       {
         type: "feature",
@@ -243,7 +180,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
   feature: { label: "FEATURE", color: "var(--foreground)" },
   perf: { label: "PERF", color: "var(--amber)" },
   fix: { label: "FIX", color: "var(--steel)" },
-  breaking: { label: "BREAKING", color: "#ff3b30" },
+  breaking: { label: "BREAKING", color: "var(--steel)" },
   security: { label: "SECURITY", color: "var(--foreground)" },
 };
 
@@ -368,7 +305,7 @@ function ChangelogPage() {
                       width: "fit-content",
                     }}
                   >
-                    LATEST
+                    CURRENT
                   </span>
                 )}
                 <span

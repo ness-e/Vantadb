@@ -31,13 +31,13 @@ const headerStyle: React.CSSProperties = {
 
 const cellStyle: React.CSSProperties = {
   padding: "14px 12px",
-  borderBottom: "1px solid var(--steel-dim, rgba(35,35,45,0.06))",
+  borderBottom: "1px solid var(--border)",
   verticalAlign: "top",
 };
 
 const legacyStyle: React.CSSProperties = {
   ...cellStyle,
-  color: "var(--steel, oklch(35% 0.01 240))",
+  color: "var(--steel)",
 };
 
 const vantaStyle: React.CSSProperties = {

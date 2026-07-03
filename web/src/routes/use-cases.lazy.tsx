@@ -21,7 +21,7 @@ const CASES = [
   {
     num: "03",
     title: "Codebase Intelligence",
-    tags: ["GraphRAG", "AST-aware", "30K loc/s"],
+    tags: ["graph edges", "AST-aware", "30K loc/s"],
     desc: "Map function definitions, imports, and caller relations in a local knowledge graph. Traverse graph hops with vector similarity for accurate code retrieval.",
   },
   {

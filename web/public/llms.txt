@@ -16,7 +16,7 @@ VantaDB is an open-source embedded vector database that unifies SQL, vector sear
 - [Engine](/engine) — HNSW, IVF, BM25, hybrid RRF
 - [Architecture](/architecture) — WAL, storage engine, query pipeline
 - [Pricing](/pricing) — Apache 2.0 open core
-- [Changelog](/changelog) — Release history v0.1.0 → v0.2.0
+- [Changelog](/changelog) — Release history v0.1.0 → v0.1.5
 - [Roadmap](/about/roadmap) — Engineering milestones and timeline
 
 ## Solutions

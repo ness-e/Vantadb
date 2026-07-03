@@ -77,42 +77,10 @@ export function SwissBenchmarkGrid() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(
-          ".swiss-vs-cell",
+        gsap.fromTo(".swiss-vs-cell", 
           { opacity: 0, y: 12 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: 0.06,
-            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-            scrollTrigger: {
-              trigger: ".swiss-vs-grid",
-              start: "top 80%",
-            },
-          },
+          { opacity: 1, y: 0, duration: 0.4, stagger: 0.04, ease: "cubic-bezier(0.25, 1, 0.5, 1)", scrollTrigger: { trigger: ".swiss-vs-grid", start: "top 80%" } }
         );
-
-        document.querySelectorAll(".swiss-vs-value[data-numeric]").forEach((el) => {
-          const target = parseFloat(el.getAttribute("data-numeric")!);
-          const isDecimal = el.getAttribute("data-decimal") === "true";
-          const suffix = el.getAttribute("data-suffix") || "";
-
-          const obj = { val: 0 };
-          gsap.to(obj, {
-            val: target,
-            duration: 0.8,
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: el,
-              start: "top 85%",
-            },
-            onUpdate: () => {
-              const formatted = isDecimal ? obj.val.toFixed(1) : Math.round(obj.val);
-              el.textContent = `${formatted}${suffix}`;
-            },
-          });
-        });
       });
     },
     { scope: sectionRef },
@@ -138,8 +106,6 @@ export function SwissBenchmarkGrid() {
           {METRICS.map((m) => {
             // Featured metrics span 6 cols, regular span 3 cols (perfect 12-col fit)
             const isFeatured = m.featured;
-            const isNumeric = m.numericTarget !== null;
-
             return (
               <div
                 key={m.id}
@@ -147,12 +113,6 @@ export function SwissBenchmarkGrid() {
                   `swiss-vs-cell ` +
                   (isFeatured ? "swiss-vs-cell--featured" : "swiss-vs-cell--regular")
                 }
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--surface)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--background)";
-                }}
               >
                 <span className="swiss-vs-cell-label">
                   {m.label}
@@ -163,15 +123,8 @@ export function SwissBenchmarkGrid() {
                     `swiss-vs-value ` +
                     (isFeatured ? "swiss-vs-value--large" : "swiss-vs-value--small")
                   }
-                  {...(isNumeric
-                    ? {
-                        "data-numeric": String(m.numericTarget),
-                        "data-decimal": String(m.isDecimal),
-                        "data-suffix": m.suffix,
-                      }
-                    : {})}
                 >
-                  {isNumeric ? "0" : m.vanta}
+                  {m.id === "latency" ? "1.2ms" : m.id === "memory" ? "2MB" : m.vanta}
                 </span>
 
                 <div className="swiss-vs-cell-footer">

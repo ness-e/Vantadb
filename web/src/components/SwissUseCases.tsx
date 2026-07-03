@@ -69,18 +69,8 @@ export function SwissUseCases() {
             <div
               key={uc.id}
               className="swiss-uc-card"
-              onMouseEnter={(e) => {
-                const num = e.currentTarget.querySelector(".swiss-uc-num");
-                if (num) {
-                  (num as HTMLElement).style.color = "var(--amber)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                const num = e.currentTarget.querySelector(".swiss-uc-num");
-                if (num) {
-                  (num as HTMLElement).style.color = "var(--subtle)";
-                }
-              }}
+              onMouseEnter={(e) => { e.currentTarget.classList.add("swiss-uc-card--hover"); }}
+              onMouseLeave={(e) => { e.currentTarget.classList.remove("swiss-uc-card--hover"); }}
             >
               {/* Columna Izquierda: Índice numérico grande */}
               <div>

@@ -71,26 +71,29 @@ fn main() -> Result<()> {
     id: "cli-reference",
     num: "04",
     title: "CLI Reference",
-    code: `$ vantadb --help
-VantaDB 0.2.0 — Embedded vector database for AI agents
+    code: `$ vanta-cli --help
+VantaDB 0.1.5 — Embedded vector database for AI agents
 
 COMMANDS:
-    init        Initialize a new database
-    insert      Insert documents from JSON/CSV
-    query       Run a semantic or hybrid search
-    serve       Start the HTTP API server (optional)
-    inspect     Inspect database stats and index
-    checkpoint  Force WAL checkpoint
-    repl        Connect to a primary for replication
+    put           Insert or update a document
+    get           Retrieve a document by key
+    delete        Delete a document by key
+    search        Search for similar vectors
+    list          List all documents in a namespace
+    server        Start the HTTP API server
+    export        Export namespace data
+    import        Import data from file
+    rebuild-index Rebuild the HNSW index
+    stats         Show database statistics
+    compact       Compact the WAL
 
 OPTIONS:
     --db-path <PATH>      Database path [default: ./.vantadb]
     --log-level <LEVEL>   Log level [default: info]
 
-$ vantadb init --db-path ./my_db.vdb
-[INFO] Initialized database at ./my_db.vdb
-[INFO] Index configured: HNSW (M=16, ef=200)`,
-    desc: "The vantadb CLI provides full database management from the terminal — initialize, bulk-insert, query, inspect, and manage WAL checkpoints without writing code.",
+$ vanta-cli put --db-path ./my_db.vdb --key doc-1 --vector "0.12,0.45,0.78,0.33"
+[INFO] Document 'doc-1' inserted`,
+    desc: "The vanta-cli provides full database management from the terminal — put, get, delete, search, list, export, import, rebuild the index, inspect stats, and compact the WAL without writing code.",
   },
   {
     id: "configuration",
@@ -127,27 +130,23 @@ max_collections = 256`,
     id: "migration-guide",
     num: "06",
     title: "Migration Guide",
-    code: `# v0.1.x → v0.2.0 Migration
+    code: `# VantaDB v0.1.5 — Feature Overview
 
-## Breaking changes
-- Python 3.8/3.9 dropped (minimum is now 3.11)
-- Rust MSRV bumped to 1.94.1
-- PyO3 upgraded to 0.29 (Bound API)
-
-## Deprecated
-- Experimental governance and LISP VM feature — removed from core
-- Biological terminology (neurons/synapses → UnifiedNode/Edge)
-
-## New
-- SQ8 quantization for 4x memory reduction
-- Batch put with Rayon parallelism (put_batch)
-- WAL compaction and TTL eviction
-- MCP Server integration
+## Available
+- Python SDK (pip install vantadb-py, import vantadb_py)
+- Rust SDK (crates.io)
+- CLI (vanta-cli — put, get, delete, search, list, server, export, import)
+- HNSW vector search + BM25 full-text + hybrid RRF
+- WAL-backed durability with WAL compaction
+- 3 storage backends (Memory, Sled, RocksDB)
+- Batch operations (put_batch)
+- Graph methods (BFS, DFS, topological sort, DAG check)
+- MCP Server (experimental)
+- SQ8 quantization for memory reduction
 
 ## Rebuild index
-$ vantadb-cli inspect ./my_db.vdb
-$ vantadb-cli doctor ./my_db.vdb  # verifies index integrity`,
-    desc: "Follow our migration guides to upgrade between major versions. Each guide includes breaking changes, deprecated APIs, and automated migration scripts.",
+$ vanta-cli rebuild-index --db-path ./my_db.vdb`,
+    desc: "Overview of features available in VantaDB v0.1.5. The Python SDK, Rust SDK, and CLI (vanta-cli) are all ready for local, self-hosted use.",
   },
 ];
 

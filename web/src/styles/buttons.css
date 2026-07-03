@@ -18,17 +18,16 @@
 }
 
 .btn-primary {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   padding: 10px 24px;
   border-radius: 0;
   border: none;
   cursor: pointer;
   background: var(--amber);
-  color: #ffffff;
+  color: var(--block-dark-text);
   transition: background 150ms var(--ease-cut);
   display: inline-flex;
   align-items: center;
@@ -38,18 +37,17 @@
 }
 
 .btn-primary:hover {
-  background: #000000;
+  background: color-mix(in srgb, var(--amber), #000 15%);
 }
 
 .btn-primary:active {
-  background: #111111;
+  background: color-mix(in srgb, var(--amber), #000 25%);
 }
 
 .btn-ghost {
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.14em;
   padding: 10px 24px;
   border-radius: 0;
@@ -187,17 +185,16 @@ button:focus-visible {
   transition:
     background 150ms var(--ease-cut),
     transform 150ms var(--ease-cut);
-  will-change: transform;
 }
 
 .btn-primary--hero:hover {
   transform: translateY(-1px);
-  background: #000000;
+  background: color-mix(in srgb, var(--amber), #000 15%);
 }
 
 .btn-primary--hero:active {
   transform: translateY(0);
-  background: #111111;
+  background: color-mix(in srgb, var(--amber), #000 25%);
 }
 
 .btn-ghost--hero {
@@ -211,7 +208,6 @@ button:focus-visible {
     color 150ms var(--ease-cut),
     border-color 100ms,
     transform 150ms var(--ease-cut);
-  will-change: transform;
 }
 
 .btn-ghost--hero:hover {

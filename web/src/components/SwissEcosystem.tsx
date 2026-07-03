@@ -57,10 +57,6 @@ export function SwissEcosystem() {
       className="swiss-section eco-section"
     >
       <div className="swiss-inner">
-        {/* Eyebrow — 2/3 budget */}
-        <span className="eco-eyebrow">
-          Ecosystem Matrix
-        </span>
         <h2 className="eco-heading">
           Integration Matrix.
         </h2>

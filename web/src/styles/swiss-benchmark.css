@@ -210,7 +210,11 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  transition: border-color 100ms;
+  transition: background 150ms var(--ease-cut);
+}
+
+.swiss-vs-cell:hover {
+  background: var(--surface);
 }
 
 .swiss-vs-cell--featured {

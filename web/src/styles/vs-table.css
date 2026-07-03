@@ -23,7 +23,7 @@
 
 .vs-table td {
   padding: 14px 12px;
-  border-bottom: 1px solid var(--steel-dim, rgba(35, 35, 45, 0.06));
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
@@ -34,7 +34,7 @@
 }
 
 .vs-table .vs-cell--legacy {
-  color: var(--steel, oklch(35% 0.01 240));
+  color: var(--steel);
 }
 
 .vs-table .vs-cell--vanta {

@@ -77,7 +77,7 @@ function BenchmarksPage() {
           </div>
 
           <p style={{ marginTop: "2rem", color: "var(--steel)", lineHeight: "1.6" }}>
-            *Benchmarks run on an Apple M2 Pro (16GB RAM) with 100K 1536-dimensional vectors.
+            *Benchmarks run on AMD Ryzen 12-Core @ 3.5GHz with 100K 128-dimensional SIFT1M vectors.
             VantaDB uses BFS-compacted Memmapped HNSW and Fjall LSM-tree storage.
           </p>
 
@@ -94,8 +94,8 @@ function BenchmarksPage() {
             }}
           >
             <strong style={{ color: "var(--amber)" }}>Note:</strong> Benchmarks shown represent
-            raw Rust core performance on small datasets (10K vectors, 100-dim). Real-world
-            performance varies by dataset size, dimensionality, and hardware configuration. See
+            raw Rust core performance on the SIFT1M dataset (100K vectors, 128-dim, Balanced Cos configuration).
+            Real-world performance varies by dataset size, dimensionality, and hardware configuration. See
             full methodology in <code style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
             docs/operations/BENCHMARKS.md</code>.
           </div>

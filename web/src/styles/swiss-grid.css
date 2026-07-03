@@ -249,8 +249,7 @@
 }
 
 .swiss-section--dark .swiss-card:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--block-dark-text);
 }
 
 /* ── Bento grid ── */

@@ -77,14 +77,15 @@ function RoadmapPage() {
                   color: "var(--steel)",
                 }}
               >
-                PHASE 5 • UPCOMING
+                PHASE 5 • ASPIRATIONAL
               </span>
               <h3 style={{ margin: "0.5rem 0", color: "var(--foreground)", fontSize: "1.2rem" }}>
-                Enterprise Readiness & Cloud
+                Enterprise Readiness
               </h3>
               <p style={{ color: "var(--steel)", margin: 0, lineHeight: "1.6" }}>
                 AES-256 at-rest encryption, async WAL shipping, Point-in-Time Recovery (PITR),
-                dynamic quantization, and VantaDB Cloud Beta.
+                and dynamic quantization. Cloud features (VantaDB Cloud) are exploratory design
+                concepts, not in active development.
               </p>
             </div>
           </div>

@@ -7,7 +7,7 @@ export const Route = createFileRoute("/integrations")({
       {
         name: "description",
         content:
-          "Integrate VantaDB vector store and persistent memory tools natively inside LangChain, LlamaIndex and MCP runtimes.",
+          "Integrate VantaDB vector store and persistent memory with native bindings for Python (PyO3), OpenAI, Ollama, CrewAI, Haystack, DSPy, LiteLLM, Mem0, Letta, and MCP (experimental).",
       },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/integrations" }],

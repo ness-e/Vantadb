@@ -55,7 +55,7 @@
   line-height: 1.5;
   color: var(--muted);
   margin: 0;
-  max-width: 600px;
+  max-width: 65ch;
 }
 
 /* Responsive */

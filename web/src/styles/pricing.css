@@ -9,7 +9,7 @@
 
 /* ── Pricing cards — Swiss plano ── */
 .pricing-card {
-  background: #ffffff;
+  background: var(--background);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 2.5rem 2rem;
@@ -25,8 +25,8 @@
 
 /* Featured: acento naranja top-border 3px + fondo levemente cálido */
 .pricing-card--featured {
-  background: #fff7f0;
-  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  border: 1px solid var(--amber);
   border-top: 3px solid var(--amber);
   z-index: 1;
 }
@@ -41,7 +41,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #ffffff;
+  color: var(--background);
   background: var(--amber);
   padding: 0.25rem 0.75rem;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
@@ -209,7 +209,7 @@
 .pricing-table td {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--subtle);
-  background: #ffffff;
+  background: var(--background);
 }
 
 .pricing-table tr:last-child td {

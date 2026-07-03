@@ -220,7 +220,7 @@ function CompanyPage() {
                   >
                     <span
                       style={{
-                        color: "#ff3b30",
+                        color: "var(--steel)",
                         fontFamily: "var(--font-mono)",
                         fontWeight: 700,
                         flexShrink: 0,

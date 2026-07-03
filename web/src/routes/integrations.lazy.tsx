@@ -9,67 +9,72 @@ export const Route = createLazyRoute("/integrations")({
 
 const INTEGRATIONS = [
   {
-    id: "langchain",
-    label: "LangChain",
-    tag: "vantadb-langchain",
-    category: "RAG / Chains",
-    desc: "Implement VantaDB as a lightweight persistent vectorstore within your LangChain document pipelines.",
-    code: `from vantadb_langchain import VantaDBVectorStore
-from langchain_openai import OpenAIEmbeddings
+    id: "openai",
+    label: "OpenAI",
+    tag: "vantadb-openai",
+    category: "Memory Bridge",
+    desc: "Persist OpenAI assistant conversation history and memory profiles directly in VantaDB's embedded store.",
+    code: `from openai import OpenAI
+import vantadb_py as vanta
 
-embeddings = OpenAIEmbeddings()
-vector_store = VantaDBVectorStore(
-    path="./langchain_data",
-    embedding_function=embeddings,
-    namespace="agent_history"
+client = OpenAI()
+db = vanta.VantaDB("./openai_memory")
+
+# Generate embedding via OpenAI
+resp = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="User prefers async workflows"
 )
+vector = resp.data[0].embedding
 
-# Add records to local db
-vector_store.add_texts(
-    texts=["User prefers async python workflows"],
-    metadatas=[{"priority": "high"}]
-)
+# Store in VantaDB
+db.put("sessions", "user-001",
+    "User prefers async workflows",
+    vector=vector)
 
-# Similarity query execution
-docs = vector_store.similarity_search("python developer", k=3)`,
+# Semantic search
+hits = db.search("sessions",
+    query_vector=vector, top_k=5)`,
   },
   {
-    id: "llamaindex",
-    label: "LlamaIndex",
-    tag: "llama-index-vector-stores-vantadb",
-    category: "LLM Indexes",
-    desc: "Connect LLM index pipelines directly to VantaDB. Leverage in-process traversals for rapid structured memory pipelines.",
-    code: `from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
-from llama_index.vector_stores.vantadb import VantaDBVectorStore
-from llama_index.core.storage.storage_context import StorageContext
+    id: "ollama",
+    label: "Ollama",
+    tag: "vantadb-ollama",
+    category: "Local Embeddings",
+    desc: "Bridge local Ollama embeddings with VantaDB vector search for fully offline RAG pipelines.",
+    code: `import requests
+import vantadb_py as vanta
 
-# Initialize in-process store
-vector_store = VantaDBVectorStore(path="./llama_data")
-storage_context = StorageContext.from_defaults(vector_store=vector_store)
+db = vanta.VantaDB("./ollama_store")
 
-# Load data and build index
-documents = SimpleDirectoryReader("./data").load_data()
-index = VectorStoreIndex.from_documents(
-    documents, storage_context=storage_context
+# Generate embedding via Ollama
+resp = requests.post(
+    "http://localhost:11434/api/embeddings",
+    json={"model": "nomic-embed-text",
+          "prompt": "Offline RAG context"}
 )
+vector = resp.json()["embedding"]
 
-# Query vector index
-query_engine = index.as_query_engine()
-response = query_engine.query("What is the system limits?")`,
+# Store and search locally
+db.put("docs", "rag-1",
+    "Offline RAG context", vector=vector)
+hits = db.search("docs",
+    query_vector=vector, top_k=3)`,
   },
   {
     id: "mcp",
     label: "MCP Server",
-    tag: "mcp-server-vantadb",
+    tag: "vantadb-mcp",
     category: "Agent Protocol",
-    desc: "Expose local vector storage utilities and namespace keys dynamically to Claude Desktop or any MCP client runtime.",
+    experimental: true,
+    desc: "EXPERIMENTAL — Expose VantaDB namespaces and tools to Claude Desktop or any MCP-compatible runtime via vantadb-mcp.",
     code: `{
   "mcpServers": {
-    "vantadb-memory": {
-      "command": "python",
-      "args": ["-m", "vantadb_mcp_server", "--path", "./mcp_agent_memory"],
+    "vantadb": {
+      "command": "vantadb-mcp",
+      "args": ["--path", "./agent_memory"],
       "env": {
-        "VANTA_DEFAULT_NAMESPACE": "agent_context"
+        "VANTA_NAMESPACE": "agent_context"
       }
     }
   }
@@ -80,43 +85,46 @@ response = query_engine.query("What is the system limits?")`,
     label: "Python SDK",
     tag: "vantadb-py",
     category: "Native Bindings",
-    desc: "Direct Rust bindings via PyO3. Absolute speed with zero TCP networking latency floors.",
+    desc: "Direct Rust bindings via PyO3. Zero TCP overhead — sync VantaDB and async AsyncVantaDB with full SDK coverage.",
     code: `import vantadb_py as vanta
 
 # Open database path
 db = vanta.VantaDB("./vanta_memory")
 
 # Store structured memory
-db.put(
-    "memories",
-    "user-pref",
+db.put("memories", "user-pref",
     "Developer is building high-end interfaces",
-    vector=[0.15, 0.82, 0.44]
-)
+    vector=[0.15, 0.82, 0.44])
 
 # Multi-modal retrieval
-hits = db.search_memory(
-    "memories",
+hits = db.search_memory("memories",
     query_vector=[0.14, 0.85, 0.40],
-    top_k=1
-)`,
+    top_k=1)
+
+# Async wrapper
+async with vanta.AsyncVantaDB("./path") as adb:
+    await adb.put("ns", "k", "v", vector=[0.1]*128)
+    results = await adb.search("ns", [0.1]*128)`,
   },
 ];
 
 const ECOSYSTEM_GRID = [
-  { name: "FastAPI", tag: "REST API" },
-  { name: "Jupyter", tag: "Notebooks" },
-  { name: "Transformers", tag: "HuggingFace" },
-  { name: "Sentence-Transformers", tag: "Embeddings" },
-  { name: "PyO3", tag: "FFI" },
-  { name: "DuckDB", tag: "Analytics compat." },
-  { name: "Rust", tag: "Native crate" },
-  { name: "OpenAI", tag: "Embedding API" },
-  { name: "Anthropic Claude", tag: "Agent memory" },
+  { name: "vantadb-openai", tag: "OpenAI Bridge" },
+  { name: "vantadb-ollama", tag: "Ollama Embed" },
+  { name: "vantadb-haystack", tag: "Haystack Store" },
+  { name: "vantadb-dspy", tag: "DSPy Modules" },
+  { name: "vantadb-litellm", tag: "LiteLLM Proxy" },
+  { name: "vantadb-crewai", tag: "CrewAI Tools" },
+  { name: "vantadb-mem0", tag: "Mem0 Profiles" },
+  { name: "vantadb-letta", tag: "Letta Memory" },
+  { name: "vantadb-mcp", tag: "EXPERIMENTAL" },
+  { name: "vantadb-wasm", tag: "EXPERIMENTAL" },
+  { name: "vantadb-python", tag: "PyO3 SDK" },
+  { name: "vantadb-server", tag: "HTTP Server" },
 ];
 
 function IntegrationsPage() {
-  const [selectedId, setSelectedId] = useState<string>("langchain");
+  const [selectedId, setSelectedId] = useState<string>("openai");
   const [copied, setCopied] = useState(false);
 
   const active = useMemo(
@@ -211,17 +219,35 @@ function IntegrationsPage() {
                   background: "var(--surface)",
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  {active.tag}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.6rem",
+                      color: "var(--amber)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    {active.tag}
+                  </span>
+                  {active.experimental && (
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.5rem",
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: "var(--amber)",
+                        border: "1px solid var(--amber)",
+                        padding: "0.15rem 0.4rem",
+                        lineHeight: 1,
+                      }}
+                    >
+                      EXPERIMENTAL
+                    </span>
+                  )}
                 </div>
                 <p
                   style={{

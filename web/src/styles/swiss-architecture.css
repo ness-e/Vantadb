@@ -203,6 +203,22 @@
   align-items: center;
   justify-content: center;
   transition: all 200ms var(--ease-cut);
+  background: rgba(249, 248, 246, 0.5);
+  border: 1px solid var(--foreground);
+}
+
+.swiss-arch-layer--accent {
+  border-color: var(--amber);
+}
+
+.swiss-arch-stack--hovered .swiss-arch-layer {
+  opacity: 0.3;
+}
+
+.swiss-arch-stack--hovered .swiss-arch-layer--active {
+  opacity: 1;
+  border-color: var(--amber) !important;
+  background: var(--surface) !important;
 }
 
 .swiss-arch-layer--large {
@@ -230,6 +246,11 @@
   font-size: 0.75rem;
   font-weight: var(--weight-semibold);
   letter-spacing: 0.1em;
+  color: var(--foreground);
+}
+
+.swiss-arch-layer-badge-text--accent {
+  color: var(--amber);
 }
 
 .swiss-arch-layer-name {
@@ -246,6 +267,16 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 0;
+}
+
+.swiss-arch-layer-arrow line {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.swiss-arch-layer-arrow polygon {
+  fill: var(--border);
 }
 
 .swiss-arch-layer-dim {
