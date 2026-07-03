@@ -8,7 +8,10 @@ use vantadb::sdk::{
 
 fn ns_for(user_id: &str, agent_id: &str) -> String {
     let safe = |s: &str| -> String {
-        s.replace(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '-', "_")
+        s.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '-',
+            "_",
+        )
     };
     format!("letta_{}_{}", safe(user_id), safe(agent_id))
 }
@@ -98,12 +101,7 @@ impl LettaStore {
         Ok(results)
     }
 
-    fn list_memories(
-        &self,
-        py: Python,
-        user_id: &str,
-        agent_id: &str,
-    ) -> PyResult<Vec<Py<PyAny>>> {
+    fn list_memories(&self, py: Python, user_id: &str, agent_id: &str) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = ns_for(user_id, agent_id);
         let page = self
             .engine

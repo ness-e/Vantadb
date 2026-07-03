@@ -33,13 +33,20 @@ impl CrewAIMemory {
         Ok(Self { engine })
     }
 
-    fn save(&self, context: &str, metadata: &Bound<'_, PyDict>, embedding: Vec<f32>) -> PyResult<String> {
-        let meta_str = serde_json::to_string(&py_dict_to_string_map(metadata))
-            .unwrap_or_default();
+    fn save(
+        &self,
+        context: &str,
+        metadata: &Bound<'_, PyDict>,
+        embedding: Vec<f32>,
+    ) -> PyResult<String> {
+        let meta_str = serde_json::to_string(&py_dict_to_string_map(metadata)).unwrap_or_default();
         let key = format!("crew_{}", context.len());
         let mut input = VantaMemoryInput::new("crewai_memories", &key, context);
         input.vector = Some(embedding);
-        input.metadata.insert("metadata_json".into(), vantadb::sdk::VantaValue::String(meta_str));
+        input.metadata.insert(
+            "metadata_json".into(),
+            vantadb::sdk::VantaValue::String(meta_str),
+        );
 
         let record = self
             .engine

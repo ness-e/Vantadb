@@ -62,7 +62,12 @@ impl VantaDBOllama {
         Ok(result)
     }
 
-    fn search(&self, py: Python, query_embedding: Vec<f32>, top_k: i32) -> PyResult<Vec<Py<PyAny>>> {
+    fn search(
+        &self,
+        py: Python,
+        query_embedding: Vec<f32>,
+        top_k: i32,
+    ) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
             namespace: "ollama_store".into(),
             query_vector: query_embedding,
