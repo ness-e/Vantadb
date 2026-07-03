@@ -1,7 +1,7 @@
 use js_sys;
+use vantadb_wasm::{OpfsStorage, VantaDB};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
-use vantadb_wasm::{OpfsStorage, VantaDB};
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -20,12 +20,7 @@ fn make_put(namespace: &str, key: &str, payload: &str) -> JsValue {
     .unwrap()
 }
 
-fn make_put_with_vector(
-    namespace: &str,
-    key: &str,
-    payload: &str,
-    vector: Vec<f32>,
-) -> JsValue {
+fn make_put_with_vector(namespace: &str, key: &str, payload: &str, vector: Vec<f32>) -> JsValue {
     serde_wasm_bindgen::to_value(&serde_json::json!({
         "namespace": namespace,
         "key": key,
@@ -104,10 +99,7 @@ async fn test_opfs_read_nonexistent() {
         None => return,
     };
 
-    let result = storage
-        .read_file("nonexistent_file_xyz.bin")
-        .await
-        .unwrap();
+    let result = storage.read_file("nonexistent_file_xyz.bin").await.unwrap();
     assert!(result.is_none());
 }
 
@@ -402,9 +394,7 @@ fn test_search_vector_with_different_k() {
     let arr_3 = js_sys::Array::from(&hits_3);
     assert_eq!(arr_3.length(), 3);
 
-    let hits_all = db
-        .search_vector(vec![0.0, 0.0, 0.0, 0.0], 100)
-        .unwrap();
+    let hits_all = db.search_vector(vec![0.0, 0.0, 0.0, 0.0], 100).unwrap();
     let arr_all = js_sys::Array::from(&hits_all);
     assert!(arr_all.length() >= 10);
 }
@@ -571,8 +561,7 @@ fn test_list_pagination() {
     }))
     .unwrap();
     let page1 = db.list("pagination", opts_10).unwrap();
-    let records1 =
-        js_sys::Array::from(&js_sys::Reflect::get(&page1, &"records".into()).unwrap());
+    let records1 = js_sys::Array::from(&js_sys::Reflect::get(&page1, &"records".into()).unwrap());
     assert_eq!(records1.length(), 10);
 
     let cursor = js_sys::Reflect::get(&page1, &"next_cursor".into()).unwrap();
@@ -582,8 +571,7 @@ fn test_list_pagination() {
     }))
     .unwrap();
     let page2 = db.list("pagination", opts_next).unwrap();
-    let records2 =
-        js_sys::Array::from(&js_sys::Reflect::get(&page2, &"records".into()).unwrap());
+    let records2 = js_sys::Array::from(&js_sys::Reflect::get(&page2, &"records".into()).unwrap());
     assert_eq!(records2.length(), 10);
 }
 
@@ -603,8 +591,7 @@ fn test_list_max_limit() {
     }))
     .unwrap();
     let page = db.list("max_limit", opts).unwrap();
-    let records =
-        js_sys::Array::from(&js_sys::Reflect::get(&page, &"records".into()).unwrap());
+    let records = js_sys::Array::from(&js_sys::Reflect::get(&page, &"records".into()).unwrap());
     assert_eq!(records.length(), 5);
 }
 

@@ -2151,8 +2151,7 @@ pub fn cmd_migrate(target_path: &str, _db_path: &str, verbose: bool) -> Result<(
     if current_header.version > CURRENT_SCHEMA_VERSION {
         print_error(&format!(
             "Database schema version {} is newer than this software (max {})",
-            current_header.version,
-            CURRENT_SCHEMA_VERSION
+            current_header.version, CURRENT_SCHEMA_VERSION
         ));
         return Err(crate::error::VantaError::SchemaError(format!(
             "Schema version {} is too new for this version of VantaDB",

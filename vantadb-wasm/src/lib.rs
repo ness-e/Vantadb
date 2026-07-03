@@ -313,10 +313,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        let db = VantaDB {
-            inner,
-            opfs,
-        };
+        let db = VantaDB { inner, opfs };
         db.load().await?;
         Ok(db)
     }

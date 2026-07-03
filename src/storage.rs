@@ -891,7 +891,11 @@ impl StorageEngine {
         // ── Storage schema version check ────────────────────────────
         if !config.read_only {
             crate::schema::load_or_create_schema(&base_path)?;
-            info!("Storage schema: version={} flags={}", crate::schema::CURRENT_SCHEMA_VERSION, 0);
+            info!(
+                "Storage schema: version={} flags={}",
+                crate::schema::CURRENT_SCHEMA_VERSION,
+                0
+            );
         } else {
             crate::schema::check_schema_compatibility(&base_path)?;
         }
@@ -2008,9 +2012,9 @@ impl StorageEngine {
             .map(|&i| ids_with_keys[i].1.as_slice())
             .collect();
 
-        let backend_results =
-            self.backend
-                .get_many(BackendPartition::Default, &remaining_keys)?;
+        let backend_results = self
+            .backend
+            .get_many(BackendPartition::Default, &remaining_keys)?;
 
         let backend_map: std::collections::HashMap<u64, Vec<u8>> = backend_results
             .into_iter()
@@ -2033,12 +2037,13 @@ impl StorageEngine {
                 continue;
             };
 
-            let (metadata, _): (NodeMetadata, usize) =
-                match bincode::serde::decode_from_slice(metadata_bytes, bincode::config::standard())
-                {
-                    Ok(m) => m,
-                    Err(_) => continue,
-                };
+            let (metadata, _): (NodeMetadata, usize) = match bincode::serde::decode_from_slice(
+                metadata_bytes,
+                bincode::config::standard(),
+            ) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
 
             let Some(index_node) = hnsw.nodes.get(&id) else {
                 continue;

@@ -96,9 +96,7 @@ fn main() -> Result<()> {
             }
         },
 
-        Commands::Migrate { target } => {
-            cli_handlers::cmd_migrate(&target, &args.db, args.verbose)?
-        }
+        Commands::Migrate { target } => cli_handlers::cmd_migrate(&target, &args.db, args.verbose)?,
 
         Commands::Status => cli_handlers::cmd_status(&args.db, args.verbose)?,
 

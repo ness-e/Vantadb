@@ -82,23 +82,38 @@ pub struct McpError {
 
 impl McpError {
     pub fn parse_error(msg: impl Into<String>) -> Self {
-        Self { code: -32700, message: format!("Parse error: {}", msg.into()) }
+        Self {
+            code: -32700,
+            message: format!("Parse error: {}", msg.into()),
+        }
     }
 
     pub fn invalid_params(msg: impl Into<String>) -> Self {
-        Self { code: -32602, message: msg.into() }
+        Self {
+            code: -32602,
+            message: msg.into(),
+        }
     }
 
     pub fn method_not_found(msg: impl Into<String>) -> Self {
-        Self { code: -32601, message: msg.into() }
+        Self {
+            code: -32601,
+            message: msg.into(),
+        }
     }
 
     pub fn internal_error(msg: impl Into<String>) -> Self {
-        Self { code: -32603, message: msg.into() }
+        Self {
+            code: -32603,
+            message: msg.into(),
+        }
     }
 
     pub fn invalid_request(msg: impl Into<String>) -> Self {
-        Self { code: -32600, message: msg.into() }
+        Self {
+            code: -32600,
+            message: msg.into(),
+        }
     }
 
     pub fn to_json(&self) -> Value {
@@ -143,7 +158,10 @@ struct McpMetrics {
 
 fn validate_identifier(value: &str, label: &str, max_len: usize) -> Result<(), McpError> {
     if value.is_empty() {
-        return Err(McpError::invalid_params(format!("'{}' must not be empty", label)));
+        return Err(McpError::invalid_params(format!(
+            "'{}' must not be empty",
+            label
+        )));
     }
     if value.len() > max_len {
         return Err(McpError::invalid_params(format!(
@@ -152,7 +170,10 @@ fn validate_identifier(value: &str, label: &str, max_len: usize) -> Result<(), M
         )));
     }
     if value.contains('\0') {
-        return Err(McpError::invalid_params(format!("'{}' contains null byte", label)));
+        return Err(McpError::invalid_params(format!(
+            "'{}' contains null byte",
+            label
+        )));
     }
     Ok(())
 }
@@ -180,11 +201,13 @@ fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32>, McpError
     }
     let mut v = Vec::with_capacity(array.len());
     for val in array {
-        let f = val.as_f64().ok_or_else(|| {
-            McpError::invalid_params("Vector elements must be numbers")
-        })?;
+        let f = val
+            .as_f64()
+            .ok_or_else(|| McpError::invalid_params("Vector elements must be numbers"))?;
         if !f.is_finite() {
-            return Err(McpError::invalid_params("Vector elements must be finite numbers"));
+            return Err(McpError::invalid_params(
+                "Vector elements must be finite numbers",
+            ));
         }
         v.push(f as f32);
     }
@@ -210,9 +233,8 @@ fn parse_metadata(obj: &serde_json::Map<String, Value>) -> vantadb::sdk::VantaMe
 /// Serialize value to JSON string; on error produces a JSON-error string rather
 /// than silently returning "".
 fn serialize_content(value: &impl Serialize) -> String {
-    serde_json::to_string(value).unwrap_or_else(|e| {
-        format!("{{\"error\":\"Serialization failed: {}\"}}", e)
-    })
+    serde_json::to_string(value)
+        .unwrap_or_else(|e| format!("{{\"error\":\"Serialization failed: {}\"}}", e))
 }
 
 fn text_content(text: String) -> Value {
@@ -278,11 +300,14 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             Err(e) => {
                 metrics.errors_total.fetch_add(1, Ordering::Relaxed);
                 warn!(error = %e, input_len = line.len(), "Failed to parse JSON-RPC");
-                write_json(&mut stdout, &json!({
-                    "jsonrpc": "2.0",
-                    "id": Value::Null,
-                    "error": McpError::parse_error(e.to_string()).to_json()
-                }));
+                write_json(
+                    &mut stdout,
+                    &json!({
+                        "jsonrpc": "2.0",
+                        "id": Value::Null,
+                        "error": McpError::parse_error(e.to_string()).to_json()
+                    }),
+                );
                 continue;
             }
         };
@@ -501,7 +526,9 @@ pub fn handle_resources_read(
         match embedded.get(namespace, key) {
             Ok(Some(record)) => {
                 let text = serialize_content(&record);
-                Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
+                Ok(
+                    json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}),
+                )
             }
             Ok(None) => McpError::invalid_params("Memory record not found").into_err(),
             Err(e) => McpError::internal_error(format!("Error reading memory: {}", e)).into_err(),
@@ -532,7 +559,9 @@ pub fn handle_resources_read(
                     "next_cursor": page.next_cursor
                 });
                 let text = serialize_content(&result);
-                Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
+                Ok(
+                    json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}),
+                )
             }
             Err(e) => {
                 McpError::internal_error(format!("Error listing namespace: {}", e)).into_err()
@@ -595,7 +624,9 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
 
     match name {
         "search_memory" => {
-            let namespace = args.and_then(|a| a["namespace"].as_str()).unwrap_or("default");
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
             let query = args.and_then(|a| a["query"].as_str()).unwrap_or("");
             Ok(json!({
                 "description": "Optimized prompt for searching memory records with hybrid vector and text search",
@@ -603,14 +634,18 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             }))
         }
         "analyze_namespace" => {
-            let namespace = args.and_then(|a| a["namespace"].as_str()).unwrap_or("default");
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
             Ok(json!({
                 "description": "Analyze the content and structure of a namespace",
                 "messages": [{"role": "user", "content": {"type": "text", "text": format!("Analyze the VantaDB namespace '{}'. List all records, examine metadata patterns, identify clusters, and provide insights about the namespace structure and content distribution.", namespace)}}]
             }))
         }
         "summarize_context" => {
-            let namespace = args.and_then(|a| a["namespace"].as_str()).unwrap_or("default");
+            let namespace = args
+                .and_then(|a| a["namespace"].as_str())
+                .unwrap_or("default");
             let limit = args.and_then(|a| a["limit"].as_u64()).unwrap_or(10);
             Ok(json!({
                 "description": "Generate a summary of context from memory records",
@@ -618,7 +653,9 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             }))
         }
         "query_builder" => {
-            let operation = args.and_then(|a| a["operation"].as_str()).unwrap_or("SELECT");
+            let operation = args
+                .and_then(|a| a["operation"].as_str())
+                .unwrap_or("SELECT");
             let target = args.and_then(|a| a["target"].as_str()).unwrap_or("nodes");
             let conditions = args.and_then(|a| a["conditions"].as_str()).unwrap_or("");
             Ok(json!({
@@ -778,10 +815,8 @@ pub fn handle_tools_call(
 
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
-            validate_identifier(key, "key", config.max_key_length)
-                .map_err(|e| e.to_json())?;
-            validate_payload(payload, config.max_payload_length)
-                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
 
             let vector = if let Some(arr) = args["vector"].as_array() {
                 Some(validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?)
@@ -821,8 +856,7 @@ pub fn handle_tools_call(
 
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
-            validate_identifier(key, "key", config.max_key_length)
-                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.get(namespace, key) {
@@ -842,12 +876,13 @@ pub fn handle_tools_call(
 
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
-            validate_identifier(key, "key", config.max_key_length)
-                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.delete(namespace, key) {
-                Ok(deleted) => Ok(text_content(serialize_content(&json!({"deleted": deleted})))),
+                Ok(deleted) => Ok(text_content(serialize_content(
+                    &json!({"deleted": deleted}),
+                ))),
                 Err(e) => Ok(error_content(format!("Delete Error: {}", e))),
             }
         }
@@ -859,7 +894,9 @@ pub fn handle_tools_call(
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
-            let raw_limit = args["limit"].as_u64().unwrap_or(config.default_list_limit as u64);
+            let raw_limit = args["limit"]
+                .as_u64()
+                .unwrap_or(config.default_list_limit as u64);
             let limit = (raw_limit as usize).min(config.max_list_limit);
             let cursor = args["cursor"].as_u64().map(|c| c as usize);
 
@@ -906,9 +943,7 @@ pub fn handle_tools_call(
             }
 
             match executor.execute_hybrid(query) {
-                Ok(ExecutionResult::Read(nodes)) => {
-                    Ok(text_content(serialize_content(&nodes)))
-                }
+                Ok(ExecutionResult::Read(nodes)) => Ok(text_content(serialize_content(&nodes))),
                 Ok(ExecutionResult::Write {
                     affected_nodes,
                     message,
@@ -918,14 +953,14 @@ pub fn handle_tools_call(
                     "message": message,
                     "node_id": node_id
                 })))),
-                Ok(ExecutionResult::StaleContext(summary_id)) => Ok(text_content(
-                    serialize_content(&json!({
+                Ok(ExecutionResult::StaleContext(summary_id)) => {
+                    Ok(text_content(serialize_content(&json!({
                         "stale_context": true,
                         "rehydration_available": true,
                         "summary_id": summary_id,
                         "message": "Suggested Historical Recovery (Critical Confidence Score)."
-                    })),
-                )),
+                    }))))
+                }
                 Err(e) => Ok(error_content(format!("LISP Runtime Error: {}", e))),
             }
         }
@@ -948,7 +983,9 @@ pub fn handle_tools_call(
             };
 
             let text_query = args["text_query"].as_str().map(String::from);
-            let raw_top_k = args["top_k"].as_u64().unwrap_or(config.default_top_k as u64);
+            let raw_top_k = args["top_k"]
+                .as_u64()
+                .unwrap_or(config.default_top_k as u64);
             let top_k = (raw_top_k as usize).min(config.max_top_k);
 
             let distance_metric = match args["distance_metric"].as_str() {
@@ -985,8 +1022,8 @@ pub fn handle_tools_call(
             let vec_arr = args["vector"]
                 .as_array()
                 .ok_or_else(|| McpError::invalid_params("Missing 'vector' array").to_json())?;
-            let vector = validate_vector(vec_arr, config.max_vector_dim)
-                .map_err(|e| e.to_json())?;
+            let vector =
+                validate_vector(vec_arr, config.max_vector_dim).map_err(|e| e.to_json())?;
             let k = args["k"].as_u64().unwrap_or(5) as usize;
 
             let mut results = Vec::new();
@@ -1018,7 +1055,9 @@ pub fn handle_tools_call(
                         }));
                     }
                 }
-                Ok(text_content(serialize_content(&json!({"node": node, "neighbors": neighbors}))))
+                Ok(text_content(serialize_content(
+                    &json!({"node": node, "neighbors": neighbors}),
+                )))
             } else {
                 Ok(error_content("Node not found"))
             }

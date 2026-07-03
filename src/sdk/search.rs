@@ -317,8 +317,7 @@ impl VantaEmbedded {
                 }
                 if let Some(node) = node_map.get(&node_id) {
                     if let Some(record) = memory_record_from_node(node.clone()) {
-                        if record.namespace == namespace
-                            && matches_memory_filters(&record, filters)
+                        if record.namespace == namespace && matches_memory_filters(&record, filters)
                         {
                             let score = raw_score;
                             hits.push(VantaMemorySearchHit {

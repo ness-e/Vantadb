@@ -32,13 +32,13 @@ export function SwissUseCases() {
     () => {
       gsap.fromTo(
         ".swiss-uc-card",
-        { opacity: 0, y: 30 },
+        { opacity: 0, y: 12 },
         {
           opacity: 1,
           y: 0,
-          duration: 0.6,
-          stagger: 0.2,
-          ease: "power2.out",
+          duration: 0.5,
+          stagger: 0.06,
+          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
           scrollTrigger: {
             trigger: sectionRef.current,
             start: "top 70%",
@@ -57,10 +57,7 @@ export function SwissUseCases() {
     >
       <div className="swiss-inner">
         <div style={{ marginBottom: "64px" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-label)", fontWeight: 600, letterSpacing: "0.14em", color: "var(--steel)", textTransform: "uppercase" }}>
-            [CASE STUDIES]
-          </span>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "24px 0 0 0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, margin: "0", letterSpacing: "-0.04em", color: "var(--foreground)" }}>
             Applied Use Cases.
           </h2>
         </div>
