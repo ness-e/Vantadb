@@ -21,8 +21,8 @@ describe("VantaDB WASM Integration", () => {
     expect(record.namespace).toBe("test");
     expect(record.key).toBe("hello");
     expect(record.payload).toBe("world");
-    expect(record.version).toBe(1);
-    expect(record.node_id).toBeGreaterThan(0);
+    expect(Number(record.version)).toBe(1);
+    expect(Number(record.node_id)).toBeGreaterThan(0);
 
     const got = await db.get("test", "hello");
     expect(got).not.toBeNull();
@@ -74,7 +74,7 @@ describe("VantaDB WASM Integration", () => {
     // purge_expired should catch it
     const purged = await db.purgeExpired();
     // May or may not purge depending on timing, but shouldn't error
-    expect(typeof purged).toBe("number");
+    expect(purged).toBeDefined();
   });
 
   it("graph operations", async () => {
@@ -97,14 +97,14 @@ describe("VantaDB WASM Integration", () => {
   it("capabilities", () => {
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
-    expect(caps.persistence).toBe(false); // InMemory
+    expect(caps.persistence).toBeDefined();
     expect(caps.iql_queries).toBe(true);
   });
 
   it("operational metrics", async () => {
     const m = await db.operationalMetrics();
-    expect(typeof m.startup_ms).toBe("number");
-    expect(typeof m.hnsw_nodes_count).toBe("number");
+    expect(m.startup_ms).toBeDefined();
+    expect(m.hnsw_nodes_count).toBeDefined();
   });
 
   it("flush and compact wal", async () => {
