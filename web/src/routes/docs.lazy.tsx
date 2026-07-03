@@ -1,5 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { DocsSidebar } from "@/components/DocsSidebar";
 
 export const Route = createLazyRoute("/docs")({
   component: DocsPage,
@@ -30,13 +31,10 @@ $ python
 
 db = vantadb.VantaDB("./my_db.vdb")
 
-# Store
 db.put(key="doc-1", vector=[0.1, 0.2, 0.35], metadata={"source": "web", "tags": ["ai", "ml"], "text": "Document text here"})
 
-# Search
 results = db.search_memory(query=[0.1, 0.2, 0.35], top_k=10)
 
-# With metadata filter
 results = db.search_memory(query=[0.1, 0.2, 0.35], top_k=10, filter={"source": "web"})`,
     desc: "The Python SDK provides a pandas-friendly interface with full type hints. Supports semantic search, hybrid BM25+HNSW retrieval, metadata filtering, and WAL-backed durability out of the box.",
   },
@@ -153,6 +151,8 @@ $ vantadb-cli doctor ./my_db.vdb  # verifies index integrity`,
   },
 ];
 
+const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
+
 function DocsPage() {
   return (
     <div className="engine-page">
@@ -169,89 +169,30 @@ function DocsPage() {
         sub="Comprehensive guides, SDK references, and configuration reference for VantaDB — the embedded database for AI agents."
       />
 
-      <main className="engine-main">
-        {sections.map((s, i) => (
-          <section
-            key={s.id}
-            id={s.id}
-            className={`engine-section${i < sections.length - 1 ? " engine-section--bordered" : ""}`}
-          >
-            <span className="swiss-eyebrow">
-              {s.num} / 06 — {s.title}
-            </span>
+      <main className="engine-main docs-layout">
+        <DocsSidebar items={sidebarItems} />
 
-            <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
-              <div className="col-span-4">
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.5rem",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    color: "var(--foreground)",
-                    lineHeight: 1.1,
-                    marginBottom: "1.25rem",
-                  }}
-                >
-                  {s.title}
-                </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.7,
-                    margin: 0,
-                  }}
-                >
-                  {s.desc}
-                </p>
+        <div className="docs-content">
+          {sections.map((s) => (
+            <section key={s.id} id={s.id} className="engine-section engine-section--bordered">
+              <div className="docs-section-header">
+                <span className="docs-section-num">[{s.num}]</span>
+                <h2 className="docs-section-title">{s.title}</h2>
               </div>
 
-              <div className="col-span-8">
-                <div
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--block-dark-bg)",
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: "0.65rem 1.25rem",
-                      borderBottom: "1px solid var(--block-dark-border)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.6rem",
-                        color: "var(--block-dark-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}
-                    >
-                      {s.id}
-                    </span>
+              <div className="docs-section-body">
+                <p className="docs-desc">{s.desc}</p>
+
+                <div className="docs-code-block">
+                  <div className="docs-code-header">
+                    <span className="docs-code-label">{s.id}</span>
                   </div>
-                  <pre
-                    style={{
-                      margin: 0,
-                      padding: "1.5rem",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.75rem",
-                      lineHeight: 1.65,
-                      color: "var(--block-dark-text)",
-                      overflowX: "auto",
-                      whiteSpace: "pre",
-                    }}
-                  >
-                    <code>{s.code}</code>
-                  </pre>
+                  <pre className="docs-code-pre"><code>{s.code}</code></pre>
                 </div>
               </div>
-            </div>
-          </section>
-        ))}
+            </section>
+          ))}
+        </div>
       </main>
     </div>
   );
