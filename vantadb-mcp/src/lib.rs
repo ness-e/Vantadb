@@ -1187,12 +1187,15 @@ pub fn handle_tools_call(
             };
 
             let total_records = records.len();
-            let total_bytes: usize = records.iter().map(|r| {
-                r.payload.len()
-                    + r.metadata.iter().fold(0, |acc, (k, v)| {
-                        acc + k.len() + format!("{:?}", v).len()
-                    })
-            }).sum();
+            let total_bytes: usize = records
+                .iter()
+                .map(|r| {
+                    r.payload.len()
+                        + r.metadata
+                            .iter()
+                            .fold(0, |acc, (k, v)| acc + k.len() + format!("{:?}", v).len())
+                })
+                .sum();
             let vector_count = records.iter().filter(|r| r.vector.is_some()).count();
             let created_at = records.iter().map(|r| r.created_at_ms).min().unwrap_or(0);
 
@@ -1240,12 +1243,14 @@ pub fn handle_tools_call(
             let namespace = args["namespace"]
                 .as_str()
                 .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
-            let confirm = args["confirm"]
-                .as_str()
-                .ok_or_else(|| McpError::invalid_params("Missing 'confirm' (must be 'yes')").to_json())?;
+            let confirm = args["confirm"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'confirm' (must be 'yes')").to_json()
+            })?;
 
             if confirm != "yes" {
-                return Ok(error_content("Confirmation required: set 'confirm' to 'yes'"));
+                return Ok(error_content(
+                    "Confirmation required: set 'confirm' to 'yes'",
+                ));
             }
 
             validate_identifier(namespace, "namespace", config.max_namespace_length)
