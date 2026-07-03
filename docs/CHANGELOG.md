@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Rediseño completo de la sección Hero (`SwissHero.tsx`, `swiss-hero.css`) siguiendo el manifiesto de diseño suizo y eliminando inline styles (WEB-14a).
+- Animación de cuadrícula de 1px usando SVG con stroke-dashoffset en GSAP y revelado de título con clip-path mask.
 - Migration to Obsidian Wikilinks and Glossary enrichment across the entire documentation folder.
 
 - +26 doc comments on public API functions in `sdk.rs` (AUD-14).
