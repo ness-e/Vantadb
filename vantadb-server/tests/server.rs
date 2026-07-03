@@ -12,6 +12,8 @@ use axum::{
 use common::{TerminalReporter, VantaHarness};
 use std::net::SocketAddr;
 use std::sync::Arc;
+#[cfg(feature = "tls")]
+use std::time::Duration;
 use tower::ServiceExt;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
