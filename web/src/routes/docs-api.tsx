@@ -4,10 +4,11 @@ import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 export const Route = createFileRoute("/docs-api")({
   head: () => ({
     meta: [
-      { title: "VantaDB API & Documentation" },
+      { title: "VantaDB — API Reference & Documentation" },
       {
         name: "description",
-        content: "API reference and developer documentation for VantaDB.",
+        content:
+          "Complete API reference for VantaDB. Python SDK (PyO3), Rust SDK, CLI commands, and HTTP server endpoints with code examples.",
       },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/docs-api" }],
@@ -83,20 +84,26 @@ function DocsApiPage() {
               }}
             >
               <code>
-                {`import vantadb
+                {`import vantadb_py as vantadb
 
 # Initialize the engine
 db = vantadb.VantaDB("./vanta_data")
 
-# Create a collection with 1536-dimensional vectors
-db.create_collection("agent_memory", 1536)
+# Store a memory record
+db.put(
+    namespace="agent/main",
+    key="doc_1",
+    payload="User asked to summarize the meeting notes.",
+    vector=[0.1, 0.2, 0.3, 0.4],
+    metadata={"source": "chat", "timestamp": 1719000000},
+)
 
-# Insert a document
-db.insert("agent_memory", {
-    "id": "doc_1",
-    "vector": [0.1, 0.2, ...],
-    "text": "User asked to summarize the meeting notes."
-})`}
+# Search memory
+results = db.search_memory(
+    namespace="agent/main",
+    query_vector=[0.1, 0.2, 0.3, 0.4],
+    top_k=5,
+)`}
               </code>
             </pre>
           </div>

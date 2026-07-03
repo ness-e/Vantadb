@@ -80,16 +80,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "VantaDB" },
+      { property: "og:title", content: "VantaDB — Embedded Vector Database for AI Agents" },
+      {
+        property: "og:description",
+        content:
+          "Open-source embedded vector database for AI agents. HNSW + BM25 + hybrid search in a single Rust binary. Apache 2.0. Sub-millisecond hybrid queries, zero infrastructure.",
+      },
+      { property: "og:url", content: "https://vantadb.dev" },
+      { property: "og:locale", content: "en_US" },
       { property: "og:image", content: "https://vantadb.dev/og/default.svg" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@vantadb" },
+      { name: "twitter:creator", content: "@vantadb" },
       { name: "twitter:image", content: "https://vantadb.dev/og/default.svg" },
       { name: "theme-color", content: "#ff5500" },
     ],
     links: [
       { rel: "icon", href: "/favicon.svg?v=2", type: "image/svg+xml" },
       { rel: "canonical", href: "https://vantadb.dev" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
     ],
     scripts: [
       {
@@ -98,10 +110,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
           name: "VantaDB",
+          url: "https://vantadb.dev",
           applicationCategory: "DatabaseApplication",
           operatingSystem: "Linux, macOS, Windows",
+          softwareVersion: "0.2.0",
           description:
             "Open-source embedded memory engine unifying vector search (HNSW), lexical search (BM25), and hybrid search (RRF) in a single Rust binary.",
+          featureList: "HNSW vector search, BM25 full-text, hybrid RRF, WAL durability",
+          releaseNotes: "https://vantadb.dev/changelog",
           license: "Apache-2.0",
           offers: {
             "@type": "Offer",
@@ -131,6 +147,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="page-container">
         <Nav />
+
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
 
         {/* Dynamic content with route transitions */}
         <AnimatePresence mode="wait">
