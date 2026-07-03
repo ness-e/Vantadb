@@ -10,6 +10,7 @@ export const Route = createFileRoute("/security")({
         content: "Security is a first-class citizen. Learn how VantaDB protects agent memory.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/security" }],
   }),
   component: SecurityPage,
 });

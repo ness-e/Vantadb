@@ -11,6 +11,7 @@ export const Route = createFileRoute("/cost")({
           "Eliminate $200+/mo infrastructure costs. VantaDB runs in-process with zero cloud dependencies and no per-query pricing.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/cost" }],
   }),
   component: CostPage,
 });

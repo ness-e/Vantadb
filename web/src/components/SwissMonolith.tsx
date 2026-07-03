@@ -1,8 +1,8 @@
-import { useRef } from "react";
+import { useRef, memo } from "react";
 import { Link } from "@tanstack/react-router";
 import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
-export function SwissMonolith() {
+export const SwissMonolith = memo(function SwissMonolith() {
   const containerRef = useRef<HTMLElement>(null);
 
   useGSAP(
@@ -87,4 +87,4 @@ export function SwissMonolith() {
       </div>
     </section>
   );
-}
+});

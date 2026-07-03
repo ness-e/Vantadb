@@ -11,6 +11,7 @@ export const Route = createFileRoute("/solutions/ai-ide-tooling")({
           "Augment your coding workflow with semantic code search, AST-aware retrieval, and context-aware completions powered by an embedded vector database.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/solutions/ai-ide-tooling" }],
   }),
   component: IdeToolingPage,
 });

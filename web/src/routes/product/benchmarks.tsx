@@ -10,6 +10,7 @@ export const Route = createFileRoute("/product/benchmarks")({
         content: "Performance benchmarks for VantaDB: Latency, Throughput, and Memory usage compared to competitors.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/product/benchmarks" }],
   }),
   component: BenchmarksPage,
 });

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
+import { memo } from "react";
 
-export function SwissFooter() {
+export const SwissFooter = memo(function SwissFooter() {
   return (
     <footer style={{ 
       background: "var(--block-dark-bg, #0a0a0a)", 
@@ -89,4 +90,4 @@ export function SwissFooter() {
       `}</style>
     </footer>
   );
-}
+});

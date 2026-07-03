@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createFileRoute("/integrations")({
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/integrations")({
           "Integrate VantaDB vector store and persistent memory tools natively inside LangChain, LlamaIndex and MCP runtimes.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/integrations" }],
   }),
   component: IntegrationsPage,
 });
@@ -130,7 +131,7 @@ function IntegrationsPage() {
   const [selectedId, setSelectedId] = useState<string>("langchain");
   const [copied, setCopied] = useState(false);
 
-  const active = INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0];
+  const active = useMemo(() => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0], [selectedId]);
 
   const handleCopy = () => {
     navigator.clipboard?.writeText(active.code).then(() => {

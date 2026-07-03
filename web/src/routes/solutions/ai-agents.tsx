@@ -11,6 +11,7 @@ export const Route = createFileRoute("/solutions/ai-agents")({
           "Persistent memory for AI agents. Store conversation history, tool call results, and agent state in an embedded vector database.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/solutions/ai-agents" }],
   }),
   component: AiAgentsPage,
 });

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { animate } from "animejs";
+import { gsap } from "../lib/gsap";
 
 const GLITCH_CHARS = "01X%$&*/#<>[]{}";
 
@@ -12,27 +12,22 @@ export function useTextScramble() {
 
     const originalText = targetText || el.innerText;
     const length = originalText.length;
-    const state = { p: 0 };
 
-    animate(state, {
-      p: 1,
-      duration: duration,
-      easing: "easeOutQuad",
-      update: () => {
-        const revealed = Math.floor(state.p * length);
+    const state = { progress: 0 };
+
+    gsap.to(state, {
+      progress: 1,
+      duration: duration / 1000,
+      ease: "power2.out",
+      onUpdate: () => {
+        const revealed = Math.floor(state.progress * length);
         let result = originalText.slice(0, revealed);
-
         for (let i = revealed; i < length; i++) {
-          if (originalText[i] === " ") {
-            result += " ";
-          } else {
-            result += GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
-          }
+          result += originalText[i] === " " ? " " : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
         }
-
         el.innerText = result;
       },
-      complete: () => {
+      onComplete: () => {
         el.innerText = originalText;
         isScrambling.current = false;
       },

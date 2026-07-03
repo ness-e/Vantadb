@@ -1,7 +1,7 @@
-import { useRef } from "react";
+import { useRef, memo } from "react";
 import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
-export function SwissBackToTop() {
+export const SwissBackToTop = memo(function SwissBackToTop() {
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useGSAP(() => {
@@ -71,4 +71,4 @@ export function SwissBackToTop() {
       </svg>
     </button>
   );
-}
+});

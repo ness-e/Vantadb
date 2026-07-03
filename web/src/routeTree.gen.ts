@@ -55,7 +55,7 @@ const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/pricing.lazy').then((d) => d.Route))
 const MaintRoute = MaintRouteImport.update({
   id: '/maint',
   path: '/maint',
@@ -75,7 +75,7 @@ const EngineRoute = EngineRouteImport.update({
   id: '/engine',
   path: '/engine',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/engine.lazy').then((d) => d.Route))
 const DocsApiRoute = DocsApiRouteImport.update({
   id: '/docs-api',
   path: '/docs-api',
@@ -105,12 +105,12 @@ const ArchitectureRoute = ArchitectureRouteImport.update({
   id: '/architecture',
   path: '/architecture',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/architecture.lazy').then((d) => d.Route))
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',

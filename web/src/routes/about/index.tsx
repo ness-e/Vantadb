@@ -11,6 +11,7 @@ export const Route = createFileRoute("/about/")({
           "Learn about VantaDB: an embeddable, open-source vector database built for AI agents, local RAG, and intelligent applications.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/about" }],
   }),
   component: AboutIndex,
 });

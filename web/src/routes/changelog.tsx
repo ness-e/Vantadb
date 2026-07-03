@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createFileRoute("/changelog")({
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/changelog")({
           "Release notes for VantaDB. Track new features, performance improvements, bug fixes, and breaking changes across versions.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/changelog" }],
   }),
   component: ChangelogPage,
 });
@@ -264,13 +265,13 @@ const ALL_TYPES = ["all", "feature", "perf", "fix", "security", "breaking"];
 function ChangelogPage() {
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const filteredReleases = releases
+  const filteredReleases = useMemo(() => releases
     .map((r) => ({
       ...r,
       changes:
         activeFilter === "all" ? r.changes : r.changes.filter((c) => c.type === activeFilter),
     }))
-    .filter((r) => r.changes.length > 0);
+    .filter((r) => r.changes.length > 0), [activeFilter]);
 
   return (
     <div className="engine-page">

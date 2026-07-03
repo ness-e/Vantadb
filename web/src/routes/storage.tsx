@@ -11,6 +11,7 @@ export const Route = createFileRoute("/storage")({
           "VantaDB replaces Pinecone + Redis + S3 with a single Rust binary. LSM-tree storage, WAL durability, HNSW indexing — everything in one file.",
       },
     ],
+    links: [{ rel: "canonical", href: "https://vantadb.dev/storage" }],
   }),
   component: StoragePage,
 });
@@ -192,7 +193,7 @@ function StoragePage() {
                 style={{
                   background: "var(--surface)",
                   padding: "2.5rem 1.5rem",
-                  textAlign: "center",
+                  textAlign: "left",
                 }}
               >
                 <div

@@ -1,0 +1,51 @@
+/* VsTable — Legacy vs VantaDB comparison table */
+
+.vs-table {
+  overflow-x: auto;
+}
+
+.vs-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-code, 0.82rem);
+}
+
+.vs-table th {
+  text-align: left;
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: var(--text-label, 0.72rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.vs-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--steel-dim, rgba(35, 35, 45, 0.06));
+  vertical-align: top;
+}
+
+.vs-table td:first-child {
+  font-weight: 600;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.vs-table .vs-cell--legacy {
+  color: var(--steel, oklch(35% 0.01 240));
+}
+
+.vs-table .vs-cell--vanta {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.vs-table .vs-header--legacy {
+  color: var(--steel);
+}
+
+.vs-table .vs-header--vanta {
+  color: var(--amber);
+}
