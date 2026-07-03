@@ -62,22 +62,22 @@ export function SwissEcosystem() {
         {/* Eyebrow — 2/3 budget */}
         <span
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "var(--text-label)",
-            fontWeight: 600,
-            letterSpacing: "0.14em",
+            fontFamily: "var(--font-sans)",
+            fontSize: "0.95rem",
+            fontStyle: "italic",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
             color: "var(--steel)",
-            textTransform: "uppercase" as const,
           }}
         >
-          [ECOSYSTEM]
+          Ecosystem Matrix
         </span>
         <h2
           style={{
             fontFamily: "var(--font-display)",
             fontSize: "var(--text-display)",
             fontWeight: 700,
-            margin: "24px 0 80px 0",
+            margin: "16px 0 80px 0",
             letterSpacing: "-0.04em",
             color: "var(--foreground)",
           }}

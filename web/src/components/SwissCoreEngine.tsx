@@ -115,43 +115,16 @@ export function SwissCoreEngine() {
                   cursor: "pointer",
                   transition: "all 200ms cubic-bezier(0.25, 1, 0.5, 1)",
                 }}
-                onMouseEnter={(e) => {
-                  const num = e.currentTarget.querySelector(
-                    ".swiss-ce-num"
-                  ) as HTMLElement;
-                  if (num) num.style.color = "#ff5500";
-                }}
-                onMouseLeave={(e) => {
-                  const num = e.currentTarget.querySelector(
-                    ".swiss-ce-num"
-                  ) as HTMLElement;
-                  if (num && expandedId !== feat.id) num.style.color = "#555555";
-                }}
               >
                 {/* Row Header */}
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "80px 1fr auto",
+                    gridTemplateColumns: "1fr auto",
                     alignItems: "center",
                     gap: "24px",
                   }}
                 >
-                  {/* Number */}
-                  <span
-                    className="swiss-ce-num"
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-label)",
-                      fontWeight: 600,
-                      color: isExpanded ? "#ff5500" : "#555555",
-                      letterSpacing: "0.1em",
-                      transition: "color 150ms",
-                    }}
-                  >
-                    [{feat.num}]
-                  </span>
-
                   {/* Title */}
                   <h3
                     style={{
@@ -194,7 +167,7 @@ export function SwissCoreEngine() {
                     style={{
                       margin: 0,
                       paddingTop: "24px",
-                      paddingLeft: "clamp(24px, 8vw, 104px)",
+                      paddingLeft: 0,
                       fontFamily: "var(--font-sans)",
                       fontSize: "1.05rem",
                       color: "#808080",

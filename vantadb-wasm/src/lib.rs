@@ -11,7 +11,6 @@ use wasm_bindgen::prelude::*;
 mod opfs;
 pub use opfs::OpfsStorage;
 
-#[cfg(any(target_arch = "wasm32", doc))]
 pub mod simd;
 
 static TRACING_INIT: AtomicBool = AtomicBool::new(false);
