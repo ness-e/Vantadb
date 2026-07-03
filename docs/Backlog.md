@@ -135,8 +135,8 @@ last_refined: 2026-07-02 (competitive analysis + post-mvp phase expansion)
 | `DOC-08` | Archive `TEXT_INDEX_PHASE_1_CLOSEOUT.md`, `RELEASE_V0.1.1.md`, `MILESTONE_V0.2.0.md` (historical) | 🟢 | ✅ |
 | `DOC-09` | Create `.github/` directory with SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md, issue/PR templates | 🔴 | ✅ |
 | `DOC-10` | Fix broken links in README.md and README_ES.md | 🔴 | ✅ |
-| `DOC-11` | Fix factual errors in blog: License MIT→Apache 2.0, GitHub URL `vantadb/vantadb`→`ness-e/Vantadb` in `web/content/blog/introducing-vantadb.md` | 🟡 | ❌ |
-| `DOC-12` | Update `web/public/llms.txt` with current version (currently says v0.4.0→v0.6.0, project is v0.2.0) | 🟡 | ❌ |
+| `DOC-11` | Fix factual errors in blog: License MIT→Apache 2.0, GitHub URL `vantadb/vantadb`→`ness-e/Vantadb` in `web/content/blog/introducing-vantadb.md` | 🟡 | ✅ |
+| `DOC-12` | Update `web/public/llms.txt` with current version (currently says v0.4.0→v0.6.0, project is v0.2.0) | 🟡 | ✅ |
 | `DOC-13` | Create missing ADRs (Architecture Decision Records): Fjall vs RocksDB criteria, HNSW params (M=32, ef_construction=200), RRF k=60, PyO3 architecture, WASM strategy, community governance. Currently only 3 ADRs for whole project | 🟡 | ❌ |
 | `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs | 🟡 | ❌ |
 | `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ❌ |

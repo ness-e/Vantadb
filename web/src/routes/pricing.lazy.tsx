@@ -7,8 +7,8 @@ export const Route = createLazyRoute("/pricing")({
 
 const tiers = [
   {
-    name: "Open Source",
-    tagline: "Free forever. No limits. No hidden pricing.",
+    name: "Self-Hosted",
+    tagline: "Run locally, embed anywhere. Free forever.",
     price: "$0",
     period: "forever",
     features: [
@@ -23,50 +23,151 @@ const tiers = [
     ],
     cta: "Get Started",
     href: "/docs",
+    featured: false,
+  },
+  {
+    name: "Cloud Pro",
+    tagline: "Managed cloud database for growing projects.",
+    price: "$29",
+    period: "per month",
+    features: [
+      "Fully managed serverless database",
+      "Up to 1M vectors & 10GB storage",
+      "Automated daily backups",
+      "HTTPS client API & SDK access",
+      "Priority email support",
+      "99.9% uptime SLA guarantee",
+      "Standard encryption in-transit & at-rest",
+      "Single-user API token auth",
+    ],
+    cta: "Deploy Now",
+    href: "/about/contact",
     featured: true,
   },
+  {
+    name: "Cloud Business",
+    tagline: "Dedicated cloud clusters for production use cases.",
+    price: "$149",
+    period: "per month",
+    features: [
+      "Dedicated database instance hosting",
+      "Up to 10M vectors & 100GB storage",
+      "Continuous point-in-time recovery",
+      "Multi-region replica synchronization",
+      "Dedicated Slack channel & fast SLA support",
+      "99.99% uptime SLA guarantee",
+      "Advanced encryption at-rest (AES-256)",
+      "Team authentication & SSO/SAML",
+    ],
+    cta: "Deploy Business",
+    href: "/about/contact",
+    featured: false,
+  },
+  {
+    name: "Enterprise",
+    tagline: "SLA, compliance, and dedicated support for organizations.",
+    price: "Custom",
+    period: "tailored pricing",
+    features: [
+      "Unlimited vectors, namespaces & storage",
+      "On-premises, VPC, or hybrid cloud deployment",
+      "Dedicated SLA support with 24/7/365 coverage",
+      "Enterprise security: RBAC & custom keys",
+      "Compliance exports (SOC 2, HIPAA ready)",
+      "Custom query hooks & raw hardware access",
+      "Dedicated systems architect support",
+      "Flexible custom licensing options",
+    ],
+    cta: "Contact Sales",
+    href: "/about/contact",
+    featured: false,
+  },
 ];
+
+const comparisonColumns = ["Feature", "Self-Hosted", "Cloud Pro", "Cloud Business", "Enterprise"];
 
 const comparisonRows = [
   {
     feature: "Deployment",
-    free: "Embedded, single-node",
-    ent: "On-prem, air-gapped",
+    os: "Embedded, single-node",
+    pro: "Managed serverless",
+    biz: "Managed dedicated",
+    ent: "On-prem / Hybrid",
   },
-  { feature: "Vector limit", free: "Unlimited", ent: "Unlimited" },
+  {
+    feature: "Vector limit",
+    os: "Unlimited",
+    pro: "1M Vectors",
+    biz: "10M Vectors",
+    ent: "Unlimited",
+  },
+  {
+    feature: "Storage limit",
+    os: "Local disk limit",
+    pro: "10 GB",
+    biz: "100 GB",
+    ent: "Unlimited",
+  },
   {
     feature: "Query engines",
-    free: "HNSW + BM25 + RRF",
-    ent: "All engines + custom",
+    os: "HNSW + BM25 + RRF",
+    pro: "HNSW + BM25 + RRF",
+    biz: "HNSW + BM25 + RRF",
+    ent: "All + Custom hooks",
   },
-  { feature: "Replication", free: "Single-node", ent: "Multi-node (WAL-based)" },
-  { feature: "Auth", free: "None", ent: "SSO / SAML / OIDC + RBAC" },
-  { feature: "Audit log", free: "None", ent: "Full + compliance export" },
-  { feature: "Encryption", free: "None", ent: "AES-256-GCM" },
+  {
+    feature: "Replication",
+    os: "None",
+    pro: "Automated backup",
+    biz: "Multi-region replica",
+    ent: "Multi-node (WAL-based)",
+  },
+  {
+    feature: "Authentication",
+    os: "None",
+    pro: "API Key",
+    biz: "API Key + Team SSO",
+    ent: "SAML / OIDC + RBAC",
+  },
+  {
+    feature: "Encryption",
+    os: "Optional (user-space)",
+    pro: "At-rest & In-transit",
+    biz: "At-rest & In-transit",
+    ent: "AES-256-GCM (Hardware)",
+  },
   {
     feature: "Support",
-    free: "Community (Discord)",
-    ent: "Dedicated SLA",
+    os: "Community (Discord)",
+    pro: "Priority Email",
+    biz: "Priority Slack / SLA",
+    ent: "Dedicated 24/7 SLA",
   },
-  { feature: "License", free: "Apache 2.0", ent: "Apache 2.0 + enterprise terms" },
+  {
+    feature: "License",
+    os: "Apache 2.0",
+    pro: "Commercial Cloud",
+    biz: "Commercial Cloud",
+    ent: "Enterprise terms",
+  },
 ];
 
 const FAQ_ITEMS = [
   {
     q: "Is VantaDB really free?",
-    a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits.",
+    a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits on self-hosted instances.",
   },
   {
     q: "Can I use VantaDB commercially?",
-    a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required.",
+    a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required for local self-hosted deployments.",
   },
   {
-    q: "What about Enterprise features?",
-    a: "We're developing enterprise features (RBAC, SSO, encryption, multi-node) for organizations with compliance requirements. Pricing will be announced when ready. The core engine remains free forever.",
+    q: "What is included in the Cloud plans?",
+    a: "Our cloud plans provide hosted serverless and dedicated instances. By running VantaDB on our managed infrastructure, you get client-server access via HTTPS, automatic scaling, automated backups, and uptime SLAs, without managing local resources.",
   },
   {
-    q: "Do you offer managed cloud hosting?",
-    a: "VantaDB is designed to be embedded — it runs in your process. For managed infrastructure, see the Enterprise tier which includes deployment support.",
+    q: "Do you offer custom SLAs?",
+    a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA).",
   },
 ];
 
@@ -83,17 +184,19 @@ function PricingPage() {
             Fair to scale.
           </span>
         }
-        sub="VantaDB is open source (Apache 2.0) and free forever. No tiers, no limits. Enterprise features coming soon."
+        sub="VantaDB is open source (Apache 2.0) and free forever. Sign up for cloud databases to scale in production with SLAs, team features, and zero ops."
       />
 
       <main className="engine-main">
+        {/* Plans section */}
         <section className="engine-section engine-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Plans</span>
 
           <div
+            className="pricing-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: "1px",
               background: "var(--border)",
               border: "1px solid var(--border)",
@@ -103,14 +206,16 @@ function PricingPage() {
             {tiers.map((tier) => (
               <div
                 key={tier.name}
+                className="pricing-card"
                 style={{
                   background: tier.featured ? "var(--surface-raised)" : "var(--background)",
-                  padding: "2.5rem",
+                  padding: "3rem 2rem 2.5rem 2rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "1.5rem",
-                  borderLeft: tier.featured ? "2px solid var(--amber)" : "2px solid transparent",
+                  border: tier.featured ? "1px solid var(--amber)" : "1px solid transparent",
                   position: "relative",
+                  transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
                 }}
               >
                 {tier.featured && (
@@ -122,7 +227,7 @@ function PricingPage() {
                       fontFamily: "var(--font-mono)",
                       fontSize: "0.55rem",
                       fontWeight: 700,
-                      textTransform: "uppercase",
+                      textTransform: "uppercase" as const,
                       letterSpacing: "0.1em",
                       color: "var(--amber)",
                       background: "rgba(255, 85, 0, 0.1)",
@@ -138,7 +243,7 @@ function PricingPage() {
                     style={{
                       fontFamily: "var(--font-display)",
                       fontSize: "1.4rem",
-                      fontWeight: 800,
+                      fontWeight: 700,
                       letterSpacing: "-0.04em",
                       color: tier.featured ? "var(--amber)" : "var(--foreground)",
                     }}
@@ -150,7 +255,8 @@ function PricingPage() {
                       fontFamily: "var(--font-sans)",
                       fontSize: "0.75rem",
                       color: "var(--muted)",
-                      marginTop: "0.25rem",
+                      marginTop: "0.5rem",
+                      lineHeight: 1.4,
                     }}
                   >
                     {tier.tagline}
@@ -161,8 +267,8 @@ function PricingPage() {
                   <span
                     style={{
                       fontFamily: "var(--font-display)",
-                      fontSize: "2.5rem",
-                      fontWeight: 800,
+                      fontSize: "3rem",
+                      fontWeight: 700,
                       letterSpacing: "-0.05em",
                       color: "var(--foreground)",
                     }}
@@ -174,7 +280,7 @@ function PricingPage() {
                       fontFamily: "var(--font-mono)",
                       fontSize: "0.65rem",
                       color: "var(--steel)",
-                      textTransform: "uppercase",
+                      textTransform: "uppercase" as const,
                       letterSpacing: "0.06em",
                     }}
                   >
@@ -189,7 +295,7 @@ function PricingPage() {
                     padding: 0,
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.6rem",
+                    gap: "0.75rem",
                     flex: 1,
                   }}
                 >
@@ -200,7 +306,7 @@ function PricingPage() {
                         display: "flex",
                         gap: "0.6rem",
                         fontFamily: "var(--font-sans)",
-                        fontSize: "0.78rem",
+                        fontSize: "0.8rem",
                         color: "var(--muted)",
                         lineHeight: 1.4,
                       }}
@@ -225,18 +331,38 @@ function PricingPage() {
                     display: "block",
                     textAlign: "center",
                     padding: "0.85rem 1.5rem",
-                    fontFamily: "var(--font-display)",
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    textTransform: "uppercase" as const,
                     letterSpacing: "0.08em",
                     textDecoration: "none",
                     border: tier.featured
-                      ? "1.5px solid var(--amber)"
-                      : "1.5px solid var(--border)",
+                      ? "1px solid var(--amber)"
+                      : "1px solid var(--border)",
                     background: tier.featured ? "var(--amber)" : "transparent",
-                    color: tier.featured ? "#000" : "var(--foreground)",
-                    transition: "all 150ms var(--ease-cut)",
+                    color: tier.featured ? "#000000" : "var(--foreground)",
+                    transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (tier.featured) {
+                      e.currentTarget.style.background = "#000000";
+                      e.currentTarget.style.color = "#ffffff";
+                      e.currentTarget.style.borderColor = "#000000";
+                    } else {
+                      e.currentTarget.style.background = "var(--border)";
+                      e.currentTarget.style.color = "#ffffff";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (tier.featured) {
+                      e.currentTarget.style.background = "var(--amber)";
+                      e.currentTarget.style.color = "#000000";
+                      e.currentTarget.style.borderColor = "var(--amber)";
+                    } else {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--foreground)";
+                    }
                   }}
                 >
                   {tier.cta}
@@ -246,6 +372,7 @@ function PricingPage() {
           </div>
         </section>
 
+        {/* Feature Breakdown Section */}
         <section className="engine-section engine-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Feature Breakdown</span>
 
@@ -261,53 +388,29 @@ function PricingPage() {
                 width: "100%",
                 borderCollapse: "collapse",
                 fontFamily: "var(--font-sans)",
-                fontSize: "0.8rem",
+                fontSize: "0.82rem",
+                minWidth: "750px",
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th
-                    style={{
-                      padding: "1rem 1.5rem",
-                      textAlign: "left",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--steel)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Feature
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem 1.5rem",
-                      textAlign: "left",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--amber)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Open Source
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem 1.5rem",
-                      textAlign: "left",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--steel)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Enterprise
-                  </th>
+                <tr style={{ borderBottom: "2px solid var(--border)", background: "var(--surface)" }}>
+                  {comparisonColumns.map((col, idx) => (
+                    <th
+                      key={col}
+                      style={{
+                        padding: "1.2rem 1.5rem",
+                        textAlign: "left",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.7rem",
+                        textTransform: "uppercase" as const,
+                        letterSpacing: "0.08em",
+                        color: idx === 2 ? "var(--amber)" : idx === 0 ? "var(--foreground)" : "var(--steel)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -317,34 +420,34 @@ function PricingPage() {
                     style={{
                       borderBottom: "1px solid var(--border)",
                       background: i % 2 === 0 ? "var(--background)" : "var(--surface)",
+                      transition: "background 100ms",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--surface-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = i % 2 === 0 ? "var(--background)" : "var(--surface)";
                     }}
                   >
                     <td
                       style={{
-                        padding: "0.9rem 1.5rem",
+                        padding: "1rem 1.5rem",
                         fontWeight: 600,
                         color: "var(--foreground)",
                       }}
                     >
                       {row.feature}
                     </td>
-                    <td
-                      style={{
-                        padding: "0.9rem 1.5rem",
-                        textAlign: "left",
-                        color: "var(--foreground)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {row.free}
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>
+                      {row.os}
                     </td>
-                    <td
-                      style={{
-                        padding: "0.9rem 1.5rem",
-                        textAlign: "left",
-                        color: "var(--muted)",
-                      }}
-                    >
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)", fontWeight: 500 }}>
+                      {row.pro}
+                    </td>
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>
+                      {row.biz}
+                    </td>
+                    <td style={{ padding: "1rem 1.5rem", color: "var(--muted)" }}>
                       {row.ent}
                     </td>
                   </tr>
@@ -354,13 +457,15 @@ function PricingPage() {
           </div>
         </section>
 
+        {/* FAQ Section */}
         <section className="engine-section">
           <span className="swiss-eyebrow">03 / 03 — FAQ</span>
 
           <div
+            className="faq-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
               gap: "1px",
               background: "var(--border)",
               border: "1px solid var(--border)",
@@ -375,13 +480,13 @@ function PricingPage() {
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.75rem",
+                  gap: "1rem",
                 }}
               >
                 <h3
                   style={{
                     fontFamily: "var(--font-display)",
-                    fontSize: "0.9rem",
+                    fontSize: "0.95rem",
                     fontWeight: 700,
                     letterSpacing: "-0.02em",
                     color: "var(--foreground)",
@@ -393,7 +498,7 @@ function PricingPage() {
                 <p
                   style={{
                     fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
+                    fontSize: "0.85rem",
                     color: "var(--muted)",
                     lineHeight: 1.6,
                     margin: 0,
@@ -406,6 +511,14 @@ function PricingPage() {
           </div>
         </section>
       </main>
+      
+      <style>{`
+        @media (max-width: 768px) {
+          .faq-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
