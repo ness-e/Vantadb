@@ -477,6 +477,29 @@ impl VantaFile {
         Ok(())
     }
 
+    pub(crate) fn replace_backing_file(&mut self, new_size: u64) -> Result<()> {
+        if self.read_only {
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "read-only".into(),
+            });
+        }
+        if matches!(&self.mmap, VantaFileMap::InMemory(_)) {
+            self.size = new_size;
+            return Ok(());
+        }
+        let path = self.path.clone();
+        let new_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(false)
+            .open(&path)
+            .map_err(VantaError::IoError)?;
+        self.file = Some(new_file);
+        self.size = new_size;
+        self.remap_mut()
+    }
+
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if offset + header_size > self.size || !offset.is_multiple_of(64) {
