@@ -27,6 +27,7 @@ async fn setup_bench(concurrency: usize) -> BenchContext {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
         api_key: None,
+        rbac_config: Default::default(),
     });
     let router = app(state, 0);
 
@@ -281,6 +282,7 @@ async fn bench_latency_with_auth() {
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(100)),
         api_key: Some(Arc::from("bench-key")),
+        rbac_config: Default::default(),
     });
     let router = app(state, 0);
 

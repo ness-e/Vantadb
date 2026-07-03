@@ -60,6 +60,7 @@ fn build_e2e_context(
         storage,
         semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
         api_key: api_key.map(Arc::from),
+        rbac_config: Default::default(),
     });
     (dir, state)
 }
@@ -229,6 +230,7 @@ async fn test_e2e_persistence_across_restart() {
         storage: storage2,
         semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
         api_key: None,
+        rbac_config: Default::default(),
     });
     let (base2, handle2) = spawn_server(state2, 0).await;
 

@@ -69,7 +69,11 @@ fn simd_impl(a: &[f32], b: &[f32]) -> f32 {
         }
 
         let mag = (na_sum * nb_sum).sqrt();
-        if mag == 0.0 { 1.0 } else { dot_sum / mag }
+        if mag == 0.0 {
+            1.0
+        } else {
+            dot_sum / mag
+        }
     }
 }
 
@@ -86,7 +90,11 @@ fn scalar_impl(a: &[f32], b: &[f32]) -> f32 {
     }
 
     let mag = (na * nb).sqrt();
-    if mag == 0.0 { 1.0 } else { dot / mag }
+    if mag == 0.0 {
+        1.0
+    } else {
+        dot / mag
+    }
 }
 
 #[cfg(test)]
