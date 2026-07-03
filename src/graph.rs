@@ -124,10 +124,7 @@ impl<'a> GraphTraverser<'a> {
     ) -> Result<()> {
         match state.get(&node_id) {
             Some(1) => {
-                return Err(crate::error::VantaError::Execution(format!(
-                    "Cycle detected at node {}",
-                    node_id
-                )));
+                return Err(crate::error::VantaError::CycleDetected);
             }
             Some(2) => return Ok(()),
             _ => {}

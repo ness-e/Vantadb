@@ -123,7 +123,11 @@ impl<'a> Executor<'a> {
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),
-                Err(e) => Err(VantaError::Execution(format!("IQL Parse Error: {}", e))),
+                Err(e) => Err(VantaError::IqlParseError {
+                    source: e.to_string(),
+                    line: 0,
+                    col: 0,
+                }),
             }
         }
     }
@@ -214,10 +218,10 @@ impl<'a> Executor<'a> {
                 let mut node = match self.storage.get(update.node_id)? {
                     Some(n) => n,
                     None => {
-                        return Err(VantaError::Execution(format!(
-                            "Node {} not found for update",
-                            update.node_id
-                        )))
+                        return Err(VantaError::NotFound {
+                            kind: "node".into(),
+                            id: update.node_id.to_string(),
+                        })
                     }
                 };
                 for (k, v) in update.fields {
@@ -247,25 +251,25 @@ impl<'a> Executor<'a> {
                 let mut node = match self.storage.get(relate.source_id)? {
                     Some(n) => n,
                     None => {
-                        return Err(VantaError::Execution(format!(
-                            "Source Node {} not found for relation",
-                            relate.source_id
-                        )))
+                        return Err(VantaError::NotFound {
+                            kind: "source_node".into(),
+                            id: relate.source_id.to_string(),
+                        })
                     }
                 };
 
                 // Axiom: Topological Consistency
                 if self.storage.get(relate.target_id)?.is_none() {
                     if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
-                        return Err(VantaError::Execution(format!(
-                            "Reference to deleted node: ID {} resides in the Tombstone storage",
-                            relate.target_id
-                        )));
+                        return Err(VantaError::NotFound {
+                            kind: "tombstone_node".into(),
+                            id: relate.target_id.to_string(),
+                        });
                     } else {
-                        return Err(VantaError::Execution(format!(
-                            "Topological Axiom violated: Target Node {} does not exist",
-                            relate.target_id
-                        )));
+                        return Err(VantaError::NotFound {
+                            kind: "target_node".into(),
+                            id: relate.target_id.to_string(),
+                        });
                     }
                 }
 
@@ -515,8 +519,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
-        assert!(matches!(err, VantaError::Execution(_)));
-        assert!(err.to_string().contains("Parse Error"));
+        assert!(matches!(err, VantaError::IqlParseError { .. }));
     }
 
     // ── execute_statement: Insert ──

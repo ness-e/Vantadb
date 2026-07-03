@@ -43,11 +43,49 @@ pub enum VantaError {
     #[error("Resource limit exceeded: {0}")]
     ResourceLimit(String),
 
+    #[error("Node ID collision: {0}")]
+    NodeIdCollision(u64),
+
+    #[error("Cycle detected in graph operation")]
+    CycleDetected,
+
+    #[error("IQL parse error at line {line}, col {col}: {source}")]
+    IqlParseError {
+        source: String,
+        line: usize,
+        col: usize,
+    },
+
+    #[error("{kind} not found: {id}")]
+    NotFound { kind: String, id: String },
+
+    #[error("Validation error on {field}: {reason}")]
+    ValidationError { field: String, reason: String },
+
+    #[error("Operation {operation} timed out after {duration_ms}ms")]
+    Timeout {
+        operation: String,
+        duration_ms: u64,
+    },
+
     #[error("Execution error: {0}")]
-    // NOTE: This is a catch-all variant. Future refactoring should add typed
-    // variants for: NodeIdCollision, CycleDetected, IqlParseError, etc.
-    // Tracking: https://github.com/ness-e/Vantadb/issues (C4)
     Execution(String),
+
+    #[error("Generic error: {0}")]
+    Generic(String),
+
+    #[error("Serialization error: {0}")]
+    #[deprecated(note = "Use the non-deprecated SerializationError variant or a more specific variant")]
+    OldSerializationError(String),
+
+    #[error("Backend error: {0}")]
+    BackendError(String),
+
+    #[error("Export error: {0}")]
+    ExportError(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 
     #[error("Schema error: {0}")]
     SchemaError(String),
@@ -123,9 +161,61 @@ mod tests {
     }
 
     #[test]
-    fn display_execution() {
-        let e = VantaError::Execution("something went wrong".into());
-        assert_eq!(e.to_string(), "Execution error: something went wrong");
+    fn display_node_id_collision() {
+        let e = VantaError::NodeIdCollision(42);
+        assert_eq!(e.to_string(), "Node ID collision: 42");
+    }
+
+    #[test]
+    fn display_cycle_detected() {
+        let e = VantaError::CycleDetected;
+        assert_eq!(e.to_string(), "Cycle detected in graph operation");
+    }
+
+    #[test]
+    fn display_iql_parse_error() {
+        let e = VantaError::IqlParseError {
+            source: "unexpected token".into(),
+            line: 3,
+            col: 15,
+        };
+        assert_eq!(
+            e.to_string(),
+            "IQL parse error at line 3, col 15: unexpected token"
+        );
+    }
+
+    #[test]
+    fn display_not_found() {
+        let e = VantaError::NotFound {
+            kind: "namespace".into(),
+            id: "my-ns".into(),
+        };
+        assert_eq!(e.to_string(), "namespace not found: my-ns");
+    }
+
+    #[test]
+    fn display_validation_error() {
+        let e = VantaError::ValidationError {
+            field: "name".into(),
+            reason: "cannot be empty".into(),
+        };
+        assert_eq!(
+            e.to_string(),
+            "Validation error on name: cannot be empty"
+        );
+    }
+
+    #[test]
+    fn display_timeout() {
+        let e = VantaError::Timeout {
+            operation: "search".into(),
+            duration_ms: 5000,
+        };
+        assert_eq!(
+            e.to_string(),
+            "Operation search timed out after 5000ms"
+        );
     }
 
     #[test]

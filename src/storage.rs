@@ -408,9 +408,10 @@ impl VantaFileMap {
 
     fn as_mut_slice(&mut self) -> Result<&mut [u8]> {
         match self {
-            VantaFileMap::ReadOnly(_) => Err(VantaError::Execution(
-                "VantaFile is read-only; write operation rejected".to_string(),
-            )),
+            VantaFileMap::ReadOnly(_) => Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "VantaFile is read-only; write operation rejected".into(),
+            }),
             VantaFileMap::ReadWrite(mmap) => Ok(mmap),
             VantaFileMap::InMemory(data) => Ok(data),
         }
@@ -480,10 +481,10 @@ impl VantaFile {
         let min_header_size = 64u64;
         if current_size < min_header_size {
             if read_only {
-                return Err(VantaError::Execution(format!(
-                    "VantaFile {} is too small for read-only open",
-                    path.display()
-                )));
+                return Err(VantaError::ValidationError {
+                    field: "file_size".into(),
+                    reason: format!("VantaFile {} is too small for read-only open", path.display()),
+                });
             }
             current_size = initial_size.max(min_header_size);
             file.set_len(current_size).map_err(VantaError::IoError)?;
@@ -557,15 +558,19 @@ impl VantaFile {
 
     fn remap_mut(&mut self) -> Result<()> {
         if self.read_only {
-            return Err(VantaError::Execution(
-                "VantaFile is read-only; remap operation rejected".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "VantaFile is read-only; remap operation rejected".into(),
+            });
         }
         if let VantaFileMap::InMemory(_) = &self.mmap {
             return Ok(());
         }
         let file = self.file.as_ref().ok_or_else(|| {
-            VantaError::Execution("VantaFile: cannot remap without backing file".into())
+            VantaError::ValidationError {
+                field: "backing_file".into(),
+                reason: "VantaFile: cannot remap without backing file".into(),
+            }
         })?;
         self.mmap = VantaFileMap::ReadWrite(unsafe {
             MmapOptions::new()
@@ -625,7 +630,10 @@ impl VantaFile {
             }
             VantaFileMap::ReadOnly(_) | VantaFileMap::ReadWrite(_) => {
                 let file = self.file.as_ref().ok_or_else(|| {
-                    VantaError::Execution("VantaFile: grow_to requires backing file".into())
+                    VantaError::ValidationError {
+                        field: "backing_file".into(),
+                        reason: "VantaFile: grow_to requires backing file".into(),
+                    }
                 })?;
                 file.set_len(new_size).map_err(VantaError::IoError)?;
                 self.size = new_size;
@@ -791,10 +799,10 @@ impl StorageEngine {
         }
 
         if config.read_only && !base_path.exists() {
-            return Err(VantaError::Execution(format!(
-                "StorageEngine read-only open requires an existing database path: {}",
-                base_path.display()
-            )));
+            return Err(VantaError::NotFound {
+                kind: "database_path".into(),
+                id: base_path.display().to_string(),
+            });
         }
         let lock_file = {
             let lock_path = base_path.join(".vanta.lock");
@@ -812,11 +820,10 @@ impl StorageEngine {
                 Ok(f) => f,
                 Err(e) => {
                     if config.read_only {
-                        return Err(VantaError::Execution(format!(
-                            "Database at '{}' cannot be opened read-only: lock file does not exist. \
-                             Verify that the database directory is initialized.",
-                            base_path.display()
-                        )));
+                        return Err(VantaError::NotFound {
+                            kind: "lock_file".into(),
+                            id: base_path.join(".vanta.lock").display().to_string(),
+                        });
                     } else {
                         return Err(VantaError::IoError(e));
                     }
@@ -906,27 +913,29 @@ impl StorageEngine {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
             #[cfg(not(feature = "rocksdb"))]
             BackendKind::RocksDb => {
-                return Err(VantaError::Execution(
-                    "RocksDB backend requires the 'rocksdb' feature".into(),
-                ))
+                return Err(VantaError::ValidationError {
+                    field: "backend_feature".into(),
+                    reason: "RocksDB backend requires the 'rocksdb' feature".into(),
+                })
             }
             #[cfg(feature = "fjall")]
             BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
             #[cfg(not(feature = "fjall"))]
             BackendKind::Fjall => {
-                return Err(VantaError::Execution(
-                    "Fjall backend requires the 'fjall' feature".into(),
-                ))
+                return Err(VantaError::ValidationError {
+                    field: "backend_feature".into(),
+                    reason: "Fjall backend requires the 'fjall' feature".into(),
+                })
             }
             BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
         };
 
         let data_dir = base_path.join("data");
         if config.read_only && !data_dir.exists() {
-            return Err(VantaError::Execution(format!(
-                "StorageEngine read-only open requires an existing data directory: {}",
-                data_dir.display()
-            )));
+            return Err(VantaError::NotFound {
+                kind: "data_directory".into(),
+                id: data_dir.display().to_string(),
+            });
         }
         if !config.read_only {
             std::fs::create_dir_all(&data_dir).map_err(VantaError::IoError)?;
@@ -1159,9 +1168,10 @@ impl StorageEngine {
     #[inline]
     pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
         if config.read_only {
-            return Err(VantaError::Execution(
-                "StorageEngine is read-only; write operation rejected".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "StorageEngine is read-only; write operation rejected".into(),
+            });
         }
         Ok(())
     }
@@ -1304,9 +1314,10 @@ impl StorageEngine {
                 self.config.insert_lock_timeout_ms,
             ))
             .ok_or_else(|| {
-                VantaError::Execution(
-                    "Timeout acquiring insert_lock in rebuild_vector_index".to_string(),
-                )
+                VantaError::Timeout {
+                    operation: "acquire insert_lock in rebuild_vector_index".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                }
             })?;
 
         // ── Paso 1: Flush del WAL antes de reubicar físicamente los offsets ──
@@ -1371,9 +1382,10 @@ impl StorageEngine {
                 self.config.insert_lock_timeout_ms,
             ))
             .ok_or_else(|| {
-                VantaError::Execution(
-                    "Timeout acquiring insert_lock in compact_layout_bfs".to_string(),
-                )
+                VantaError::Timeout {
+                    operation: "acquire insert_lock in compact_layout_bfs".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                }
             })?;
 
         // ── Flush previo del WAL para garantizar consistencia ────────────────
@@ -1683,9 +1695,10 @@ impl StorageEngine {
                     self.config.insert_lock_timeout_ms,
                 ))
                 .ok_or_else(|| {
-                    VantaError::Execution(
-                        "Timeout acquiring insert_lock in update_node".to_string(),
-                    )
+                    VantaError::Timeout {
+                        operation: "acquire insert_lock in update_node".into(),
+                        duration_ms: self.config.insert_lock_timeout_ms,
+                    }
                 })?;
             let hnsw = self.hnsw.load();
             hnsw.add(
@@ -1729,9 +1742,10 @@ impl StorageEngine {
                         self.config.insert_lock_timeout_ms,
                     ))
                     .ok_or_else(|| {
-                        VantaError::Execution(
-                            "Timeout acquiring insert_lock in refresh_index".to_string(),
-                        )
+                        VantaError::Timeout {
+                            operation: "acquire insert_lock in refresh_index".into(),
+                            duration_ms: self.config.insert_lock_timeout_ms,
+                        }
                     })?;
                 let index = self.hnsw.load();
                 index.add(
@@ -1749,7 +1763,10 @@ impl StorageEngine {
                 self.config.insert_lock_timeout_ms,
             ))
             .ok_or_else(|| {
-                VantaError::Execution("Timeout acquiring insert_lock in refresh_index".to_string())
+                VantaError::Timeout {
+                    operation: "acquire insert_lock in refresh_index".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                }
             })?;
         let index = self.hnsw.load();
         index.add(
@@ -2316,7 +2333,7 @@ impl StorageEngine {
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
         self.ensure_writable()?;
         if !self.supports_checkpoint() {
-            return Err(VantaError::Execution(format!(
+            return Err(VantaError::BackendError(format!(
                 "Checkpoint (live snapshot) is not supported by the {:?} backend. \
                 Live backups are not available natively. Please use filesystem-level snapshots (e.g., EBS, ZFS, LVM) \
                 or perform a cold backup by safely shutting down the database process and copying the data directory.",
@@ -2544,7 +2561,7 @@ impl StorageEngine {
             "payload_index" => Ok(BackendPartition::PayloadIndex),
             "text_index" => Ok(BackendPartition::TextIndex),
             "internal_metadata" => Ok(BackendPartition::InternalMetadata),
-            other => Err(VantaError::Execution(format!(
+            other => Err(VantaError::InvalidInput(format!(
                 "Unknown column family: '{}'",
                 other
             ))),

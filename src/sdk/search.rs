@@ -205,10 +205,10 @@ impl VantaEmbedded {
                 } else {
                     let Some(stats) = Self::load_text_doc_stats(&engine, namespace, &record_key)?
                     else {
-                        return Err(VantaError::Execution(
-                            "text_query found posting without document stats; run rebuild_index"
-                                .to_string(),
-                        ));
+                        return Err(VantaError::NotFound {
+                            kind: "document_stats".into(),
+                            id: "unknown".into(),
+                        });
                     };
                     doc_stats_cache.insert(record_key.clone(), stats.clone());
                     stats
@@ -406,22 +406,22 @@ impl VantaEmbedded {
 
     fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<TextIndexState> {
         let state = Self::load_text_index_state(engine).map_err(|_| {
-            VantaError::Execution(
-                "text_query requires a current BM25 text index; reopen writable or run rebuild_index"
-                    .to_string(),
-            )
+            VantaError::NotFound {
+                kind: "text_index_state".into(),
+                id: "bm25".into(),
+            }
         })?;
         let Some(state) = state else {
-            return Err(VantaError::Execution(
-                "text_query requires a current BM25 text index; reopen writable or run rebuild_index"
-                    .to_string(),
-            ));
+            return Err(VantaError::NotFound {
+                kind: "text_index".into(),
+                id: "bm25".into(),
+            });
         };
         if !Self::text_index_state_matches_spec(&state) {
-            return Err(VantaError::Execution(
-                "text_query requires text_index schema v3; reopen writable or run rebuild_index"
-                    .to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "text_index_schema".into(),
+                reason: "text_query requires text_index schema v3; reopen writable or run rebuild_index".into(),
+            });
         }
         Ok(state)
     }
@@ -486,9 +486,10 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn repair_text_index(&self) -> Result<VantaTextIndexRepairReport> {
         if self.config.read_only {
-            return Err(VantaError::Execution(
-                "repair_text_index is not available when VantaDB is opened read-only".to_string(),
-            ));
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "repair_text_index is not available when VantaDB is opened read-only".into(),
+            });
         }
         crate::metrics::record_text_index_repair();
         let report = self.rebuild_text_index_with_report()?;
@@ -796,7 +797,10 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let pkey = crate::text_index::posting_key(namespace, token, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
-            return Err(VantaError::Execution("posting not found".to_string()));
+            return Err(VantaError::NotFound {
+                kind: "posting".into(),
+                id: "unknown".into(),
+            });
         };
         let posting = crate::text_index::decode_posting(&bytes)?;
         let val = crate::text_index::posting_value(posting.node_id, new_tf, &posting.positions)?;
@@ -815,7 +819,10 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let pkey = crate::text_index::posting_key(namespace, token, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
-            return Err(VantaError::Execution("posting not found".to_string()));
+            return Err(VantaError::NotFound {
+                kind: "posting".into(),
+                id: "unknown".into(),
+            });
         };
         let posting = crate::text_index::decode_posting(&bytes)?;
         let val = crate::text_index::posting_value(posting.node_id, posting.tf, &new_positions)?;
@@ -847,7 +854,10 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let dkey = crate::text_index::doc_stats_key(namespace, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &dkey)? else {
-            return Err(VantaError::Execution("doc stats not found".to_string()));
+            return Err(VantaError::NotFound {
+                kind: "doc_stats".into(),
+                id: "unknown".into(),
+            });
         };
         let stats = crate::text_index::decode_doc_stats(&bytes)?;
         let val = crate::text_index::doc_stats_value(stats.node_id, new_doc_len)?;

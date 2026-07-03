@@ -31,7 +31,10 @@ impl<'a> GcWorker<'a> {
     pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| VantaError::Execution("System time before UNIX epoch".into()))?
+            .map_err(|_| VantaError::ValidationError {
+                field: "system_time".into(),
+                reason: "System time before UNIX epoch".into(),
+            })?
             .as_secs();
 
         // Split the BTreeMap, taking all nodes where expiration <= now

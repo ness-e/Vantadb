@@ -28,6 +28,7 @@
 
 .reveal-mask__inner.is-visible {
   transform: translateY(0);
+  transition-duration: 250ms;
 }
 
 /* ── SVG stroke draw animation ── */
@@ -40,7 +41,7 @@
 
 .reveal-draw.is-drawn {
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 600ms var(--ease-cut);
+  transition: stroke-dashoffset 250ms var(--ease-cut);
 }
 
 /* ── Grid line draw (horizontal hairlines) ── */
@@ -52,7 +53,7 @@
 
 .reveal-line.is-visible {
   transform: scaleX(1);
-  transition: transform 400ms var(--ease-cut);
+  transition: transform 250ms var(--ease-cut);
 }
 
 /* ── Reveal (legacy CSS-only system — kept for compatibility) ── */

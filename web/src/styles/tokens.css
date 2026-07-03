@@ -31,8 +31,8 @@
   --warn: #dd9900;
   --danger: #cc1100;
 
-  --steel: oklch(35% 0.01 240);
-  --steel-light: oklch(25% 0.015 240);
+  --steel: oklch(25% 0.015 240);
+  --steel-light: oklch(35% 0.01 240);
   --steel-dim: rgba(35, 35, 45, 0.06);
 
   --crimson: var(--danger);
