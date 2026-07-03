@@ -4,6 +4,7 @@ import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/architecture")({
   component: ArchitecturePage,
+  pendingComponent: PendingComponent,
 });
 
 function SpecRow({ label, val, desc }: { label: string; val: string; desc: string }) {
@@ -536,6 +537,14 @@ function ArchitecturePage() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+export function PendingComponent() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <div>Loading...</div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/engine")({
   component: EnginePage,
+  pendingComponent: PendingComponent,
 });
 
 function GraphTopology() {
@@ -1054,6 +1055,14 @@ function EnginePage() {
 
         <ArchitecturePipeline />
       </main>
+    </div>
+  );
+}
+
+export function PendingComponent() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <div>Loading...</div>
     </div>
   );
 }
