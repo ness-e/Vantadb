@@ -207,7 +207,7 @@ export function SwissHero() {
         // 1. Labels flash orange → white
         gsap.fromTo(
           ".swiss-hero-label span",
-          { opacity: 0, color: "#ff5500" },
+          { opacity: 0,           color: "var(--orange)" },
           {
             opacity: 1,
             color: "var(--foreground)",
@@ -293,21 +293,21 @@ export function SwissHero() {
 
         <h1 className="swiss-hero-title">
           <span className="swiss-hero-title-wrapper">
-            <span className="swiss-hero-title-line">VantaDB</span>
+            <span className="swiss-hero-title-line">VantaDB — Embedded Vector Database for AI Agents</span>
           </span>
         </h1>
 
         <h2 className="swiss-hero-tagline">The database that thinks with you.</h2>
 
         <p className="swiss-hero-description">
-          One pip install. Vector search, SQL, and full-text search in a single binary. Zero
+          One pip install. Vector search (HNSW), BM25 full-text, and hybrid search (RRF) in a single Rust binary. Zero
           servers. Zero ops. Sub-millisecond.
         </p>
 
         <div className="swiss-hero-actions">
           <button
             onClick={handleCopy}
-            className="swiss-button-primary"
+            className="btn-primary btn-primary--hero"
             aria-label="Copy pip install command"
           >
             <span>{copied ? "Copied!" : "pip install vantadb-py"}</span>
@@ -333,7 +333,7 @@ export function SwissHero() {
               )}
             </svg>
           </button>
-          <Link to="/docs" className="swiss-button-ghost">
+          <Link to="/docs" className="btn-ghost btn-ghost--hero">
             Read Docs
           </Link>
         </div>

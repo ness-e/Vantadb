@@ -1,21 +1,21 @@
 ---
 title: Introducing VantaDB — The Database That Thinks With You
 date: 2026-06-15
-description: VantaDB is an open-source embedded vector database that unifies SQL, vector search, and full-text search in a single Rust binary.
+description: VantaDB is an open-source embedded vector database that unifies vector search (HNSW), BM25 full-text, and hybrid search (RRF) in a single Rust binary.
 author: VantaDB Team
 tags: ["announcement", "embedded", "vector-database"]
 ---
 
 We built VantaDB because the AI stack shouldn't need a database team.
 
-Every AI agent, every RAG pipeline, every intelligent application deserves a database that embeds as easily as SQLite but understands vectors, text, and SQL — without requiring a dedicated infrastructure team.
+Every AI agent, every RAG pipeline, every intelligent application deserves a database that embeds as easily as SQLite but understands vectors and text — without requiring a dedicated infrastructure team.
 
 ## What is VantaDB?
 
 VantaDB is an **embedded vector database** that runs inside your application process. No server process, no cloud dependency, no per-vector pricing.
 
 - **One binary** — `pip install vantadb-py` or `cargo add vantadb`
-- **Three query engines** — SQL, vector search (HNSW + IVF), full-text search (BM25)
+- **Three query engines** — vector search (HNSW), full-text search (BM25), hybrid search (RRF)
 - **Zero ops** — no servers to maintain, no clusters to configure
 
 ## Key metrics

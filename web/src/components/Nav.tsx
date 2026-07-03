@@ -35,11 +35,15 @@ export function Nav() {
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   const navLinks = [
     { path: "/engine", label: "Core Engine" },
     { path: "/architecture", label: "Architecture" },
+    { path: "/solutions/ai-agents", label: "AI Agents" },
+    { path: "/solutions/local-rag", label: "Local RAG" },
+    { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
     { path: "/use-cases", label: "Use Cases" },
     { path: "/pricing", label: "Pricing" },
   ];
@@ -80,7 +84,7 @@ export function Nav() {
         <button
           className={`nav-hamburger${drawerOpen ? " nav-hamburger--open" : ""}`}
           onClick={() => setDrawerOpen((v) => !v)}
-          aria-label={drawerOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-label={drawerOpen ? "Close menu" : "Open menu"}
           aria-expanded={drawerOpen}
         >
           <span />
@@ -100,7 +104,7 @@ export function Nav() {
       >
         <div className="nav-drawer-header">
           <VantaDBLogo variant="full" size="sm" />
-          <button className="nav-drawer-close" onClick={closeDrawer} aria-label="Cerrar menú">
+          <button className="nav-drawer-close" onClick={closeDrawer} aria-label="Close menu">
             <svg
               width="16"
               height="16"
