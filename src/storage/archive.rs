@@ -8,6 +8,10 @@ use std::path::PathBuf;
 use web_time::Instant;
 use zerocopy::IntoBytes;
 
+const FLAG_TOMBSTONE: u32 = 0x8;
+const STORAGE_ALIGNMENT: u64 = 64;
+const BFS_QUEUE_CAPACITY: usize = 1024;
+
 pub(crate) fn compact_layout(
     vstore: &mut VantaFile,
     hnsw: &CPIndex,
@@ -54,7 +58,7 @@ pub(crate) fn compact_layout(
     };
 
     let mut new_offset_map: HashMap<u64, u64> = HashMap::with_capacity(bfs_order.len());
-    let mut write_cursor: u64 = 64;
+    let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
     for &node_id in bfs_order {
         if let Some(node_ref) = hnsw.nodes.get(&node_id) {
@@ -63,7 +67,7 @@ pub(crate) fn compact_layout(
                 Some(h) => h,
                 None => continue,
             };
-            if (old_header.flags & 0x8) != 0 {
+            if (old_header.flags & FLAG_TOMBSTONE) != 0 {
                 continue;
             }
             let vec_len = old_header.vector_len as u64;
@@ -106,7 +110,7 @@ pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
     let total_nodes = hnsw.nodes.len();
     let mut bfs_order: Vec<u64> = Vec::with_capacity(total_nodes);
     let mut visited: HashSet<u64> = HashSet::with_capacity(total_nodes);
-    let mut queue: VecDeque<u64> = VecDeque::with_capacity(total_nodes.min(1024));
+    let mut queue: VecDeque<u64> = VecDeque::with_capacity(total_nodes.min(BFS_QUEUE_CAPACITY));
     queue.push_back(entry_point_id);
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
@@ -154,7 +158,7 @@ pub(crate) fn rebuild_hnsw_from_vstore(
     index_path: PathBuf,
 ) -> Result<crate::storage::IndexRebuildReport> {
     let started = Instant::now();
-    let mut cursor = 64u64;
+    let mut cursor = STORAGE_ALIGNMENT;
     let mut scanned_nodes = 0u64;
     let mut indexed_vectors = 0u64;
     let mut skipped_tombstones = 0u64;
@@ -164,7 +168,7 @@ pub(crate) fn rebuild_hnsw_from_vstore(
         if let Some(header) = vstore.read_header(cursor) {
             if header.id != 0 {
                 scanned_nodes += 1;
-                if (header.flags & 0x8) != 0 {
+                if (header.flags & FLAG_TOMBSTONE) != 0 {
                     skipped_tombstones += 1;
                 } else {
                     let vec_data = if header.vector_len > 0 {
@@ -193,7 +197,7 @@ pub(crate) fn rebuild_hnsw_from_vstore(
             }
             cursor += header_size + ((header.vector_len as u64 * 4 + 63) & !63);
         } else {
-            cursor += 64;
+            cursor += STORAGE_ALIGNMENT;
         }
     }
     Ok(crate::storage::IndexRebuildReport {

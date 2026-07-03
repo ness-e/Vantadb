@@ -10,6 +10,9 @@ use web_time::{Instant, SystemTime, UNIX_EPOCH};
 use crate::cli::{Cli, Shell};
 use crate::config::VantaConfig;
 use crate::error::Result;
+const MIB: u64 = 1024 * 1024;
+const KIB_F64: f64 = 1024.0;
+
 pub use crate::sdk::{
     FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
     FIELD_UPDATED_AT_MS, FIELD_VERSION,
@@ -1021,12 +1024,12 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     ));
     let _ = term.write_line(&format!(
         "║     Logical size:   {:<38} ║",
-        format!("{} MB", stats.logical_bytes / (1024 * 1024))
+        format!("{} MB", stats.logical_bytes / MIB)
     ));
     if let Some(rss) = stats.physical_rss {
         let _ = term.write_line(&format!(
             "║     Physical RSS:   {:<38} ║",
-            format!("{} MB", rss / (1024 * 1024))
+            format!("{} MB", rss / MIB)
         ));
     }
     let _ = term.write_line(&format!(
@@ -2197,8 +2200,8 @@ fn human_readable_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
     let mut unit_idx = 0;
-    while size >= 1024.0 && unit_idx < UNITS.len() - 1 {
-        size /= 1024.0;
+    while size >= KIB_F64 && unit_idx < UNITS.len() - 1 {
+        size /= KIB_F64;
         unit_idx += 1;
     }
     format!("{:.2} {}", size, UNITS[unit_idx])

@@ -14,8 +14,8 @@ use vantadb::{UnifiedNode, WalRecord};
 
 fuzz_target!(|data: &[u8]| {
     // 1. Primary node deserialization — hit on every storage read
-    let _: Result<UnifiedNode, _> = bincode::deserialize(data);
+    let _: Result<UnifiedNode, _> = postcard::from_bytes(data);
 
     // 2. WAL record deserialization — hit on every recovery and replication event
-    let _: Result<WalRecord, _> = bincode::deserialize(data);
+    let _: Result<WalRecord, _> = postcard::from_bytes(data);
 });

@@ -9,6 +9,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::{Mutex, RwLock};
 
+const DEFAULT_INITIAL_CAPACITY: usize = 1024;
+
 use crate::error::{Result, VantaError};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::wal::{WalReader, WalRecord, WalWriter};
@@ -63,7 +65,7 @@ impl InMemoryEngine {
     /// Create engine (in-memory only, no persistence)
     pub fn new() -> Self {
         Self {
-            nodes: RwLock::new(HashMap::with_capacity(1024)),
+            nodes: RwLock::new(HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY)),
             wal: Mutex::new(None),
             next_id: AtomicU64::new(1),
         }
@@ -72,7 +74,7 @@ impl InMemoryEngine {
     /// Create engine with WAL durability. Replays existing WAL on open.
     pub fn with_wal(wal_path: impl AsRef<Path>) -> Result<Self> {
         let path = wal_path.as_ref().to_path_buf();
-        let mut nodes_map = HashMap::with_capacity(1024);
+        let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
         let mut max_id: u64 = 0;
 
         // Replay existing WAL
@@ -111,6 +113,14 @@ impl InMemoryEngine {
         self.next_id.fetch_add(1, Ordering::SeqCst)
     }
 
+    /// Append a record to the WAL if present (no-op without WAL).
+    fn append_to_wal(&self, record: &WalRecord) -> Result<()> {
+        if let Some(ref mut wal) = *self.wal.lock() {
+            wal.append(record)?;
+        }
+        Ok(())
+    }
+
     /// Insert a node. Auto-assigns ID if node.id == 0.
     pub fn insert(&self, mut node: UnifiedNode) -> Result<u64> {
         if node.id == 0 {
@@ -119,9 +129,7 @@ impl InMemoryEngine {
         let id = node.id;
 
         // WAL first (durability before visibility)
-        if let Some(ref mut wal) = *self.wal.lock() {
-            wal.append(&WalRecord::Insert(node.clone()))?;
-        }
+        self.append_to_wal(&WalRecord::Insert(node.clone()))?;
 
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
@@ -143,12 +151,10 @@ impl InMemoryEngine {
 
     /// Update existing node
     pub fn update(&self, id: u64, node: UnifiedNode) -> Result<()> {
-        if let Some(ref mut wal) = *self.wal.lock() {
-            wal.append(&WalRecord::Update {
-                id,
-                node: node.clone(),
-            })?;
-        }
+        self.append_to_wal(&WalRecord::Update {
+            id,
+            node: node.clone(),
+        })?;
         let mut nodes = self.nodes.write();
         if !nodes.contains_key(&id) {
             return Err(VantaError::NodeNotFound(id));
@@ -159,9 +165,7 @@ impl InMemoryEngine {
 
     /// Delete a node
     pub fn delete(&self, id: u64) -> Result<()> {
-        if let Some(ref mut wal) = *self.wal.lock() {
-            wal.append(&WalRecord::Delete { id })?;
-        }
+        self.append_to_wal(&WalRecord::Delete { id })?;
         let mut nodes = self.nodes.write();
         if nodes.remove(&id).is_none() {
             return Err(VantaError::NodeNotFound(id));

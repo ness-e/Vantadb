@@ -1,4 +1,5 @@
 #![cfg_attr(target_arch = "wasm32", no_main)]
+#![warn(missing_docs)]
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};

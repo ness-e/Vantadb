@@ -29,6 +29,8 @@ const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 pub use crate::node::{DistanceMetric, SendPtr, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
+const FLAG_TOMBSTONE: u32 = 0x8;
+
 /// SCALE-01: Prefetching Predictivo del Kernel para búsqueda HNSW MMap.
 ///
 /// Emite una sugerencia asíncrona al OS para pre-cargar páginas físicas del vector
@@ -758,7 +760,7 @@ impl CPIndex {
 
                 let eligible = if let Some(vs) = vector_store {
                     vs.read_header(node.storage_offset)
-                        .map(|h| (h.flags & 0x8) == 0)
+                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                         .unwrap_or(false)
                 } else {
                     true
@@ -891,7 +893,7 @@ impl CPIndex {
 
                                 let eligible = if let Some(vs) = vector_store {
                                     vs.read_header(neighbor.storage_offset)
-                                        .map(|h| (h.flags & 0x8) == 0)
+                                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                                         .unwrap_or(false)
                                 } else {
                                     true

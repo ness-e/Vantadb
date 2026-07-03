@@ -181,3 +181,134 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// Introspect the capabilities of this backend instance.
     fn capabilities(&self) -> BackendCapabilities;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── BackendPartition ──
+
+    #[test]
+    fn test_backend_partition_variants() {
+        assert_ne!(BackendPartition::Default, BackendPartition::Tombstones);
+        assert_eq!(BackendPartition::Default, BackendPartition::Default);
+    }
+
+    #[test]
+    fn test_backend_partition_cf_names() {
+        assert_eq!(BackendPartition::Default.cf_name(), "default");
+        assert_eq!(
+            BackendPartition::TombstoneStorage.cf_name(),
+            "tombstone_storage"
+        );
+        assert_eq!(
+            BackendPartition::CompressedArchive.cf_name(),
+            "compressed_archive"
+        );
+        assert_eq!(BackendPartition::Tombstones.cf_name(), "tombstones");
+        assert_eq!(
+            BackendPartition::NamespaceIndex.cf_name(),
+            "namespace_index"
+        );
+        assert_eq!(BackendPartition::PayloadIndex.cf_name(), "payload_index");
+        assert_eq!(BackendPartition::TextIndex.cf_name(), "text_index");
+        assert_eq!(
+            BackendPartition::InternalMetadata.cf_name(),
+            "internal_metadata"
+        );
+    }
+
+    #[test]
+    fn test_backend_partition_all_unique() {
+        let names: std::collections::HashSet<&str> = [
+            BackendPartition::Default,
+            BackendPartition::TombstoneStorage,
+            BackendPartition::CompressedArchive,
+            BackendPartition::Tombstones,
+            BackendPartition::NamespaceIndex,
+            BackendPartition::PayloadIndex,
+            BackendPartition::TextIndex,
+            BackendPartition::InternalMetadata,
+        ]
+        .iter()
+        .map(|p| p.cf_name())
+        .collect();
+        assert_eq!(names.len(), 8);
+    }
+
+    // ── BackendKind ──
+
+    #[test]
+    fn test_backend_kind_default() {
+        assert_eq!(BackendKind::default(), BackendKind::Fjall);
+    }
+
+    #[test]
+    fn test_backend_kind_variants() {
+        assert_ne!(BackendKind::RocksDb, BackendKind::Fjall);
+        assert_ne!(BackendKind::InMemory, BackendKind::RocksDb);
+    }
+
+    // ── BackendCapabilities ──
+
+    #[test]
+    fn test_backend_capabilities_defaults() {
+        let caps = BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: BackendKind::InMemory,
+        };
+        assert!(!caps.supports_checkpoint);
+        assert!(!caps.supports_manual_compaction);
+        assert_eq!(caps.kind, BackendKind::InMemory);
+    }
+
+    #[test]
+    fn test_backend_capabilities_rocksdb() {
+        let caps = BackendCapabilities {
+            supports_checkpoint: true,
+            supports_manual_compaction: true,
+            kind: BackendKind::RocksDb,
+        };
+        assert!(caps.supports_checkpoint);
+        assert!(caps.supports_manual_compaction);
+    }
+
+    // ── BackendWriteOp ──
+
+    #[test]
+    fn test_backend_write_op_put() {
+        let op = BackendWriteOp::Put {
+            partition: BackendPartition::Default,
+            key: b"k".to_vec(),
+            value: b"v".to_vec(),
+        };
+        match op {
+            BackendWriteOp::Put {
+                partition,
+                key,
+                value,
+            } => {
+                assert_eq!(partition, BackendPartition::Default);
+                assert_eq!(key, b"k");
+                assert_eq!(value, b"v");
+            }
+            _ => panic!("expected Put"),
+        }
+    }
+
+    #[test]
+    fn test_backend_write_op_delete() {
+        let op = BackendWriteOp::Delete {
+            partition: BackendPartition::Tombstones,
+            key: b"del".to_vec(),
+        };
+        match op {
+            BackendWriteOp::Delete { partition, key } => {
+                assert_eq!(partition, BackendPartition::Tombstones);
+                assert_eq!(key, b"del");
+            }
+            _ => panic!("expected Delete"),
+        }
+    }
+}

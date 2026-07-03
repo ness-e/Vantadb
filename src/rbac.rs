@@ -65,3 +65,86 @@ impl Rbac {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_rbac() -> Rbac {
+        let rbac = Rbac::new();
+        rbac.add_role("admin", vec![Permission::Admin]);
+        rbac.add_role("reader", vec![Permission::Read]);
+        rbac.add_role("writer", vec![Permission::Read, Permission::Write]);
+        rbac.add_role(
+            "ns_admin",
+            vec![
+                Permission::NamespaceRead("team".into()),
+                Permission::NamespaceWrite("team".into()),
+            ],
+        );
+        rbac
+    }
+
+    #[test]
+    fn test_rbac_new_has_no_permissions() {
+        let rbac = Rbac::new();
+        assert!(!rbac.has_permission("anyone", &Permission::Read));
+    }
+
+    #[test]
+    fn test_rbac_admin_has_all_permissions() {
+        let rbac = setup_rbac();
+        assert!(rbac.has_permission("admin", &Permission::Read));
+        assert!(rbac.has_permission("admin", &Permission::Write));
+        assert!(rbac.has_permission("admin", &Permission::Delete));
+        assert!(rbac.has_permission("admin", &Permission::Admin));
+    }
+
+    #[test]
+    fn test_rbac_reader_has_read_only() {
+        let rbac = setup_rbac();
+        assert!(rbac.has_permission("reader", &Permission::Read));
+        assert!(!rbac.has_permission("reader", &Permission::Write));
+    }
+
+    #[test]
+    fn test_rbac_writer_has_read_and_write() {
+        let rbac = setup_rbac();
+        assert!(rbac.has_permission("writer", &Permission::Read));
+        assert!(rbac.has_permission("writer", &Permission::Write));
+        assert!(!rbac.has_permission("writer", &Permission::Delete));
+    }
+
+    #[test]
+    fn test_rbac_unknown_role_denies() {
+        let rbac = setup_rbac();
+        assert!(!rbac.has_permission("unknown", &Permission::Read));
+    }
+
+    #[test]
+    fn test_rbac_can_access_namespace_read() {
+        let rbac = setup_rbac();
+        assert!(rbac.can_access_namespace("ns_admin", "team", false));
+        assert!(!rbac.can_access_namespace("ns_admin", "other", false));
+    }
+
+    #[test]
+    fn test_rbac_can_access_namespace_write() {
+        let rbac = setup_rbac();
+        assert!(rbac.can_access_namespace("ns_admin", "team", true));
+        assert!(!rbac.can_access_namespace("ns_admin", "other", true));
+    }
+
+    #[test]
+    fn test_rbac_admin_can_access_any_namespace() {
+        let rbac = setup_rbac();
+        assert!(rbac.can_access_namespace("admin", "anything", true));
+        assert!(rbac.can_access_namespace("admin", "anything", false));
+    }
+
+    #[test]
+    fn test_rbac_reader_cannot_access_namespace() {
+        let rbac = setup_rbac();
+        assert!(!rbac.can_access_namespace("reader", "team", false));
+    }
+}

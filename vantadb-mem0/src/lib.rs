@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 #[cfg(feature = "python")]
 mod python;
 

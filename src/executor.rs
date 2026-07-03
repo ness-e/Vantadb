@@ -10,6 +10,9 @@ use crate::query::{LogicalOperator, LogicalPlan, Statement};
 use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+const GIB: usize = 1024 * 1024 * 1024;
+const MIB: usize = 1024 * 1024;
+
 #[derive(Debug)]
 pub enum ExecutionResult {
     Read(Vec<UnifiedNode>),
@@ -137,7 +140,7 @@ impl<'a> Executor<'a> {
         // ── Memory Pressure Check ──
         {
             use crate::governor::ResourceGovernor;
-            let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
+            let governor = ResourceGovernor::new(2 * GIB, 50);
             let probe_cost = 0;
             governor.request_allocation(probe_cost)?;
         }
@@ -342,10 +345,10 @@ impl<'a> Executor<'a> {
     pub fn execute_plan(&self, mut plan: LogicalPlan) -> Result<Vec<UnifiedNode>> {
         use crate::governor::ResourceGovernor;
 
-        let governor = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50); // 2GB Soft Limit, 50ms timeout
+        let governor = ResourceGovernor::new(2 * GIB, 50); // 2GB Soft Limit, 50ms timeout
         governor.apply_temperature_limits(&mut plan);
 
-        let estimated_mem_cost = 1024 * 1024; // 1MB estimated buffer footprint per query
+        let estimated_mem_cost = MIB; // 1MB estimated buffer footprint per query
         governor.request_allocation(estimated_mem_cost)?;
 
         // Intercept Conflict entity scan for experimental governance immediately

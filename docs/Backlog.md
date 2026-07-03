@@ -3,7 +3,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
+last_refined: 2026-07-03 (batch 2: SEC-09, SEC-10, PERF-03, PERF-12, PERF-15, DB-02, DEVOPS-07, DEVOPS-10, TEST-07 ✅)
 ---
 
 # Active Backlog — VantaDB
@@ -20,6 +20,8 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `TSK-09` | OpenTelemetry traces (premature without basic Prometheus) | 🟢 | ✅ |
+| `TSK-145` | Normalizar comentarios español/inglés en storage.rs, wal.rs a inglés | 🟢 | ✅ |
+| `TSK-146` | Eliminar magic numbers esparcidos (1024 capacity, 64 alignment, 0x8 tombstone, 0.80 RSS) | 🟢 | ✅ |
 
 
 ## PHASE 4 — Launch (Jul-Sep 2026)
@@ -81,7 +83,7 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 |----|-------|-----------|--------|
 
 | `PERF-02` | Refactor WAL Mutex contention (`Mutex<Option<WalWriter>>` serializes all writes). Evaluate `async-lock` or sharded WAL segments | 🟡 | ✅ |
-| `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) — configurable via `VANTADB_MAX_BLOCKING_THREADS` ✅, dynamic auto-scale pending | 🟠 | ⏳ |
+| `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) — configurable via `VANTADB_MAX_BLOCKING_THREADS` ✅, dynamic auto-scale ✅ (detecta CPU cores × 2) | 🟠 | ✅ |
 | `PERF-04` | Refactor `Execution(String)` catch-all → typed error variants (TODO in source) | 🟡 | ✅ |
 | `PERF-05` | Split monolithic files: `storage.rs` (2624L), `index.rs` (2044L), `metrics.rs` (1300L), `cli_server.rs` (687L) into modules | 🟡 | ✅ |
 | `PERF-06` | Eliminate duplicated `append_to_vstore` / `write_node_to_vstore` (40L near-identical, storage.rs:1170-1257) | 🟢 | ✅ |
@@ -89,6 +91,11 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ✅ |
 | `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ✅ |
 | `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ✅ |
+| `PERF-11` | Batch KV loader (`get_many`/`multi_get`) para eliminar N+1 en graph traversal, physical scan, vector search, hybrid explain | 🔴 | ❌ |
+| `PERF-12` | Refactor patrón WAL repetitivo en engine.rs (`if let Some(ref mut wal) = ... wal.append(...)`) a helper method | 🟡 | ✅ |
+| `PERF-13` | Refactor `read_only` check repetido 5× en sdk/api.rs a helper method | 🟢 | ✅ |
+| `PERF-14` | Refactor `init_telemetry` masivo (cli_server.rs:280-438): eliminar bloques if/else repetidos JSON/full/compact × mcp/no-mcp | 🟡 | ❌ |
+| `PERF-15` | Agregar `#![warn(missing_docs)]` en todos los crates del workspace (14 crates) | 🟢 | ✅ |
 
 ### 4.F Distribution
 
@@ -120,6 +127,9 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `SEC-05` | RBAC design: scoped API tokens (read-only, namespace-scoped, time-limited) for multi-user server deployments | 🟡 | ✅ |
 | `SEC-06` | SBOM (SPDX/CycloneDX) generation in each release | 🟡 | ✅ |
 | `SEC-07` | CodeQL + cargo-deny in CI for vulnerability scanning on every PR | 🟡 | ✅ |
+| `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC-2025-0134, vulnerabilidad activa) | 🔴 | ✅ |
+| `SEC-09` | Reemplazar `bincode` 2.0 por `postcard` (RUSTSEC-2025-0141, unmaintained) | 🟡 | ✅ |
+| `SEC-10` | Security test suite: IQL injection, auth bypass, input validation fuzzing, timing attack | 🔴 | ✅ |
 | `DOC-01` | Unit tests: 34/48 modules without `#[cfg(test)]`. Priority: `config.rs`, `engine.rs`, `executor.rs`, `gc.rs`, `metrics.rs`, `storage.rs`, `graph.rs`, `backends/` | 🟡 | ⏳ |
 | `DOC-02` | Refactor `insert_hnsw()` in `src/index.rs` (177L → 3 functions: `compute_inv_cached_norm`, `shrink_neighbors`, `insert_hnsw`) | 🟡 | ✅ |
 | `DOC-03` | Normalize 6 files with Unicode/accent in filename to pure ASCII (avoids cross-platform issues) | 🟢 | ✅ |
@@ -141,6 +151,9 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs | 🟡 | ❌ |
 | `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ❌ |
 | `DOC-16` | Create tutorial series in `docs/tutorials/`: AI Agent Memory with VantaDB, Local RAG Pipeline walkthrough, Migrating from ChromaDB step-by-step | 🟡 | ❌ |
+| `DOC-17` | Crear diagramas de arquitectura formales (reemplazar ASCII art en ARCHITECTURE.md) | 🟡 | ❌ |
+| `DOC-18` | Expandir HTTP_API.md (149L → ~400L) al nivel de detalle de EMBEDDED_SDK (428L) | 🟡 | ❌ |
+| `DOC-19` | Agregar términos faltantes al glosario: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search` | 🟢 | ❌ |
 
 ### 4.J Web Frontend
 
@@ -148,9 +161,14 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 |----|-------|-----------|--------|
 | `WEB-06` | Migrate 637 inline styles to CSS Modules (engine.tsx 1085L inline, architecture.tsx 557L inline) | 🟡 | ❌ |
 
+| `WEB-07` | Eliminar redundancia de animation libraries: mantener solo GSAP, reemplazar Motion route transitions y AnimeJS text-scramble con GSAP | 🟡 | ❌ |
 | `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ✅ |
 | `WEB-14` | Implement missing GSAP animations per DiseñoNuevo.md: scroll-trigger reveals, count-up numbers | 🟡 | ✅ |
 | `WEB-17` | Evaluate TanStack Router necessity: 23 mostly-static pages. React Router would be simpler with fewer deps and no `routeTree.gen.ts` | 🟡 | ❌ |
+| `WEB-18` | Crear componente `<VsTable data={...} />` reusable para patrón "Legacy vs VantaDB" (duplicado en 7+ archivos) | 🟡 | ❌ |
+| `WEB-19` | Implementar `React.lazy()` / code splitting automático por ruta para reducir bundle inicial | 🟡 | ❌ |
+| `WEB-20` | Agregar `React.memo`, `useMemo`, `useCallback` en componentes clave (Nav, SwissFooter, SwissSubpageHero) | 🟡 | ❌ |
+| `WEB-21` | Eliminar mutación directa del DOM en handlers onMouseEnter/onMouseLeave (about/index.tsx, about/community.tsx, SwissArchSection.tsx) | 🟡 | ❌ |
 
 ### 4.K Testing Gaps
 
@@ -160,8 +178,10 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (2 tests in `core_invariants.rs`, not comprehensive) | 🟡 | ⏳ |
 | `TEST-05` | Snapshot testing: HNSW recall certification snapshots, export/import format versioning, WAL format integrity | 🟡 | ❌ |
 | `TEST-06` | Load/stress tests for Python and TypeScript SDKs (currently only Rust has stress tests) | 🟡 | ❌ |
-| `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) — global `test-threads=2` removed ✅, falta Windows-specific override | 🟢 | ⏳ |
+| `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) — global `test-threads=2` removed ✅, Windows-specific override ✅ | 🟢 | ✅ |
 | `TEST-08` | Fix `chaos_integrity` missing `required-features = ["failpoints"]` in Cargo.toml | 🟠 | ✅ |
+| `TEST-09` | Implementar tests WASM reales (vantadb-wasm/tests/wasm_tests.rs está vacío) | 🔴 | ❌ |
+| `TEST-10` | Configurar Vitest + React Testing Library para frontend (0 tests actualmente) | 🔴 | ❌ |
 
 ### 4.L Pricing & Monetization Strategy
 
@@ -174,6 +194,25 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `BIZ-04` | Cloud architecture design doc: WAL shipping to object storage (S3/R2), serverless read replicas, usage-based pricing model | 🟡 | ❌ |
 | `BIZ-05` | Competitive pricing analysis: model $0 self-hosted → $29/mo Pro (1M vectors, 10GB) → $149/mo Business (10M) → $499/mo Enterprise (unlimited) | 🟡 | ❌ |
 | `BIZ-06` | Pitch Deck + one-pager for pre-seed fundraising (10 slides) | 🟡 | ❌ |
+
+### 4.M DevOps & CI/CD Infrastructure
+
+| ID | Task | Priority | Status |
+|----|-------|-----------|--------|
+| `DEVOPS-07` | Revisar/mejorar Dockerfile multi-stage existente (cache mounts, labels, HEALTHCHECK, non-root user) | 🟡 | ✅ |
+| `DEVOPS-08` | Add docs build verification in CI (mdbook/docs.rs) | 🟢 | ❌ |
+| `DEVOPS-09` | Auto-deploy web a Vercel/Cloudflare Pages en push a main | 🟡 | ❌ |
+| `DEVOPS-10` | Sign Windows releases (resolver SmartScreen warning) — research doc completado | 🟡 | ✅ |
+| `DEVOPS-11` | CodeQL analysis en CI para todos los PRs | 🟡 | ✅ |
+
+### 4.N Database Constraints & Evolution
+
+| ID | Task | Priority | Status |
+|----|-------|-----------|--------|
+| `DB-01` | Implementar migration runner (`vanta-cli migrate`) para schema evolution de formatos en disco | 🔴 | ❌ |
+| `DB-02` | Diseñar estrategia de versionado de formatos físicos (VantaFile, WAL, índices) para upgrades seguros | 🔴 | ✅ |
+| `DB-03` | Evaluar e implementar sistema ACID transaccional (BEGIN TRANSACTION / COMMIT / ROLLBACK) | 🟡 | ❌ |
+| `DB-04` | Expandir bitset más allá de 128 bits para sistemas multi-tenant con muchas categorías | 🟢 | ❌ |
 
 ## PHASE 5 — Post-Launch / Pre-Seed (November-December 2026)
 
@@ -198,6 +237,7 @@ last_refined: 2026-07-03 (backlog audit: 6 tasks marked ❌ actually completed)
 | `ENT-02` | HIPAA compliance assessment and BAA readiness documentation | 🟡 | ❌ |
 | `ENT-03` | Multi-tenant namespace isolation with resource quotas (RAM, IOPS, storage per tenant) | 🟡 | ❌ |
 | `ENT-04` | Connection pooling with circuit breaker for server-mode clients | 🟡 | ❌ |
+| `ENT-05` | Plugin system for custom storage backends (WASM-based plugin architecture) | 🟡 | ❌ |
 
 ### 5.B VantaDB Cloud and Business
 

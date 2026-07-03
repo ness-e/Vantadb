@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! VantaDB Model Context Protocol (MCP) Server.
 //!
 //! This module provides a complete MCP server implementation for VantaDB,

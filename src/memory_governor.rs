@@ -91,3 +91,104 @@ impl MemoryGovernor {
         self.used_bytes.store(bytes, Ordering::Relaxed);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VantaConfig;
+
+    fn make_gov(memory_limit: u64) -> MemoryGovernor {
+        let config = VantaConfig {
+            memory_limit: Some(memory_limit),
+            backend_kind: crate::backend::BackendKind::InMemory,
+            ..Default::default()
+        };
+        MemoryGovernor::new(&config)
+    }
+
+    #[test]
+    fn test_memory_governor_allocated_freed() {
+        let gov = make_gov(1_000_000);
+        assert_eq!(gov.used_bytes(), 0);
+
+        gov.allocated(100);
+        assert_eq!(gov.used_bytes(), 100);
+
+        gov.freed(40);
+        assert_eq!(gov.used_bytes(), 60);
+    }
+
+    #[test]
+    fn test_memory_governor_memory_limit() {
+        let gov = make_gov(512_000);
+        assert_eq!(gov.memory_limit(), 512_000);
+    }
+
+    #[test]
+    fn test_memory_governor_should_evict() {
+        let gov = make_gov(1000);
+        // high_water_mark = 1000 * 0.75 = 750
+        gov.set_used_bytes(800);
+        assert!(gov.should_evict());
+
+        gov.set_used_bytes(700);
+        assert!(!gov.should_evict());
+    }
+
+    #[test]
+    fn test_memory_governor_needs_urgent_eviction() {
+        let gov = make_gov(1000);
+        gov.set_used_bytes(500);
+        assert!(!gov.needs_urgent_eviction());
+
+        gov.set_used_bytes(1500);
+        assert!(gov.needs_urgent_eviction());
+    }
+
+    #[test]
+    fn test_memory_governor_above_low_water() {
+        let gov = make_gov(1000);
+        // low_water_mark = 1000 * 0.75 * 0.9 = 675
+        gov.set_used_bytes(700);
+        assert!(gov.above_low_water());
+
+        gov.set_used_bytes(600);
+        assert!(!gov.above_low_water());
+    }
+
+    #[test]
+    fn test_memory_governor_eviction_running() {
+        let gov = make_gov(1_000_000);
+        assert!(!gov.eviction_running());
+        assert!(gov.try_start_eviction());
+        assert!(gov.eviction_running());
+        // Second attempt should fail
+        assert!(!gov.try_start_eviction());
+    }
+
+    #[test]
+    fn test_memory_governor_finish_eviction() {
+        let gov = make_gov(1_000_000);
+        gov.try_start_eviction();
+        gov.finish_eviction();
+        assert!(!gov.eviction_running());
+        assert!(gov.try_start_eviction()); // can start again
+    }
+
+    #[test]
+    fn test_memory_governor_oom_count() {
+        let gov = make_gov(1_000_000);
+        assert_eq!(gov.oom_count(), 0);
+        gov.record_oom();
+        assert_eq!(gov.oom_count(), 1);
+        gov.record_oom();
+        assert_eq!(gov.oom_count(), 2);
+    }
+
+    #[test]
+    fn test_memory_governor_set_used_bytes() {
+        let gov = make_gov(1_000_000);
+        gov.set_used_bytes(5000);
+        assert_eq!(gov.used_bytes(), 5000);
+    }
+}

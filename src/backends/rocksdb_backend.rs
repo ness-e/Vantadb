@@ -12,6 +12,9 @@ use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
 use tracing::{info, warn};
 
+const MIB: usize = 1024 * 1024;
+const GIB: u64 = 1024 * 1024 * 1024;
+
 /// RocksDB adapter implementing `StorageBackend`.
 ///
 /// Owns the `rocksdb::DB` instance and all column family configuration.
@@ -56,7 +59,7 @@ impl RocksDbBackend {
         let cache_size = (rocksdb_budget as f64 * 0.75) as usize; // 75% focus on block cache
         let write_buffer_total = rocksdb_budget - cache_size; // 25% for memtables
 
-        let write_buffer_size = (write_buffer_total / 2).clamp(8 * 1024 * 1024, 128 * 1024 * 1024);
+        let write_buffer_size = (write_buffer_total / 2).clamp(8 * MIB, 128 * MIB);
 
         opts.set_write_buffer_size(write_buffer_size);
         opts.set_max_write_buffer_number(2);
@@ -66,21 +69,21 @@ impl RocksDbBackend {
         cold_bopts.set_block_cache(&cache);
 
         info!(
-            rocksdb_budget_mb = rocksdb_budget / 1024 / 1024,
-            cache_mb = cache_size / 1024 / 1024,
-            memtable_mb = write_buffer_size / 1024 / 1024,
+            rocksdb_budget_mb = rocksdb_budget / MIB,
+            cache_mb = cache_size / MIB,
+            memtable_mb = write_buffer_size / MIB,
             "RocksDB memory configured"
         );
 
         opts.set_block_based_table_factory(&bopts);
 
         if caps.profile == crate::hardware::HardwareProfile::LowResource
-            || effective_memory < 16 * 1024 * 1024 * 1024
+            || effective_memory < 16 * GIB
         {
             opts.set_allow_mmap_reads(true);
             opts.set_allow_mmap_writes(true);
             warn!(
-                effective_memory_gb = effective_memory / 1024 / 1024 / 1024,
+                effective_memory_gb = effective_memory / GIB,
                 "RAM < 16GB — MMap access forced (Resource Governance)"
             );
         }
@@ -348,7 +351,7 @@ mod tests {
     fn open_rocksdb() -> (RocksDbBackend, tempfile::TempDir) {
         let dir = tempdir().unwrap();
         let config = VantaConfig {
-            memory_limit: Some(256 * 1024 * 1024), // 256 MB to keep test lightweight
+            memory_limit: Some((256 * MIB) as u64), // 256 MB to keep test lightweight
             ..Default::default()
         };
         let backend = RocksDbBackend::open(dir.path().to_str().unwrap(), &config).unwrap();

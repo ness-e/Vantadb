@@ -11,6 +11,16 @@ use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use tracing;
 
 impl VantaEmbedded {
+    fn check_read_only(&self) -> Result<()> {
+        if self.config.read_only {
+            return Err(VantaError::ValidationError {
+                field: "read_only".into(),
+                reason: "this operation is not available when VantaDB is opened read-only".into(),
+            });
+        }
+        Ok(())
+    }
+
     /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
     #[tracing::instrument(skip(self), err)]
     pub fn insert_node(&self, input: VantaNodeInput) -> Result<()> {
@@ -297,12 +307,7 @@ impl VantaEmbedded {
     /// Rebuild the HNSW vector index, derived indexes, and text index from scratch.
     #[tracing::instrument(skip(self), err)]
     pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
-        if self.config.read_only {
-            return Err(VantaError::ValidationError {
-                field: "read_only".into(),
-                reason: "rebuild_index is not available when VantaDB is opened read-only".into(),
-            });
-        }
+        self.check_read_only()?;
         let report = self.engine_handle()?.rebuild_vector_index()?;
         let derived = self.rebuild_derived_indexes_with_report()?;
         self.rebuild_text_index_with_report()?;
@@ -314,47 +319,28 @@ impl VantaEmbedded {
     /// Compact the vector store file, grouping nodes in BFS order from the HNSW entry point.
     #[tracing::instrument(skip(self), err)]
     pub fn compact_layout(&self) -> Result<u64> {
-        if self.config.read_only {
-            return Err(VantaError::ValidationError {
-                field: "read_only".into(),
-                reason: "compact_layout is not available when VantaDB is opened read-only".into(),
-            });
-        }
+        self.check_read_only()?;
         self.engine_handle()?.compact_layout_bfs()
     }
 
     /// Flush WAL and memory-mapped files to disk.
     #[tracing::instrument(skip(self), err)]
     pub fn flush(&self) -> Result<()> {
-        if self.config.read_only {
-            return Err(VantaError::ValidationError {
-                field: "read_only".into(),
-                reason: "flush is not available when VantaDB is opened read-only".into(),
-            });
-        }
+        self.check_read_only()?;
         self.engine_handle()?.flush()
     }
 
     /// Compact the WAL: flush, archive the current WAL file, and start a fresh one.
     #[tracing::instrument(skip(self), err)]
     pub fn compact_wal(&self) -> Result<()> {
-        if self.config.read_only {
-            return Err(VantaError::ValidationError {
-                field: "read_only".into(),
-                reason: "compact_wal is not available when VantaDB is opened read-only".into(),
-            });
-        }
+        self.check_read_only()?;
         self.engine_handle()?.compact_wal()
     }
 
     /// Scan all memory records and physically delete those whose expiry deadline has passed.
     #[tracing::instrument(skip(self), err)]
     pub fn purge_expired(&self) -> Result<u64> {
-        if self.config.read_only {
-            return Err(VantaError::SearchError(
-                "purge_expired is not available when VantaDB is opened read-only".to_string(),
-            ));
-        }
+        self.check_read_only()?;
         let engine = self.engine_handle()?;
         let now = now_ms();
         let mut to_delete: Vec<(String, String, u64)> = Vec::new();

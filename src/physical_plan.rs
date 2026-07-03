@@ -482,3 +482,292 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
         self.child.close()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::node::{FieldValue, UnifiedNode};
+    use crate::query::RelOp;
+
+    fn node_with_field(key: &str, val: FieldValue) -> UnifiedNode {
+        let mut node = UnifiedNode::new(1);
+        node.relational.insert(key.into(), val);
+        node
+    }
+
+    // ── evaluate_condition ──
+
+    #[test]
+    fn test_evaluate_condition_eq_string() {
+        let node = node_with_field("name", FieldValue::String("alice".into()));
+        assert!(evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Eq,
+            &FieldValue::String("alice".into())
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Eq,
+            &FieldValue::String("bob".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_neq_string() {
+        let node = node_with_field("name", FieldValue::String("alice".into()));
+        assert!(evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Neq,
+            &FieldValue::String("bob".into())
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Neq,
+            &FieldValue::String("alice".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_gt_int() {
+        let node = node_with_field("age", FieldValue::Int(30));
+        assert!(evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gt,
+            &FieldValue::Int(20)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gt,
+            &FieldValue::Int(30)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gt,
+            &FieldValue::Int(40)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_gte_int() {
+        let node = node_with_field("age", FieldValue::Int(30));
+        assert!(evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gte,
+            &FieldValue::Int(30)
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gte,
+            &FieldValue::Int(20)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "age",
+            &RelOp::Gte,
+            &FieldValue::Int(40)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_lt_float() {
+        let node = node_with_field("price", FieldValue::Float(10.5));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Lt,
+            &FieldValue::Float(20.0)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Lt,
+            &FieldValue::Float(5.0)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_lte_float() {
+        let node = node_with_field("price", FieldValue::Float(10.0));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Lte,
+            &FieldValue::Float(10.0)
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "price",
+            &RelOp::Lte,
+            &FieldValue::Float(15.0)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_bool_eq() {
+        let node = node_with_field("active", FieldValue::Bool(true));
+        assert!(evaluate_condition(
+            &node,
+            "active",
+            &RelOp::Eq,
+            &FieldValue::Bool(true)
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "active",
+            &RelOp::Eq,
+            &FieldValue::Bool(false)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_bool_neq() {
+        let node = node_with_field("active", FieldValue::Bool(true));
+        assert!(evaluate_condition(
+            &node,
+            "active",
+            &RelOp::Neq,
+            &FieldValue::Bool(false)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_bool_non_relational() {
+        let node = node_with_field("active", FieldValue::Bool(true));
+        assert!(!evaluate_condition(
+            &node,
+            "active",
+            &RelOp::Gt,
+            &FieldValue::Bool(false)
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_null_eq() {
+        let node = node_with_field("empty", FieldValue::Null);
+        assert!(evaluate_condition(
+            &node,
+            "empty",
+            &RelOp::Eq,
+            &FieldValue::Null
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "empty",
+            &RelOp::Neq,
+            &FieldValue::Null
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_missing_field_neq() {
+        let node = UnifiedNode::new(1);
+        assert!(evaluate_condition(
+            &node,
+            "missing",
+            &RelOp::Neq,
+            &FieldValue::String("x".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_missing_field_eq() {
+        let node = UnifiedNode::new(1);
+        assert!(!evaluate_condition(
+            &node,
+            "missing",
+            &RelOp::Eq,
+            &FieldValue::String("x".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_type_mismatch() {
+        let node = node_with_field("val", FieldValue::Int(42));
+        assert!(!evaluate_condition(
+            &node,
+            "val",
+            &RelOp::Eq,
+            &FieldValue::String("42".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_string_gte() {
+        let node = node_with_field("name", FieldValue::String("banana".into()));
+        assert!(evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Gte,
+            &FieldValue::String("apple".into())
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Gte,
+            &FieldValue::String("banana".into())
+        ));
+        assert!(!evaluate_condition(
+            &node,
+            "name",
+            &RelOp::Gte,
+            &FieldValue::String("cherry".into())
+        ));
+    }
+
+    #[test]
+    fn test_evaluate_condition_negative_float() {
+        let node = node_with_field("balance", FieldValue::Float(-5.0));
+        assert!(evaluate_condition(
+            &node,
+            "balance",
+            &RelOp::Lt,
+            &FieldValue::Float(0.0)
+        ));
+        assert!(evaluate_condition(
+            &node,
+            "balance",
+            &RelOp::Eq,
+            &FieldValue::Float(-5.0)
+        ));
+    }
+
+    #[test]
+    fn test_relop_ordering_consistent() {
+        let a = FieldValue::Int(50);
+        let test_values = [0i64, 50, 100];
+        for &v in &test_values {
+            let node = node_with_field("x", FieldValue::Int(v));
+            let gt = evaluate_condition(&node, "x", &RelOp::Gt, &a);
+            let lt = evaluate_condition(&node, "x", &RelOp::Lt, &a);
+            if v == 50 {
+                assert!(
+                    !gt && !lt,
+                    "Gt and Lt should both be false for equal v={}",
+                    v
+                );
+            } else {
+                assert_ne!(gt, lt, "Gt and Lt should be opposites for v={}", v);
+            }
+        }
+    }
+
+    // ── PhysicalOperator trait object safety ──
+
+    #[test]
+    fn test_physical_operator_trait_satisfied() {
+        fn _is_send_sync<T: Send + Sync>() {}
+        _is_send_sync::<PhysicalFilter>();
+        _is_send_sync::<PhysicalProject>();
+        _is_send_sync::<PhysicalLimit>();
+        _is_send_sync::<PhysicalSort>();
+    }
+}
