@@ -26,6 +26,16 @@ export class VantaDB {
     this.inner = inner;
   }
 
+  /// Connect to a VantaDB database.
+  /// - path: filesystem path for persistent storage
+  /// - If path is empty/":memory:" or omitted, opens in-memory engine
+  static async connect(path?: string): Promise<VantaDB> {
+    const inner = path && path !== ":memory:"
+      ? WasmVantaDB.open(path)
+      : new WasmVantaDB(null);
+    return new VantaDB(inner);
+  }
+
   static create(config?: VantaConfig): VantaDB {
     const inner = new WasmVantaDB(config ?? null);
     return new VantaDB(inner);
