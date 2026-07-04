@@ -183,7 +183,9 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  transition: background 150ms var(--ease-swiss), border-color 150ms;
+  transition:
+    background 150ms var(--ease-swiss),
+    border-color 150ms;
 }
 
 .swiss-hero-link:hover {
@@ -225,8 +227,12 @@
 }
 
 @keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @media (max-width: 768px) {
@@ -258,6 +264,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .swiss-hero-geo { display: none; }
-  .swiss-hero-marquee-inner { animation: none; }
+  .swiss-hero-geo {
+    display: none;
+  }
+  .swiss-hero-marquee-inner {
+    animation: none;
+  }
 }

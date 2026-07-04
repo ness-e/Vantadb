@@ -24,8 +24,7 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
               ease: "power2.out",
               overwrite: true,
             });
-          }
-          else if (self.direction === 1) {
+          } else if (self.direction === 1) {
             gsap.to(btnRef.current, {
               autoAlpha: 0,
               y: 20,

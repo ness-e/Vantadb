@@ -20,9 +20,15 @@ export function VsTable({ title, subtitle, rows, className }: VsTableProps) {
       {title && <h2 className="vs-table__title">{title}</h2>}
       {subtitle && <p className="vs-table__subtitle">{subtitle}</p>}
       <div className="vs-table__grid" role="table" aria-label="Feature comparison">
-        <div className="vs-table__header vs-table__header--feature" role="columnheader">Feature</div>
-        <div className="vs-table__header vs-table__header--legacy" role="columnheader">Legacy</div>
-        <div className="vs-table__header vs-table__header--vanta" role="columnheader">VantaDB</div>
+        <div className="vs-table__header vs-table__header--feature" role="columnheader">
+          Feature
+        </div>
+        <div className="vs-table__header vs-table__header--legacy" role="columnheader">
+          Legacy
+        </div>
+        <div className="vs-table__header vs-table__header--vanta" role="columnheader">
+          VantaDB
+        </div>
         {rows.map((row, i) => (
           <div
             key={`f-${i}`}

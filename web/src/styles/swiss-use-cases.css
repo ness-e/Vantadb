@@ -2,7 +2,7 @@
   --section-bg: #ffffff;
   --section-text: #111111;
   --section-text-muted: #5a5a5a;
-  --section-border: rgba(0, 0, 0, 0.10);
+  --section-border: rgba(0, 0, 0, 0.1);
   --section-card-bg: #ffffff;
   background: var(--section-bg);
 }

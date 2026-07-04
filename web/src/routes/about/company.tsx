@@ -8,7 +8,8 @@ export const Route = createFileRoute("/about/company")({
         name: "description",
         content:
           "VantaDB is an open-source embedded vector database for AI agents, local RAG pipelines, and intelligent applications. Built in Rust, Apache 2.0.",
-      },      { property: "og:title", content: "VantaDB — Company & Team" },
+      },
+      { property: "og:title", content: "VantaDB — Company & Team" },
       {
         property: "og:description",
         content: "The team behind VantaDB.",
@@ -18,6 +19,3 @@ export const Route = createFileRoute("/about/company")({
     links: [{ rel: "canonical", href: "https://vantadb.dev/about/company" }],
   }),
 });
-
-
-

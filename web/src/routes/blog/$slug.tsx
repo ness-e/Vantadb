@@ -19,4 +19,3 @@ export const Route = createFileRoute("/blog/$slug")({
     };
   },
 });
-

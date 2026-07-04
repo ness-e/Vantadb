@@ -8,7 +8,8 @@ export const Route = createFileRoute("/solutions/local-rag")({
         name: "description",
         content:
           "Run RAG entirely on-device. No vectors in the cloud. Embed documents locally, query with your local LLM, keep your data private.",
-      },      { property: "og:title", content: "VantaDB — Local-First RAG Pipeline" },
+      },
+      { property: "og:title", content: "VantaDB — Local-First RAG Pipeline" },
       {
         property: "og:description",
         content: "Run RAG entirely on-device with zero cloud dependencies.",
@@ -18,6 +19,3 @@ export const Route = createFileRoute("/solutions/local-rag")({
     links: [{ rel: "canonical", href: "https://vantadb.dev/solutions/local-rag" }],
   }),
 });
-
-
-

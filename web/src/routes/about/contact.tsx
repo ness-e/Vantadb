@@ -8,7 +8,8 @@ export const Route = createFileRoute("/about/contact")({
         name: "description",
         content:
           "Get in touch with the VantaDB team. Enterprise inquiries, partnerships, security reports, or general questions.",
-      },      { property: "og:title", content: "VantaDB — Contact & Support" },
+      },
+      { property: "og:title", content: "VantaDB — Contact & Support" },
       {
         property: "og:description",
         content: "Get in touch with the VantaDB team.",
@@ -18,6 +19,3 @@ export const Route = createFileRoute("/about/contact")({
     links: [{ rel: "canonical", href: "https://vantadb.dev/about/contact" }],
   }),
 });
-
-
-

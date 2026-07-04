@@ -411,11 +411,12 @@ function PricingPage() {
                     key={row.feature}
                     style={{
                       borderBottom: "1px solid var(--border)",
-                      background: hoveredRow === i
-                        ? "var(--surface-hover)"
-                        : i % 2 === 0
-                          ? "var(--background)"
-                          : "var(--surface)",
+                      background:
+                        hoveredRow === i
+                          ? "var(--surface-hover)"
+                          : i % 2 === 0
+                            ? "var(--background)"
+                            : "var(--surface)",
                       transition: "background 100ms",
                     }}
                     onMouseEnter={() => setHoveredRow(i)}
@@ -516,5 +517,3 @@ function PricingPage() {
     </div>
   );
 }
-
-

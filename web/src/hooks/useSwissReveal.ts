@@ -35,7 +35,7 @@ export function useSwissReveal(
         stagger,
         ease: "cubic-bezier(0.25, 1, 0.5, 1)",
         scrollTrigger: {
-          trigger: trigger ?? (elements[0]?.parentElement ?? undefined),
+          trigger: trigger ?? elements[0]?.parentElement ?? undefined,
           start,
         },
       },

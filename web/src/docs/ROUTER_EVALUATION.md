@@ -2,25 +2,25 @@
 
 **Author:** AI-assisted evaluation  
 **Date:** 2026-07-03  
-**Ticket:** WEB-17  
+**Ticket:** WEB-17
 
 ---
 
 ## 1. Current State
 
-| Property | Value |
-|---|---|
-| **Router** | TanStack Router v1.168.25 |
-| **Plugin** | `@tanstack/router-plugin` v1.167.28 (Vite) |
-| **Total routes** | 23 unique paths + `__root__` |
-| **Route convention** | File-based (`routes/` directory) with auto-generated `routeTree.gen.ts` |
-| **Lazy loading** | Yes — every route uses `createLazyRoute`/`.lazy()` split |
-| **Route params** | 1 — `/blog/$slug` |
-| **Redirects** | 1 — `/docs-api` → `/docs` |
-| **Search params** | 0 |
-| **Loaders** | 0 |
-| **`<Link>` usages** | 28 across 6 components + 2 route files |
-| **`import` references** | 57 files importing from `@tanstack/react-router` |
+| Property                | Value                                                                   |
+| ----------------------- | ----------------------------------------------------------------------- |
+| **Router**              | TanStack Router v1.168.25                                               |
+| **Plugin**              | `@tanstack/router-plugin` v1.167.28 (Vite)                              |
+| **Total routes**        | 23 unique paths + `__root__`                                            |
+| **Route convention**    | File-based (`routes/` directory) with auto-generated `routeTree.gen.ts` |
+| **Lazy loading**        | Yes — every route uses `createLazyRoute`/`.lazy()` split                |
+| **Route params**        | 1 — `/blog/$slug`                                                       |
+| **Redirects**           | 1 — `/docs-api` → `/docs`                                               |
+| **Search params**       | 0                                                                       |
+| **Loaders**             | 0                                                                       |
+| **`<Link>` usages**     | 28 across 6 components + 2 route files                                  |
+| **`import` references** | 57 files importing from `@tanstack/react-router`                        |
 
 ### Dependencies
 
@@ -32,6 +32,7 @@
 ### Manual chunking
 
 Already chunked separately in `vite.config.ts`:
+
 ```ts
 if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"))
   return "vendor-router";
@@ -66,17 +67,17 @@ if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"
 
 ## 4. React Router Alternative
 
-| Aspect | React Router (v7) | TanStack Router (v1) |
-|---|---|---|
-| **Package** | `react-router-dom` (1 package) | `@tanstack/react-router` + `@tanstack/router-plugin` (2+ packages + plugin) |
-| **Type safety** | Via `generatePath` + manual types | Automatic from file tree |
-| **Code generation** | None | Required (`routeTree.gen.ts`) |
-| **API surface** | Simpler: `<Routes>`, `<Route>`, `<Link>`, `useParams`, `useNavigate` | More: `createFileRoute`, `createLazyRoute`, `createRootRouteWithContext`, `useMatches`, `Route.useParams()`, etc. |
-| **Lazy loading** | `React.lazy(() => import(...))` | Built-in `.lazy()` convention |
-| **Head management** | None built-in (use `react-helmet-async` or `@unhead/react`) | Built-in via `Route.head()` |
-| **Community** | Larger, more resources, more job experience | Smaller but growing |
-| **Bundle size** | ~14 KB (min+gzip) | ~25 KB (min+gzip, router only, before plugin) |
-| **Static routes** | Route config or `<Route>` elements | File-based convention |
+| Aspect              | React Router (v7)                                                    | TanStack Router (v1)                                                                                              |
+| ------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Package**         | `react-router-dom` (1 package)                                       | `@tanstack/react-router` + `@tanstack/router-plugin` (2+ packages + plugin)                                       |
+| **Type safety**     | Via `generatePath` + manual types                                    | Automatic from file tree                                                                                          |
+| **Code generation** | None                                                                 | Required (`routeTree.gen.ts`)                                                                                     |
+| **API surface**     | Simpler: `<Routes>`, `<Route>`, `<Link>`, `useParams`, `useNavigate` | More: `createFileRoute`, `createLazyRoute`, `createRootRouteWithContext`, `useMatches`, `Route.useParams()`, etc. |
+| **Lazy loading**    | `React.lazy(() => import(...))`                                      | Built-in `.lazy()` convention                                                                                     |
+| **Head management** | None built-in (use `react-helmet-async` or `@unhead/react`)          | Built-in via `Route.head()`                                                                                       |
+| **Community**       | Larger, more resources, more job experience                          | Smaller but growing                                                                                               |
+| **Bundle size**     | ~14 KB (min+gzip)                                                    | ~25 KB (min+gzip, router only, before plugin)                                                                     |
+| **Static routes**   | Route config or `<Route>` elements                                   | File-based convention                                                                                             |
 
 ---
 
@@ -85,10 +86,12 @@ if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"
 ### 5.1 Route Definitions
 
 **TanStack Router (current):**
+
 - 2 files per route: `routes/page.tsx` (definition) + `routes/page.lazy.tsx` (component)
 - Generated `routeTree.gen.ts` connects them
 
 **React Router (target):**
+
 - 1 file per route component
 - Central `<Routes>` config in `router.tsx` (or `main.tsx`)
 
@@ -103,11 +106,11 @@ if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"
 
 ### 5.3 Navigation Hooks
 
-| Current | Target | Usages |
-|---|---|---|
-| `useLocation()` | `useLocation()` | 1 (Nav.tsx) — API differs slightly (TanStack returns `URL`; React Router returns `Location`) |
-| `useRouter()` | N/A | 1 (`__root.tsx` error boundary — `router.invalidate()`). Need to handle error recovery differently. |
-| `useMatches()` | `useMatches()` | 1 (`__root.tsx` — for route transition key). Both have `useMatches` but return shapes differ. |
+| Current         | Target          | Usages                                                                                              |
+| --------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| `useLocation()` | `useLocation()` | 1 (Nav.tsx) — API differs slightly (TanStack returns `URL`; React Router returns `Location`)        |
+| `useRouter()`   | N/A             | 1 (`__root.tsx` error boundary — `router.invalidate()`). Need to handle error recovery differently. |
+| `useMatches()`  | `useMatches()`  | 1 (`__root.tsx` — for route transition key). Both have `useMatches` but return shapes differ.       |
 
 **Cost:** Low-Medium. `useRouter().invalidate()` is the only non-trivial migration — the error boundary would need a different recovery approach (e.g., window.location.reload or React state reset).
 
@@ -164,21 +167,21 @@ if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"
 
 ## 6. Estimation Summary
 
-| Category | Files Affected | Effort |
-|---|---|---|
-| Route definition files | ~25 route `.tsx` + 25 `.lazy.tsx` | Medium |
-| `routeTree.gen.ts` | 1 (delete) | Trivial |
-| `router.tsx` | 1 | Medium |
-| `main.tsx` | 1 | Low |
-| `vite.config.ts` | 1 (remove plugin) | Trivial |
-| `package.json` | 1 (swap deps + add helmet) | Low |
-| Link imports | 8 component files | Low |
-| Head/meta | 15+ route files | Medium-High |
-| Navigation hooks | 2 files (`Nav.tsx`, `__root.tsx`) | Low-Medium |
-| Route params | 1 file (`blog/$slug`) | Low |
-| Redirect | 1 file (`docs-api.tsx`) | Low |
-| Scroll restoration | 1 file (`router.tsx`) | Low |
-| Route transitions | 1 file (`__root.tsx`) | Low |
+| Category               | Files Affected                    | Effort      |
+| ---------------------- | --------------------------------- | ----------- |
+| Route definition files | ~25 route `.tsx` + 25 `.lazy.tsx` | Medium      |
+| `routeTree.gen.ts`     | 1 (delete)                        | Trivial     |
+| `router.tsx`           | 1                                 | Medium      |
+| `main.tsx`             | 1                                 | Low         |
+| `vite.config.ts`       | 1 (remove plugin)                 | Trivial     |
+| `package.json`         | 1 (swap deps + add helmet)        | Low         |
+| Link imports           | 8 component files                 | Low         |
+| Head/meta              | 15+ route files                   | Medium-High |
+| Navigation hooks       | 2 files (`Nav.tsx`, `__root.tsx`) | Low-Medium  |
+| Route params           | 1 file (`blog/$slug`)             | Low         |
+| Redirect               | 1 file (`docs-api.tsx`)           | Low         |
+| Scroll restoration     | 1 file (`router.tsx`)             | Low         |
+| Route transitions      | 1 file (`__root.tsx`)             | Low         |
 
 **Total estimated effort: 2-4 days for a confident migration.**
 
@@ -189,6 +192,7 @@ if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"
 **Keep TanStack Router for now — not blocking launch.**
 
 Rationale:
+
 - The current setup works, is type-safe, and has zero known bugs.
 - 23 pages is small enough that neither router causes meaningful performance issues.
 - TanStack Router's automatic lazy loading and head management are actively beneficial.
@@ -196,6 +200,7 @@ Rationale:
 - The `@ts-nocheck` in `routeTree.gen.ts` is cosmetic — the generated types are consumed correctly via the `FileRoutesByPath` module augmentation.
 
 **Re-evaluate post-launch if any of these become true:**
+
 1. Bundle size for the `vendor-router` chunk exceeds 30 KB gzipped.
 2. Developing new routes becomes cumbersome due to the 2-file-per-route convention.
 3. A team member reports friction with TanStack Router's DX vs React Router.
@@ -203,6 +208,7 @@ Rationale:
 5. React Router v7 delivers significant enough ergonomic improvements to justify the migration cost.
 
 **If migrating later:**
+
 - Use `react-helmet-async` or `@unhead/react` for head management.
 - Keep page components as-is (they're already Router-agnostic); only swap the routing layer.
 - Use React Router v7's `createBrowserRouter`/`RouterProvider` for the closest API parity with the current code structure.

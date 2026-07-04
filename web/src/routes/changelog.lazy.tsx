@@ -461,5 +461,3 @@ function ChangelogPage() {
     </div>
   );
 }
-
-

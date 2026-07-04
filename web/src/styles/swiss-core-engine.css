@@ -201,7 +201,9 @@
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 300ms var(--ease-swiss), opacity 200ms var(--ease-swiss);
+  transition:
+    max-height 300ms var(--ease-swiss),
+    opacity 200ms var(--ease-swiss);
 }
 
 .swiss-ce-row-content--open {

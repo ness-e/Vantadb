@@ -18,4 +18,3 @@ export const Route = createFileRoute("/")({
     links: [{ rel: "canonical", href: "https://vantadb.dev" }],
   }),
 });
-

@@ -18,7 +18,7 @@
 
   --amber: #ff5500;
   --amber-light: #ff7733;
-  --amber-dim: rgba(255, 85, 0, 0.10);
+  --amber-dim: rgba(255, 85, 0, 0.1);
   --success: #00c853;
   --danger: #ff1744;
 
@@ -27,7 +27,7 @@
   --muted: #808080;
   --subtle: #5a5a5a;
   --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.20);
+  --border-hover: rgba(255, 255, 255, 0.2);
   --border-strong: #333333;
 
   --background: #111111;

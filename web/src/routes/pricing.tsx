@@ -8,7 +8,8 @@ export const Route = createFileRoute("/pricing")({
         name: "description",
         content:
           "VantaDB is open source (Apache 2.0) and free forever. Self-hosted is fully available; Cloud plans are aspirational (coming in a future release).",
-      },      { property: "og:title", content: "VantaDB — Pricing: Open Source. Free Forever." },
+      },
+      { property: "og:title", content: "VantaDB — Pricing: Open Source. Free Forever." },
       {
         property: "og:description",
         content: "VantaDB is open source (Apache 2.0) and free forever.",
@@ -18,6 +19,3 @@ export const Route = createFileRoute("/pricing")({
     links: [{ rel: "canonical", href: "https://vantadb.dev/pricing" }],
   }),
 });
-
-
-
