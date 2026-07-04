@@ -34,6 +34,7 @@ pub mod integrations;
 pub mod llm;
 pub(crate) mod memory_governor;
 pub mod metadata;
+pub mod migration;
 pub mod metrics;
 pub mod node;
 pub mod parser;

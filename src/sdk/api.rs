@@ -443,7 +443,7 @@ impl VantaEmbedded {
         let results = {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store.read();
-            hnsw.search_nearest(vector, None, None, u128::MAX, top_k, Some(&*vs))
+            hnsw.search_nearest(vector, None, None, &crate::node::ALL_BITSET, top_k, Some(&*vs))
         };
         Ok(results
             .into_iter()

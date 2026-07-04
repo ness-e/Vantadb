@@ -1055,3 +1055,19 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Build Status:** `cargo check` pasa (solo missing_docs warnings), 40 frontend tests pasan, 39 WASM tests pasan, 15 load tests pasan
 - **Ids:** `DOC-13`, `DOC-14`, `DOC-15`, `DOC-17`, `DOC-18`, `DOC-19`, `DOC-06`, `WEB-06`, `WEB-07`, `WEB-17`, `WEB-18`, `WEB-19`, `WEB-20`, `WEB-21`
 
+### Batch 5 — Fase 4: Release Engineering + Database Evolution (REL-01, LEG-02, DB-01/03/04, DEVOPS-08/09, DOC-16, BIZ-01)
+- **Fecha:** 2026-07-03
+- **Objetivo:** Completar tareas de Fase 4: bump versión, CLA, migration runner, ACID research, bitset expansion, CI/CD, tutoriales, enterprise crate.
+- **Checklist:**
+  - [x] **REL-01** — Bump workspace v0.1.5 → v0.2.0 (Cargo.toml + pyproject.toml + doc URL, cargo check ✅)
+  - [x] **LEG-02** — Individual + Corporate CLA en `.github/CLA_INDIVIDUAL.md`, `CLA_CORPORATE.md`, `clabot-config.json`
+  - [x] **DB-01** — MigrationEngine en `src/migration.rs` (12 tests), CLI extendido con `--format`, `--dry-run`, `--force`
+  - [x] **DB-03** — ACID transactions research doc en `docs/research/ACID_TRANSACTIONS.md`
+  - [x] **DB-04** — FilterBitset dinámico (`Vec<u64>`) reemplaza `u128` fijo en node.rs, index/core.rs, engine.rs, storage/ops.rs
+  - [x] **DEVOPS-08** — Docs CI (`docs-check.yml`): markdownlint + lychee + frontmatter validation
+  - [x] **DEVOPS-09** — Web deploy CI (`web-deploy.yml`): build + Vercel deploy on push to main
+  - [x] **DOC-16** — 3 tutoriales: AI Agent Memory, Local RAG Pipeline, Migrating from ChromaDB
+  - [x] **BIZ-01** — `vantadb-enterprise/` crate (proprietary) con módulos encryption, audit, rbac, replication, license, config
+- **Build Status:** `cargo check` pasa, 12 migration tests pasan, workspace compila con 0 errores
+- **Ids:** `REL-01`, `LEG-02`, `DB-01`, `DB-03`, `DB-04`, `DEVOPS-08`, `DEVOPS-09`, `DOC-16`, `BIZ-01`
+

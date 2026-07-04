@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Subpage Hero Stylesheet
+   VantaDB — Swiss Subpage Hero Stylesheet (extreme)
    ═══════════════════════════════════════════════════════════ */
 
 .swiss-subpage-hero {
   border-bottom: 1px solid var(--border);
-  padding: 5rem 0 2rem;
+  padding: var(--space-4xl) 0 var(--space-lg);
   background: var(--background);
   position: relative;
 }
@@ -12,47 +12,47 @@
 .swiss-subpage-hero-grid {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  gap: var(--space-lg);
   align-items: flex-end;
 }
 
 .swiss-subpage-hero-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2xs);
 }
 
 .swiss-subpage-hero-num {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   color: var(--amber);
-  letter-spacing: 0.15em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .swiss-subpage-hero-eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   color: var(--steel);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .swiss-subpage-hero-title {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  font-size: var(--text-hero);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-mega);
+  line-height: var(--leading-tight);
   color: var(--foreground);
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-sm);
 }
 
 .swiss-subpage-hero-desc {
   font-family: var(--font-sans);
-  font-size: 1.125rem;
-  line-height: 1.5;
+  font-size: var(--text-lead);
+  line-height: var(--leading-normal);
   color: var(--muted);
   margin: 0;
   max-width: 65ch;
@@ -61,12 +61,12 @@
 /* Responsive */
 @media (max-width: 768px) {
   .swiss-subpage-hero {
-    padding: 4rem 0 2rem;
+    padding: var(--space-3xl) 0 var(--space-lg);
   }
 
   .swiss-subpage-hero-grid {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: var(--space-md);
     align-items: flex-start;
   }
 }

@@ -1,15 +1,14 @@
 /* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Monolith CTA
+   VantaDB — Swiss Monolith CTA (extreme)
    OLED black. Massive typography. Single action.
    ═══════════════════════════════════════════════════════════ */
 
 .swiss-monolith {
-  background-color: var(--block-dark-bg);
+  background-color: #000000;
   color: var(--block-dark-text);
   padding: var(--section-gap-lg) clamp(1.5rem, 5vw, 4rem);
   border-top: 1px solid var(--block-dark-border);
   position: relative;
-  overflow: hidden;
 }
 
 .swiss-monolith__inner {
@@ -17,44 +16,46 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 3rem;
+  gap: var(--space-3xl);
 }
 
 /* ── Label row ── */
 .swiss-monolith__label-row {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: var(--space-lg);
 }
 
 .swiss-monolith__section-num,
 .swiss-monolith__section-tag {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .swiss-monolith__section-num {
-  color: var(--steel);
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .swiss-monolith__section-tag {
   color: var(--amber);
+  padding-left: var(--space-md);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ── Headline — the centerpiece text ── */
 .swiss-monolith__copy {
-  max-width: 720px;
+  max-width: 800px;
 }
 
 .swiss-monolith__headline {
   font-family: var(--font-display);
-  font-size: clamp(3.5rem, 9vw, 7.5rem);
-  font-weight: 700;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+  font-size: clamp(4rem, 12vw, 9rem);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-mega);
   color: var(--block-dark-text);
   margin: 0;
 }
@@ -67,9 +68,9 @@
 .swiss-monolith__install-block {
   display: inline-flex;
   align-items: center;
-  gap: 1.5rem;
-  border: 1px solid var(--block-dark-border);
-  padding: 1.5rem 2rem;
+  gap: var(--space-md);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: var(--space-lg) var(--space-xl);
   background: transparent;
   max-width: 100%;
 }
@@ -86,19 +87,19 @@
   font-family: var(--font-mono);
   font-size: clamp(1.2rem, 2.5vw, 1.8rem);
   color: var(--block-dark-text);
-  letter-spacing: 0;
+  letter-spacing: var(--tracking-display);
   user-select: all;
 }
 
 .swiss-monolith__copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2xs);
   background: none;
-  border: 1px solid var(--block-dark-border);
-  color: var(--block-dark-muted);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-xs) var(--space-sm);
   margin-left: auto;
   flex-shrink: 0;
   transition:
@@ -118,17 +119,17 @@
 
 .swiss-monolith__copy-label {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* ── Actions ── */
 .swiss-monolith__actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
@@ -136,32 +137,32 @@
 .swiss-monolith__rule {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--block-dark-border);
+  gap: var(--space-md);
+  padding-top: var(--space-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .swiss-monolith__rule-text {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--block-dark-muted);
+  letter-spacing: var(--tracking-wide);
+  color: rgba(255, 255, 255, 0.25);
   white-space: nowrap;
 }
 
 .swiss-monolith__rule-line {
   flex: 1;
   height: 1px;
-  background: var(--block-dark-border);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
   .swiss-monolith__install-block {
     flex-wrap: wrap;
-    padding: 1rem 1.25rem;
+    padding: var(--space-sm) var(--space-md);
   }
 
   .swiss-monolith__copy-btn {
@@ -169,7 +170,7 @@
   }
 
   .swiss-monolith__rule {
-    gap: 0.75rem;
+    gap: var(--space-xs);
     flex-wrap: wrap;
   }
 }

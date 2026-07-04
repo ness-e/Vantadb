@@ -12,7 +12,7 @@ use parking_lot::{Mutex, RwLock};
 const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
 use crate::error::{Result, VantaError};
-use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::wal::{WalReader, WalRecord, WalWriter};
 
 // ─── Query Result ──────────────────────────────────────────
@@ -174,7 +174,7 @@ impl InMemoryEngine {
     }
 
     /// Scan nodes matching a bitset mask (all bits in mask must be set)
-    pub fn scan_bitset(&self, mask: u128) -> Vec<u64> {
+    pub fn scan_bitset(&self, mask: &FilterBitset) -> Vec<u64> {
         self.nodes
             .read()
             .values()
@@ -190,7 +190,7 @@ impl InMemoryEngine {
         query: &[f32],
         top_k: usize,
         min_score: f32,
-        bitset_filter: Option<u128>,
+        bitset_filter: Option<&FilterBitset>,
     ) -> QueryResult {
         let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
@@ -292,7 +292,7 @@ impl InMemoryEngine {
         query_vector: &[f32],
         top_k: usize,
         min_score: f32,
-        bitset_mask: Option<u128>,
+        bitset_mask: Option<&FilterBitset>,
         field_filters: &[(String, FieldValue)],
     ) -> QueryResult {
         let query_vec = VectorRepresentations::Full(query_vector.to_vec());
@@ -384,7 +384,7 @@ impl Default for InMemoryEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::{FieldValue, UnifiedNode};
+    use crate::node::{FieldValue, FilterBitset, UnifiedNode};
 
     fn create_node(id: u64) -> UnifiedNode {
         UnifiedNode::new(id)
@@ -534,7 +534,8 @@ mod tests {
         engine.insert(node2).unwrap();
         engine.insert(create_node(3)).unwrap(); // no bits
 
-        let hits = engine.scan_bitset(1 << 0);
+        let mask = FilterBitset::from_u128(1 << 0);
+        let hits = engine.scan_bitset(&mask);
         assert_eq!(hits.len(), 2);
         assert!(hits.contains(&1));
         assert!(hits.contains(&2));
@@ -546,7 +547,8 @@ mod tests {
         let mut node = create_node(1);
         node.set_bit(1);
         engine.insert(node).unwrap();
-        assert!(engine.scan_bitset(1 << 0).is_empty());
+        let mask = FilterBitset::from_u128(1 << 0);
+        assert!(engine.scan_bitset(&mask).is_empty());
     }
 
     #[test]
@@ -556,7 +558,8 @@ mod tests {
         node.set_bit(0);
         engine.insert(node).unwrap();
         engine.delete(1).unwrap();
-        assert!(engine.scan_bitset(1 << 0).is_empty());
+        let mask = FilterBitset::from_u128(1 << 0);
+        assert!(engine.scan_bitset(&mask).is_empty());
     }
 
     // ── vector_search ──
@@ -605,7 +608,8 @@ mod tests {
             .unwrap();
 
         // Only node 1 has bit 0
-        let result = engine.vector_search(&[1.0, 0.0], 10, 0.0, Some(1 << 0));
+        let mask = FilterBitset::from_u128(1 << 0);
+        let result = engine.vector_search(&[1.0, 0.0], 10, 0.0, Some(&mask));
         assert_eq!(result.nodes.len(), 1);
         assert_eq!(result.nodes[0].id, 1);
     }
@@ -777,11 +781,12 @@ mod tests {
         n2.set_field("active", FieldValue::Bool(false));
         engine.insert(n2).unwrap();
 
+        let mask = FilterBitset::from_u128(1 << 0);
         let result = engine.hybrid_search(
             &[1.0, 0.0],
             10,
             0.0,
-            Some(1 << 0),
+            Some(&mask),
             &[("active".into(), FieldValue::Bool(true))],
         );
         assert_eq!(result.nodes.len(), 1);

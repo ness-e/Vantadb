@@ -96,7 +96,12 @@ fn main() -> Result<()> {
             }
         },
 
-        Commands::Migrate { target } => cli_handlers::cmd_migrate(&target, &args.db, args.verbose)?,
+        Commands::Migrate {
+            target,
+            format,
+            dry_run,
+            force,
+        } => cli_handlers::cmd_migrate(&target, &format, dry_run, force, args.verbose)?,
 
         Commands::Status => cli_handlers::cmd_status(&args.db, args.verbose)?,
 

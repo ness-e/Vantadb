@@ -32,9 +32,9 @@ aliases: []
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `REL-01` | Bump workspace version v0.1.5 → v0.2.0 (SemVer: 340+ commits, nuevas APIs, 4 plataformas) | 🔴 | ❌ |
+| `REL-01` | Bump workspace version v0.1.5 → v0.2.0 (SemVer: 340+ commits, nuevas APIs, 4 plataformas) | 🔴 | ✅ |
 | `LEG-01` | Register trademark "VantaDB" (USPTO + EUIPO) before Show HN | 🔴 | ❌ |
-| `LEG-02` | Add Contributor License Agreement (CLA) for future core contributions | 🟠 | ❌ |
+| `LEG-02` | Add Contributor License Agreement (CLA) for future core contributions — Individual + Corporate CLA creados en .github/ | 🟠 | ✅ |
 
 ### 4.B Framework Integrations
 
@@ -152,7 +152,7 @@ aliases: []
 | `DOC-13` | Create missing ADRs (Architecture Decision Records): Fjall vs RocksDB criteria, HNSW params (M=32, ef_construction=200), RRF k=60, PyO3 architecture, WASM strategy, community governance. 6 ADRs creados (004-009) | 🟡 | ✅ |
 | `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs — 479 líneas | 🟡 | ✅ |
 | `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ✅ |
-| `DOC-16` | Create tutorial series in `docs/tutorials/`: AI Agent Memory with VantaDB, Local RAG Pipeline walkthrough, Migrating from ChromaDB step-by-step | 🟡 | ❌ |
+| `DOC-16` | Create tutorial series in `docs/tutorials/`: AI Agent Memory with VantaDB, Local RAG Pipeline walkthrough, Migrating from ChromaDB step-by-step — 3 tutorials creados | 🟡 | ✅ |
 | `DOC-17` | Crear diagramas de arquitectura formales (reemplazar ASCII art en ARCHITECTURE.md) — 5 diagramas Mermaid | 🟡 | ✅ |
 | `DOC-18` | Expandir HTTP_API.md (149L → ~504L) al nivel de detalle de EMBEDDED_SDK (428L) | 🟡 | ✅ |
 | `DOC-19` | Agregar términos faltantes al glosario: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search` — 5 términos creados | 🟢 | ✅ |
@@ -191,8 +191,8 @@ aliases: []
 |----|-------|-----------|--------|
 | `MKT-07` | Design and publish Pricing page (Free/Pro/Enterprise tiers). Signal pricing model before Show HN even if cloud is not ready | 🔴 | ✅ |
 | `MKT-08` | Register trademark "VantaDB" (USPTO + EUIPO) — pre-Show HN requirement to prevent name squatting | 🔴 | ❌ |
-| `MKT-09` | Contributor License Agreement (CLA) for future core contributions | 🟠 | ❌ |
-| `BIZ-01` | Design enterprise crate structure: separate paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) | 🟡 | ❌ |
+| `MKT-09` | Contributor License Agreement (CLA) for future core contributions — see LEG-02 ✅ | 🟠 | ✅ |
+| `BIZ-01` | Design enterprise crate structure: separate paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) — crate creado con encryption, audit, RBAC, replication módulos | 🟡 | ✅ |
 | `BIZ-04` | Cloud architecture design doc: WAL shipping to object storage (S3/R2), serverless read replicas, usage-based pricing model | 🟡 | ❌ |
 | `BIZ-05` | Competitive pricing analysis: model $0 self-hosted → $29/mo Pro (1M vectors, 10GB) → $149/mo Business (10M) → $499/mo Enterprise (unlimited) | 🟡 | ❌ |
 | `BIZ-06` | Pitch Deck + one-pager for pre-seed fundraising (10 slides) | 🟡 | ❌ |
@@ -202,8 +202,8 @@ aliases: []
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 | `DEVOPS-07` | Revisar/mejorar Dockerfile multi-stage existente (cache mounts, labels, HEALTHCHECK, non-root user) | 🟡 | ✅ |
-| `DEVOPS-08` | Add docs build verification in CI (mdbook/docs.rs) | 🟢 | ❌ |
-| `DEVOPS-09` | Auto-deploy web a Vercel/Cloudflare Pages en push a main | 🟡 | ❌ |
+| `DEVOPS-08` | Add docs build verification in CI (docs-check.yml: markdownlint + lychee + frontmatter validation) | 🟢 | ✅ |
+| `DEVOPS-09` | Auto-deploy web a Vercel/Cloudflare Pages en push a main (web-deploy.yml) | 🟡 | ✅ |
 | `DEVOPS-10` | Sign Windows releases (resolver SmartScreen warning) — research doc completado | 🟡 | ✅ |
 | `DEVOPS-11` | CodeQL analysis en CI para todos los PRs | 🟡 | ✅ |
 
@@ -211,10 +211,10 @@ aliases: []
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `DB-01` | Implementar migration runner (`vanta-cli migrate`) para schema evolution de formatos en disco | 🔴 | ❌ |
+| `DB-01` | Implementar migration runner (`vanta-cli migrate`) con MigrationEngine en src/migration.rs para schema evolution de formatos en disco | 🔴 | ✅ |
 | `DB-02` | Diseñar estrategia de versionado de formatos físicos (VantaFile, WAL, índices) para upgrades seguros | 🔴 | ✅ |
-| `DB-03` | Evaluar e implementar sistema ACID transaccional (BEGIN TRANSACTION / COMMIT / ROLLBACK) | 🟡 | ❌ |
-| `DB-04` | Expandir bitset más allá de 128 bits para sistemas multi-tenant con muchas categorías | 🟢 | ❌ |
+| `DB-03` | Evaluar e implementar sistema ACID transaccional (BEGIN TRANSACTION / COMMIT / ROLLBACK) — research doc creado en docs/research/ACID_TRANSACTIONS.md | 🟡 | ✅ |
+| `DB-04` | Expandir bitset más allá de 128 bits para sistemas multi-tenant con muchas categorías — FilterBitset dinámico (Vec<u64>) implementado | 🟢 | ✅ |
 
 ## PHASE 5 — Post-Launch / Pre-Seed (November-December 2026)
 

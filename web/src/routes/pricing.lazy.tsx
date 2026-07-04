@@ -45,7 +45,7 @@ const tiers = [
     ],
     cta: "Join Waitlist",
     href: "/about/contact",
-    featured: false,
+    featured: true,
   },
   {
     name: "Cloud Business",

@@ -111,7 +111,10 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s d -l db -
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l target -d 'Path to the database directory to migrate' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l format -d 'Specific format to migrate (vfile, index, wal, schema, all)' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l dry-run -d 'Report what would be migrated without writing'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l force -d 'Skip confirmation prompts'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r

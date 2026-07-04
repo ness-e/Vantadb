@@ -190,8 +190,11 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         }
         'vanta-cli;migrate' {
             [CompletionResult]::new('--target', '--target', [CompletionResultType]::ParameterName, 'Path to the database directory to migrate')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Specific format to migrate (vfile, index, wal, schema, all)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--dry-run', '--dry-run', [CompletionResultType]::ParameterName, 'Report what would be migrated without writing')
+            [CompletionResult]::new('--force', '--force', [CompletionResultType]::ParameterName, 'Skip confirmation prompts')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')

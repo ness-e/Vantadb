@@ -20,7 +20,7 @@ use crate::backends::in_memory::InMemoryBackend;
 use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::error::{Result, VantaError};
 use crate::index::{CPIndex, IndexBackend};
-use crate::node::{DiskNodeHeader, UnifiedNode};
+use crate::node::{DiskNodeHeader, FilterBitset, UnifiedNode};
 use arc_swap::ArcSwap;
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -759,7 +759,7 @@ impl StorageEngine {
             let hnsw = self.hnsw.load();
             hnsw.add(
                 active_node.id,
-                active_node.bitset,
+                active_node.bitset.clone(),
                 active_node.vector.clone(),
                 storage_offset,
             );
@@ -804,7 +804,7 @@ impl StorageEngine {
                 let index = self.hnsw.load();
                 index.add(
                     node.id,
-                    node.bitset,
+                    node.bitset.clone(),
                     crate::node::VectorRepresentations::Full(vec.clone()),
                     storage_offset,
                 );
@@ -823,7 +823,7 @@ impl StorageEngine {
         let index = self.hnsw.load();
         index.add(
             node.id,
-            node.bitset,
+            node.bitset.clone(),
             crate::node::VectorRepresentations::None,
             storage_offset,
         );
@@ -1016,7 +1016,7 @@ impl StorageEngine {
         };
 
         let mut node = UnifiedNode::new(id);
-        node.bitset = header.bitset;
+        node.bitset = FilterBitset::from_u128(header.bitset);
         node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
         node.relational = metadata.relational;
         node.edges = metadata.edges;
@@ -1138,7 +1138,7 @@ impl StorageEngine {
             };
 
             let mut node = UnifiedNode::new(id);
-            node.bitset = header.bitset;
+            node.bitset = FilterBitset::from_u128(header.bitset);
             node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
             node.relational = metadata.relational;
             node.edges = metadata.edges;
@@ -1479,7 +1479,7 @@ impl StorageEngine {
             };
 
             let mut node = UnifiedNode::new(id);
-            node.bitset = header.bitset;
+            node.bitset = FilterBitset::from_u128(header.bitset);
             node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
             node.relational = metadata.relational;
             node.edges = metadata.edges;

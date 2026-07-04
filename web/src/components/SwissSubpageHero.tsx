@@ -10,11 +10,11 @@ interface SwissSubpageHeroProps {
 const SwissSubpageHero: React.FC<SwissSubpageHeroProps> = React.memo(
   ({ num, eyebrow, title, sub }) => {
     return (
-      <header className="swiss-subpage-hero">
+      <header className="swiss-subpage-hero" role="banner">
         <div className="swiss-inner">
           <div className="swiss-subpage-hero-grid">
             <div className="swiss-subpage-hero-meta">
-              <span className="swiss-subpage-hero-num">[{num}]</span>
+              <span className="swiss-subpage-hero-num" aria-hidden="true">[{num}]</span>
               <span className="swiss-subpage-hero-eyebrow">{eyebrow}</span>
             </div>
             <div>

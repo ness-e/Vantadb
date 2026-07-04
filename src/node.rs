@@ -4,6 +4,162 @@ use std::hash::{Hash, Hasher};
 use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+/// Dynamic bitset supporting >128 bits for multi-tenant filtering.
+///
+/// Backed by `Vec<u64>` — grows on demand as bits are set. The sentinel
+/// `all_set()` (single `u64::MAX` word) signals "match everything" for
+/// use as an unbounded query mask in HNSW search paths.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FilterBitset(Vec<u64>);
+
+impl FilterBitset {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Pre-allocate capacity for `bits` entries.
+    pub fn with_capacity(bits: usize) -> Self {
+        let words = bits.div_ceil(64);
+        Self(Vec::with_capacity(words))
+    }
+
+    /// Sentinel meaning "match everything" — used as a no-filter query mask.
+    /// A single `u64::MAX` word signals unbounded matching in `matches_mask`.
+    pub fn all_set() -> Self {
+        Self(vec![u64::MAX])
+    }
+
+    /// Returns `true` if this is the all-set sentinel.
+    pub fn is_all_set(&self) -> bool {
+        self.0.len() == 1 && self.0[0] == u64::MAX
+    }
+
+    /// Returns `true` if no bits are set (empty bitset).
+    pub fn is_empty(&self) -> bool {
+        self.0.iter().all(|&w| w == 0)
+    }
+
+    /// Number of u64 words backing this bitset.
+    pub fn word_count(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Set bit at position `pos`.
+    pub fn set_bit(&mut self, pos: usize) {
+        let word = pos / 64;
+        let bit = pos % 64;
+        if word >= self.0.len() {
+            self.0.resize(word + 1, 0);
+        }
+        self.0[word] |= 1u64 << bit;
+    }
+
+    /// Check if bit at position `pos` is set.
+    pub fn has_bit(&self, pos: usize) -> bool {
+        let word = pos / 64;
+        let bit = pos % 64;
+        word < self.0.len() && (self.0[word] & (1u64 << bit)) != 0
+    }
+
+    /// Check if ALL bits set in `mask` are also set in `self`.
+    ///
+    /// The all-set sentinel (produced by `FilterBitset::all_set()`) causes
+    /// this method to return `true` unconditionally, acting as a no-filter.
+    pub fn matches_mask(&self, mask: &FilterBitset) -> bool {
+        if mask.is_all_set() {
+            return true;
+        }
+        let min_len = self.0.len().min(mask.0.len());
+        for i in 0..min_len {
+            if (self.0[i] & mask.0[i]) != mask.0[i] {
+                return false;
+            }
+        }
+        // Any bits set in mask words beyond self's length can't be matched
+        if self.0.len() < mask.0.len() {
+            for &w in mask.0.iter().skip(self.0.len()) {
+                if w != 0 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Convert to a `u128`, truncating if the bitset exceeds 128 bits.
+    pub fn to_u128(&self) -> u128 {
+        let lo = self.0.first().copied().unwrap_or(0) as u128;
+        let hi = self.0.get(1).copied().unwrap_or(0) as u128;
+        lo | (hi << 64)
+    }
+
+    /// Create from a `u128` (legacy format — max 128 bits).
+    pub fn from_u128(v: u128) -> Self {
+        let lo = v as u64;
+        let hi = (v >> 64) as u64;
+        if hi == 0 {
+            Self(vec![lo])
+        } else {
+            Self(vec![lo, hi])
+        }
+    }
+
+    /// Serialize to length-prefixed bytes: `[word_count: u32 LE][words × u64 LE]`.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(4 + self.0.len() * 8);
+        buf.extend_from_slice(&(self.0.len() as u32).to_le_bytes());
+        for &w in &self.0 {
+            buf.extend_from_slice(&w.to_le_bytes());
+        }
+        buf
+    }
+
+    /// Deserialize from length-prefixed bytes. Returns `(Self, bytes_consumed)`.
+    pub fn from_bytes(data: &[u8]) -> std::io::Result<(Self, usize)> {
+        use std::io::{Error, ErrorKind};
+        if data.len() < 4 {
+            return Err(Error::new(ErrorKind::UnexpectedEof, "FilterBitset: truncated length"));
+        }
+        let word_count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        let needed = 4 + word_count * 8;
+        if data.len() < needed {
+            return Err(Error::new(ErrorKind::UnexpectedEof, "FilterBitset: truncated words"));
+        }
+        let mut words = Vec::with_capacity(word_count);
+        for i in 0..word_count {
+            let off = 4 + i * 8;
+            let w = u64::from_le_bytes([
+                data[off], data[off + 1], data[off + 2], data[off + 3],
+                data[off + 4], data[off + 5], data[off + 6], data[off + 7],
+            ]);
+            words.push(w);
+        }
+        Ok((Self(words), needed))
+    }
+}
+
+impl Default for FilterBitset {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl From<u128> for FilterBitset {
+    fn from(v: u128) -> Self {
+        Self::from_u128(v)
+    }
+}
+
+impl From<FilterBitset> for u128 {
+    fn from(bs: FilterBitset) -> Self {
+        bs.to_u128()
+    }
+}
+
+/// Global sentinel for "match everything" (no filter) in HNSW queries.
+pub static ALL_BITSET: std::sync::LazyLock<FilterBitset> =
+    std::sync::LazyLock::new(|| FilterBitset::all_set());
+
 /// Metric type used for vector distance/similarity calculations.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub enum DistanceMetric {
@@ -474,8 +630,8 @@ impl DiskNodeHeader {
 pub struct UnifiedNode {
     /// Globally unique identifier
     pub id: u64,
-    /// 128-bit fast filter (country, role, active, etc.)
-    pub bitset: u128,
+    /// Dynamic bitset for fast multi-tenant category filtering
+    pub bitset: FilterBitset,
     /// Semantic cluster for super-node routing
     pub semantic_cluster: u32,
     /// Status flags
@@ -527,7 +683,7 @@ impl UnifiedNode {
     pub fn new(id: u64) -> Self {
         Self {
             id,
-            bitset: 0,
+            bitset: FilterBitset::new(),
             semantic_cluster: 0,
             flags: NodeFlags::new(),
             vector: VectorRepresentations::None,
@@ -577,19 +733,18 @@ impl UnifiedNode {
     }
 
     /// Set bit in filter bitset
-    pub fn set_bit(&mut self, pos: u8) {
-        debug_assert!(pos < 128);
-        self.bitset |= 1u128 << pos;
+    pub fn set_bit(&mut self, pos: usize) {
+        self.bitset.set_bit(pos);
     }
 
     /// Check if bit is set
-    pub fn has_bit(&self, pos: u8) -> bool {
-        self.bitset & (1u128 << pos) != 0
+    pub fn has_bit(&self, pos: usize) -> bool {
+        self.bitset.has_bit(pos)
     }
 
     /// Check if ALL bits in mask are set
-    pub fn matches_mask(&self, mask: u128) -> bool {
-        self.bitset & mask == mask
+    pub fn matches_mask(&self, mask: &FilterBitset) -> bool {
+        self.bitset.matches_mask(mask)
     }
 
     /// Estimate total memory usage (bytes)
@@ -661,9 +816,13 @@ mod tests {
         assert!(node.has_bit(16));
         assert!(!node.has_bit(7));
 
-        let mask: u128 = (1 << 5) | (1 << 16);
-        assert!(node.matches_mask(mask));
-        assert!(!node.matches_mask(mask | (1 << 7)));
+        let mut mask = FilterBitset::new();
+        mask.set_bit(5);
+        mask.set_bit(16);
+        assert!(node.matches_mask(&mask));
+        let mut bad_mask = mask.clone();
+        bad_mask.set_bit(7);
+        assert!(!node.matches_mask(&bad_mask));
     }
 
     #[test]

@@ -1,23 +1,24 @@
-/* VsTable — Legacy vs VantaDB comparison table */
+/* VsTable — Legacy vs VantaDB comparison table (extreme) */
 
 .vs-table {
   overflow-x: auto;
+  border: 1px solid var(--border);
 }
 
 .vs-table__title {
   font-family: var(--font-mono);
-  font-size: var(--text-label, 0.72rem);
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-3xs);
   color: var(--foreground);
 }
 
 .vs-table__subtitle {
-  font-size: var(--text-body, 0.92rem);
+  font-size: var(--text-code);
   color: var(--steel);
-  margin-bottom: 16px;
+  margin-bottom: var(--space-md);
 }
 
 .vs-table__grid {
@@ -26,17 +27,22 @@
   gap: 0;
   width: 100%;
   font-family: var(--font-mono);
-  font-size: var(--text-code, 0.82rem);
+  font-size: var(--text-code);
 }
 
 .vs-table__header {
   text-align: left;
-  padding: 16px 12px;
+  padding: var(--space-md) var(--space-sm);
   border-bottom: 1px solid var(--border);
-  font-weight: 700;
-  font-size: var(--text-label, 0.72rem);
-  letter-spacing: 0.14em;
+  font-weight: var(--weight-bold);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
+  background: var(--surface);
+}
+
+.vs-table__header + .vs-table__header {
+  border-left: 1px solid var(--border);
 }
 
 .vs-table__header--feature {
@@ -52,13 +58,23 @@
 }
 
 .vs-table__cell {
-  padding: 14px 12px;
+  padding: var(--space-sm) var(--space-sm);
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  background: var(--background);
+  transition: background 100ms var(--ease-cut);
+}
+
+.vs-table__cell:hover {
+  background: var(--surface);
+}
+
+.vs-table__cell + .vs-table__cell {
+  border-left: 1px solid var(--border);
 }
 
 .vs-table__cell--feature {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   color: var(--foreground);
   white-space: nowrap;
 }
@@ -69,9 +85,9 @@
 
 .vs-table__cell--vanta {
   color: var(--foreground);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .vs-table__cell--highlight {
-  background: var(--accent);
+  background: var(--amber-dim);
 }

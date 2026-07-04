@@ -1,7 +1,7 @@
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
-use crate::node::{DiskNodeHeader, UnifiedNode};
+use crate::node::{DiskNodeHeader, FilterBitset, UnifiedNode};
 use crate::storage::vfile::VantaFile;
 use std::sync::Arc;
 use zerocopy::IntoBytes;
@@ -32,7 +32,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     header.vector_offset = offset + header_size;
     header.vector_len = vec_len as u32;
     header.flags = node.flags.0;
-    header.bitset = node.bitset;
+    header.bitset = node.bitset.to_u128();
     header.confidence_score = node.confidence_score;
     header.importance = node.importance;
     header.tier = match node.tier {
@@ -105,7 +105,7 @@ pub(crate) fn get_node_from_backend(
         std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
     };
     let mut node = UnifiedNode::new(id);
-    node.bitset = header.bitset;
+    node.bitset = FilterBitset::from_u128(header.bitset);
     node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
     node.relational = metadata.relational;
     node.edges = metadata.edges;

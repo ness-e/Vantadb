@@ -189,8 +189,11 @@ _arguments "${_arguments_options[@]}" : \
 (migrate)
 _arguments "${_arguments_options[@]}" : \
 '--target=[Path to the database directory to migrate]:TARGET:_default' \
+'--format=[Specific format to migrate (vfile, index, wal, schema, all)]:FORMAT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--dry-run[Report what would be migrated without writing]' \
+'--force[Skip confirmation prompts]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \

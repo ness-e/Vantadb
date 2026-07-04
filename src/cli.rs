@@ -150,6 +150,18 @@ pub enum Commands {
         /// Path to the database directory to migrate
         #[arg(long, default_value = "./db")]
         target: String,
+
+        /// Specific format to migrate (vfile, index, wal, schema, all)
+        #[arg(long, default_value = "all")]
+        format: String,
+
+        /// Report what would be migrated without writing
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+
+        /// Skip confirmation prompts
+        #[arg(long, default_value_t = false)]
+        force: bool,
     },
 
     /// Manage namespaces

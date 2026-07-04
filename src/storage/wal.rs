@@ -41,14 +41,14 @@ pub(crate) fn recover_state(
             match record {
                 WalRecord::Insert(node) => {
                     if let Ok(offset) = super::ops::write_node_to_vstore(vector_store, &node) {
-                        hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
+                        hnsw.add(node.id, node.bitset.clone(), node.vector.clone(), offset);
                         let _ = super::ops::insert_node_to_backend(backend, &node, "default");
                     }
                     wal_records_replayed += 1;
                 }
                 WalRecord::Update { id, node } => {
                     if let Ok(offset) = super::ops::write_node_to_vstore(vector_store, &node) {
-                        hnsw.add(id, node.bitset, node.vector.clone(), offset);
+                        hnsw.add(id, node.bitset.clone(), node.vector.clone(), offset);
                         let _ = super::ops::insert_node_to_backend(backend, &node, "default");
                     }
                     wal_records_replayed += 1;

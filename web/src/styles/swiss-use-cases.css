@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Use Cases Stylesheet
+   VantaDB — Swiss Use Cases Stylesheet (extreme)
    ═══════════════════════════════════════════════════════════ */
 
 .swiss-use-cases-section {
@@ -14,55 +14,58 @@
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
-  margin-top: 3rem;
+  margin-top: var(--space-3xl);
 }
 
 .swiss-use-case-card {
   background: var(--background);
-  padding: 3rem 2.5rem;
+  padding: var(--space-3xl) var(--space-2xl);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-md);
   transition: background-color 200ms var(--ease-cut);
   position: relative;
 }
 
 .swiss-use-case-card:hover {
-  background: var(--surface-raised);
+  background: var(--surface);
 }
 
 .swiss-use-case-num {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--steel);
-  letter-spacing: 0.1em;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  color: var(--border);
+  letter-spacing: var(--tracking-wide);
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
 }
 
 .swiss-use-case-tag {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-wide);
   color: var(--amber);
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2xs);
 }
 
 .swiss-use-case-title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
   color: var(--foreground);
   margin: 0;
 }
 
 .swiss-use-case-body {
   font-family: var(--font-sans);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: var(--text-code);
+  line-height: var(--leading-normal);
   color: var(--muted);
   margin: 0;
   flex-grow: 1;
@@ -70,19 +73,25 @@
 
 .swiss-use-case-link {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-wide);
   color: var(--foreground);
   text-decoration: none;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--subtle);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   transition: color 150ms var(--ease-cut);
   margin-top: auto;
+}
+
+.swiss-use-case-link::after {
+  content: "→";
+  font-family: var(--font-mono);
+  color: var(--amber);
 }
 
 .swiss-use-case-card:hover .swiss-use-case-link {
@@ -96,7 +105,7 @@
   }
 
   .swiss-use-case-card {
-    padding: 2.5rem 2rem;
+    padding: var(--space-2xl) var(--space-lg);
   }
 }
 
@@ -104,20 +113,20 @@
 
 .swiss-uc-section {
   background: var(--background);
-  padding-top: 80px;
-  padding-bottom: 160px;
+  padding-top: var(--space-4xl);
+  padding-bottom: var(--section-gap-lg);
 }
 
 .uc-header {
-  margin-bottom: 64px;
+  margin-bottom: var(--space-3xl);
 }
 
 .uc-heading {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: 700;
+  font-weight: var(--weight-black);
   margin: 0;
-  letter-spacing: -0.04em;
+  letter-spacing: var(--tracking-mega);
   color: var(--foreground);
 }
 
@@ -129,11 +138,12 @@
 
 .swiss-uc-card {
   display: grid;
-  grid-template-columns: 3fr 9fr;
-  padding: 48px 0;
+  grid-template-columns: 1fr 11fr;
+  padding: var(--space-2xl) 0;
   border-bottom: 1px solid var(--border);
   transition: background 150ms var(--ease-cut);
   cursor: default;
+  gap: var(--space-md);
 }
 
 .swiss-uc-card:hover {
@@ -147,50 +157,53 @@
 .swiss-uc-num {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: 700;
+  font-weight: var(--weight-black);
   color: var(--subtle);
   transition: color 150ms;
+  line-height: var(--leading-none);
 }
 
 .uc-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-md);
 }
 
 .uc-industry {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-label);
   color: var(--steel);
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
 .uc-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-weight: var(--weight-bold);
   color: var(--foreground);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-tight);
 }
 
 .uc-desc {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 1.1rem;
+  font-size: var(--text-body);
   color: var(--muted);
-  line-height: 1.6;
+  line-height: var(--leading-normal);
   max-width: 80%;
 }
 
 .uc-stack-wrap {
-  margin-top: 16px;
+  margin-top: var(--space-md);
 }
 
 .uc-stack {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: var(--text-code);
   color: var(--foreground);
-  background: var(--surface-raised);
-  padding: 4px 8px;
+  background: var(--surface);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--border);
 }

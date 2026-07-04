@@ -82,3 +82,11 @@ Use the provided Issue Templates:
 - **Documentation Issue** — for unclear, stale, or missing docs.
 
 We look forward to reviewing your additions.
+
+## Contributor License Agreement
+
+Before we can accept any contribution to VantaDB, we require a signed Contributor License Agreement (CLA) on file. This ensures that the project — and every user of it — has clear, perpetual rights to use and distribute contributed code. The CLA grants VantaDB the necessary copyright and patent licenses to include your contributions in the Apache 2.0 licensed codebase, while you retain full ownership of your work.
+
+We offer two types of CLA depending on your situation. If you are contributing in your personal capacity, please sign the **Individual CLA** (`CLA_INDIVIDUAL.md`). If you are contributing code owned by your employer or on behalf of a legal entity, your organization must sign the **Corporate CLA** (`CLA_CORPORATE.md`), which also lets you designate specific employees authorized to submit contributions.
+
+The process is straightforward: review the applicable CLA in the `.github/` directory, fill in the placeholder fields, sign it, and either reply with your agreement on your pull request or email a scanned copy to `cla@vantadb.dev`. Once we receive it and confirm the details, you will be cleared for current and future contributions to the project.

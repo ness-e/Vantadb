@@ -26,7 +26,7 @@ pub type NeighborVec = SmallVec<[u64; 32]>;
 const ENTRY_POINT_NONE: u64 = u64::MAX;
 const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 
-pub use crate::node::{DistanceMetric, SendPtr, VectorRepresentations};
+pub use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
 const FLAG_TOMBSTONE: u32 = 0x8;
@@ -164,7 +164,7 @@ fn should_prefetch() -> bool {
     }
 }
 
-const VECTOR_INDEX_VERSION: u16 = 4; // Upgraded for zero-copy aligned vector paging
+const VECTOR_INDEX_VERSION: u16 = 5; // DB-04: dynamic FilterBitset replaces fixed u128
 
 #[inline(always)]
 fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
@@ -413,7 +413,7 @@ fn f32_slice_similarity(
 
 pub struct HnswNode {
     pub id: u64,
-    pub bitset: u128,
+    pub bitset: FilterBitset,
     pub vec_data: VectorRepresentations,
     pub neighbors: Vec<NeighborVec>,
     /// Offset into the VantaFile (Phase 3)
@@ -695,7 +695,7 @@ impl CPIndex {
         entry_points: &[u64],
         ef: usize,
         layer: usize,
-        query_mask: u128,
+        query_mask: &FilterBitset,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
     ) -> BinaryHeap<NodeSimMin> {
@@ -765,7 +765,7 @@ impl CPIndex {
                 } else {
                     true
                 };
-                if eligible && (query_mask == u128::MAX || (node.bitset & query_mask) == query_mask)
+                if eligible && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
                 {
                     results.push(NodeSimMin(d, ep));
                 }
@@ -899,8 +899,8 @@ impl CPIndex {
                                     true
                                 };
                                 if eligible
-                                    && (query_mask == u128::MAX
-                                        || (neighbor.bitset & query_mask) == query_mask)
+                                    && (query_mask.is_all_set()
+                                        || neighbor.bitset.matches_mask(query_mask))
                                 {
                                     results.push(NodeSimMin(d, neighbor_id));
                                     if results.len() > ef {
@@ -1035,7 +1035,7 @@ impl CPIndex {
     fn validate_node(
         &self,
         id: u64,
-        bitset: u128,
+        bitset: FilterBitset,
         vec_data: &VectorRepresentations,
         storage_offset: u64,
     ) -> bool {
@@ -1065,8 +1065,8 @@ impl CPIndex {
     }
 
     #[tracing::instrument(skip(self, vec_data), level = "debug")]
-    pub fn add(&self, id: u64, bitset: u128, vec_data: VectorRepresentations, storage_offset: u64) {
-        if self.validate_node(id, bitset, &vec_data, storage_offset) {
+    pub fn add(&self, id: u64, bitset: FilterBitset, vec_data: VectorRepresentations, storage_offset: u64) {
+        if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
             return;
         }
 
@@ -1094,7 +1094,7 @@ impl CPIndex {
     fn insert_hnsw(
         &self,
         id: u64,
-        bitset: u128,
+        bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
     ) {
@@ -1154,7 +1154,7 @@ impl CPIndex {
                 &curr_entry_points,
                 1,
                 layer,
-                u128::MAX,
+                &crate::node::ALL_BITSET,
                 None,
                 self.config.distance_metric,
             );
@@ -1172,7 +1172,7 @@ impl CPIndex {
                 &curr_entry_points,
                 ef_cons,
                 layer,
-                u128::MAX,
+                &crate::node::ALL_BITSET,
                 None,
                 self.config.distance_metric,
             );
@@ -1281,7 +1281,7 @@ impl CPIndex {
         query_vec: &[f32],
         _q_1bit: Option<&[u64]>, // We let these pass but currently default to calculate_similarity internal handler
         _q_3bit: Option<(&[u8], f32)>,
-        query_mask: u128,
+        query_mask: &FilterBitset,
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u64, f32)> {
@@ -1318,7 +1318,7 @@ impl CPIndex {
                 &curr_entry_points,
                 1,
                 layer,
-                u128::MAX,
+                &crate::node::ALL_BITSET,
                 vector_store,
                 effective_metric,
             );
@@ -1432,7 +1432,7 @@ impl CPIndex {
                 continue;
             };
             buf.extend_from_slice(&node.id.to_le_bytes());
-            buf.extend_from_slice(&node.bitset.to_le_bytes());
+            buf.extend_from_slice(&node.bitset.to_bytes());
             buf.extend_from_slice(&node.storage_offset.to_le_bytes());
 
             match &node.vec_data {
@@ -1597,8 +1597,9 @@ impl CPIndex {
 
         let node_count = read_le_u64(data, &mut pos, "node_count")? as usize;
 
-        // Sanity: each node needs at least 49 bytes (id + bitset + offset + type + vec_len + layer_count).
-        const MIN_BYTES_PER_NODE: usize = 8 + 16 + 8 + 1 + 8 + 8;
+        // Sanity: each node needs at least 37 bytes (id + bitset_len + offset + type + vec_len + layer_count).
+        // bitset payload is variable — 4 bytes len prefix is the minimum.
+        const MIN_BYTES_PER_NODE: usize = 8 + 4 + 8 + 1 + 8 + 8;
         let remaining = data.len().saturating_sub(pos);
         if node_count > remaining / MIN_BYTES_PER_NODE {
             return Err(Error::new(
@@ -1614,13 +1615,8 @@ impl CPIndex {
         for _ in 0..node_count {
             let id = read_le_u64(data, &mut pos, "node id")?;
 
-            let bitset_bytes = take_bytes(data, &mut pos, 16, "bitset")?;
-            let bitset = u128::from_le_bytes(bitset_bytes.try_into().map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("bitset field expected 16 bytes: {e}"),
-                )
-            })?);
+            let (bitset, consumed) = FilterBitset::from_bytes(&data[pos..])?;
+            pos += consumed;
 
             let storage_offset = read_le_u64(data, &mut pos, "storage_offset")?;
 
@@ -2081,15 +2077,15 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(i + 1, 0, VectorRepresentations::Full(normalized), 0);
+            index.add(i + 1, FilterBitset::new(), VectorRepresentations::Full(normalized), 0);
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
-        let before = index.search_nearest(&query, None, None, 0, 5, None);
+        let before = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
 
         let bytes = index.serialize_to_bytes();
         let restored = CPIndex::deserialize_from_bytes(&bytes, true).expect("deserialize");
-        let after = restored.search_nearest(&query, None, None, 0, 5, None);
+        let after = restored.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
 
         assert_eq!(before, after);
         assert_eq!(restored.nodes.len(), index.nodes.len());
@@ -2139,7 +2135,7 @@ mod tests {
 
                     // Adquirir lock para cumplir el contrato de CPIndex::add
                     let _guard = insert_mutex.lock().unwrap();
-                    index.add(id, u128::MAX, VectorRepresentations::Full(vec), 0);
+                    index.add(id, FilterBitset::all_set(), VectorRepresentations::Full(vec), 0);
                 }
             }));
         }
@@ -2159,7 +2155,7 @@ mod tests {
                         query
                     };
                     // Búsqueda concurrente sin adquirir insert_lock
-                    let _res = index.search_nearest(&q_vec, None, None, u128::MAX, 5, None);
+                    let _res = index.search_nearest(&q_vec, None, None, &crate::node::ALL_BITSET, 5, None);
                     thread::sleep(Duration::from_micros(10));
                 }
             }));
@@ -2268,7 +2264,7 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(i + 1, 0, VectorRepresentations::Full(normalized), 0);
+            index.add(i + 1, FilterBitset::from_u128(0), VectorRepresentations::Full(normalized), 0);
         }
         index
     }

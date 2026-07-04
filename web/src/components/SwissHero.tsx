@@ -1,228 +1,94 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
-import { gsap, useGSAP } from "../lib/gsap";
-import * as THREE from "three";
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * Three.js Scene — Wireframe Torus + Icosahedron
- * ──────────────────────────────────────────────────────────────────────────── */
-
-function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0, 6);
-
-    const torusGeo = new THREE.TorusGeometry(1.8, 0.15, 28, 80);
-    const torusMat = new THREE.MeshBasicMaterial({
-      color: 0x0a0a0a,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.7,
-    });
-    const torus = new THREE.Mesh(torusGeo, torusMat);
-    torus.rotation.x = Math.PI * 0.35;
-    torus.rotation.z = Math.PI * 0.08;
-    torus.position.x = 1.5;
-    scene.add(torus);
-
-    const sphereGeo = new THREE.IcosahedronGeometry(0.7, 1);
-    const sphereMat = new THREE.MeshBasicMaterial({
-      color: 0xff5500,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphere.position.x = 1.5;
-    scene.add(sphere);
-
-    const handleResize = () => {
-      const rect = canvas.parentElement?.getBoundingClientRect();
-      if (!rect) return;
-      const w = rect.width;
-      const h = rect.height;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
-    let frameId: number;
-    const baseSpeed = prefersReduced ? 0 : 0.001;
-
-    let driftPhase = 0;
-
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      driftPhase += baseSpeed * 0.4;
-      torus.rotation.y += baseSpeed * 0.8;
-      torus.position.z = Math.sin(driftPhase) * 0.06;
-      torus.position.y = Math.cos(driftPhase * 0.7) * 0.04;
-      sphere.rotation.y -= baseSpeed * 1.2;
-      sphere.rotation.x += baseSpeed * 0.5;
-      sphere.position.z = Math.sin(driftPhase * 0.5) * 0.03;
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener("resize", handleResize);
-      scene.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry?.dispose();
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => m.dispose());
-          } else {
-            child.material?.dispose();
-          }
-        }
-      });
-      renderer.dispose();
-      renderer.forceContextLoss?.();
-    };
-  }, [canvasRef]);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * SwissHero Component
- * ──────────────────────────────────────────────────────────────────────────── */
 
 export function SwissHero() {
-  const containerRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
-
-  // Three.js scene
-  useHeroScene(canvasRef);
-
-  // GSAP entry animations
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // 1. Labels flash orange → white
-        gsap.fromTo(
-          ".swiss-hero-label span",
-          { opacity: 0,           color: "var(--orange)" },
-          {
-            opacity: 1,
-            color: "var(--foreground)",
-            duration: 0.25,
-            stagger: 0.08,
-            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-            delay: 0.3,
-          },
-        );
-
-        // 2. Title reveal
-        gsap.fromTo(
-          ".swiss-hero-title-line", 
-          { opacity: 0, y: 30 },
-          { opacity: 1, y: 0, duration: 0.5, ease: "cubic-bezier(0.25, 1, 0.5, 1)", delay: 0.5 }
-        );
-
-        // 3. Description
-        gsap.fromTo(
-          ".swiss-hero-description",
-          { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "cubic-bezier(0.25, 1, 0.5, 1)", delay: 1.1 },
-        );
-
-        // 4. CTAs
-        gsap.fromTo(
-          ".swiss-hero-actions",
-          { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "cubic-bezier(0.25, 1, 0.5, 1)", delay: 1.3 },
-        );
-
-      });
-    },
-    { scope: containerRef },
-  );
 
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText("pip install vantadb-py");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy command: ", err);
+    } catch {
+      console.error("Failed to copy command");
     }
   }, []);
 
   return (
-    <section className="swiss-hero-section" ref={containerRef}>
-      {/* Three.js Canvas */}
-      <canvas ref={canvasRef} className="swiss-hero-canvas" aria-hidden="true" />
+    <section className="swiss-hero" aria-label="Hero">
+      <div className="swiss-hero-grid-bg" aria-hidden="true">
+        <svg viewBox="0 0 1280 800" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+          {Array.from({ length: 12 }, (_, i) => (
+            <line key={`v${i}`} x1={(i / 12) * 100 + "%"} y1="0" x2={(i / 12) * 100 + "%"} y2="100%" stroke="var(--border)" strokeWidth="0.5" />
+          ))}
+          {Array.from({ length: 8 }, (_, i) => (
+            <line key={`h${i}`} x1="0" y1={(i / 7) * 100 + "%"} x2="100%" y2={(i / 7) * 100 + "%"} stroke="var(--border)" strokeWidth="0.5" />
+          ))}
+        </svg>
+      </div>
 
-      {/* Content Overlay */}
-      <div className="swiss-hero-overlay">
-        <div className="swiss-hero-label">
-          <span>[RUST-NATIVE]</span>
-          <span>[IN-PROCESS]</span>
-          <span>[ZERO-SERVERS]</span>
+      <div className="swiss-hero-geo swiss-hero-geo--circle" aria-hidden="true" />
+      <div className="swiss-hero-geo swiss-hero-geo--circle2" aria-hidden="true" />
+      <div className="swiss-hero-geo swiss-hero-geo--bar" aria-hidden="true" />
+      <div className="swiss-hero-geo swiss-hero-geo--bar2" aria-hidden="true" />
+
+      <div className="swiss-hero-inner">
+        <div className="swiss-hero-eyebrow">
+          <span>RUST-NATIVE</span>
+          <span>IN-PROCESS</span>
+          <span>ZERO-SERVERS</span>
+          <span>APACHE 2.0</span>
         </div>
 
         <h1 className="swiss-hero-title">
-          <span className="swiss-hero-title-wrapper">
-            <span className="swiss-hero-title-line">VantaDB — Embedded Vector Database for AI Agents</span>
-          </span>
+          Embedded Vector<br />
+          <span className="word-highlight">Database</span> for AI Agents
         </h1>
 
-        <p className="swiss-hero-description">
-          One pip install. Vector search (HNSW), BM25 full-text, and hybrid search (RRF) in a single Rust binary. Zero
-          servers. Zero ops. Sub-millisecond.
+        <p className="swiss-hero-desc">
+          One pip install. HNSW vector search, BM25 full-text, and hybrid search (RRF) in a single Rust binary. Zero servers. Zero ops. Sub-millisecond.
         </p>
 
         <div className="swiss-hero-actions">
-          <button
-            onClick={handleCopy}
-            className="btn-primary btn-primary--hero"
-            aria-label="Copy pip install command"
-          >
+          <button onClick={handleCopy} className="swiss-hero-copy-btn" aria-label="Copy pip install command">
             <span>{copied ? "Copied!" : "pip install vantadb-py"}</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              {copied ? (
+            {copied ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12" />
-              ) : (
-                <>
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </>
-              )}
-            </svg>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
           </button>
-          <Link to="/docs" className="btn-ghost btn-ghost--hero">
-            Read Docs
+          <Link to="/docs" className="swiss-hero-link">
+            READ DOCS
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
           </Link>
+        </div>
+      </div>
+
+      <div className="swiss-hero-marquee" aria-hidden="true">
+        <div className="swiss-hero-marquee-inner">
+          <span>sub-millisecond hybrid queries</span>
+          <span>zero infrastructure</span>
+          <span>HNSW + BM25 + RRF</span>
+          <span>WAL durability</span>
+          <span>Apache 2.0</span>
+          <span>Rust native</span>
+          <span>embedded in-process</span>
+          <span>sub-millisecond hybrid queries</span>
+          <span>zero infrastructure</span>
+          <span>HNSW + BM25 + RRF</span>
+          <span>WAL durability</span>
+          <span>Apache 2.0</span>
+          <span>Rust native</span>
+          <span>embedded in-process</span>
         </div>
       </div>
     </section>

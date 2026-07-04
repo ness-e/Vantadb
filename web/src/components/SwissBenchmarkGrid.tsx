@@ -139,7 +139,7 @@ export function SwissBenchmarkGrid() {
   );
 
   return (
-    <section className="swiss-section swiss-vs-section" ref={sectionRef}>
+    <section className="swiss-section swiss-vs-section" ref={sectionRef} aria-label="Benchmark comparison">
       <div className="swiss-inner">
         <h2 className="swiss-vs-title">
           Embedded vs. Client/Server.
@@ -149,33 +149,35 @@ export function SwissBenchmarkGrid() {
           vector databases.
         </p>
 
-        <div className="swiss-vs-grid">
+        <div className="swiss-vs-grid" role="list">
           {METRICS.map((m) => {
             const isFeatured = m.featured;
             return (
-              <div
+              <article
                 key={m.id}
                 data-metric-id={m.id}
+                role="listitem"
                 className={
                   `swiss-vs-cell ` +
                   (isFeatured ? "swiss-vs-cell--featured" : "swiss-vs-cell--regular")
                 }
               >
-                <span className="swiss-vs-cell-label">
+                <header className="swiss-vs-cell-label">
                   {m.label}
-                </span>
+                </header>
 
-                <span
+                <p
                   data-countup
                   className={
                     `swiss-vs-value ` +
                     (isFeatured ? "swiss-vs-value--large" : "swiss-vs-value--small")
                   }
+                  aria-label={`${m.label}: ${m.vanta}`}
                 >
                   {m.numericTarget !== null ? "0" : m.vanta}
-                </span>
+                </p>
 
-                <div className="swiss-vs-cell-footer">
+                <footer className="swiss-vs-cell-footer">
                   <div className="swiss-vs-cell-trad">
                     <span className="swiss-vs-cell-trad-label">
                       Traditional Stack
@@ -188,8 +190,8 @@ export function SwissBenchmarkGrid() {
                   <span className="swiss-vs-cell-diff">
                     {m.diff}
                   </span>
-                </div>
-              </div>
+                </footer>
+              </article>
             );
           })}
         </div>

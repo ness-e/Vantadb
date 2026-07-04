@@ -303,7 +303,7 @@ impl VantaEmbedded {
         let candidates = {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store.read();
-            hnsw.search_nearest(query_vector, None, None, u128::MAX, budget, Some(&*vs))
+            hnsw.search_nearest(query_vector, None, None, &crate::node::ALL_BITSET, budget, Some(&*vs))
         };
 
         let mut hits = Vec::with_capacity(top_k);

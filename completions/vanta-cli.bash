@@ -649,13 +649,17 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__migrate)
-            opts="-d -v -h --target --db --verbose --help"
+            opts="-d -v -h --target --format --dry-run --force --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 --target)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --format)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
