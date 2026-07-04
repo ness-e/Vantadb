@@ -29,14 +29,11 @@ aliases: []
 | `CODE-003` | **6 puntos de `process::exit(1)` sin flush WAL** — Salta todos los Drop. BufWriter pierde records buffered. File lock `vanta.lock` nunca se libera | `cli_server.rs:595-767` | 🟡 1-2d | 🔴 | ❌ |
 | `CODE-009` | **`save_vector_index()` traga errores de persistencia** — Retorna `()`, no `Result`. `persist_to_file()` falla → solo warn log. Caller cree que salvó OK | `engine.rs:1374` | 🟡 1d | 🔴 | ❌ |
 | `CODE-026` | **BFS order vacío destruye DB en compact** — Si `bfs_order` está vacío, compact reemplaza DB real con archivo vacío de 64 bytes | `archive.rs:15-107` | 🟡 1d | 🔴 | ❌ |
-| `CODE-027` | **`.expect()` panic en `get_many()` con backend corrupto** — Crash producido en lugar de error. Mata el server completo | `engine.rs:1090-1093` | 🟢 2-4h | 🔴 | ❌ |
 
 ### 🛡️ Seguridad & Data Integrity
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `CODE-020` | **CSP permite `unsafe-eval` + `unsafe-inline`** — Anula toda protección XSS. GSAP necesita `unsafe-inline` pero `unsafe-eval` probablemente no | `vercel.json:18` | 🟢 1-2h | 🔴 | ❌ |
-| `CODE-021` | **`dangerouslySetInnerHTML` en blog sin DOMPurify** — XSS si atacante escribe blog post. `marked()` permite raw HTML por defecto | `$slug.lazy.tsx:82` | 🟢 2h | 🔴 | ❌ |
 | `CODE-012` | **Path traversal en Python SDK export/import/constructor** — `../../etc/passwd` pasa sin validación | `lib.rs:676,974,988,1000` | 🟡 1d | 🔴 | ❌ |
 | `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC activa) | — | 🟢 2-4h | 🔴 | ✅ |
 | `SEC-09` | Eliminar `bincode` de archive + actualizar docs | — | 🟢 2h | 🔴 | ✅ |
@@ -182,7 +179,6 @@ aliases: []
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `CODE-023` | **0 tests ejecutados en CI web** — Solo lint+typecheck+build. Sin vitest ni playwright | `web-ci.yml` | 🟡 1d | 🔴 | ❌ |
-| `CODE-022` | **Three.js 600KB+ no usado en bundle** — Cero imports en todo web/src | `package.json:32,40` | 🟢 1h | 🟡 | ❌ |
 | `CODE-070` | **Sin bundle analysis** — Ni visualizer ni size budget. Three.js pasó desapercibido | `vite.config.ts` | 🟢 2h | 🟡 | ❌ |
 | `CODE-073` | **Cero e2e tests reales** — 2 tests, 11 líneas, solo homepage title check | `smoke.spec.ts` | 🟡 2-3d | 🟡 | ❌ |
 | `CODE-078` | **Sin `playwright install` en CI** — Si se agregan e2e, van a fallar | `web-ci.yml` | 🟢 1h | 🟢 | ❌ |
@@ -427,10 +423,6 @@ Esfuerzo                │   Esfuerzo
 | `TSK-106` | Activar GitHub Discussions | 🟢 1h | — |
 | `MKT-13` | Botón "Try in browser" WASM en hero | 🟡 1-2d | WASM-03 ✅ |
 | `MKT-14` | Case studies en landing page | 🟡 1-2d | Docs exist |
-| `CODE-020` | CSP: sacar unsafe-eval | 🟢 1-2h | — |
-| `CODE-021` | Agregar DOMPurify al blog | 🟢 2h | — |
-| `CODE-022` | Sacar Three.js de deps | 🟢 1h | — |
-| `CODE-027` | Reemplazar expect por error en get_many | 🟢 2-4h | — |
 | `CODE-048` | Mover skip link antes de Nav | 🟢 1h | — |
 | `CODE-085` | Actualizar README Python | 🟢 1h | — |
 | `CODE-091` | Renombrar distance→score en JS bindings | 🟢 2h | — |
@@ -461,8 +453,7 @@ Esfuerzo                │   Esfuerzo
 | `process::exit()` sin flush | 🟡 Media | 🔴 Lost records | **CODE-003** TIER 0 |
 | save_vector_index traga errores | 🟡 Media | 🔴 Persistencia falsa | **CODE-009** TIER 0 |
 | BFS order vacío destruye DB | 🟢 Baja | 🔴 Data-loss total | **CODE-026** TIER 0 |
-| Crash por expect() en backend corrupto | 🟢 Baja | 🔴 Server caído | **CODE-027** TIER 0 |
-| XSS via CSP unsafe-eval + blog | 🔴 Alta | 🔴 Ejecución remota | **CODE-020/021** TIER 0 |
+| XSS via blog raw HTML | 🟢 Baja | 🟡 Ejecución remota (blog posts estáticos + DOMPurify) | **CODE-021** TIER 0 ✅ |
 | Path traversal Python SDK | 🟡 Media | 🔴 File system access | **CODE-012** TIER 0 |
 | HNSW sin remove + tombstone bypass | 🔴 Alta | 🟡 Degradación calidad | **CODE-007/008** TIER 1 |
 | scan_nodes OOM | 🟡 Media | 🟡 Server crash | **CODE-024** TIER 1 |
@@ -482,8 +473,8 @@ Esfuerzo                │   Esfuerzo
 
 | Categoría | TIER 0 ❌ | TIER 1 ❌ | TIER 2 ❌ | TIER 3 ❌ | PHASE 5 ❌ | Total |
 |-----------|----------|----------|----------|----------|-----------|-------|
-| 🩹 Data Loss & Crash Prev | 6 | 0 | 0 | 0 | 0 | 6 |
-| 🛡️ Seguridad & Integrity | 4 | 0 | 0 | 3 | 0 | 7 |
+| 🩹 Data Loss & Crash Prev | 5 | 0 | 0 | 0 | 0 | 5 |
+| 🛡️ Seguridad & Integrity | 1 | 0 | 0 | 3 | 0 | 4 |
 | ⚡ Migration Runner | 3 | 0 | 0 | 0 | 0 | 3 |
 | 💥 Crash/Deadlock Fixes | 3 | 0 | 0 | 0 | 0 | 3 |
 | 🐛 Python SDK Data Bugs | 3 | 0 | 0 | 0 | 0 | 3 |
@@ -496,7 +487,7 @@ Esfuerzo                │   Esfuerzo
 | 🧪 WASM & MCP | 0 | 6 | 0 | 0 | 0 | 6 |
 | 📦 Distribución | 0 | 1 | 0 | 1 | 0 | 2 |
 | 🧹 Code Health Core | 0 | 4 | 0 | 0 | 0 | 4 |
-| 🧪 CI/CD Web Quality | 0 | 7 | 0 | 0 | 0 | 7 |
+| 🧪 CI/CD Web Quality | 0 | 6 | 0 | 0 | 0 | 6 |
 | 🚀 Launch Campaign | 0 | 0 | 10 | 0 | 0 | 10 |
 | 🌐 Conversión & SEO | 0 | 0 | 2 | 0 | 0 | 2 |
 | 🗄️ Database Evolution | 0 | 0 | 1 | 0 | 0 | 1 |
@@ -510,7 +501,7 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 23 | 0 | 23 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **31** | **34** | **38** | **41** | **20** | **164** |
+| **Total** | **28** | **34** | **38** | **41** | **20** | **161** |
 
 Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se debe a subtareas ✅ completadas dentro de categorías que igual listamos para tracking.
 

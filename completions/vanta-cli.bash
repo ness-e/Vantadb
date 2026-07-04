@@ -757,7 +757,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__namespace__subcmd__info)
-            opts="-d -v -h --db --verbose --help <NAMESPACE>"
+            opts="-d -v -h --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -839,7 +839,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__query)
-            opts="-d -v -h --limit --db --verbose --help <QUERY>"
+            opts="-d -v -h --limit --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

@@ -1111,17 +1111,14 @@ impl StorageEngine {
             .backend
             .get_many(BackendPartition::Default, &remaining_keys)?;
 
-        let backend_map: std::collections::HashMap<u64, Vec<u8>> = backend_results
-            .into_iter()
-            .map(|(k, v)| {
-                let id = u64::from_le_bytes(
-                    k.as_slice()
-                        .try_into()
-                        .expect("backend key must be 8 bytes"),
-                );
-                (id, v)
-            })
-            .collect();
+        let mut backend_map: std::collections::HashMap<u64, Vec<u8>> =
+            std::collections::HashMap::with_capacity(backend_results.len());
+        for (k, v) in backend_results {
+            let key_slice: [u8; 8] = k.as_slice().try_into().map_err(|_| {
+                VantaError::BackendError(format!("corrupt backend: key length {} != 8", k.len()))
+            })?;
+            backend_map.insert(u64::from_le_bytes(key_slice), v);
+        }
 
         let hnsw = self.hnsw.load();
         let vstore = self.vector_store.read();
