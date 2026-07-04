@@ -50,7 +50,7 @@ fs2 = { version = "0.4", optional = true }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "signal", "macros"], optional = true }
 axum = { version = "0.8", optional = true }
 tower_governor = { version = "0.8", optional = true }
-tower-http = { version = "0.6.11", features = ["trace"], optional = true }
+tower-http = { version = "0.7.0", features = ["trace"], optional = true }
 axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
 rustls = { version = "0.23", optional = true }
 opentelemetry_sdk = { version = "0.32.1", optional = true }
