@@ -12,8 +12,8 @@
 #![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/vantadb-enterprise")]
 
-pub mod encryption;
 pub mod audit;
+pub mod encryption;
 pub mod rbac;
 pub mod replication;
 

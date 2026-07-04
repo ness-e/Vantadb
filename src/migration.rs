@@ -245,7 +245,10 @@ mod tests {
     #[test]
     fn test_format_from_str() {
         assert_eq!(FormatKind::from_str("vfile"), Some(FormatKind::VantaFile));
-        assert_eq!(FormatKind::from_str("vantafile"), Some(FormatKind::VantaFile));
+        assert_eq!(
+            FormatKind::from_str("vantafile"),
+            Some(FormatKind::VantaFile)
+        );
         assert_eq!(FormatKind::from_str("index"), Some(FormatKind::VectorIndex));
         assert_eq!(FormatKind::from_str("wal"), Some(FormatKind::Wal));
         assert_eq!(FormatKind::from_str("schema"), Some(FormatKind::Schema));
@@ -271,9 +274,7 @@ mod tests {
 
         let engine = MigrationEngine::new(dir.path());
         let plans = engine.plan_all()?;
-        let vfile_plan = plans
-            .iter()
-            .find(|p| p.format == FormatKind::VantaFile);
+        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::VantaFile);
         assert!(
             vfile_plan.is_some(),
             "should have a VantaFile migration plan"
@@ -293,9 +294,7 @@ mod tests {
 
         let engine = MigrationEngine::new(dir.path());
         let plans = engine.plan_all()?;
-        let vfile_plan = plans
-            .iter()
-            .find(|p| p.format == FormatKind::VantaFile);
+        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::VantaFile);
         assert!(vfile_plan.is_none(), "v2 file should not need migration");
         Ok(())
     }

@@ -192,7 +192,12 @@ pub(crate) fn rebuild_hnsw_from_vstore(
                     } else {
                         crate::node::VectorRepresentations::None
                     };
-                    hnsw.add(header.id, FilterBitset::from_u128(header.bitset), vec_data, cursor);
+                    hnsw.add(
+                        header.id,
+                        FilterBitset::from_u128(header.bitset),
+                        vec_data,
+                        cursor,
+                    );
                 }
             }
             cursor += header_size + ((header.vector_len as u64 * 4 + 63) & !63);

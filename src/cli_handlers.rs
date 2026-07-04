@@ -81,8 +81,7 @@ pub fn confirm_action(prompt: &str) -> std::io::Result<bool> {
     let _ = term.write_str(" [y/N] ");
     let _ = term.flush();
     let result = term.read_line()?;
-    Ok(result.trim().eq_ignore_ascii_case("y")
-        || result.trim().eq_ignore_ascii_case("yes"))
+    Ok(result.trim().eq_ignore_ascii_case("y") || result.trim().eq_ignore_ascii_case("yes"))
 }
 
 // ─── Database Operations ─────────────────────────────────────
@@ -2280,7 +2279,11 @@ pub fn cmd_migrate(
                 let elapsed = start.elapsed();
                 spinner.finish_and_clear();
                 if verbose {
-                    print_info(&format!("  {} completed in {} ms", fmt.name(), elapsed.as_millis()));
+                    print_info(&format!(
+                        "  {} completed in {} ms",
+                        fmt.name(),
+                        elapsed.as_millis()
+                    ));
                 }
             }
 
