@@ -417,11 +417,11 @@ fn export_format_empty_lines_skipped() {
         let target_dir = tempdir().expect("target dir");
 
         // Write valid JSONL with empty lines interspersed
-        let valid_line = r#"{"schema_version":1,"namespace":"ns/empty","key":"a","payload":"data","metadata":{},"vector":[1.0,0.0,0.0],"created_at_ms":1000,"updated_at_ms":1000,"version":0,"expires_at_ms":null}"#;
-        let content = format!(
-            "{}\n\n\n{}\n\n{}\n",
-            valid_line, valid_line, valid_line
-        );
+        // Each line must have a unique key to count as 3 separate inserts
+        let line_a = r#"{"schema_version":1,"namespace":"ns/empty","key":"a","payload":"data","metadata":{},"vector":[1.0,0.0,0.0],"created_at_ms":1000,"updated_at_ms":1000,"version":0,"expires_at_ms":null}"#;
+        let line_b = r#"{"schema_version":1,"namespace":"ns/empty","key":"b","payload":"data","metadata":{},"vector":[1.0,0.0,0.0],"created_at_ms":1000,"updated_at_ms":1000,"version":0,"expires_at_ms":null}"#;
+        let line_c = r#"{"schema_version":1,"namespace":"ns/empty","key":"c","payload":"data","metadata":{},"vector":[1.0,0.0,0.0],"created_at_ms":1000,"updated_at_ms":1000,"version":0,"expires_at_ms":null}"#;
+        let content = format!("{line_a}\n\n\n{line_b}\n\n{line_c}\n");
         fs::write(&export_path, &content).expect("write mixed jsonl");
 
         let target = VantaEmbedded::open(target_dir.path()).expect("open target");
