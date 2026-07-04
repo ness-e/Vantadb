@@ -8,6 +8,11 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, VantaError};
 use crate::node::UnifiedNode;
 
+/// Tracks the postcard wire format version used for WAL record serialization.
+/// Increment this when upgrading postcard to a potentially incompatible version.
+/// Stored in VantaHeader.schema_version for forward-compatibility detection.
+pub(crate) const WAL_POSTCARD_VERSION: u16 = 1;
+
 const KIB: usize = 1024;
 use crc32c::crc32c; // ← Import specific function to avoid namespace conflict
 
@@ -52,11 +57,28 @@ pub struct WalHeader {
 impl WalHeader {
     pub const SIZE: usize = 20;
 
-    pub fn new(version: u32) -> Self {
-        let base = crate::binary_header::VantaHeader::new(*b"VWAL", version as u16, 0);
+    /// Create a new WAL header.
+    /// `format_version`: WAL format version (currently 1).
+    /// Stores `WAL_POSTCARD_VERSION` in `schema_version` for forward-compatibility detection.
+    pub fn new(format_version: u32) -> Self {
+        let base = crate::binary_header::VantaHeader::new(
+            *b"VWAL",
+            format_version as u16,
+            WAL_POSTCARD_VERSION,
+        );
         let mut header = Self { base, crc: 0 };
         header.crc = header.compute_crc();
         header
+    }
+
+    /// Returns the postcard version recorded in this header's schema_version field.
+    /// schema_version == 0 means legacy (pre-versioning), treated as v1.
+    pub fn postcard_version(&self) -> u16 {
+        if self.base.schema_version == 0 {
+            1
+        } else {
+            self.base.schema_version
+        }
     }
 
     pub fn compute_crc(&self) -> u32 {
@@ -109,6 +131,15 @@ impl WalHeader {
                 found: header.base.format_version as u32,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
             });
+        }
+
+        let recorded_pc = header.postcard_version();
+        if recorded_pc != WAL_POSTCARD_VERSION {
+            warn!(
+                "WAL was written with postcard v{}, current is v{}. \
+                 Records may fail to deserialize if the wire format changed.",
+                recorded_pc, WAL_POSTCARD_VERSION
+            );
         }
 
         Ok(header)

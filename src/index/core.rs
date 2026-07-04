@@ -164,7 +164,7 @@ fn should_prefetch() -> bool {
     }
 }
 
-const VECTOR_INDEX_VERSION: u16 = 5; // DB-04: dynamic FilterBitset replaces fixed u128
+pub(crate) const VECTOR_INDEX_VERSION: u16 = 5; // DB-04: dynamic FilterBitset replaces fixed u128
 
 #[inline(always)]
 fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {

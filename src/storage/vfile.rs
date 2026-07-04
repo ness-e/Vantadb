@@ -13,6 +13,12 @@ use zerocopy::{FromBytes, IntoBytes};
 
 const STORAGE_ALIGNMENT: u64 = 64;
 
+/// Current VantaFile format version.
+/// Version history:
+/// - v1: initial format
+/// - v2: migrated (bumped header only, data layout identical to v1)
+pub(crate) const VFILE_VERSION: u16 = 2;
+
 #[cfg(feature = "memmap2")]
 pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
 
@@ -425,7 +431,18 @@ impl VantaFile {
             mmap.flush()?;
         }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
-        header.validate(*b"VFLE", 1, "VantaFile format mismatch")?;
+        if header.format_version != 1 && header.format_version != VFILE_VERSION {
+            return Err(VantaError::IncompatibleFormat {
+                expected_magic: *b"VFLE",
+                expected_version: VFILE_VERSION,
+                found_magic: header.magic,
+                found_version: header.format_version,
+                hint: format!(
+                    "VantaFile version {} is not supported (expected 1 or {})",
+                    header.format_version, VFILE_VERSION
+                ),
+            });
+        }
         let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
             VantaError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
         })?);

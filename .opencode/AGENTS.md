@@ -1,5 +1,38 @@
 # VantaDB — AGENTS.md
 
+<!-- CODEGRAPH_START -->
+## CodeGraph
+
+CodeGraph tiene un índice pre-construido del código fuente de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
+
+### Guía de decisión
+
+| Situación | Qué usar |
+|-----------|----------|
+| "¿Cómo funciona X?", "¿Qué hace este flujo?" | `codegraph_explore "X"` — devuelve source + call paths + blast radius en 1 call |
+| "¿Dónde está definido X?" | MCP search o `codegraph query "X"` |
+| "¿Qué llama a esta función?" | `codegraph callers "function_name"` |
+| "¿Qué llama esta función?" | `codegraph callees "function_name"` |
+| "¿Qué se rompe si cambio X?" | `codegraph impact "X" --depth 3"` |
+| "¿Qué tests ejecutar tras mis cambios?" | `git diff --name-only \| codegraph affected --stdin` |
+| Leer un archivo con line numbers | `codegraph node "src/storage/engine.rs"` |
+
+### Reglas
+
+- **Confía en el resultado** — no re-verifiques con grep/read. El source que devuelve es idéntico byte por byte al del Read tool.
+- **No uses grep para buscar definiciones** — CodeGraph ya las tiene indexadas.
+- **Staleness**: si ves `⚠️ Pending sync:` tras una edición, lee el archivo directamente. El auto-sync tarda ~2s.
+- **Sin `.codegraph/`** → ignora CodeGraph, usa herramientas normales.
+
+### Ejemplos VantaDB
+
+```
+codegraph_explore "how does a search query reach StorageEngine"
+codegraph_explore "VantaEmbedded open_with_config callers"
+codegraph_impact "StorageEngine" --depth 3
+```
+<!-- CODEGRAPH_END -->
+
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
