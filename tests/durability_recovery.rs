@@ -145,7 +145,14 @@ fn test_vector_index_cold_recovery() {
         let vs = engine.vector_store.read();
 
         // Hacemos una búsqueda directamente contra el índice y VantaFile
-        let results = hnsw.search_nearest(&target_vector, None, None, 0, 1, Some(&vs));
+        let results = hnsw.search_nearest(
+            &target_vector,
+            None,
+            None,
+            &vantadb::node::ALL_BITSET,
+            1,
+            Some(&vs),
+        );
 
         assert_eq!(
             results.len(),

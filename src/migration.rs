@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::binary_header::VantaHeader;
 use crate::error::Result;
+use crate::index::core::VECTOR_INDEX_VERSION;
+use crate::storage::vfile::VFILE_VERSION;
 
 /// Physical format kinds that can be migrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,28 +99,30 @@ impl MigrationEngine {
     pub fn plan_all(&self) -> Result<Vec<MigrationPlan>> {
         let mut plans = Vec::new();
 
-        if let Some(header) =
-            self.read_header(&self.db_path.join("vector_store.vanta"), *b"VFLE")?
-        {
-            if header.format_version < 2 {
+        let vfile_path = self.db_path.join("vector_store.vanta");
+        if let Some(header) = self.read_header(&vfile_path, *b"VFLE")? {
+            if header.format_version < VFILE_VERSION {
                 plans.push(MigrationPlan {
                     format: FormatKind::VantaFile,
                     current_version: header.format_version,
-                    target_version: 2,
-                    action: "Bump format version header to v2".into(),
+                    target_version: VFILE_VERSION,
+                    action: format!(
+                        "Bump format version header v{} → v{}",
+                        header.format_version, VFILE_VERSION
+                    ),
                 });
             }
         }
 
         if let Some(header) = self.read_header(&self.db_path.join("index.bin"), *b"VNDX")? {
-            if header.format_version > 4 {
+            if header.format_version != VECTOR_INDEX_VERSION {
                 plans.push(MigrationPlan {
                     format: FormatKind::VectorIndex,
                     current_version: header.format_version,
-                    target_version: 4,
+                    target_version: VECTOR_INDEX_VERSION,
                     action: format!(
-                        "Index version {} is newer than supported (4).",
-                        header.format_version
+                        "Index version {} differs from current ({}). Rebuild recommended.",
+                        header.format_version, VECTOR_INDEX_VERSION
                     ),
                 });
             }
@@ -140,23 +144,23 @@ impl MigrationEngine {
 
     pub fn migrate_format(&self, kind: FormatKind) -> Result<()> {
         match kind {
-            FormatKind::VantaFile => self.migrate_vfile_v1_to_v2(),
+            FormatKind::VantaFile => self.migrate_vfile_to_latest(),
             FormatKind::VectorIndex => {
-                println!("  ✓ Vector index: up-to-date (v4)");
+                println!("  ✓ Vector index: up-to-date (v{VECTOR_INDEX_VERSION})");
                 Ok(())
             }
             FormatKind::Wal => {
-                println!("  ✓ WAL: up-to-date (v1)");
+                println!("  ✓ WAL: current (v1) — no migration needed");
                 Ok(())
             }
             FormatKind::Schema => {
-                println!("  ✓ Schema: up-to-date (v1)");
+                println!("  ✓ Schema: current (v1) — no migration needed");
                 Ok(())
             }
         }
     }
 
-    fn migrate_vfile_v1_to_v2(&self) -> Result<()> {
+    fn migrate_vfile_to_latest(&self) -> Result<()> {
         let vfile_path = self.db_path.join("vector_store.vanta");
         if !vfile_path.exists() {
             println!("  - No VantaFile found, skipping");
@@ -166,26 +170,35 @@ impl MigrationEngine {
         let data = std::fs::read(&vfile_path)?;
         let header = VantaHeader::deserialize(&data)?;
 
-        if header.format_version != 1 {
-            println!("  - VantaFile already at version {}", header.format_version);
+        if header.format_version >= VFILE_VERSION {
+            println!(
+                "  - VantaFile already at version {} (latest: {})",
+                header.format_version, VFILE_VERSION
+            );
             return Ok(());
         }
 
         if self.dry_run {
-            println!("  [dry-run] VantaFile v1 → v2: would rewrite header");
+            println!(
+                "  [dry-run] VantaFile v{} → v{}: would rewrite header",
+                header.format_version, VFILE_VERSION
+            );
             return Ok(());
         }
 
         let backup_path = vfile_path.with_extension("vanta.bak");
         std::fs::copy(&vfile_path, &backup_path)?;
 
-        let new_header = VantaHeader::new(*b"VFLE", 2, header.schema_version);
+        let new_header = VantaHeader::new(*b"VFLE", VFILE_VERSION, header.schema_version);
         let mut new_data = new_header.serialize().to_vec();
         new_data.extend_from_slice(&data[VantaHeader::SIZE..]);
 
         std::fs::write(&vfile_path, &new_data)?;
 
-        println!("  ✓ VantaFile migrated: v1 → v2");
+        println!(
+            "  ✓ VantaFile migrated: v{} → v{}",
+            header.format_version, VFILE_VERSION
+        );
         println!("  - Backup saved at: {}", backup_path.display());
 
         Ok(())
@@ -197,10 +210,10 @@ impl MigrationEngine {
         if let Ok(Some(header)) =
             self.read_header(&self.db_path.join("vector_store.vanta"), *b"VFLE")
         {
-            if header.format_version != 2 {
+            if header.format_version != VFILE_VERSION {
                 issues.push(format!(
-                    "VantaFile at v{}, latest is v2",
-                    header.format_version
+                    "VantaFile at v{}, latest is v{}",
+                    header.format_version, VFILE_VERSION
                 ));
             }
         }
@@ -281,21 +294,24 @@ mod tests {
         );
         let p = vfile_plan.unwrap();
         assert_eq!(p.current_version, 1);
-        assert_eq!(p.target_version, 2);
+        assert_eq!(p.target_version, VFILE_VERSION);
         Ok(())
     }
 
     #[test]
-    fn test_plan_skips_v2_vfile() -> Result<()> {
+    fn test_plan_skips_current_vfile() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", 2, 0);
+        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
         let plans = engine.plan_all()?;
         let vfile_plan = plans.iter().find(|p| p.format == FormatKind::VantaFile);
-        assert!(vfile_plan.is_none(), "v2 file should not need migration");
+        assert!(
+            vfile_plan.is_none(),
+            "v{VFILE_VERSION} file should not need migration"
+        );
         Ok(())
     }
 
@@ -308,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_vfile_v1_to_v2() -> Result<()> {
+    fn test_migrate_vfile_to_latest() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
         let payload = b"some record data here";
@@ -322,7 +338,7 @@ mod tests {
 
         let migrated = std::fs::read(&vfile_path)?;
         let new_header = VantaHeader::deserialize(&migrated)?;
-        assert_eq!(new_header.format_version, 2);
+        assert_eq!(new_header.format_version, VFILE_VERSION);
         assert_eq!(new_header.magic, *b"VFLE");
         assert_eq!(&migrated[VantaHeader::SIZE..], payload);
 
@@ -331,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_integrity_reports_v1() -> Result<()> {
+    fn test_check_integrity_reports_old_version() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
         let header = VantaHeader::new(*b"VFLE", 1, 0);
@@ -345,10 +361,10 @@ mod tests {
     }
 
     #[test]
-    fn test_check_integrity_clean_v2() -> Result<()> {
+    fn test_check_integrity_clean_current() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", 2, 0);
+        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());

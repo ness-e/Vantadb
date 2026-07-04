@@ -4,7 +4,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-04
 aliases: []
 ---
 
@@ -15,375 +15,383 @@ aliases: []
 
 ---
 
-## PHASE 3 — Pre-Launch (July-August 2026)
+## TIER 0 — 🔴 Bloqueantes de Release (Semana 1, Jul 4-11)
 
-### 3.C Core Engine
+> Items que bloquean cualquier release seguro o publicación pública.
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `TSK-09` | OpenTelemetry traces (premature without basic Prometheus) | 🟢 | ✅ |
-| `TSK-145` | Normalizar comentarios español/inglés en storage.rs, wal.rs a inglés | 🟢 | ✅ |
-| `TSK-146` | Eliminar magic numbers esparcidos (1024 capacity, 64 alignment, 0x8 tombstone, 0.80 RSS) | 🟢 | ✅ |
+### 🛡️ Seguridad & Corrección de Datos
 
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC activa) | 🟢 2-4h | 🔴 | ✅ |
+| `SEC-09` | Eliminar `bincode` de `archive/experimental-quarantine/` (ya migrado a postcard) + actualizar docs | 🟢 2h | 🔴 | ✅ |
+| `SEC-10` | Security test suite: IQL injection, auth bypass, input validation fuzzing | 🟡 1-2d | 🔴 | ✅ |
 
-## PHASE 4 — Launch (Jul-Sep 2026)
+### ⚡ Corrección de Datos — Migration Runner
 
-### 4.0 Foundational (blocking — do first)
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `DB-01` | **Migration runner operativo (`vanta-cli migrate`):** Sincronizar `migration.rs` con `vfile.rs` (aceptar rango v1-v2), usar `VECTOR_INDEX_VERSION` (5, no 4), añadir `WAL_POSTCARD_VERSION` tracking | 🔴 2-3d | 🔴 | ⏳ |
+| `DB-02` | Documentar estrategia de versionado de formatos físicos (VantaFile, WAL, índice vectorial) en `docs/architecture/STORAGE_VERSIONING.md` | 🟡 1d | 🔴 | ✅ |
+| `—` | Snapshot tests: WAL integrity, VantaFile format, HNSW index format, export/import versioning (reemplazar `TEST-05`) | 🟡 1-2d | 🔴 | ❌ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `REL-01` | Bump workspace version v0.1.5 → v0.2.0 (SemVer: 340+ commits, nuevas APIs, 4 plataformas) | 🔴 | ✅ |
-| `LEG-01` | Register trademark "VantaDB" (USPTO + EUIPO) before Show HN | 🔴 | ❌ |
-| `LEG-02` | Add Contributor License Agreement (CLA) for future core contributions — Individual + Corporate CLA creados en .github/ | 🟠 | ✅ |
+### 📦 Publicación de Integraciones (BLOQUEA ADOPCIÓN)
 
-### 4.B Framework Integrations
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `INT-01` | **LangChain adapter → PyPI + PR upstream** (código existe en `integrations/langchain/`) | 🟡 1-2d | 🔴 | ❌ |
+| `INT-02` | **LlamaIndex adapter → PyPI + PR upstream** (código existe en `integrations/llamaindex/`) | 🟡 1-2d | 🔴 | ❌ |
+| `INT-03` | **Mem0 adapter → PyPI** (`vantadb-mem0` crate listo) | 🟡 1d | 🔴 | ❌ |
+| `INT-04` | **CrewAI adapter → PyPI** (`vantadb-crewai` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-05` | **DSPy adapter → PyPI** (`vantadb-dspy` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-06` | **Haystack adapter → PyPI** (`vantadb-haystack` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-07` | **Letta adapter → PyPI** (`vantadb-letta` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-08` | **OpenAI adapter → PyPI** (`vantadb-openai` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-09` | **Ollama adapter → PyPI** (`vantadb-ollama` crate listo) | 🟡 1d | 🟠 | ❌ |
+| `INT-10` | **LiteLLM adapter → PyPI** (`vantadb-litellm` crate listo) | 🟡 1d | 🟢 | ❌ |
+| `DEVOPS-05` | Pipeline CI unificado para publicar los 10 adapters a PyPI | 🟡 1-2d | 🔴 | ❌ |
+| `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build, 26/26 tests) | 🟡 1-2d | 🔴 | ❌ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `INT-01` | LangChain adapter (PyPI + PR langchain-community) — code exists in `integrations/langchain/`, pending PyPI publish + upstream PR | 🔴 | ❌ |
-| `INT-02` | LlamaIndex adapter (PyPI + PR llama-index) — code exists in `integrations/llamaindex/`, pending PyPI publish + upstream PR | 🔴 | ❌ |
-| `MEM-02` | Letta (fka MemGPT): VantaDB as memory backend (23K stars) | 🟡 | ✅ |
-| `TSK-89` | CrewAI: VantaDBMemory for multi-agent crews | 🟡 | ✅ |
-| `TSK-91` | DSPy: VantaDBRM (Retrieval Module) | 🟡 | ✅ |
-| `TSK-92` | Haystack: VantaDBDocumentStore | 🟡 | ✅ |
-| `TSK-116` | vantadb-openai (optional embedding package) | 🟡 | ✅ |
-| `TSK-117` | vantadb-ollama (local offline embedding) | 🟡 | ✅ |
-| `TSK-95` | vantadb-litellm (universal gateway embeddings) | 🟡 | ✅ |
+### 🧪 Testing Crítico
 
-### 4.C MCP & WASM Differentiation (Unique Competitive Advantage)
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `TEST-09` | Implementar tests WASM reales (39 tests en 11 categorías, 744 líneas) | 🔴 2-3d | 🔴 | ✅ |
+| `TEST-10` | Configurar Vitest + React Testing Library para frontend (40 tests en 6 suites) | 🔴 2-3d | 🔴 | ✅ |
+| `TEST-06` | Load/stress tests para Python (9) y TypeScript (6) SDKs | 🟡 2-3d | 🟡 | ✅ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `MCP-03` | Publish benchmarks and feature comparison vs WASM vector DBs (EdgeVec, minimemory, altor-vec, lattice-db). Establish "most feature-complete WASM vector DB" narrative | 🔴 | ❌ |
+---
 
-| `WASM-03` | Build demo: AI Agent running entirely in browser (Transformers.js + VantaDB WASM + persistent OPFS memory). No competitor enables this | 🟡 | ✅ |
-| `WASM-04` | WASM bundle size optimization (target: <500KB gzip). Currently unmeasured | 🟡 | ✅ |
-| `WASM-05` | SIMD acceleration for WASM build (expose f32x8 cosine distance in browser) | 🟡 | ✅ |
-| `MCP-04` | MCP server: add tool for collection management (list, delete, stats) and streaming search results | 🟡 | ✅ |
-| `MCP-05` | MCP server: write integration test suite (currently 9 tests, target 25+) | 🟡 | ✅ |
+## TIER 1 — 🟠 Pre-Lanzamiento (Semanas 1-3, Jul 4-25)
 
-### 4.D Launch Campaign
+> Items necesarios ANTES del Show HN para que el producto sea creíble.
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `MKT-01` | Landing page (vantadb.dev): hero, benchmarks, comparisons | 🔴 | ✅ |
-| `MKT-02` | Blog post "Introducing VantaDB" + 3 more published | 🔴 | ✅ |
-| `MKT-06` | Logo and branding (SVG, palette, favicon) | 🔴 | ✅ |
-| `MKT-03` | Show HN post (timing, title, prepared responses) | 🔴 | ❌ |
-| `MKT-04` | Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) | 🟠 | ❌ |
-| `MKT-05` | Technical blog posts (5+ pre-launch) | 🟠 | ❌ |
-| `MKT-10` | "AI Agent Memory" narrative campaign: blog posts, token reduction demos, benchmarks vs full-context | 🟠 | ❌ |
-| `COM-01` | Discord: announcements, general, help, showcase, dev | 🔴 | ❌ |
-| `TSK-106` | GitHub Discussions (Q&A, Ideas, Show & Tell) | 🟡 | ❌ |
-| `TSK-107` | Community showcase (projects in docs/showcase.md) | 🟡 | ❌ |
-| `TSK-108` | Newsletter (Substack/Beehiiv, monthly) | 🟢 | ❌ |
-| — | Good first issues (20+ tagged issues) | 🟠 | ❌ |
+### 🎯 Corrección de Marketing vs Realidad (La Brecha más Peligrosa)
 
-### 4.E Backend Performance (N+1 Patterns & Bottlenecks)
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `MKT-11` | **Corregir `web/public/llms.txt`:** Eliminar referencias a SQL (deferido), IVF (no implementado). Corregir latencia real: HNSW 1.2ms ✅, hybrid fusion 2.1ms, p50 real 62ms. **NUEVO** | 🟢 1h | 🔴 | ❌ |
+| `MKT-12` | **Auditar claims de performance en web/blog contra benchmarks reales:** Asegurar que ninguna cifra de marketing sea >2x de la real. Publicar metodología de cada benchmark. **NUEVO** | 🟡 1-2d | 🔴 | ❌ |
+| `DX-02` | **Reducir p50 hybrid search de 62ms a <20ms:** Investigar cuello de botella exacto (HNSW ef_search? PyO3 overhead? RRF fusion?). Sin esto, "sub-millisecond" es engañoso. | 🟡 2-3d | 🔴 | ❌ |
+| `—` | Eliminar `OldSerializationError` deprecated del enum `VantaError` (ya no se usa) | 🟢 1h | 🟡 | ❌ |
+| `—` | Python SDK: mapear `VantaError` variants → excepciones Python específicas (hoy todo es `PyRuntimeError`) | 🟡 2-3d | 🔴 | ❌ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
+### 🏗️ Base Técnica para Lanzamiento
 
-| `PERF-02` | Refactor WAL Mutex contention (`Mutex<Option<WalWriter>>` serializes all writes). Evaluate `async-lock` or sharded WAL segments | 🟡 | ✅ |
-| `PERF-03` | Make spawn_blocking semaphore cap configurable and dynamic (default 16 is hard limit) — configurable via `VANTADB_MAX_BLOCKING_THREADS` ✅, dynamic auto-scale ✅ (detecta CPU cores × 2) | 🟠 | ✅ |
-| `PERF-04` | Refactor `Execution(String)` catch-all → typed error variants (TODO in source) | 🟡 | ✅ |
-| `PERF-05` | Split monolithic files: `storage.rs` (2624L), `index.rs` (2044L), `metrics.rs` (1300L), `cli_server.rs` (687L) into modules | 🟡 | ✅ |
-| `PERF-06` | Eliminate duplicated `append_to_vstore` / `write_node_to_vstore` (40L near-identical, storage.rs:1170-1257) | 🟢 | ✅ |
-| `PERF-07` | Global edge index + referential integrity (ON DELETE CASCADE for dangling edges) | 🟡 | ✅ |
-| `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ✅ |
-| `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ✅ |
-| `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ✅ |
-| `PERF-11` | Batch KV loader (`get_many`/`multi_get`) para eliminar N+1 en graph traversal, physical scan, vector search, hybrid explain | 🔴 | ✅ |
-| `PERF-12` | Refactor patrón WAL repetitivo en engine.rs (`if let Some(ref mut wal) = ... wal.append(...)`) a helper method | 🟡 | ✅ |
-| `PERF-13` | Refactor `read_only` check repetido 5× en sdk/api.rs a helper method | 🟢 | ✅ |
-| `PERF-14` | Refactor `init_telemetry` masivo (cli_server.rs:280-438): eliminar bloques if/else repetidos JSON/full/compact × mcp/no-mcp | 🟡 | ✅ |
-| `PERF-15` | Agregar `#![warn(missing_docs)]` en todos los crates del workspace (14 crates) | 🟢 | ✅ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `PERF-11` | Batch KV loader (`get_many`/`multi_get`) para eliminar N+1 en graph traversal, scan, search | 🔴 3-5d | 🔴 | ✅ |
+| `PERF-15` | Agregar `#![warn(missing_docs)]` en todos los crates del workspace (14 crates) | 🟢 1h | 🟢 | ✅ |
+| `TSK-146` | Eliminar magic numbers (1024, 64, 0x8, 0.80) | 🟢 1-2h | 🟢 | ✅ |
+| `TSK-145` | Normalizar comentarios español/inglés a inglés | 🟢 2-4h | 🟢 | ✅ |
+| `DOC-15` | Crear OpenAPI/Swagger spec para HTTP API (3 endpoints) | 🟡 1-2d | 🟡 | ✅ |
 
-### 4.F Distribution
+### 🌐 Presencia Web y Landing Page
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `TSK-121` | SHA256 hash verification of the wheel in tests | 🟢 | ❌ |
-| `REL-02` | Publish `vantadb-ts` npm package (WASM, 26/26 tests, examples listos) | 🔴 | ❌ |
-| `DEVOPS-05` | Publish LangChain + LlamaIndex adapters to PyPI and submit PRs upstream (langchain-community, llama-index) | 🔴 | ❌ |
-| `DEVOPS-02` | Build ARM64 wheels for Python SDK (Apple Silicon, AWS Graviton, Raspberry Pi) | 🟠 | ❌ |
-| `DEVOPS-06` | Homebrew formula for vanta-cli (macOS/Linux) | 🟢 | ❌ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `MKT-13` | **Integrar demo WASM interactiva en la landing page hero:** WASM-03 ya compila, falta botón "Try in browser" que abra el demo. **NUEVO** | 🟡 1-2d | 🔴 | ❌ |
+| `MKT-14` | **Publicar 2 case studies en la web** (CodexAgent: 3.4x faster writes, 100% recall; EdgeSense: 100% crash recovery). Crear ruta `/case-studies/` y cards en hero. **NUEVO** | 🟡 1-2d | 🔴 | ❌ |
+| `WEB-06` | Migrar 637 inline styles a Tailwind classes (engine.tsx, architecture.tsx) | 🟡 3-5d | 🟡 | ✅ |
+| `WEB-07` | Unificar animation libraries: mantener solo GSAP, migrar route transitions | 🟡 1-2d | 🟡 | ✅ |
+| `WEB-18` | Componente `<VsTable>` reusable (eliminar duplicación Legacy vs VantaDB) | 🟢 4-6h | 🟢 | ✅ |
+| `WEB-19` | `React.lazy()` / code splitting por ruta | 🟢 2-4h | 🟢 | ✅ |
 
-### 4.G Developer Experience
+### 📚 Documentación Pre-Lanzamiento
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `TSK-104` | Demo agent: LangChain + Ollama + VantaDB (showcase) | 🟠 | ❌ |
-| `TSK-103` | Public benchmark site (compare.py vs chroma/lancedb/qdrant) | 🟠 | ❌ |
-| `DX-01` | Refactor API: `VantaDB()` → `connect()` (eliminar redundancia, alinear con SQLite3/LanceDB/DuckDB) | 🟠 | ✅ |
-| `DX-02` | Python SDK latency optimization: reduce p50 from ~62ms to <20ms (PyO3 FFI overhead) | 🟠 | ✅ |
-| `DX-04` | TypeScript SDK: improve from 18 tests to 50+ covering edge cases, error handling, concurrent access | 🟡 | ✅ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `DOC-13` | ADRs faltantes: Fjall vs RocksDB, HNSW params (M=16, ef=200), RRF k=60, PyO3, WASM, community governance (6 creados de 11 planeados) | 🟡 2-3d | 🟡 | ✅ |
+| `DOC-14` | Performance Tuning Guide (479 líneas) | 🟡 2-3d | 🟡 | ✅ |
+| `DOC-16` | Tutorial series: AI Agent Memory, Local RAG Pipeline, Migrating from ChromaDB (3 tutorials creados) | 🟡 2-3d | 🟡 | ✅ |
+| `DOC-17` | Diagramas de arquitectura formales Mermaid (5 diagramas) | 🟡 1-2d | 🟡 | ✅ |
+| `DOC-18` | Expandir HTTP_API.md (149L → 504L) | 🟡 1d | 🟡 | ✅ |
+| `—` | **Docs de setup MCP por IDE:** Cursor, Claude Code, Windsurf. **NUEVO** | 🟡 1-2d | 🔴 | ❌ |
 
+### 🧪 WASM y MCP
 
-### 4.H Code Health & Security
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `MCP-03` | **Benchmarks WASM vs EdgeVec/minimemory/altor-vec/lattice-db.** Establecer narrativa "most feature-complete WASM vector DB" | 🟡 2-3d | 🔴 | ❌ |
+| `MCP-05` | Integration test suite MCP (9 actuales, target 25+) | 🟡 1-2d | 🟡 | ✅ |
+| `WASM-03` | Demo AI Agent in browser (Transformers.js + VantaDB WASM + OPFS) | 🟡 2-3d | 🟡 | ✅ |
+| `WASM-04` | WASM bundle size optimization (<500KB gzip) | 🟡 1-2d | 🟡 | ✅ |
+| `WASM-05` | SIMD acceleration for WASM build (f32x8 cosine) | 🟡 1-2d | 🟡 | ✅ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
+### 📦 Distribución
 
-| `SEC-04` | Auth hardening: constant-time comparison (`subtle::ConstantEq`), rate limiting on auth failures, make `/metrics` auth-required | 🟠 | ✅ |
-| `SEC-05` | RBAC design: scoped API tokens (read-only, namespace-scoped, time-limited) for multi-user server deployments | 🟡 | ✅ |
-| `SEC-06` | SBOM (SPDX/CycloneDX) generation in each release | 🟡 | ✅ |
-| `SEC-07` | CodeQL + cargo-deny in CI for vulnerability scanning on every PR | 🟡 | ✅ |
-| `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC-2025-0134, vulnerabilidad activa) | 🔴 | ✅ |
-| `SEC-09` | Reemplazar `bincode` 2.0 por `postcard` (RUSTSEC-2025-0141, unmaintained) | 🟡 | ✅ |
-| `SEC-10` | Security test suite: IQL injection, auth bypass, input validation fuzzing, timing attack | 🔴 | ✅ |
-| `DOC-01` | Unit tests: 91 nuevos tests en config/engine/executor/gc/metrics/backends | 🟡 | ✅ |
-| `DOC-02` | Refactor `insert_hnsw()` in `src/index.rs` (177L → 3 functions: `compute_inv_cached_norm`, `shrink_neighbors`, `insert_hnsw`) | 🟡 | ✅ |
-| `DOC-03` | Normalize 6 files with Unicode/accent in filename to pure ASCII (avoids cross-platform issues) | 🟢 | ✅ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `DEVOPS-02` | ARM64 wheels para Python SDK (Apple Silicon, AWS Graviton, Raspberry Pi) | 🟡 2-3d | 🟠 | ❌ |
+| `DEVOPS-06` | Homebrew formula para `vanta-cli` (macOS/Linux) | 🟢 4-6h | 🟢 | ❌ |
+| `DEVOPS-10` | **Firma de binarios Windows** (SmartScreen). Research ✅, implementar signing | 🟡 2-3d | 🟡 | ❌ |
+| `TSK-121` | SHA256 hash verification del wheel en tests | 🟢 2-4h | 🟢 | ❌ |
+| `DEVOPS-07` | Dockerfile multi-stage mejorado (cache mounts, labels, HEALTHCHECK, non-root) | 🟡 2-4h | 🟡 | ✅ |
+| `DEVOPS-11` | CodeQL analysis en CI para todos los PRs | 🟢 2h | 🟡 | ✅ |
 
-### 4.I Documentation Consolidation
+### 🧹 Code Health
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `DOC-04` | Restore unique content from archived VantaDB-MPTS files: Vision/UVP, GTM/Strategic Roadmap, design principles, flowcharts, risk register (~2,900 unique lines with no EN equivalent). Create `docs/vision/VISION.md`, `docs/strategy/ROADMAP.md`, `docs/strategy/GO_TO_MARKET.md` | 🔴 | ✅ |
-| `DOC-05` | Translate to English 10 docs from `operations/` + 3 ADRs that are in Spanish (violate EN convention) | 🟡 | ✅ |
-| `DOC-06` | Unified frontmatter schema (title, status, tags, last_reviewed, aliases) for 124 .md files | 🟡 | ✅ |
-| `DOC-07` | Unify naming convention to kebab-case without accents or spaces | 🟢 | ✅ |
-| `DOC-08` | Archive `TEXT_INDEX_PHASE_1_CLOSEOUT.md`, `RELEASE_V0.1.1.md`, `MILESTONE_V0.2.0.md` (historical) | 🟢 | ✅ |
-| `DOC-09` | Create `.github/` directory with SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md, issue/PR templates | 🔴 | ✅ |
-| `DOC-10` | Fix broken links in README.md and README_ES.md | 🔴 | ✅ |
-| `DOC-11` | Fix factual errors in blog: License MIT→Apache 2.0, GitHub URL `vantadb/vantadb`→`ness-e/Vantadb` in `web/content/blog/introducing-vantadb.md` | 🟡 | ✅ |
-| `DOC-12` | Update `web/public/llms.txt` with current version (currently says v0.4.0→v0.6.0, project is v0.2.0) | 🟡 | ✅ |
-| `DOC-13` | Create missing ADRs (Architecture Decision Records): Fjall vs RocksDB criteria, HNSW params (M=32, ef_construction=200), RRF k=60, PyO3 architecture, WASM strategy, community governance. 6 ADRs creados (004-009) | 🟡 | ✅ |
-| `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs — 479 líneas | 🟡 | ✅ |
-| `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ✅ |
-| `DOC-16` | Create tutorial series in `docs/tutorials/`: AI Agent Memory with VantaDB, Local RAG Pipeline walkthrough, Migrating from ChromaDB step-by-step — 3 tutorials creados | 🟡 | ✅ |
-| `DOC-17` | Crear diagramas de arquitectura formales (reemplazar ASCII art en ARCHITECTURE.md) — 5 diagramas Mermaid | 🟡 | ✅ |
-| `DOC-18` | Expandir HTTP_API.md (149L → ~504L) al nivel de detalle de EMBEDDED_SDK (428L) | 🟡 | ✅ |
-| `DOC-19` | Agregar términos faltantes al glosario: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search` — 5 términos creados | 🟢 | ✅ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `PERF-13` | Refactor `read_only` check repetido → helper method | 🟢 1h | 🟢 | ✅ |
+| `PERF-14` | Refactor `init_telemetry` masivo (cli_server.rs:280-438) | 🟡 1d | 🟡 | ✅ |
+| `DOC-01` | Unit tests (91 nuevos en config/engine/executor/gc/metrics/backends) | 🟡 2-3d | 🟡 | ✅ |
+| `DOC-02` | Refactor `insert_hnsw()` (177L → 3 funciones) | 🟡 1d | 🟡 | ✅ |
 
-### 4.J Web Frontend
+---
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `WEB-06` | Migrate 637 inline styles to CSS Modules (engine.tsx 1085L inline, architecture.tsx 557L inline) — ~125 migraciones a Tailwind | 🟡 | ✅ |
+## TIER 2 — 🟡 Launch Campaign (Semanas 3-6, Jul 18 - Ago 15)
 
-| `WEB-07` | Eliminar redundancia de animation libraries: mantener solo GSAP, reemplazar Motion route transitions y AnimeJS text-scramble con GSAP — Motion eliminado, AnimeJS no estaba en uso | 🟡 | ✅ |
-| `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ✅ |
-| `WEB-14` | Implement missing GSAP animations per DiseñoNuevo.md: scroll-trigger reveals, count-up numbers | 🟡 | ✅ |
-| `WEB-17` | Evaluate TanStack Router necessity: 23 mostly-static pages. React Router would be simpler with fewer deps and no `routeTree.gen.ts` — evaluación completada, recomendación: mantener por ahora | 🟡 | ✅ |
-| `WEB-18` | Crear componente `<VsTable data={...} />` reusable para patrón "Legacy vs VantaDB" (duplicado en 7+ archivos) — 10 tests, todos pasando | 🟡 | ✅ |
-| `WEB-19` | Implementar `React.lazy()` / code splitting automático por ruta para reducir bundle inicial — lazy loading implementado con TanStack Router nativo | 🟡 | ✅ |
-| `WEB-20` | Agregar `React.memo`, `useMemo`, `useCallback` en componentes clave (Nav, SwissFooter, SwissSubpageHero) — Nav memoizado, SwissFooter y SubpageHero ya lo estaban | 🟡 | ✅ |
-| `WEB-21` | Eliminar mutación directa del DOM en handlers onMouseEnter/onMouseLeave (about/index.tsx, about/community.tsx, SwissArchSection.tsx) — 25 patrones fijados en 11 archivos | 🟡 | ✅ |
+> Items para el Show HN + Reddit + lanzamiento público.
 
-### 4.K Testing Gaps
+### 🚀 Launch Campaign
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `LEG-01` | **Registrar trademark "VantaDB" (USPTO + EUIPO)** antes del Show HN | 🟡 2-4h paper | 🔴 | ❌ |
+| `LEG-02` | CLA para contribuciones externas (Individual + Corporate) | 🟢 1-2h | 🟠 | ✅ |
+| `MKT-03` | **Show HN post** (timing, título, respuestas preparadas) | 🟢 2h | 🔴 | ❌ |
+| `MKT-04` | Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) | 🟢 2-4h | 🟠 | ❌ |
+| `MKT-05` | Technical blog posts (5+ pre-launch: GraphRAG, WASM, MCP, hybrid search) | 🟡 2-3d | 🟠 | ❌ |
+| `MKT-10` | "AI Agent Memory" narrative campaign: token reduction demos, benchmarks vs full-context | 🟡 2-3d | 🟠 | ❌ |
+| `MKT-15` | **Página de benchmarks competitivos** (`/product/benchmarks`): gráficos interactivos VantaDB vs ChromaDB/LanceDB/Qdrant/FAISS. `competitive_bench.py` ya existe. **NUEVO** | 🟡 2-3d | 🔴 | ❌ |
+| `MKT-16` | **Publicar metodología de benchmark GraphRAG:** reproducible, con dataset, query set, y métricas. Claim actual de 40-60% sin respaldo. **NUEVO** | 🟡 1-2d | 🔴 | ❌ |
+| `TSK-103` | Public benchmark site (comparativa con chroma/lancedb/qdrant) | 🟡 2-3d | 🟠 | ❌ |
+| `TSK-104` | Demo agent: LangChain + Ollama + VantaDB | 🟡 1-2d | 🟠 | ❌ |
 
-| `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (12 tests in `tests/core/regression_certification.rs`) | 🟡 | ✅ |
-| `TEST-05` | Snapshot testing: HNSW recall certification snapshots, export/import format versioning, WAL format integrity (7 tests) | 🟡 | ✅ |
-| `TEST-06` | Load/stress tests for Python (9) and TypeScript (6) SDKs | 🟡 | ✅ |
-| `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) — global `test-threads=2` removed ✅, Windows-specific override ✅ | 🟢 | ✅ |
-| `TEST-08` | Fix `chaos_integrity` missing `required-features = ["failpoints"]` in Cargo.toml | 🟠 | ✅ |
-| `TEST-09` | Implementar tests WASM reales (39 tests en 11 categorías, 744 líneas) | 🔴 | ✅ |
-| `TEST-10` | Configurar Vitest + React Testing Library para frontend (40 tests en 6 suites) | 🔴 | ✅ |
+### 🌐 Conversión y SEO
 
-### 4.L Pricing & Monetization Strategy
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `MKT-17` | **Página de comparación competitiva interactiva** con matriz desplegable (VantaDB vs Pinecone/ChromaDB/Qdrant/LanceDB/FAISS). Datos ya existen en VISION.md. **NUEVO** | 🟡 2-3d | 🟡 | ❌ |
+| `MKT-07` | Pricing page (Free/Pro/Enterprise). Señalar modelo aunque cloud no esté listo | 🟡 1-2d | 🔴 | ✅ |
+| `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 1d | 🟢 | ✅ |
+| `WEB-17` | Evaluar TanStack Router vs React Router (evaluation ✅, mantener) | 🟡 2-3d | 🟡 | ✅ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `MKT-07` | Design and publish Pricing page (Free/Pro/Enterprise tiers). Signal pricing model before Show HN even if cloud is not ready | 🔴 | ✅ |
-| `MKT-08` | Register trademark "VantaDB" (USPTO + EUIPO) — pre-Show HN requirement to prevent name squatting | 🔴 | ❌ |
-| `MKT-09` | Contributor License Agreement (CLA) for future core contributions — see LEG-02 ✅ | 🟠 | ✅ |
-| `BIZ-01` | Design enterprise crate structure: separate paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) — crate creado con encryption, audit, RBAC, replication módulos | 🟡 | ✅ |
-| `BIZ-04` | Cloud architecture design doc: WAL shipping to object storage (S3/R2), serverless read replicas, usage-based pricing model | 🟡 | ❌ |
-| `BIZ-05` | Competitive pricing analysis: model $0 self-hosted → $29/mo Pro (1M vectors, 10GB) → $149/mo Business (10M) → $499/mo Enterprise (unlimited) | 🟡 | ❌ |
-| `BIZ-06` | Pitch Deck + one-pager for pre-seed fundraising (10 slides) | 🟡 | ❌ |
+### 🗄️ Database Evolution (FASE 4.N)
 
-### 4.M DevOps & CI/CD Infrastructure
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `DB-01` | Migration runner completo (ver TIER 0) | 🔴 3-5d | 🔴 | ⏳ |
+| `DB-03` | ACID transactions research + prototipo | 🟡 3-5d | 🟡 | ✅ |
+| `DB-04` | Expandir bitset 128→256 o dinámico (FilterBitset dinámico implementado) | 🟢 1-2d | 🟢 | ✅ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `DEVOPS-07` | Revisar/mejorar Dockerfile multi-stage existente (cache mounts, labels, HEALTHCHECK, non-root user) | 🟡 | ✅ |
-| `DEVOPS-08` | Add docs build verification in CI (docs-check.yml: markdownlint + lychee + frontmatter validation) | 🟢 | ✅ |
-| `DEVOPS-09` | Auto-deploy web a Vercel/Cloudflare Pages en push a main (web-deploy.yml) | 🟡 | ✅ |
-| `DEVOPS-10` | Sign Windows releases (resolver SmartScreen warning) — research doc completado | 🟡 | ✅ |
-| `DEVOPS-11` | CodeQL analysis en CI para todos los PRs | 🟡 | ✅ |
+### 👥 Comunidad
 
-### 4.N Database Constraints & Evolution
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `COM-01` | **Discord server**: announcements, general, help, showcase, dev | 🟢 2-4h | 🔴 | ❌ |
+| `TSK-106` | **Habilitar GitHub Discussions** (Q&A, Ideas, Show & Tell) | 🟢 1h | 🟡 | ❌ |
+| `TSK-107` | Community showcase page (projects in docs/showcase.md) | 🟢 4-6h | 🟡 | ❌ |
+| `TSK-108` | Newsletter setup (Substack/Beehiiv, monthly) | 🟢 2-4h | 🟢 | ❌ |
+| `—` | Good first issues (20+ tagged) | 🟢 2-4h | 🟠 | ❌ |
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `DB-01` | Implementar migration runner (`vanta-cli migrate`) con MigrationEngine en src/migration.rs para schema evolution de formatos en disco | 🔴 | ✅ |
-| `DB-02` | Diseñar estrategia de versionado de formatos físicos (VantaFile, WAL, índices) para upgrades seguros | 🔴 | ✅ |
-| `DB-03` | Evaluar e implementar sistema ACID transaccional (BEGIN TRANSACTION / COMMIT / ROLLBACK) — research doc creado en docs/research/ACID_TRANSACTIONS.md | 🟡 | ✅ |
-| `DB-04` | Expandir bitset más allá de 128 bits para sistemas multi-tenant con muchas categorías — FilterBitset dinámico (Vec<u64>) implementado | 🟢 | ✅ |
+---
 
-## PHASE 5 — Post-Launch / Pre-Seed (November-December 2026)
+## TIER 3 — 🔵 Post-Lanzamiento (Semanas 6-12, Ago 15 - Sep 30)
+
+> Items post-Show HN, previo a Phase 5.
+
+### 📦 Distribución Avanzada
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `DEVOPS-06` | Homebrew formula para vanta-cli | 🟢 4-6h | 🟢 | ❌ |
+| `DEVOPS-09` | Auto-deploy web a Vercel/Cloudflare Pages en push a main | 🟡 1d | 🟡 | ✅ |
+| `DEVOPS-08` | Docs build verification en CI | 🟢 2-4h | 🟢 | ✅ |
+| `—` | Publicar en crates.io los 8 workspace members restantes (`vantadb-mem0`, `vantadb-crewai`, etc.) | 🟡 2-3d | 🟡 | ❌ |
+
+### 🧪 Testing Post-Launch
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `TEST-04` | Regression test suite: tests dedicados para cada bug corregido (12 tests) | 🟡 1-2d | 🟡 | ✅ |
+| `TEST-05` | Snapshot testing: HNSW recall, export/import, WAL format (7 tests) | 🟡 1-2d | 🟡 | ✅ |
+| `TEST-07` | Fix test-threads: Windows 2, Linux/macOS parallelism | 🟢 2h | 🟢 | ✅ |
+| `TEST-08` | Fix `chaos_integrity` required-features | 🟠 1h | 🟠 | ✅ |
+
+### 🎨 Mejoras SDK
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `—` | TypeScript SDK hardening: type safety (eliminar `any`), error wrapping, JSDoc completo, tests | 🟡 2-3d | 🔴 | ❌ |
+| `—` | Python SDK: convertir `put_batch` de API posicional a keyword arguments | 🟢 1d | 🟡 | ❌ |
+| `—` | Python SDK: eliminar LRU cache home-grown (64 entries, sin eviction real) | 🟢 1d | 🟢 | ❌ |
+| `DX-01` | Refactor API: `VantaDB()` → `connect()` | 🟠 1-2d | 🟠 | ✅ |
+| `DX-04` | TS SDK: mejorar de 18 tests a 50+ | 🟡 2-3d | 🟡 | ✅ |
+
+### 🛡️ Seguridad Post-Launch
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `SEC-04` | Auth hardening: constant-time comparison, rate limiting, `/metrics` auth | 🟠 2-3d | 🟠 | ✅ |
+| `SEC-05` | RBAC design: scoped API tokens | 🟡 1-2d | 🟡 | ✅ |
+| `SEC-06` | SBOM generation in each release | 🟡 1-2d | 🟡 | ✅ |
+| `SEC-07` | CodeQL + cargo-deny in CI | 🟡 1d | 🟡 | ✅ |
+
+---
+
+## PHASE 5 — ⬜ Enterprise / Pre-Seed (Q4 2026)
+
+> Items post-lanzamiento público. No bloquean v0.2.0.
 
 ### 5.A Enterprise Readiness
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `TSK-72` | AES-256-GCM at-rest encryption | 🟡 | ❌ |
-| `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 | ❌ |
-| `TSK-110` | SBOM (SPDX/CycloneDX) in each release — implemented via `SEC-06`, `.github/workflows/sbom.yml` | 🟡 | ✅ |
-| `BIZ-02` | Asynchronous WAL Shipping (replication without Raft) | 🟡 | ❌ |
-| `TSK-122` | Sharded-slab for HNSW lock-free (mitigates `insert_lock` bottleneck) | 🟡 | ❌ |
-| `TSK-131` | Implement PITR via archival WAL (archive + point-in-time replay) | 🟡 | ❌ |
-| `TSK-132` | Research checkpoint API in Fjall upstream or contribute it — `StorageEngine::create_checkpoint()` + `WalRecord::Checkpoint` implemented | 🟢 | ✅ |
-| `TSK-133` | Incremental backup (full snapshot + WAL deltas) | 🟢 | ❌ |
-| `TSK-48` | Dynamic quantization (f32→SQ8 for cold nodes) — same as `PERF-09`, implemented in `src/vector/governor.rs` | 🟢 | ✅ |
-| `LOW-01` | TLS 1.3 on vantadb-server | 🟢 | ✅ |
-| `TSK-142` | Investigate and prototype WASM persistence using OPFS and Web Workers | 🟡 | ❌ |
-| `TSK-143` | Fjall vs RocksDB Performance Parity Benchmark for RocksDB Depreciation | 🟡 | ❌ |
-| `TSK-144` | Quantitative benchmarking of Recall vs Latency of custom HNSW vs hnswlib | 🟠 | ❌ |
-| `ENT-01` | SOC 2 compliance preparation (access controls, audit trails, data retention policies) | 🟡 | ❌ |
-| `ENT-02` | HIPAA compliance assessment and BAA readiness documentation | 🟡 | ❌ |
-| `ENT-03` | Multi-tenant namespace isolation with resource quotas (RAM, IOPS, storage per tenant) | 🟡 | ❌ |
-| `ENT-04` | Connection pooling with circuit breaker for server-mode clients | 🟡 | ❌ |
-| `ENT-05` | Plugin system for custom storage backends (WASM-based plugin architecture) | 🟡 | ❌ |
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `TSK-72` | AES-256-GCM at-rest encryption | 🟡 3-5d | 🟡 | ❌ |
+| `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 | ❌ |
+| `TSK-110` | SBOM en cada release (vía SEC-06) | 🟡 1d | 🟡 | ✅ |
+| `BIZ-02` | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ |
+| `TSK-122` | Sharded-slab para HNSW lock-free | 🟡 2-3d | 🟡 | ❌ |
+| `TSK-131` | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ |
+| `TSK-133` | Incremental backup (snapshot + WAL deltas) | 🟢 2-3d | 🟢 | ❌ |
+| `TSK-142` | WASM persistence via OPFS + Web Workers | 🟡 2-3d | 🟡 | ❌ |
+| `ENT-01` | SOC 2 prep (access controls, audit trails, retention) | 🟡 3-5d | 🟡 | ❌ |
+| `ENT-02` | HIPAA assessment + BAA readiness | 🟡 2-3d | 🟡 | ❌ |
+| `ENT-03` | Multi-tenant isolation (RAM, IOPS, storage quotas) | 🟡 3-5d | 🟡 | ❌ |
+| `ENT-04` | Connection pooling + circuit breaker | 🟡 2-3d | 🟡 | ❌ |
+| `LOW-01` | TLS 1.3 on vantadb-server | 🟢 1-2d | 🟢 | ✅ |
 
-### 5.B VantaDB Cloud and Business
+### 5.B VantaDB Cloud & Business
 
-| ID | Task | Priority | Status |
-|----|-------|-----------|--------|
-| `CLD-01` | VantaDB Cloud Beta (Fly.io, NVMe, Bearer auth) | 🟡 | ❌ |
-| `CLD-02` | Pitch Deck + one-pager (10 pre-seed slides) | 🟡 | ❌ |
-| `CLD-03` | Enterprise pilot program (3-5 early adopters) | 🟡 | ❌ |
-| `CLD-04` | Case Studies (minimum 2: AI agent memory, local RAG) | 🟡 | ❌ |
-| `CLD-05` | Cloud architecture: WAL shipping to S3/R2, serverless read replicas, usage-based billing | 🟡 | ❌ |
-| `CLD-06` | Stripe integration for cloud self-service signup + billing | 🟡 | ❌ |
-| `CLD-07` | Web dashboard (admin panel for cloud: collections, usage, billing, team management) | 🟡 | ❌ |
-| `BIZ-01` | Enterprise crate structure: split paid features to `vantadb-enterprise/` (proprietary crate, Apache 2.0 core stays free) | 🟡 | ❌ |
-| `BIZ-03` | Pricing page (Free/Pro/Enterprise) | 🟡 | ✅ |
-
-**Phase 5 Exit Criteria:** 10 enterprise pilots ✓ | $10K MRR ✓ | 3 case studies ✓ | Pitch deck ✓
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `CLD-01` | VantaDB Cloud Beta (Fly.io, NVMe, Bearer auth) | 🟡 3-5d | 🟡 | ❌ |
+| `CLD-02` | Pitch Deck + one-pager (10 pre-seed slides) | 🟡 2-3d | 🟡 | ❌ |
+| `CLD-03` | Enterprise pilot program (3-5 early adopters) | 🟡 2-3d | 🟡 | ❌ |
+| `CLD-04` | Case Studies (mínimo 2: AI agent memory, local RAG) | 🟡 2-3d | 🟡 | ❌ |
+| `CLD-06` | Stripe billing integration | 🟡 2-3d | 🟡 | ❌ |
+| `CLD-07` | Web dashboard (admin panel) | 🟡 3-5d | 🟡 | ❌ |
+| `BIZ-01` | Enterprise crate (encryption, audit, RBAC, replication modules) | 🟡 3-5d | 🟡 | ⏳ |
+| `BIZ-03` | Pricing page (Free/Pro/Enterprise) — ver MKT-07 | 🟡 1-2d | 🟡 | ✅ |
+| `BIZ-04` | Cloud architecture design doc (WAL shipping to S3/R2) | 🟡 2-3d | 🟡 | ❌ |
+| `BIZ-05` | Competitive pricing analysis | 🟡 1-2d | 🟡 | ❌ |
+| `BIZ-06` | Pitch Deck (10 slides) | 🟡 2-3d | 🟡 | ❌ |
 
 ---
 
-## ⚠️ Risks of Not Doing (pre-launch)
+## 📊 Matriz de Impacto vs Esfuerzo (Priorización)
 
-| Risk | Impact | Mitigation | Tracked as |
-|--------|---------|------------|------------|
-| ~~Pending license audit~~ | ✅ Mitigated — `cargo deny check licenses` passes clean, all deps Apache 2.0 compatible | — |
-| Trademark "VantaDB" not registered | Someone else claims the name | Register trademark at USPTO + EUIPO before Show HN | `LEG-01` / `MKT-08` |
-| No CLA for external contributors | Can't relicense or use contributions commercially | Add CLA before accepting PRs | `LEG-02` |
-| CI/CD for external forks | Community PRs can break CI or inject malicious code | Workflow approval for first-time contributors + restricted secrets | — |
-| Mem0 picks another backend as default | Losing 57K-star distribution channel | Integrate VantaDB as Mem0 VectorStoreBackend before they standardize on another | `MEM-01` |
-| WASM vector DB space consolidates | Competitor (EdgeVec/minimemory) becomes de-facto WASM standard | Publish benchmarks, ship OPFS, lead the "most complete WASM vector DB" narrative | `MCP-03` / `WASM-02` |
-| ~~Docker adoption barrier~~ | ✅ Mitigated — Docker Compose "Local LLM Stack" shipped | — | `DX-03` |
-| No pricing signal | Community assumes project is unmonetizable or abandoned | Publish pricing page even before cloud is ready | `MKT-07` |
-| ~~Weaviate MCP threat~~ | ✅ Mitigated — VantaDB MCP stabilized with config, error handling, timeouts, graceful shutdown, metrics | — | `MCP-02` |
+```
+                    Alta Impacto
+                        │
+    🔴  DB-01           │   🔴  MKT-11 (llms.txt)
+    🔴  INT-01/02       │   🔴  MKT-13 (demo WASM)
+    🔴  REL-02 (npm)    │   🔴  MKT-14 (case studies)
+    🔴  MKT-15 (bench)  │   🔴  MKT-16 (GraphRAG meth)
+    🔴  TS SDK hardening│   🟡  DX-02 (62ms→20ms)
+    🔴  Python errors    │
+                        │
+Bajo ───────────────────┼────────────────── Alto
+Esfuerzo                │   Esfuerzo
+                        │
+    🟢  DEVOPS-06       │   🟡  DEVOPS-02 (ARM64)
+    🟢  TSK-108         │   🟡  DEVOPS-10 (signing)
+    🟢  COM-01          │   🟡  MCP-03 (WASM bench)
+    🟢  TSK-106         │   🟡  MKT-17 (comparison)
+    🟢  Good first      │
+                        │
+                    Bajo Impacto
+```
 
----
+### 🎯 Quick Wins (Alto Impacto, Bajo Esfuerzo) — HACER PRIMERO
 
-## ⏸️ Icebox — Postponed / No Assigned Priority
+| ID | Tarea | Tiempo | Dependencia |
+|----|-------|--------|-------------|
+| `MKT-11` | Corregir `llms.txt` (SQL, IVF, latency) | 🟢 1h | — |
+| `COM-01` | Abrir Discord | 🟢 2-4h | — |
+| `TSK-106` | Activar GitHub Discussions | 🟢 1h | — |
+| `MKT-13` | Botón "Try in browser" WASM en hero | 🟡 1-2d | WASM-03 ✅ |
+| `MKT-14` | Case studies en landing page | 🟡 1-2d | Docs exist |
+| `—` | Eliminar `OldSerializationError` deprecated | 🟢 1h | — |
+| `—` | Python LRU cache fix | 🟢 1d | — |
 
-Tasks that don't fit in the current roadmap but are kept as a record. No priority, no assigned phase.
+### 💎 High-Investment (Alto Impacto, Alto Esfuerzo) — PLANEAR BIEN
 
-### Roadmap v2 (Visualization and Tools)
-
-| ID | Task | Description |
-|----|-------|-------------|
-| `ROAD-02` | Backup/Restore to S3 | Export .vantadb snapshots to network storage |
-| `ROAD-03` | Web UI Explorer | Visualize HNSW topology + vector dispersion (UMAP/t-SNE) |
-| `ROAD-04` | Bulk Import CLI | Optimized import of millions of nodes from JSON/CSV with progress bar |
-| `ROAD-05` | Multi-model Hooks | Integration with local LLMs (Ollama) and remote (OpenAI) for automatic embeddings |
-| `ROAD-07` | Connection Pooling | Reusable connection queue with circuit breaker |
-| `ROAD-08` | Schema Validation | Optional strict type validations per namespace |
-| `ROAD-09` | Query Caching | LRU cache for hybrid-search with TTL |
-| `ROAD-12` | Full-text BM25 v2: improve phrase positions, stemming, and relevance scoring beyond current basic implementation | Native BM25 phrase positions — compete with Weaviate hybrid search quality |
-| `ROAD-13` | Query logging and analytics dashboard | Track slow queries, popular collections, cache hit rates |
-| `ROAD-14` | Built-in embedding models (lightweight, optional feature) | Ollama integration for automatic embedding generation — reduce setup friction |
-| `ROAD-15` | Cron-based collection TTL and compaction scheduler | Auto-maintenance for long-running server deployments |
-
-### Distributed and Multi-node Scaling (v2.0+)
-
-| ID | Task | Description |
-|----|-------|-------------|
-| `DIST-01` | Raft Consensus | Integration of `openraft` in vantadb-server |
-| `DIST-02` | Hash Sharding | Consistent key distribution by hash + cross-shard queries |
-| `DIST-03` | Zero-Downtime Upgrades | Rolling restarts without service loss |
-| `DIST-04` | ML Cost-Based Optimizer | Heuristic optimizer based on decision trees |
-| `DIST-05` | Auto-Indexing | Automatic index creation on frequently filtered fields |
-| `DIST-06` | Adaptive TEMPERATURE | Hyperparameter variation based on agent read frequency |
-| `DIST-07` | Query Recommendations | Spelling suggestions and corrections in text queries |
-| `DIST-08` | Anomaly Detection | Resource spike monitoring in clusters |
-| `DIST-09` | Multi-Tenant Isolation | Strict RAM, IOPS and indexing quotas per tenant |
-| `DIST-10` | Plugin Marketplace | Sandboxed execution of custom WASM modules |
-| `DIST-11` | Edge Federation | Eventual P2P sync between disconnected agents |
-| `DIST-12` | Time-Series Mode | Operators and aggregation functions over time windows |
-| `DIST-13` | GraphQL API | Query namespaces, graphs and relationships with GraphQL |
-| `DIST-14` | CDC (Change Data Capture) | WAL events via WebSocket to external clients |
-
-### VantaLISP / VantaScript (Cognitive Primitives)
-
-| ID | Task | Description |
-|----|-------|-------------|
-| `LISP-01` | Bytecode JIT | Translation of relational queries to bytecode for direct mmap execution |
-| `LISP-02` | Multimodal Unification | Semantic-lexical operators `~` and `FOLLOWS` in IQL |
-| `LISP-03` | Fuel 2.0 | Compute limits dynamically bound to CPU/RAM telemetry |
-| `LISP-04` | Metacognition | Relationship rehydration and reordering algorithms based on conversation flow |
-| `LISP-05` | Monotonic Logic | Coordinated distributed logic without global clock for agents |
-| `LISP-06` | Execution Sandbox | FFI restrictions to prevent engine from calling unsafe routines |
-| `LISP-07` | LISP-definable CRDTs | Data types for deterministic merge |
-| `LISP-08` | Multi-hop | Recursive semantic reasoning paths crossing graph edges |
-| `LISP-09` | Parser Fuzzing | Random token injection for compiler robustness |
-| `LISP-10` | VantaScript / Inference Logic | Renamed to more readable standards for JS/Python devs |
-
-### Low ROI / Non-Priority
-
-| ID | Task | Reason |
-|----|------|--------|
-| `LOW-02` | Background compaction in Fjall | Fjall handles its own compaction |
+| ID | Tarea | Tiempo | Riesgo |
+|----|-------|--------|--------|
+| `DB-01` | Migration runner completo | 2-3d | ⚠️ Crítico para release |
+| `INT-01/02` | LangChain + LlamaIndex → PyPI | 1-2d | ⚠️ Bloquea adopción |
+| `MX-02` | Reducir latency 62ms→20ms | 2-3d | ⚠️ Puede requerir re-arquitectura |
+| `—` | Python error mapping (VantaError → Python exceptions) | 2-3d | 🟢 Bajo riesgo |
 
 ---
 
-## ❌ Do Not Do (until post-seed with team)
+## ⚠️ Riesgos y Bloqueadores Actualizados
 
-| Feature | Reason |
-|---------|-------|
-| Full SQL | 3-6 months, ICP doesn't need it, pgvector already has it |
-| Distributed / Raft | 6-12 months, contradicts embedded philosophy |
-| IVF-PQ disk-based | LanceDB does this better, not VantaDB's market |
-| GPU acceleration | Breaks zero-config, doesn't solve real bottleneck |
-| RBAC / SSO in core | Cloud managed only, post-seed |
-| Embedding models bundled | Destroys zero-config (500MB+ wheel) |
-| GraphQL API | ICP prefers REST API, MCP already available |
-| Git-style versioning | Not ICP pain point, LanceDB already has it |
-| Time-series mode | Different product, out of scope |
-| 1.5/2-bit Quantization | Marginal returns for datasets <1M |
+| Riesgo | Probabilidad | Impacto | Mitigación |
+|--------|-------------|---------|------------|
+| Migration runner roto (vfile v1 vs v2) | 🟡 Media | 🔴 Data loss | ✅ RESUELTO en este PR |
+| Vector index version out of sync (v4 vs v5) | 🟢 Baja | 🟡 Rebuild innecesario | ✅ RESUELTO en este PR |
+| WAL postcard forward compat | 🟢 Baja | 🟡 Irrecuperable | ✅ RESUELTO (schema_version tracking) |
+| LangChain/LlamaIndex no publicados | 🔴 Alta | 🔴 Sin adopción | INT-01/02 en TIER 0 |
+| Latencia 62ms vs 20ms target | 🟡 Media | 🟡 Claims engañosos | DX-02 en TIER 1 |
+| Trademark no registrado | 🟡 Media | 🔴 Name squatting | LEG-01 en TIER 2 |
+| Sin ARM64 wheels | 🟡 Media | 🟡 Pierde edge/RPi | DEVOPS-02 en TIER 2 |
+| `llms.txt` con datos falsos | 🔴 Alta | 🟡 AI crawlers mienten | MKT-11 en TIER 1 |
 
 ---
 
-## 📊 Verdict: Actual Project Status
+## 📋 Resumen de Carga de Trabajo por Categoría
 
-| Aspect | Status | Confidence |
-|---------|--------|-----------|
-| **Core Engine (Rust)** | 🟢 Solid | 95% |
-| **Persistence (WAL, mmap)** | 🟢 Implemented | 90% |
-| **Indexes (HNSW, BM25)** | 🟢 Functional | 85% |
-| **Python SDK** | 🟢 Complete | 90% |
-| **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% |
-| **Testing** | 🟡 Rust good (342 lib), WASM 45, Frontend 23, MCP 24, TS 55 | 80% |
-| **CLI + Server** | 🟢 Complete (repl, json/quiet, typos) | 95% |
-| **API Methods** | 🟢 Complete (filter ops, delete_by_filter, similar_to_key, count, multi-ns) | 95% |
-| **Security** | 🟡 Auth básico, sin RBAC, timing attack, security test suite 30 | 70% |
-| **DevOps** | 🟡 Docker ready, signed releases pending, test-threads global | 55% |
-| **Frontend Architecture** | 🟡 Over-engineered routing, inline styles, GSAP unified, 23 tests | 70% |
-| **WASM** | 🟡 Funcional con OPFS, 45 tests | 55% |
-| **MCP Protocol** | 🟡 GA-ready (error handling, timeouts, metrics, graceful shutdown) | 65% |
-| **Backend Performance** | 🟡 WAL mutex contention, monolito files, batch KV loader done | 70% |
-| **Competitive Differentiation** | 🟡 Ocupa nicho único (embebido+WASM+MCP+hybrid+IQL) pero sin distribución | 50% |
+| Categoría | TIER 0 ❌ | TIER 1 ❌ | TIER 2 ❌ | TIER 3 ❌ | PHASE 5 ❌ | Total |
+|-----------|----------|----------|----------|----------|-----------|-------|
+| 🛡️ Seguridad | 0 | 1 | 0 | 0 | 3 | 4 |
+| ⚡ Performance Backend | 1 | 1 | 0 | 0 | 1 | 3 |
+| 📦 Integraciones | 12 | 0 | 0 | 0 | 0 | 12 |
+| 🧪 Testing | 0 | 0 | 0 | 0 | 0 | 0 |
+| 📚 Documentación | 0 | 2 | 0 | 0 | 0 | 2 |
+| 🌐 Web & Marketing | 0 | 5 | 3 | 0 | 0 | 8 |
+| 🧹 Code Health | 0 | 2 | 0 | 0 | 0 | 2 |
+| 🗄️ Database | 1 | 0 | 0 | 0 | 0 | 1 |
+| 👥 Comunidad | 0 | 0 | 5 | 0 | 0 | 5 |
+| 🎨 SDK Mejoras | 0 | 1 | 3 | 0 | 0 | 4 |
+| 🏢 Enterprise | 0 | 0 | 0 | 0 | 10 | 10 |
+| ☁️ Cloud | 0 | 0 | 0 | 0 | 7 | 7 |
+| 📦 Distribución | 0 | 3 | 1 | 0 | 0 | 4 |
+| **Total** | **14** | **15** | **12** | **0** | **21** | **62** |
 
-## Web Site
+---
 
-The website project is tracked directly in this backlog (section 4.J).
-Design spec: [[web/design/DiseñoNuevo.md]].
+## 📈 Timeline Consolidado
+
+```
+Jul 4-11   TIER 0: Seguridad + Migration runner + Publicar 10 adapters PyPI + npm
+Jul 11-18  TIER 1: llms.txt fix, demo WASM, case studies web, MCP docs, 62ms→20ms
+Jul 18-25  TIER 1: ARM64 wheels, Windows signing, Python error mapping
+Jul 25-    TIER 1: TS SDK hardening, OpenAPI spec
+Ago 1-15   TIER 2: Trademark, Show HN, Reddit, Discord, competitive benchmarks
+Ago 15-    TIER 2: GraphRAG methodology, comparison page, blog posts, community setup
+Sep 1-30   TIER 3: Homebrew, SDK polish, code health
+Oct+       PHASE 5: Enterprise (encryption, RBAC, WAL shipping, cloud)
+```
+
+---
+
+## ✅ Definition of Ready (DoR)
+
+- [ ] ID único asignado
+- [ ] Prioridad definida (🔴🟠🟡🟢)
+- [ ] Dependencias identificadas
+- [ ] Archivos/directorios involucrados conocidos
+- [ ] Esfuerzo estimado
+
+## ✅ Definition of Done (DoD)
+
+- [ ] Código compila (`cargo check` / `tsc --noEmit`)
+- [ ] Tests pasan (`cargo test` / `vitest run`)
+- [ ] Linters pasan (`cargo clippy` / `eslint`)
+- [ ] Docs afectados actualizados
+- [ ] Tarea movida de Backlog.md a progreso/README.md
+- [ ] Changelog actualizado si es cambio visible al usuario
+- [ ] `scripts/validate-docs-coverage.ps1` pasa
 
 ---
 
 ## See Also
 
-- [[master-index]] — Central navigation for all documentation
-- [[archive/]] — Archive of historical docs, executed plans, and previous research
-- [[FAQ.md]] — Frequently Asked Questions
-- [[CHANGELOG.md]] — Release history and implemented features
+- [[master-index]] — Central navigation
+- [[docs/strategy/ACTION_PLAN.md]] — Detailed execution plan
+- [[docs/strategy/ROADMAP.md]] — Phase definitions
+- [[CHANGELOG.md]] — Release history

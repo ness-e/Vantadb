@@ -13,6 +13,7 @@ use rand::{Rng, SeedableRng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
 use vantadb::node::DistanceMetric;
+use vantadb::node::FilterBitset;
 
 fn generate_random_vectors(count: usize, dims: usize) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(42);
@@ -79,7 +80,12 @@ fn recall_certification_runner() {
 
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
         for (id, vec) in &dataset {
-            index.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
+            index.add(
+                *id,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec.clone()),
+                0,
+            );
             pb.inc(1);
         }
         pb.finish_and_clear();
@@ -90,7 +96,8 @@ fn recall_certification_runner() {
         for query in &query_vectors {
             let true_neighbors = brute_force_search(query, &dataset, top_k);
             let t_start = Instant::now();
-            let hnsw_results = index.search_nearest(query, None, None, u128::MAX, top_k, None);
+            let hnsw_results =
+                index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
             latencies_us.push(t_start.elapsed().as_micros() as u64);
             let hnsw_neighbor_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
