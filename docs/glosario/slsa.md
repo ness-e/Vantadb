@@ -1,4 +1,5 @@
 ---
+title: "SLSA (Supply-chain Levels for Software Artifacts)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]

@@ -1,9 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/changelog")({
   component: ChangelogPage,
+  pendingComponent: PendingComponent,
 });
 
 const releases = [
@@ -204,7 +206,7 @@ function ChangelogPage() {
   return (
     <div className="engine-page">
       <SwissSubpageHero
-        num="04"
+        num="12"
         eyebrow="Changelog"
         title={
           <span>
@@ -460,10 +462,4 @@ function ChangelogPage() {
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

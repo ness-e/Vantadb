@@ -1,4 +1,5 @@
 ---
+title: "crc32c"
 type: glossary-entry
 status: stable
 tags: [integridad, checksum, hash, crc]

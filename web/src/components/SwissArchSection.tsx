@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
 const LAYERS = [
@@ -29,24 +29,45 @@ const LAYERS = [
 export function SwissArchSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const layersRef = useRef<HTMLDivElement>(null);
+  const [hoveredLayer, setHoveredLayer] = useState<string | null>(null);
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const layers = gsap.utils.toArray(".swiss-arch-layer");
+        const layers = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer");
+        const labels = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer-name");
 
         gsap.fromTo(
           layers,
-          { y: (i) => i * -40, opacity: 0.8 },
+          { y: (i) => -(i + 1) * 60, opacity: 0.6 },
           {
             y: 0,
             opacity: 1,
             ease: "none",
+            stagger: 0.15,
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top 60%",
               end: "bottom 80%",
+              scrub: 1,
+            },
+          },
+        );
+
+        gsap.fromTo(
+          labels,
+          { clipPath: "inset(0 100% 0 0)", opacity: 0 },
+          {
+            clipPath: "inset(0)",
+            opacity: 1,
+            duration: 0.35,
+            stagger: 0.15,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top 55%",
+              end: "bottom 75%",
               scrub: 1,
             },
           },
@@ -57,13 +78,9 @@ export function SwissArchSection() {
   );
 
   return (
-    <section
-      ref={sectionRef}
-      className="swiss-section swiss-arch-layers"
-    >
+    <section ref={sectionRef} className="swiss-section swiss-arch-layers">
       <div className="swiss-inner">
         <div className="swiss-grid swiss-arch-layers-grid">
-          {/* Texto Descriptivo - Columna 1-4 */}
           <div className="swiss-arch-layers-text">
             <h2 className="swiss-arch-layers-title">
               No network.
@@ -80,23 +97,14 @@ export function SwissArchSection() {
             </p>
           </div>
 
-          {/* Diagrama Interactivo - Columna 6-12 */}
           <div className="swiss-arch-layers-diagram" ref={layersRef}>
-            <div className="swiss-arch-layers-stack">
+            <div className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}>
               {LAYERS.map((layer, index) => (
                 <div
                   key={layer.id}
-                  className={`swiss-arch-layer swiss-arch-layer--${layer.size} ${layer.id === "pyo3" ? "swiss-arch-layer--accent" : ""}`}
-                  onMouseEnter={(e) => {
-                    const parent = e.currentTarget.closest(".swiss-arch-layers-stack");
-                    parent?.classList.add("swiss-arch-stack--hovered");
-                    e.currentTarget.classList.add("swiss-arch-layer--active");
-                  }}
-                  onMouseLeave={(e) => {
-                    const parent = e.currentTarget.closest(".swiss-arch-layers-stack");
-                    parent?.classList.remove("swiss-arch-stack--hovered");
-                    e.currentTarget.classList.remove("swiss-arch-layer--active");
-                  }}
+                  className={`swiss-arch-layer swiss-arch-layer--${layer.size} ${layer.id === "pyo3" ? "swiss-arch-layer--accent" : ""} ${hoveredLayer === layer.id ? "swiss-arch-layer--active" : ""}`}
+                  onMouseEnter={() => setHoveredLayer(layer.id)}
+                  onMouseLeave={() => setHoveredLayer(null)}
                 >
                   <div className="swiss-arch-layer-badge">
                     <span
@@ -110,7 +118,6 @@ export function SwissArchSection() {
                     {layer.name}
                   </span>
 
-                  {/* Flechas connectores entre capas */}
                   {index < LAYERS.length - 1 && (
                     <svg
                       width="20"
@@ -127,7 +134,6 @@ export function SwissArchSection() {
                     </svg>
                   )}
 
-                  {/* Dimensiones aproximadas */}
                   <div className="swiss-arch-layer-dim">
                     <div className="swiss-arch-layer-dim-line"></div>
                     <span className="swiss-arch-layer-dim-text">

@@ -4,6 +4,7 @@ type: documentation
 status: active
 tags: [vantadb]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # VantaDB 5-Minute Quickstart

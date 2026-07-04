@@ -1,8 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/use-cases")({
   component: UseCasesPage,
+  pendingComponent: PendingComponent,
 });
 
 const CASES = [
@@ -78,10 +81,11 @@ const PIPELINE_STEPS = [
 ];
 
 function UseCasesPage() {
+  const [hoveredCase, setHoveredCase] = useState<string | null>(null);
   return (
     <div className="engine-page">
       <SwissSubpageHero
-        num="12"
+        num="04"
         eyebrow="Use Cases"
         title={
           <span>
@@ -110,19 +114,17 @@ function UseCasesPage() {
               <div
                 key={c.num}
                 style={{
-                  background: "var(--background)",
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.75rem",
                   transition: "background-color 150ms var(--ease-cut)",
+                  background: hoveredCase === c.num
+                    ? "var(--surface-raised)"
+                    : "var(--background)",
                 }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--surface-raised)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--background)")
-                }
+                onMouseEnter={() => setHoveredCase(c.num)}
+                onMouseLeave={() => setHoveredCase(null)}
               >
                 <div
                   style={{
@@ -296,10 +298,4 @@ function UseCasesPage() {
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

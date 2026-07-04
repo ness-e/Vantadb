@@ -1,3 +1,11 @@
+---
+title: "Fase 3: Subpáginas Técnicas"
+status: active
+tags: [vantadb, web, strategy]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Fase 3: Subpáginas Técnicas
 
 > Extraído de: `strategy/implementation_plan.md` | Skills: `frontend-design`, `d3-visualization`, `minimalist-ui`

@@ -1,3 +1,11 @@
+---
+title: "Swiss High-Contrast Minimal Redesign"
+status: review
+tags: [vantadb, plans, design]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Swiss High-Contrast Minimal Redesign
 
 > **Design Read**: B2B developer-tool landing for technical buyers, with Swiss High-Contrast Minimal language, leaning toward Swiss International Typographic Style + monochrome + single accent.

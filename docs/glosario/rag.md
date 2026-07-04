@@ -1,4 +1,5 @@
 ---
+title: "RAG — Retrieval-Augmented Generation"
 type: glossary-entry
 status: stable
 tags: [concept, producto, rag, ia, retrieval]

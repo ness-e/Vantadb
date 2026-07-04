@@ -1,3 +1,11 @@
+---
+title: "VantaDB Verbal Identity"
+status: active
+tags: [vantadb, web, brand]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # VantaDB Verbal Identity
 
 ---

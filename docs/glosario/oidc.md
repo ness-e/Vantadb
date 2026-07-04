@@ -1,4 +1,5 @@
 ---
+title: "OIDC (OpenID Connect)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]

@@ -1,4 +1,5 @@
 ---
+title: "Embedded (Embedded Database)"
 type: glossary-entry
 status: stable
 tags: [concept, architecture, embedded, database]

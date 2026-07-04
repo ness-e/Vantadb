@@ -1,4 +1,5 @@
 ---
+title: "Sigstore"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]

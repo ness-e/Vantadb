@@ -4,14 +4,32 @@
   overflow-x: auto;
 }
 
-.vs-table table {
+.vs-table__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-label, 0.72rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: var(--foreground);
+}
+
+.vs-table__subtitle {
+  font-size: var(--text-body, 0.92rem);
+  color: var(--steel);
+  margin-bottom: 16px;
+}
+
+.vs-table__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
   width: 100%;
-  border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: var(--text-code, 0.82rem);
 }
 
-.vs-table th {
+.vs-table__header {
   text-align: left;
   padding: 16px 12px;
   border-bottom: 1px solid var(--border);
@@ -21,31 +39,39 @@
   text-transform: uppercase;
 }
 
-.vs-table td {
+.vs-table__header--feature {
+  color: var(--foreground);
+}
+
+.vs-table__header--legacy {
+  color: var(--steel);
+}
+
+.vs-table__header--vanta {
+  color: var(--amber);
+}
+
+.vs-table__cell {
   padding: 14px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
-.vs-table td:first-child {
+.vs-table__cell--feature {
   font-weight: 600;
   color: var(--foreground);
   white-space: nowrap;
 }
 
-.vs-table .vs-cell--legacy {
+.vs-table__cell--legacy {
   color: var(--steel);
 }
 
-.vs-table .vs-cell--vanta {
+.vs-table__cell--vanta {
   color: var(--foreground);
   font-weight: 600;
 }
 
-.vs-table .vs-header--legacy {
-  color: var(--steel);
-}
-
-.vs-table .vs-header--vanta {
-  color: var(--amber);
+.vs-table__cell--highlight {
+  background: var(--accent);
 }

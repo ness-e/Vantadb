@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { VsTable } from "../VsTable";
+import { VsTable, type VsRow } from "../VsTable";
 
 describe("VsTable", () => {
-  const sampleRows = [
-    { label: "Latency", legacy: "100ms", vanta: "<5ms" },
-    { label: "Throughput", legacy: "1K ops/s", vanta: "100K ops/s" },
+  const sampleRows: VsRow[] = [
+    { feature: "Latency", legacy: "100ms", vantadb: "<5ms" },
+    { feature: "Throughput", legacy: "1K ops/s", vantadb: "100K ops/s" },
   ];
 
   it("renders without crashing", () => {
@@ -15,17 +15,18 @@ describe("VsTable", () => {
 
   it("renders table headers", () => {
     render(<VsTable rows={sampleRows} />);
-    expect(screen.getByText("Legacy Stack")).toBeInTheDocument();
+    expect(screen.getByText("Feature")).toBeInTheDocument();
+    expect(screen.getByText("Legacy")).toBeInTheDocument();
     expect(screen.getByText("VantaDB")).toBeInTheDocument();
   });
 
-  it("renders all row labels", () => {
+  it("renders all row features", () => {
     render(<VsTable rows={sampleRows} />);
     expect(screen.getByText("Latency")).toBeInTheDocument();
     expect(screen.getByText("Throughput")).toBeInTheDocument();
   });
 
-  it("renders legacy and vanta values", () => {
+  it("renders legacy and vantadb values", () => {
     render(<VsTable rows={sampleRows} />);
     expect(screen.getByText("100ms")).toBeInTheDocument();
     expect(screen.getByText("<5ms")).toBeInTheDocument();
@@ -38,6 +39,11 @@ describe("VsTable", () => {
     expect(screen.getByText("Performance Comparison")).toBeInTheDocument();
   });
 
+  it("renders optional subtitle", () => {
+    render(<VsTable rows={sampleRows} subtitle="Quick summary" />);
+    expect(screen.getByText("Quick summary")).toBeInTheDocument();
+  });
+
   it("does not render title when omitted", () => {
     render(<VsTable rows={sampleRows} />);
     expect(screen.queryByText("Performance Comparison")).not.toBeInTheDocument();
@@ -45,12 +51,21 @@ describe("VsTable", () => {
 
   it("applies custom className", () => {
     const { container } = render(<VsTable rows={sampleRows} className="custom-class" />);
-    const div = container.firstChild as HTMLElement;
-    expect(div.className).toBe("custom-class");
+    const section = container.firstChild as HTMLElement;
+    expect(section.className).toContain("custom-class");
   });
 
   it("renders empty rows array without crashing", () => {
     const { container } = render(<VsTable rows={[]} />);
     expect(container).toBeInTheDocument();
+  });
+
+  it("handles React nodes in legacy and vantadb", () => {
+    const rows: VsRow[] = [
+      { feature: "Setup", legacy: <span>Complex</span>, vantadb: <strong>Simple</strong> },
+    ];
+    render(<VsTable rows={rows} />);
+    expect(screen.getByText("Complex")).toBeInTheDocument();
+    expect(screen.getByText("Simple")).toBeInTheDocument();
   });
 });

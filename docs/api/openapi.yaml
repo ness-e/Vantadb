@@ -1,0 +1,436 @@
+openapi: "3.1.0"
+info:
+  title: VantaDB HTTP API
+  version: "1.0.0"
+  description: |
+    REST interface for the VantaDB HTTP server.
+
+    VantaDB is a high-performance vector-native knowledge graph database
+    with IQL (Interactive Query Language) for semantic memory operations,
+    hybrid search, and graph traversal.
+
+    The HTTP server is optional and enabled via `vanta-cli server --http`
+    or the `server` Cargo feature.
+
+  contact:
+    name: VantaDB Project
+  license:
+    name: MIT OR Apache-2.0
+
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development server (default)
+  - url: https://{host}:{port}
+    description: Production server with TLS
+    variables:
+      host:
+        default: localhost
+      port:
+        default: "443"
+
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      description: Returns OK when the server is running. Unauthenticated.
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: |
+        Exposes operational metrics in Prometheus/OpenMetrics text format
+        (Content-Type: text/plain; version=0.0.4) for scraping by Prometheus
+        or any OpenMetrics-compatible collector.
+      operationId: getMetrics
+      tags:
+        - System
+      responses:
+        "200":
+          description: Metrics text
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP vantadb_http_requests_total Total HTTP requests
+                  # TYPE vantadb_http_requests_total counter
+                  vantadb_http_requests_total{method="GET",route="/health",status="200"} 42
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v2/query:
+    post:
+      summary: Execute IQL query
+      description: |
+        Execute an IQL (Interactive Query Language) statement against the database.
+
+        Supported operations are passed as a single IQL query string:
+
+        ## Read Operations
+
+        **Query (search):** Scan an entity with optional filters, vector similarity search, graph traversal, sorting, and projection.
+        ```
+        from <entity> [where <field> <op> <value>] [rank by <field> [asc|desc]] [fetch <field>,...]
+        ```
+
+        **Vector/hybrid search:** Include a vector similarity condition in the WHERE clause.
+        ```
+        from <entity> where vec(<field>) <~> <text_query> [min_score <n>]
+        ```
+
+        **Graph traversal:** Follow edges from matched nodes.
+        ```
+        from <entity> traverse <min>-<max> via <edge_label>
+        ```
+
+        ## Write Operations
+
+        **Insert:** Create a new node.
+        ```
+        insert <id> as <type> [fields <key>=<value>,...] [with vector [<f32>,...]]
+        ```
+
+        **Update:** Modify an existing node's fields or vector.
+        ```
+        update <id> [set <key>=<value>,...] [with vector [<f32>,...]]
+        ```
+
+        **Delete:** Remove a node.
+        ```
+        delete <id>
+        ```
+
+        **Relate:** Create a weighted or unweighted edge between two nodes.
+        ```
+        relate <source_id> -> <target_id> as <label> [weight <f32>]
+        ```
+
+        **Insert Message (conversational sugar):** Create a threaded message node with automatic embedding.
+        ```
+        message <role> "<content>" in thread <thread_id>
+        ```
+      operationId: executeQuery
+      tags:
+        - Query
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer token authentication. If `api_key` is configured in VantaConfig,
+        all requests to `/api/*` endpoints must include this header.
+        Use the environment variable `VANTADB_API_KEY` to set the key.
+
+  schemas:
+    # ── Requests ──
+
+    QueryRequest:
+      description: Payload for executing an IQL query.
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: IQL query string
+          example: (memory:get "agent/main" "memory-1")
+
+    # ── Responses ──
+
+    HealthResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          description: Always true when the server is healthy
+          example: true
+        data:
+          type: string
+          description: Status message
+          example: "OK"
+
+    QueryResponse:
+      description: Response from an IQL query execution.
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          description: Whether the query succeeded
+        data:
+          type: string
+          description: Human-readable result summary
+        node_id:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            ID of the affected node (write operations) or stale summary ID.
+            Null for read operations returning multiple nodes.
+        nodes:
+          type: array
+          nullable: true
+          description: |
+            Returned nodes (present only for read operations that matched nodes).
+            Null for write operations.
+          items:
+            $ref: "#/components/schemas/NodeDTO"
+      examples:
+        - summary: Read response
+          value:
+            success: true
+            data: "Read 1 nodes."
+            node_id: null
+            nodes:
+              - id: 1
+                semantic_cluster: 0
+                relational:
+                  key: memory-1
+                  namespace: agent/main
+                hits: 3
+                confidence_score: 0.95
+        - summary: Write response
+          value:
+            success: true
+            data: "Mutated 1 nodes: inserted"
+            node_id: 42
+            nodes: null
+        - summary: Error response
+          value:
+            success: false
+            data: "Execution Error: node not found: 999"
+            node_id: null
+            nodes: null
+
+    # ── DTOs ──
+
+    NodeDTO:
+      description: A single node returned from a read query.
+      type: object
+      required:
+        - id
+        - semantic_cluster
+        - relational
+        - hits
+        - confidence_score
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          description: Unique node identifier
+        semantic_cluster:
+          type: integer
+          minimum: 0
+          description: Semantic cluster ID assigned during embedding
+        relational:
+          type: object
+          description: Key-value map of relational (structured) fields
+          additionalProperties:
+            $ref: "#/components/schemas/FieldValue"
+        hits:
+          type: integer
+          minimum: 0
+          description: Access frequency / hit count
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: |
+            Semantic confidence score. Values below 0.4 on SemanticSummary
+            nodes trigger supervised filtering.
+
+    FieldValue:
+      oneOf:
+        - type: string
+          description: String field value
+        - type: integer
+          description: Integer field value
+        - type: number
+          format: float
+          description: Float field value
+        - type: boolean
+          description: Boolean field value
+        - type: array
+          description: Array field value
+          items: {}
+        - type: "null"
+          description: Null field value
+
+    # ── Error schemas ──
+
+    ErrorResponse:
+      description: Standard error response body.
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+          description: Always false for errors
+        error:
+          type: string
+          description: Human-readable error message
+        hint:
+          type: string
+          description: Optional guidance for resolving the error
+          example: "Provide a valid Bearer token in the Authorization header."
+
+    ValidationError:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            field:
+              type: string
+              description: The field that failed validation
+            reason:
+              type: string
+              description: Why the field is invalid
+
+    # ── Rate limiting ──
+
+    RateLimitResponse:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            retry_after:
+              type: integer
+              description: Seconds to wait before retrying (also set in Retry-After header)
+
+  # ── Reusable responses ──
+
+  responses:
+    BadRequest:
+      description: Invalid request (parse error, malformed query, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "IQL parse error at line 1, col 15: unexpected token"
+
+    Unauthorized:
+      description: Missing or invalid authentication token
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+          description: Bearer realm
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "Unauthorized"
+            hint: "Provide a valid Bearer token in the Authorization header."
+
+    Forbidden:
+      description: Token authenticated but insufficient RBAC permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "Forbidden: insufficient permissions for this operation"
+
+    NotFound:
+      description: Referenced resource (node, namespace, etc.) not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "node not found: 999"
+
+    TooManyRequests:
+      description: Rate limit exceeded (configurable via rate_limit_rpm, default 100 req/min)
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RateLimitResponse"
+          example:
+            success: false
+            error: "Too many requests. Rate limit: 100 requests per minute."
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error: "Internal server error: execution task panicked: ..."
+
+  # ── Parameters ──
+
+  parameters:
+    AuthorizationHeader:
+      name: Authorization
+      in: header
+      required: true
+      description: Bearer token for authentication
+      schema:
+        type: string
+        pattern: "^Bearer .+$"
+        example: "Bearer <your-api-key>"

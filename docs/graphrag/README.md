@@ -4,6 +4,7 @@ type: guide
 status: active
 tags: [vantadb, graphrag]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # GraphRAG on VantaDB

@@ -1,7 +1,9 @@
 ---
+title: "Recall"
 type: glossary-entry
 status: stable
 tags: [glosario, métricas, recall, evaluación, ann]
+last_reviewed: 2026-07-03
 aliases: [recall@K, recall rate, true positive rate]
 ---
 

@@ -1,3 +1,11 @@
+---
+title: "Logo Usage — VantaDB Brand"
+status: active
+tags: [vantadb, web, brand]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Logo Usage — VantaDB Brand
 
 > Estándar: Swiss High-Contrast Minimal (Neon Precision)

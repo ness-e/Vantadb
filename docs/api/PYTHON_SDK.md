@@ -4,6 +4,7 @@ type: api
 status: active
 tags: [vantadb, api]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Python SDK Documentation

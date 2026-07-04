@@ -1,52 +1,55 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import VantaDBLogo from "./VantaDBLogo";
-import { useState, useEffect, useCallback } from "react";
-import { motion, useScroll, useMotionValueEvent } from "motion/react";
+import { useState, useEffect, useCallback, memo, useRef } from "react";
+import { gsap, useGSAP } from "../lib/gsap";
 
-export function Nav() {
+const navLinks = [
+  { path: "/engine", label: "Core Engine" },
+  { path: "/architecture", label: "Architecture" },
+  { path: "/solutions/ai-agents", label: "AI Agents" },
+  { path: "/solutions/local-rag", label: "Local RAG" },
+  { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
+  { path: "/use-cases", label: "Use Cases" },
+  { path: "/pricing", label: "Pricing" },
+];
+
+export const Nav = memo(function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
-  const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    setScrolled(latest > 20);
-  });
+  const drawerBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (drawerOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useGSAP(() => {
+    if (drawerOpen && drawerBodyRef.current) {
+      gsap.from(drawerBodyRef.current.children, {
+        opacity: 0,
+        x: -20,
+        duration: 0.2,
+        stagger: 0.05,
+        ease: "power2.out",
+      });
     }
+  }, { dependencies: [drawerOpen], scope: drawerBodyRef });
+
+  useEffect(() => {
+    document.body.classList.toggle("overflow-hidden", drawerOpen);
     return () => {
-      document.body.style.overflow = "";
+      document.body.classList.remove("overflow-hidden");
     };
   }, [drawerOpen]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const navLinkVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      x: 0,
-      transition: { delay: i * 0.05, duration: 0.2, ease: [0.25, 1, 0.5, 1] },
-    }),
-  };
-
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
-
-  const navLinks = [
-    { path: "/engine", label: "Core Engine" },
-    { path: "/architecture", label: "Architecture" },
-    { path: "/solutions/ai-agents", label: "AI Agents" },
-    { path: "/solutions/local-rag", label: "Local RAG" },
-    { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
-    { path: "/use-cases", label: "Use Cases" },
-    { path: "/pricing", label: "Pricing" },
-  ];
 
   return (
     <>
@@ -131,16 +134,9 @@ export function Nav() {
           </button>
         </div>
 
-        <div className="nav-drawer-body">
-          {navLinks.concat({ path: "/docs", label: "Docs" }).map((item, i) => (
-            <motion.div
-              key={item.path}
-              custom={i}
-              variants={navLinkVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-            >
+        <div className="nav-drawer-body" ref={drawerBodyRef}>
+          {navLinks.concat({ path: "/docs", label: "Docs" }).map((item) => (
+            <div key={item.path}>
               <Link
                 to={item.path}
                 className={`nav-drawer-link${isActive(item.path) ? " active" : ""}`}
@@ -148,7 +144,7 @@ export function Nav() {
               >
                 {item.label}
               </Link>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -168,4 +164,4 @@ export function Nav() {
       </div>
     </>
   );
-}
+});

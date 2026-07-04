@@ -14,13 +14,13 @@
 
 :root {
   --black: #000000;
-  --deep-space: oklch(97% 0 0);
-  --void: oklch(95% 0 0);
+  --deep-space: oklch(96% 0.003 85);
+  --void: oklch(94% 0.004 85);
   --surface: #ffffff;
   --surface-hover: oklch(93% 0 0);
   --surface-alt: oklch(90% 0 0);
-  --surface-raised: oklch(92% 0 0);
-  --surface-glass: rgba(245, 245, 245, 0.85);
+  --surface-raised: oklch(92% 0.003 85);
+  --surface-glass: rgba(249, 248, 246, 0.85);
   --surface-overlay: #ffffff;
 
   --amber: #ff5500;
@@ -32,7 +32,7 @@
   --warn: #dd9900;
   --danger: #cc1100;
 
-  --steel: oklch(30% 0 0);
+  --steel: oklch(35% 0.01 240);
   --steel-light: oklch(50% 0 0);
   --steel-dim: rgba(0, 0, 0, 0.04);
 
@@ -41,31 +41,32 @@
   --white: #000000;
   --text-on-dark: #ffffff; /* White text for dark backgrounds */
   --frost: oklch(25% 0 0);
-  --muted: oklch(45% 0 0); /* Más oscuro para mejor contraste */
-  --subtle: oklch(88% 0 0); /* Un gris claro más notorio para divisores sutiles */
-  --border: oklch(88% 0 0);
+  --muted: oklch(40% 0.01 80);
+  --subtle: oklch(88% 0.004 85);
+  --border: oklch(15% 0.008 265);
   --border-hover: var(--foreground);
   --border-strong: #000000;
 
-  --background: oklch(97% 0 0);
+  --background: #f9f8f6;
   --foreground: #000000;
 
   --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
   --radius-pill: 0px;
 
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-glow: none;
 
-  --text-hero: clamp(3.2rem, 6vw, 5.5rem);
+  --text-hero: clamp(3.8rem, 8vw, 7.5rem);
   --text-subhero: clamp(0.9rem, 1.2vw, 1.05rem);
-  --text-display: clamp(1.8rem, 4vw, 3.2rem);
-  --text-body: 1rem;
-  --text-label: 0.7rem;
-  --text-code: 0.82rem;
+  --text-display: clamp(2.2rem, 5vw, 4rem);
+  --text-title: clamp(1.3rem, 2.2vw, 1.7rem);
+  --text-body: 1.05rem;
+  --text-label: 0.72rem;
+  --text-code: 0.88rem;
   --tracking-tight: -0.04em;
   --tracking-wide: 0.12em;
   --tracking-display: -0.03em;
@@ -73,9 +74,11 @@
   --weight-semibold: 600;
   --weight-medium: 500;
 
+  --ease-swiss: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-spring: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-cut: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* ── Inverted dark-block tokens ── */
   --block-dark-bg: #0a0a0a;

@@ -1,4 +1,5 @@
 ---
+title: "wal"
 type: glossary-entry
 status: stable
 tags: [persistence, wal, durabilidad, recovery]

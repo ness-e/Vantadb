@@ -1,4 +1,5 @@
 ---
+title: "Zero-Copy"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, memoria]

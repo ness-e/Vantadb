@@ -3,6 +3,7 @@ title: Qdrant
 type: glossary-entry
 status: active
 tags: [competitor, market, comparison]
+last_reviewed: 2026-07-03
 aliases: [Qdrant, qdrant]
 description: "A popular open-source vector search engine written in Rust."
 links: "[[README.md]]"

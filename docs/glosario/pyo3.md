@@ -1,4 +1,5 @@
 ---
+title: "PyO3"
 type: glossary-entry
 status: stable
 tags: [ffi, python, rust, bindings]

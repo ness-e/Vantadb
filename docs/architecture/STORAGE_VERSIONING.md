@@ -1,3 +1,11 @@
+---
+title: "Physical Storage Format Versioning Strategy"
+status: draft
+tags: [vantadb, architecture, storage]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Physical Storage Format Versioning Strategy
 
 **Status:** Draft  

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { gsap, useGSAP, TextPlugin, ScrollTrigger } from "../lib/gsap";
 
@@ -40,6 +40,7 @@ export function SwissQuickstart() {
   const sectionRef = useRef<HTMLElement>(null);
   const codeRef = useRef<HTMLElement>(null);
   const outputRef = useRef<HTMLDivElement>(null);
+  const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useGSAP(
     () => {
@@ -56,41 +57,69 @@ export function SwissQuickstart() {
     { scope: sectionRef },
   );
 
-  useEffect(() => {
-    if (!hasEntered) return;
+  const typeStep = useCallback(
+    (stepIndex: number, onComplete: () => void) => {
+      const step = STEPS[stepIndex];
+      if (!step) { onComplete(); return; }
 
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
+      setActiveStep(stepIndex);
+
       if (codeRef.current && outputRef.current) {
         gsap.set(outputRef.current, { opacity: 0 });
-
-        const duration = Math.max(0.4, STEPS[activeStep]!.cmd.length * 0.015);
-
         gsap.killTweensOf(codeRef.current);
 
+        const duration = Math.max(0.25, step.cmd.length * 0.03);
+
         gsap.to(codeRef.current, {
-          duration: duration,
-          text: STEPS[activeStep]!.cmd,
+          duration,
+          text: step.cmd,
           ease: "none",
           onComplete: () => {
             gsap.set(outputRef.current, { opacity: 1 });
+            onComplete();
           },
         });
+      } else {
+        onComplete();
       }
-    });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!hasEntered) return;
+
+    let cancelled = false;
+
+    const runLoop = () => {
+      if (cancelled) return;
+
+      let i = 0;
+      const playNext = () => {
+        if (cancelled) return;
+        if (i >= STEPS.length) {
+          loopRef.current = setTimeout(runLoop, 3000);
+          return;
+        }
+        typeStep(i, () => {
+          i++;
+          setTimeout(playNext, 400);
+        });
+      };
+      playNext();
+    };
+
+    runLoop();
 
     return () => {
-      mm.revert();
+      cancelled = true;
+      if (loopRef.current) clearTimeout(loopRef.current);
     };
-  }, [activeStep, hasEntered]);
+  }, [hasEntered, typeStep]);
 
   return (
-    <section
-      ref={sectionRef}
-      className="swiss-section qs-section"
-    >
+    <section ref={sectionRef} className="swiss-section qs-section">
       <div className="swiss-grid qs-grid">
-        {/* Left: Steps nav (4 columnas en desktop, 12 en mobile/tablet) */}
         <div className="quickstart-left">
           <h2 className="qs-heading">
             Zero to running.
@@ -128,10 +157,8 @@ export function SwissQuickstart() {
           </div>
         </div>
 
-        {/* Right: Code terminal (8 columnas en desktop, 12 en mobile/tablet) */}
         <div className="quickstart-right">
           <div className="qs-terminal">
-            {/* Terminal Header */}
             <div className="qs-terminal-header">
               <div className="qs-terminal-dots">
                 <div className="qs-terminal-dot" />
@@ -143,22 +170,13 @@ export function SwissQuickstart() {
               </span>
             </div>
 
-            {/* Terminal Body */}
             <div className="qs-terminal-body">
               <pre className="qs-code-pre">
-                <code
-                  ref={codeRef}
-                  className="qs-code"
-                ></code>
-                <span className="qs-cursor">
-                  _
-                </span>
+                <code ref={codeRef} className="qs-code"></code>
+                <span className="qs-cursor">_</span>
               </pre>
 
-              <div
-                ref={outputRef}
-                className="qs-output"
-              >
+              <div ref={outputRef} className="qs-output">
                 <span className="qs-output-text">
                   {STEPS[activeStep]!.output}
                 </span>

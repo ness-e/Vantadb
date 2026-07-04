@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { DocsSidebar } from "@/components/DocsSidebar";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/docs")({
   component: DocsPage,
@@ -148,6 +149,32 @@ max_collections = 256`,
 $ vanta-cli rebuild-index --db-path ./my_db.vdb`,
     desc: "Overview of features available in VantaDB v0.1.5. The Python SDK, Rust SDK, and CLI (vanta-cli) are all ready for local, self-hosted use.",
   },
+  {
+    id: "api-reference",
+    num: "07",
+    title: "API Reference",
+    code: `import vantadb_py as vantadb
+
+# Initialize the engine
+db = vantadb.VantaDB("./vanta_data")
+
+# Store a memory record
+db.put(
+    namespace="agent/main",
+    key="doc_1",
+    payload="User asked to summarize the meeting notes.",
+    vector=[0.1, 0.2, 0.3, 0.4],
+    metadata={"source": "chat", "timestamp": 1719000000},
+)
+
+# Search memory
+results = db.search_memory(
+    namespace="agent/main",
+    query_vector=[0.1, 0.2, 0.3, 0.4],
+    top_k=5,
+)`,
+    desc: "The complete API reference for VantaDB — Python SDK (PyO3), Rust SDK, CLI commands, and HTTP server endpoints with code examples. Full documentation is hosted on GitHub.",
+  },
 ];
 
 const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
@@ -156,7 +183,7 @@ function DocsPage() {
   return (
     <div className="engine-page">
       <SwissSubpageHero
-        num="00"
+        num="06"
         eyebrow="Documentation"
         title={
           <span>
@@ -193,14 +220,15 @@ function DocsPage() {
           ))}
         </div>
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .docs-layout { flex-direction: column !important; }
+          .docs-sidebar { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

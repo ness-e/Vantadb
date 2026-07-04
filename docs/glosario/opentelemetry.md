@@ -3,6 +3,7 @@ title: OpenTelemetry
 type: glossary-entry
 status: active
 tags: [observability, metrics, tracing]
+last_reviewed: 2026-07-03
 aliases: [OpenTelemetry, OTel, opentelemetry]
 description: "A collection of APIs, SDKs, and tools used to instrument, generate, collect, and export telemetry data."
 links: "[[README.md]]"

@@ -1,4 +1,5 @@
 ---
+title: "fsync — File Synchronization"
 type: glossary-entry
 status: stable
 tags: [persistence, durabilidad, io, syscall]

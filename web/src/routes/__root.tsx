@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -6,11 +7,12 @@ import {
   useRouter,
   useMatches,
 } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
+import { gsap, useGSAP } from "../lib/gsap";
 
 import { Nav } from "../components/Nav";
 import { SwissFooter } from "../components/SwissFooter";
 import { SwissBackToTop } from "../components/SwissBackToTop";
+import { PendingComponent } from "../components/PendingComponent";
 
 function NotFoundComponent() {
   return (
@@ -143,6 +145,10 @@ function RootComponent() {
   const matches = useMatches();
   const routeId = matches[matches.length - 1]?.routeId;
 
+  useGSAP(() => {
+    gsap.from(".route-content", { opacity: 0, y: 6, duration: 0.2, ease: "power2.out" });
+  }, { dependencies: [routeId] });
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="page-container">
@@ -153,17 +159,11 @@ function RootComponent() {
         </a>
 
         {/* Dynamic content with route transitions */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={routeId}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-          >
+        <Suspense fallback={<PendingComponent />}>
+          <div className="route-content">
             <Outlet />
-          </motion.div>
-        </AnimatePresence>
+          </div>
+        </Suspense>
 
         {/* ── Footer (Swiss OLED) ── */}
         <SwissFooter />

@@ -1,4 +1,5 @@
 ---
+title: "local-first"
 type: glossary-entry
 status: stable
 tags: [concept, filosofia, local-first, privacidad]

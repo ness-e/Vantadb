@@ -1,4 +1,5 @@
 ---
+title: "busqueda-vectorial"
 type: glossary-entry
 status: stable
 tags: [indice, ann, busqueda-vector, hnsw]

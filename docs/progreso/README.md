@@ -1,3 +1,11 @@
+---
+title: "General Progress of VantaDB Project"
+status: active
+tags: [vantadb, progress, documentation]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # General Progress of VantaDB Project
 
 > **Last updated:** 2026-07-03
@@ -1025,4 +1033,25 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `src/storage/engine.rs`
   - `tests/storage/chaos_integrity.rs`
   - `tests/concurrency_parity.rs`
+
+### Batch 4 — Fase 3: Documentación + Frontend (DOC-06/13/14/15/17/18/19, WEB-06/07/17/18/19/20/21)
+- **Fecha:** 2026-07-03
+- **Objetivo:** Completar documentación técnica (ADRs, diagramas, guías, OpenAPI spec) y refactor frontend (Tailwind migration, GSAP unificación, code splitting, memo, VsTable, DOM mutation cleanup).
+- **Checklist:**
+  - [x] **DOC-13** — 6 ADRs creados (004-009): storage backend, HNSW params, RRF k, PyO3 architecture, WASM strategy, community governance
+  - [x] **DOC-14** — Performance Tuning Guide (479 líneas) en `docs/operations/PERFORMANCE_TUNING.md`
+  - [x] **DOC-15** — OpenAPI 3.1 spec (3 paths, auth, rate limiting, IQL) en `docs/api/openapi.yaml`
+  - [x] **DOC-17** — 5 Mermaid diagrams en ARCHITECTURE.md reemplazando ASCII art
+  - [x] **DOC-18** — HTTP_API.md expandido 149→504 líneas (auth, errores, rate limiting, TLS, ejemplos)
+  - [x] **DOC-19** — 5 términos de glosario creados: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search`
+  - [x] **DOC-06** — Unified frontmatter schema aplicado a 124 archivos .md
+  - [x] **WEB-06** — ~125 inline styles migrados a Tailwind en engine.lazy.tsx y architecture.lazy.tsx
+  - [x] **WEB-07** — Motion eliminado, route transitions + Nav animaciones migradas a GSAP; AnimeJS no estaba en uso
+  - [x] **WEB-17** — Evaluación de TanStack Router completada; recomendación: mantener por ahora (2-4d migración, no bloquea launch)
+  - [x] **WEB-18** — VsTable component creado (10 tests, CSS grid layout, VsRow interface)
+  - [x] **WEB-19** — React.lazy/code splitting vía TanStack Router `.lazy()` en about/index + Suspense boundary en __root.tsx
+  - [x] **WEB-20** — Nav envuelto con memo; SwissFooter/SwissSubpageHero/VantaDBLogo ya memoizados
+  - [x] **WEB-21** — 25 DOM mutation patterns corregidos en 11 archivos (state-based hover, classList toggle)
+- **Build Status:** `cargo check` pasa (solo missing_docs warnings), 40 frontend tests pasan, 39 WASM tests pasan, 15 load tests pasan
+- **Ids:** `DOC-13`, `DOC-14`, `DOC-15`, `DOC-17`, `DOC-18`, `DOC-19`, `DOC-06`, `WEB-06`, `WEB-07`, `WEB-17`, `WEB-18`, `WEB-19`, `WEB-20`, `WEB-21`
 

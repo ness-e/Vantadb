@@ -1,4 +1,5 @@
 ---
+title: "CI/CD — Continuous Integration / Continuous Deployment"
 type: glossary-entry
 status: stable
 tags: [devops, automation, ci, cd]

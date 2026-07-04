@@ -3,6 +3,7 @@ title: Bincode
 type: glossary-entry
 status: active
 tags: [serialization, storage, core]
+last_reviewed: 2026-07-03
 aliases: [Bincode, bincode]
 description: "Binary serialization format used internally by VantaDB for efficient state and WAL persistence."
 links: "[[README.md]]"

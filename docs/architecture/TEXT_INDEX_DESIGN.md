@@ -4,6 +4,7 @@ type: architecture
 status: active
 tags: [vantadb, architecture]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Persistent Text Index Design

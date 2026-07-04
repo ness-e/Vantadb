@@ -1,4 +1,5 @@
 ---
+title: "mmap — Memory-Mapped I/O"
 type: glossary-entry
 status: stable
 tags: [io, memoria, zero-copy, performance]

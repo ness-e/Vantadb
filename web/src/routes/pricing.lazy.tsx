@@ -1,5 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/pricing")({
   component: PricingPage,
@@ -189,6 +191,7 @@ const FAQ_ITEMS = [
 ];
 
 function PricingPage() {
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   return (
     <div className="engine-page">
       <SwissSubpageHero
@@ -408,16 +411,15 @@ function PricingPage() {
                     key={row.feature}
                     style={{
                       borderBottom: "1px solid var(--border)",
-                      background: i % 2 === 0 ? "var(--background)" : "var(--surface)",
+                      background: hoveredRow === i
+                        ? "var(--surface-hover)"
+                        : i % 2 === 0
+                          ? "var(--background)"
+                          : "var(--surface)",
                       transition: "background 100ms",
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "var(--surface-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        i % 2 === 0 ? "var(--background)" : "var(--surface)";
-                    }}
+                    onMouseEnter={() => setHoveredRow(i)}
+                    onMouseLeave={() => setHoveredRow(null)}
                   >
                     <td
                       style={{
@@ -515,10 +517,4 @@ function PricingPage() {
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

@@ -1,4 +1,5 @@
 ---
+title: "file-locking"
 type: glossary-entry
 status: stable
 tags: [concurrencia, lock, sincronizacion]

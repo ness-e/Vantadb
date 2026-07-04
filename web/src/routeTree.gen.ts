@@ -31,7 +31,6 @@ import { Route as SolutionsAiIdeToolingRouteImport } from './routes/solutions/ai
 import { Route as SolutionsAiAgentsRouteImport } from './routes/solutions/ai-agents'
 import { Route as ProductBenchmarksRouteImport } from './routes/product/benchmarks'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
-import { Route as AboutRoadmapRouteImport } from './routes/about/roadmap'
 import { Route as AboutContactRouteImport } from './routes/about/contact'
 import { Route as AboutCompanyRouteImport } from './routes/about/company'
 import { Route as AboutCommunityRouteImport } from './routes/about/community'
@@ -45,7 +44,7 @@ const StorageRoute = StorageRouteImport.update({
   id: '/storage',
   path: '/storage',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/storage.lazy').then((d) => d.Route))
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
@@ -60,12 +59,12 @@ const MaintRoute = MaintRouteImport.update({
   id: '/maint',
   path: '/maint',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/maint.lazy').then((d) => d.Route))
 const LatencyRoute = LatencyRouteImport.update({
   id: '/latency',
   path: '/latency',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/latency.lazy').then((d) => d.Route))
 const IntegrationsRoute = IntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
@@ -80,7 +79,7 @@ const DocsApiRoute = DocsApiRouteImport.update({
   id: '/docs-api',
   path: '/docs-api',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/docs-api.lazy').then((d) => d.Route))
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',
@@ -90,12 +89,12 @@ const CostRoute = CostRouteImport.update({
   id: '/cost',
   path: '/cost',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/cost.lazy').then((d) => d.Route))
 const ConfigRoute = ConfigRouteImport.update({
   id: '/config',
   path: '/config',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/config.lazy').then((d) => d.Route))
 const ChangelogRoute = ChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
@@ -120,7 +119,7 @@ const AboutIndexRoute = AboutIndexRouteImport.update({
   id: '/about/',
   path: '/about/',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/about/index.lazy').then((d) => d.Route))
 const SolutionsLocalRagRoute = SolutionsLocalRagRouteImport.update({
   id: '/solutions/local-rag',
   path: '/solutions/local-rag',
@@ -154,11 +153,6 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/blog/$slug.lazy').then((d) => d.Route))
-const AboutRoadmapRoute = AboutRoadmapRouteImport.update({
-  id: '/about/roadmap',
-  path: '/about/roadmap',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/about/roadmap.lazy').then((d) => d.Route))
 const AboutContactRoute = AboutContactRouteImport.update({
   id: '/about/contact',
   path: '/about/contact',
@@ -196,7 +190,6 @@ export interface FileRoutesByFullPath {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
-  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -224,7 +217,6 @@ export interface FileRoutesByTo {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
-  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -253,7 +245,6 @@ export interface FileRoutesById {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
-  '/about/roadmap': typeof AboutRoadmapRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -283,7 +274,6 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
-    | '/about/roadmap'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -311,7 +301,6 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
-    | '/about/roadmap'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -339,7 +328,6 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
-    | '/about/roadmap'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -368,7 +356,6 @@ export interface RootRouteChildren {
   AboutCommunityRoute: typeof AboutCommunityRoute
   AboutCompanyRoute: typeof AboutCompanyRoute
   AboutContactRoute: typeof AboutContactRoute
-  AboutRoadmapRoute: typeof AboutRoadmapRoute
   BlogSlugRoute: typeof BlogSlugRoute
   ProductBenchmarksRoute: typeof ProductBenchmarksRoute
   SolutionsAiAgentsRoute: typeof SolutionsAiAgentsRoute
@@ -534,13 +521,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about/roadmap': {
-      id: '/about/roadmap'
-      path: '/about/roadmap'
-      fullPath: '/about/roadmap'
-      preLoaderRoute: typeof AboutRoadmapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/about/contact': {
       id: '/about/contact'
       path: '/about/contact'
@@ -584,7 +564,6 @@ const rootRouteChildren: RootRouteChildren = {
   AboutCommunityRoute: AboutCommunityRoute,
   AboutCompanyRoute: AboutCompanyRoute,
   AboutContactRoute: AboutContactRoute,
-  AboutRoadmapRoute: AboutRoadmapRoute,
   BlogSlugRoute: BlogSlugRoute,
   ProductBenchmarksRoute: ProductBenchmarksRoute,
   SolutionsAiAgentsRoute: SolutionsAiAgentsRoute,

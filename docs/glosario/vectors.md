@@ -1,4 +1,5 @@
 ---
+title: "Vectores"
 type: glossary-entry
 status: stable
 tags: [concept, ml, embeddings, vectores, alta-dimensionalidad]

@@ -1,3 +1,11 @@
+---
+title: "Performance Tasks Implementation Plan"
+status: review
+tags: [vantadb, plans, performance]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Performance Tasks Implementation Plan
 
 **Goal:** Implement 6 performance tasks (PERF-02, PERF-04, PERF-05, PERF-07, PERF-08, PERF-10)

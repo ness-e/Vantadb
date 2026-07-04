@@ -1,7 +1,9 @@
 ---
+title: "busqueda-lexica"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, léxica, bm25, text]
+last_reviewed: 2026-07-03
 aliases: [lexical search, text search, keyword search, BM25]
 ---
 

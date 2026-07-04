@@ -3,6 +3,7 @@ title: LanceDB
 type: glossary-entry
 status: active
 tags: [competitor, market, comparison]
+last_reviewed: 2026-07-03
 aliases: [LanceDB, lancedb]
 description: "An open-source vector database for AI, acting as a direct competitor and inspiration for some VantaDB features."
 links: "[[README.md]]"

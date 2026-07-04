@@ -1,4 +1,5 @@
 ---
+title: "chaos_test_wal.sh"
 type: glossary-entry
 status: stable
 tags: [testing, resiliencia, fault-injection]

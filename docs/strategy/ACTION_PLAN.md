@@ -1,9 +1,12 @@
 ---
+title: "Plan de Acción — VantaDB v0.2.0 Launch"
 type: action-plan
 status: active
 tags: [vantadb, strategy, planning, execution]
 version: 1.0
 created: 2026-07-03
+last_reviewed: 2026-07-03
+aliases: []
 ---
 
 # Plan de Acción — VantaDB v0.2.0 Launch

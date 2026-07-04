@@ -32,6 +32,19 @@
   line-height: 1;
 }
 
+.monolith-cursor {
+  display: inline-block;
+  font-family: var(--font-mono);
+  color: var(--amber);
+  animation: monolith-blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes monolith-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .swiss-monolith-subtitle {
   margin: 0;
   font-family: var(--font-sans);

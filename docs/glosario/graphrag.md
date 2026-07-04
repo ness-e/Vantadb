@@ -1,4 +1,5 @@
 ---
+title: "GraphRAG"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, rag, grafo, ia]

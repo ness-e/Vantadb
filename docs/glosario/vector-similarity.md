@@ -1,4 +1,5 @@
 ---
+title: "vector-similarity"
 type: glossary-entry
 status: stable
 tags: [vectores, distancia, metricas, busqueda]

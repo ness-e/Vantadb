@@ -4,6 +4,7 @@ type: adr
 status: active
 tags: [vantadb, architecture, adr]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # ADR 001: Unified Configuration Architecture and Read-Only Barrier

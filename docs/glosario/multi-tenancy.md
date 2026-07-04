@@ -1,4 +1,5 @@
 ---
+title: "Multi-tenancy"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, enterprise, arquitectura]

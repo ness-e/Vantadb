@@ -3,6 +3,7 @@ title: CRDT
 type: glossary-entry
 status: active
 tags: [distributed, synchronization, future]
+last_reviewed: 2026-07-03
 aliases: [CRDT, crdt, CRDTs]
 description: "Conflict-free Replicated Data Types, used for state synchronization in multi-node and edge environments."
 links: "[[README.md]]"
