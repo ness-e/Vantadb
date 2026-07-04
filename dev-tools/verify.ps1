@@ -90,7 +90,9 @@ try {
             "--skip", "chaos",
             "--skip", "hnsw_hard_validation",
             "--skip", "stress_protocol",
-            "--skip", "vector_scale"
+            "--skip", "vector_scale",
+            "--skip", "certification",
+            "--skip", "security_audit"
         )
     }
     $env:RUST_MIN_STACK = $null

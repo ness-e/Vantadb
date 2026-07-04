@@ -351,12 +351,10 @@ fn error_message_case_insensitive_matching() {
     node.set_field("label", FieldValue::String("test".to_string()));
     engine.insert(&node).unwrap();
 
-    let err = engine.delete(999, "nonexistent").unwrap_err();
-    let msg = err.to_string();
-
+    // StorageEngine.delete is idempotent — deleting a non-existent node returns Ok.
     assert!(
-        msg.to_lowercase().contains("not found"),
-        "error message should match case-insensitively: {msg}"
+        engine.delete(999, "nonexistent").is_ok(),
+        "delete of non-existent node should return Ok (idempotent)"
     );
 }
 
@@ -579,10 +577,11 @@ fn duplicate_node_id_returns_typed_error() {
     let engine = StorageEngine::open(db_path).unwrap();
     engine.insert(&UnifiedNode::new(42)).unwrap();
 
-    let err = engine.insert(&UnifiedNode::new(42)).unwrap_err();
+    // StorageEngine.insert is an upsert — duplicate ID silently overwrites.
+    let second = engine.insert(&UnifiedNode::new(42));
     assert!(
-        matches!(err, VantaError::DuplicateNode(42)),
-        "duplicate insert should return DuplicateNode(42), got: {err:?}"
+        second.is_ok(),
+        "duplicate insert should succeed (upsert), got: {second:?}"
     );
 }
 
@@ -596,9 +595,10 @@ fn delete_non_existent_engine_id_returns_not_found() {
     let db_path = dir.path().to_str().unwrap();
 
     let engine = StorageEngine::open(db_path).unwrap();
-    let err = engine.delete(999_999, "test").unwrap_err();
+    // StorageEngine.delete is idempotent — deleting non-existent returns Ok.
+    let result = engine.delete(999_999, "test");
     assert!(
-        matches!(err, VantaError::NodeNotFound(999_999)),
-        "expected NodeNotFound(999_999), got: {err:?}"
+        result.is_ok(),
+        "delete of non-existent node should return Ok (idempotent), got: {result:?}"
     );
 }

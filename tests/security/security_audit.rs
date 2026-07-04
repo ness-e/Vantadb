@@ -14,8 +14,8 @@ use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::{
-    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest,
-    VantaValue,
+    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemorySearchRequest, VantaValue,
 };
 
 fn field_string(value: &str) -> VantaValue {
@@ -238,16 +238,16 @@ fn security_audit_input_validation() {
         let engine = InMemoryEngine::new();
 
         let special_vectors = [
-            ("NaN", vec![f32::NAN, 0.0, 0.0]),
-            ("Infinity", vec![f32::INFINITY, 0.0, 0.0]),
-            ("NegInfinity", vec![f32::NEG_INFINITY, 0.0, 0.0]),
-            ("Mixed", vec![f32::NAN, f32::INFINITY, f32::NEG_INFINITY]),
-            ("AllNaN", vec![f32::NAN, f32::NAN, f32::NAN]),
-            ("Zero", vec![0.0, 0.0, 0.0]),
+            (1, "NaN", vec![f32::NAN, 0.0, 0.0]),
+            (2, "Infinity", vec![f32::INFINITY, 0.0, 0.0]),
+            (3, "NegInfinity", vec![f32::NEG_INFINITY, 0.0, 0.0]),
+            (4, "Mixed", vec![f32::NAN, f32::INFINITY, f32::NEG_INFINITY]),
+            (5, "AllNaN", vec![f32::NAN, f32::NAN, f32::NAN]),
+            (6, "Zero", vec![0.0, 0.0, 0.0]),
         ];
 
-        for (_name, vec) in &special_vectors {
-            let node = UnifiedNode::with_vector(1, vec.clone());
+        for (id, _name, vec) in &special_vectors {
+            let node = UnifiedNode::with_vector(*id, vec.clone());
             let _id = engine.insert(node).expect("Insert should not panic");
         }
 
@@ -285,8 +285,8 @@ fn security_audit_input_validation() {
 
     harness.execute("Input: Negative IDs", || {
         // InMemoryEngine uses u64 IDs — negative values are impossible
-        // at the type level. This test verifies the engine handles
-        // edge-case u64 values without panicking.
+        // at the type level. However, InMemoryEngine auto-assigns IDs when
+        // node.id == 0, so we must use non-zero IDs for explicit insert.
         let engine = InMemoryEngine::new();
 
         // u64::MAX — maximum possible value, no negative semantics
@@ -298,14 +298,14 @@ fn security_audit_input_validation() {
         let retrieved = engine.get(u64::MAX).expect("Get MAX ID node");
         assert_eq!(retrieved.id, u64::MAX);
 
-        // Zero — edge of valid range
-        let node_zero = UnifiedNode::new(0);
-        let id_zero = engine.insert(node_zero).expect("Insert with ID 0");
-        assert_eq!(id_zero, 0);
+        // Edge of valid range — use non-zero explicit ID to avoid auto-assign
+        let node_one = UnifiedNode::new(1);
+        let id_one = engine.insert(node_one).expect("Insert with ID 1");
+        assert_eq!(id_one, 1);
 
         // Duplicate ID fails gracefully
-        let dup = engine.insert(UnifiedNode::new(0));
-        assert!(dup.is_err(), "Duplicate ID 0 should fail");
+        let dup = engine.insert(UnifiedNode::new(1));
+        assert!(dup.is_err(), "Duplicate ID 1 should fail");
     });
 
     harness.execute("Input: Null Bytes in Strings", || {
@@ -352,7 +352,7 @@ fn security_audit_resource_exhaustion() {
                 format!("batch-payload-{i}"),
             );
             if i % 100 == 0 {
-                input.vector = Some(vec![i as f32, 0.0, 0.0]);
+                input.vector = Some(vec![i as f32 + 1.0, 0.0, 0.0]);
             }
             inputs.push(input);
         }
@@ -408,9 +408,12 @@ fn security_audit_resource_exhaustion() {
         }
 
         // Verify all 2000 records were inserted
-        let all = db
-            .list("concurrent", Default::default())
-            .expect("List should succeed");
+        // Use explicit limit to avoid default page size of 100
+        let options = VantaMemoryListOptions {
+            limit: 3000,
+            ..Default::default()
+        };
+        let all = db.list("concurrent", options).expect("List should succeed");
         assert_eq!(
             all.records.len(),
             2000,
@@ -423,7 +426,8 @@ fn security_audit_resource_exhaustion() {
         || {
             let engine = InMemoryEngine::new();
 
-            for i in 0..5_000u64 {
+            // Start at i=1 to avoid InMemoryEngine auto-assign (node.id == 0 → next_id)
+            for i in 1..=5_000u64 {
                 let node =
                     UnifiedNode::with_vector(i, vec![i as f32, (i + 1) as f32, (i + 2) as f32]);
                 engine.insert(node).expect("Insert should not panic");

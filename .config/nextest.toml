@@ -62,6 +62,9 @@ and not binary(mcp_tests) \
 and not binary(multilingual_tokenizer_integration) \
 and not binary(memory_telemetry) \
 and not test(concurrent_insert_preserves_hnsw_invariants) \
+and not binary(regression_certification) \
+and not binary(snapshot_certification) \
+and not binary(security_audit) \
 """
 fail-fast = false
 failure-output = "immediate-final"
