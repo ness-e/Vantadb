@@ -3,15 +3,16 @@ import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
 export const SwissBackToTop = memo(function SwissBackToTop() {
   const btnRef = useRef<HTMLButtonElement>(null);
+  const stRef = useRef<ScrollTrigger | null>(null);
 
   useGSAP(() => {
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
-      if (!btnRef.current) return () => mm.revert();
+      if (!btnRef.current) return;
 
       gsap.set(btnRef.current, { autoAlpha: 0, y: 20 });
 
-      ScrollTrigger.create({
+      stRef.current = ScrollTrigger.create({
         start: 500,
         end: "max",
         onUpdate: (self) => {
@@ -45,6 +46,11 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
         },
       });
     });
+    return () => {
+      stRef.current?.kill();
+      stRef.current = null;
+      mm.revert();
+    };
   }, []);
 
   const scrollToTop = () => {

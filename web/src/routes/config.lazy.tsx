@@ -53,7 +53,7 @@ db = vantadb_py.VantaDB("./my_db.vdb")
 
 function ConfigPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="10"
         eyebrow="Configuration"
@@ -67,9 +67,9 @@ function ConfigPage() {
         sub="No YAML, no .env, no migration scripts. VantaDB is schema-free and self-configuring. Point it at a file path and start querying."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Section 1: Comparison */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Setup Comparison</span>
           <div
             className="swiss-grid-12"
@@ -102,9 +102,9 @@ function ConfigPage() {
                   gap: "0.9rem",
                 }}
               >
-                {LEGACY_CONFIG.map((item, i) => (
+                {LEGACY_CONFIG.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -162,9 +162,9 @@ function ConfigPage() {
                   gap: "0.9rem",
                 }}
               >
-                {VANTA_CONFIG.map((item, i) => (
+                {VANTA_CONFIG.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -194,7 +194,7 @@ function ConfigPage() {
         </section>
 
         {/* Section 2: Code comparison */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Code: From 50 Lines to 1</span>
           <div
             className="swiss-grid-12"

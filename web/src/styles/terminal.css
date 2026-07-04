@@ -1,7 +1,7 @@
 /* ── Terminal base style — Swiss High-Contrast Minimal ── */
 
 .terminal-window {
-  background: var(--void);
+  background: var(--surface);
   border: 1px solid var(--border);
   /* border-radius: 0 via tokens */
   overflow: hidden;
@@ -30,7 +30,7 @@
 .term-title {
   font-family: var(--font-mono);
   font-size: var(--text-label);
-  color: var(--steel);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin-left: 0.5rem;
@@ -72,7 +72,7 @@
 }
 
 .term-comment {
-  color: var(--steel);
+  color: var(--muted);
 }
 
 .term-func {

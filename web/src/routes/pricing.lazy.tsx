@@ -193,7 +193,7 @@ const FAQ_ITEMS = [
 function PricingPage() {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="05"
         eyebrow="Pricing"
@@ -207,9 +207,9 @@ function PricingPage() {
         sub="VantaDB is open source (Apache 2.0) and free forever. Sign up for cloud databases to scale in production with SLAs, team features, and zero ops."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Plans section */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Plans</span>
 
           <div
@@ -358,7 +358,7 @@ function PricingPage() {
         </section>
 
         {/* Feature Breakdown Section */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Feature Breakdown</span>
 
           <div
@@ -452,7 +452,7 @@ function PricingPage() {
         </section>
 
         {/* FAQ Section */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — FAQ</span>
 
           <div

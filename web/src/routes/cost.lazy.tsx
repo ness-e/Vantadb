@@ -48,7 +48,7 @@ const VANTA_COSTS = [
 
 function CostPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="08"
         eyebrow="Infrastructure Cost"
@@ -62,9 +62,9 @@ function CostPage() {
         sub="No per-vector pricing, no server bills, no hidden egress fees. VantaDB is free software — the only cost is the hardware you already own."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Section 1: Comparison */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Cost Comparison</span>
           <div
             className="swiss-grid-12"
@@ -97,9 +97,9 @@ function CostPage() {
                   gap: "0.9rem",
                 }}
               >
-                {LEGACY_COSTS.map((item, i) => (
+                {LEGACY_COSTS.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -157,9 +157,9 @@ function CostPage() {
                   gap: "0.9rem",
                 }}
               >
-                {VANTA_COSTS.map((item, i) => (
+                {VANTA_COSTS.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -189,7 +189,7 @@ function CostPage() {
         </section>
 
         {/* Section 2: Cost breakdown table */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Monthly Cost by Provider</span>
           <div style={{ border: "1px solid var(--border)", marginTop: "3rem", overflowX: "auto" }}>
             <table

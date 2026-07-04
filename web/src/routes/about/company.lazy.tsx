@@ -44,7 +44,7 @@ const COMPARISON_RIGHT = [
 
 function CompanyPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About — Company"
@@ -58,13 +58,13 @@ function CompanyPage() {
         sub="VantaDB unifies vector search (HNSW), lexical search (BM25), and hybrid search (RRF) in a single Rust binary. Zero servers. Zero ops. One pip install."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>Company</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Purpose</span>
           <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
             <div className="col-span-5">
@@ -100,7 +100,7 @@ function CompanyPage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Values</span>
           <div
             className="values-grid"
@@ -163,7 +163,7 @@ function CompanyPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — Why VantaDB</span>
           <h2
             style={{
@@ -206,9 +206,9 @@ function CompanyPage() {
                   gap: "0.85rem",
                 }}
               >
-                {COMPARISON_LEFT.map((item, i) => (
+                {COMPARISON_LEFT.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -266,9 +266,9 @@ function CompanyPage() {
                   gap: "0.85rem",
                 }}
               >
-                {COMPARISON_RIGHT.map((item, i) => (
+                {COMPARISON_RIGHT.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",

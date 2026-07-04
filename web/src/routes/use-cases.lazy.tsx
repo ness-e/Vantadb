@@ -83,7 +83,7 @@ const PIPELINE_STEPS = [
 function UseCasesPage() {
   const [hoveredCase, setHoveredCase] = useState<string | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="04"
         eyebrow="Use Cases"
@@ -97,8 +97,8 @@ function UseCasesPage() {
         sub="Eight production-tested patterns for persistent memory, hybrid search, and agentic data — all running in-process with zero external dependencies."
       />
 
-      <main className="engine-main">
-        <section className="engine-section engine-section--bordered">
+      <main className="swiss-main">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Production Patterns</span>
           <div
             style={{
@@ -193,7 +193,7 @@ function UseCasesPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Core Pipeline</span>
           <h2
             style={{

@@ -42,8 +42,8 @@
 .swiss-subpage-hero-title {
   font-family: var(--font-display);
   font-size: var(--text-hero);
-  font-weight: var(--weight-black);
-  letter-spacing: var(--tracking-mega);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
   color: var(--foreground);
   margin: 0 0 var(--space-sm);

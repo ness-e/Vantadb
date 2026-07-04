@@ -142,7 +142,7 @@ function IntegrationsPage() {
   };
 
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="03"
         eyebrow="Ecosystem & Integrations"
@@ -156,8 +156,8 @@ function IntegrationsPage() {
         sub="Connect VantaDB directly to the frameworks you already know. Built for first-class Python and Rust ecosystems."
       />
 
-      <main className="engine-main">
-        <section className="engine-section engine-section--bordered">
+      <main className="swiss-main">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Framework Connectors</span>
 
           <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
@@ -332,7 +332,7 @@ function IntegrationsPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Ecosystem</span>
           <h2
             style={{

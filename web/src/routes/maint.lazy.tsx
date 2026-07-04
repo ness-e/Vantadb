@@ -42,7 +42,7 @@ const LEGACY_OPS_PROBLEMS = [
 
 function MaintPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="11"
         eyebrow="Operations & Maintenance"
@@ -56,9 +56,9 @@ function MaintPage() {
         sub="No daemons to monitor, no clusters to scale, no patches to schedule. VantaDB runs embedded in your process — the database is just another import."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Section 1: Comparison */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Maintenance Comparison</span>
           <div
             className="swiss-grid-12"
@@ -91,9 +91,9 @@ function MaintPage() {
                   gap: "0.9rem",
                 }}
               >
-                {LEGACY_OPS_PROBLEMS.map((item, i) => (
+                {LEGACY_OPS_PROBLEMS.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -151,9 +151,9 @@ function MaintPage() {
                   gap: "0.9rem",
                 }}
               >
-                {NO_OPS_LIST.map((item, i) => (
+                {NO_OPS_LIST.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -183,7 +183,7 @@ function MaintPage() {
         </section>
 
         {/* Section 2: Weekly Ops Timeline */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Weekly Ops Timeline</span>
           <h2
             style={{
@@ -231,7 +231,7 @@ function MaintPage() {
               </div>
               {LEGACY_OPS.map((item, i) => (
                 <div
-                  key={i}
+                  key={item.task}
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 60px",
@@ -314,7 +314,7 @@ function MaintPage() {
               </div>
               {VANTA_OPS.map((item, i) => (
                 <div
-                  key={i}
+                  key={item.task}
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 60px",

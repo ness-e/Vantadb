@@ -48,7 +48,7 @@ const CONTACTS = [
 function ContactPage() {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About — Contact"
@@ -62,13 +62,13 @@ function ContactPage() {
         sub="Whether you're evaluating VantaDB for your enterprise, interested in a partnership, or just want to say hello — we'd love to hear from you."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>Contact</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Contact Channels</span>
           <div
             className="contact-grid"
@@ -146,7 +146,7 @@ function ContactPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Security</span>
           <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
             <div className="col-span-4">

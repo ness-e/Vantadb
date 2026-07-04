@@ -51,9 +51,9 @@ function GraphTopology() {
           <stop offset="100%" stopColor="var(--amber)" stopOpacity="0" />
         </radialGradient>
       </defs>
-      {edges.map(([a, b], i) => (
+      {edges.map(([a, b]) => (
         <line
-          key={i}
+          key={`${a}-${b}`}
           x1={nodes[a].x}
           y1={nodes[a].y}
           x2={nodes[b].x}
@@ -66,7 +66,7 @@ function GraphTopology() {
       ))}
       {nodes.map((n, i) => (
         <g
-          key={i}
+          key={n.label}
           style={{ cursor: "pointer" }}
           onMouseEnter={() => setActiveNode(i)}
           onMouseLeave={() => setActiveNode(null)}
@@ -303,9 +303,9 @@ function WALSimulator() {
       <div
         className="wal-console bg-[var(--surface)] border border-[var(--border)] p-5 font-mono text-[0.7rem] h-[180px] overflow-y-auto leading-[1.6]"
       >
-        {logs.map((log, idx) => (
+        {logs.map((log) => (
           <div
-            key={idx}
+            key={log}
             className="border-b border-[var(--subtle)] py-1"
             style={{
               color: getLogColor(log),
@@ -331,7 +331,7 @@ function ArchitecturePipeline() {
   ];
 
   return (
-    <section className="engine-section border-t border-[var(--border)]">
+    <section className="swiss-page-section border-t border-[var(--border)]">
       <div className="swiss-inner">
         <span className="swiss-eyebrow">03 / 03 — Pipeline</span>
         <h2
@@ -384,7 +384,7 @@ function ArchitecturePipeline() {
 
 function EnginePage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="01"
         eyebrow="Core Engine"
@@ -398,8 +398,8 @@ function EnginePage() {
         sub="VantaDB consolidates lexical matching, HNSW vector search, local graph edges and transactional persistence in a zero-dependency Rust local-first library database."
       />
 
-      <main className="engine-main">
-        <section className="engine-section engine-section--bordered">
+      <main className="swiss-main">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">01 / 03 — Hybrid Search</span>
@@ -512,7 +512,7 @@ function EnginePage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div
               className="col-span-6 flex flex-col gap-6"
@@ -576,7 +576,7 @@ function EnginePage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">02 / 03 — Durability</span>
@@ -689,7 +689,7 @@ function EnginePage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-8">
               <div

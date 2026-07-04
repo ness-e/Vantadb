@@ -181,7 +181,7 @@ const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
 
 function DocsPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="06"
         eyebrow="Documentation"
@@ -200,7 +200,7 @@ function DocsPage() {
 
         <div className="docs-content">
           {sections.map((s) => (
-            <section key={s.id} id={s.id} className="engine-section engine-section--bordered">
+            <section key={s.id} id={s.id} className="swiss-page-section swiss-page-section--bordered">
               <div className="docs-section-header">
                 <span className="docs-section-num">[{s.num}]</span>
                 <h2 className="docs-section-title">{s.title}</h2>

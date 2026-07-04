@@ -39,7 +39,7 @@ const NAV_SECTIONS = [
 function AboutIndex() {
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About VantaDB"
@@ -53,8 +53,8 @@ function AboutIndex() {
         sub="We're building the data infrastructure for the AI era — embedded, open-source, and engineered for sub-millisecond performance."
       />
 
-      <main className="engine-main">
-        <section className="engine-section engine-section--bordered">
+      <main className="swiss-main">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div
             style={{
               display: "grid",
@@ -103,7 +103,7 @@ function AboutIndex() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">01 / 01 — Navigation</span>
           <div
             style={{

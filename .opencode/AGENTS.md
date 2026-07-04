@@ -126,6 +126,166 @@ skill understand
 Las principales: `core-engine`, `storage-backends`, `vector-index`, `web-frontend`, `python-bindings`, `typescript-sdk`, `integration-wrappers`, `dev-tooling`, `tests`, `documentation`, `ci-cd`, `wasm`, `enterprise`, `mcp`.
 <!-- UNDERSTAND_END -->
 
+<!-- RUST_MCP_START -->
+## Rust MCP Servers
+
+Tres MCP servers para operaciones Rust, instalados globalmente en `~/.cargo/bin/`.
+
+### Disponibilidad
+
+| Servidor | Estado | Qué hace |
+|----------|--------|----------|
+| **cargo-mcp** | ✅ Conectado | Ejecuta comandos Cargo: check, clippy, test, build, fmt, add, remove, update, run, bench, clean |
+| **rust-analyzer-mcp** | ✅ Conectado | LSP via rust-analyzer: goto def, hover, references, completions, diagnostics, format, code actions, workspace diagnostics |
+| **rust-mcp-server** | ❌ Deshabilitado | Bug de compatibilidad MCP en v0.2.4 — no responde handshake. Es redundante: cargo-mcp + rust-analyzer-mcp cubren todo |
+
+### Guía de uso para el agente
+
+| Situación | Qué usar |
+|-----------|----------|
+| "Verifica que el código compile" | `cargo-mcp cargo_check` |
+| "Ejecuta clippy" | `cargo-mcp cargo_clippy` |
+| "Corre los tests" | `cargo-mcp cargo_test` |
+| "Agrega la dependencia serde" | `cargo-mcp cargo_add` con `dependencies: ["serde"]` |
+| "Formatea el código" | `cargo-mcp cargo_fmt_check` |
+| "¿Qué símbolos hay en este archivo?" | `rust-analyzer-mcp rust_analyzer_symbols` con `file_path` |
+| "Llévame a la definición de X" | `rust-analyzer-mcp rust_analyzer_definition` con `file_path`, `line`, `character` |
+| "¿Qué errores tiene este archivo?" | `rust-analyzer-mcp rust_analyzer_diagnostics` con `file_path` |
+| "Dame los errores de todo el workspace" | `rust-analyzer-mcp rust_analyzer_workspace_diagnostics` |
+| "Refactoriza / renombra este símbolo" | `rust-analyzer-mcp rust_analyzer_code_actions` |
+
+### Flujo recomendado
+
+1. **Durante desarrollo**: usa `cargo-mcp` para build/test/clippy rápidos desde el chat
+2. **Para navegación de código**: `rust-analyzer-mcp` es más preciso que grep para goto-def, references, hover
+3. **Al finalizar**: corre `cargo fmt --check` + `cargo clippy` + `cargo nextest` via cargo-mcp antes de commit
+4. **rust-mcp-server**: ignorar — no funcional y redundante
+
+### Nota
+
+Estos servidores se comunican por **stdio MCP**. En VS Code se configuran en `.vscode/mcp.json`. En OpenCode están en la config global (`%USERPROFILE%\.config\opencode\opencode.json`). El agente puede invocar sus tools directamente cuando sea necesario.
+<!-- RUST_MCP_END -->
+
+<!-- DEVTOOLS_START -->
+## Dev Tools (Instalados)
+
+Herramientas de desarrollo instaladas globalmente para optimizar el workflow de un solo dev.
+
+### Cargo Tools
+
+| Herramienta | Instalada | Comando | Propósito |
+|-------------|-----------|---------|-----------|
+| **cargo-watch** | ✅ | `cargo watch -x check` | Feedback loop sub-second. Re-ejecuta comandos en cada cambio de archivo |
+| **cargo-machete** | ✅ | `cargo machete` | Detecta dependencias no usadas |
+| **cargo-bloat** | ✅ | `cargo bloat --crates` | Analiza qué engorda el binario release |
+| **cargo-outdated** | ✅ | `cargo outdated` | Lista dependencias desactualizadas |
+| **cargo-nextest** | ✅ | `cargo nextest run` | Test runner ~3× más rápido que cargo test |
+| **cargo-deny** | ✅ | `cargo deny check` | Auditoría de licencias + advisory + bans |
+| **cargo-audit** | ✅ | `cargo audit` | Security advisory checker |
+| **release-plz** | ✅ | `release-plz release` | Automatiza bump de versiones, changelog, y publish |
+| **git-cliff** | ✅ | `git-cliff -o CHANGELOG.md` | Generador de changelog desde conventional commits |
+
+### Justfile
+
+El **Justfile** en la raíz del proyecto es el reemplazo moderno de Makefile. Instalación: `cargo install just`
+
+Comandos principales:
+
+```bash
+just check            # cargo check --workspace (feedback rápido)
+just test             # cargo nextest run --profile audit
+just verify           # fmt + clippy + test + deny (pre-flight completo)
+just verify-quick     # dev-tools/verify_changed.ps1 (30s, CodeGraph-optimized)
+just watch            # cargo watch -x check -x 'nextest run' (loop infinito)
+just fmt-fix          # cargo fmt (aplica formato)
+just machete          # cargo machete (deps no usadas)
+just size             # cargo bloat --crates (tamaño binario)
+just outdated         # cargo outdated (deps stale)
+just audit            # cargo audit (seguridad)
+just changelog        # git-cliff -o docs/CHANGELOG.md
+just ci               # fmt + clippy + test + deny + audit (mismo orden que CI)
+just certify          # nocturnal_suite.ps1 (certificación pesada local)
+just release          # cargo build --release
+just run-cli          # cargo run --features cli
+just run-server       # cargo run --features server --bin vantadb-server
+```
+
+### Git Aliases
+
+Configurados globalmente en `~/.gitconfig`:
+
+| Alias | Comando real |
+|-------|-------------|
+| `git lg` | `log --oneline --graph --all --decorate` |
+| `git st` | `status -sb` |
+| `git ci` | `commit` |
+| `git co` | `checkout` |
+| `git br` | `branch` |
+| `git rb` | `rebase -i` |
+| `git up` | `push -u origin HEAD` |
+| `git fixup` | `commit --fixup` |
+| `git amend` | `commit --amend --no-edit` |
+| `git undo` | `reset --soft HEAD~1` |
+| `git unstage` | `reset HEAD --` |
+
+### VS Code Setup
+
+Archivos en `.vscode/`:
+
+| Archivo | Propósito |
+|---------|-----------|
+| `extensions.json` | Recomienda rust-analyzer, CodeLLDB, crates, Even Better TOML, GitLens, cSpell, markdownlint, ShellCheck |
+| `settings.json` | Config: rust-analyzer con clippy + features del proyecto, formatOnSave, exclude patrones |
+| `tasks.json` | 10 tareas: check, clippy, nextest, fmt, deny, verify, build release, run cli/server |
+| `mcp.json` | cargo-mcp + rust-analyzer-mcp para GitHub Copilot Chat |
+
+### Dependabot
+
+Configurado en `.github/dependabot.yml` para 4 ecosistemas:
+
+| Ecosistema | Schedule | Límite PR |
+|------------|----------|-----------|
+| **Cargo** | Weekly (lunes) | 10 PRs |
+| **npm (web/)** | Weekly (lunes) | 5 PRs |
+| **GitHub Actions** | Weekly (lunes) | Ilimitado |
+| **Docker** | Weekly (lunes) | Ilimitado |
+
+Las PRs se agrupan por tipo (patch, minor) para reducir ruido.
+
+### release-plz
+
+Configurado en `release-plz.toml`. Automatiza:
+
+1. Análisis de conventional commits desde el último tag
+2. Bump semántico de versiones (feat → minor, fix → patch, breaking → major)
+3. Actualización de `docs/CHANGELOG.md`
+4. Creación de tag `v{{ version }}` en git
+5. Publicación a crates.io (en orden de dependencias del workspace)
+
+Uso: `release-plz release` (desde la rama main, después de mergear)
+
+### CI: sccache
+
+Agregado al workflow `rust_ci.yml` mediante `mozilla-actions/sccache-action`. Acelera compilaciones en CI reutilizando objetos compilados entre runs (~40-60% más rápido en rebuilds).
+
+### Flujo diario recomendado
+
+```bash
+# Desarrollo iterativo
+just watch-check                    # terminal 1: feedback instantáneo
+
+# Antes de commit
+just verify                         # fmt + clippy + test + deny
+
+# Commit
+git add -p && git ci -m "feat: ..."
+git up
+
+# Release (cuando toca)
+release-plz release                 # bump + changelog + tag + publish
+```
+<!-- DEVTOOLS_END -->
+
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
@@ -288,7 +448,7 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 | **Recraft** | `@recraft-ai/mcp-recraft-server` | Generación/edición de imágenes por IA (upscale, vectorizar, remover fondo) |
 | **cargo-mcp** | `cargo-mcp serve` | Ejecutar comandos Cargo: `check`, `clippy`, `test`, `build`, `fmt`, `add`, `remove`, `bench`, `run` |
 | **rust-analyzer-mcp** | `rust-analyzer-mcp` | LSP completo: goto def, hover, references, completions, diagnostics, rename, format |
-| **rust-mcp-server** | `rust-mcp-server` | Bridge completo: build, test, deps, clippy, doc, project management, dependency management |
+| ~~**rust-mcp-server**~~ | ~~`rust-mcp-server`~~ | ❌ Deshabilitado — bug MCP handshake en v0.2.4. Redundante: cargo-mcp + rust-analyzer-mcp cubren todo |
 
 ### Referencia rápida para agentes
 
@@ -296,4 +456,4 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 - Para diseño UI/visual → **Pencil** (archivos `.pen`)
 - Para web scraping/testing → **Playwright**
 - Para generar/editar imágenes → **Recraft** (requiere `RECRAFT_API_KEY`)
-- Para tareas Rust/Rust → **cargo-mcp**, **rust-analyzer-mcp**, **rust-mcp-server**
+- Para tareas Rust → **cargo-mcp** (build/test/clippy/fmt), **rust-analyzer-mcp** (LSP: goto def, hover, diagnostics, completions)

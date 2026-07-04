@@ -118,7 +118,7 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
   text-decoration: none;
-  transition: top 150ms var(--ease-cut);
+  transition: top 150ms var(--ease-swiss);
 }
 
 .skip-link:focus {
@@ -180,7 +180,7 @@ section {
   font-size: var(--text-display);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-display);
-  line-height: var(--leading-none);
+  line-height: 0.95;
 }
 
 .pricing-desc {
@@ -228,7 +228,7 @@ section {
 }
 
 .metric-item:hover {
-  background: var(--surface-raised);
+  background: var(--surface-alt);
 }
 
 .metric-value {
@@ -237,7 +237,7 @@ section {
   font-weight: var(--weight-bold);
   color: var(--amber);
   letter-spacing: var(--tracking-display);
-  line-height: var(--leading-none);
+  line-height: 0.95;
   margin-bottom: 0.5rem;
   display: block;
 }

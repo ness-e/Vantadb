@@ -188,7 +188,7 @@ a.vdb-logo-full,
   justify-content: center;
   background: var(--surface);
   border: 1px solid var(--amber-dim);
-  transition: border-color 200ms var(--ease-cut);
+  transition: border-color 200ms var(--ease-swiss);
 }
 
 @media (hover: hover) and (pointer: fine) {

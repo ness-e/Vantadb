@@ -41,7 +41,7 @@ const BENEFITS = [
 function IdeToolingPage() {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="03"
         eyebrow="Solution — AI IDE Tooling"
@@ -55,7 +55,7 @@ function IdeToolingPage() {
         sub="Augment your IDE with semantic code search, AST-aware retrieval, and context-aware completions. VantaDB powers the next generation of AI coding tools."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
@@ -63,7 +63,7 @@ function IdeToolingPage() {
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>IDE Tooling</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — The Gap</span>
           <div
             className="swiss-grid-12"
@@ -96,9 +96,9 @@ function IdeToolingPage() {
                   gap: "1rem",
                 }}
               >
-                {PROBLEMS.map((p, i) => (
+                {PROBLEMS.map((p) => (
                   <li
-                    key={i}
+                    key={p}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -157,9 +157,9 @@ function IdeToolingPage() {
                   gap: "1rem",
                 }}
               >
-                {BENEFITS.map((s, i) => (
+                {BENEFITS.map((s) => (
                   <li
-                    key={i}
+                    key={s}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -188,7 +188,7 @@ function IdeToolingPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Use Cases</span>
           <h2
             style={{

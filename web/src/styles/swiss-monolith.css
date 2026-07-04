@@ -29,9 +29,9 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-hero);
-  font-weight: var(--weight-black);
-  letter-spacing: var(--tracking-mega);
-  line-height: var(--leading-none);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.95;
 }
 
 .monolith-cursor {
@@ -70,7 +70,7 @@
   display: inline-block;
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  transition: background 150ms var(--ease-cut);
+  transition: background 150ms var(--ease-swiss);
   border: 1px solid var(--amber);
 }
 

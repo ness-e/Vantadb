@@ -14,9 +14,9 @@
 .swiss-qs__title {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: var(--weight-black);
-  line-height: var(--leading-none);
-  letter-spacing: var(--tracking-mega);
+  font-weight: var(--weight-bold);
+  line-height: 0.95;
+  letter-spacing: var(--tracking-tight);
   color: var(--block-dark-text);
   margin: var(--space-md) 0 var(--space-2xl);
 }
@@ -36,7 +36,7 @@
   padding: var(--space-md) 0;
   border-bottom: 1px solid var(--block-dark-border);
   cursor: pointer;
-  transition: opacity 100ms var(--ease-cut), background 100ms var(--ease-cut);
+  transition: opacity 100ms var(--ease-swiss), background 100ms var(--ease-swiss);
   align-items: flex-start;
 }
 
@@ -230,9 +230,9 @@
 .qs-heading {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
   margin: 0 0 var(--space-2xl) 0;
-  letter-spacing: var(--tracking-mega);
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
 }
 
@@ -248,7 +248,7 @@
   padding: var(--space-md) var(--space-md);
   border-left: 2px solid transparent;
   cursor: pointer;
-  transition: all 150ms var(--ease-cut);
+  transition: all 150ms var(--ease-swiss);
   opacity: 0.4;
   border-bottom: 1px solid var(--border);
 }

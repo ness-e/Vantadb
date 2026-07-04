@@ -152,7 +152,7 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
   color: var(--steel);
-  transition: color 150ms var(--ease-cut);
+  transition: color 150ms var(--ease-swiss);
 }
 
 .swiss-card {
@@ -160,7 +160,7 @@
   border: 1px solid var(--border);
   border-radius: 0;
   padding: var(--space-lg);
-  transition: border-color 150ms var(--ease-cut);
+  transition: border-color 150ms var(--ease-swiss);
   position: relative;
 }
 
@@ -199,11 +199,11 @@
   background: var(--background);
   padding: var(--space-lg);
   position: relative;
-  transition: background 150ms var(--ease-cut);
+  transition: background 150ms var(--ease-swiss);
 }
 
 .bento-cell:hover {
-  background: var(--surface-raised);
+  background: var(--surface-alt);
 }
 
 .bento-cell--span2 {

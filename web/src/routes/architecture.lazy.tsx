@@ -184,7 +184,7 @@ function ArchitecturePage() {
   ];
 
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="02"
         eyebrow="Architecture"
@@ -198,8 +198,8 @@ function ArchitecturePage() {
         sub="VantaDB compiles to a single native library wrapper. No extra TCP connections, no separate processes to start. Just pure memory speed."
       />
 
-      <main className="engine-main">
-        <section className="engine-section engine-section--bordered">
+      <main className="swiss-main">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">01 / 03 — The Stack</span>
@@ -254,7 +254,7 @@ function ArchitecturePage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-8">
               <PerformanceProfiler />
@@ -277,7 +277,7 @@ function ArchitecturePage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">03 / 03 — Specifications</span>

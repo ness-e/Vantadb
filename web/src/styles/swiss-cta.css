@@ -53,9 +53,9 @@
 .swiss-monolith__headline {
   font-family: var(--font-display);
   font-size: clamp(4rem, 12vw, 9rem);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-mega);
+  letter-spacing: var(--tracking-tight);
   color: var(--block-dark-text);
   margin: 0;
 }
@@ -103,8 +103,8 @@
   margin-left: auto;
   flex-shrink: 0;
   transition:
-    border-color 100ms var(--ease-cut),
-    color 100ms var(--ease-cut);
+    border-color 100ms var(--ease-swiss),
+    color 100ms var(--ease-swiss);
 }
 
 .swiss-monolith__copy-btn:hover {

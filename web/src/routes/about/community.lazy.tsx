@@ -73,7 +73,7 @@ const WAYS = [
 function CommunityPage() {
   const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About — Community"
@@ -87,13 +87,13 @@ function CommunityPage() {
         sub="VantaDB is open source, and the community is at the center of everything we build. Join us on GitHub, Discord, and beyond."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>Community</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 02 — Where to Find Us</span>
           <div
             className="channels-grid"
@@ -178,7 +178,7 @@ function CommunityPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">02 / 02 — Contribute</span>
           <h2
             style={{

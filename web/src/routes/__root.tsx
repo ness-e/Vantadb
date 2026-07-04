@@ -142,7 +142,7 @@ function RootComponent() {
           Skip to main content
         </a>
         <Suspense fallback={<PendingComponent />}>
-          <div className="route-content">
+          <div id="main-content" className="route-content">
             <Outlet />
           </div>
         </Suspense>
@@ -152,3 +152,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+

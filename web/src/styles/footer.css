@@ -43,7 +43,7 @@
   font-size: 0.9rem;
   color: var(--muted);
   text-decoration: none;
-  transition: color 150ms var(--ease-cut);
+  transition: color 150ms var(--ease-swiss);
   line-height: 1.4;
 }
 
