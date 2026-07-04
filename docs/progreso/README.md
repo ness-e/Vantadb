@@ -981,6 +981,45 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Archivos Modificados:**
   - `web/content/blog/introducing-vantadb.md`
 
+### CODE-027: Replace .expect() panic in get_many() with proper error
+- **Fecha:** 2026-07-04
+- **Objetivo:** Reemplazar `.expect("backend key must be 8 bytes")` con `map_err` que propaga `VantaError::BackendError`. Evita crash del server completo si el backend retorna una key corrupta.
+- **Checklist:**
+  - [x] Reemplazar `.expect()` en `get_many()` con `try_into().map_err()` + `?`
+  - [x] Refactorizar closure `.map()` a loop `for` explícito para poder usar `?`
+  - [x] Verificar compilación (`cargo check --lib` ✅)
+  - [x] 59 tests de engine pasan
+- **Archivos Modificados:**
+  - `src/storage/engine.rs` — error handling en get_many()
+- **Ids:** `CODE-027`
+
+### CODE-020: CSP Hardening — Remove unsafe-inline from script-src
+- **Fecha:** 2026-07-04
+- **Objetivo:** Eliminar `'unsafe-inline'` de `script-src` en la CSP para prevenir XSS por inyección de scripts inline. Mover JSON-LD a archivo externo para no depender de `unsafe-inline`.
+- **Checklist:**
+  - [x] Mover JSON-LD structured data de inline `<script>` a `web/public/structured-data.json`
+  - [x] Actualizar `index.html` a `<script src="/structured-data.json" type="application/ld+json">`
+  - [x] Eliminar `'unsafe-inline'` de `script-src` en `vercel.json`
+  - [x] Mantener `'unsafe-inline'` en `style-src` (necesario para GSAP CSSPlugin)
+  - [x] Verificar build (`npx vite build` ✅, `tsc --noEmit` ✅)
+- **Archivos Modificados:**
+  - `web/vercel.json` — CSP hardened
+  - `web/index.html` — JSON-LD externalizado
+  - `web/public/structured-data.json` — nuevo archivo
+- **Ids:** `CODE-020`
+
+### CODE-021: DOMPurify Sanitization on Blog dangerouslySetInnerHTML
+- **Fecha:** 2026-07-04
+- **Objetivo:** Add DOMPurify to sanitize blog HTML before dangerouslySetInnerHTML injection. `marked()` allows raw HTML by default — DOMPurify strips XSS vectors (script, on*, javascript:).
+- **Checklist:**
+  - [x] Import DOMPurify in `$slug.lazy.tsx:4`
+  - [x] Use `DOMPurify.sanitize(post.html)` in dangerouslySetInnerHTML (`$slug.lazy.tsx:85`)
+  - [x] Add dompurify v3.4.11 + @types/dompurify to package.json
+- **Archivos Modificados:**
+  - `web/src/routes/blog/$slug.lazy.tsx` — import + sanitize wrapper
+  - `web/package.json` — dompurify dependency
+- **Ids:** `CODE-021`
+
 ### DOC-12: Update llms.txt Version Ranges
 - **Fecha:** 2026-07-02
 - **Objetivo:** Actualizar el archivo de especificación para consumo de LLMs (`llms.txt`) para reflejar la versión correcta del proyecto (v0.2.0) en la sección de historial de cambios.

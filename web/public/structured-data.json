@@ -1,0 +1,14 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "VantaDB",
+  "operatingSystem": "Linux, macOS, Windows",
+  "applicationCategory": "DatabaseApplication",
+  "url": "https://vantadb.vercel.app/",
+  "description": "Embedded cognitive memory engine for AI Agents. Rust-native vector database.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}

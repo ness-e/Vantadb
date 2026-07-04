@@ -28,23 +28,8 @@
     />
     <meta name="twitter:image" content="https://vantadb.vercel.app/og-image.png" />
 
-    <!-- JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "VantaDB",
-        "operatingSystem": "Linux, macOS, Windows",
-        "applicationCategory": "DatabaseApplication",
-        "url": "https://vantadb.vercel.app/",
-        "description": "Embedded cognitive memory engine for AI Agents. Rust-native vector database.",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
-      }
-    </script>
+    <!-- JSON-LD Structured Data (external file avoids unsafe-inline in CSP) -->
+    <script src="/structured-data.json" type="application/ld+json"></script>
   </head>
   <body>
     <div id="root"></div>
