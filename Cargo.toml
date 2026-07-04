@@ -31,7 +31,7 @@ smallvec = "1.15"
 rand = "0.9"
 nom = "7"
 subtle = "2.6"
-arrow = { version = "58", features = ["ipc"], optional = true }
+arrow = { version = "59", features = ["ipc"], optional = true }
 rocksdb = { version = "0.22", default-features = false, features = ["lz4"], optional = true }
 fjall = { version = "3.1", optional = true }
 
