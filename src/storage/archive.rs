@@ -1,3 +1,5 @@
+//! HNSW index rebuild, layout compaction, and graph traversal utilities.
+
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
 use crate::node::{DiskNodeHeader, FilterBitset};
@@ -12,6 +14,7 @@ const FLAG_TOMBSTONE: u32 = 0x8;
 const STORAGE_ALIGNMENT: u64 = 64;
 const BFS_QUEUE_CAPACITY: usize = 1024;
 
+/// Rewrite the VantaFile with nodes in BFS order, returning the new offset map and file size.
 pub(crate) fn compact_layout(
     vstore: &mut VantaFile,
     hnsw: &CPIndex,
@@ -106,6 +109,7 @@ pub(crate) fn compact_layout(
     Ok((new_offset_map, new_file_size))
 }
 
+/// BFS traversal of the HNSW graph starting from the entry point, returning node IDs in visit order.
 pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
     let total_nodes = hnsw.nodes.len();
     let mut bfs_order: Vec<u64> = Vec::with_capacity(total_nodes);
@@ -133,6 +137,7 @@ pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
     bfs_order
 }
 
+/// Update each node's storage offset in the HNSW index after compaction.
 pub(crate) fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u64, u64>) {
     for (&node_id, &new_offset) in new_offsets {
         if let Some(mut node_ref) = hnsw.nodes.get_mut(&node_id) {
@@ -141,6 +146,7 @@ pub(crate) fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u64, u64>) {
     }
 }
 
+/// Create a new CPIndex with the same backend configuration (mmap or in-memory) as the existing one.
 pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
     let config = existing.config.clone();
     if existing.backend.is_mmap() {
@@ -152,6 +158,7 @@ pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPInd
     }
 }
 
+/// Rebuild the entire HNSW index by scanning all nodes from the VantaFile.
 pub(crate) fn rebuild_hnsw_from_vstore(
     hnsw: &mut CPIndex,
     vstore: &VantaFile,

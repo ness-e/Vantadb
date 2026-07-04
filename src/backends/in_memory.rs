@@ -18,7 +18,7 @@ use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-/// In-memory storage backend using `BTreeMap` per partition.
+/// In-memory `StorageBackend` implementation backed by a `BTreeMap` per partition.
 ///
 /// Thread-safe via `RwLock`. All data is lost when the backend is dropped.
 pub(crate) struct InMemoryBackend {
@@ -155,6 +155,7 @@ impl StorageBackend for InMemoryBackend {
 // They live here (inside the crate) because StorageBackend is pub(crate).
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::backend::{BackendPartition, BackendWriteOp};

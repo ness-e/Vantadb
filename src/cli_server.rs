@@ -38,27 +38,40 @@ use crate::node::{FieldValue, UnifiedNode};
 use crate::rbac::{Permission, Rbac};
 use crate::storage::StorageEngine;
 
+/// JSON body for a query endpoint request.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QueryRequest {
+    /// The VantaQL query string to execute.
     pub query: String,
 }
 
+/// Response envelope for the query endpoint.
 #[derive(Serialize, Deserialize)]
 pub struct QueryResponse {
+    /// Whether the request succeeded.
     pub success: bool,
+    /// Human-readable result message.
     pub data: String,
+    /// Single node ID returned by write or stale-context results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_id: Option<u64>,
+    /// Collection of nodes returned by read results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nodes: Option<Vec<NodeDTO>>,
 }
 
+/// Data-transfer object for a UnifiedNode returned over HTTP.
 #[derive(Serialize, Deserialize)]
 pub struct NodeDTO {
+    /// Unique node identifier.
     pub id: u64,
+    /// Semantic cluster the node belongs to.
     pub semantic_cluster: u32,
+    /// Relational key-value payload.
     pub relational: std::collections::BTreeMap<String, FieldValue>,
+    /// Access / hit count tracked by the storage engine.
     pub hits: u32,
+    /// Internal confidence score for staleness detection.
     pub confidence_score: f32,
 }
 
@@ -74,13 +87,19 @@ impl From<&UnifiedNode> for NodeDTO {
     }
 }
 
+/// Shared application state injected into every route handler.
 pub struct ServerState {
+    /// The underlying storage engine.
     pub storage: Arc<StorageEngine>,
+    /// Concurrency limiter for blocking execution tasks.
     pub semaphore: Arc<tokio::sync::Semaphore>,
+    /// Optional bearer token for API authentication.
     pub api_key: Option<Arc<str>>,
+    /// RBAC token-to-role mapping configuration.
     pub rbac_config: RbacConfig,
 }
 
+/// Build the axum Router with public and protected routes, rate-limiting, and middleware.
 pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
     let rbac = Arc::new(Rbac::new());
     rbac.add_role("admin", vec![Permission::Admin]);
@@ -123,13 +142,18 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .with_state(state)
 }
 
+/// Per-IP rate limiter for authentication failures.
 pub struct AuthRateLimiter {
+    /// Per-IP map of (failure count, first-failure instant).
     failures: Mutex<HashMap<String, (u32, Instant)>>,
+    /// Maximum failed attempts before rate-limiting kicks in.
     max_attempts: u32,
+    /// Time window (seconds) over which failures are counted.
     window_secs: u64,
 }
 
 impl AuthRateLimiter {
+    /// Create a new rate limiter with the given attempt cap and window.
     pub fn new(max_attempts: u32, window_secs: u64) -> Self {
         Self {
             failures: Mutex::new(HashMap::new()),
@@ -138,6 +162,7 @@ impl AuthRateLimiter {
         }
     }
 
+    /// Returns `true` if the given IP has exceeded the allowed failure rate.
     pub fn is_rate_limited(&self, ip: &str) -> bool {
         let mut failures = self.failures.lock();
         let now = Instant::now();
@@ -152,6 +177,7 @@ impl AuthRateLimiter {
         }
     }
 
+    /// Record an authentication failure for the given IP.
     pub fn record_failure(&self, ip: &str) {
         let mut failures = self.failures.lock();
         let now = Instant::now();
@@ -163,13 +189,16 @@ impl AuthRateLimiter {
         }
     }
 
+    /// Clear the failure count for the given IP.
     pub fn reset(&self, ip: &str) {
         self.failures.lock().remove(ip);
     }
 }
 
+/// Authentication and authorization state shared via middleware extensions.
 #[derive(Clone)]
 pub struct AuthState {
+    /// Optional bearer token for API key validation.
     pub api_key: Option<Arc<str>>,
     pub(crate) token_role_map: HashMap<String, String>,
     pub(crate) rbac: Arc<Rbac>,
@@ -187,6 +216,7 @@ impl AuthState {
     }
 }
 
+/// Axum middleware that validates Bearer tokens and enforces RBAC permissions.
 pub async fn auth_middleware(
     Extension(auth): Extension<AuthState>,
     req: axum::extract::Request,
@@ -302,6 +332,7 @@ async fn metrics_endpoint() -> impl IntoResponse {
     }
 }
 
+/// Axum middleware that records HTTP request duration and status metrics.
 pub async fn request_metrics_middleware(
     req: axum::extract::Request,
     next: middleware::Next,
@@ -393,6 +424,7 @@ async fn execute_query(
     }
 }
 
+/// Initialise the tracing subscriber with optional OpenTelemetry and MCP support.
 pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     let format = resolve_log_format(log_format);
@@ -534,6 +566,7 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
     }
 }
 
+/// Shut down the OpenTelemetry tracer provider, flushing any pending spans.
 #[cfg(feature = "opentelemetry")]
 pub fn shutdown_telemetry() {
     if let Some(provider) = OTEL_PROVIDER.get() {
@@ -578,6 +611,7 @@ fn log_security_mode(config: &VantaConfig) {
     );
 }
 
+/// Start the HTTP (or TLS) server, binding to the address in the config.
 pub async fn run(config: VantaConfig) -> Result<()> {
     init_telemetry(false, Some(config.log_format));
 
@@ -617,6 +651,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     Ok(())
 }
 
+/// Wait for SIGINT (or SIGTERM on Unix) to trigger graceful shutdown.
 pub async fn wait_for_shutdown_signal() {
     let ctrl_c = tokio::signal::ctrl_c();
     #[cfg(unix)]
@@ -638,6 +673,7 @@ pub async fn wait_for_shutdown_signal() {
     let _ = ctrl_c.await;
 }
 
+/// Build a rustls TLS 1.3 server config from PEM certificate and key files.
 #[cfg(feature = "tls")]
 pub async fn build_tls13_config(
     cert_path: &str,

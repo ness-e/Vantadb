@@ -17,35 +17,46 @@ use crate::wal::{WalReader, WalRecord, WalWriter};
 
 // ─── Query Result ──────────────────────────────────────────
 
-/// How the result was produced
+/// How the result was produced.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceType {
+    /// Full scan of all nodes.
     FullScan,
+    /// Filtered by bitset mask.
     BitsetFilter,
+    /// Vector similarity search.
     VectorSearch,
+    /// Graph traversal (BFS/DFS).
     GraphTraversal,
+    /// Hybrid (vector + relational filter).
     Hybrid,
 }
 
-/// Query result with exhaustivity metadata
+/// Query result with exhaustivity metadata.
 #[derive(Debug, Clone)]
 pub struct QueryResult {
+    /// Resulting nodes.
     pub nodes: Vec<UnifiedNode>,
-    /// true if resource limits truncated results
+    /// `true` if resource limits truncated results.
     pub is_partial: bool,
-    /// 0.0-1.0 search completeness
+    /// Search completeness (0.0–1.0).
     pub exhaustivity: f32,
-    /// which index/scan was used
+    /// Which index or scan strategy produced the result.
     pub source_type: SourceType,
 }
 
-/// Engine statistics snapshot
+/// Engine statistics snapshot.
 #[derive(Debug, Clone, Default)]
 pub struct EngineStats {
+    /// Number of alive nodes.
     pub node_count: u64,
+    /// Total edge count.
     pub edge_count: u64,
+    /// Number of nodes with vectors.
     pub vector_count: u64,
+    /// Sum of vector dimensions across all vector nodes.
     pub total_dimensions: u64,
+    /// Estimated heap memory usage in bytes.
     pub memory_estimate_bytes: u64,
 }
 
@@ -56,8 +67,11 @@ pub struct EngineStats {
 /// Thread-safe: RwLock for reads, Mutex for WAL writes.
 /// Fase 2: Replace HashMap with RocksDB-backed MemTable.
 pub struct InMemoryEngine {
+    /// RwLock-guarded in-memory node map.
     nodes: RwLock<HashMap<u64, UnifiedNode>>,
+    /// Optional WAL writer for durability.
     wal: Mutex<Option<WalWriter>>,
+    /// Monotonic ID generator.
     next_id: AtomicU64,
 }
 
@@ -382,6 +396,7 @@ impl Default for InMemoryEngine {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::{FieldValue, FilterBitset, UnifiedNode};

@@ -125,6 +125,7 @@ impl Default for DuplicatePreventionFilter {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

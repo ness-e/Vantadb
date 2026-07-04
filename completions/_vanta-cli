@@ -150,13 +150,16 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
-'--shell=[Shell type for the completion script]:SHELL:(bash zsh fish powershell)' \
+'--shell=[Shell type for the completion script]:SHELL:((bash\:"Bash shell completions"
+zsh\:"Zsh shell completions"
+fish\:"Fish shell completions"
+powershell\:"PowerShell shell completions"))' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
 ;;
 (search)

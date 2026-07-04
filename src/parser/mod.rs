@@ -16,6 +16,7 @@ use nom::{
 use crate::node::FieldValue;
 use crate::query::*;
 
+/// Strip leading and trailing whitespace around a parser.
 pub fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
     inner: F,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
@@ -150,6 +151,7 @@ fn parse_condition(i: &str) -> IResult<&str, Condition> {
     ))(i)
 }
 
+/// Parse a `FROM`/`MATCH` query statement.
 pub fn parse_query(i: &str) -> IResult<&str, Query> {
     let (i, _) = ws(alt((tag("FROM"), tag("MATCH"))))(i)?;
     let (i, from_entity) = ws(ident)(i)?;
@@ -334,6 +336,7 @@ fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
 
 // ─── Entry Point ───────────────────────────────────────────────
 
+/// Parse any supported VantaQL statement (query, insert, update, delete, relate).
 pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
     alt((
         map(parse_insert_message, Statement::InsertMessage), // Must be before parse_insert to prevent shadowing

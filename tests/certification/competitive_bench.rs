@@ -20,7 +20,7 @@ use std::path::Path;
 use std::time::Instant;
 use tempfile::TempDir;
 use vantadb::index::{CPIndex, HnswConfig, IndexBackend, VectorRepresentations};
-use vantadb::node::DistanceMetric;
+use vantadb::node::{DistanceMetric, FilterBitset};
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -74,7 +74,7 @@ fn calculate_recall(
     let mut total_hits = 0;
 
     for (i, query) in queries.iter().enumerate() {
-        let results = index.search_nearest(query, None, None, u128::MAX, k, None);
+        let results = index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None);
         let gt_k = &groundtruth[i][..k];
 
         for (id, _score) in &results {
@@ -92,7 +92,7 @@ fn measure_latency(index: &CPIndex, queries: &[Vec<f32>], k: usize) -> (f64, f64
         .iter()
         .map(|q| {
             let t = Instant::now();
-            let _ = index.search_nearest(q, None, None, u128::MAX, k, None);
+            let _ = index.search_nearest(q, None, None, &vantadb::node::ALL_BITSET, k, None);
             t.elapsed().as_nanos() as f64 / 1_000.0
         })
         .collect();
@@ -119,7 +119,7 @@ fn build_in_memory_index(
     for (id, vec) in scale_base.iter().enumerate() {
         idx.add(
             id as u64,
-            u128::MAX,
+            FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
         );
@@ -143,7 +143,7 @@ fn build_mmap_index(
     for (id, vec) in scale_base.iter().enumerate() {
         idx.add(
             id as u64,
-            u128::MAX,
+            FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
         );

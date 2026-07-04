@@ -6,132 +6,213 @@
 use crate::node::FieldValue;
 use std::collections::BTreeMap;
 
+/// Top-level statement type after parsing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
+    /// A query statement.
     Query(Query),
+    /// An insert statement.
     Insert(InsertStatement),
+    /// An update statement.
     Update(UpdateStatement),
+    /// A delete statement.
     Delete(DeleteStatement),
+    /// A relate (edge creation) statement.
     Relate(RelateStatement),
-    InsertMessage(InsertMessageStatement), // Conversational Primitive
+    /// A conversational message insert.
+    InsertMessage(InsertMessageStatement),
 }
 
+/// Insert statement: creates a new node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsertStatement {
+    /// Node ID (0 = auto-assign).
     pub node_id: u64,
+    /// Entity type string.
     pub node_type: String,
+    /// Relational field values.
     pub fields: BTreeMap<String, FieldValue>,
+    /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
 }
 
+/// Update statement: modifies an existing node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateStatement {
+    /// Node ID to update.
     pub node_id: u64,
+    /// Relational field values to set.
     pub fields: BTreeMap<String, FieldValue>,
+    /// Optional new embedding vector.
     pub vector: Option<Vec<f32>>,
 }
 
+/// Delete statement: removes a node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeleteStatement {
+    /// Node ID to delete.
     pub node_id: u64,
 }
 
+/// Relate statement: creates a directed edge between two nodes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RelateStatement {
+    /// Source node ID.
     pub source_id: u64,
+    /// Target node ID.
     pub target_id: u64,
+    /// Edge label.
     pub label: String,
+    /// Optional edge weight.
     pub weight: Option<f32>,
 }
 
+/// Insert message statement: creates a conversational message node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsertMessageStatement {
-    pub msg_role: String, // system, user, assistant
+    /// Message role (system, user, assistant).
+    pub msg_role: String,
+    /// Message content.
     pub content: String,
+    /// Thread ID this message belongs to.
     pub thread_id: u64,
 }
 
+/// A parsed query with optional traversal, filters, ranking, and projection.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Query {
+    /// Entity type to search from.
     pub from_entity: String,
+    /// Optional graph traversal.
     pub traversal: Option<Traversal>,
+    /// Target alias for the result.
     pub target_alias: String,
+    /// Optional WHERE conditions.
     pub where_clause: Option<Vec<Condition>>,
+    /// Fields to fetch (projection).
     pub fetch: Option<Vec<String>>,
+    /// Optional ranking specification.
     pub rank_by: Option<RankBy>,
+    /// Query temperature (0.0 = deterministic).
     pub temperature: Option<f32>,
-    pub owner_role: Option<String>, // RBAC
+    /// RBAC owner role filter.
+    pub owner_role: Option<String>,
 }
 
+/// Graph traversal specification.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Traversal {
+    /// Minimum traversal depth.
     pub min_depth: u32,
+    /// Maximum traversal depth.
     pub max_depth: u32,
+    /// Edge label to follow.
     pub edge_label: String,
+    /// Target type filter.
     pub target_type: Option<String>,
+    /// Alias for traversed nodes.
     pub alias: Option<String>,
 }
 
+/// A query condition (relational or vector similarity).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Condition {
+    /// Relational field comparison.
     Relational(String, RelOp, FieldValue),
-    VectorSim(String, String, f32), // field, text_query, min_score
+    /// Vector similarity condition (field, text_query, min_score).
+    VectorSim(String, String, f32),
 }
 
+/// Relational comparison operator.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RelOp {
+    /// Equals.
     Eq,
+    /// Not equals.
     Neq,
+    /// Greater than.
     Gt,
+    /// Less than.
     Lt,
+    /// Greater than or equal.
     Gte,
+    /// Less than or equal.
     Lte,
 }
 
+/// Ranking specification for query results.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RankBy {
+    /// Field to sort by.
     pub field: String,
+    /// Sort descending.
     pub desc: bool,
 }
 
 // ─── Logical Plan ──────────────────────────────────────────
 
+/// A logical operator node in the query plan.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalOperator {
+    /// Full scan of an entity type.
     Scan {
+        /// Entity type name.
         entity: String,
     },
+    /// Graph traversal.
     Traverse {
+        /// Minimum depth.
         min_depth: u32,
+        /// Maximum depth.
         max_depth: u32,
+        /// Edge label to follow.
         edge_label: String,
     },
+    /// Relational field filter.
     FilterRelational {
+        /// Field name.
         field: String,
+        /// Comparison operator.
         op: RelOp,
+        /// Expected value.
         value: FieldValue,
     },
+    /// Vector similarity search.
     VectorSearch {
+        /// Field name.
         field: String,
+        /// Text query to embed.
         query_vec: String,
+        /// Minimum similarity score.
         min_score: f32,
     },
+    /// Field projection (narrowing).
     Project {
+        /// Fields to retain.
         fields: Vec<String>,
     },
+    /// Sort by a field.
     Sort {
+        /// Sort field.
         field: String,
+        /// Sort descending.
         desc: bool,
     },
+    /// Limit the result set.
     Limit {
+        /// Maximum rows.
         top_k: usize,
     },
 }
 
+/// A logical query plan containing an ordered list of operators.
 #[derive(Debug, Clone)]
 pub struct LogicalPlan {
+    /// Ordered list of logical operators.
     pub operators: Vec<LogicalOperator>,
+    /// Query temperature (0.0 = deterministic/exhaustive).
     pub temperature: f32,
+    /// RBAC role to enforce during execution.
     pub enforce_role: Option<String>,
 }
 
@@ -205,10 +286,12 @@ pub trait PhysicalOperator: Send + Sync {
     fn open(&mut self) -> crate::error::Result<()>;
     /// Retrieve the next UnifiedNode in the stream, or None if the stream is exhausted.
     fn next(&mut self) -> crate::error::Result<Option<crate::node::UnifiedNode>>;
+    /// Release resources held by this operator.
     fn close(&mut self) -> crate::error::Result<()>;
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::FieldValue;

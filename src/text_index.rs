@@ -11,18 +11,27 @@ use crate::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Schema version with advanced tokenizer support.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 4;
+/// Schema version with basic tokenizer support.
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) const TEXT_INDEX_SCHEMA_VERSION: u32 = 3;
+/// Name of the built-in tokenizer.
 pub(crate) const TOKENIZER_NAME: &str = "lowercase-ascii-alnum";
+/// Version of the built-in tokenizer.
 pub(crate) const TOKENIZER_VERSION: u32 = 1;
+/// Name of the advanced (tantivy-multilingual) tokenizer.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) const ADVANCED_TOKENIZER_NAME: &str = "tantivy-multilingual";
+/// Version of the advanced tokenizer.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) const ADVANCED_TOKENIZER_VERSION: u32 = 1;
+/// Storage key format description.
 pub(crate) const KEY_FORMAT: &str = "namespace\\0token\\0key";
+/// BM25 k1 parameter.
 pub(crate) const BM25_K1: f32 = 1.2;
+/// BM25 b parameter.
 pub(crate) const BM25_B: f32 = 0.75;
 
 const INTERNAL_PREFIX: &[u8] = b"\xffvanta_text_v3\0";
@@ -30,9 +39,12 @@ const TERM_STATS_TAG: &[u8] = b"term\0";
 const DOC_STATS_TAG: &[u8] = b"doc\0";
 const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
 
+/// Specification for a text tokenizer implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TextTokenizerSpec {
+    /// Tokenizer name identifier.
     pub name: &'static str,
+    /// Tokenizer version.
     pub version: u32,
 }
 
@@ -55,10 +67,14 @@ impl TextTokenizerSpec {
     }
 }
 
+/// Specification for the text index schema and tokenizer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TextIndexSpec {
+    /// Schema version of the text index.
     pub schema_version: u32,
+    /// Tokenizer specification.
     pub tokenizer: TextTokenizerSpec,
+    /// Key format string for posting entries.
     pub key_format: &'static str,
 }
 
@@ -77,48 +93,69 @@ impl Default for TextIndexSpec {
     }
 }
 
+/// A posting entry linking a node ID to a token with term frequency and positions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextPosting {
+    /// Node ID referenced by this posting.
     pub node_id: u64,
+    /// Term frequency within the document.
     pub tf: u32,
+    /// Positions of the token in the document.
     pub positions: Vec<u32>,
 }
 
+/// Document-level statistics for the text index.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextDocStats {
+    /// Node ID.
     pub node_id: u64,
+    /// Total document length in tokens.
     pub doc_len: u32,
 }
 
+/// Term-level statistics for the text index.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextTermStats {
+    /// Document frequency (number of docs containing this term).
     pub df: u64,
 }
 
+/// Namespace-level statistics for the text index.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextNamespaceStats {
+    /// Total document count in the namespace.
     pub doc_count: u64,
+    /// Sum of all document lengths in the namespace.
     pub total_doc_len: u64,
 }
 
+/// Token counts and positions extracted from a document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TextRecordTerms {
+    /// Token to count mapping.
     pub token_counts: BTreeMap<String, u32>,
+    /// Token to positions mapping.
     pub token_positions: BTreeMap<String, Vec<u32>>,
+    /// Total document length in tokens.
     pub doc_len: u32,
 }
 
+/// A query plan for text search containing terms and phrase groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TextQueryPlan {
+    /// Unique terms to search.
     pub terms: BTreeSet<String>,
+    /// Phrase groups (ordered sequences of terms).
     pub phrases: Vec<Vec<String>>,
 }
 
+/// Tokenize text using the default tokenizer specification.
 #[allow(dead_code)]
 pub(crate) fn tokenize(text: &str) -> Vec<String> {
     tokenize_with_spec(&TextTokenizerSpec::default(), text)
 }
 
+/// Tokenize text using a given tokenizer specification.
 #[allow(dead_code)]
 pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<String> {
     #[cfg(feature = "advanced-tokenizer")]
@@ -150,11 +187,13 @@ pub(crate) fn tokenize_with_spec(spec: &TextTokenizerSpec, text: &str) -> Vec<St
     tokens
 }
 
+/// Tokenize text and return counts per unique token.
 pub(crate) fn token_counts(text: &str) -> BTreeMap<String, u32> {
     token_counts_with_config(text, None)
 }
 
 #[cfg(feature = "advanced-tokenizer")]
+/// Tokenize text and return counts, with optional advanced tokenizer config.
 pub(crate) fn token_counts_with_config(
     text: &str,
     config: Option<&AdvancedTokenizerConfig>,
@@ -176,6 +215,7 @@ pub(crate) fn token_counts_with_config(
 }
 
 #[cfg(not(feature = "advanced-tokenizer"))]
+/// Tokenize text and return counts (simple path, no advanced tokenizer).
 pub(crate) fn token_counts_with_config(text: &str, _config: Option<&()>) -> BTreeMap<String, u32> {
     // Simple token counting without advanced tokenizer support
     let mut counts = BTreeMap::new();
@@ -190,11 +230,13 @@ pub(crate) fn token_counts_with_config(text: &str, _config: Option<&()>) -> BTre
     counts
 }
 
+/// Extract token counts, positions and doc length from a payload string.
 pub(crate) fn record_terms(payload: &str) -> TextRecordTerms {
     record_terms_with_config(payload, None)
 }
 
 #[cfg(feature = "advanced-tokenizer")]
+/// Extract record terms with optional advanced tokenizer config.
 pub(crate) fn record_terms_with_config(
     payload: &str,
     config: Option<&AdvancedTokenizerConfig>,
@@ -224,6 +266,7 @@ pub(crate) fn record_terms_with_config(
     }
 }
 
+/// Extract record terms (simple path, no advanced tokenizer).
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> TextRecordTerms {
     // Simple record terms without advanced tokenizer support
@@ -246,10 +289,12 @@ pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> T
     }
 }
 
+/// Build a query plan (terms and phrases) from a search query string.
 pub(crate) fn query_plan(query: &str) -> TextQueryPlan {
     query_plan_with_config(query, None)
 }
 
+/// Build a query plan with an optional advanced tokenizer config.
 #[cfg(feature = "advanced-tokenizer")]
 pub(crate) fn query_plan_with_config(
     query: &str,
@@ -305,6 +350,7 @@ pub(crate) fn query_plan_with_config(
     TextQueryPlan { terms, phrases }
 }
 
+/// Build a query plan (simple path, no advanced tokenizer).
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQueryPlan {
     // Simple query plan without advanced tokenizer support
@@ -355,10 +401,12 @@ pub(crate) fn query_plan_with_config(query: &str, _config: Option<&()>) -> TextQ
     TextQueryPlan { terms, phrases }
 }
 
+/// Return the set of unique tokens in text.
 pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
     token_counts(text).into_keys().collect()
 }
 
+/// Build a posting index key from namespace, token, and record key.
 pub(crate) fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
     let mut index_key = Vec::with_capacity(namespace.len() + token.len() + key.len() + 2);
     index_key.extend_from_slice(namespace.as_bytes());
@@ -369,6 +417,7 @@ pub(crate) fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
     index_key
 }
 
+/// Build a posting prefix for scanning all entries of a namespace+token.
 pub(crate) fn posting_prefix(namespace: &str, token: &str) -> Vec<u8> {
     let mut prefix = Vec::with_capacity(namespace.len() + token.len() + 2);
     prefix.extend_from_slice(namespace.as_bytes());
@@ -378,6 +427,7 @@ pub(crate) fn posting_prefix(namespace: &str, token: &str) -> Vec<u8> {
     prefix
 }
 
+/// Build a posting prefix for scanning all tokens in a namespace.
 pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
     let mut prefix = Vec::with_capacity(namespace.len() + 1);
     prefix.extend_from_slice(namespace.as_bytes());
@@ -385,24 +435,29 @@ pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
+/// Extract the record key from a posting key for a given namespace and token.
 pub(crate) fn posting_record_key(namespace: &str, token: &str, index_key: &[u8]) -> Option<String> {
     let prefix = posting_prefix(namespace, token);
     let key_bytes = index_key.strip_prefix(prefix.as_slice())?;
     String::from_utf8(key_bytes.to_vec()).ok()
 }
 
+/// Check whether a key belongs to an internal (stats) prefix.
 pub(crate) fn is_internal_key(key: &[u8]) -> bool {
     key.starts_with(INTERNAL_PREFIX)
 }
 
+/// Check whether a key is a term stats key.
 pub(crate) fn is_term_stats_key(key: &[u8]) -> bool {
     key.starts_with(&internal_key_prefix(TERM_STATS_TAG))
 }
 
+/// Check whether a key is a doc stats key.
 pub(crate) fn is_doc_stats_key(key: &[u8]) -> bool {
     key.starts_with(&internal_key_prefix(DOC_STATS_TAG))
 }
 
+/// Check whether a key is a namespace stats key.
 pub(crate) fn is_namespace_stats_key(key: &[u8]) -> bool {
     key.starts_with(&internal_key_prefix(NAMESPACE_STATS_TAG))
 }
@@ -414,6 +469,7 @@ fn internal_key_prefix(tag: &[u8]) -> Vec<u8> {
     prefix
 }
 
+/// Build a prefix for scanning term stats entries in a namespace.
 pub(crate) fn term_stats_prefix(namespace: &str) -> Vec<u8> {
     let mut prefix = internal_key_prefix(TERM_STATS_TAG);
     prefix.extend_from_slice(namespace.as_bytes());
@@ -421,6 +477,7 @@ pub(crate) fn term_stats_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
+/// Build a prefix for scanning doc stats entries in a namespace.
 pub(crate) fn doc_stats_prefix(namespace: &str) -> Vec<u8> {
     let mut prefix = internal_key_prefix(DOC_STATS_TAG);
     prefix.extend_from_slice(namespace.as_bytes());
@@ -428,6 +485,7 @@ pub(crate) fn doc_stats_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
+/// Check whether a text index key belongs to the given namespace.
 pub(crate) fn text_index_key_belongs_to_namespace(key: &[u8], namespace: &str) -> bool {
     if !is_internal_key(key) {
         return key.starts_with(&posting_namespace_prefix(namespace));
@@ -438,6 +496,7 @@ pub(crate) fn text_index_key_belongs_to_namespace(key: &[u8], namespace: &str) -
         || key == namespace_stats_key(namespace)
 }
 
+/// Build a term stats key for a given namespace and token.
 pub(crate) fn term_stats_key(namespace: &str, token: &str) -> Vec<u8> {
     let mut key = Vec::with_capacity(
         INTERNAL_PREFIX.len() + TERM_STATS_TAG.len() + namespace.len() + token.len() + 1,
@@ -450,6 +509,7 @@ pub(crate) fn term_stats_key(namespace: &str, token: &str) -> Vec<u8> {
     key
 }
 
+/// Build a doc stats key for a given namespace and record.
 pub(crate) fn doc_stats_key(namespace: &str, key: &str) -> Vec<u8> {
     let mut index_key = Vec::with_capacity(
         INTERNAL_PREFIX.len() + DOC_STATS_TAG.len() + namespace.len() + key.len() + 1,
@@ -462,6 +522,7 @@ pub(crate) fn doc_stats_key(namespace: &str, key: &str) -> Vec<u8> {
     index_key
 }
 
+/// Build a namespace stats key for a given namespace.
 pub(crate) fn namespace_stats_key(namespace: &str) -> Vec<u8> {
     let mut key =
         Vec::with_capacity(INTERNAL_PREFIX.len() + NAMESPACE_STATS_TAG.len() + namespace.len());
@@ -471,6 +532,7 @@ pub(crate) fn namespace_stats_key(namespace: &str) -> Vec<u8> {
     key
 }
 
+/// Count the number of tokens in a payload.
 pub(crate) fn posting_count(payload: &str) -> u64 {
     token_counts(payload).len() as u64
 }
@@ -485,6 +547,7 @@ fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Resul
     Ok(val)
 }
 
+/// Encode a posting entry into bytes.
 pub(crate) fn posting_value(node_id: u64, tf: u32, positions: &[u32]) -> Result<Vec<u8>> {
     serialize(&TextPosting {
         node_id,
@@ -493,26 +556,32 @@ pub(crate) fn posting_value(node_id: u64, tf: u32, positions: &[u32]) -> Result<
     })
 }
 
+/// Decode posting bytes into a `TextPosting` struct.
 pub(crate) fn decode_posting(bytes: &[u8]) -> Result<TextPosting> {
     deserialize(bytes, "text posting")
 }
 
+/// Encode doc stats into bytes.
 pub(crate) fn doc_stats_value(node_id: u64, doc_len: u32) -> Result<Vec<u8>> {
     serialize(&TextDocStats { node_id, doc_len })
 }
 
+/// Decode doc stats bytes into a `TextDocStats` struct.
 pub(crate) fn decode_doc_stats(bytes: &[u8]) -> Result<TextDocStats> {
     deserialize(bytes, "text doc stats")
 }
 
+/// Encode term stats into bytes.
 pub(crate) fn term_stats_value(df: u64) -> Result<Vec<u8>> {
     serialize(&TextTermStats { df })
 }
 
+/// Decode term stats bytes into a `TextTermStats` struct.
 pub(crate) fn decode_term_stats(bytes: &[u8]) -> Result<TextTermStats> {
     deserialize(bytes, "text term stats")
 }
 
+/// Encode namespace stats into bytes.
 pub(crate) fn namespace_stats_value(doc_count: u64, total_doc_len: u64) -> Result<Vec<u8>> {
     serialize(&TextNamespaceStats {
         doc_count,
@@ -520,10 +589,12 @@ pub(crate) fn namespace_stats_value(doc_count: u64, total_doc_len: u64) -> Resul
     })
 }
 
+/// Decode namespace stats bytes into a `TextNamespaceStats` struct.
 pub(crate) fn decode_namespace_stats(bytes: &[u8]) -> Result<TextNamespaceStats> {
     deserialize(bytes, "text namespace stats")
 }
 
+/// Build write operations to upsert a posting entry.
 pub(crate) fn posting_put_ops(
     namespace: &str,
     key: &str,
@@ -549,6 +620,7 @@ pub(crate) fn posting_put_ops(
         .collect()
 }
 
+/// Build write operations to delete postings for a given record.
 pub(crate) fn posting_delete_ops(namespace: &str, key: &str, payload: &str) -> Vec<BackendWriteOp> {
     unique_tokens(payload)
         .into_iter()
@@ -559,6 +631,7 @@ pub(crate) fn posting_delete_ops(namespace: &str, key: &str, payload: &str) -> V
         .collect()
 }
 
+/// Build a write operation to upsert doc stats.
 pub(crate) fn doc_stats_put_op(
     namespace: &str,
     key: &str,
@@ -572,6 +645,7 @@ pub(crate) fn doc_stats_put_op(
     })
 }
 
+/// Build a write operation to delete doc stats.
 pub(crate) fn doc_stats_delete_op(namespace: &str, key: &str) -> BackendWriteOp {
     BackendWriteOp::Delete {
         partition: BackendPartition::TextIndex,
@@ -579,6 +653,7 @@ pub(crate) fn doc_stats_delete_op(namespace: &str, key: &str) -> BackendWriteOp 
     }
 }
 
+/// Build a write operation to upsert term stats.
 pub(crate) fn term_stats_put_op(namespace: &str, token: &str, df: u64) -> Result<BackendWriteOp> {
     Ok(BackendWriteOp::Put {
         partition: BackendPartition::TextIndex,
@@ -587,6 +662,7 @@ pub(crate) fn term_stats_put_op(namespace: &str, token: &str, df: u64) -> Result
     })
 }
 
+/// Build a write operation to delete term stats.
 pub(crate) fn term_stats_delete_op(namespace: &str, token: &str) -> BackendWriteOp {
     BackendWriteOp::Delete {
         partition: BackendPartition::TextIndex,
@@ -594,6 +670,7 @@ pub(crate) fn term_stats_delete_op(namespace: &str, token: &str) -> BackendWrite
     }
 }
 
+/// Build a write operation to upsert namespace stats.
 pub(crate) fn namespace_stats_put_op(
     namespace: &str,
     stats: &TextNamespaceStats,
@@ -605,6 +682,7 @@ pub(crate) fn namespace_stats_put_op(
     })
 }
 
+/// Build a write operation to delete namespace stats.
 pub(crate) fn namespace_stats_delete_op(namespace: &str) -> BackendWriteOp {
     BackendWriteOp::Delete {
         partition: BackendPartition::TextIndex,

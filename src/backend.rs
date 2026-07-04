@@ -69,14 +69,21 @@ impl BackendPartition {
 /// A single write operation within an atomic batch.
 #[derive(Clone)]
 pub(crate) enum BackendWriteOp {
+    /// Insert or update a key-value pair.
     #[allow(dead_code)]
     Put {
+        /// Target partition.
         partition: BackendPartition,
+        /// Key bytes.
         key: Vec<u8>,
+        /// Value bytes.
         value: Vec<u8>,
     },
+    /// Delete a key.
     Delete {
+        /// Target partition.
         partition: BackendPartition,
+        /// Key bytes.
         key: Vec<u8>,
     },
 }
@@ -86,17 +93,23 @@ pub(crate) enum BackendWriteOp {
 /// Indicates which KV backend is being used.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum BackendKind {
+    /// RocksDB storage backend.
     RocksDb,
+    /// Fjall storage backend (default).
     #[default]
     Fjall,
+    /// In-memory storage backend (no persistence).
     InMemory,
 }
 
 /// Introspection of a backend's supported features.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BackendCapabilities {
+    /// Whether the backend supports consistent snapshots.
     pub supports_checkpoint: bool,
+    /// Whether the backend supports manual compaction.
     pub supports_manual_compaction: bool,
+    /// Which backend implementation is in use.
     pub kind: BackendKind,
 }
 
@@ -183,6 +196,7 @@ pub(crate) trait StorageBackend: Send + Sync {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

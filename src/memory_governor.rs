@@ -2,18 +2,28 @@
 use crate::config::VantaConfig;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+/// Memory usage governor with watermarks and eviction control.
 pub(crate) struct MemoryGovernor {
+    /// Maximum allowed memory in bytes.
     memory_limit: u64,
+    /// Target usage ratio (0.0–1.0).
     target_ratio: f64,
+    /// Low watermark: usage below this is safe.
     low_water_mark: u64,
+    /// High watermark: usage above this triggers eviction.
     high_water_mark: u64,
+    /// Current estimated usage in bytes.
     used_bytes: AtomicU64,
+    /// Whether eviction is currently running.
     eviction_running: AtomicBool,
+    /// Timestamp of last eviction in milliseconds.
     last_eviction_ms: AtomicU64,
+    /// Count of out-of-memory events.
     oom_count: AtomicU64,
 }
 
 impl MemoryGovernor {
+    /// Create a new governor from config.
     pub fn new(config: &VantaConfig) -> Self {
         let caps = crate::hardware::HardwareCapabilities::global();
         let memory_limit = config.memory_limit.unwrap_or(caps.total_memory);
@@ -30,40 +40,49 @@ impl MemoryGovernor {
         }
     }
 
+    /// Record an allocation of `bytes`.
     pub fn allocated(&self, bytes: u64) {
         self.used_bytes.fetch_add(bytes, Ordering::Relaxed);
     }
 
+    /// Record a deallocation of `bytes`.
     pub fn freed(&self, bytes: u64) {
         self.used_bytes.fetch_sub(bytes, Ordering::Relaxed);
     }
 
+    /// Current estimated memory usage in bytes.
     pub fn used_bytes(&self) -> u64 {
         self.used_bytes.load(Ordering::Relaxed)
     }
 
+    /// Maximum allowed memory in bytes.
     pub fn memory_limit(&self) -> u64 {
         self.memory_limit
     }
 
+    /// Returns `true` if usage is above the high watermark.
     pub fn should_evict(&self) -> bool {
         self.used_bytes.load(Ordering::Relaxed) > self.high_water_mark
     }
 
+    /// Returns `true` if usage is above the memory limit (urgent).
     pub fn needs_urgent_eviction(&self) -> bool {
         self.used_bytes.load(Ordering::Relaxed) > self.memory_limit
     }
 
+    /// Returns `true` if usage is above the low watermark.
     pub fn above_low_water(&self) -> bool {
         self.used_bytes.load(Ordering::Relaxed) > self.low_water_mark
     }
 
+    /// Try to start an eviction cycle. Returns `false` if already running.
     pub fn try_start_eviction(&self) -> bool {
         self.eviction_running
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
             .is_ok()
     }
 
+    /// Mark eviction as finished and record the timestamp.
     pub fn finish_eviction(&self) {
         self.eviction_running.store(false, Ordering::Release);
         self.last_eviction_ms.store(
@@ -75,24 +94,29 @@ impl MemoryGovernor {
         );
     }
 
+    /// Count of out-of-memory events.
     pub fn oom_count(&self) -> u64 {
         self.oom_count.load(Ordering::Relaxed)
     }
 
+    /// Record an out-of-memory event.
     pub fn record_oom(&self) {
         self.oom_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    /// Returns `true` if eviction is currently running.
     pub fn eviction_running(&self) -> bool {
         self.eviction_running.load(Ordering::Acquire)
     }
 
+    /// Directly set the used bytes counter (for testing).
     pub fn set_used_bytes(&self, bytes: u64) {
         self.used_bytes.store(bytes, Ordering::Relaxed);
     }
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::config::VantaConfig;

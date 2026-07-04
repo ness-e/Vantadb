@@ -24,6 +24,7 @@ pub fn fwht(data: &mut [f32]) {
     }
 }
 
+/// Scalar (non-SIMD) implementation of the Fast Walsh-Hadamard Transform.
 pub fn fwht_scalar(data: &mut [f32]) {
     let n = data.len();
     let mut h = 1;
@@ -46,6 +47,7 @@ pub fn fwht_scalar(data: &mut [f32]) {
     }
 }
 
+/// SIMD-accelerated implementation of the Fast Walsh-Hadamard Transform.
 pub fn fwht_simd(data: &mut [f32]) {
     let n = data.len();
     let mut h = 1;
@@ -123,6 +125,7 @@ pub fn fwht_simd(data: &mut [f32]) {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

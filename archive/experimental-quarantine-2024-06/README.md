@@ -27,31 +27,14 @@ These crates were originally developed to provide runtime policy evaluation and 
 
 ## Archived Crates
 
-### `experimental-lisp`
-- **Purpose:** LISP query language and VM for dynamic policy evaluation
-- **Status:** PoC (Proof of Concept) - Only `INSERT` implemented, `MATCH` pending
-- **Issues:** 
-  - Designed for runtime evaluation (incompatible with compile-time governance)
-  - Fuel limits are hacks, not real solutions
-  - Random node generation not deterministic
-- **Components:**
-  - LISP Parser (nom-based)
-  - Stack-based VM with bytecodes
-  - Sandbox with fuel limits (MAX_FUEL=1000)
+### ~~`experimental-lisp`~~ (DELETED)
+- **Status:** ❌ Eliminated Jul 2026 — PoC abandonado, solo INSERT implementado, borrow checker + GIL blocking insolubles
+- **Why deleted:** IQL cubre todas las necesidades de query. Análisis en `docs/architecture/LISP_ANALYSIS.md`
 
-### `experimental-governance`
-- **Purpose:** Runtime admission control, conflict resolution, and maintenance workers
-- **Status:** Functional but architecturally incompatible
-- **Issues:**
-  - Direct dependency on StorageEngine internals (tight coupling)
-  - Thread-dedicated maintenance worker (anti-pattern for embedded systems)
-  - Assumes runtime conflict resolution (incompatible with AST-based governance)
-- **Components:**
-  - `AdmissionFilter`: Bloom filter for duplicate prevention
-  - `ConflictResolver`: Confidence arbitration with friction metrics
-  - `ConsistencyBuffer`: Runtime conflict resolution buffer
-  - `MaintenanceWorker`: Background thread for eviction/consolidation
-  - `InvalidationDispatcher`: MPSC channel for invalidation events
+### ~~`experimental-governance`~~ (DELETED)
+- **Status:** ❌ Eliminated Jul 2026 — 5 🔴 bugs, 4 🟠 bugs, 3 🟡 bugs. Design doc preservado en `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md`
+- **Why deleted:** El código no era rescatable — los bugs de diseño requerían rewrite completo. La inteligencia de diseño (arquitectura, terminología, recomendaciones) fue capturada en el design doc antes de eliminar el código fuente.
+- **Original components:** `AdmissionFilter`, `ConflictResolver`, `ConsistencyBuffer`, `MaintenanceWorker`, `InvalidationDispatcher`
 
 ---
 

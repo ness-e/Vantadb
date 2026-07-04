@@ -19,25 +19,38 @@ const GIB: u64 = 1024 * 1024 * 1024;
 /// Global Hardware Profile loaded once at startup.
 static CAPS: OnceLock<HardwareCapabilities> = OnceLock::new();
 
+/// CPU instruction set extensions detected at startup.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstructionSet {
+    /// AVX-512 (x86_64).
     Avx512,
+    /// AVX2 (x86_64).
     Avx2,
+    /// NEON (AArch64).
     Neon,
-    Fallback, // Explicit scalar loop network of safety
+    /// Scalar fallback when no SIMD is available.
+    Fallback,
 }
 
+/// System-level hardware performance tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HardwareProfile {
-    Enterprise,  // Heavy hardware: AVX-512, high RAM
-    Performance, // Standard server: AVX2/Neon, standard RAM
-    LowResource, // Constrained devices: Low RAM or Scalar Fallback
+    /// Heavy hardware: AVX-512, 16+ GB RAM.
+    Enterprise,
+    /// Standard server: AVX2/NEON, 4+ GB RAM.
+    Performance,
+    /// Constrained devices: low RAM or scalar fallback.
+    LowResource,
 }
 
+/// Detected host hardware capabilities, cached at startup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareCapabilities {
+    /// Detected CPU instruction set.
     pub instructions: InstructionSet,
+    /// Derived hardware performance profile.
     pub profile: HardwareProfile,
+    /// Number of logical CPU cores.
     pub logical_cores: usize,
     /// Total physical RAM of the host machine in bytes (via `sysinfo::System::total_memory()`).
     ///
@@ -45,22 +58,27 @@ pub struct HardwareCapabilities {
     /// has allocated. For per-process metrics, use `metrics::memory_breakdown_snapshot()`
     /// which reports RSS and virtual memory for the current process.
     pub total_memory: u64,
+    /// Composite resource score based on RAM, cores, and instructions.
     pub resource_score: u32,
-    pub env_hash: u64, // Hash of the static environment for invalidation
+    /// Hash of the static environment for cache-invalidation on hardware change.
+    pub env_hash: u64,
 }
 
 impl HardwareCapabilities {
+    /// Return the global cached hardware capabilities, detecting them on first call.
     pub fn global() -> &'static Self {
         CAPS.get_or_init(HardwareScout::detect)
     }
 }
 
+/// Hardware detection utility that probes CPU features and system memory at startup.
 pub struct HardwareScout;
 
 impl HardwareScout {
     #[cfg(feature = "sysinfo")]
     const PROFILE_PATH: &'static str = ".vanta_profile";
 
+    /// Probe the current host and return a fully populated `HardwareCapabilities`.
     pub fn detect() -> HardwareCapabilities {
         #[cfg(feature = "sysinfo")]
         {

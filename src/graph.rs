@@ -7,11 +7,14 @@ use crate::error::Result;
 use crate::storage::StorageEngine;
 use std::collections::{HashMap, HashSet};
 
+/// Graph traversal helper with BFS, DFS, and topological sort.
 pub struct GraphTraverser<'a> {
+    /// Reference to the storage engine.
     storage: &'a StorageEngine,
 }
 
 impl<'a> GraphTraverser<'a> {
+    /// Create a new graph traverser.
     pub fn new(storage: &'a StorageEngine) -> Self {
         Self { storage }
     }
@@ -164,6 +167,7 @@ impl<'a> GraphTraverser<'a> {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::config::VantaConfig;

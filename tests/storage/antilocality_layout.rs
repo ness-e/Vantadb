@@ -149,7 +149,14 @@ fn antilocality_layout_certification() {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store.read();
             for query in &queries {
-                let hits = hnsw.search_nearest(query, None, None, 0u128, 5, Some(&vs));
+                let hits = hnsw.search_nearest(
+                    query,
+                    None,
+                    None,
+                    &vantadb::node::ALL_BITSET,
+                    5,
+                    Some(&vs),
+                );
                 pre_results.push(hits);
             }
         }
@@ -163,7 +170,14 @@ fn antilocality_layout_certification() {
             let hnsw = engine.hnsw.load();
             let vs = engine.vector_store.read();
             for query in &queries {
-                let hits = hnsw.search_nearest(query, None, None, 0u128, 5, Some(&vs));
+                let hits = hnsw.search_nearest(
+                    query,
+                    None,
+                    None,
+                    &vantadb::node::ALL_BITSET,
+                    5,
+                    Some(&vs),
+                );
                 post_results.push(hits);
             }
         }

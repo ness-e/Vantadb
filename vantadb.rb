@@ -1,7 +1,7 @@
 class Vantadb < Formula
   desc "Embedded cognitive memory for AI agents - HNSW + BM25 hybrid vector database"
   homepage "https://vantadb.dev"
-  version "0.1.5"
+  version "0.2.0"
   license "Apache-2.0"
 
   if OS.mac?

@@ -56,9 +56,13 @@ use crate::config::VantaConfig;
 /// - `cache_entries`: Number of "hot" nodes cached in the volatile LRU cache.
 #[derive(Debug, Clone, Copy)]
 pub struct MemoryStats {
+    /// Estimated logical memory footprint in bytes.
     pub logical_bytes: u64,
+    /// Approximate resident set size (pages actually in RAM), if available.
     pub physical_rss: Option<u64>,
+    /// Number of nodes currently indexed in the HNSW graph.
     pub node_count: u64,
+    /// Number of entries in the volatile hot-node cache.
     pub cache_entries: usize,
 }
 
@@ -73,39 +77,53 @@ impl MemoryStats {
 /// Report returned by eviction operations.
 #[derive(Debug, Clone, Copy)]
 pub struct EvictionReport {
+    /// Number of nodes successfully evicted from the volatile cache.
     pub evicted: usize,
+    /// Number of candidate nodes scanned during eviction.
     pub scanned: usize,
 }
 
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexRebuildReport {
+    /// Total number of nodes scanned during rebuild.
     pub scanned_nodes: u64,
+    /// Number of nodes with valid vectors added to the new index.
     pub indexed_vectors: u64,
+    /// Number of tombstone (deleted) nodes skipped.
     pub skipped_tombstones: u64,
+    /// Total rebuild duration in milliseconds.
     pub duration_ms: u64,
+    /// File path where the rebuilt index was persisted.
     pub index_path: PathBuf,
+    /// Whether the rebuild completed successfully.
     pub success: bool,
 }
 
+/// Central storage facade coordinating the KV backend, HNSW index, vector store, and WAL.
 pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
+    /// Engine configuration including backend kind, memory limits, and sync mode.
     pub config: VantaConfig,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
+    /// Thread-safe HNSW index (swappable via RCU).
     pub hnsw: ArcSwap<CPIndex>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     insert_lock: parking_lot::Mutex<()>,
+    /// Volatile LRU cache for hot (frequently accessed) nodes.
     pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
+    /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: std::sync::atomic::AtomicBool,
-    /// Path to the data directory
+    /// Path to the data directory.
     pub data_dir: PathBuf,
-    /// Vector Store
+    /// Vector store file for persistent node vector data.
     pub vector_store: RwLock<VantaFile>,
-    /// Write-Ahead Log for durability
+    /// Write-ahead log for crash durability.
     pub wal: std::sync::Arc<parking_lot::Mutex<Option<crate::wal::WalWriter>>>,
     /// Memory governor for adaptive eviction
     #[allow(dead_code)]
@@ -140,6 +158,7 @@ impl StorageEngine {
         self.config.advanced_tokenizer_config.as_ref()
     }
 
+    /// Returns `None` when the advanced tokenizer feature is disabled.
     #[cfg(not(feature = "advanced-tokenizer"))]
     pub fn advanced_tokenizer_config(&self) -> Option<()> {
         None
@@ -512,6 +531,7 @@ impl StorageEngine {
         })
     }
 
+    /// Check that the engine is not read-only, returning an error if writes are forbidden.
     #[inline]
     pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
         if config.read_only {
@@ -528,6 +548,7 @@ impl StorageEngine {
         Self::guard_write_allowed(&self.config)
     }
 
+    /// Update the last-query timestamp to the current system time.
     pub fn touch_activity(&self) {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -552,6 +573,7 @@ impl StorageEngine {
         super::archive::rebuild_hnsw_from_vstore(hnsw, vstore, index_path)
     }
 
+    /// Rebuild the HNSW vector index from scratch by scanning all nodes in the VantaFile.
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
 
@@ -679,6 +701,7 @@ impl StorageEngine {
         Ok(nodes_compacted)
     }
 
+    /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
         self.check_memory_pressure()?;
@@ -786,6 +809,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Update the HNSW index entry for a node with its current vector and storage offset.
     pub fn refresh_index(&self, node: &UnifiedNode, storage_offset: u64) -> Result<()> {
         if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Ok(());
@@ -830,6 +854,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Move a hot node to cold tier, persist metadata, and release mmap pages.
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
         self.ensure_writable()?;
         let mut persisted = node.clone();
@@ -945,6 +970,7 @@ impl StorageEngine {
         Ok(EvictionReport { evicted, scanned })
     }
 
+    /// Insert a node into a specific backend column family and update the HNSW index.
     pub fn insert_to_cf(&self, node: &UnifiedNode, cf_name: &str) -> Result<()> {
         self.ensure_writable()?;
         let partition = super::ops::partition_from_cf_name(cf_name)?;
@@ -959,6 +985,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Retrieve a node by its numeric ID, checking the volatile cache first.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
         self.touch_activity();
@@ -1157,6 +1184,7 @@ impl StorageEngine {
         Ok(results)
     }
 
+    /// Mark a node as deleted: write tombstone, remove from cache and backend.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
         self.check_memory_pressure()?;
@@ -1201,6 +1229,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Permanently remove all traces of a node from all backend partitions.
     pub fn purge_permanent(&self, id: u64) -> Result<()> {
         self.ensure_writable()?;
         let key = id.to_le_bytes();
@@ -1220,6 +1249,7 @@ impl StorageEngine {
         ])
     }
 
+    /// Check whether a node has been marked as deleted in the tombstones partition.
     pub fn is_deleted(&self, id: u64) -> Result<bool> {
         let key = id.to_le_bytes();
         match self.backend.get(BackendPartition::Tombstones, &key)? {
@@ -1228,6 +1258,7 @@ impl StorageEngine {
         }
     }
 
+    /// Check tombstone fragmentation and log a warning if it exceeds 20%.
     pub fn trigger_compaction(&self) -> Result<()> {
         let vstore = self.vector_store.write();
         let hnsw = self.hnsw.load();
@@ -1256,6 +1287,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Flush all pending writes: backend, vector store, WAL checkpoint, and vector index.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn flush(&self) -> Result<()> {
         self.ensure_writable()?;
@@ -1377,6 +1409,7 @@ impl StorageEngine {
         }
     }
 
+    /// Create a checkpoint (live snapshot) of the backend for backup purposes.
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
         self.ensure_writable()?;
         if !self.supports_checkpoint() {
@@ -1397,6 +1430,7 @@ impl StorageEngine {
         self.backend.checkpoint(&save_path)
     }
 
+    /// Recover archived nodes from TombstoneStorage that belonged to the given summary node.
     pub fn recover_archived_nodes(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
         self.ensure_writable()?;
         let entries = self.backend.scan(BackendPartition::TombstoneStorage)?;
@@ -1519,11 +1553,13 @@ impl StorageEngine {
         self.backend.put(partition, key, value)
     }
 
+    /// Execute a batch of write operations atomically against the backend.
     pub(crate) fn write_backend_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
         self.ensure_writable()?;
         self.backend.write_batch(ops)
     }
 
+    /// Scan all key-value pairs in the given backend partition.
     pub(crate) fn scan_partition(
         &self,
         partition: BackendPartition,
@@ -1531,6 +1567,7 @@ impl StorageEngine {
         self.backend.scan(partition)
     }
 
+    /// Scan key-value pairs matching the given prefix in the given backend partition.
     pub(crate) fn scan_partition_prefix(
         &self,
         partition: BackendPartition,
@@ -1539,6 +1576,7 @@ impl StorageEngine {
         self.backend.scan_prefix(partition, prefix)
     }
 
+    /// Retrieve a single value from the given backend partition.
     pub(crate) fn get_from_partition(
         &self,
         partition: BackendPartition,
@@ -1548,6 +1586,7 @@ impl StorageEngine {
     }
 
     /// Retrieve multiple raw values from a partition in a single batch.
+    /// Retrieve multiple values from a partition in a single batch request.
     #[allow(dead_code)]
     pub(crate) fn get_many_from_partition(
         &self,
@@ -1573,18 +1612,22 @@ impl StorageEngine {
         self.backend.compact();
     }
 
+    /// Return the capabilities descriptor of the active KV backend.
     pub fn backend_capabilities(&self) -> crate::backend::BackendCapabilities {
         self.backend.capabilities()
     }
 
+    /// Return the kind of the active KV backend (InMemory, RocksDb, or Fjall).
     pub fn backend_kind(&self) -> crate::backend::BackendKind {
         self.backend.capabilities().kind
     }
 
+    /// Return whether the active backend supports point-in-time checkpoints.
     pub fn supports_checkpoint(&self) -> bool {
         self.backend.capabilities().supports_checkpoint
     }
 
+    /// Return whether the active backend supports explicitly triggered compaction.
     pub fn supports_manual_compaction(&self) -> bool {
         self.backend.capabilities().supports_manual_compaction
     }
@@ -1623,6 +1666,7 @@ impl StorageEngine {
         }
     }
 
+    /// Check current memory usage against the RSS threshold and trigger eviction if exceeded.
     pub fn check_memory_pressure(&self) -> Result<()> {
         let threshold = self.config.rss_threshold;
         if threshold <= 0.0 {
@@ -1657,6 +1701,7 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Perform an emergency shutdown: flush buffers and exit the process immediately.
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
         println!("[!] VANTADB SYSTEM EMERGENCY: Security Constraint Violated");
@@ -1697,6 +1742,7 @@ impl StorageEngine {
         stats
     }
 
+    /// Estimate the selectivity of a relational filter based on cached cardinality statistics.
     pub fn get_estimated_selectivity(
         &self,
         field: &str,
@@ -1754,6 +1800,7 @@ impl StorageEngine {
 }
 
 impl Drop for StorageEngine {
+    /// Release the file lock when the engine is dropped.
     fn drop(&mut self) {
         #[cfg(feature = "fs2")]
         {
@@ -1766,6 +1813,7 @@ impl Drop for StorageEngine {
 
 // ─── Tests ────────────────────────────────────────────────────
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::config::VantaConfig;

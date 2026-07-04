@@ -22,6 +22,7 @@ use crate::VantaEmbedded;
 
 // ─── Styling Helpers ─────────────────────────────────────────
 
+/// Create a styled spinner for indeterminate operations
 pub fn create_spinner(message: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     pb.set_style(
@@ -55,26 +56,31 @@ fn header_style() -> Style {
     Style::new().white().bold()
 }
 
+/// Print a green success message to stdout
 pub fn print_success(msg: &str) {
     let term = Term::stdout();
     let _ = term.write_line(&format!("{} {}", success_style().apply_to("✓"), msg));
 }
 
+/// Print a red error message to stderr
 pub fn print_error(msg: &str) {
     let term = Term::stderr();
     let _ = term.write_line(&format!("{} {}", error_style().apply_to("✗"), msg));
 }
 
+/// Print a cyan info message to stdout
 pub fn print_info(msg: &str) {
     let term = Term::stdout();
     let _ = term.write_line(&format!("{} {}", info_style().apply_to("ℹ"), msg));
 }
 
+/// Print a yellow warning message to stdout
 pub fn print_warning(msg: &str) {
     let term = Term::stdout();
     let _ = term.write_line(&format!("{} {}", warning_style().apply_to("⚠"), msg));
 }
 
+/// Prompt the user for a yes/no confirmation
 pub fn confirm_action(prompt: &str) -> std::io::Result<bool> {
     let term = Term::stdout();
     let _ = term.write_str(prompt);
@@ -86,6 +92,7 @@ pub fn confirm_action(prompt: &str) -> std::io::Result<bool> {
 
 // ─── Database Operations ─────────────────────────────────────
 
+/// Open a database at the given path with optional read-only mode
 pub fn open_database(path: &str, read_only: bool) -> Result<StorageEngine> {
     let config = VantaConfig {
         read_only,
@@ -94,6 +101,7 @@ pub fn open_database(path: &str, read_only: bool) -> Result<StorageEngine> {
     StorageEngine::open_with_config(path, Some(config))
 }
 
+/// Open the embedded VantaDB SDK with the given path and read-only mode
 pub fn open_embedded(path: &str, read_only: bool) -> Result<VantaEmbedded> {
     let config = VantaConfig {
         storage_path: path.to_string(),
@@ -114,6 +122,7 @@ pub fn memory_node_id(namespace: &str, key: &str) -> u64 {
 }
 
 #[tracing::instrument]
+/// Store a key-value record with optional vector embedding
 pub fn cmd_put(
     db_path: &str,
     namespace: &str,
@@ -214,6 +223,7 @@ pub fn cmd_put(
 }
 
 #[tracing::instrument]
+/// Retrieve and display a record by namespace and key
 pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -317,6 +327,7 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
 }
 
 #[tracing::instrument]
+/// List records in a namespace with an optional limit
 pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -417,6 +428,7 @@ pub fn cmd_list(db_path: &str, namespace: &str, limit: usize, verbose: bool) -> 
 }
 
 #[tracing::instrument]
+/// Rebuild all database indexes (HNSW, text, derived)
 pub fn cmd_rebuild_index(db_path: &str, _verbose: bool) -> Result<()> {
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -499,6 +511,7 @@ pub fn cmd_rebuild_index(db_path: &str, _verbose: bool) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Validate text index integrity and report inconsistencies
 pub fn cmd_audit_index(
     db_path: &str,
     namespace: Option<&str>,
@@ -625,6 +638,7 @@ pub fn cmd_audit_index(
 }
 
 #[tracing::instrument]
+/// Repair the text index if inconsistencies are detected
 pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
@@ -652,6 +666,7 @@ pub fn cmd_repair_text_index(db_path: &str) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Export records to a JSON file, optionally filtered by namespace
 pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> Result<()> {
     use std::io::Write;
 
@@ -758,6 +773,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
 }
 
 #[tracing::instrument]
+/// Import records from a JSON file into the database
 pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()> {
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -830,6 +846,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 }
 
 #[tracing::instrument]
+/// Execute a structured hybrid query against the database
 pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
@@ -928,6 +945,7 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
 }
 
 #[tracing::instrument]
+/// Display database health diagnostics and system status
 pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     let term = Term::stdout();
@@ -1086,6 +1104,7 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Start the HTTP or MCP server wrapper for the database
 pub fn cmd_server(
     db_path: &str,
     http: bool,
@@ -1219,6 +1238,7 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
 }
 
 #[tracing::instrument]
+/// Generate shell completion scripts for the given shell type
 pub fn cmd_completions(shell: Shell) {
     let mut cmd = Cli::command();
     let shell: clap_complete::Shell = shell.into();
@@ -1226,6 +1246,7 @@ pub fn cmd_completions(shell: Shell) {
 }
 
 #[tracing::instrument]
+/// Perform semantic or hybrid search across a namespace
 pub fn cmd_search(
     db_path: &str,
     namespace: &str,
@@ -1369,6 +1390,7 @@ pub fn cmd_search(
 }
 
 #[tracing::instrument]
+/// Delete a record by namespace and key
 pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1400,6 +1422,7 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
 }
 
 #[tracing::instrument]
+/// List all namespaces in the database
 pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1457,6 +1480,7 @@ pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Show record count and details for a specific namespace
 pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1520,6 +1544,7 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Create a filesystem-level backup of the database directory
 pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()> {
     let src = std::path::Path::new(db_path);
     if !src.exists() {
@@ -1603,6 +1628,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
 }
 
 #[tracing::instrument]
+/// Restore the database from a previously created backup directory
 pub fn cmd_restore(
     db_path: &str,
     input: &str,
@@ -1692,6 +1718,7 @@ pub fn cmd_restore(
 }
 
 #[tracing::instrument]
+/// Run comprehensive health diagnostics on the database
 pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1808,6 +1835,7 @@ pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
 }
 
 #[tracing::instrument]
+/// Inspect a single record showing all fields, vectors, and metadata
 pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -1959,6 +1987,7 @@ pub fn cmd_inspect(db_path: &str, namespace: &str, key: &str, verbose: bool) -> 
 }
 
 #[tracing::instrument]
+/// Display detailed database statistics in human-readable or JSON format
 pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
@@ -2102,6 +2131,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
 }
 
 #[tracing::instrument]
+/// Migrate a database to the latest storage schema and format versions
 pub fn cmd_migrate(
     target_path: &str,
     format: &str,
@@ -2141,7 +2171,7 @@ pub fn cmd_migrate(
     let formats: Vec<FormatKind> = if format == "all" {
         FormatKind::all().to_vec()
     } else {
-        match FormatKind::from_str(format) {
+        match FormatKind::from_string(format) {
             Some(f) => vec![f],
             None => {
                 print_error(&format!(

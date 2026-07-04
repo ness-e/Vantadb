@@ -1,11 +1,13 @@
 //! Encryption at rest (AES-256-GCM, ChaCha20-Poly1305)
 
 /// Encryption key wrapping and management.
+#[derive(Default)]
 pub struct EncryptionManager {
     // TODO: key management integration with OS keychain/KMS
 }
 
 impl EncryptionManager {
+    /// Create a new `EncryptionManager`.
     pub fn new() -> Self {
         Self {}
     }

@@ -10,6 +10,23 @@ function Write-Header($Title) {
     Write-Host "`n=== $Title ===" -ForegroundColor Cyan
 }
 
+function Show-CodeGraphAffected {
+    $codegraph = Get-Command "codegraph" -ErrorAction SilentlyContinue
+    if (-not $codegraph) { return }
+    if (-not (Test-Path "$ProjectRoot\.codegraph\codegraph.db")) { return }
+
+    Write-Host "`n  Checking CodeGraph impact..." -ForegroundColor Gray
+    $changed = git diff --name-only HEAD 2>$null
+    if (-not $changed) { return }
+
+    $result = $changed | & "codegraph" affected --stdin --quiet 2>$null
+    if ($result) {
+        Write-Host "  CodeGraph: $($result.Count) test files affected by your changes" -ForegroundColor Magenta
+        foreach ($t in $result) { Write-Host "    → $t" -ForegroundColor DarkGray }
+        Write-Host "  Run: dev-tools/verify_changed.ps1 for a faster targeted check`n" -ForegroundColor Yellow
+    }
+}
+
 function Run-Command($Name, [string[]]$ArgList) {
     Write-Host "`nRunning: $Name..." -ForegroundColor Yellow
 
@@ -27,6 +44,9 @@ try {
     Write-Host "=============================================" -ForegroundColor Cyan
     Write-Host "   VantaDB Pre-Flight Verification (Local)  " -ForegroundColor Cyan
     Write-Host "=============================================" -ForegroundColor Cyan
+
+    # 0. CodeGraph Impact Analysis (if available)
+    Show-CodeGraphAffected
 
     # Force opt-level=0 and increase rustc stack size to prevent MSVC STATUS_STACK_BUFFER_OVERRUN
     # when compiling a large crate with all features on Windows

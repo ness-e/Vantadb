@@ -5,19 +5,24 @@ use web_time::SystemTime;
 /// Ensures format, schema and data integrity on load/recovery.
 ///
 /// Layout:
-/// - Magic bytes: 4 bytes (e.g. b"VWAL", b"VNDX", b"VFLE")
-/// - Format version: 2 bytes (u16, little-endian)
-/// - Schema version: 2 bytes (u16, little-endian)
-/// - Timestamp: 8 bytes (u64, little-endian, creation epoch in ms)
+///   - Magic bytes: 4 bytes (e.g. b"VWAL", b"VNDX", b"VFLE")
+///   - Format version: 2 bytes (u16, little-endian)
+///   - Schema version: 2 bytes (u16, little-endian)
+///   - Timestamp: 8 bytes (u64, little-endian, creation epoch in ms)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VantaHeader {
+    /// Magic bytes (e.g. b"VWAL", b"VNDX", b"VFLE").
     pub magic: [u8; 4],
+    /// Format version number.
     pub format_version: u16,
+    /// Schema version number.
     pub schema_version: u16,
+    /// Creation timestamp in epoch milliseconds.
     pub timestamp: u64,
 }
 
 impl VantaHeader {
+    /// Total byte size of the serialised header (16 bytes).
     pub const SIZE: usize = 16;
 
     /// Create a new header with current system timestamp.
@@ -91,6 +96,7 @@ impl VantaHeader {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

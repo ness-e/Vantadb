@@ -11,6 +11,7 @@ use pyo3::types::PyModuleMethods;
 
 #[pyclass]
 pub struct ClientEngine {
+    /// Inner storage engine instance.
     _storage: StorageEngine,
 }
 
@@ -22,6 +23,7 @@ impl Default for ClientEngine {
 
 #[pymethods]
 impl ClientEngine {
+    /// Create a new engine, opening `vantadb_data` as the storage path.
     #[new]
     pub fn new() -> PyResult<Self> {
         Ok(ClientEngine {
@@ -66,8 +68,6 @@ impl ClientEngine {
     }
 }
 
-/// The python module definition.
-/// Compiled utilizing `maturin develop --features python_sdk`.
 #[pymodule]
 fn vantadb(_py: Python<'_>, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<ClientEngine>()?;

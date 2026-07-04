@@ -19,6 +19,7 @@ struct OllamaEmbeddingResponse {
     embedding: Vec<f32>,
 }
 
+/// HTTP client for communicating with an Ollama inference server.
 pub struct LlmClient {
     client: Client,
     base_url: String,
@@ -32,6 +33,7 @@ impl Default for LlmClient {
 }
 
 impl LlmClient {
+    /// Create a new client reading `VANTA_LLM_URL` and `VANTA_LLM_MODEL` from the environment.
     pub fn new() -> Self {
         let base_url =
             env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());

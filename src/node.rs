@@ -13,6 +13,7 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 pub struct FilterBitset(Vec<u64>);
 
 impl FilterBitset {
+    /// Create an empty bitset with no allocation.
     pub fn new() -> Self {
         Self(Vec::new())
     }
@@ -170,18 +171,21 @@ impl From<FilterBitset> for u128 {
 
 /// Global sentinel for "match everything" (no filter) in HNSW queries.
 pub static ALL_BITSET: std::sync::LazyLock<FilterBitset> =
-    std::sync::LazyLock::new(|| FilterBitset::all_set());
+    std::sync::LazyLock::new(FilterBitset::all_set);
 
 /// Metric type used for vector distance/similarity calculations.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub enum DistanceMetric {
+    /// Cosine similarity (default).
     #[default]
     Cosine,
+    /// Euclidean distance.
     Euclidean,
 }
 
 // ─── Vector Data ───────────────────────────────────────────
 
+/// Wrapper around a raw `*const f32` pointer that implements `Send` + `Sync`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SendPtr(pub *const f32);
 unsafe impl Send for SendPtr {}
@@ -212,6 +216,7 @@ pub enum VectorRepresentations {
 }
 
 impl VectorRepresentations {
+    /// Returns the number of dimensions in this vector representation.
     pub fn dimensions(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len(),
@@ -223,6 +228,7 @@ impl VectorRepresentations {
         }
     }
 
+    /// Returns `true` if this is the `None` variant.
     pub fn is_none(&self) -> bool {
         matches!(self, VectorRepresentations::None)
     }
@@ -356,8 +362,11 @@ impl VectorRepresentations {
 /// Labeled directed edge with optional weight
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Edge {
+    /// Target node ID.
     pub target: u64,
+    /// Edge label string.
     pub label: String,
+    /// Edge weight (defaults to 1.0).
     pub weight: f32,
 }
 
@@ -366,13 +375,18 @@ pub struct Edge {
 /// to evict when under memory pressure.
 #[derive(Debug, Clone, Copy)]
 pub struct EvictionWeights {
+    /// Weight for hit count.
     pub hits: f64,
+    /// Weight for confidence score.
     pub confidence: f64,
+    /// Weight for importance score.
     pub importance: f64,
+    /// Weight for recency score.
     pub recency: f64,
 }
 
 impl Edge {
+    /// Create an edge with default weight (1.0).
     pub fn new(target: u64, label: impl Into<String>) -> Self {
         Self {
             target,
@@ -381,6 +395,7 @@ impl Edge {
         }
     }
 
+    /// Create an edge with a custom weight.
     pub fn with_weight(target: u64, label: impl Into<String>, weight: f32) -> Self {
         Self {
             target,
@@ -395,16 +410,27 @@ impl Edge {
 /// Typed relational field value
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum FieldValue {
+    /// A UTF-8 string value.
     String(String),
+    /// A 64-bit signed integer value.
     Int(i64),
+    /// A 64-bit floating point value.
     Float(f64),
+    /// A boolean value.
     Bool(bool),
+    /// A UTC date-time value.
     DateTime(chrono::DateTime<chrono::Utc>),
+    /// A list of UTF-8 string values.
     ListString(Vec<String>),
+    /// A list of 64-bit signed integer values.
     ListInt(Vec<i64>),
+    /// A list of 64-bit floating point values.
     ListFloat(Vec<f64>),
+    /// A list of boolean values.
     ListBool(Vec<bool>),
+    /// A list of UTC date-time values.
     ListDateTime(Vec<chrono::DateTime<chrono::Utc>>),
+    /// Absent / null value.
     Null,
 }
 
@@ -465,18 +491,21 @@ impl Hash for FieldValue {
 }
 
 impl FieldValue {
+    /// Returns the inner `&str` if this is a `String` variant.
     pub fn as_str(&self) -> Option<&str> {
         match self {
             FieldValue::String(s) => Some(s),
             _ => None,
         }
     }
+    /// Returns the inner `i64` if this is an `Int` variant.
     pub fn as_int(&self) -> Option<i64> {
         match self {
             FieldValue::Int(i) => Some(*i),
             _ => None,
         }
     }
+    /// Returns the inner `bool` if this is a `Bool` variant.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             FieldValue::Bool(b) => Some(*b),
@@ -508,6 +537,7 @@ pub type RelFields = BTreeMap<String, FieldValue>;
 
 // ─── Node Flags ────────────────────────────────────────────
 
+/// Bitfield flags stored in a `u32`, each bit representing a node state.
 #[repr(transparent)]
 #[derive(
     Clone,
@@ -525,32 +555,48 @@ pub type RelFields = BTreeMap<String, FieldValue>;
 pub struct NodeFlags(pub u32);
 
 impl NodeFlags {
+    /// Node is active (alive).
     pub const ACTIVE: u32 = 1 << 0;
+    /// Node is indexed.
     pub const INDEXED: u32 = 1 << 1;
+    /// Node has been modified since last checkpoint.
     pub const DIRTY: u32 = 1 << 2;
+    /// Node is marked as deleted (tombstone).
     pub const TOMBSTONE: u32 = 1 << 3;
+    /// Node has associated vector data.
     pub const HAS_VECTOR: u32 = 1 << 4;
+    /// Node has outgoing edges.
     pub const HAS_EDGES: u32 = 1 << 5;
+    /// Node is pinned in memory (exempt from eviction).
     pub const PINNED: u32 = 1 << 6;
+    /// Node was recovered from WAL replay.
     pub const RECOVERED: u32 = 1 << 7;
+    /// Node has been invalidated.
     pub const INVALIDATED: u32 = 1 << 8;
+    /// Node has had a conflict resolved.
     pub const CONFLICT_RESOLVED: u32 = 1 << 9;
 
+    /// Create flags with the ACTIVE bit set.
     pub fn new() -> Self {
         Self(Self::ACTIVE)
     }
+    /// Check if a specific flag is set.
     pub fn is_set(&self, flag: u32) -> bool {
         self.0 & flag != 0
     }
+    /// Set a specific flag.
     pub fn set(&mut self, flag: u32) {
         self.0 |= flag;
     }
+    /// Clear a specific flag.
     pub fn clear(&mut self, flag: u32) {
         self.0 &= !flag;
     }
+    /// Returns `true` if the ACTIVE flag is set.
     pub fn is_active(&self) -> bool {
         self.is_set(Self::ACTIVE)
     }
+    /// Returns `true` if the TOMBSTONE flag is set.
     pub fn is_tombstone(&self) -> bool {
         self.is_set(Self::TOMBSTONE)
     }
@@ -568,13 +614,19 @@ pub enum NodeTier {
     Cold,
 }
 
-/// Trait for tracking access patterns
+/// Trait for tracking access patterns.
 pub trait AccessTracker {
+    /// Returns the confidence score (0.0–1.0).
     fn confidence_score(&self) -> f32;
+    /// Returns the number of hits (access count).
     fn hits(&self) -> u32;
-    fn last_accessed(&self) -> u64; // Unix ms
+    /// Returns the last access time in Unix milliseconds.
+    fn last_accessed(&self) -> u64;
+    /// Pin the node in memory (exempt from eviction).
     fn pin(&mut self);
+    /// Unpin the node, making it eligible for eviction.
     fn unpin(&mut self);
+    /// Returns `true` if the node is pinned.
     fn is_pinned(&self) -> bool;
 }
 
@@ -615,6 +667,7 @@ pub struct DiskNodeHeader {
 }
 
 impl DiskNodeHeader {
+    /// Create a new header with default values for the given node ID.
     pub fn new(id: u64) -> Self {
         Self {
             id,
@@ -648,6 +701,7 @@ pub struct UnifiedNode {
     pub semantic_cluster: u32,
     /// Status flags
     pub flags: NodeFlags,
+    /// Vector representations (tiered precision).
     pub vector: VectorRepresentations,
     /// Lineage version
     pub epoch: u32,
@@ -805,6 +859,7 @@ impl Default for UnifiedNode {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

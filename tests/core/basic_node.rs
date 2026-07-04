@@ -7,6 +7,7 @@ mod common;
 use common::{TerminalReporter, VantaHarness};
 use std::time::Instant;
 use tempfile::TempDir;
+use vantadb::node::FilterBitset;
 use vantadb::{FieldValue, InMemoryEngine, UnifiedNode};
 
 #[test]
@@ -84,9 +85,11 @@ fn core_engine_certification() {
             } // active
             engine.insert(node).unwrap();
         }
-        let vzla = engine.scan_bitset(1u128 << 5);
+        let vzla_mask = FilterBitset::from(1u128 << 5);
+        let vzla = engine.scan_bitset(&vzla_mask);
         assert_eq!(vzla.len(), 50);
-        let both = engine.scan_bitset((1u128 << 5) | (1u128 << 16));
+        let both_mask = FilterBitset::from((1u128 << 5) | (1u128 << 16));
+        let both = engine.scan_bitset(&both_mask);
         assert_eq!(both.len(), 16);
         TerminalReporter::success("Cross-bitset filtering validated.");
     });
@@ -140,11 +143,12 @@ fn core_engine_certification() {
             }
             engine.insert(node).unwrap();
         }
+        let hybrid_mask = FilterBitset::from(1u128 << 5);
         let result = engine.hybrid_search(
             &[10.0, 0.0, 0.0],
             3,
             0.5,
-            Some(1u128 << 5),
+            Some(&hybrid_mask),
             &[("pais".to_string(), FieldValue::String("VZLA".into()))],
         );
         assert_eq!(result.nodes.len(), 3);

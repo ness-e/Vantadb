@@ -7,6 +7,7 @@ mod common;
 use common::{TerminalReporter, VantaHarness};
 use tempfile::TempDir;
 use vantadb::index::{CPIndex, IndexBackend, VectorRepresentations};
+use vantadb::node::FilterBitset;
 
 /// Helper: create a CPIndex with N test vectors
 fn build_test_index(node_count: u64) -> CPIndex {
@@ -15,7 +16,12 @@ fn build_test_index(node_count: u64) -> CPIndex {
         let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
         let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
         let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
-        index.add(i, 0, VectorRepresentations::Full(normalized), 0);
+        index.add(
+            i,
+            FilterBitset::new(),
+            VectorRepresentations::Full(normalized),
+            0,
+        );
     }
     index
 }
@@ -28,12 +34,13 @@ fn mmap_vector_index_certification() {
     harness.execute("Serialization: BFS layout preserves search results", || {
         let index = build_test_index(50);
         let query = vec![0.25f32, 0.35, 0.45, 0.55];
-        let before = index.search_nearest(&query, None, None, 0, 5, None);
+        let before = index.search_nearest(&query, None, None, &vantadb::node::ALL_BITSET, 5, None);
 
         let bytes = index.serialize_to_bytes();
         let restored =
             CPIndex::deserialize_from_bytes(&bytes, true).expect("Deserialization failed");
-        let after = restored.search_nearest(&query, None, None, 0, 5, None);
+        let after =
+            restored.search_nearest(&query, None, None, &vantadb::node::ALL_BITSET, 5, None);
 
         assert_eq!(before, after);
         TerminalReporter::success("BFS serialization order is search-equivalent.");
@@ -67,7 +74,7 @@ fn mmap_vector_index_certification() {
         let query = [1.0f32, 2.0, 3.0, 4.0];
         let norm: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nq: Vec<f32> = query.iter().map(|x| x / norm).collect();
-        let results = loaded.search_nearest(&nq, None, None, 0, 5, None);
+        let results = loaded.search_nearest(&nq, None, None, &vantadb::node::ALL_BITSET, 5, None);
 
         assert_eq!(results[0].0, 1);
         TerminalReporter::success("Cold-start persistence and search verified.");
@@ -82,7 +89,12 @@ fn mmap_vector_index_certification() {
             let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
             let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
             let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
-            index.add(i, 0, VectorRepresentations::Full(normalized), 0);
+            index.add(
+                i,
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            );
         }
 
         index.sync_to_mmap().expect("MMap sync failed");
@@ -119,13 +131,25 @@ fn mmap_vector_index_certification() {
             .collect();
 
         for (id, v) in &vectors {
-            inmem_index.add(*id, 0, VectorRepresentations::Full(v.clone()), 0);
-            mmap_index.add(*id, 0, VectorRepresentations::Full(v.clone()), 0);
+            inmem_index.add(
+                *id,
+                FilterBitset::new(),
+                VectorRepresentations::Full(v.clone()),
+                0,
+            );
+            mmap_index.add(
+                *id,
+                FilterBitset::new(),
+                VectorRepresentations::Full(v.clone()),
+                0,
+            );
         }
 
         let q = vec![0.5f32, 0.5, 0.5, 0.5];
-        let res_inmem = inmem_index.search_nearest(&q, None, None, 0, 5, None);
-        let res_mmap = mmap_index.search_nearest(&q, None, None, 0, 5, None);
+        let res_inmem =
+            inmem_index.search_nearest(&q, None, None, &vantadb::node::ALL_BITSET, 5, None);
+        let res_mmap =
+            mmap_index.search_nearest(&q, None, None, &vantadb::node::ALL_BITSET, 5, None);
 
         assert_eq!(res_inmem.len(), res_mmap.len());
         TerminalReporter::success("Memory and MMap backend equivalence confirmed.");

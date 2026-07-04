@@ -20,9 +20,11 @@ pub struct Cli {
     pub verbose: bool,
 
     #[command(subcommand)]
+    /// The subcommand to execute
     pub command: Commands,
 }
 
+/// All supported CLI subcommands
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     /// Save a key-value pair to persistent memory
@@ -188,6 +190,7 @@ pub enum Commands {
     },
 }
 
+/// Subcommands for namespace management
 #[derive(Subcommand, Debug, Clone)]
 pub enum NamespaceCommand {
     /// List all namespaces
@@ -199,12 +202,17 @@ pub enum NamespaceCommand {
     },
 }
 
+/// Shell type for shell completion scripts
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(clippy::enum_variant_names)]
 pub enum Shell {
+    /// Bash shell completions
     Bash,
+    /// Zsh shell completions
     Zsh,
+    /// Fish shell completions
     Fish,
+    /// PowerShell shell completions
     #[value(name = "powershell", alias = "power-shell")]
     PowerShell,
 }

@@ -14,6 +14,7 @@ use tracing::warn;
 
 const DEFAULT_RSS_THRESHOLD: f64 = 0.80;
 
+/// Log output format for the VantaDB server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
     /// Compact human-readable output (default for CLI). No targets, thread IDs,
@@ -40,6 +41,7 @@ impl LogFormat {
     }
 }
 
+/// Synchronisation mode for WAL and storage writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SyncMode {
     /// Forces fsync/fdatasync on every write operation to the WAL and storage backend.
@@ -73,6 +75,7 @@ pub enum PrefetchMode {
 }
 
 impl PrefetchMode {
+    /// Parse from an env var value (case-insensitive).
     pub fn from_env_value(s: &str) -> Self {
         match s.trim().to_lowercase().as_str() {
             "disabled" | "off" | "0" | "false" => PrefetchMode::Disabled,
@@ -81,6 +84,7 @@ impl PrefetchMode {
         }
     }
 
+    /// Returns `true` if prefetch is active for this mode.
     pub fn is_prefetch_enabled(self) -> bool {
         match self {
             PrefetchMode::Disabled => false,
@@ -89,8 +93,10 @@ impl PrefetchMode {
     }
 }
 
+/// RBAC configuration mapping API tokens to roles.
 #[derive(Debug, Clone, Default)]
 pub struct RbacConfig {
+    /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
 }
 
@@ -100,14 +106,23 @@ pub struct RbacConfig {
 /// variables with sensible defaults and allows programmatic overrides.
 #[derive(Debug, Clone)]
 pub struct VantaConfig {
+    /// Directory path for persistent storage.
     pub storage_path: String,
+    /// Host address to bind the HTTP server.
     pub host: String,
+    /// Port number for the HTTP server.
     pub port: u16,
+    /// Base URL for the LLM inference endpoint.
     pub llm_url: String,
+    /// Model name for LLM inference.
     pub llm_model: String,
+    /// Model name for LLM summarisation.
     pub llm_summarize_model: String,
+    /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
+    /// If true, the engine operates in read-only mode.
     pub read_only: bool,
+    /// If true, force mmap-based vector storage.
     pub force_mmap: bool,
     /// Whether to use memory-mapped storage for the HNSW index.
     /// When true, vectors in the HNSW index use zero-copy MmapFull representations
@@ -134,8 +149,11 @@ pub struct VantaConfig {
     pub eviction_weight_recency: f64,
     /// Fraction of hot nodes to evict when memory pressure triggers (default: 0.20).
     pub eviction_ratio: f64,
+    /// The chosen key-value storage backend.
     pub backend_kind: BackendKind,
+    /// Maximum number of blocking threads for the async runtime.
     pub max_blocking_threads: usize,
+    /// Write synchronisation mode for durability vs. throughput.
     pub sync_mode: SyncMode,
     /// Optional Bearer token for HTTP API authentication.
     ///
@@ -169,10 +187,13 @@ pub struct VantaConfig {
     /// Configured via `VANTADB_FILE_LOCK_TIMEOUT_MS`.
     pub file_lock_timeout_ms: u64,
     #[cfg(feature = "advanced-tokenizer")]
+    /// Advanced tokenizer configuration for multilingual text processing.
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
+    /// RBAC configuration mapping API tokens to roles.
     pub rbac_config: RbacConfig,
 }
 
+/// Parse an environment variable with a fallback default.
 fn parse_env_or<T: FromStr>(key: &str, default: T) -> T {
     match env::var(key) {
         Ok(val) => match val.parse::<T>() {
@@ -505,6 +526,7 @@ impl VantaConfig {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

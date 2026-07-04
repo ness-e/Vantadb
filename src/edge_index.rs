@@ -2,33 +2,40 @@
 use crate::error::Result;
 use dashmap::DashSet;
 
+/// An in-memory adjacency index for directed edges using a concurrent hash set.
 pub(crate) struct EdgeIndex {
     edges: DashSet<(u64, u64)>,
 }
 
 impl EdgeIndex {
+    /// Create a new empty edge index.
     pub fn new() -> Self {
         Self {
             edges: DashSet::new(),
         }
     }
 
+    /// Insert a directed edge from `from` to `to`.
     pub fn insert(&self, from: u64, to: u64) {
         self.edges.insert((from, to));
     }
 
+    /// Remove all outgoing edges from a given node.
     pub fn remove_from(&self, from: u64) {
         self.edges.retain(|(f, _)| *f != from);
     }
 
+    /// Remove a specific directed edge.
     pub fn remove_edge(&self, from: u64, to: u64) {
         self.edges.remove(&(from, to));
     }
 
+    /// Check whether a directed edge exists.
     pub fn has_edge(&self, from: u64, to: u64) -> bool {
         self.edges.contains(&(from, to))
     }
 
+    /// Return all target nodes reachable from a given source.
     pub fn outgoing(&self, from: u64) -> Vec<u64> {
         self.edges
             .iter()
@@ -37,6 +44,7 @@ impl EdgeIndex {
             .collect()
     }
 
+    /// Return all source nodes that point to a given target.
     pub fn incoming(&self, to: u64) -> Vec<u64> {
         self.edges
             .iter()
@@ -45,16 +53,19 @@ impl EdgeIndex {
             .collect()
     }
 
+    /// Return the total number of edges in the index.
     pub fn len(&self) -> usize {
         self.edges.len()
     }
 
+    /// Verify referential integrity (currently a no-op placeholder).
     pub fn verify_referential_integrity(&self) -> Result<()> {
         Ok(())
     }
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

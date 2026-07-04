@@ -54,6 +54,7 @@ pub struct ArchivedHnswGraph<'a> {
 }
 
 impl<'a> ArchivedHnswGraph<'a> {
+    /// Parse an archived HNSW graph from a byte slice, validating magic and version.
     pub fn from_bytes(data: &'a [u8]) -> Option<Self> {
         let header_size = std::mem::size_of::<ArchivedHnswHeader>();
         let node_size = std::mem::size_of::<ArchivedHnswNode>();
@@ -114,18 +115,22 @@ impl<'a> ArchivedHnswGraph<'a> {
         })
     }
 
+    /// Number of HNSW nodes in the archive.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
 
+    /// Entry point node id for HNSW search, or `u64::MAX` if the graph is empty.
     pub fn entry_point(&self) -> u64 {
         self.header.entry_point
     }
 
+    /// Maximum HNSW layer in the graph.
     pub fn max_layer(&self) -> usize {
         self.header.max_layer as usize
     }
 
+    /// Distance metric used by the archived index.
     pub fn distance_metric(&self) -> DistanceMetric {
         match self.header.distance_metric {
             0 => DistanceMetric::Cosine,
@@ -255,6 +260,7 @@ impl CPIndex {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::index::f32_l2_norm;

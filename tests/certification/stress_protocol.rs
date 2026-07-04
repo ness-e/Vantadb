@@ -19,6 +19,7 @@ use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use std::time::Instant;
 use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::node::FilterBitset;
 
 #[path = "../common/mod.rs"]
 mod common;
@@ -92,7 +93,7 @@ fn compute_recall(
         .map(|q| {
             let truth = brute_force_knn(q, dataset, k);
             let hnsw: Vec<u64> = index
-                .search_nearest(q, None, None, u128::MAX, k, None)
+                .search_nearest(q, None, None, &vantadb::node::ALL_BITSET, k, None)
                 .into_iter()
                 .map(|(id, _)| id)
                 .collect();
@@ -109,7 +110,12 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
     let idx = CPIndex::new_with_config(config);
     let pb = TerminalReporter::create_progress(dataset.len() as u64, "Building HNSW");
     for (id, vec) in dataset {
-        idx.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
+        idx.add(
+            *id,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec.clone()),
+            0,
+        );
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -121,7 +127,7 @@ fn measure_latency_percentiles(index: &CPIndex, queries: &[Vec<f32>], k: usize) 
         .iter()
         .map(|q| {
             let t = Instant::now();
-            let _ = index.search_nearest(q, None, None, u128::MAX, k, None);
+            let _ = index.search_nearest(q, None, None, &vantadb::node::ALL_BITSET, k, None);
             t.elapsed().as_nanos() as f64 / 1000.0 // µs
         })
         .collect();
@@ -422,51 +428,128 @@ fn stress_protocol_certification() {
         TerminalReporter::sub_step("5a: Empty index...");
         let empty = CPIndex::new();
         assert!(empty
-            .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+            .search_nearest(
+                &vec![1.0; d],
+                None,
+                None,
+                &vantadb::node::ALL_BITSET,
+                k,
+                None
+            )
             .is_empty());
 
         TerminalReporter::sub_step("5b: Single node...");
         let single = CPIndex::new();
-        single.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
+        single.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; d]),
+            0,
+        );
         assert_eq!(
             single
-                .search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
+                .search_nearest(
+                    &vec![1.0; d],
+                    None,
+                    None,
+                    &vantadb::node::ALL_BITSET,
+                    k,
+                    None
+                )
                 .len(),
             1
         );
 
         TerminalReporter::sub_step("5c: Two nodes...");
         let two = CPIndex::new();
-        two.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
-        two.add(2, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
+        two.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; d]),
+            0,
+        );
+        two.add(
+            2,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![-1.0; d]),
+            0,
+        );
         assert_eq!(
-            two.search_nearest(&vec![1.0; d], None, None, u128::MAX, k, None)
-                .len(),
+            two.search_nearest(
+                &vec![1.0; d],
+                None,
+                None,
+                &vantadb::node::ALL_BITSET,
+                k,
+                None
+            )
+            .len(),
             2
         );
 
         TerminalReporter::sub_step("5d: Zero vector...");
         let zvec = CPIndex::new();
-        zvec.add(1, u128::MAX, VectorRepresentations::Full(vec![0.0; d]), 0);
+        zvec.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![0.0; d]),
+            0,
+        );
         assert_eq!(
-            zvec.search_nearest(&vec![0.0; d], None, None, u128::MAX, k, None)
-                .len(),
+            zvec.search_nearest(
+                &vec![0.0; d],
+                None,
+                None,
+                &vantadb::node::ALL_BITSET,
+                k,
+                None
+            )
+            .len(),
             1
         );
 
         TerminalReporter::sub_step("5e: Duplicate ID...");
         let dup = CPIndex::new();
-        dup.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
-        dup.add(1, u128::MAX, VectorRepresentations::Full(vec![-1.0; d]), 0);
+        dup.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; d]),
+            0,
+        );
+        dup.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![-1.0; d]),
+            0,
+        );
         assert_eq!(dup.nodes.len(), 1);
 
         TerminalReporter::sub_step("5f: Dimension Mismatch...");
         let dvec = CPIndex::new();
-        dvec.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; d]), 0);
-        let _ = dvec.search_nearest(&vec![1.0; 128], None, None, u128::MAX, k, None);
+        dvec.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; d]),
+            0,
+        );
+        let _ = dvec.search_nearest(
+            &vec![1.0; 128],
+            None,
+            None,
+            &vantadb::node::ALL_BITSET,
+            k,
+            None,
+        );
 
         TerminalReporter::sub_step("5g: k > n...");
-        let results = dvec.search_nearest(&vec![1.0; d], None, None, u128::MAX, 100, None);
+        let results = dvec.search_nearest(
+            &vec![1.0; d],
+            None,
+            None,
+            &vantadb::node::ALL_BITSET,
+            100,
+            None,
+        );
         assert!(results.len() == 1);
 
         TerminalReporter::success("BLOCK 5 PASSED.");

@@ -1,3 +1,6 @@
+//! Wire-format helpers for reading and writing VantaDB memory records
+//! to/from internal node representations and JSONL export lines.
+
 use super::builder::VantaEmbedded;
 use super::types::*;
 use crate::backend::{BackendPartition, BackendWriteOp};
@@ -17,12 +20,19 @@ use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 const RESERVED_PREFIX: &str = "__vanta_";
+/// Internal field name used to store the namespace on a memory record node.
 pub const FIELD_NAMESPACE: &str = "__vanta_namespace";
+/// Internal field name used to store the record key on a memory record node.
 pub const FIELD_KEY: &str = "__vanta_key";
+/// Internal field name used to store the payload text on a memory record node.
 pub const FIELD_PAYLOAD: &str = "__vanta_payload";
+/// Internal field name storing the Unix-ms creation timestamp.
 pub const FIELD_CREATED_AT_MS: &str = "__vanta_created_at_ms";
+/// Internal field name storing the Unix-ms last-update timestamp.
 pub const FIELD_UPDATED_AT_MS: &str = "__vanta_updated_at_ms";
+/// Internal field name storing the monotonic version counter.
 pub const FIELD_VERSION: &str = "__vanta_version";
+/// Internal field name storing the optional Unix-ms expiry deadline.
 pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
 const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
@@ -315,6 +325,7 @@ pub(crate) fn memory_record_to_node_owned(
     (node, record)
 }
 
+/// Convert a `VantaMemoryRecord` into a JSONL export line with schema version.
 pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
     VantaMemoryExportLine {
         schema_version: EXPORT_SCHEMA_VERSION,
@@ -1942,6 +1953,7 @@ impl From<UnifiedNode> for VantaNodeRecord {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

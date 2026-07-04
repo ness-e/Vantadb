@@ -10,14 +10,20 @@ use crate::storage::StorageEngine;
 
 // ─── Physical Scan Operator ──────────────────────────────────
 
+/// Physical scan operator that iterates all nodes of a given entity type.
 pub struct PhysicalScan<'a> {
+    /// Storage engine reference.
     storage: &'a StorageEngine,
+    /// Entity type to scan.
     entity: String,
+    /// Pre-fetched nodes.
     prefetched: Vec<UnifiedNode>,
+    /// Current position in the prefetched list.
     cursor: usize,
 }
 
 impl<'a> PhysicalScan<'a> {
+    /// Create a new scan operator for the given entity.
     pub fn new(storage: &'a StorageEngine, entity: String) -> Self {
         Self {
             storage,
@@ -91,14 +97,20 @@ impl PhysicalOperator for PhysicalScan<'_> {
 
 // ─── Physical Filter Operator ────────────────────────────────
 
+/// Physical filter operator that evaluates relational conditions.
 pub struct PhysicalFilter<'a> {
+    /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
+    /// Field to filter on.
     field: String,
+    /// Comparison operator.
     op: crate::query::RelOp,
+    /// Expected value.
     value: crate::node::FieldValue,
 }
 
 impl<'a> PhysicalFilter<'a> {
+    /// Create a new filter operator wrapping a child operator.
     pub fn new(
         child: Box<dyn PhysicalOperator + 'a>,
         field: String,
@@ -184,17 +196,25 @@ fn evaluate_condition(
 
 // ─── Physical Vector Search Operator ─────────────────────────
 
+/// Physical vector search operator using HNSW index.
 pub struct PhysicalVectorSearch<'a> {
+    /// Storage engine reference.
     storage: &'a StorageEngine,
+    /// Text query to embed.
     #[allow(dead_code)]
     query_vec_text: String,
+    /// Minimum similarity score threshold.
     min_score: f32,
+    /// Result node IDs from HNSW search.
     results: Vec<u64>,
+    /// Pre-fetched nodes.
     prefetched: Vec<UnifiedNode>,
+    /// Current position in the prefetched list.
     cursor: usize,
 }
 
 impl<'a> PhysicalVectorSearch<'a> {
+    /// Create a new vector search operator.
     pub fn new(storage: &'a StorageEngine, query_text: String, min_score: f32) -> Self {
         Self {
             storage,
@@ -265,12 +285,16 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
 
 // ─── Physical Project Operator ───────────────────────────────
 
+/// Physical project operator that narrows fields on each node.
 pub struct PhysicalProject<'a> {
+    /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
+    /// Fields to retain.
     fields: Vec<String>,
 }
 
 impl<'a> PhysicalProject<'a> {
+    /// Create a new project operator.
     pub fn new(child: Box<dyn PhysicalOperator + 'a>, fields: Vec<String>) -> Self {
         Self { child, fields }
     }
@@ -302,13 +326,18 @@ impl PhysicalOperator for PhysicalProject<'_> {
 
 // ─── Physical Limit Operator ─────────────────────────────────
 
+/// Physical limit operator that caps the number of returned nodes.
 pub struct PhysicalLimit<'a> {
+    /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
+    /// Maximum number of rows.
     limit: usize,
+    /// Number of rows emitted so far.
     count: usize,
 }
 
 impl<'a> PhysicalLimit<'a> {
+    /// Create a new limit operator.
     pub fn new(child: Box<dyn PhysicalOperator + 'a>, limit: usize) -> Self {
         Self {
             child,
@@ -343,15 +372,22 @@ impl PhysicalOperator for PhysicalLimit<'_> {
 
 // ─── Physical Sort Operator ──────────────────────────────────
 
+/// Physical sort operator that sorts nodes by a relational field.
 pub struct PhysicalSort<'a> {
+    /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
+    /// Sort field.
     field: String,
+    /// Sort descending.
     desc: bool,
+    /// Buffered nodes to sort.
     nodes: Vec<UnifiedNode>,
+    /// Current position in sorted nodes.
     cursor: usize,
 }
 
 impl<'a> PhysicalSort<'a> {
+    /// Create a new sort operator.
     pub fn new(child: Box<dyn PhysicalOperator + 'a>, field: String, desc: bool) -> Self {
         Self {
             child,
@@ -427,15 +463,21 @@ impl PhysicalOperator for PhysicalSort<'_> {
 
 // ─── Physical Vector Refine Operator (Brute Force Sim Check) ───
 
+/// Physical vector refine operator that brute-force filters by cosine similarity.
 pub struct PhysicalVectorRefine<'a> {
+    /// Child operator.
     child: Box<dyn PhysicalOperator + 'a>,
+    /// Text query to embed.
     #[allow(dead_code)]
     query_vec_text: String,
+    /// Minimum similarity score.
     min_score: f32,
+    /// Embedded query vector.
     query_vector: Option<crate::node::VectorRepresentations>,
 }
 
 impl<'a> PhysicalVectorRefine<'a> {
+    /// Create a new vector refine operator.
     pub fn new(child: Box<dyn PhysicalOperator + 'a>, query_text: String, min_score: f32) -> Self {
         Self {
             child,
@@ -484,6 +526,7 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::{FieldValue, UnifiedNode};

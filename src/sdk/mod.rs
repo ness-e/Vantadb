@@ -1,3 +1,6 @@
+//! Public SDK surface for the VantaDB embedded client.
+//! Re-exports the core types, builder, and serialization helpers.
+
 mod api;
 pub(crate) mod builder;
 pub mod connect;

@@ -61,7 +61,7 @@ fn test_index_persistence_roundtrip() {
             &query,
             None,
             None,
-            u128::MAX,
+            &vantadb::node::ALL_BITSET,
             5,
             Some(&engine.vector_store.read()),
         );
@@ -131,7 +131,7 @@ fn test_index_reconstruction_from_storage() {
             &query,
             None,
             None,
-            u128::MAX,
+            &vantadb::node::ALL_BITSET,
             5,
             Some(&engine.vector_store.read()),
         );
