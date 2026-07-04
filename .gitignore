@@ -132,3 +132,12 @@ Cargo_test.toml
 # Understand-Anything (local scratch)
 .understand-anything/
 
+# Visual review screenshots & reports
+screenshots/
+*.page-*.png
+web/scripts/eval-screenshots.mjs
+/architecture.png
+/engine.png
+/engine-mobile.png
+/homepage.png
+
