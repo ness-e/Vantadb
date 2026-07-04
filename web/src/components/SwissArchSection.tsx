@@ -78,7 +78,7 @@ export function SwissArchSection() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-arch-layers">
+    <section ref={sectionRef} className="swiss-section swiss-arch-layers" aria-label="Architecture layers">
       <div className="swiss-inner">
         <div className="swiss-grid swiss-arch-layers-grid">
           <div className="swiss-arch-layers-text">
@@ -97,22 +97,23 @@ export function SwissArchSection() {
             </p>
           </div>
 
-          <div className="swiss-arch-layers-diagram" ref={layersRef}>
+          <div className="swiss-arch-layers-diagram" ref={layersRef} role="img" aria-label="Architecture stack diagram">
             <div className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}>
               {LAYERS.map((layer, index) => (
-                <div
+                <article
                   key={layer.id}
                   className={`swiss-arch-layer swiss-arch-layer--${layer.size} ${layer.id === "pyo3" ? "swiss-arch-layer--accent" : ""} ${hoveredLayer === layer.id ? "swiss-arch-layer--active" : ""}`}
                   onMouseEnter={() => setHoveredLayer(layer.id)}
                   onMouseLeave={() => setHoveredLayer(null)}
+                  aria-label={`${layer.type}: ${layer.name}`}
                 >
-                  <div className="swiss-arch-layer-badge">
+                  <header className="swiss-arch-layer-badge">
                     <span
                       className={`swiss-arch-layer-badge-text ${layer.id === "pyo3" ? "swiss-arch-layer-badge-text--accent" : ""}`}
                     >
                       {layer.type}
                     </span>
-                  </div>
+                  </header>
 
                   <span className="swiss-arch-layer-name">
                     {layer.name}
@@ -123,6 +124,7 @@ export function SwissArchSection() {
                       width="20"
                       height="40"
                       className="swiss-arch-layer-arrow"
+                      aria-hidden="true"
                     >
                       <line
                         x1="10"
@@ -140,7 +142,7 @@ export function SwissArchSection() {
                       {layer.size === "large" ? "1.2ms" : layer.size === "medium" ? "0.0ms" : "2MB"}
                     </span>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           </div>

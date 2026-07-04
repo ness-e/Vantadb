@@ -228,7 +228,7 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
             let neighbors = {
                 let index = self.storage.hnsw.load();
                 let vs = self.storage.vector_store.read();
-                index.search_nearest(&vec, None, None, 0, 5, Some(&vs))
+                index.search_nearest(&vec, None, None, &crate::node::ALL_BITSET, 5, Some(&vs))
             };
             for (id, score) in neighbors {
                 if score >= self.min_score {

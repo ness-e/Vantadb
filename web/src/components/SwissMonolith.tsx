@@ -44,11 +44,11 @@ export const SwissMonolith = memo(function SwissMonolith() {
   );
 
   return (
-    <section ref={containerRef} className="swiss-monolith-section">
+    <section ref={containerRef} className="swiss-monolith-section" aria-label="Get started">
       <div className="swiss-monolith-content">
         <h2 className="swiss-monolith-title">
           pip install vantadb-py
-          <span className="monolith-cursor">_</span>
+          <span className="monolith-cursor" aria-hidden="true">_</span>
         </h2>
 
         <p className="swiss-monolith-subtitle">
@@ -56,7 +56,7 @@ export const SwissMonolith = memo(function SwissMonolith() {
         </p>
 
         <div className="swiss-monolith-cta-wrap">
-          <Link to="/docs" className="swiss-monolith-cta">
+          <Link to="/docs" className="swiss-monolith-cta" aria-label="Get started with VantaDB">
             Get Started
           </Link>
         </div>

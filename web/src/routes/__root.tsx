@@ -16,54 +16,39 @@ import { PendingComponent } from "../components/PendingComponent";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: "0 1rem" }}>
+      <div style={{ maxWidth: "480px", textAlign: "center" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "8rem", fontWeight: 900, color: "var(--border)", lineHeight: 1, letterSpacing: "-0.08em", margin: 0 }}>
+          404
+        </h1>
+        <hr className="hairline" style={{ margin: "1.5rem 0" }} />
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "1rem", color: "var(--muted)", marginBottom: "2rem" }}>
+          This page doesn't exist.
         </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
-        </div>
+        <Link to="/" className="btn-primary">
+          BACK HOME
+        </Link>
       </div>
     </div>
   );
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  // Error logged
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: "0 1rem" }}>
+      <div style={{ maxWidth: "480px", textAlign: "center" }}>
+        <hr className="hairline" style={{ marginBottom: "1.5rem" }} />
+        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9rem", color: "var(--muted)", marginBottom: "2rem" }}>
+          Something went wrong. You can try again or go home.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
+        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={() => { router.invalidate(); reset(); }} className="btn-primary">
+            TRY AGAIN
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
+          <a href="/" className="btn-ghost">
+            GO HOME
           </a>
         </div>
       </div>
@@ -153,22 +138,15 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="page-container">
         <Nav />
-
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-
-        {/* Dynamic content with route transitions */}
         <Suspense fallback={<PendingComponent />}>
           <div className="route-content">
             <Outlet />
           </div>
         </Suspense>
-
-        {/* ── Footer (Swiss OLED) ── */}
         <SwissFooter />
-
-        {/* ── Floating Utilities ── */}
         <SwissBackToTop />
       </div>
     </QueryClientProvider>

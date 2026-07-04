@@ -1,23 +1,13 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Consolidated Styles
-   4 master files + 2 standalone (nav + pricing)
-   ═══════════════════════════════════════════════════════════ */
-
 @import "@fontsource-variable/space-grotesk";
 @import "@fontsource-variable/outfit";
 @import "@fontsource-variable/jetbrains-mono";
 
-/* ── 1. Tokens & Theme (Tailwind, variables, reset) ── */
 @import "./tokens.css";
-
-/* ── 2. System (grid, layout, buttons, terminal, utilities) ── */
 @import "./swiss-grid.css";
 @import "./layout.css";
 @import "./buttons.css";
-@import "./terminal.css";
 @import "./utilities.css";
 
-/* ── 3. Sections (hero, benchmark, quickstart, engine, etc.) ── */
 @import "./swiss-hero.css";
 @import "./swiss-benchmark.css";
 @import "./swiss-quickstart.css";
@@ -35,11 +25,7 @@
 @import "./integrations.css";
 @import "./docs.css";
 @import "./vs-table.css";
+@import "./terminal.css";
 
-/* ── 4. Motion System ── */
-@import "./animations.css";
-
-/* ── Standalone ── */
 @import "./nav.css";
-@import "./logo.css";
 @import "./pricing.css";

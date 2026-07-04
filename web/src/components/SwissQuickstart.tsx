@@ -118,23 +118,25 @@ export function SwissQuickstart() {
   }, [hasEntered, typeStep]);
 
   return (
-    <section ref={sectionRef} className="swiss-section qs-section">
+    <section ref={sectionRef} className="swiss-section qs-section" aria-label="Quickstart guide">
       <div className="swiss-grid qs-grid">
         <div className="quickstart-left">
           <h2 className="qs-heading">
             Zero to running.
           </h2>
 
-          <div className="qs-steps">
+          <nav className="qs-steps" aria-label="Setup steps">
             {STEPS.map((step, i) => {
               const isActive = activeStep === i;
               return (
-                <div
+                <button
                   key={step.num}
                   onClick={() => setActiveStep(i)}
                   className={`qs-step ${isActive ? "qs-step--active" : ""}`}
+                  aria-current={isActive ? "step" : undefined}
+                  aria-label={`Step ${step.num}: ${step.title}`}
                 >
-                  <span className="qs-step-num">
+                  <span className="qs-step-num" aria-hidden="true">
                     [{step.num}]
                   </span>
                   <div className="qs-step-body">
@@ -145,22 +147,22 @@ export function SwissQuickstart() {
                       {step.desc}
                     </p>
                   </div>
-                </div>
+                </button>
               );
             })}
-          </div>
+          </nav>
 
           <div className="qs-docs">
-            <Link to="/docs" className="btn-ghost btn-ghost--hero qs-docs-link">
+            <Link to="/docs" className="btn-ghost btn-ghost--hero qs-docs-link" aria-label="Read documentation">
               Read Documentation
             </Link>
           </div>
         </div>
 
         <div className="quickstart-right">
-          <div className="qs-terminal">
-            <div className="qs-terminal-header">
-              <div className="qs-terminal-dots">
+          <div className="qs-terminal" role="region" aria-label="Terminal preview">
+            <header className="qs-terminal-header">
+              <div className="qs-terminal-dots" aria-hidden="true">
                 <div className="qs-terminal-dot" />
                 <div className="qs-terminal-dot" />
                 <div className="qs-terminal-dot" />
@@ -168,15 +170,15 @@ export function SwissQuickstart() {
               <span className="qs-terminal-label">
                 TERMINAL // PYTHON 3.9+
               </span>
-            </div>
+            </header>
 
             <div className="qs-terminal-body">
               <pre className="qs-code-pre">
-                <code ref={codeRef} className="qs-code"></code>
-                <span className="qs-cursor">_</span>
+                <code ref={codeRef} className="qs-code" aria-live="polite"></code>
+                <span className="qs-cursor" aria-hidden="true">_</span>
               </pre>
 
-              <div ref={outputRef} className="qs-output">
+              <div ref={outputRef} className="qs-output" aria-live="polite">
                 <span className="qs-output-text">
                   {STEPS[activeStep]!.output}
                 </span>

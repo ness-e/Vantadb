@@ -1,6 +1,6 @@
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
-use crate::node::DiskNodeHeader;
+use crate::node::{DiskNodeHeader, FilterBitset};
 use crate::storage::vfile::{MmapOptions, VantaFile};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
@@ -192,7 +192,7 @@ pub(crate) fn rebuild_hnsw_from_vstore(
                     } else {
                         crate::node::VectorRepresentations::None
                     };
-                    hnsw.add(header.id, header.bitset, vec_data, cursor);
+                    hnsw.add(header.id, FilterBitset::from_u128(header.bitset), vec_data, cursor);
                 }
             }
             cursor += header_size + ((header.vector_len as u64 * 4 + 63) & !63);

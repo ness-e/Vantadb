@@ -1,34 +1,15 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Buttons Stylesheet
-   ═══════════════════════════════════════════════════════════ */
-
-/* ── Base buttons ── */
-.cta-group {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.cta-group-center {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
 .btn-primary {
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   padding: 10px 24px;
-  border-radius: 0;
   border: none;
   cursor: pointer;
   background: var(--amber);
-  color: var(--block-dark-text);
-  transition: background 150ms var(--ease-cut);
+  color: var(--text-on-amber);
+  transition: opacity 150ms var(--ease-cut);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -37,28 +18,21 @@
 }
 
 .btn-primary:hover {
-  background: color-mix(in srgb, var(--amber), #000 15%);
-}
-
-.btn-primary:active {
-  background: color-mix(in srgb, var(--amber), #000 25%);
+  opacity: 0.85;
 }
 
 .btn-ghost {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   letter-spacing: 0.14em;
+  text-transform: uppercase;
   padding: 10px 24px;
-  border-radius: 0;
   border: 1px solid var(--border);
   cursor: pointer;
   background: transparent;
   color: var(--foreground);
-  transition:
-    background 150ms var(--ease-cut),
-    color 150ms var(--ease-cut),
-    border-color 100ms;
+  transition: background 150ms var(--ease-cut), color 150ms, border-color 150ms;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -67,16 +41,11 @@
 }
 
 .btn-ghost:hover {
-  background: var(--border);
-  color: #ffffff;
-  border-color: var(--border-strong);
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
 }
 
-.btn-ghost:active {
-  background: var(--border-strong);
-}
-
-/* Inverted variant for dark sections */
 .btn-ghost--inverted {
   border-color: rgba(255, 255, 255, 0.3);
   color: var(--block-dark-text);
@@ -88,31 +57,19 @@
   border-color: #ffffff;
 }
 
-.btn-ghost--link {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ── Install button ── */
 .btn-install {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   padding: 8px 18px;
-  border-radius: 0;
   border: 1px solid var(--border);
   background: var(--void);
   color: var(--foreground);
   cursor: pointer;
-  transition:
-    background 150ms var(--ease-cut),
-    border-color 100ms;
-  position: relative;
+  transition: background 150ms var(--ease-cut), border-color 100ms;
 }
 
 .btn-install:hover {
@@ -120,110 +77,8 @@
   border-color: var(--border-strong);
 }
 
-.btn-install:active {
-  background: var(--surface);
-}
-
-.btn-install code {
-  font-family: inherit;
-}
-
-.btn-install-icon {
-  opacity: 0.8;
-}
-
-.btn-install-feedback {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--amber);
-  margin-left: 0.25rem;
-  min-width: 3em;
-}
-
-/* ── Accessibility focus states ── */
 a:focus-visible,
 button:focus-visible {
   outline: 2.5px solid var(--amber);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-.spec-item:focus-visible,
-.quickstart-step:focus-visible {
-  outline: 2.5px solid var(--amber);
-  outline-offset: 2px;
-}
-
-.skip-to-content {
-  position: absolute;
-  top: -100%;
-  left: 1rem;
-  z-index: 9999;
-  padding: 0.75rem 1.5rem;
-  background: var(--amber);
-  color: #ffffff;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  text-decoration: none;
-  transition: top 150ms;
-}
-
-.skip-to-content:focus {
-  top: 1rem;
-}
-
-/* ── Hero button variants (large CTAs, no uppercase) ── */
-.btn-primary--hero {
-  font-size: 0.9rem;
-  padding: 12px 24px;
-  text-transform: none;
-  letter-spacing: normal;
-  transition:
-    background 150ms var(--ease-cut),
-    transform 150ms var(--ease-cut);
-}
-
-.btn-primary--hero:hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--amber), #000 15%);
-}
-
-.btn-primary--hero:active {
-  transform: scale(0.97);
-  background: color-mix(in srgb, var(--amber), #000 25%);
-}
-
-.btn-ghost--hero {
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-  padding: 11px 24px;
-  text-transform: none;
-  letter-spacing: normal;
-  transition:
-    background 150ms var(--ease-cut),
-    color 150ms var(--ease-cut),
-    border-color 100ms,
-    transform 150ms var(--ease-cut);
-}
-
-.btn-ghost--hero:hover {
-  transform: translateY(-1px);
-}
-
-.btn-ghost--hero:active {
-  transform: scale(0.97);
-}
-
-/* ── WAL button overrides ── */
-.btn-ghost.wal-btn-sm:disabled {
-  color: var(--steel);
-  border-color: var(--subtle);
-}
-.btn-ghost.wal-btn-sm:enabled {
-  color: var(--crimson);
-  border-color: var(--border);
 }

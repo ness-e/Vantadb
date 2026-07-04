@@ -107,23 +107,26 @@ export function SwissCoreEngine() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-section--dark swiss-ce-section">
+    <section ref={sectionRef} className="swiss-section swiss-section--dark swiss-ce-section" aria-label="Core engine architecture">
       <div className="swiss-inner">
         <h2 className="swiss-ce-title">
           Exploded Architecture.
         </h2>
 
-        <div className="swiss-ce-accordion">
+        <div className="swiss-ce-accordion" role="list">
           {FEATURES.map((feat) => {
             const isExpanded = expandedId === feat.id;
 
             return (
-              <div
+              <article
                 key={feat.id}
                 className="swiss-ce-row"
                 onClick={() => setExpandedId(isExpanded ? null : feat.id)}
+                role="listitem"
+                aria-expanded={isExpanded}
+                aria-label={feat.title}
               >
-                <div className="swiss-ce-row-header">
+                <header className="swiss-ce-row-header">
                   <div className="swiss-ce-row-title-group">
                     <svg
                       width="20"
@@ -135,6 +138,7 @@ export function SwissCoreEngine() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       className="swiss-ce-icon"
+                      aria-hidden="true"
                     >
                       <path
                         className="swiss-ce-icon-path"
@@ -146,17 +150,20 @@ export function SwissCoreEngine() {
 
                   <span
                     className={`swiss-ce-row-expand ${isExpanded ? "swiss-ce-row-expand--open" : ""}`}
+                    aria-hidden="true"
                   >
                     +
                   </span>
-                </div>
+                </header>
 
                 <div
                   className={`swiss-ce-row-content ${isExpanded ? "swiss-ce-row-content--open" : ""}`}
+                  role="region"
+                  aria-label={`${feat.title} details`}
                 >
                   <p className="swiss-ce-row-desc">{feat.desc}</p>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>

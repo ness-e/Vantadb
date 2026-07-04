@@ -15,7 +15,7 @@
 /// Version 7 (deprecated) had no padding between header and nodes,
 /// causing misaligned ArchivedHnswNode accesses on ARM/WASM.
 use crate::index::{CPIndex, HnswConfig, HnswNode};
-use crate::node::{DistanceMetric, VectorRepresentations};
+use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 const HNSW_MAGIC: [u8; 8] = *b"VNTHNSW\0";
 const HNSW_VERSION: u64 = 8;
@@ -186,7 +186,7 @@ impl CPIndex {
             }
             let archived = ArchivedHnswNode {
                 id: node.id,
-                bitset: node.bitset,
+                bitset: node.bitset.to_u128(),
                 storage_offset: node.storage_offset,
                 inv_cached_norm: node.inv_cached_norm,
                 neighbor_offset_u64: offset,
@@ -241,7 +241,7 @@ impl CPIndex {
 
             let node = HnswNode {
                 id: archived.id,
-                bitset: archived.bitset,
+                bitset: FilterBitset::from_u128(archived.bitset),
                 vec_data: VectorRepresentations::None,
                 neighbors,
                 storage_offset: archived.storage_offset,

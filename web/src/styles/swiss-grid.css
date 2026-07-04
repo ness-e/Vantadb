@@ -1,10 +1,3 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Grid System
-   12-column grid with visible hairlines, asymmetric layouts,
-   Swiss section containers, and dark-block inversion.
-   ═══════════════════════════════════════════════════════════ */
-
-/* ── Swiss section containers ── */
 .swiss-section {
   padding: var(--section-gap) clamp(1.5rem, 5vw, 4rem);
   position: relative;
@@ -18,29 +11,13 @@
   padding: var(--section-gap-lg) clamp(1.5rem, 5vw, 4rem);
 }
 
-/* Dark (OLED) inversion — Safety Orange survives unchanged */
 .swiss-section--dark {
   background-color: var(--block-dark-bg);
   color: var(--block-dark-text);
 }
 
-.swiss-section--dark .section-eyebrow,
-.swiss-section--dark .swiss-eyebrow {
-  color: var(--amber);
-}
-
-.swiss-section--dark .section-sub,
-.swiss-section--dark .swiss-sub {
-  color: var(--block-dark-muted);
-}
-
-.swiss-section--dark .section-divider {
-  background: var(--block-dark-border);
-}
-
-/* ── Swiss inner container (max-width) ── */
 .swiss-inner {
-  max-width: 1200px;
+  max-width: var(--grid-max);
   margin: 0 auto;
   width: 100%;
 }
@@ -51,92 +28,54 @@
   width: 100%;
 }
 
-/* ── 12-column grid ── */
 .swiss-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 0;
+  column-gap: 0;
 }
 
 .swiss-grid--gap {
   column-gap: clamp(1rem, 2vw, 2rem);
 }
 
-/* Column span utilities */
-.col-1 {
-  grid-column: span 1;
-}
-.col-2 {
-  grid-column: span 2;
-}
-.col-3 {
-  grid-column: span 3;
-}
-.col-4 {
-  grid-column: span 4;
-}
-.col-5 {
-  grid-column: span 5;
-}
-.col-6 {
-  grid-column: span 6;
-}
-.col-7 {
-  grid-column: span 7;
-}
-.col-8 {
-  grid-column: span 8;
-}
-.col-9 {
-  grid-column: span 9;
-}
-.col-10 {
-  grid-column: span 10;
-}
-.col-11 {
-  grid-column: span 11;
-}
-.col-12 {
-  grid-column: span 12;
-}
+.col-1 { grid-column: span 1; }
+.col-2 { grid-column: span 2; }
+.col-3 { grid-column: span 3; }
+.col-4 { grid-column: span 4; }
+.col-5 { grid-column: span 5; }
+.col-6 { grid-column: span 6; }
+.col-7 { grid-column: span 7; }
+.col-8 { grid-column: span 8; }
+.col-9 { grid-column: span 9; }
+.col-10 { grid-column: span 10; }
+.col-11 { grid-column: span 11; }
+.col-12 { grid-column: span 12; }
 
-/* Column start utilities */
-.col-start-1 {
-  grid-column-start: 1;
-}
-.col-start-2 {
-  grid-column-start: 2;
-}
-.col-start-3 {
-  grid-column-start: 3;
-}
-.col-start-4 {
-  grid-column-start: 4;
-}
-.col-start-5 {
-  grid-column-start: 5;
-}
-.col-start-9 {
-  grid-column-start: 9;
-}
+.col-start-1 { grid-column-start: 1; }
+.col-start-2 { grid-column-start: 2; }
+.col-start-3 { grid-column-start: 3; }
+.col-start-4 { grid-column-start: 4; }
+.col-start-5 { grid-column-start: 5; }
+.col-start-6 { grid-column-start: 6; }
+.col-start-7 { grid-column-start: 7; }
+.col-start-8 { grid-column-start: 8; }
+.col-start-9 { grid-column-start: 9; }
+.col-start-10 { grid-column-start: 10; }
+.col-start-11 { grid-column-start: 11; }
+.col-start-12 { grid-column-start: 12; }
 
-/* ── Asymmetric layout presets ── */
-
-/* Content left 8col, void right 4col (Swiss typical) */
 .asymmetric-left {
   display: grid;
   grid-template-columns: 8fr 4fr;
   gap: clamp(1.5rem, 4vw, 4rem);
 }
 
-/* Content right 8col, void left 4col */
 .asymmetric-right {
   display: grid;
   grid-template-columns: 4fr 8fr;
   gap: clamp(1.5rem, 4vw, 4rem);
 }
 
-/* 7-5 split */
 .split-7-5 {
   display: grid;
   grid-template-columns: 7fr 5fr;
@@ -144,7 +83,6 @@
   align-items: start;
 }
 
-/* 5-7 reverse */
 .split-5-7 {
   display: grid;
   grid-template-columns: 5fr 7fr;
@@ -152,7 +90,6 @@
   align-items: start;
 }
 
-/* 3-9 narrow label + wide content */
 .split-3-9 {
   display: grid;
   grid-template-columns: 3fr 9fr;
@@ -160,76 +97,69 @@
   align-items: start;
 }
 
-/* ── Visible hairline grid lines ── */
-.grid-line-v {
+.split-2-10 {
+  display: grid;
+  grid-template-columns: 2fr 10fr;
+  gap: clamp(1.5rem, 3vw, 4rem);
+}
+
+.hairline {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+  display: block;
+  border: none;
+  margin: 0;
+}
+
+.hairline--strong {
+  background: var(--border-strong);
+}
+
+.hairline--amber {
+  background: var(--amber);
+}
+
+.hairline-v {
   width: 1px;
   background: var(--border);
-  opacity: 0.4;
+  opacity: 0.3;
   position: absolute;
   top: 0;
   bottom: 0;
   pointer-events: none;
 }
 
-.grid-line-h {
-  height: 1px;
-  background: var(--border);
-  width: 100%;
-  display: block;
-}
-
-.grid-line-h--subtle {
-  background: var(--subtle);
-}
-
-.grid-line-h--strong {
-  background: var(--border-strong);
-}
-
-.section-divider {
-  width: 100%;
-  height: 1px;
-  background: var(--border);
-  display: block;
-}
-
-/* ── Swiss eyebrow label ── */
 .swiss-eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--tracking-wide);
   color: var(--amber);
   display: block;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-sm);
 }
 
 .swiss-eyebrow--steel {
   color: var(--steel);
 }
 
-/* ── Swiss index label ── */
 .swiss-index {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-wide);
   color: var(--steel);
   transition: color 150ms var(--ease-cut);
 }
 
-.swiss-index--amber {
-  color: var(--amber);
-}
-
-/* ── Swiss card (base) ── */
 .swiss-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0;
-  padding: 2rem;
+  padding: var(--space-lg);
   transition: border-color 150ms var(--ease-cut);
   position: relative;
 }
@@ -242,7 +172,6 @@
   border-color: var(--amber);
 }
 
-/* Dark variant */
 .swiss-section--dark .swiss-card {
   background: transparent;
   border-color: var(--block-dark-border);
@@ -252,7 +181,6 @@
   border-color: var(--block-dark-text);
 }
 
-/* ── Bento grid ── */
 .bento-grid {
   display: grid;
   gap: 1px;
@@ -269,11 +197,9 @@
 
 .bento-cell {
   background: var(--background);
-  padding: 2rem;
+  padding: var(--space-lg);
   position: relative;
-  transition:
-    background 150ms var(--ease-cut),
-    border-color 150ms;
+  transition: background 150ms var(--ease-cut);
 }
 
 .bento-cell:hover {
@@ -292,18 +218,31 @@
   grid-row: span 2;
 }
 
-/* ── Section header block ── */
 .swiss-section-header {
   margin-bottom: clamp(2.5rem, 5vw, 4rem);
 }
 
 .swiss-section-header--bordered {
   border-bottom: 1px solid var(--border);
-  padding-bottom: 2rem;
+  padding-bottom: var(--space-lg);
   margin-bottom: clamp(2.5rem, 5vw, 4rem);
 }
 
-/* ── Responsive breakdowns ── */
+.orange-block {
+  background: var(--amber);
+  color: var(--text-on-amber);
+  padding: var(--space-lg);
+}
+
+.orange-block h1, .orange-block h2, .orange-block h3,
+.orange-block .section-title {
+  color: var(--text-on-amber);
+}
+
+.orange-block .swiss-eyebrow {
+  color: rgba(0, 0, 0, 0.6);
+}
+
 @media (max-width: 960px) {
   .asymmetric-left,
   .asymmetric-right,
@@ -312,7 +251,8 @@
     grid-template-columns: 1fr;
   }
 
-  .split-3-9 {
+  .split-3-9,
+  .split-2-10 {
     grid-template-columns: 1fr;
   }
 

@@ -1,13 +1,13 @@
-/* ── Swiss Back to Top ────────────────────────────────────────────────── */
+/* ── Swiss Back to Top (extreme) ───────────────────────────────────────── */
 
 .swiss-back-to-top {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 3rem;
-  height: 3rem;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: #000000;
+  border: 1px solid var(--foreground);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,15 +16,15 @@
   transition:
     background-color 0.2s var(--ease-cut),
     border-color 0.2s var(--ease-cut);
-  color: var(--foreground);
-  /* Invisibilidad manejada por GSAP autoAlpha, pero lo empezamos en 0 por seguridad */
+  color: var(--white);
   opacity: 0;
   visibility: hidden;
 }
 
 .swiss-back-to-top:hover {
-  background-color: var(--surface-hover);
-  border-color: var(--border-hover);
+  background-color: var(--amber);
+  border-color: var(--amber);
+  color: #000000;
 }
 
 .swiss-back-to-top svg {
@@ -35,11 +35,10 @@
   transform: translateY(-4px);
 }
 
-/* Evitar tapar contenido en pantallas extremadamente pequeñas */
 @media (max-width: 768px) {
   .swiss-back-to-top {
-    bottom: 1.5rem;
-    right: 1.5rem;
+    bottom: var(--space-md);
+    right: var(--space-md);
     width: 2.5rem;
     height: 2.5rem;
   }

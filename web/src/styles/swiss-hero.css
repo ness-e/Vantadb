@@ -1,120 +1,248 @@
-/* ── Swiss Hero Section v3 — Dark Immersive + Three.js ─────────────────────── */
-
-.swiss-hero-section {
+.swiss-hero {
   position: relative;
   min-height: 100dvh;
   display: flex;
-  align-items: center;
-  background-color: var(--background, #f9f8f6);
+  align-items: flex-end;
+  background: var(--background);
   overflow: hidden;
+  padding: 0;
 }
 
-/* ── Three.js Canvas ── */
-.swiss-hero-canvas {
+.swiss-hero::before {
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+  z-index: 2;
+}
+
+.swiss-hero-grid-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.15;
+}
+
+.swiss-hero-grid-bg svg {
   width: 100%;
   height: 100%;
+}
+
+.swiss-hero-geo {
+  position: absolute;
   z-index: 1;
   pointer-events: none;
 }
 
-/* ── Content Overlay ── */
-.swiss-hero-overlay {
+.swiss-hero-geo--circle {
+  right: -5%;
+  top: -10%;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  opacity: 0.3;
+}
+
+.swiss-hero-geo--circle2 {
+  right: 8%;
+  bottom: -15%;
+  width: 35vmax;
+  height: 35vmax;
+  border-radius: 50%;
+  background: var(--amber);
+  opacity: 0.04;
+}
+
+.swiss-hero-geo--bar {
+  right: 0;
+  top: 20%;
+  width: 30vw;
+  height: 1px;
+  background: var(--amber);
+  opacity: 0.3;
+}
+
+.swiss-hero-geo--bar2 {
+  right: 5%;
+  top: calc(20% + 8px);
+  width: 15vw;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.2;
+}
+
+.swiss-hero-inner {
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--grid-max);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 clamp(1.5rem, 5vw, 4rem);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-end;
   min-height: 100dvh;
-  pointer-events: none;
+  padding-bottom: 10vh;
 }
 
-.swiss-hero-overlay > * {
-  pointer-events: auto;
-}
-
-/* ── Labels Tácticos ── */
-.swiss-hero-label {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+.swiss-hero-eyebrow {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide);
-  color: var(--foreground);
-  margin-bottom: 24px;
+  text-transform: uppercase;
+  color: var(--steel);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
 }
 
-.swiss-hero-label span {
+.swiss-hero-eyebrow span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.swiss-hero-eyebrow span::before {
+  content: "";
   display: inline-block;
-  will-change: opacity, color;
+  width: 4px;
+  height: 4px;
+  background: var(--amber);
 }
 
-/* ── Typographic Title ── */
 .swiss-hero-title {
   font-family: var(--font-display);
   font-size: var(--text-hero);
-  font-weight: 700;
-  line-height: 0.95;
-  letter-spacing: -0.05em;
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-mega);
   color: var(--foreground);
-  margin: 0 0 16px 0;
-  max-width: 700px;
+  margin: 0 0 var(--space-md) 0;
+  max-width: 90%;
 }
 
-.swiss-hero-title-wrapper {
-  display: block;
-  overflow: hidden;
-  padding-bottom: 4px;
+.swiss-hero-title .word-highlight {
+  display: inline;
+  color: var(--amber);
+  border-bottom: 2px solid var(--amber);
 }
 
-.swiss-hero-title-line {
-  display: block;
-  will-change: opacity, transform;
-}
-
-/* ── Description ── */
-.swiss-hero-description {
+.swiss-hero-desc {
   font-family: var(--font-sans);
   font-size: var(--text-body);
-  font-weight: 400;
-  line-height: 1.65;
-  letter-spacing: -0.01em;
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
   color: var(--muted);
-  max-width: 65ch;
-  margin: 0 0 32px 0;
+  max-width: 520px;
+  margin: 0 0 var(--space-xl) 0;
 }
 
-/* ── CTA Actions ── */
 .swiss-hero-actions {
   display: flex;
-  gap: 16px;
+  gap: var(--space-md);
   align-items: center;
-  will-change: opacity, transform;
 }
 
-/* ── Buttons defined in buttons.css (.btn-primary, .btn-ghost, .btn-primary--hero, .btn-ghost--hero) ── */
+.swiss-hero-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: var(--weight-semibold);
+  padding: 12px 24px;
+  background: var(--amber);
+  color: var(--text-on-amber);
+  border: none;
+  cursor: pointer;
+  transition: opacity 150ms var(--ease-cut);
+  line-height: 1;
+}
 
-/* ── Responsive ── */
+.swiss-hero-copy-btn:hover {
+  opacity: 0.85;
+}
+
+.swiss-hero-link {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--foreground);
+  text-decoration: none;
+  padding: 12px 24px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  transition: background 150ms var(--ease-cut), border-color 150ms;
+}
+
+.swiss-hero-link:hover {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+
+.swiss-hero-marquee {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--background);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+
+.swiss-hero-marquee-inner {
+  display: flex;
+  gap: var(--space-xl);
+  animation: marquee 30s linear infinite;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.swiss-hero-marquee-inner span::before {
+  content: "◆";
+  color: var(--amber);
+  margin-right: var(--space-xl);
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 @media (max-width: 768px) {
-  .swiss-hero-section {
+  .swiss-hero {
     min-height: auto;
   }
 
-  .swiss-hero-overlay {
+  .swiss-hero-inner {
     min-height: 100dvh;
     padding: 96px 20px 48px;
+    justify-content: center;
   }
 
   .swiss-hero-title {
     font-size: clamp(2.8rem, 12vw, 4.5rem);
+    max-width: 100%;
   }
 
   .swiss-hero-actions {
@@ -123,18 +251,13 @@
     gap: 12px;
   }
 
-  .swiss-hero-label {
-    gap: 8px 12px;
-  }
-
-  .swiss-hero-canvas {
-    opacity: 0.4;
+  .swiss-hero-copy-btn,
+  .swiss-hero-link {
+    justify-content: center;
   }
 }
 
-/* ── Reduced Motion ── */
 @media (prefers-reduced-motion: reduce) {
-  .swiss-hero-canvas {
-    /* Three.js will handle pausing animation */
-  }
+  .swiss-hero-geo { display: none; }
+  .swiss-hero-marquee-inner { animation: none; }
 }

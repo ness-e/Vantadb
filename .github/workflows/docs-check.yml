@@ -1,0 +1,64 @@
+name: Docs Check
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+  pull_request:
+    branches: [main]
+    paths: ["docs/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Lint Markdown
+        run: npx markdownlint-cli2 "docs/**/*.md"
+
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check links
+        run: npx lychee "docs/**/*.md"
+
+  check-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check frontmatter required fields
+        run: |
+          npx -y @microsoft/bf-dialog 2>/dev/null || true
+          PASS=true
+          for f in $(find docs -name "*.md"); do
+            if head -1 "$f" | grep -q "^---$"; then
+              title=$(sed -n '/^---$/,/^---$/p' "$f" | grep -i "^title:" | head -1)
+              status=$(sed -n '/^---$/,/^---$/p' "$f" | grep -i "^status:" | head -1)
+              tags=$(sed -n '/^---$/,/^---$/p' "$f" | grep -i "^tags:" | head -1)
+              missing=""
+              if [ -z "$title" ]; then missing="$missing title"; fi
+              if [ -z "$status" ]; then missing="$missing status"; fi
+              if [ -z "$tags" ]; then missing="$missing tags"; fi
+              if [ -n "$missing" ]; then
+                echo "::error file=$f::Missing frontmatter fields:$missing"
+                PASS=false
+              fi
+            fi
+          done
+          if [ "$PASS" != "true" ]; then exit 1; fi
+          echo "All documents have valid frontmatter."

@@ -1,43 +1,38 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Footer (High-Contrast Minimal)
-   ═══════════════════════════════════════════════════════════ */
-
 .swiss-footer {
   background: var(--background);
   border-top: 1px solid var(--border);
-  padding: var(--space-2xl) var(--space-lg) var(--space-xl);
-}
-
-.swiss-inner {
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: var(--space-3xl) clamp(1.5rem, 5vw, 4rem) var(--space-2xl);
 }
 
 .footer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 3fr 2fr 2fr 2fr;
   gap: var(--space-xl);
   margin-bottom: var(--space-2xl);
+  max-width: var(--grid-max);
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 .footer-col {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .footer-col-label {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: var(--text-micro);
   color: var(--foreground);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  margin-bottom: var(--space-3xs);
+  margin-bottom: var(--space-2xs);
 }
 
 .footer-tagline {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: var(--text-micro);
   color: var(--muted);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
@@ -45,7 +40,7 @@
 
 .footer-link {
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--muted);
   text-decoration: none;
   transition: color 150ms var(--ease-cut);
@@ -57,12 +52,12 @@
 }
 
 .footer-link--sm {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
+  font-family: var(--font-mono);
 }
 
-/* Bottom bar */
 .footer-bottom {
   border-top: 1px solid var(--border);
   padding-top: var(--space-lg);
@@ -71,11 +66,15 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-sm);
+  max-width: var(--grid-max);
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 .footer-copyright {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: var(--text-micro);
   color: var(--muted);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
@@ -86,8 +85,17 @@
   gap: var(--space-lg);
 }
 
-/* ── Responsive ── */
+@media (max-width: 900px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+  }
+}
+
 @media (max-width: 640px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
   .footer-bottom {
     flex-direction: column;
     align-items: flex-start;

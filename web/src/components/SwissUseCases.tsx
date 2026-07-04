@@ -54,27 +54,28 @@ export function SwissUseCases() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-uc-section">
+    <section ref={sectionRef} className="swiss-section swiss-uc-section" aria-label="Use cases">
       <div className="swiss-inner">
-        <div className="uc-header">
+        <header className="uc-header">
           <h2 className="uc-heading">
             Applied Use Cases.
           </h2>
-        </div>
+        </header>
 
         <div className="uc-list">
           {CASES.map((uc) => (
-            <div
+            <article
               key={uc.id}
               className={`swiss-uc-card${hoveredCard === uc.id ? " swiss-uc-card--hover" : ""}`}
               onMouseEnter={() => setHoveredCard(uc.id)}
               onMouseLeave={() => setHoveredCard(null)}
+              aria-label={`${uc.industry}: ${uc.title}`}
             >
-              <div>
-                <span className="swiss-uc-num">
+              <header>
+                <span className="swiss-uc-num" aria-hidden="true">
                   {uc.id}
                 </span>
-              </div>
+              </header>
 
               <div className="uc-content">
                 <span className="uc-industry">
@@ -89,13 +90,13 @@ export function SwissUseCases() {
                   {uc.desc}
                 </p>
 
-                <div className="uc-stack-wrap">
+                <footer className="uc-stack-wrap">
                   <span className="uc-stack">
                     {uc.stack}
                   </span>
-                </div>
+                </footer>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>

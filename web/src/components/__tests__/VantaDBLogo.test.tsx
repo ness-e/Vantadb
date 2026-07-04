@@ -26,8 +26,9 @@ describe("VantaDBLogo", () => {
   it("renders with inverted prop", () => {
     const { container } = render(<VantaDBLogo inverted />);
     const wordmark = container.querySelector(".vdb-wordmark")!;
-    const style = wordmark.getAttribute("style") || "";
-    expect(style).toContain("color");
+    expect(wordmark).toBeInTheDocument();
+    const logoFull = container.querySelector(".vdb-logo-full")!;
+    expect(logoFull.classList).toContain("vdb-logo-full--inverted");
   });
 
   it("renders custom aria-label for mark variant", () => {

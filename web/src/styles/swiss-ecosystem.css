@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Ecosystem Stylesheet
+   VantaDB — Swiss Ecosystem Stylesheet (extreme)
    ═══════════════════════════════════════════════════════════ */
 
 .swiss-ecosystem-section {
@@ -11,12 +11,12 @@
 
 .swiss-ecosystem-title {
   font-family: var(--font-display);
-  font-size: clamp(2.2rem, 4.5vw, 3.2rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  font-size: var(--text-display);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-mega);
+  line-height: var(--leading-none);
   color: var(--block-dark-text);
-  margin: 1.25rem 0 3rem;
+  margin: var(--space-md) 0 var(--space-3xl);
 }
 
 .swiss-ecosystem-grid {
@@ -25,39 +25,41 @@
   gap: 1px;
   background: var(--block-dark-border);
   border: 1px solid var(--block-dark-border);
-  margin-bottom: 3rem;
+  margin-bottom: var(--space-3xl);
 }
 
 .swiss-ecosystem-cell {
   background: var(--block-dark-bg);
-  padding: 1.5rem 2.5rem;
+  padding: var(--space-md) var(--space-2xl);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-code);
+  font-weight: var(--weight-bold);
   color: var(--block-dark-text);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  transition: background-color 150ms var(--ease-cut);
+  letter-spacing: var(--tracking-wide);
+  transition: background-color 150ms var(--ease-cut), color 150ms var(--ease-cut);
   cursor: default;
   flex-grow: 1;
   text-align: left;
+  border-right: 1px solid transparent;
 }
 
 .swiss-ecosystem-cell:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 85, 0, 0.06);
   color: var(--amber);
+  border-right-color: var(--amber);
 }
 
 .swiss-ecosystem-action {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-sm);
 }
 
 @media (max-width: 600px) {
   .swiss-ecosystem-cell {
-    padding: 1.25rem 1.5rem;
-    font-size: 0.75rem;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-label);
   }
 }
 
@@ -65,16 +67,16 @@
 
 .eco-section {
   background: var(--background);
-  padding-top: 120px;
-  padding-bottom: 160px;
+  padding-top: var(--section-gap);
+  padding-bottom: var(--section-gap-lg);
 }
 
 .eco-heading {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: 700;
-  margin: 16px 0 80px 0;
-  letter-spacing: -0.04em;
+  font-weight: var(--weight-black);
+  margin: var(--space-md) 0 var(--space-4xl) 0;
+  letter-spacing: var(--tracking-mega);
   color: var(--foreground);
 }
 
@@ -87,39 +89,45 @@
 .swiss-eco-row {
   display: grid;
   grid-template-columns: 160px 1fr;
-  padding: 32px 0;
+  padding: var(--space-lg) 0;
   border-bottom: 1px solid var(--border);
   align-items: center;
-  gap: 24px;
+  gap: var(--space-lg);
+}
+
+.swiss-eco-row:hover {
+  background: var(--surface);
 }
 
 .eco-label {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   color: var(--steel);
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
 .eco-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2xs);
 }
 
 .eco-chip {
   font-family: var(--font-mono);
-  font-size: 0.88rem;
-  font-weight: 400;
+  font-size: var(--text-code);
+  font-weight: var(--weight-regular);
   color: var(--steel);
   cursor: default;
+  transition: color 150ms var(--ease-cut);
 }
 
 .eco-chip::before {
   content: "/";
-  margin-right: 12px;
+  margin-right: var(--space-sm);
   color: var(--border);
+  font-weight: var(--weight-bold);
 }
 
 .eco-chips > .eco-chip:first-child::before {

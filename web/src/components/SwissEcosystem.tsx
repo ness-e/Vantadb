@@ -52,15 +52,15 @@ export function SwissEcosystem() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section eco-section">
+    <section ref={sectionRef} className="swiss-section eco-section" aria-label="Integration ecosystem">
       <div className="swiss-inner">
         <h2 className="eco-heading">
           Integration Matrix.
         </h2>
 
-        <div className="eco-list">
+        <div className="eco-list" role="list">
           {CATEGORIES.map((cat) => (
-            <div key={cat.label} className="swiss-eco-row">
+            <div key={cat.label} className="swiss-eco-row" role="listitem">
               <span className="eco-label">
                 [{cat.label}]
               </span>

@@ -1,27 +1,27 @@
 /* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Benchmark Grid
+   VantaDB — Swiss Benchmark Grid (extreme high-contrast)
    Bento asymmetric layout, numbers as design elements
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Section header ── */
 .swiss-benchmark__header {
-  margin-bottom: 3rem;
+  margin-bottom: var(--space-3xl);
 }
 
 .swiss-benchmark__header-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
+  grid-template-columns: 3fr 2fr;
+  gap: var(--space-2xl);
   align-items: start;
-  margin-top: 1.5rem;
+  margin-top: var(--space-md);
 }
 
 .swiss-benchmark__title {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--text-hero);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-mega);
   color: var(--foreground);
   margin: 0;
 }
@@ -38,16 +38,16 @@
 /* ── Cells ── */
 .swiss-benchmark__cell {
   background: var(--background);
-  padding: clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(2rem, 4vw, 3.5rem);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-xs);
   position: relative;
   transition: background 150ms var(--ease-cut);
 }
 
 .swiss-benchmark__cell:hover {
-  background: var(--surface-raised);
+  background: var(--surface);
 }
 
 /* Hero cell — spans full height of left column */
@@ -55,8 +55,8 @@
   background: var(--background);
   border-right: none;
   justify-content: flex-end;
-  min-height: 360px;
-  gap: 0.75rem;
+  min-height: 420px;
+  gap: var(--space-sm);
 }
 
 .swiss-benchmark__cell--hero::before {
@@ -64,7 +64,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 3px;
+  width: 4px;
   height: 100%;
   background: var(--amber);
 }
@@ -85,61 +85,76 @@
 /* ── Cell typography ── */
 .swiss-benchmark__cell-value {
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
-  line-height: 1;
+  line-height: var(--leading-none);
 }
 
 .swiss-benchmark__cell-value--xl {
-  font-size: clamp(3.5rem, 7vw, 5.5rem);
+  font-size: clamp(4.5rem, 10vw, 8rem);
   color: var(--amber);
+  letter-spacing: var(--tracking-mega);
 }
 
 .swiss-benchmark__cell-label {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-wide);
   color: var(--foreground);
 }
 
 .swiss-benchmark__cell-sub {
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: var(--text-code);
   color: var(--muted);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }
 
 .swiss-benchmark__cell-link {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-wide);
   color: var(--amber);
   text-decoration: none;
   margin-top: auto;
-  padding-top: 0.5rem;
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
   transition: opacity 100ms var(--ease-cut);
 }
 
 .swiss-benchmark__cell-link:hover {
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+.swiss-benchmark__cell-link::after {
+  content: "→";
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
 }
 
 /* ── Footnote ── */
 .swiss-benchmark__footnote {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--subtle);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
 }
 
 .swiss-benchmark__footnote a {
   color: var(--amber);
   text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 
 .swiss-benchmark__footnote a:hover {
@@ -150,7 +165,7 @@
 @media (max-width: 900px) {
   .swiss-benchmark__header-split {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: var(--space-md);
   }
 
   .swiss-benchmark__bento {
@@ -177,31 +192,31 @@
 /* ── Embedded vs Client/Server VS Grid ── */
 
 .swiss-vs-section {
-  padding-top: 160px;
+  padding-top: var(--space-4xl);
 }
 
 .swiss-vs-title {
   font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 700;
-  margin: 0 0 24px 0;
-  letter-spacing: var(--tracking-display);
+  font-size: var(--text-hero);
+  font-weight: var(--weight-black);
+  margin: 0 0 var(--space-lg) 0;
+  letter-spacing: var(--tracking-mega);
   color: var(--foreground);
 }
 
 .swiss-vs-subtitle {
-  font-size: var(--text-body);
+  font-size: var(--text-lead);
   color: var(--muted);
   max-width: 600px;
-  margin-bottom: 64px;
-  line-height: 1.65;
+  margin-bottom: var(--space-3xl);
+  line-height: var(--leading-normal);
 }
 
 .swiss-vs-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: var(--grid-gap);
-  background: var(--grid-hairline);
+  gap: 1px;
+  background: var(--border);
   border: 1px solid var(--border);
 }
 
@@ -209,7 +224,7 @@
   background: var(--background);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-md);
   transition: background 150ms var(--ease-cut);
 }
 
@@ -219,38 +234,39 @@
 
 .swiss-vs-cell--featured {
   grid-column: span 6;
-  padding: 48px 40px;
+  padding: var(--space-3xl) var(--space-2xl);
 }
 
 .swiss-vs-cell--regular {
   grid-column: span 3;
-  padding: 32px 24px;
+  padding: var(--space-lg) var(--space-md);
 }
 
 .swiss-vs-cell-label {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: var(--text-micro);
   color: var(--steel);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
+  font-weight: var(--weight-bold);
 }
 
 .swiss-vs-value {
   font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: var(--tracking-display);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
-  margin-top: 8px;
+  margin-top: var(--space-2xs);
 }
 
 .swiss-vs-value--large {
-  font-size: 4.5rem;
+  font-size: 5.5rem;
 }
 
 .swiss-vs-value--small {
-  font-size: 2.8rem;
+  font-size: 3.2rem;
 }
 
 .swiss-vs-cell-footer {
@@ -258,31 +274,33 @@
   justify-content: space-between;
   align-items: flex-end;
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: var(--space-lg);
   border-top: 1px solid var(--border);
 }
 
 .swiss-vs-cell-trad {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-3xs);
 }
 
 .swiss-vs-cell-trad-label {
-  font-size: 0.75rem;
+  font-size: var(--text-micro);
   color: var(--muted);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 
 .swiss-vs-cell-trad-value {
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: var(--text-code);
   color: var(--foreground);
 }
 
 .swiss-vs-cell-diff {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-code);
+  font-weight: var(--weight-bold);
   color: var(--amber);
 }
