@@ -1,0 +1,18 @@
+.swiss-page {
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.swiss-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 5vw, 4rem) 8rem;
+}
+
+.swiss-page-section {
+  padding: var(--section-gap) 0;
+}
+
+.swiss-page-section--bordered {
+  border-bottom: 1px solid var(--border);
+}

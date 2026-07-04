@@ -62,7 +62,7 @@
   border-bottom: 1px solid var(--border);
   vertical-align: top;
   background: var(--background);
-  transition: background 100ms var(--ease-cut);
+  transition: background 100ms var(--ease-swiss);
 }
 
 .vs-table__cell:hover {

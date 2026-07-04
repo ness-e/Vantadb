@@ -43,7 +43,7 @@ const LAYERS = [
 
 function StoragePage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="09"
         eyebrow="Storage Architecture"
@@ -57,9 +57,9 @@ function StoragePage() {
         sub="No more juggling Pinecone, Redis, and S3. VantaDB unifies vector, full-text, and structured storage in one embedded engine with WAL-backed durability."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Section 1: Stack Comparison */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Stack Consolidation</span>
 
           {/* Visual: 3 → 1 */}
@@ -252,9 +252,9 @@ function StoragePage() {
                   gap: "0.75rem",
                 }}
               >
-                {LEGACY_STACK.map((item, i) => (
+                {LEGACY_STACK.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -311,9 +311,9 @@ function StoragePage() {
                   gap: "0.75rem",
                 }}
               >
-                {VANTA_STACK.map((item, i) => (
+                {VANTA_STACK.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -342,7 +342,7 @@ function StoragePage() {
         </section>
 
         {/* Section 2: Architecture layers */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Storage Architecture</span>
           <div
             style={{
@@ -405,7 +405,7 @@ function StoragePage() {
         </section>
 
         {/* Section 3: Engine states */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — Engine States</span>
           <div
             style={{

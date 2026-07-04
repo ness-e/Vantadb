@@ -54,7 +54,7 @@ results = db.search_memory(query=embedding, top_k=5)`;
 
 function AiAgentsPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="01"
         eyebrow="Solution — AI Agent Memory"
@@ -68,7 +68,7 @@ function AiAgentsPage() {
         sub="Give your AI agent persistent memory — conversation history, tool call results, learned preferences, and ephemeral state — all in one embedded database that lives inside your agent process."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
@@ -76,7 +76,7 @@ function AiAgentsPage() {
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>AI Agents</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — The Problem</span>
           <div
             className="swiss-grid-12"
@@ -112,9 +112,9 @@ function AiAgentsPage() {
                   gap: "1rem",
                 }}
               >
-                {PROBLEMS.map((p, i) => (
+                {PROBLEMS.map((p) => (
                   <li
-                    key={i}
+                    key={p.text}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -172,9 +172,9 @@ function AiAgentsPage() {
                   gap: "1rem",
                 }}
               >
-                {SOLUTIONS_LIST.map((s, i) => (
+                {SOLUTIONS_LIST.map((s) => (
                   <li
-                    key={i}
+                    key={s.text}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -202,7 +202,7 @@ function AiAgentsPage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Memory Primitives</span>
           <div
             style={{
@@ -264,7 +264,7 @@ function AiAgentsPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — Implementation</span>
           <div
             style={{

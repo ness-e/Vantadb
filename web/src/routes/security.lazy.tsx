@@ -9,7 +9,7 @@ export const Route = createLazyRoute("/security")({
 
 function SecurityPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="13"
         eyebrow="Security Posture"
@@ -23,8 +23,8 @@ function SecurityPage() {
         sub="VantaDB is designed with a strict security boundary. No cloud pings, no telemetry, no data exfiltration."
       />
 
-      <main className="engine-main">
-        <section className="engine-section">
+      <main className="swiss-main">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">Core Principles</span>
 
           <div style={{ marginTop: "3rem", display: "grid", gap: "2rem" }}>

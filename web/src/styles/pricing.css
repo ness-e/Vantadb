@@ -25,7 +25,7 @@
 
 /* Featured: acento naranja top-border 3px + fondo levemente cálido */
 .pricing-card--featured {
-  background: var(--surface-raised);
+  background: var(--surface-alt);
   border: 1px solid var(--amber);
   border-top: 3px solid var(--amber);
   z-index: 1;

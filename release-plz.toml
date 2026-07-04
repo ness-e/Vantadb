@@ -1,0 +1,27 @@
+# release-plz — automated versioning and publishing
+# https://release-plz.dev/
+
+[workspace]
+# Publish all workspace crates in dependency order
+publish = true
+# Don't publish these crates (no public API)
+publish_allow_dirty = false
+
+# Changelog strategy
+changelog_merge = "keep_last"
+
+# Git
+git_release = true
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+
+# GitHub release
+git_release_enable = false
+
+# Changelog
+changelog_update = true
+changelog_path = "docs/CHANGELOG.md"
+
+[[package]]
+name = "vantadb"
+changelog_path = "docs/CHANGELOG.md"

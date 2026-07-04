@@ -44,7 +44,7 @@ function LatencyPage() {
   );
 
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="07"
         eyebrow="Latency Performance"
@@ -96,9 +96,9 @@ function LatencyPage() {
         </button>
       </div>
 
-      <main className="engine-main">
+      <main className="swiss-main">
         {/* Section 1: Comparison */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Comparison</span>
           <div
             className="swiss-grid-12"
@@ -131,9 +131,9 @@ function LatencyPage() {
                   gap: "0.9rem",
                 }}
               >
-                {LEGACY_ITEMS.map((item, i) => (
+                {LEGACY_ITEMS.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -191,9 +191,9 @@ function LatencyPage() {
                   gap: "0.9rem",
                 }}
               >
-                {VANTA_ITEMS.map((item, i) => (
+                {VANTA_ITEMS.map((item) => (
                   <li
-                    key={i}
+                    key={item}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -240,7 +240,7 @@ function LatencyPage() {
         </section>
 
         {/* Section 2: Pipeline Simulator */}
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Pipeline Impact</span>
           <h2
             style={{
@@ -414,7 +414,7 @@ function LatencyPage() {
         </section>
 
         {/* Section 3: Breakdown bars */}
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — Where the Milliseconds Go</span>
           <div style={{ border: "1px solid var(--border)", marginTop: "3rem" }}>
             {/* Header */}

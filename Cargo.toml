@@ -49,7 +49,6 @@ fs2 = { version = "0.4", optional = true }
 # ── HTTP Server (optional, behind feature = "server") ──
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "signal", "macros"], optional = true }
 axum = { version = "0.8", optional = true }
-tower = { version = "0.5", features = ["util"], optional = true }
 tower_governor = { version = "0.8", optional = true }
 tower-http = { version = "0.6.11", features = ["trace"], optional = true }
 axum-server = { version = "0.7", optional = true, features = ["tls-rustls"] }
@@ -70,13 +69,11 @@ fail = { version = "0.5", optional = true, features = ["failpoints"] }
 opentelemetry = { version = "0.32.0", optional = true }
 tracing-opentelemetry = { version = "0.33.0", optional = true }
 tantivy = { version = "0.22", optional = true, features = ["stopwords"] }
-rkyv = { version = "0.8", optional = true }
 web-time = "1.1.0"
 
 [features]
 default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]
 arrow = ["dep:arrow"]
-rkyv-serialization = ["dep:rkyv"]
 rocksdb = ["dep:rocksdb"]
 fjall = ["dep:fjall"]
 cli = ["dep:indicatif", "dep:console", "dep:clap", "dep:clap_complete"]
@@ -98,7 +95,6 @@ server = [
     "cli",
     "dep:tokio",
     "dep:axum",
-    "dep:tower",
     "dep:tower_governor",
     "dep:tower-http",
 ]
@@ -143,7 +139,6 @@ tokio = { version = "1", features = [
 ] }
 criterion = { version = "0.8", features = ["html_reports", "async_tokio"] }
 tempfile = "3"
-tower = { version = "0.5", features = ["util"] }
 proptest = "1.5"
 http = "1"
 futures = "0.3"

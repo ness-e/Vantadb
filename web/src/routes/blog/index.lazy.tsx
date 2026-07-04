@@ -12,7 +12,7 @@ function BlogIndex() {
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
 
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="00"
         eyebrow="Blog"
@@ -26,8 +26,8 @@ function BlogIndex() {
         sub="Engineering blog about embedded vector databases, AI agents, local RAG, and the future of AI data infrastructure."
       />
 
-      <main className="engine-main">
-        <section className="engine-section">
+      <main className="swiss-main">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">Posts — {posts.length} articles</span>
 
           {posts.length === 0 ? (

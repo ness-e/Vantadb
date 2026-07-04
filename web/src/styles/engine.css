@@ -116,7 +116,7 @@
   background: var(--amber);
   cursor: pointer;
   border: 1px solid var(--foreground);
-  transition: background-color 100ms var(--ease-cut);
+  transition: background-color 100ms var(--ease-swiss);
 }
 
 .rrf-slider::-webkit-slider-thumb:hover {

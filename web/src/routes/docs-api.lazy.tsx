@@ -9,7 +9,7 @@ export const Route = createLazyRoute("/docs-api")({
 
 function DocsApiPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="04"
         eyebrow="Developer API"
@@ -23,8 +23,8 @@ function DocsApiPage() {
         sub="Integrate VantaDB into your local AI agent stacks using our native Python PyO3 SDK."
       />
 
-      <main className="engine-main">
-        <section className="engine-section">
+      <main className="swiss-main">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">Quick Start</span>
 
           <div style={{ marginTop: "3rem" }}>

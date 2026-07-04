@@ -204,7 +204,7 @@ function ChangelogPage() {
   );
 
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="12"
         eyebrow="Changelog"
@@ -218,7 +218,7 @@ function ChangelogPage() {
         sub="Every release — features, performance gains, fixes, and migration notes. No marketing fluff."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <div
           style={{
             display: "flex",
@@ -403,7 +403,7 @@ function ChangelogPage() {
         </div>
 
         <section
-          className="engine-section"
+          className="swiss-page-section"
           style={{
             borderTop: "1px solid var(--border)",
             marginTop: "1px",
@@ -452,7 +452,7 @@ function ChangelogPage() {
       <style>{`
         @media (max-width: 768px) {
           [style*="grid-template-columns: 220px 1fr"] { grid-template-columns: 1fr !important; }
-          .engine-section [style*="grid-template-columns: 220px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
+          .swiss-page-section [style*="grid-template-columns: 220px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
         }
         @media (max-width: 640px) {
           [style*="grid-template-columns: 80px 1fr"] { grid-template-columns: 1fr !important; gap: 0.25rem !important; }

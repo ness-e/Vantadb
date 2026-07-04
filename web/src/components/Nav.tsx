@@ -46,6 +46,35 @@ export const Nav = memo(function Nav() {
     };
   }, [drawerOpen]);
 
+  useEffect(() => {
+    if (!drawerOpen || !drawerBodyRef.current) return;
+    const drawer = drawerBodyRef.current.parentElement;
+    if (!drawer) return;
+    const focusable = drawer.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) return;
+    focusable[0].focus();
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    drawer.addEventListener("keydown", trap);
+    return () => drawer.removeEventListener("keydown", trap);
+  }, [drawerOpen]);
+
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const isActive = (path: string) =>

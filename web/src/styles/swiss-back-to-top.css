@@ -14,8 +14,8 @@
   cursor: pointer;
   z-index: 90;
   transition:
-    background-color 0.2s var(--ease-cut),
-    border-color 0.2s var(--ease-cut);
+    background-color 0.2s var(--ease-swiss),
+    border-color 0.2s var(--ease-swiss);
   color: var(--white);
   opacity: 0;
   visibility: hidden;
@@ -28,7 +28,7 @@
 }
 
 .swiss-back-to-top svg {
-  transition: transform 0.2s var(--ease-cut);
+  transition: transform 0.2s var(--ease-swiss);
 }
 
 .swiss-back-to-top:hover svg {

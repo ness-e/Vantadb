@@ -12,9 +12,9 @@
 .swiss-ecosystem-title {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: var(--weight-black);
-  letter-spacing: var(--tracking-mega);
-  line-height: var(--leading-none);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.95;
   color: var(--block-dark-text);
   margin: var(--space-md) 0 var(--space-3xl);
 }
@@ -37,7 +37,7 @@
   color: var(--block-dark-text);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  transition: background-color 150ms var(--ease-cut), color 150ms var(--ease-cut);
+  transition: background-color 150ms var(--ease-swiss), color 150ms var(--ease-swiss);
   cursor: default;
   flex-grow: 1;
   text-align: left;
@@ -74,9 +74,9 @@
 .eco-heading {
   font-family: var(--font-display);
   font-size: var(--text-display);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
   margin: var(--space-md) 0 var(--space-4xl) 0;
-  letter-spacing: var(--tracking-mega);
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
 }
 
@@ -120,7 +120,7 @@
   font-weight: var(--weight-regular);
   color: var(--steel);
   cursor: default;
-  transition: color 150ms var(--ease-cut);
+  transition: color 150ms var(--ease-swiss);
 }
 
 .eco-chip::before {

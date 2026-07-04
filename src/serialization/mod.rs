@@ -3,5 +3,5 @@
 //! Sub-modules implement zero-copy and portable archive formats used
 //! during checkpointing, recovery, and mmap-based index access.
 
-#[cfg(feature = "rkyv-serialization")]
+#[cfg(any())]
 pub mod rkyv_archives;

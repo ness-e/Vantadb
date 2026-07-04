@@ -70,6 +70,11 @@ jobs:
       with:
         components: rustfmt, clippy
 
+    - name: sccache (shared compilation cache)
+      uses: mozilla-actions/sccache-action@v0
+      with:
+        version: "latest"
+
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
       with:

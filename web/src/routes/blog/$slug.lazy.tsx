@@ -1,6 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { getPostBySlug } from "../../lib/blog";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
+import DOMPurify from "dompurify";
 
 export const Route = createLazyRoute("/blog/$slug")({
   component: BlogPost,
@@ -79,7 +80,7 @@ function BlogPost() {
             </p>
           </div>
 
-          <div className="reveal article-body" dangerouslySetInnerHTML={{ __html: post.html }} />
+          <div className="reveal article-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }} />
         </article>
 
         <nav className="bottom-nav">

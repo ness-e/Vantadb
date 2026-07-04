@@ -121,8 +121,8 @@
   font-family: var(--font-display);
   font-size: var(--text-hero);
   font-weight: var(--weight-bold);
-  line-height: var(--leading-none);
-  letter-spacing: var(--tracking-mega);
+  line-height: 0.95;
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
   margin: 0 0 var(--space-md) 0;
   max-width: 90%;
@@ -162,7 +162,7 @@
   color: var(--text-on-amber);
   border: none;
   cursor: pointer;
-  transition: opacity 150ms var(--ease-cut);
+  transition: opacity 150ms var(--ease-swiss);
   line-height: 1;
 }
 
@@ -183,7 +183,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  transition: background 150ms var(--ease-cut), border-color 150ms;
+  transition: background 150ms var(--ease-swiss), border-color 150ms;
 }
 
 .swiss-hero-link:hover {

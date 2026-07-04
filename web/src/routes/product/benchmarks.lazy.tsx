@@ -7,7 +7,7 @@ export const Route = createLazyRoute("/product/benchmarks")({
 
 function BenchmarksPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="01"
         eyebrow="Benchmarks"
@@ -21,8 +21,8 @@ function BenchmarksPage() {
         sub="VantaDB is engineered for extreme low latency on edge devices. See how we compare against the industry."
       />
 
-      <main className="engine-main">
-        <section className="engine-section">
+      <main className="swiss-main">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">Throughput vs Latency</span>
 
           <div style={{ marginTop: "3rem" }}>

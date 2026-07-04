@@ -55,7 +55,7 @@ const COMPARISON = {
 
 function LocalRagPage() {
   return (
-    <div className="engine-page">
+    <div className="swiss-page">
       <SwissSubpageHero
         num="02"
         eyebrow="Solution — Local RAG"
@@ -69,7 +69,7 @@ function LocalRagPage() {
         sub="Run Retrieval-Augmented Generation entirely on-device. VantaDB embeds, indexes, and queries documents locally — no vectors in the cloud, no data leaks, no API costs."
       />
 
-      <main className="engine-main">
+      <main className="swiss-main">
         <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
           <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
@@ -77,7 +77,7 @@ function LocalRagPage() {
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>Local RAG</span>
         </nav>
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">01 / 03 — Privacy Gap</span>
           <div
             className="swiss-grid-12"
@@ -110,9 +110,9 @@ function LocalRagPage() {
                   gap: "1rem",
                 }}
               >
-                {COMPARISON.problems.map((p, i) => (
+                {COMPARISON.problems.map((p) => (
                   <li
-                    key={i}
+                    key={p}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -171,9 +171,9 @@ function LocalRagPage() {
                   gap: "1rem",
                 }}
               >
-                {COMPARISON.solutions.map((s, i) => (
+                {COMPARISON.solutions.map((s) => (
                   <li
-                    key={i}
+                    key={s}
                     style={{
                       display: "flex",
                       gap: "0.75rem",
@@ -202,7 +202,7 @@ function LocalRagPage() {
           </div>
         </section>
 
-        <section className="engine-section engine-section--bordered">
+        <section className="swiss-page-section swiss-page-section--bordered">
           <span className="swiss-eyebrow">02 / 03 — Pipeline</span>
           <div
             style={{
@@ -265,7 +265,7 @@ function LocalRagPage() {
           </div>
         </section>
 
-        <section className="engine-section">
+        <section className="swiss-page-section">
           <span className="swiss-eyebrow">03 / 03 — Implementation</span>
           <div
             style={{

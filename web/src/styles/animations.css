@@ -2,7 +2,7 @@
    VantaDB — Swiss Animations & Motion System
    Rules:
    - Duration: 100ms–250ms (never more)
-   - Easing: var(--ease-cut) — sharp, mechanical, no bounce
+   - Easing: var(--ease-swiss) — sharp, mechanical, no bounce
    - Properties: transform + opacity ONLY (GPU-accelerated)
    - prefers-reduced-motion always respected
    ═══════════════════════════════════════════════════════════ */
@@ -23,7 +23,7 @@
 .reveal-mask__inner {
   transform: translateY(110%);
   will-change: transform;
-  transition: transform 300ms var(--ease-cut);
+  transition: transform 300ms var(--ease-swiss);
 }
 
 .reveal-mask__inner.is-visible {
@@ -41,7 +41,7 @@
 
 .reveal-draw.is-drawn {
   stroke-dashoffset: 0;
-  transition: stroke-dashoffset 250ms var(--ease-cut);
+  transition: stroke-dashoffset 250ms var(--ease-swiss);
 }
 
 /* ── Grid line draw (horizontal hairlines) ── */
@@ -53,7 +53,7 @@
 
 .reveal-line.is-visible {
   transform: scaleX(1);
-  transition: transform 250ms var(--ease-cut);
+  transition: transform 250ms var(--ease-swiss);
 }
 
 /* ── Reveal (legacy CSS-only system — kept for compatibility) ── */
@@ -61,8 +61,8 @@
   opacity: 0;
   transform: translateY(16px);
   transition:
-    opacity 0.25s var(--ease-cut),
-    transform 0.25s var(--ease-cut);
+    opacity 0.25s var(--ease-swiss),
+    transform 0.25s var(--ease-swiss);
 }
 
 .reveal.is-visible {
@@ -155,7 +155,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   padding: 2rem;
-  transition: border-color 150ms var(--ease-cut);
+  transition: border-color 150ms var(--ease-swiss);
 }
 
 .tactile-card:hover {
@@ -170,7 +170,7 @@
   padding: 0.75rem 1rem;
   color: var(--foreground);
   font: 0.9rem/1.5 var(--font-sans);
-  transition: border-color 150ms var(--ease-cut);
+  transition: border-color 150ms var(--ease-swiss);
 }
 
 .tactile-input:focus {
@@ -195,7 +195,7 @@
   padding: 0.75rem 1.5rem;
   border: none;
   cursor: pointer;
-  transition: background 150ms var(--ease-cut);
+  transition: background 150ms var(--ease-swiss);
 }
 
 .tactile-btn:hover {

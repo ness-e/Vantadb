@@ -4,24 +4,27 @@ import { gsap, useGSAP } from "../lib/gsap";
 const CASES = [
   {
     id: "01",
-    title: "Multi-Agent System Memory",
-    industry: "AI INFRASTRUCTURE",
-    desc: "Provides instant, isolated context windows for distributed agent swarms without network overhead. Local execution means zero API latency.",
-    stack: "Python • LangChain • VantaDB",
+    title: "AI Agent Memory",
+    desc: "Persistent context windows for distributed agent swarms without network overhead. Local execution means zero API latency.",
+    size: "large",
   },
   {
     id: "02",
-    title: "Offline Local RAG",
-    industry: "ENTERPRISE PRIVACY",
-    desc: "Complete semantic search capabilities running directly on secure enterprise hardware. Air-gapped environments are fully supported out of the box.",
-    stack: "Llama.cpp • FastAPI • VantaDB",
+    title: "Local RAG Pipeline",
+    desc: "Complete semantic search on secure enterprise hardware. Air-gapped environments fully supported out of the box.",
+    size: "small",
   },
   {
     id: "03",
-    title: "IDE Assistants & Tooling",
-    industry: "DEVELOPER TOOLS",
-    desc: "Embed cognitive memory into desktop applications and IDE plugins. Blazing fast code-search running entirely in-process.",
-    stack: "Electron/Tauri • Rust • VantaDB",
+    title: "IDE Code Intelligence",
+    desc: "Embed cognitive memory into desktop applications and IDE plugins. Blazing fast code-search entirely in-process.",
+    size: "small",
+  },
+  {
+    id: "04",
+    title: "Offline Knowledge Base",
+    desc: "Edge-deployed semantic search without internet. Perfect for field devices, kiosks, and disconnected environments.",
+    size: "wide",
   },
 ];
 
@@ -54,48 +57,27 @@ export function SwissUseCases() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-uc-section" aria-label="Use cases">
+    <section ref={sectionRef} className="swiss-section swiss-uc-section swiss-uc-section--light" aria-label="Use cases">
       <div className="swiss-inner">
-        <header className="uc-header">
-          <h2 className="uc-heading">
-            Applied Use Cases.
+        <header className="swiss-uc-header">
+          <span className="swiss-section-label">[USE CASES]</span>
+          <h2 className="swiss-uc-heading">
+            Built for real AI workflows.
           </h2>
         </header>
 
-        <div className="uc-list">
+        <div className="swiss-uc-bento">
           {CASES.map((uc) => (
             <article
               key={uc.id}
-              className={`swiss-uc-card${hoveredCard === uc.id ? " swiss-uc-card--hover" : ""}`}
+              className={`swiss-uc-card swiss-uc-card--${uc.size}${hoveredCard === uc.id ? " swiss-uc-card--hover" : ""}`}
               onMouseEnter={() => setHoveredCard(uc.id)}
               onMouseLeave={() => setHoveredCard(null)}
-              aria-label={`${uc.industry}: ${uc.title}`}
+              aria-label={`Use case ${uc.id}: ${uc.title}`}
             >
-              <header>
-                <span className="swiss-uc-num" aria-hidden="true">
-                  {uc.id}
-                </span>
-              </header>
-
-              <div className="uc-content">
-                <span className="uc-industry">
-                  [{uc.industry}]
-                </span>
-
-                <h3 className="uc-title">
-                  {uc.title}
-                </h3>
-
-                <p className="uc-desc">
-                  {uc.desc}
-                </p>
-
-                <footer className="uc-stack-wrap">
-                  <span className="uc-stack">
-                    {uc.stack}
-                  </span>
-                </footer>
-              </div>
+              <span className="swiss-uc-num" aria-hidden="true">[{uc.id}]</span>
+              <h3 className="swiss-uc-title">{uc.title}</h3>
+              <p className="swiss-uc-desc">{uc.desc}</p>
             </article>
           ))}
         </div>

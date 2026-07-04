@@ -9,6 +9,7 @@
 @import "./utilities.css";
 
 @import "./swiss-hero.css";
+@import "./swiss-metrics-bar.css";
 @import "./swiss-benchmark.css";
 @import "./swiss-quickstart.css";
 @import "./swiss-core-engine.css";
@@ -17,6 +18,7 @@
 @import "./swiss-architecture.css";
 @import "./swiss-cta.css";
 @import "./swiss-monolith.css";
+@import "./swiss-page.css";
 @import "./swiss-subpage.css";
 @import "./footer.css";
 @import "./swiss-back-to-top.css";
