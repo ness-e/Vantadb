@@ -33,11 +33,11 @@ export function SwissEcosystem() {
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.fromTo(
           ".swiss-eco-row",
-          { opacity: 0, y: 12 },
+          { scaleX: 0, opacity: 0, transformOrigin: "left center" },
           {
+            scaleX: 1,
             opacity: 1,
-            y: 0,
-            duration: 0.5,
+            duration: 0.35,
             stagger: 0.06,
             ease: "cubic-bezier(0.25, 1, 0.5, 1)",
             scrollTrigger: {
@@ -52,28 +52,19 @@ export function SwissEcosystem() {
   );
 
   return (
-    <section
-      ref={sectionRef}
-      className="swiss-section eco-section"
-    >
+    <section ref={sectionRef} className="swiss-section eco-section">
       <div className="swiss-inner">
         <h2 className="eco-heading">
           Integration Matrix.
         </h2>
 
-        {/* Category rows — grouped layout, NOT grid */}
         <div className="eco-list">
           {CATEGORIES.map((cat) => (
-            <div
-              key={cat.label}
-              className="swiss-eco-row"
-            >
-              {/* Category label */}
+            <div key={cat.label} className="swiss-eco-row">
               <span className="eco-label">
                 [{cat.label}]
               </span>
 
-              {/* Integration chips */}
               <div className="eco-chips">
                 {cat.items.map((item) => (
                   <span

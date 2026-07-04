@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/engine")({
   component: EnginePage,
@@ -115,56 +116,31 @@ function RRFWeightsSlider() {
 
   return (
     <div
-      className="slider-container"
-      style={{ background: "var(--background)", border: "none", padding: 0 }}
+      className="slider-container bg-background border-none p-0"
     >
       <div
-        className="rrf-header"
-        style={{
-          borderBottom: "1px solid var(--border)",
-          paddingBottom: "1rem",
-          marginBottom: "1.5rem",
-        }}
+        className="rrf-header border-b border-[var(--border)] pb-4 mb-6"
       >
         <h4
-          className="rrf-title"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.8rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-          }}
+          className="rrf-title font-mono text-[0.8rem] uppercase tracking-[0.08em]"
         >
           RRF Weights Planner
         </h4>
         <span
-          className="rrf-latency"
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem" }}
+          className="rrf-latency font-mono text-[0.7rem]"
         >
           LATENCY: {queryLatency}ms
         </span>
       </div>
 
       <p
-        style={{
-          fontSize: "0.85rem",
-          color: "var(--muted)",
-          lineHeight: 1.5,
-          margin: "0 0 1.5rem",
-        }}
+        className="text-[0.85rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
       >
         Adjust the slider to coordinate keyword recall against vector space clustering.
       </p>
 
       <div
-        className="rrf-labels"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.7rem",
-          fontWeight: 600,
-        }}
+        className="rrf-labels flex justify-between font-mono text-[0.7rem] font-semibold"
       >
         <span>BM25: {bm25Weight}%</span>
         <span>HNSW: {hnswWeight}%</span>
@@ -176,88 +152,47 @@ function RRFWeightsSlider() {
         max="100"
         value={bm25Weight}
         onChange={(e) => setBm25Weight(Number(e.target.value))}
-        className="rrf-slider"
-        style={{ width: "100%", margin: "1.5rem 0" }}
+        className="rrf-slider w-full my-6"
         aria-label="BM25 to HNSW fusion weight ratio"
       />
 
       <div
-        className="rrf-metrics-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "1px",
-          background: "var(--border)",
-          border: "1px solid var(--border)",
-          borderRadius: 0,
-          overflow: "hidden",
-        }}
+        className="rrf-metrics-grid grid grid-cols-3 gap-[1px] bg-[var(--border)] border border-[var(--border)] rounded-none overflow-hidden"
       >
-        <div className="rrf-metric-card" style={{ background: "var(--surface)", padding: "1rem" }}>
+        <div className="rrf-metric-card bg-[var(--surface)] p-4">
           <div
-            className="rrf-metric-label"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", color: "var(--steel)" }}
+            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]"
           >
             LEXICAL RECALL
           </div>
           <div
-            className="rrf-metric-value"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              color: "var(--foreground)",
-            }}
+            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground"
           >
             {lexicalRecall}%
           </div>
         </div>
-        <div className="rrf-metric-card" style={{ background: "var(--surface)", padding: "1rem" }}>
+        <div className="rrf-metric-card bg-[var(--surface)] p-4">
           <div
-            className="rrf-metric-label"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", color: "var(--steel)" }}
+            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]"
           >
             VECTOR RECALL
           </div>
           <div
-            className="rrf-metric-value"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              color: "var(--foreground)",
-            }}
+            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground"
           >
             {vectorRecall}%
           </div>
         </div>
         <div
-          className="rrf-metric-card"
-          style={{
-            background: "var(--surface)",
-            padding: "1rem",
-            borderLeft: "1px solid var(--amber)",
-          }}
+          className="rrf-metric-card bg-[var(--surface)] p-4 border-l border-[var(--amber)]"
         >
           <div
-            className="rrf-metric-label"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.55rem",
-              color: "var(--amber)",
-              fontWeight: 700,
-            }}
+            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--amber)] font-bold"
           >
             FUSED @10
           </div>
           <div
-            className="rrf-metric-value"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              color: "var(--amber)",
-            }}
+            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-[var(--amber)]"
           >
             {fusedRecall}%
           </div>
@@ -322,19 +257,14 @@ function WALSimulator() {
 
   return (
     <div
-      className="wal-simulator"
-      style={{ background: "var(--background)", border: "none", padding: 0 }}
+      className="wal-simulator bg-background border-none p-0"
     >
       <div
-        className="wal-header"
-        style={{
-          borderBottom: "1px solid var(--border)",
-          paddingBottom: "1rem",
-          marginBottom: "1.5rem",
-        }}
+        className="wal-header border-b border-[var(--border)] pb-4 mb-6"
       >
         <div className="wal-status-group">
           <span
+            className="inline-block"
             style={{
               width: 8,
               height: 8,
@@ -344,40 +274,26 @@ function WALSimulator() {
                   : engineState === "crashed"
                     ? "var(--crimson, #ff3b30)"
                     : "var(--steel)",
-              display: "inline-block",
             }}
           />
           <span
-            className="wal-status-label"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem" }}
+            className="wal-status-label font-mono text-[0.72rem]"
           >
             STATUS: {engineState}
           </span>
         </div>
         <div className="wal-actions">
           <button
-            className="btn-ghost wal-btn-sm"
+            className="btn-ghost wal-btn-sm px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
             onClick={triggerCrash}
             disabled={engineState !== "ready"}
-            style={{
-              padding: "0.4rem 0.8rem",
-              fontSize: "0.65rem",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-            }}
           >
             CRASH ENGINE
           </button>
           <button
-            className="btn-primary wal-btn-sm"
+            className="btn-primary wal-btn-sm px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
             onClick={recoverFromWAL}
             disabled={engineState !== "crashed"}
-            style={{
-              padding: "0.4rem 0.8rem",
-              fontSize: "0.65rem",
-              fontFamily: "var(--font-mono)",
-              textTransform: "uppercase",
-            }}
           >
             RECOVER FROM WAL
           </button>
@@ -385,25 +301,14 @@ function WALSimulator() {
       </div>
 
       <div
-        className="wal-console"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          padding: "1.25rem",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.7rem",
-          height: 180,
-          overflowY: "auto",
-          lineHeight: 1.6,
-        }}
+        className="wal-console bg-[var(--surface)] border border-[var(--border)] p-5 font-mono text-[0.7rem] h-[180px] overflow-y-auto leading-[1.6]"
       >
         {logs.map((log, idx) => (
           <div
             key={idx}
+            className="border-b border-[var(--subtle)] py-1"
             style={{
               color: getLogColor(log),
-              borderBottom: "1px solid var(--subtle)",
-              padding: "4px 0",
             }}
           >
             {log}
@@ -426,72 +331,44 @@ function ArchitecturePipeline() {
   ];
 
   return (
-    <section className="engine-section" style={{ borderTop: "1px solid var(--border)" }}>
+    <section className="engine-section border-t border-[var(--border)]">
       <div className="swiss-inner">
         <span className="swiss-eyebrow">03 / 03 — Pipeline</span>
         <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(2rem, 4vw, 3rem)",
-            fontWeight: 800,
-            letterSpacing: "-0.04em",
-            margin: "1.25rem 0 3rem",
-          }}
+          className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 mb-12"
         >
           End-to-End Query Execution
         </h2>
 
         <div
-          style={{
-            overflowX: "auto",
-            border: "1px solid var(--border)",
-            background: "var(--surface)",
-            padding: "3rem 2rem",
-          }}
+          className="overflow-x-auto border border-[var(--border)] bg-[var(--surface)] px-8 py-12"
         >
           <div
-            style={{ display: "flex", gap: "1rem", alignItems: "center", minWidth: "max-content" }}
+            className="flex gap-4 items-center min-w-max"
           >
             {stages.map((s, i) => (
-              <div key={s.name} style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div key={s.name} className="flex items-center gap-4">
                 <div
+                  className="bg-background min-w-[140px] text-left"
                   style={{
                     border: `1px solid ${s.color}`,
                     padding: "1.25rem 2rem",
-                    background: "var(--background)",
-                    minWidth: 140,
-                    textAlign: "left",
                   }}
                 >
                   <div
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "0.9rem",
-                      fontWeight: 700,
-                      color: "var(--foreground)",
-                    }}
+                    className="font-display text-[0.9rem] font-bold text-foreground"
                   >
                     {s.name}
                   </div>
                   <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.55rem",
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      marginTop: "0.25rem",
-                    }}
+                    className="font-mono text-[0.55rem] text-[var(--muted)] uppercase mt-1"
                   >
                     {s.desc}
                   </div>
                 </div>
                 {i < stages.length - 1 && (
                   <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      color: "var(--border)",
-                      fontSize: "1rem",
-                    }}
+                    className="font-mono text-[var(--border)] text-base"
                   >
                     →
                   </span>
@@ -523,28 +400,16 @@ function EnginePage() {
 
       <main className="engine-main">
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">01 / 03 — Hybrid Search</span>
               <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  margin: "1.25rem 0",
-                  lineHeight: 1.05,
-                }}
+                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
               >
                 BM25 + HNSW + RRF
               </h2>
               <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.95rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                }}
+                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]"
               >
                 VantaDB query planner optimizes combined metadata filters, HNSW vector similarity,
                 and BM25 full-text queries, synthesizing them into a single-pass execution plan.
@@ -552,86 +417,46 @@ function EnginePage() {
             </div>
 
             <div
-              className="col-span-8"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1px",
-                background: "var(--border)",
-                border: "1px solid var(--border)",
-              }}
+              className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]"
             >
-              <div style={{ background: "var(--background)", padding: "2.5rem 2rem" }}>
+              <div className="bg-background px-8 py-10">
                 <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                  }}
+                  className="font-mono text-[0.6rem] text-[var(--steel)]"
                 >
                   [01] LEXICAL
                 </span>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0.5rem 0",
-                    color: "var(--foreground)",
-                  }}
+                  className="font-display text-xl font-bold my-2 text-foreground"
                 >
                   BM25 Search
                 </h3>
                 <p
-                  style={{
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: "0 0 1.5rem",
-                  }}
+                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
                 >
                   Full-text lexical search at ~1.2ms p50 with 0.998 recall. Zero infrastructure
                   required.
                 </p>
-                <div style={{ display: "flex", gap: "2rem" }}>
+                <div className="flex gap-8">
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--amber)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
                     >
                       ~1.2ms
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       P50 LATENCY
                     </div>
                   </div>
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--foreground)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-foreground"
                     >
                       0.998
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       RECALL@10
                     </div>
@@ -639,77 +464,44 @@ function EnginePage() {
                 </div>
               </div>
 
-              <div style={{ background: "var(--background)", padding: "2.5rem 2rem" }}>
+              <div className="bg-background px-8 py-10">
                 <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                  }}
+                  className="font-mono text-[0.6rem] text-[var(--steel)]"
                 >
                   [02] VECTOR
                 </span>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0.5rem 0",
-                    color: "var(--foreground)",
-                  }}
+                  className="font-display text-xl font-bold my-2 text-foreground"
                 >
                   HNSW Recall
                 </h3>
                 <p
-                  style={{
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: "0 0 1.5rem",
-                  }}
+                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
                 >
                   Hierarchical Navigable Small World graphs for approximate nearest neighbor search
                   across vectors.
                 </p>
-                <div style={{ display: "flex", gap: "2rem" }}>
+                <div className="flex gap-8">
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--amber)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
                     >
                       M=16
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       CONNECTIONS
                     </div>
                   </div>
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--foreground)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-foreground"
                     >
                       Cosine
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       METRIC
                     </div>
@@ -721,43 +513,23 @@ function EnginePage() {
         </section>
 
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div
-              className="col-span-6"
-              style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+              className="col-span-6 flex flex-col gap-6"
             >
               <div
-                style={{
-                  border: "1px solid var(--border)",
-                  padding: "2rem",
-                  background: "var(--surface)",
-                }}
+                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
               >
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginBottom: "1rem",
-                  }}
+                  className="flex justify-between items-baseline mb-4"
                 >
                   <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--steel)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
+                    className="font-mono text-[0.65rem] text-[var(--steel)] uppercase tracking-[0.05em]"
                   >
                     Live Topology
                   </span>
                   <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.55rem",
-                      color: "var(--muted)",
-                    }}
+                    className="font-mono text-[0.55rem] text-[var(--muted)]"
                   >
                     HOVER TO TRAVERSE
                   </span>
@@ -766,17 +538,12 @@ function EnginePage() {
               </div>
               <div>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0 0 0.5rem",
-                  }}
+                  className="font-display text-xl font-bold m-0 mb-2"
                 >
                   Knowledge Graph Relations
                 </h3>
                 <p
-                  style={{ fontSize: "0.85rem", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}
+                  className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0"
                 >
                   Hover nodes to explore in-memory relations. VantaDB stores directed adjacency
                   lists alongside vectors for graph-based agent memory applications.
@@ -785,31 +552,21 @@ function EnginePage() {
             </div>
 
             <div
-              className="col-span-6"
-              style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+              className="col-span-6 flex flex-col gap-6"
             >
               <div
-                style={{
-                  border: "1px solid var(--border)",
-                  padding: "2rem",
-                  background: "var(--surface)",
-                }}
+                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
               >
                 <RRFWeightsSlider />
               </div>
               <div>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0 0 0.5rem",
-                  }}
+                  className="font-display text-xl font-bold m-0 mb-2"
                 >
                   Dynamic Rank Fusion
                 </h3>
                 <p
-                  style={{ fontSize: "0.85rem", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}
+                  className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0"
                 >
                   Adjust weights to tune BM25 and HNSW fused recall. VantaDB coordinates sparse
                   token matching and dense vectors at the query level.
@@ -820,28 +577,16 @@ function EnginePage() {
         </section>
 
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">02 / 03 — Durability</span>
               <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  margin: "1.25rem 0",
-                  lineHeight: 1.05,
-                }}
+                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
               >
                 Crash-Safe WAL
               </h2>
               <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.95rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                }}
+                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]"
               >
                 VantaDB guarantees complete transaction safety. Write-Ahead Logging forces log
                 flushes before write acknowledgment, recovering state instantly on reboot.
@@ -849,86 +594,46 @@ function EnginePage() {
             </div>
 
             <div
-              className="col-span-8"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1px",
-                background: "var(--border)",
-                border: "1px solid var(--border)",
-              }}
+              className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]"
             >
-              <div style={{ background: "var(--background)", padding: "2.5rem 2rem" }}>
+              <div className="bg-background px-8 py-10">
                 <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                  }}
+                  className="font-mono text-[0.6rem] text-[var(--steel)]"
                 >
                   [01] PERSISTENCE
                 </span>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0.5rem 0",
-                    color: "var(--foreground)",
-                  }}
+                  className="font-display text-xl font-bold my-2 text-foreground"
                 >
                   WAL Journal
                 </h3>
                 <p
-                  style={{
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: "0 0 1.5rem",
-                  }}
+                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
                 >
                   Append-only write journal with CRC32C checks. Zero data corruption on hardware
                   failures.
                 </p>
-                <div style={{ display: "flex", gap: "2rem" }}>
+                <div className="flex gap-8">
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--amber)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
                     >
                       CRC32C
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       INTEGRITY
                     </div>
                   </div>
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--foreground)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-foreground"
                     >
                       Fsync
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       ON WRITE
                     </div>
@@ -936,77 +641,44 @@ function EnginePage() {
                 </div>
               </div>
 
-              <div style={{ background: "var(--background)", padding: "2.5rem 2rem" }}>
+              <div className="bg-background px-8 py-10">
                 <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                  }}
+                  className="font-mono text-[0.6rem] text-[var(--steel)]"
                 >
                   [02] RESILIENCE
                 </span>
                 <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.25rem",
-                    fontWeight: 700,
-                    margin: "0.5rem 0",
-                    color: "var(--foreground)",
-                  }}
+                  className="font-display text-xl font-bold my-2 text-foreground"
                 >
                   Crash Recovery
                 </h3>
                 <p
-                  style={{
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: "0 0 1.5rem",
-                  }}
+                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
                 >
                   Automatic log replay during engine bootstrap. Corrupted segments are filtered
                   before reaching memory.
                 </p>
-                <div style={{ display: "flex", gap: "2rem" }}>
+                <div className="flex gap-8">
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--amber)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
                     >
                       &lt; 1ms
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       REBOOT RECOVER
                     </div>
                   </div>
                   <div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        fontWeight: 800,
-                        color: "var(--foreground)",
-                      }}
+                      className="font-display text-2xl font-extrabold text-foreground"
                     >
                       Auto
                     </div>
                     <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        color: "var(--steel)",
-                      }}
+                      className="font-mono text-[0.55rem] text-[var(--steel)]"
                     >
                       REPLAY SCAN
                     </div>
@@ -1018,14 +690,10 @@ function EnginePage() {
         </section>
 
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-8">
               <div
-                style={{
-                  border: "1px solid var(--border)",
-                  padding: "2rem",
-                  background: "var(--surface)",
-                }}
+                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
               >
                 <WALSimulator />
               </div>
@@ -1033,18 +701,12 @@ function EnginePage() {
             <div className="col-span-4">
               <span className="swiss-eyebrow">Simulate Integrity</span>
               <h3
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.5rem",
-                  fontWeight: 800,
-                  margin: "1rem 0 0.5rem",
-                  lineHeight: 1.1,
-                }}
+                className="font-display text-2xl font-extrabold mt-4 mb-2 leading-[1.1]"
               >
                 Test WAL Resilience
               </h3>
               <p
-                style={{ fontSize: "0.875rem", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}
+                className="text-sm text-[var(--muted)] leading-[1.6] m-0"
               >
                 Crash the simulator to write unflushed records, then trigger recovery to scan
                 integrity checksums and sync state under 1ms.
@@ -1055,14 +717,15 @@ function EnginePage() {
 
         <ArchitecturePipeline />
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .swiss-grid-12 { grid-template-columns: 1fr !important; }
+          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

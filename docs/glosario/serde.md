@@ -3,6 +3,7 @@ title: Serde
 type: glossary-entry
 status: active
 tags: [serialization, rust, core]
+last_reviewed: 2026-07-03
 aliases: [Serde, serde]
 description: "Rust's premier serialization and deserialization framework used across VantaDB."
 links: "[[README.md]]"

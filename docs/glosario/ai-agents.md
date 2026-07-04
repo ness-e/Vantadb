@@ -1,4 +1,5 @@
 ---
+title: "Antes de cada interacción"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, ia, agentes, caso-de-uso]

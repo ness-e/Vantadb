@@ -1,3 +1,11 @@
+---
+title: "Reporte de Investigación: Web vs Producto Real"
+status: active
+tags: [vantadb, archive, research]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # REPORTE DE INVESTIGACIÓN: Web vs Producto Real
 
 > **Propósito**: Documento central de decisiones e investigaciones del proyecto VantaDB.

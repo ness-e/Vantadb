@@ -1,4 +1,5 @@
 ---
+title: "LSM-Tree—Log-Structured Merge-Tree"
 type: glossary-entry
 status: stable
 tags: [storage, lsm, estructura-datos, write-optimized]

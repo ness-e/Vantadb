@@ -1,3 +1,11 @@
+---
+title: "Swiss Pre-Flight Checklist"
+status: active
+tags: [vantadb, web, qa]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Swiss Pre-Flight Checklist
 
 > Portable desde `design/DiseñoNuevo.md §13`

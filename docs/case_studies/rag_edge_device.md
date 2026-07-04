@@ -4,6 +4,7 @@ type: case-study
 status: active
 tags: [vantadb, case-studies]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Case Study 2: Fast Hybrid RAG on Edge Devices (Raspberry Pi & Intel NUC)

@@ -144,6 +144,17 @@
   gap: 24px;
 }
 
+.swiss-ce-row-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.swiss-ce-icon {
+  flex-shrink: 0;
+  color: var(--amber);
+}
+
 .swiss-ce-row-title {
   margin: 0;
   font-family: var(--font-display);

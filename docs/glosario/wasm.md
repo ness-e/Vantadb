@@ -3,6 +3,7 @@ title: WebAssembly (WASM)
 type: glossary-entry
 status: active
 tags: [web, runtime, future]
+last_reviewed: 2026-07-03
 aliases: [WASM, WebAssembly, wasm]
 description: "A binary instruction format for a stack-based virtual machine, enabling VantaDB to run in browsers."
 links: "[[README.md]]"

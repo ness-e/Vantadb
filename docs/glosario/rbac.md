@@ -1,4 +1,5 @@
 ---
+title: "RBAC (Role-Based Access Control)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, enterprise, seguridad]

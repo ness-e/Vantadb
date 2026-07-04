@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/architecture")({
   component: ArchitecturePage,
@@ -11,36 +12,17 @@ function SpecRow({ label, val, desc }: { label: string; val: string; desc: strin
   return (
     <tr className="spec-table-row">
       <td
-        className="spec-table-cell spec-table-label"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700,
-          fontSize: "0.7rem",
-          letterSpacing: "0.05em",
-          color: "var(--foreground)",
-        }}
+        className="spec-table-cell spec-table-label font-mono font-bold text-[0.7rem] tracking-[0.05em] text-foreground"
       >
         {label}
       </td>
       <td
-        className="spec-table-cell spec-table-value"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700,
-          fontSize: "0.7rem",
-          color: "var(--amber)",
-        }}
+        className="spec-table-cell spec-table-value font-mono font-bold text-[0.7rem] text-[var(--amber)]"
       >
         {val}
       </td>
       <td
-        className="spec-table-desc"
-        style={{
-          fontFamily: "var(--font-sans)",
-          fontSize: "0.82rem",
-          color: "var(--muted)",
-          lineHeight: 1.5,
-        }}
+        className="spec-table-desc font-sans text-[0.82rem] text-[var(--muted)] leading-[1.5]"
       >
         {desc}
       </td>
@@ -86,65 +68,42 @@ function PerformanceProfiler() {
 
   return (
     <div
-      style={{ border: "1px solid var(--border)", padding: "2.5rem", background: "var(--surface)" }}
+      className="border border-[var(--border)] p-10 bg-[var(--surface)]"
     >
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: "1.5rem",
-        }}
+        className="flex justify-between items-baseline mb-6"
       >
         <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--steel)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
+          className="font-mono text-[0.65rem] text-[var(--steel)] uppercase tracking-[0.05em]"
         >
           CPU TIME DISTRIBUTION
         </span>
         <span
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)" }}
+          className="font-mono text-[0.65rem] text-[var(--muted)]"
         >
           HOVER SEGMENTS TO PROFILE
         </span>
       </div>
 
       <div
-        style={{
-          display: "flex",
-          width: "100%",
-          height: 32,
-          background: "var(--border)",
-          gap: "1px",
-          marginBottom: "2rem",
-        }}
+        className="flex w-full h-8 bg-[var(--border)] gap-[1px] mb-8"
       >
         {segments.map((seg) => (
           <div
             key={seg.id}
+            className="flex items-center justify-center cursor-pointer"
             style={{
               width: `${seg.share}%`,
               height: "100%",
               background: seg.id === hoveredSegment ? "var(--amber)" : seg.color,
-              cursor: "pointer",
               transition: "background-color 150ms var(--ease-cut)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
             }}
             onMouseEnter={() => setHoveredSegment(seg.id)}
             onMouseLeave={() => setHoveredSegment(null)}
           >
             <span
+              className="font-mono text-[0.65rem] font-bold"
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.65rem",
-                fontWeight: 700,
                 color:
                   seg.id === hoveredSegment
                     ? "#000000"
@@ -161,31 +120,17 @@ function PerformanceProfiler() {
       </div>
 
       <div
-        style={{ borderTop: "1px solid var(--subtle)", paddingTop: "1.25rem", minHeight: "5.5rem" }}
+        className="border-t border-[var(--subtle)] pt-5 min-h-[5.5rem]"
       >
         {hoveredData ? (
           <div>
             <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                color: "var(--amber)",
-                letterSpacing: "0.08em",
-                marginBottom: "0.25rem",
-              }}
+              className="font-mono text-[0.7rem] font-bold uppercase text-[var(--amber)] tracking-[0.08em] mb-1"
             >
               {hoveredData.label} — {hoveredData.share}% of query budget
             </div>
             <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.78rem",
-                color: "var(--muted)",
-                margin: 0,
-                lineHeight: 1.5,
-              }}
+              className="font-sans text-[0.78rem] text-[var(--muted)] m-0 leading-[1.5]"
             >
               {hoveredData.desc}
             </p>
@@ -193,26 +138,12 @@ function PerformanceProfiler() {
         ) : (
           <div>
             <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                color: "var(--steel)",
-                letterSpacing: "0.08em",
-                marginBottom: "0.25rem",
-              }}
+              className="font-mono text-[0.7rem] font-bold uppercase text-[var(--steel)] tracking-[0.08em] mb-1"
             >
               Engine Performance Summary
             </div>
             <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.78rem",
-                color: "var(--muted)",
-                margin: 0,
-                lineHeight: 1.5,
-              }}
+              className="font-sans text-[0.78rem] text-[var(--muted)] m-0 leading-[1.5]"
             >
               Hover over the latency bar segments above to analyze where the database spends CPU
               cycles during typical multi-modal queries.
@@ -269,28 +200,16 @@ function ArchitecturePage() {
 
       <main className="engine-main">
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">01 / 03 — The Stack</span>
               <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  margin: "1.25rem 0",
-                  lineHeight: 1.05,
-                }}
+                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
               >
                 Stack Layers
               </h2>
               <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.95rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                }}
+                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]"
               >
                 VantaDB provides safe bindings on top of a highly optimized multi-modal execution
                 core and storage layer.
@@ -298,73 +217,34 @@ function ArchitecturePage() {
             </div>
 
             <div
-              className="col-span-8"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1px",
-                background: "var(--border)",
-                border: "1px solid var(--border)",
-              }}
+              className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]"
             >
               {layers.map((lyr) => (
                 <div
                   key={lyr.num}
-                  style={{
-                    background: "var(--background)",
-                    padding: "2.5rem 2rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.5rem",
-                  }}
+                  className="bg-background px-8 py-10 flex flex-col gap-2"
                 >
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                    }}
+                    className="flex justify-between items-baseline"
                   >
                     <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.6rem",
-                        color: "var(--steel)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                      }}
+                      className="font-mono text-[0.6rem] text-[var(--steel)] uppercase tracking-[0.05em]"
                     >
                       {lyr.tag}
                     </span>
                     <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.6rem",
-                        color: "var(--amber)",
-                        fontWeight: 700,
-                      }}
+                      className="font-mono text-[0.6rem] text-[var(--amber)] font-bold"
                     >
                       LAYER {lyr.num}
                     </span>
                   </div>
                   <h3
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "1.25rem",
-                      fontWeight: 700,
-                      margin: "0.5rem 0 0",
-                      color: "var(--foreground)",
-                    }}
+                    className="font-display text-xl font-bold mt-2 mb-0 text-foreground"
                   >
                     {lyr.title}
                   </h3>
                   <p
-                    style={{
-                      fontSize: "0.82rem",
-                      color: "var(--muted)",
-                      lineHeight: 1.5,
-                      margin: 0,
-                    }}
+                    className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0"
                   >
                     {lyr.body}
                   </p>
@@ -375,32 +255,19 @@ function ArchitecturePage() {
         </section>
 
         <section className="engine-section engine-section--bordered">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-8">
               <PerformanceProfiler />
             </div>
             <div className="col-span-4">
               <span className="swiss-eyebrow">02 / 03 — Profiling</span>
               <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  margin: "1.25rem 0",
-                  lineHeight: 1.05,
-                }}
+                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
               >
                 Query Latency
               </h2>
               <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.95rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                  marginBottom: 0,
-                }}
+                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6] mb-0"
               >
                 Due to direct sharing of pointer addresses, the cost of crossing FFI bindings is
                 less than 12% of total search time, leaving CPU resources free to evaluate
@@ -411,29 +278,16 @@ function ArchitecturePage() {
         </section>
 
         <section className="engine-section">
-          <div className="swiss-grid-12" style={{ alignItems: "start" }}>
+          <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">03 / 03 — Specifications</span>
               <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "clamp(2rem, 4vw, 3rem)",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  margin: "1.25rem 0",
-                  lineHeight: 1.05,
-                }}
+                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
               >
                 Operational Limits
               </h2>
               <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.95rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                  marginBottom: 0,
-                }}
+                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6] mb-0"
               >
                 Technical limits enforced at memory layer boundaries to prevent out-of-memory states
                 during heavy concurrent query evaluations.
@@ -441,54 +295,26 @@ function ArchitecturePage() {
             </div>
 
             <div className="col-span-8">
-              <div style={{ border: "1px solid var(--border)", overflow: "hidden" }}>
+              <div className="border border-[var(--border)] overflow-hidden">
                 <table
-                  className="arch-spec-table"
-                  style={{ width: "100%", borderCollapse: "collapse" }}
+                  className="arch-spec-table w-full border-collapse"
                 >
                   <thead>
                     <tr
-                      style={{
-                        background: "var(--surface)",
-                        borderBottom: "1px solid var(--border)",
-                      }}
+                      className="bg-[var(--surface)] border-b border-[var(--border)]"
                     >
                       <th
-                        style={{
-                          padding: "1.25rem 1rem",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.65rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          color: "var(--steel)",
-                          textAlign: "left",
-                        }}
+                        className="px-4 py-5 font-mono text-[0.65rem] font-bold uppercase text-[var(--steel)] text-left"
                       >
                         Parameter
                       </th>
                       <th
-                        style={{
-                          padding: "1.25rem 1rem",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.65rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          color: "var(--steel)",
-                          textAlign: "left",
-                        }}
+                        className="px-4 py-5 font-mono text-[0.65rem] font-bold uppercase text-[var(--steel)] text-left"
                       >
                         Limits
                       </th>
                       <th
-                        style={{
-                          padding: "1.25rem 1rem",
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.65rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          color: "var(--steel)",
-                          textAlign: "left",
-                        }}
+                        className="px-4 py-5 font-mono text-[0.65rem] font-bold uppercase text-[var(--steel)] text-left"
                       >
                         Details
                       </th>
@@ -537,14 +363,15 @@ function ArchitecturePage() {
           </div>
         </section>
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .swiss-grid-12 { grid-template-columns: 1fr !important; }
+          .arch-spec-table { font-size: 0.7rem !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

@@ -115,13 +115,7 @@
   transition-delay: 0.24s;
 }
 
-/* ── ScrollStory ── */
-.scroll-story {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  min-height: 100vh;
-}
+
 
 .scroll-panels {
   display: flex;
@@ -249,8 +243,15 @@
 
   /* Terminal cursor: no blink */
   .term-cursor,
-  .term-cursor-alt {
+  .term-cursor-alt,
+  .monolith-cursor,
+  .qs-cursor {
     animation: none;
     opacity: 1;
+  }
+
+  /* GSAP clip-path reveals: show all content */
+  [style*="clipPath"] {
+    clip-path: none !important;
   }
 }

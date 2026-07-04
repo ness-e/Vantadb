@@ -1,4 +1,5 @@
 ---
+title: "Grafo"
 type: glossary-entry
 status: stable
 tags: [concept, graph, knowledge-graph, relaciones]

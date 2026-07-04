@@ -4,6 +4,7 @@ type: operations
 status: active
 tags: [vantadb, operations, text-index]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Text Index Phase 1 Closeout

@@ -1,3 +1,11 @@
+---
+title: "Fase 2: Index / Landing Page"
+status: active
+tags: [vantadb, web, strategy]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Fase 2: Index / Landing Page
 
 > Extraído de: `strategy/implementation_plan.md` | Skills: `gpt-taste`, `industrial-brutalist-ui`, `high-end-visual-design`

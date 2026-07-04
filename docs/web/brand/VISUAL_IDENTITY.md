@@ -1,3 +1,11 @@
+---
+title: "Visual Identity — VantaDB Web"
+status: active
+tags: [vantadb, web, brand]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Visual Identity — VantaDB Web
 
 > Resumen ejecutivo visual. Para especificación completa, ver `design/DiseñoNuevo.md`.

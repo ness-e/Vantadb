@@ -1,3 +1,11 @@
+---
+title: "VantaDB Web — Design System & Documentation"
+status: active
+tags: [vantadb, web, design-system]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # VantaDB Web — Design System & Documentation
 
 > Estilo: **Swiss High-Contrast Minimal (Neon Precision)**

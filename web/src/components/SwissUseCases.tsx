@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { useRef, useState } from "react";
+import { gsap, useGSAP } from "../lib/gsap";
 
 const CASES = [
   {
@@ -27,6 +27,7 @@ const CASES = [
 
 export function SwissUseCases() {
   const sectionRef = useRef<HTMLElement>(null);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   useGSAP(
     () => {
@@ -34,12 +35,12 @@ export function SwissUseCases() {
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.fromTo(
           ".swiss-uc-card",
-          { opacity: 0, y: 12 },
+          { clipPath: "inset(0 100% 0 0)", opacity: 0 },
           {
+            clipPath: "inset(0)",
             opacity: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: 0.06,
+            duration: 0.35,
+            stagger: 0.08,
             ease: "cubic-bezier(0.25, 1, 0.5, 1)",
             scrollTrigger: {
               trigger: sectionRef.current,
@@ -53,10 +54,7 @@ export function SwissUseCases() {
   );
 
   return (
-    <section
-      ref={sectionRef}
-      className="swiss-section swiss-uc-section"
-    >
+    <section ref={sectionRef} className="swiss-section swiss-uc-section">
       <div className="swiss-inner">
         <div className="uc-header">
           <h2 className="uc-heading">
@@ -68,18 +66,16 @@ export function SwissUseCases() {
           {CASES.map((uc) => (
             <div
               key={uc.id}
-              className="swiss-uc-card"
-              onMouseEnter={(e) => { e.currentTarget.classList.add("swiss-uc-card--hover"); }}
-              onMouseLeave={(e) => { e.currentTarget.classList.remove("swiss-uc-card--hover"); }}
+              className={`swiss-uc-card${hoveredCard === uc.id ? " swiss-uc-card--hover" : ""}`}
+              onMouseEnter={() => setHoveredCard(uc.id)}
+              onMouseLeave={() => setHoveredCard(null)}
             >
-              {/* Columna Izquierda: Índice numérico grande */}
               <div>
                 <span className="swiss-uc-num">
                   {uc.id}
                 </span>
               </div>
 
-              {/* Columna Derecha: Contenido */}
               <div className="uc-content">
                 <span className="uc-industry">
                   [{uc.industry}]

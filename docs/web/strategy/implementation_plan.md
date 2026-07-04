@@ -1,3 +1,11 @@
+---
+title: "Rediseño Completo VantaDB — Swiss High-Contrast Minimal (Neon Precision)"
+status: active
+tags: [vantadb, web, strategy]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Rediseño Completo VantaDB — Swiss High-Contrast Minimal (Neon Precision)
 
 ## Descripción del Objetivo

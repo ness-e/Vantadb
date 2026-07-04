@@ -1,4 +1,5 @@
 ---
+title: "SIMD (Single Instruction, Multiple Data)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, hardware, optimización]

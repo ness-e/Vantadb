@@ -1,3 +1,11 @@
+---
+title: "Site Map — VantaDB Web"
+status: active
+tags: [vantadb, web, product]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Site Map — VantaDB Web
 
 > Inventario completo de rutas web con estado de implementación Swiss.

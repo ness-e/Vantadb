@@ -1,4 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { getAllPosts } from "../../lib/blog";
 
@@ -8,6 +9,7 @@ export const Route = createLazyRoute("/blog/")({
 
 function BlogIndex() {
   const posts = getAllPosts();
+  const [hoveredPost, setHoveredPost] = useState<string | null>(null);
 
   return (
     <div className="engine-page">
@@ -72,21 +74,15 @@ function BlogIndex() {
                     gap: "2rem",
                     alignItems: "start",
                     padding: "2rem 2.5rem",
-                    background: "var(--background)",
                     textDecoration: "none",
                     borderLeft: "2px solid transparent",
                     transition: "all 150ms var(--ease-cut)",
+                    ...(hoveredPost === post.slug
+                      ? { background: "var(--surface-raised)", borderLeftColor: "var(--amber)" }
+                      : { background: "var(--background)", borderLeftColor: "transparent" }),
                   }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLAnchorElement;
-                    el.style.background = "var(--surface-raised)";
-                    el.style.borderLeftColor = "var(--amber)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLAnchorElement;
-                    el.style.background = "var(--background)";
-                    el.style.borderLeftColor = "transparent";
-                  }}
+                  onMouseEnter={() => setHoveredPost(post.slug)}
+                  onMouseLeave={() => setHoveredPost(null)}
                 >
                   <span
                     style={{

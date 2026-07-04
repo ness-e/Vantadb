@@ -1,4 +1,5 @@
 ---
+title: "MCP (Model Context Protocol)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, protocolo, ia, agentes]

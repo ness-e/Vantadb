@@ -1,4 +1,5 @@
 ---
+title: "Instalación"
 type: glossary-entry
 status: stable
 tags: [concept, ux, developer-experience, zero-config]

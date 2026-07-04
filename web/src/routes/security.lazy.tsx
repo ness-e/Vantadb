@@ -1,5 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/security")({
   component: SecurityPage,
@@ -10,7 +11,7 @@ function SecurityPage() {
   return (
     <div className="engine-page">
       <SwissSubpageHero
-        num="02"
+        num="13"
         eyebrow="Security Posture"
         title={
           <span>
@@ -98,14 +99,14 @@ function SecurityPage() {
           </div>
         </section>
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .engine-main section { padding: 1.5rem !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

@@ -1,4 +1,5 @@
 ---
+title: "rwlock"
 type: glossary-entry
 status: stable
 tags: [concurrencia, lock, sincronizacion, rust]

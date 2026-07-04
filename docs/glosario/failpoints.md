@@ -1,4 +1,5 @@
 ---
+title: "Failpoints"
 type: glossary-entry
 status: stable
 tags: [testing, fault-injection, debugging]

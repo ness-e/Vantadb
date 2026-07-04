@@ -1,4 +1,5 @@
 ---
+title: "dashmap"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, concurrencia]

@@ -4,6 +4,7 @@ type: operations
 status: active
 tags: [vantadb, operations, milestone]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Milestone v0.2.0: Repo Alignment & Reliability Gate

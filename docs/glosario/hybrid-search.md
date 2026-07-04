@@ -1,7 +1,9 @@
 ---
+title: "busqueda-hibrida"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, híbrida, rrf, fusion]
+last_reviewed: 2026-07-03
 aliases: [hybrid search, search fusion, combined search]
 ---
 

@@ -1,4 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/community")({
@@ -70,6 +71,7 @@ const WAYS = [
 ];
 
 function CommunityPage() {
+  const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
   return (
     <div className="engine-page">
       <SwissSubpageHero
@@ -115,21 +117,15 @@ function CommunityPage() {
                   flexDirection: "column",
                   gap: "0.75rem",
                   padding: "2.5rem",
-                  background: "var(--background)",
                   textDecoration: "none",
                   borderLeft: "2px solid transparent",
                   transition: "all 150ms var(--ease-cut)",
+                  ...(hoveredChannel === ch.name
+                    ? { background: "var(--surface-raised)", borderLeftColor: "var(--amber)" }
+                    : { background: "var(--background)", borderLeftColor: "transparent" }),
                 }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLAnchorElement;
-                  el.style.background = "var(--surface-raised)";
-                  el.style.borderLeftColor = "var(--amber)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLAnchorElement;
-                  el.style.background = "var(--background)";
-                  el.style.borderLeftColor = "transparent";
-                }}
+                onMouseEnter={() => setHoveredChannel(ch.name)}
+                onMouseLeave={() => setHoveredChannel(null)}
               >
                 <span
                   style={{

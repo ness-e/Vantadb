@@ -1,3 +1,11 @@
+---
+title: "Accessibility Statement — VantaDB Web"
+status: active
+tags: [vantadb, web, qa]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Accessibility Statement — VantaDB Web
 
 > Estándar: WCAG 2.2 AA | Última revisión: 2026-07

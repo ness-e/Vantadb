@@ -4,6 +4,7 @@ type: operations
 status: active
 tags: [vantadb, operations, launch, hn]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Show HN: VantaDB — Embedded, Persistent Memory & Hybrid Search Engine in Rust

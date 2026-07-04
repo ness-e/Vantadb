@@ -1,3 +1,11 @@
+---
+title: "Backlog Guide — Explicación y Justificación de Cada Tarea"
+status: active
+tags: [vantadb, backlog, guide]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Backlog Guide — Explicación y Justificación de Cada Tarea
 
 > Documento companion al `Backlog.md`. Explica el **por qué** de cada tarea, su impacto en el producto y cómo se conecta con la estrategia general de VantaDB.

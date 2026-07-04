@@ -1,4 +1,5 @@
 ---
+title: "Benchmarks"
 type: glossary-entry
 status: stable
 tags: [performance, testing, metricas]

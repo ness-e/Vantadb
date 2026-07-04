@@ -1,4 +1,5 @@
 ---
+title: "Payload Indexes"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, índices, filtros]

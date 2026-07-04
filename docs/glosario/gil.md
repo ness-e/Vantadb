@@ -1,4 +1,5 @@
 ---
+title: "Single-thread: 1 second"
 type: glossary-entry
 status: stable
 tags: [python, concurrencia, lock, threading]

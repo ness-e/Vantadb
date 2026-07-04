@@ -1,3 +1,11 @@
+---
+title: "Reporte de Revisión — VantaDB Landing Page"
+status: active
+tags: [vantadb, web, qa]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Reporte de Revisión — VantaDB Landing Page
 
 **Fecha:** 2026-06-23

@@ -77,22 +77,70 @@ export function SwissBenchmarkGrid() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(".swiss-vs-cell", 
-          { opacity: 0, y: 12 },
-          { opacity: 1, y: 0, duration: 0.4, stagger: 0.04, ease: "cubic-bezier(0.25, 1, 0.5, 1)", scrollTrigger: { trigger: ".swiss-vs-grid", start: "top 80%" } }
+        const cells = gsap.utils.toArray<HTMLElement>(".swiss-vs-cell");
+        if (!cells.length) return;
+
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: ".swiss-vs-grid",
+            start: "top 80%",
+          },
+        });
+
+        tl.fromTo(
+          cells,
+          { scale: 0, opacity: 0, transformOrigin: "center center" },
+          {
+            scale: 1,
+            opacity: 1,
+            duration: 0.35,
+            stagger: 0.06,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+          },
         );
+
+        const labels = document.querySelectorAll<HTMLElement>(".swiss-vs-cell-label");
+        tl.fromTo(
+          labels,
+          { color: "var(--amber)" },
+          { color: "var(--steel)", duration: 0.25, stagger: 0.06 },
+          "-=0.2",
+        );
+
+        cells.forEach((cell) => {
+          const mid = cell.dataset.metricId;
+          const metric = METRICS.find((m) => m.id === mid);
+          if (!metric || metric.numericTarget === null) return;
+
+          const valueEl = cell.querySelector<HTMLElement>("[data-countup]");
+          if (!valueEl) return;
+
+          const { numericTarget: target, suffix, isDecimal } = metric;
+          const state = { val: 0 };
+
+          tl.to(
+            state,
+            {
+              val: target,
+              duration: 0.2,
+              ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+              onUpdate: () => {
+                valueEl.textContent = isDecimal
+                  ? `${state.val.toFixed(1)}${suffix}`
+                  : `${Math.round(state.val)}${suffix}`;
+              },
+            },
+            0,
+          );
+        });
       });
     },
     { scope: sectionRef },
   );
 
   return (
-    <section
-      className="swiss-section swiss-vs-section"
-      ref={sectionRef}
-    >
+    <section className="swiss-section swiss-vs-section" ref={sectionRef}>
       <div className="swiss-inner">
-        {/* Title — NO eyebrow per budget */}
         <h2 className="swiss-vs-title">
           Embedded vs. Client/Server.
         </h2>
@@ -101,14 +149,13 @@ export function SwissBenchmarkGrid() {
           vector databases.
         </p>
 
-        {/* VS Grid — asymmetric layout */}
         <div className="swiss-vs-grid">
           {METRICS.map((m) => {
-            // Featured metrics span 6 cols, regular span 3 cols (perfect 12-col fit)
             const isFeatured = m.featured;
             return (
               <div
                 key={m.id}
+                data-metric-id={m.id}
                 className={
                   `swiss-vs-cell ` +
                   (isFeatured ? "swiss-vs-cell--featured" : "swiss-vs-cell--regular")
@@ -119,12 +166,13 @@ export function SwissBenchmarkGrid() {
                 </span>
 
                 <span
+                  data-countup
                   className={
                     `swiss-vs-value ` +
                     (isFeatured ? "swiss-vs-value--large" : "swiss-vs-value--small")
                   }
                 >
-                  {m.id === "latency" ? "1.2ms" : m.id === "memory" ? "2MB" : m.vanta}
+                  {m.numericTarget !== null ? "0" : m.vanta}
                 </span>
 
                 <div className="swiss-vs-cell-footer">

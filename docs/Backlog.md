@@ -1,9 +1,11 @@
 ---
+title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_refined: 2026-07-03 (batch 2: SEC-09, SEC-10, PERF-03, PERF-12, PERF-15, DB-02, DEVOPS-07, DEVOPS-10, TEST-07 ✅)
+last_reviewed: 2026-07-03
+aliases: []
 ---
 
 # Active Backlog — VantaDB
@@ -91,10 +93,10 @@ last_refined: 2026-07-03 (batch 2: SEC-09, SEC-10, PERF-03, PERF-12, PERF-15, DB
 | `PERF-08` | Secondary scalar indexes for `filter_field()` — currently does full table scan | 🟡 | ✅ |
 | `PERF-09` | Dynamic quantization governor: auto-transition f32→SQ8 for cold nodes based on hit frequency | 🟢 | ✅ |
 | `PERF-10` | Memory governor with eviction metrics visible via `/metrics` | 🟠 | ✅ |
-| `PERF-11` | Batch KV loader (`get_many`/`multi_get`) para eliminar N+1 en graph traversal, physical scan, vector search, hybrid explain | 🔴 | ❌ |
+| `PERF-11` | Batch KV loader (`get_many`/`multi_get`) para eliminar N+1 en graph traversal, physical scan, vector search, hybrid explain | 🔴 | ✅ |
 | `PERF-12` | Refactor patrón WAL repetitivo en engine.rs (`if let Some(ref mut wal) = ... wal.append(...)`) a helper method | 🟡 | ✅ |
 | `PERF-13` | Refactor `read_only` check repetido 5× en sdk/api.rs a helper method | 🟢 | ✅ |
-| `PERF-14` | Refactor `init_telemetry` masivo (cli_server.rs:280-438): eliminar bloques if/else repetidos JSON/full/compact × mcp/no-mcp | 🟡 | ❌ |
+| `PERF-14` | Refactor `init_telemetry` masivo (cli_server.rs:280-438): eliminar bloques if/else repetidos JSON/full/compact × mcp/no-mcp | 🟡 | ✅ |
 | `PERF-15` | Agregar `#![warn(missing_docs)]` en todos los crates del workspace (14 crates) | 🟢 | ✅ |
 
 ### 4.F Distribution
@@ -130,7 +132,7 @@ last_refined: 2026-07-03 (batch 2: SEC-09, SEC-10, PERF-03, PERF-12, PERF-15, DB
 | `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC-2025-0134, vulnerabilidad activa) | 🔴 | ✅ |
 | `SEC-09` | Reemplazar `bincode` 2.0 por `postcard` (RUSTSEC-2025-0141, unmaintained) | 🟡 | ✅ |
 | `SEC-10` | Security test suite: IQL injection, auth bypass, input validation fuzzing, timing attack | 🔴 | ✅ |
-| `DOC-01` | Unit tests: 34/48 modules without `#[cfg(test)]`. Priority: `config.rs`, `engine.rs`, `executor.rs`, `gc.rs`, `metrics.rs`, `storage.rs`, `graph.rs`, `backends/` | 🟡 | ⏳ |
+| `DOC-01` | Unit tests: 91 nuevos tests en config/engine/executor/gc/metrics/backends | 🟡 | ✅ |
 | `DOC-02` | Refactor `insert_hnsw()` in `src/index.rs` (177L → 3 functions: `compute_inv_cached_norm`, `shrink_neighbors`, `insert_hnsw`) | 🟡 | ✅ |
 | `DOC-03` | Normalize 6 files with Unicode/accent in filename to pure ASCII (avoids cross-platform issues) | 🟢 | ✅ |
 
@@ -140,48 +142,48 @@ last_refined: 2026-07-03 (batch 2: SEC-09, SEC-10, PERF-03, PERF-12, PERF-15, DB
 |----|-------|-----------|--------|
 | `DOC-04` | Restore unique content from archived VantaDB-MPTS files: Vision/UVP, GTM/Strategic Roadmap, design principles, flowcharts, risk register (~2,900 unique lines with no EN equivalent). Create `docs/vision/VISION.md`, `docs/strategy/ROADMAP.md`, `docs/strategy/GO_TO_MARKET.md` | 🔴 | ✅ |
 | `DOC-05` | Translate to English 10 docs from `operations/` + 3 ADRs that are in Spanish (violate EN convention) | 🟡 | ✅ |
-| `DOC-06` | Unified frontmatter schema (title, status, tags, last_reviewed, aliases) for 117 .md files | 🟡 | ⏳ |
+| `DOC-06` | Unified frontmatter schema (title, status, tags, last_reviewed, aliases) for 124 .md files | 🟡 | ✅ |
 | `DOC-07` | Unify naming convention to kebab-case without accents or spaces | 🟢 | ✅ |
 | `DOC-08` | Archive `TEXT_INDEX_PHASE_1_CLOSEOUT.md`, `RELEASE_V0.1.1.md`, `MILESTONE_V0.2.0.md` (historical) | 🟢 | ✅ |
 | `DOC-09` | Create `.github/` directory with SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md, issue/PR templates | 🔴 | ✅ |
 | `DOC-10` | Fix broken links in README.md and README_ES.md | 🔴 | ✅ |
 | `DOC-11` | Fix factual errors in blog: License MIT→Apache 2.0, GitHub URL `vantadb/vantadb`→`ness-e/Vantadb` in `web/content/blog/introducing-vantadb.md` | 🟡 | ✅ |
 | `DOC-12` | Update `web/public/llms.txt` with current version (currently says v0.4.0→v0.6.0, project is v0.2.0) | 🟡 | ✅ |
-| `DOC-13` | Create missing ADRs (Architecture Decision Records): Fjall vs RocksDB criteria, HNSW params (M=32, ef_construction=200), RRF k=60, PyO3 architecture, WASM strategy, community governance. Currently only 3 ADRs for whole project | 🟡 | ❌ |
-| `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs | 🟡 | ❌ |
-| `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ❌ |
+| `DOC-13` | Create missing ADRs (Architecture Decision Records): Fjall vs RocksDB criteria, HNSW params (M=32, ef_construction=200), RRF k=60, PyO3 architecture, WASM strategy, community governance. 6 ADRs creados (004-009) | 🟡 | ✅ |
+| `DOC-14` | Write official Performance Tuning Guide: HNSW params, memory limits, backend selection, sync modes, quantization tradeoffs — 479 líneas | 🟡 | ✅ |
+| `DOC-15` | Create OpenAPI/Swagger spec for HTTP API (currently 3 endpoints documented in 149 lines — EMBEDDED_SDK has 428L) | 🟡 | ✅ |
 | `DOC-16` | Create tutorial series in `docs/tutorials/`: AI Agent Memory with VantaDB, Local RAG Pipeline walkthrough, Migrating from ChromaDB step-by-step | 🟡 | ❌ |
-| `DOC-17` | Crear diagramas de arquitectura formales (reemplazar ASCII art en ARCHITECTURE.md) | 🟡 | ❌ |
-| `DOC-18` | Expandir HTTP_API.md (149L → ~400L) al nivel de detalle de EMBEDDED_SDK (428L) | 🟡 | ❌ |
-| `DOC-19` | Agregar términos faltantes al glosario: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search` | 🟢 | ❌ |
+| `DOC-17` | Crear diagramas de arquitectura formales (reemplazar ASCII art en ARCHITECTURE.md) — 5 diagramas Mermaid | 🟡 | ✅ |
+| `DOC-18` | Expandir HTTP_API.md (149L → ~504L) al nivel de detalle de EMBEDDED_SDK (428L) | 🟡 | ✅ |
+| `DOC-19` | Agregar términos faltantes al glosario: `similar_to_key`, `put_batch`, `compaction`, `serialization`, `heuristic_search` — 5 términos creados | 🟢 | ✅ |
 
 ### 4.J Web Frontend
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
-| `WEB-06` | Migrate 637 inline styles to CSS Modules (engine.tsx 1085L inline, architecture.tsx 557L inline) | 🟡 | ❌ |
+| `WEB-06` | Migrate 637 inline styles to CSS Modules (engine.tsx 1085L inline, architecture.tsx 557L inline) — ~125 migraciones a Tailwind | 🟡 | ✅ |
 
-| `WEB-07` | Eliminar redundancia de animation libraries: mantener solo GSAP, reemplazar Motion route transitions y AnimeJS text-scramble con GSAP | 🟡 | ❌ |
+| `WEB-07` | Eliminar redundancia de animation libraries: mantener solo GSAP, reemplazar Motion route transitions y AnimeJS text-scramble con GSAP — Motion eliminado, AnimeJS no estaba en uso | 🟡 | ✅ |
 | `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 | ✅ |
 | `WEB-14` | Implement missing GSAP animations per DiseñoNuevo.md: scroll-trigger reveals, count-up numbers | 🟡 | ✅ |
-| `WEB-17` | Evaluate TanStack Router necessity: 23 mostly-static pages. React Router would be simpler with fewer deps and no `routeTree.gen.ts` | 🟡 | ❌ |
-| `WEB-18` | Crear componente `<VsTable data={...} />` reusable para patrón "Legacy vs VantaDB" (duplicado en 7+ archivos) | 🟡 | ❌ |
-| `WEB-19` | Implementar `React.lazy()` / code splitting automático por ruta para reducir bundle inicial | 🟡 | ❌ |
-| `WEB-20` | Agregar `React.memo`, `useMemo`, `useCallback` en componentes clave (Nav, SwissFooter, SwissSubpageHero) | 🟡 | ❌ |
-| `WEB-21` | Eliminar mutación directa del DOM en handlers onMouseEnter/onMouseLeave (about/index.tsx, about/community.tsx, SwissArchSection.tsx) | 🟡 | ❌ |
+| `WEB-17` | Evaluate TanStack Router necessity: 23 mostly-static pages. React Router would be simpler with fewer deps and no `routeTree.gen.ts` — evaluación completada, recomendación: mantener por ahora | 🟡 | ✅ |
+| `WEB-18` | Crear componente `<VsTable data={...} />` reusable para patrón "Legacy vs VantaDB" (duplicado en 7+ archivos) — 10 tests, todos pasando | 🟡 | ✅ |
+| `WEB-19` | Implementar `React.lazy()` / code splitting automático por ruta para reducir bundle inicial — lazy loading implementado con TanStack Router nativo | 🟡 | ✅ |
+| `WEB-20` | Agregar `React.memo`, `useMemo`, `useCallback` en componentes clave (Nav, SwissFooter, SwissSubpageHero) — Nav memoizado, SwissFooter y SubpageHero ya lo estaban | 🟡 | ✅ |
+| `WEB-21` | Eliminar mutación directa del DOM en handlers onMouseEnter/onMouseLeave (about/index.tsx, about/community.tsx, SwissArchSection.tsx) — 25 patrones fijados en 11 archivos | 🟡 | ✅ |
 
 ### 4.K Testing Gaps
 
 | ID | Task | Priority | Status |
 |----|-------|-----------|--------|
 
-| `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (2 tests in `core_invariants.rs`, not comprehensive) | 🟡 | ⏳ |
-| `TEST-05` | Snapshot testing: HNSW recall certification snapshots, export/import format versioning, WAL format integrity | 🟡 | ❌ |
-| `TEST-06` | Load/stress tests for Python and TypeScript SDKs (currently only Rust has stress tests) | 🟡 | ❌ |
+| `TEST-04` | Regression test suite: dedicated tests for each fixed bug to prevent regressions (12 tests in `tests/core/regression_certification.rs`) | 🟡 | ✅ |
+| `TEST-05` | Snapshot testing: HNSW recall certification snapshots, export/import format versioning, WAL format integrity (7 tests) | 🟡 | ✅ |
+| `TEST-06` | Load/stress tests for Python (9) and TypeScript (6) SDKs | 🟡 | ✅ |
 | `TEST-07` | Fix `test-threads = 2` global: make OS-specific config (Windows needs 2, Linux/macOS can use more parallelism) — global `test-threads=2` removed ✅, Windows-specific override ✅ | 🟢 | ✅ |
 | `TEST-08` | Fix `chaos_integrity` missing `required-features = ["failpoints"]` in Cargo.toml | 🟠 | ✅ |
-| `TEST-09` | Implementar tests WASM reales (vantadb-wasm/tests/wasm_tests.rs está vacío) | 🔴 | ❌ |
-| `TEST-10` | Configurar Vitest + React Testing Library para frontend (0 tests actualmente) | 🔴 | ❌ |
+| `TEST-09` | Implementar tests WASM reales (39 tests en 11 categorías, 744 líneas) | 🔴 | ✅ |
+| `TEST-10` | Configurar Vitest + React Testing Library para frontend (40 tests en 6 suites) | 🔴 | ✅ |
 
 ### 4.L Pricing & Monetization Strategy
 

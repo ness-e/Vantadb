@@ -1,4 +1,5 @@
 ---
+title: "Transactional"
 type: glossary-entry
 status: stable
 tags: [concept, acid, durabilidad, consistencia]

@@ -65,11 +65,17 @@ function useHeroScene(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     let frameId: number;
     const baseSpeed = prefersReduced ? 0 : 0.001;
 
+    let driftPhase = 0;
+
     const animate = () => {
       frameId = requestAnimationFrame(animate);
+      driftPhase += baseSpeed * 0.4;
       torus.rotation.y += baseSpeed * 0.8;
+      torus.position.z = Math.sin(driftPhase) * 0.06;
+      torus.position.y = Math.cos(driftPhase * 0.7) * 0.04;
       sphere.rotation.y -= baseSpeed * 1.2;
       sphere.rotation.x += baseSpeed * 0.5;
+      sphere.position.z = Math.sin(driftPhase * 0.5) * 0.03;
       renderer.render(scene, camera);
     };
     animate();

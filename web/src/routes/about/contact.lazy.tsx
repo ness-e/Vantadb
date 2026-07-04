@@ -1,4 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/contact")({
@@ -45,6 +46,7 @@ const CONTACTS = [
 ];
 
 function ContactPage() {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
     <div className="engine-page">
       <SwissSubpageHero
@@ -79,23 +81,21 @@ function ContactPage() {
               marginTop: "3rem",
             }}
           >
-            {CONTACTS.map((c) => (
+            {CONTACTS.map((c, idx) => (
               <div
                 key={c.channel}
                 style={{
-                  background: "var(--background)",
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.5rem",
                   transition: "background-color 150ms var(--ease-cut)",
+                  background: hoveredIdx === idx
+                    ? "var(--surface-raised)"
+                    : "var(--background)",
                 }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--surface-raised)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--background)")
-                }
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
               >
                 <span
                   style={{

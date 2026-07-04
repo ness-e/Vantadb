@@ -1,7 +1,9 @@
 ---
+title: "SDK Python"
 type: glossary-entry
 status: stable
 tags: [glosario, sdk, python, pyo3, ffi]
+last_reviewed: 2026-07-03
 aliases: [Python SDK, SDK Python, vantadb-py]
 ---
 

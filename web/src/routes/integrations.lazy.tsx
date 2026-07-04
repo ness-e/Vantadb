@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/integrations")({
   component: IntegrationsPage,
@@ -126,6 +127,7 @@ const ECOSYSTEM_GRID = [
 function IntegrationsPage() {
   const [selectedId, setSelectedId] = useState<string>("openai");
   const [copied, setCopied] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const active = useMemo(
     () => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0],
@@ -359,20 +361,18 @@ function IntegrationsPage() {
               <div
                 key={item.name}
                 style={{
-                  background: "var(--background)",
                   padding: "2rem 1.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.25rem",
                   transition: "background-color 150ms var(--ease-cut)",
                   cursor: "default",
+                  background: hoveredItem === item.name
+                    ? "var(--surface-raised)"
+                    : "var(--background)",
                 }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--surface-raised)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLDivElement).style.background = "var(--background)")
-                }
+                onMouseEnter={() => setHoveredItem(item.name)}
+                onMouseLeave={() => setHoveredItem(null)}
               >
                 <div
                   style={{
@@ -400,14 +400,15 @@ function IntegrationsPage() {
           </div>
         </section>
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .swiss-grid-12 { grid-template-columns: 1fr !important; }
+          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
 
-export function PendingComponent() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <div>Loading...</div>
-    </div>
-  );
-}
+

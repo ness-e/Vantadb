@@ -1,4 +1,5 @@
 ---
+title: "rrf"
 type: glossary-entry
 status: stable
 tags: [busqueda, fusion, ranking, hybrid-search]

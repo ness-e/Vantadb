@@ -1,4 +1,5 @@
 ---
+title: "Linux"
 type: glossary-entry
 status: stable
 tags: [storage, backend, lsm-tree, rust]

@@ -10,13 +10,27 @@ export const SwissMonolith = memo(function SwissMonolith() {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.fromTo(
-          ".swiss-monolith-content > *",
-          { opacity: 0, y: 12 },
+          ".swiss-monolith-title",
+          { clipPath: "inset(0 0 100% 0)", opacity: 0 },
           {
+            clipPath: "inset(0)",
             opacity: 1,
-            y: 0,
-            duration: 0.5,
-            stagger: 0.06,
+            duration: 0.4,
+            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            scrollTrigger: {
+              trigger: containerRef.current,
+              start: "top 75%",
+            },
+          },
+        );
+
+        gsap.fromTo(
+          ".swiss-monolith-subtitle",
+          { clipPath: "inset(0 0 100% 0)", opacity: 0 },
+          {
+            clipPath: "inset(0)",
+            opacity: 1,
+            duration: 0.35,
             ease: "cubic-bezier(0.25, 1, 0.5, 1)",
             scrollTrigger: {
               trigger: containerRef.current,
@@ -34,6 +48,7 @@ export const SwissMonolith = memo(function SwissMonolith() {
       <div className="swiss-monolith-content">
         <h2 className="swiss-monolith-title">
           pip install vantadb-py
+          <span className="monolith-cursor">_</span>
         </h2>
 
         <p className="swiss-monolith-subtitle">

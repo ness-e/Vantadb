@@ -1,4 +1,5 @@
 ---
+title: "ANN (Approximate Nearest Neighbor)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, indexes, vector]

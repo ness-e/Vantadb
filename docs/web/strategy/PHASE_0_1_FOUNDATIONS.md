@@ -1,3 +1,11 @@
+---
+title: "Fase 0-1: Foundations, Tokens, Nav & Footer"
+status: active
+tags: [vantadb, web, strategy]
+last_reviewed: 2026-07-03
+aliases: []
+---
+
 # Fase 0-1: Foundations, Tokens, Nav & Footer
 
 > Extraído de: `strategy/implementation_plan.md` | Documento maestro: `design/DiseñoNuevo.md`

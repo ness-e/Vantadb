@@ -4,6 +4,7 @@ type: case-study
 status: active
 tags: [vantadb, case-studies]
 last_reviewed: 2026-07-01
+aliases: []
 ---
 
 # Case Study 1: Persistent Episodic Memory for a Local AI Coding Assistant

@@ -1,4 +1,5 @@
 ---
+title: "mvcc"
 type: glossary-entry
 status: stable
 tags: [concurrencia, aislamiento, transacciones]
