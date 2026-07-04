@@ -8,7 +8,8 @@ export const Route = createFileRoute("/changelog")({
         name: "description",
         content:
           "Release notes for VantaDB. Track new features, performance improvements, bug fixes, and breaking changes across versions.",
-      },      { property: "og:title", content: "VantaDB — Changelog & Releases" },
+      },
+      { property: "og:title", content: "VantaDB — Changelog & Releases" },
       {
         property: "og:description",
         content: "Release notes, version history, and breaking changes.",
@@ -18,6 +19,3 @@ export const Route = createFileRoute("/changelog")({
     links: [{ rel: "canonical", href: "https://vantadb.dev/changelog" }],
   }),
 });
-
-
-

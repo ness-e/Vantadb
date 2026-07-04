@@ -70,10 +70,24 @@ function LocalRagPage() {
       />
 
       <main className="swiss-main">
-        <nav aria-label="Breadcrumb" style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0", padding: "0 clamp(1.5rem, 5vw, 4rem)", marginTop: "1rem" }}>
-          <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>Home</a>
+        <nav
+          aria-label="Breadcrumb"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.65rem",
+            color: "var(--muted)",
+            marginBottom: "0",
+            padding: "0 clamp(1.5rem, 5vw, 4rem)",
+            marginTop: "1rem",
+          }}
+        >
+          <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>
+            Home
+          </a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
-          <a href="/solutions" style={{ color: "var(--muted)", textDecoration: "none" }}>Solutions</a>
+          <a href="/solutions" style={{ color: "var(--muted)", textDecoration: "none" }}>
+            Solutions
+          </a>
           <span style={{ margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "var(--foreground)" }}>Local RAG</span>
         </nav>
@@ -311,9 +325,6 @@ function LocalRagPage() {
       </main>
 
       <style>{`
-        @media (max-width: 768px) {
-          .swiss-grid-12 > .col-span-6 { grid-column: span 12 !important; }
-        }
         @media (max-width: 640px) {
           [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
         }
@@ -324,7 +335,15 @@ function LocalRagPage() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
       <div>Loading...</div>
     </div>
   );

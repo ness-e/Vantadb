@@ -36,7 +36,9 @@
   padding: var(--space-md) 0;
   border-bottom: 1px solid var(--block-dark-border);
   cursor: pointer;
-  transition: opacity 100ms var(--ease-swiss), background 100ms var(--ease-swiss);
+  transition:
+    opacity 100ms var(--ease-swiss),
+    background 100ms var(--ease-swiss);
   align-items: flex-start;
 }
 
@@ -383,8 +385,13 @@
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .qs-output {

@@ -546,7 +546,6 @@ function LatencyPage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 120px 1fr 80px 80px"] { grid-template-columns: 1fr 1fr !important; gap: 0.5rem !important; }
         }

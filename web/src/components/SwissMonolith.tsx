@@ -48,12 +48,12 @@ export const SwissMonolith = memo(function SwissMonolith() {
       <div className="swiss-monolith-content">
         <h2 className="swiss-monolith-title">
           pip install vantadb-py
-          <span className="monolith-cursor" aria-hidden="true">_</span>
+          <span className="monolith-cursor" aria-hidden="true">
+            _
+          </span>
         </h2>
 
-        <p className="swiss-monolith-subtitle">
-          Zero servers. One line. Infinite context.
-        </p>
+        <p className="swiss-monolith-subtitle">Zero servers. One line. Infinite context.</p>
 
         <div className="swiss-monolith-cta-wrap">
           <Link to="/docs" className="swiss-monolith-cta" aria-label="Get started with VantaDB">

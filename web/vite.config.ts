@@ -11,8 +11,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) return "vendor-react";
-          if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query")) return "vendor-router";
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/"))
+            return "vendor-react";
+          if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"))
+            return "vendor-router";
 
           if (id.includes("node_modules/gsap") || id.includes("@gsap/react")) return "vendor-gsap";
           if (id.includes("node_modules/motion")) return "vendor-motion";

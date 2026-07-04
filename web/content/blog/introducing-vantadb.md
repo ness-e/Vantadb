@@ -20,12 +20,12 @@ VantaDB is an **embedded vector database** that runs inside your application pro
 
 ## Key metrics
 
-| Metric | Value |
-|--------|-------|
-| Recall@10 | 0.998 |
-| Latency p50 | 1.2ms |
-| Memory | 1172 bytes/vector |
-| License | Apache 2.0 |
+| Metric      | Value             |
+| ----------- | ----------------- |
+| Recall@10   | 0.998             |
+| Latency p50 | 1.2ms             |
+| Memory      | 1172 bytes/vector |
+| License     | Apache 2.0        |
 
 ## Why embedded?
 

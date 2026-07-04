@@ -16,7 +16,9 @@ export const SwissMetricsBar = memo(function SwissMetricsBar() {
             <div key={m.label} className="swiss-metrics-bar-item">
               <span className="swiss-metrics-bar-value">{m.value}</span>
               <span className="swiss-metrics-bar-label">{m.label}</span>
-              {i < METRICS.length - 1 && <div className="swiss-metrics-bar-sep" aria-hidden="true" />}
+              {i < METRICS.length - 1 && (
+                <div className="swiss-metrics-bar-sep" aria-hidden="true" />
+              )}
             </div>
           ))}
         </div>

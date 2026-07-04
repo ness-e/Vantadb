@@ -343,7 +343,6 @@ function CostPage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 140px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
         }
       `}</style>

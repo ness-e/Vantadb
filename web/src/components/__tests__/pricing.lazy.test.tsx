@@ -3,7 +3,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
   createLazyRoute: () => (opts: Record<string, unknown>) => opts,
-  Link: ({ children, to, className }: { children: React.ReactNode; to: string; className?: string }) => (
+  Link: ({
+    children,
+    to,
+    className,
+  }: {
+    children: React.ReactNode;
+    to: string;
+    className?: string;
+  }) => (
     <a href={to} className={className}>
       {children}
     </a>
@@ -11,7 +19,17 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/components/SwissSubpageHero", () => ({
-  SwissSubpageHero: ({ num, eyebrow, title, sub }: { num: string; eyebrow: string; title: React.ReactNode; sub?: string }) => (
+  SwissSubpageHero: ({
+    num,
+    eyebrow,
+    title,
+    sub,
+  }: {
+    num: string;
+    eyebrow: string;
+    title: React.ReactNode;
+    sub?: string;
+  }) => (
     <div data-testid="swiss-hero">
       <span data-testid="hero-num">{num}</span>
       <span data-testid="hero-eyebrow">{eyebrow}</span>

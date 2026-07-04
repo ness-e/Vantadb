@@ -251,24 +251,24 @@ function MaintPage() {
                       lineHeight: 1.4,
                     }}
                   >
-                      <span
-                        style={{
-                          color: "var(--steel)",
-                          fontFamily: "var(--font-mono)",
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        ✗
-                      </span>
-                      {item.task}
-                    </div>
                     <span
                       style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.65rem",
                         color: "var(--steel)",
-                        textAlign: "right",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      ✗
+                    </span>
+                    {item.task}
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.65rem",
+                      color: "var(--steel)",
+                      textAlign: "right",
                     }}
                   >
                     {item.time}
@@ -416,7 +416,6 @@ function MaintPage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 140px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
         }

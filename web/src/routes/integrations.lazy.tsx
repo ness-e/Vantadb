@@ -221,7 +221,14 @@ function IntegrationsPage() {
                   background: "var(--surface)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
@@ -367,9 +374,8 @@ function IntegrationsPage() {
                   gap: "0.25rem",
                   transition: "background-color 150ms var(--ease-cut)",
                   cursor: "default",
-                  background: hoveredItem === item.name
-                    ? "var(--surface-raised)"
-                    : "var(--background)",
+                  background:
+                    hoveredItem === item.name ? "var(--surface-raised)" : "var(--background)",
                 }}
                 onMouseEnter={() => setHoveredItem(item.name)}
                 onMouseLeave={() => setHoveredItem(null)}
@@ -403,12 +409,9 @@ function IntegrationsPage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
   );
 }
-
-

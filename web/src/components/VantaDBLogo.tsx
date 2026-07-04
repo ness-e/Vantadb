@@ -76,11 +76,7 @@ export const VantaDBLogoFull: React.FC<{
       aria-label="VantaDB"
     >
       <VantaDBMark size={markPx} inverted={inverted} />
-      <span
-        className="vdb-wordmark"
-        style={{ fontSize: `${fontPx}px` }}
-        aria-hidden="true"
-      >
+      <span className="vdb-wordmark" style={{ fontSize: `${fontPx}px` }} aria-hidden="true">
         VantaDB
       </span>
     </div>

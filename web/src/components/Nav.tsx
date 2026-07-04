@@ -27,17 +27,20 @@ export const Nav = memo(function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useGSAP(() => {
-    if (drawerOpen && drawerBodyRef.current) {
-      gsap.from(drawerBodyRef.current.children, {
-        opacity: 0,
-        x: -20,
-        duration: 0.2,
-        stagger: 0.05,
-        ease: "power2.out",
-      });
-    }
-  }, { dependencies: [drawerOpen], scope: drawerBodyRef });
+  useGSAP(
+    () => {
+      if (drawerOpen && drawerBodyRef.current) {
+        gsap.from(drawerBodyRef.current.children, {
+          opacity: 0,
+          x: -20,
+          duration: 0.2,
+          stagger: 0.05,
+          ease: "power2.out",
+        });
+      }
+    },
+    { dependencies: [drawerOpen], scope: drawerBodyRef },
+  );
 
   useEffect(() => {
     document.body.classList.toggle("overflow-hidden", drawerOpen);
@@ -119,7 +122,15 @@ export const Nav = memo(function Nav() {
           aria-label="Menu"
           aria-expanded={drawerOpen}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
             {drawerOpen ? (
               <>
                 <line x1="3" y1="3" x2="15" y2="15" />

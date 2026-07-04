@@ -57,13 +57,15 @@ export function SwissUseCases() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-uc-section swiss-uc-section--light" aria-label="Use cases">
+    <section
+      ref={sectionRef}
+      className="swiss-section swiss-uc-section swiss-uc-section--light"
+      aria-label="Use cases"
+    >
       <div className="swiss-inner">
         <header className="swiss-uc-header">
           <span className="swiss-section-label">[USE CASES]</span>
-          <h2 className="swiss-uc-heading">
-            Built for real AI workflows.
-          </h2>
+          <h2 className="swiss-uc-heading">Built for real AI workflows.</h2>
         </header>
 
         <div className="swiss-uc-bento">
@@ -75,7 +77,9 @@ export function SwissUseCases() {
               onMouseLeave={() => setHoveredCard(null)}
               aria-label={`Use case ${uc.id}: ${uc.title}`}
             >
-              <span className="swiss-uc-num" aria-hidden="true">[{uc.id}]</span>
+              <span className="swiss-uc-num" aria-hidden="true">
+                [{uc.id}]
+              </span>
               <h3 className="swiss-uc-title">{uc.title}</h3>
               <p className="swiss-uc-desc">{uc.desc}</p>
             </article>

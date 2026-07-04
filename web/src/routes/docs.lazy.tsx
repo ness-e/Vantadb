@@ -200,7 +200,11 @@ function DocsPage() {
 
         <div className="docs-content">
           {sections.map((s) => (
-            <section key={s.id} id={s.id} className="swiss-page-section swiss-page-section--bordered">
+            <section
+              key={s.id}
+              id={s.id}
+              className="swiss-page-section swiss-page-section--bordered"
+            >
               <div className="docs-section-header">
                 <span className="docs-section-num">[{s.num}]</span>
                 <h2 className="docs-section-title">{s.title}</h2>
@@ -213,7 +217,9 @@ function DocsPage() {
                   <div className="docs-code-header">
                     <span className="docs-code-label">{s.id}</span>
                   </div>
-                  <pre className="docs-code-pre"><code>{s.code}</code></pre>
+                  <pre className="docs-code-pre">
+                    <code>{s.code}</code>
+                  </pre>
                 </div>
               </div>
             </section>
@@ -230,5 +236,3 @@ function DocsPage() {
     </div>
   );
 }
-
-

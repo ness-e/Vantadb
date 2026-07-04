@@ -37,7 +37,9 @@
   color: var(--block-dark-text);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  transition: background-color 150ms var(--ease-swiss), color 150ms var(--ease-swiss);
+  transition:
+    background-color 150ms var(--ease-swiss),
+    color 150ms var(--ease-swiss);
   cursor: default;
   flex-grow: 1;
   text-align: left;

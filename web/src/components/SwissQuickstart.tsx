@@ -27,7 +27,7 @@ const STEPS = [
   {
     num: "04",
     title: "Query",
-    cmd: "results = db.search_memory(\n  namespace=\"agent/main\",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)",
+    cmd: 'results = db.search_memory(\n  namespace="agent/main",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)',
     desc: "Semantic + keyword in one call. No orchestration layer.",
     output:
       "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
@@ -57,34 +57,34 @@ export function SwissQuickstart() {
     { scope: sectionRef },
   );
 
-  const typeStep = useCallback(
-    (stepIndex: number, onComplete: () => void) => {
-      const step = STEPS[stepIndex];
-      if (!step) { onComplete(); return; }
+  const typeStep = useCallback((stepIndex: number, onComplete: () => void) => {
+    const step = STEPS[stepIndex];
+    if (!step) {
+      onComplete();
+      return;
+    }
 
-      setActiveStep(stepIndex);
+    setActiveStep(stepIndex);
 
-      if (codeRef.current && outputRef.current) {
-        gsap.set(outputRef.current, { opacity: 0 });
-        gsap.killTweensOf(codeRef.current);
+    if (codeRef.current && outputRef.current) {
+      gsap.set(outputRef.current, { opacity: 0 });
+      gsap.killTweensOf(codeRef.current);
 
-        const duration = Math.max(0.25, step.cmd.length * 0.03);
+      const duration = Math.max(0.25, step.cmd.length * 0.03);
 
-        gsap.to(codeRef.current, {
-          duration,
-          text: step.cmd,
-          ease: "none",
-          onComplete: () => {
-            gsap.set(outputRef.current, { opacity: 1 });
-            onComplete();
-          },
-        });
-      } else {
-        onComplete();
-      }
-    },
-    [],
-  );
+      gsap.to(codeRef.current, {
+        duration,
+        text: step.cmd,
+        ease: "none",
+        onComplete: () => {
+          gsap.set(outputRef.current, { opacity: 1 });
+          onComplete();
+        },
+      });
+    } else {
+      onComplete();
+    }
+  }, []);
 
   useEffect(() => {
     if (!hasEntered) return;
@@ -121,9 +121,7 @@ export function SwissQuickstart() {
     <section ref={sectionRef} className="swiss-section qs-section" aria-label="Quickstart guide">
       <div className="swiss-grid qs-grid">
         <div className="quickstart-left">
-          <h2 className="qs-heading">
-            Zero to running.
-          </h2>
+          <h2 className="qs-heading">Zero to running.</h2>
 
           <nav className="qs-steps" aria-label="Setup steps">
             {STEPS.map((step, i) => {
@@ -140,12 +138,8 @@ export function SwissQuickstart() {
                     [{step.num}]
                   </span>
                   <div className="qs-step-body">
-                    <span className="qs-step-title">
-                      {step.title}
-                    </span>
-                    <p className="qs-step-desc">
-                      {step.desc}
-                    </p>
+                    <span className="qs-step-title">{step.title}</span>
+                    <p className="qs-step-desc">{step.desc}</p>
                   </div>
                 </button>
               );
@@ -153,7 +147,11 @@ export function SwissQuickstart() {
           </nav>
 
           <div className="qs-docs">
-            <Link to="/docs" className="btn-ghost btn-ghost--hero qs-docs-link" aria-label="Read documentation">
+            <Link
+              to="/docs"
+              className="btn-ghost btn-ghost--hero qs-docs-link"
+              aria-label="Read documentation"
+            >
               Read Documentation
             </Link>
           </div>
@@ -167,21 +165,19 @@ export function SwissQuickstart() {
                 <div className="qs-terminal-dot" />
                 <div className="qs-terminal-dot" />
               </div>
-              <span className="qs-terminal-label">
-                TERMINAL // PYTHON 3.9+
-              </span>
+              <span className="qs-terminal-label">TERMINAL // PYTHON 3.9+</span>
             </header>
 
             <div className="qs-terminal-body">
               <pre className="qs-code-pre">
                 <code ref={codeRef} className="qs-code" aria-live="polite"></code>
-                <span className="qs-cursor" aria-hidden="true">_</span>
+                <span className="qs-cursor" aria-hidden="true">
+                  _
+                </span>
               </pre>
 
               <div ref={outputRef} className="qs-output" aria-live="polite">
-                <span className="qs-output-text">
-                  {STEPS[activeStep]!.output}
-                </span>
+                <span className="qs-output-text">{STEPS[activeStep]!.output}</span>
               </div>
             </div>
           </div>

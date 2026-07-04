@@ -119,9 +119,7 @@ function UseCasesPage() {
                   flexDirection: "column",
                   gap: "0.75rem",
                   transition: "background-color 150ms var(--ease-cut)",
-                  background: hoveredCase === c.num
-                    ? "var(--surface-raised)"
-                    : "var(--background)",
+                  background: hoveredCase === c.num ? "var(--surface-raised)" : "var(--background)",
                 }}
                 onMouseEnter={() => setHoveredCase(c.num)}
                 onMouseLeave={() => setHoveredCase(null)}
@@ -297,5 +295,3 @@ function UseCasesPage() {
     </div>
   );
 }
-
-

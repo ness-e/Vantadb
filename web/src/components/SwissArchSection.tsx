@@ -78,7 +78,11 @@ export function SwissArchSection() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-arch-layers" aria-label="Architecture layers">
+    <section
+      ref={sectionRef}
+      className="swiss-section swiss-arch-layers"
+      aria-label="Architecture layers"
+    >
       <div className="swiss-inner">
         <div className="swiss-grid swiss-arch-layers-grid">
           <div className="swiss-arch-layers-text">
@@ -97,8 +101,15 @@ export function SwissArchSection() {
             </p>
           </div>
 
-          <div className="swiss-arch-layers-diagram" ref={layersRef} role="img" aria-label="Architecture stack diagram">
-            <div className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}>
+          <div
+            className="swiss-arch-layers-diagram"
+            ref={layersRef}
+            role="img"
+            aria-label="Architecture stack diagram"
+          >
+            <div
+              className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}
+            >
               {LAYERS.map((layer, index) => (
                 <article
                   key={layer.id}
@@ -115,9 +126,7 @@ export function SwissArchSection() {
                     </span>
                   </header>
 
-                  <span className="swiss-arch-layer-name">
-                    {layer.name}
-                  </span>
+                  <span className="swiss-arch-layer-name">{layer.name}</span>
 
                   {index < LAYERS.length - 1 && (
                     <svg
@@ -126,12 +135,7 @@ export function SwissArchSection() {
                       className="swiss-arch-layer-arrow"
                       aria-hidden="true"
                     >
-                      <line
-                        x1="10"
-                        y1="0"
-                        x2="10"
-                        y2="40"
-                      />
+                      <line x1="10" y1="0" x2="10" y2="40" />
                       <polygon points="5,35 15,35 10,40" />
                     </svg>
                   )}

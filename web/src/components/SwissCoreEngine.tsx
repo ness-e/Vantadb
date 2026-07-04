@@ -107,11 +107,13 @@ export function SwissCoreEngine() {
   );
 
   return (
-    <section ref={sectionRef} className="swiss-section swiss-section--dark swiss-ce-section" aria-label="Core engine architecture">
+    <section
+      ref={sectionRef}
+      className="swiss-section swiss-section--dark swiss-ce-section"
+      aria-label="Core engine architecture"
+    >
       <div className="swiss-inner">
-        <h2 className="swiss-ce-title">
-          Exploded Architecture.
-        </h2>
+        <h2 className="swiss-ce-title">Exploded Architecture.</h2>
 
         <div className="swiss-ce-accordion" role="list">
           {FEATURES.map((feat) => {
@@ -140,10 +142,7 @@ export function SwissCoreEngine() {
                       className="swiss-ce-icon"
                       aria-hidden="true"
                     >
-                      <path
-                        className="swiss-ce-icon-path"
-                        d={feat.icon}
-                      />
+                      <path className="swiss-ce-icon-path" d={feat.icon} />
                     </svg>
                     <h3 className="swiss-ce-row-title">{feat.title}</h3>
                   </div>

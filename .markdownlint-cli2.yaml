@@ -10,12 +10,8 @@ config:
   MD041: false
 
 globs:
-  - "README.MD"
-  - "CONTRIBUTING.md"
-  - "SECURITY.md"
-  - "SUPPORT.md"
-  - "CODE_OF_CONDUCT.md"
-  - ".github/**/*.md"
+  - "**/*.md"
+  - "**/*.MD"
 
 ignores:
   - ".github/ISSUE_TEMPLATE/*.yml"

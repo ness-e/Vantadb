@@ -308,12 +308,6 @@ function ConfigPage() {
           </div>
         </section>
       </main>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,0 +1,14 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Shell scripts must stay LF
+*.sh text eol=lf
+
+# PowerShell scripts
+*.ps1 text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

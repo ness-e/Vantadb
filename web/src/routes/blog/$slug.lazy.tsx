@@ -80,7 +80,10 @@ function BlogPost() {
             </p>
           </div>
 
-          <div className="reveal article-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }} />
+          <div
+            className="reveal article-body"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }}
+          />
         </article>
 
         <nav className="bottom-nav">
@@ -95,7 +98,15 @@ function BlogPost() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
       <div>Loading...</div>
     </div>
   );

@@ -139,11 +139,13 @@ export function SwissBenchmarkGrid() {
   );
 
   return (
-    <section className="swiss-section swiss-vs-section" ref={sectionRef} aria-label="Benchmark comparison">
+    <section
+      className="swiss-section swiss-vs-section"
+      ref={sectionRef}
+      aria-label="Benchmark comparison"
+    >
       <div className="swiss-inner">
-        <h2 className="swiss-vs-title">
-          Embedded vs. Client/Server.
-        </h2>
+        <h2 className="swiss-vs-title">Embedded vs. Client/Server.</h2>
         <p className="swiss-vs-subtitle">
           By removing the network boundary, VantaDB achieves latencies impossible for traditional
           vector databases.
@@ -162,9 +164,7 @@ export function SwissBenchmarkGrid() {
                   (isFeatured ? "swiss-vs-cell--featured" : "swiss-vs-cell--regular")
                 }
               >
-                <header className="swiss-vs-cell-label">
-                  {m.label}
-                </header>
+                <header className="swiss-vs-cell-label">{m.label}</header>
 
                 <p
                   data-countup
@@ -179,17 +179,11 @@ export function SwissBenchmarkGrid() {
 
                 <footer className="swiss-vs-cell-footer">
                   <div className="swiss-vs-cell-trad">
-                    <span className="swiss-vs-cell-trad-label">
-                      Traditional Stack
-                    </span>
-                    <span className="swiss-vs-cell-trad-value">
-                      {m.traditional}
-                    </span>
+                    <span className="swiss-vs-cell-trad-label">Traditional Stack</span>
+                    <span className="swiss-vs-cell-trad-value">{m.traditional}</span>
                   </div>
 
-                  <span className="swiss-vs-cell-diff">
-                    {m.diff}
-                  </span>
+                  <span className="swiss-vs-cell-diff">{m.diff}</span>
                 </footer>
               </article>
             );

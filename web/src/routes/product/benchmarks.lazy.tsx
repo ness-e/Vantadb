@@ -93,11 +93,14 @@ function BenchmarksPage() {
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "var(--amber)" }}>Note:</strong> Benchmarks shown represent
-            raw Rust core performance on the SIFT1M dataset (100K vectors, 128-dim, Balanced Cos configuration).
-            Real-world performance varies by dataset size, dimensionality, and hardware configuration. See
-            full methodology in <code style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
-            docs/operations/BENCHMARKS.md</code>.
+            <strong style={{ color: "var(--amber)" }}>Note:</strong> Benchmarks shown represent raw
+            Rust core performance on the SIFT1M dataset (100K vectors, 128-dim, Balanced Cos
+            configuration). Real-world performance varies by dataset size, dimensionality, and
+            hardware configuration. See full methodology in{" "}
+            <code style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
+              docs/operations/BENCHMARKS.md
+            </code>
+            .
           </div>
         </section>
       </main>
@@ -114,7 +117,15 @@ function BenchmarksPage() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
       <div>Loading...</div>
     </div>
   );

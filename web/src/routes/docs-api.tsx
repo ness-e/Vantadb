@@ -5,4 +5,3 @@ export const Route = createFileRoute("/docs-api")({
     throw redirect({ to: "/docs" });
   },
 });
-

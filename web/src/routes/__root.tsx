@@ -13,16 +13,43 @@ import { Nav } from "../components/Nav";
 import { SwissFooter } from "../components/SwissFooter";
 import { SwissBackToTop } from "../components/SwissBackToTop";
 import { PendingComponent } from "../components/PendingComponent";
+import { ScrollProgress } from "../components/ScrollProgress";
 
 function NotFoundComponent() {
   return (
-    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: "0 1rem" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--background)",
+        padding: "0 1rem",
+      }}
+    >
       <div style={{ maxWidth: "480px", textAlign: "center" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "8rem", fontWeight: 900, color: "var(--border)", lineHeight: 1, letterSpacing: "-0.08em", margin: 0 }}>
+        <h1
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "8rem",
+            fontWeight: 900,
+            color: "var(--border)",
+            lineHeight: 1,
+            letterSpacing: "-0.08em",
+            margin: 0,
+          }}
+        >
           404
         </h1>
         <hr className="hairline" style={{ margin: "1.5rem 0" }} />
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "1rem", color: "var(--muted)", marginBottom: "2rem" }}>
+        <p
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "1rem",
+            color: "var(--muted)",
+            marginBottom: "2rem",
+          }}
+        >
           This page doesn't exist.
         </p>
         <Link to="/" className="btn-primary">
@@ -37,14 +64,38 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--background)", padding: "0 1rem" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--background)",
+        padding: "0 1rem",
+      }}
+    >
       <div style={{ maxWidth: "480px", textAlign: "center" }}>
         <hr className="hairline" style={{ marginBottom: "1.5rem" }} />
-        <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9rem", color: "var(--muted)", marginBottom: "2rem" }}>
+        <p
+          style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: "0.9rem",
+            color: "var(--muted)",
+            marginBottom: "2rem",
+          }}
+        >
           Something went wrong. You can try again or go home.
         </p>
-        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={() => { router.invalidate(); reset(); }} className="btn-primary">
+        <div
+          style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}
+        >
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="btn-primary"
+          >
             TRY AGAIN
           </button>
           <a href="/" className="btn-ghost">
@@ -130,13 +181,57 @@ function RootComponent() {
   const matches = useMatches();
   const routeId = matches[matches.length - 1]?.routeId;
 
-  useGSAP(() => {
-    gsap.from(".route-content", { opacity: 0, y: 6, duration: 0.2, ease: "power2.out" });
-  }, { dependencies: [routeId] });
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.from(".route-content", { opacity: 0, y: 8, duration: 0.25, ease: "power2.out" });
+
+        const sections = gsap.utils.toArray<HTMLElement>(".swiss-page-section");
+        sections.forEach((section) => {
+          const eyebrow = section.querySelector<HTMLElement>(".swiss-eyebrow");
+          const heading = section.querySelector<HTMLElement>("h2");
+
+          if (eyebrow) {
+            gsap.fromTo(
+              eyebrow,
+              { clipPath: "inset(0 0 100% 0)", opacity: 0 },
+              {
+                clipPath: "inset(0)",
+                opacity: 1,
+                duration: 0.3,
+                ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+                scrollTrigger: { trigger: section, start: "top 80%" },
+              },
+            );
+          }
+
+          if (heading) {
+            gsap.fromTo(
+              heading,
+              { opacity: 0, y: 12 },
+              {
+                opacity: 1,
+                y: 0,
+                duration: 0.3,
+                ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+                scrollTrigger: { trigger: section, start: "top 80%" },
+              },
+            );
+          }
+        });
+      });
+
+      return () => mm.revert();
+    },
+    { dependencies: [routeId] },
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="page-container">
+        <ScrollProgress />
         <Nav />
         <a href="#main-content" className="skip-link">
           Skip to main content
@@ -152,4 +247,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

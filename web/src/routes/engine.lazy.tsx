@@ -115,33 +115,19 @@ function RRFWeightsSlider() {
   const queryLatency = (1.2 + (hnswWeight / 100) * 0.4).toFixed(2);
 
   return (
-    <div
-      className="slider-container bg-background border-none p-0"
-    >
-      <div
-        className="rrf-header border-b border-[var(--border)] pb-4 mb-6"
-      >
-        <h4
-          className="rrf-title font-mono text-[0.8rem] uppercase tracking-[0.08em]"
-        >
+    <div className="slider-container bg-background border-none p-0">
+      <div className="rrf-header border-b border-[var(--border)] pb-4 mb-6">
+        <h4 className="rrf-title font-mono text-[0.8rem] uppercase tracking-[0.08em]">
           RRF Weights Planner
         </h4>
-        <span
-          className="rrf-latency font-mono text-[0.7rem]"
-        >
-          LATENCY: {queryLatency}ms
-        </span>
+        <span className="rrf-latency font-mono text-[0.7rem]">LATENCY: {queryLatency}ms</span>
       </div>
 
-      <p
-        className="text-[0.85rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
-      >
+      <p className="text-[0.85rem] text-[var(--muted)] leading-[1.5] m-0 mb-6">
         Adjust the slider to coordinate keyword recall against vector space clustering.
       </p>
 
-      <div
-        className="rrf-labels flex justify-between font-mono text-[0.7rem] font-semibold"
-      >
+      <div className="rrf-labels flex justify-between font-mono text-[0.7rem] font-semibold">
         <span>BM25: {bm25Weight}%</span>
         <span>HNSW: {hnswWeight}%</span>
       </div>
@@ -156,44 +142,28 @@ function RRFWeightsSlider() {
         aria-label="BM25 to HNSW fusion weight ratio"
       />
 
-      <div
-        className="rrf-metrics-grid grid grid-cols-3 gap-[1px] bg-[var(--border)] border border-[var(--border)] rounded-none overflow-hidden"
-      >
+      <div className="rrf-metrics-grid grid grid-cols-3 gap-[1px] bg-[var(--border)] border border-[var(--border)] rounded-none overflow-hidden">
         <div className="rrf-metric-card bg-[var(--surface)] p-4">
-          <div
-            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]"
-          >
+          <div className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]">
             LEXICAL RECALL
           </div>
-          <div
-            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground"
-          >
+          <div className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground">
             {lexicalRecall}%
           </div>
         </div>
         <div className="rrf-metric-card bg-[var(--surface)] p-4">
-          <div
-            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]"
-          >
+          <div className="rrf-metric-label font-mono text-[0.55rem] text-[var(--steel)]">
             VECTOR RECALL
           </div>
-          <div
-            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground"
-          >
+          <div className="rrf-metric-value font-mono text-[1.1rem] font-bold text-foreground">
             {vectorRecall}%
           </div>
         </div>
-        <div
-          className="rrf-metric-card bg-[var(--surface)] p-4 border-l border-[var(--amber)]"
-        >
-          <div
-            className="rrf-metric-label font-mono text-[0.55rem] text-[var(--amber)] font-bold"
-          >
+        <div className="rrf-metric-card bg-[var(--surface)] p-4 border-l border-[var(--amber)]">
+          <div className="rrf-metric-label font-mono text-[0.55rem] text-[var(--amber)] font-bold">
             FUSED @10
           </div>
-          <div
-            className="rrf-metric-value font-mono text-[1.1rem] font-bold text-[var(--amber)]"
-          >
+          <div className="rrf-metric-value font-mono text-[1.1rem] font-bold text-[var(--amber)]">
             {fusedRecall}%
           </div>
         </div>
@@ -256,12 +226,8 @@ function WALSimulator() {
   };
 
   return (
-    <div
-      className="wal-simulator bg-background border-none p-0"
-    >
-      <div
-        className="wal-header border-b border-[var(--border)] pb-4 mb-6"
-      >
+    <div className="wal-simulator bg-background border-none p-0">
+      <div className="wal-header border-b border-[var(--border)] pb-4 mb-6">
         <div className="wal-status-group">
           <span
             className="inline-block"
@@ -276,11 +242,7 @@ function WALSimulator() {
                     : "var(--steel)",
             }}
           />
-          <span
-            className="wal-status-label font-mono text-[0.72rem]"
-          >
-            STATUS: {engineState}
-          </span>
+          <span className="wal-status-label font-mono text-[0.72rem]">STATUS: {engineState}</span>
         </div>
         <div className="wal-actions">
           <button
@@ -300,9 +262,7 @@ function WALSimulator() {
         </div>
       </div>
 
-      <div
-        className="wal-console bg-[var(--surface)] border border-[var(--border)] p-5 font-mono text-[0.7rem] h-[180px] overflow-y-auto leading-[1.6]"
-      >
+      <div className="wal-console bg-[var(--surface)] border border-[var(--border)] p-5 font-mono text-[0.7rem] h-[180px] overflow-y-auto leading-[1.6]">
         {logs.map((log) => (
           <div
             key={log}
@@ -334,18 +294,12 @@ function ArchitecturePipeline() {
     <section className="swiss-page-section border-t border-[var(--border)]">
       <div className="swiss-inner">
         <span className="swiss-eyebrow">03 / 03 — Pipeline</span>
-        <h2
-          className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 mb-12"
-        >
+        <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 mb-12">
           End-to-End Query Execution
         </h2>
 
-        <div
-          className="overflow-x-auto border border-[var(--border)] bg-[var(--surface)] px-8 py-12"
-        >
-          <div
-            className="flex gap-4 items-center min-w-max"
-          >
+        <div className="overflow-x-auto border border-[var(--border)] bg-[var(--surface)] px-8 py-12">
+          <div className="flex gap-4 items-center min-w-max">
             {stages.map((s, i) => (
               <div key={s.name} className="flex items-center gap-4">
                 <div
@@ -355,23 +309,15 @@ function ArchitecturePipeline() {
                     padding: "1.25rem 2rem",
                   }}
                 >
-                  <div
-                    className="font-display text-[0.9rem] font-bold text-foreground"
-                  >
+                  <div className="font-display text-[0.9rem] font-bold text-foreground">
                     {s.name}
                   </div>
-                  <div
-                    className="font-mono text-[0.55rem] text-[var(--muted)] uppercase mt-1"
-                  >
+                  <div className="font-mono text-[0.55rem] text-[var(--muted)] uppercase mt-1">
                     {s.desc}
                   </div>
                 </div>
                 {i < stages.length - 1 && (
-                  <span
-                    className="font-mono text-[var(--border)] text-base"
-                  >
-                    →
-                  </span>
+                  <span className="font-mono text-[var(--border)] text-base">→</span>
                 )}
               </div>
             ))}
@@ -403,108 +349,58 @@ function EnginePage() {
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">01 / 03 — Hybrid Search</span>
-              <h2
-                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
-              >
+              <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]">
                 BM25 + HNSW + RRF
               </h2>
-              <p
-                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]"
-              >
+              <p className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]">
                 VantaDB query planner optimizes combined metadata filters, HNSW vector similarity,
                 and BM25 full-text queries, synthesizing them into a single-pass execution plan.
               </p>
             </div>
 
-            <div
-              className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]"
-            >
+            <div className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]">
               <div className="bg-background px-8 py-10">
-                <span
-                  className="font-mono text-[0.6rem] text-[var(--steel)]"
-                >
-                  [01] LEXICAL
-                </span>
-                <h3
-                  className="font-display text-xl font-bold my-2 text-foreground"
-                >
-                  BM25 Search
-                </h3>
-                <p
-                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
-                >
+                <span className="font-mono text-[0.6rem] text-[var(--steel)]">[01] LEXICAL</span>
+                <h3 className="font-display text-xl font-bold my-2 text-foreground">BM25 Search</h3>
+                <p className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6">
                   Full-text lexical search at ~1.2ms p50 with 0.998 recall. Zero infrastructure
                   required.
                 </p>
                 <div className="flex gap-8">
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-[var(--amber)]">
                       ~1.2ms
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      P50 LATENCY
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">P50 LATENCY</div>
                   </div>
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-foreground"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-foreground">
                       0.998
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      RECALL@10
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">RECALL@10</div>
                   </div>
                 </div>
               </div>
 
               <div className="bg-background px-8 py-10">
-                <span
-                  className="font-mono text-[0.6rem] text-[var(--steel)]"
-                >
-                  [02] VECTOR
-                </span>
-                <h3
-                  className="font-display text-xl font-bold my-2 text-foreground"
-                >
-                  HNSW Recall
-                </h3>
-                <p
-                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
-                >
+                <span className="font-mono text-[0.6rem] text-[var(--steel)]">[02] VECTOR</span>
+                <h3 className="font-display text-xl font-bold my-2 text-foreground">HNSW Recall</h3>
+                <p className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6">
                   Hierarchical Navigable Small World graphs for approximate nearest neighbor search
                   across vectors.
                 </p>
                 <div className="flex gap-8">
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-[var(--amber)]">
                       M=16
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      CONNECTIONS
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">CONNECTIONS</div>
                   </div>
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-foreground"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-foreground">
                       Cosine
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      METRIC
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">METRIC</div>
                   </div>
                 </div>
               </div>
@@ -514,60 +410,36 @@ function EnginePage() {
 
         <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
-            <div
-              className="col-span-6 flex flex-col gap-6"
-            >
-              <div
-                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
-              >
-                <div
-                  className="flex justify-between items-baseline mb-4"
-                >
-                  <span
-                    className="font-mono text-[0.65rem] text-[var(--steel)] uppercase tracking-[0.05em]"
-                  >
+            <div className="col-span-6 flex flex-col gap-6">
+              <div className="border border-[var(--border)] p-8 bg-[var(--surface)]">
+                <div className="flex justify-between items-baseline mb-4">
+                  <span className="font-mono text-[0.65rem] text-[var(--steel)] uppercase tracking-[0.05em]">
                     Live Topology
                   </span>
-                  <span
-                    className="font-mono text-[0.55rem] text-[var(--muted)]"
-                  >
+                  <span className="font-mono text-[0.55rem] text-[var(--muted)]">
                     HOVER TO TRAVERSE
                   </span>
                 </div>
                 <GraphTopology />
               </div>
               <div>
-                <h3
-                  className="font-display text-xl font-bold m-0 mb-2"
-                >
+                <h3 className="font-display text-xl font-bold m-0 mb-2">
                   Knowledge Graph Relations
                 </h3>
-                <p
-                  className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0"
-                >
+                <p className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0">
                   Hover nodes to explore in-memory relations. VantaDB stores directed adjacency
                   lists alongside vectors for graph-based agent memory applications.
                 </p>
               </div>
             </div>
 
-            <div
-              className="col-span-6 flex flex-col gap-6"
-            >
-              <div
-                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
-              >
+            <div className="col-span-6 flex flex-col gap-6">
+              <div className="border border-[var(--border)] p-8 bg-[var(--surface)]">
                 <RRFWeightsSlider />
               </div>
               <div>
-                <h3
-                  className="font-display text-xl font-bold m-0 mb-2"
-                >
-                  Dynamic Rank Fusion
-                </h3>
-                <p
-                  className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0"
-                >
+                <h3 className="font-display text-xl font-bold m-0 mb-2">Dynamic Rank Fusion</h3>
+                <p className="text-[0.85rem] text-[var(--muted)] leading-[1.6] m-0">
                   Adjust weights to tune BM25 and HNSW fused recall. VantaDB coordinates sparse
                   token matching and dense vectors at the query level.
                 </p>
@@ -580,108 +452,62 @@ function EnginePage() {
           <div className="swiss-grid-12 items-start">
             <div className="col-span-4">
               <span className="swiss-eyebrow">02 / 03 — Durability</span>
-              <h2
-                className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]"
-              >
+              <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-[1.05]">
                 Crash-Safe WAL
               </h2>
-              <p
-                className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]"
-              >
+              <p className="font-sans text-[0.95rem] text-[var(--muted)] leading-[1.6]">
                 VantaDB guarantees complete transaction safety. Write-Ahead Logging forces log
                 flushes before write acknowledgment, recovering state instantly on reboot.
               </p>
             </div>
 
-            <div
-              className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]"
-            >
+            <div className="col-span-8 grid grid-cols-2 gap-[1px] bg-[var(--border)] border border-[var(--border)]">
               <div className="bg-background px-8 py-10">
-                <span
-                  className="font-mono text-[0.6rem] text-[var(--steel)]"
-                >
+                <span className="font-mono text-[0.6rem] text-[var(--steel)]">
                   [01] PERSISTENCE
                 </span>
-                <h3
-                  className="font-display text-xl font-bold my-2 text-foreground"
-                >
-                  WAL Journal
-                </h3>
-                <p
-                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
-                >
+                <h3 className="font-display text-xl font-bold my-2 text-foreground">WAL Journal</h3>
+                <p className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6">
                   Append-only write journal with CRC32C checks. Zero data corruption on hardware
                   failures.
                 </p>
                 <div className="flex gap-8">
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-[var(--amber)]">
                       CRC32C
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      INTEGRITY
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">INTEGRITY</div>
                   </div>
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-foreground"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-foreground">
                       Fsync
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      ON WRITE
-                    </div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">ON WRITE</div>
                   </div>
                 </div>
               </div>
 
               <div className="bg-background px-8 py-10">
-                <span
-                  className="font-mono text-[0.6rem] text-[var(--steel)]"
-                >
-                  [02] RESILIENCE
-                </span>
-                <h3
-                  className="font-display text-xl font-bold my-2 text-foreground"
-                >
+                <span className="font-mono text-[0.6rem] text-[var(--steel)]">[02] RESILIENCE</span>
+                <h3 className="font-display text-xl font-bold my-2 text-foreground">
                   Crash Recovery
                 </h3>
-                <p
-                  className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6"
-                >
+                <p className="text-[0.82rem] text-[var(--muted)] leading-[1.5] m-0 mb-6">
                   Automatic log replay during engine bootstrap. Corrupted segments are filtered
                   before reaching memory.
                 </p>
                 <div className="flex gap-8">
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-[var(--amber)]"
-                    >
+                    <div className="font-display text-2xl font-extrabold text-[var(--amber)]">
                       &lt; 1ms
                     </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">
                       REBOOT RECOVER
                     </div>
                   </div>
                   <div>
-                    <div
-                      className="font-display text-2xl font-extrabold text-foreground"
-                    >
-                      Auto
-                    </div>
-                    <div
-                      className="font-mono text-[0.55rem] text-[var(--steel)]"
-                    >
-                      REPLAY SCAN
-                    </div>
+                    <div className="font-display text-2xl font-extrabold text-foreground">Auto</div>
+                    <div className="font-mono text-[0.55rem] text-[var(--steel)]">REPLAY SCAN</div>
                   </div>
                 </div>
               </div>
@@ -692,22 +518,16 @@ function EnginePage() {
         <section className="swiss-page-section swiss-page-section--bordered">
           <div className="swiss-grid-12 items-start">
             <div className="col-span-8">
-              <div
-                className="border border-[var(--border)] p-8 bg-[var(--surface)]"
-              >
+              <div className="border border-[var(--border)] p-8 bg-[var(--surface)]">
                 <WALSimulator />
               </div>
             </div>
             <div className="col-span-4">
               <span className="swiss-eyebrow">Simulate Integrity</span>
-              <h3
-                className="font-display text-2xl font-extrabold mt-4 mb-2 leading-[1.1]"
-              >
+              <h3 className="font-display text-2xl font-extrabold mt-4 mb-2 leading-[1.1]">
                 Test WAL Resilience
               </h3>
-              <p
-                className="text-sm text-[var(--muted)] leading-[1.6] m-0"
-              >
+              <p className="text-sm text-[var(--muted)] leading-[1.6] m-0">
                 Crash the simulator to write unflushed records, then trigger recovery to scan
                 integrity checksums and sync state under 1ms.
               </p>
@@ -720,12 +540,9 @@ function EnginePage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .swiss-grid-12 { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
   );
 }
-
-

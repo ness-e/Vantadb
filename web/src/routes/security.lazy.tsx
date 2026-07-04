@@ -108,5 +108,3 @@ function SecurityPage() {
     </div>
   );
 }
-
-
