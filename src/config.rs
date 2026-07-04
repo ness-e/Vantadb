@@ -621,7 +621,10 @@ mod tests {
         assert!((cfg.eviction_weight_recency - 1.0).abs() < 1e-9);
         assert!((cfg.eviction_ratio - 0.20).abs() < 1e-9);
         assert_eq!(cfg.backend_kind, BackendKind::Fjall);
-        assert_eq!(cfg.max_blocking_threads, 16);
+        let expected_threads = std::thread::available_parallelism()
+            .map(|n| n.get() * 2)
+            .unwrap_or(16);
+        assert_eq!(cfg.max_blocking_threads, expected_threads);
         assert_eq!(cfg.sync_mode, SyncMode::Periodic);
         assert_eq!(cfg.api_key, None);
         assert_eq!(cfg.rate_limit_rpm, 100);
