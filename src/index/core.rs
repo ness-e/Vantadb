@@ -765,8 +765,7 @@ impl CPIndex {
                 } else {
                     true
                 };
-                if eligible && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
-                {
+                if eligible && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask)) {
                     results.push(NodeSimMin(d, ep));
                 }
                 visited.insert(ep);
@@ -1065,7 +1064,13 @@ impl CPIndex {
     }
 
     #[tracing::instrument(skip(self, vec_data), level = "debug")]
-    pub fn add(&self, id: u64, bitset: FilterBitset, vec_data: VectorRepresentations, storage_offset: u64) {
+    pub fn add(
+        &self,
+        id: u64,
+        bitset: FilterBitset,
+        vec_data: VectorRepresentations,
+        storage_offset: u64,
+    ) {
         if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
             return;
         }
@@ -2077,7 +2082,12 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(i + 1, FilterBitset::new(), VectorRepresentations::Full(normalized), 0);
+            index.add(
+                i + 1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            );
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
@@ -2135,7 +2145,12 @@ mod tests {
 
                     // Adquirir lock para cumplir el contrato de CPIndex::add
                     let _guard = insert_mutex.lock().unwrap();
-                    index.add(id, FilterBitset::all_set(), VectorRepresentations::Full(vec), 0);
+                    index.add(
+                        id,
+                        FilterBitset::all_set(),
+                        VectorRepresentations::Full(vec),
+                        0,
+                    );
                 }
             }));
         }
@@ -2155,7 +2170,8 @@ mod tests {
                         query
                     };
                     // Búsqueda concurrente sin adquirir insert_lock
-                    let _res = index.search_nearest(&q_vec, None, None, &crate::node::ALL_BITSET, 5, None);
+                    let _res =
+                        index.search_nearest(&q_vec, None, None, &crate::node::ALL_BITSET, 5, None);
                     thread::sleep(Duration::from_micros(10));
                 }
             }));
@@ -2264,7 +2280,12 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(i + 1, FilterBitset::from_u128(0), VectorRepresentations::Full(normalized), 0);
+            index.add(
+                i + 1,
+                FilterBitset::from_u128(0),
+                VectorRepresentations::Full(normalized),
+                0,
+            );
         }
         index
     }

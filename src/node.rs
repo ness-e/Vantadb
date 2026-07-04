@@ -118,19 +118,31 @@ impl FilterBitset {
     pub fn from_bytes(data: &[u8]) -> std::io::Result<(Self, usize)> {
         use std::io::{Error, ErrorKind};
         if data.len() < 4 {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "FilterBitset: truncated length"));
+            return Err(Error::new(
+                ErrorKind::UnexpectedEof,
+                "FilterBitset: truncated length",
+            ));
         }
         let word_count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
         let needed = 4 + word_count * 8;
         if data.len() < needed {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "FilterBitset: truncated words"));
+            return Err(Error::new(
+                ErrorKind::UnexpectedEof,
+                "FilterBitset: truncated words",
+            ));
         }
         let mut words = Vec::with_capacity(word_count);
         for i in 0..word_count {
             let off = 4 + i * 8;
             let w = u64::from_le_bytes([
-                data[off], data[off + 1], data[off + 2], data[off + 3],
-                data[off + 4], data[off + 5], data[off + 6], data[off + 7],
+                data[off],
+                data[off + 1],
+                data[off + 2],
+                data[off + 3],
+                data[off + 4],
+                data[off + 5],
+                data[off + 6],
+                data[off + 7],
             ]);
             words.push(w);
         }

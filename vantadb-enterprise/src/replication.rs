@@ -12,8 +12,8 @@ pub enum ReplicationRole {
 
 #[derive(Debug, Clone)]
 pub enum SyncMode {
-    Sync,   // Wait for ACK before acknowledging write
-    Async,  // Fire-and-forget
+    Sync,  // Wait for ACK before acknowledging write
+    Async, // Fire-and-forget
 }
 
 pub struct ReplicationManager {
