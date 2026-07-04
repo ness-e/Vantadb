@@ -1,3 +1,6 @@
+//! Dynamic quantization governor that tracks access frequency and transitions
+//! cold f32 vectors to SQ8 to save memory.
+
 /// Dynamic quantization governor
 ///
 /// Tracks node access frequency and automatically transitions
@@ -53,11 +56,11 @@ impl Default for QuantizationConfig {
 /// Result of a quantization decision
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuantizationAction {
-    /// Node should be quantized to SQ8
+    /// Node should be quantized to SQ8.
     Quantize,
-    /// Node should be restored to f32
+    /// Node should be restored to f32.
     Promote,
-    /// No action needed
+    /// No action needed.
     None,
 }
 
@@ -72,6 +75,7 @@ pub struct QuantizationGovernor {
 }
 
 impl QuantizationGovernor {
+    /// Create a new governor with the given configuration.
     pub fn new(config: QuantizationConfig) -> Self {
         Self {
             access_map: Mutex::new(HashMap::new()),
@@ -133,6 +137,7 @@ impl QuantizationGovernor {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

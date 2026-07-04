@@ -3,110 +3,171 @@ use thiserror::Error;
 /// Core error type for all VantaDB operations
 #[derive(Error, Debug)]
 pub enum VantaError {
+    /// A node with the given ID was not found.
     #[error("Node not found: {0}")]
     NodeNotFound(u64),
 
+    /// A node with the given ID already exists.
     #[error("Duplicate node ID: {0}")]
     DuplicateNode(u64),
 
+    /// Vector dimensions do not match the expected value.
     #[error("Vector dimension mismatch: expected {expected}, got {got}")]
-    DimensionMismatch { expected: usize, got: usize },
+    DimensionMismatch {
+        /// Expected vector dimension.
+        expected: usize,
+        /// Actual vector dimension received.
+        got: usize,
+    },
 
+    /// Write-ahead log operation failed.
     #[error("WAL error: {0}")]
     WalError(String),
 
+    /// WAL version does not match the expected version.
     #[error("WAL version mismatch: expected {expected}, found {found}. Hint: {hint}")]
     WALVersionMismatch {
+        /// Expected WAL version number.
         expected: u32,
+        /// Actual WAL version found.
         found: u32,
+        /// Human-readable hint for resolution.
         hint: String,
     },
 
+    /// Serialization or deserialization failure.
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
+    /// Wrapped I/O error from the standard library.
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
+    /// Binary format magic bytes or version mismatch.
     #[error("Incompatible binary format: expected magic {expected_magic:?}, version {expected_version}, found magic {found_magic:?}, version {found_version}. Hint: {hint}")]
     IncompatibleFormat {
+        /// Expected magic bytes.
         expected_magic: [u8; 4],
+        /// Expected format version.
         expected_version: u16,
+        /// Actual magic bytes found.
         found_magic: [u8; 4],
+        /// Actual format version found.
         found_version: u16,
+        /// Human-readable hint for resolution.
         hint: String,
     },
 
+    /// Engine has not been initialised.
     #[error("Engine not initialized")]
     NotInitialized,
 
+    /// A resource limit (e.g. memory) was exceeded.
     #[error("Resource limit exceeded: {0}")]
     ResourceLimit(String),
 
+    /// Two nodes have colliding IDs.
     #[error("Node ID collision: {0}")]
     NodeIdCollision(u64),
 
+    /// A cycle was detected in a graph operation.
     #[error("Cycle detected in graph operation")]
     CycleDetected,
 
+    /// Parsing of an IQL query string failed.
     #[error("IQL parse error at line {line}, col {col}: {msg}")]
     IqlParseError {
+        /// Parse error message.
         msg: String,
+        /// Line number where the error occurred.
         line: usize,
+        /// Column number where the error occurred.
         col: usize,
     },
 
+    /// A requested entity (namespace, node, etc.) was not found.
     #[error("{kind} not found: {id}")]
-    NotFound { kind: String, id: String },
+    NotFound {
+        /// Entity kind (e.g. "namespace").
+        kind: String,
+        /// Entity identifier.
+        id: String,
+    },
 
+    /// Input validation failed.
     #[error("Validation error on {field}: {reason}")]
-    ValidationError { field: String, reason: String },
+    ValidationError {
+        /// Field that failed validation.
+        field: String,
+        /// Validation failure reason.
+        reason: String,
+    },
 
+    /// An operation exceeded its time budget.
     #[error("Operation {operation} timed out after {duration_ms}ms")]
-    Timeout { operation: String, duration_ms: u64 },
+    Timeout {
+        /// Name of the operation that timed out.
+        operation: String,
+        /// Timeout duration in milliseconds.
+        duration_ms: u64,
+    },
 
+    /// Generic execution error.
     #[error("Execution error: {0}")]
     Execution(String),
 
+    /// Error during IQL processing.
     #[error("IQL error: {0}")]
     IqlError(String),
 
+    /// Error in CLI command processing.
     #[error("CLI error: {0}")]
     CliError(String),
 
+    /// Error during search execution.
     #[error("Search error: {0}")]
     SearchError(String),
 
+    /// Unexpected runtime error.
     #[error("Runtime error: {0}")]
     RuntimeError(String),
 
+    /// Error during database restore.
     #[error("Restore error: {0}")]
     RestoreError(String),
 
+    /// Error during database backup.
     #[error("Backup error: {0}")]
     BackupError(String),
 
+    /// Generic catch-all error.
     #[error("Generic error: {0}")]
     Generic(String),
 
+    /// Deprecated serialization error variant.
     #[error("Serialization error: {0}")]
     #[deprecated(
         note = "Use the non-deprecated SerializationError variant or a more specific variant"
     )]
     OldSerializationError(String),
 
+    /// Error from the storage backend.
     #[error("Backend error: {0}")]
     BackendError(String),
 
+    /// Error during data export.
     #[error("Export error: {0}")]
     ExportError(String),
 
+    /// Invalid input provided.
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    /// Schema-related error.
     #[error("Schema error: {0}")]
     SchemaError(String),
 
+    /// Database is busy and cannot accept the operation.
     #[error("Database busy: {0}")]
     DatabaseBusy(String),
 }
@@ -115,6 +176,7 @@ pub enum VantaError {
 pub type Result<T> = std::result::Result<T, VantaError>;
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

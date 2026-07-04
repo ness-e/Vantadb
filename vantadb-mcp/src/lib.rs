@@ -78,11 +78,14 @@ impl McpConfig {
 /// Structured JSON-RPC error.
 #[derive(Debug)]
 pub struct McpError {
+    /// JSON-RPC error code (e.g. -32700 for parse error, -32602 for invalid params).
     pub code: i32,
+    /// Human-readable error message.
     pub message: String,
 }
 
 impl McpError {
+    /// Create a parse error (-32700) with the given message.
     pub fn parse_error(msg: impl Into<String>) -> Self {
         Self {
             code: -32700,
@@ -90,6 +93,7 @@ impl McpError {
         }
     }
 
+    /// Create an invalid-params error (-32602) with the given message.
     pub fn invalid_params(msg: impl Into<String>) -> Self {
         Self {
             code: -32602,
@@ -97,6 +101,7 @@ impl McpError {
         }
     }
 
+    /// Create a method-not-found error (-32601) with the given message.
     pub fn method_not_found(msg: impl Into<String>) -> Self {
         Self {
             code: -32601,
@@ -104,6 +109,7 @@ impl McpError {
         }
     }
 
+    /// Create an internal-error (-32603) with the given message.
     pub fn internal_error(msg: impl Into<String>) -> Self {
         Self {
             code: -32603,
@@ -111,6 +117,7 @@ impl McpError {
         }
     }
 
+    /// Create an invalid-request error (-32600) with the given message.
     pub fn invalid_request(msg: impl Into<String>) -> Self {
         Self {
             code: -32600,
@@ -118,10 +125,12 @@ impl McpError {
         }
     }
 
+    /// Serialize this error to a JSON-RPC error object.
     pub fn to_json(&self) -> Value {
         json!({"code": self.code, "message": self.message})
     }
 
+    /// Convert this error into an `Err(Value)` result.
     pub fn into_err<T>(self) -> Result<T, Value> {
         Err(self.to_json())
     }
@@ -475,6 +484,7 @@ async fn dispatch_request(
 
 // ── initialize handler ────────────────────────────────────────────────────
 
+/// Handle the `initialize` request, returning protocol version, server info and capabilities.
 pub fn handle_initialize() -> Result<Value, Value> {
     Ok(json!({
         "protocolVersion": "2024-11-05",
@@ -492,6 +502,7 @@ pub fn handle_initialize() -> Result<Value, Value> {
 
 // ── Resources handlers ────────────────────────────────────────────────────
 
+/// Handle `resources/list`, returning the available operational-metrics and schema resources.
 pub fn handle_resources_list() -> Result<Value, Value> {
     Ok(json!({
         "resources": [
@@ -511,6 +522,7 @@ pub fn handle_resources_list() -> Result<Value, Value> {
     }))
 }
 
+/// Handle `resources/read`, serving metrics, schema, memory records or namespace listings.
 pub fn handle_resources_read(
     params: &Option<Value>,
     storage: &Arc<StorageEngine>,
@@ -609,6 +621,7 @@ pub fn handle_resources_read(
 
 // ── Prompts handlers ──────────────────────────────────────────────────────
 
+/// Handle `prompts/list`, returning the available prompt templates.
 pub fn handle_prompts_list() -> Result<Value, Value> {
     Ok(json!({
         "prompts": [
@@ -649,6 +662,7 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
     }))
 }
 
+/// Handle `prompts/get`, returning the expanded prompt for a given template name.
 pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
     let p = params.ok_or_else(|| McpError::invalid_params("Missing params").to_json())?;
     let name = p["name"]
@@ -704,6 +718,7 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
 
 // ── Tools handler ─────────────────────────────────────────────────────────
 
+/// Handle `tools/list`, returning all available MCP tool definitions.
 pub fn handle_tools_list() -> Result<Value, Value> {
     Ok(json!({
         "tools": [

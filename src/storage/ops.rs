@@ -1,3 +1,5 @@
+//! Low-level storage operations: node serialization, backend I/O, partition resolution.
+
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
@@ -8,12 +10,16 @@ use zerocopy::IntoBytes;
 
 const FLAG_TOMBSTONE: u32 = 0x8;
 
+/// Serialized metadata stored per node in the KV backend.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct NodeMetadata {
+    /// Relational field values attached to the node.
     pub relational: crate::node::RelFields,
+    /// Graph edges originating from the node.
     pub edges: Vec<crate::node::Edge>,
 }
 
+/// Write a node's header and vector data into the VantaFile at the current cursor position.
 pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
     let offset = vstore.write_cursor;
     let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
@@ -53,6 +59,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
 }
 
 #[allow(dead_code)]
+/// Insert a node's metadata into the KV backend under the given column family.
 pub(crate) fn insert_node_to_backend(
     backend: &Arc<dyn StorageBackend>,
     node: &UnifiedNode,
@@ -71,6 +78,7 @@ pub(crate) fn insert_node_to_backend(
 }
 
 #[allow(dead_code)]
+/// Retrieve a fully reconstructed node from the KV backend and vector store.
 pub(crate) fn get_node_from_backend(
     backend: &dyn StorageBackend,
     id: u64,
@@ -120,6 +128,7 @@ pub(crate) fn get_node_from_backend(
     Ok(Some(node))
 }
 
+/// Map a column family name string to its `BackendPartition` variant.
 pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> {
     match cf_name {
         "default" => Ok(BackendPartition::Default),

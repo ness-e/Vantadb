@@ -40,7 +40,7 @@ async fn vector_scale_performance_certification() {
             );
             let results = {
                 let index = storage.hnsw.load();
-                index.search_nearest(&query_vec, None, None, 0, 5, None)
+                index.search_nearest(&query_vec, None, None, &vantadb::node::ALL_BITSET, 5, None)
             };
 
             assert!(!results.is_empty());

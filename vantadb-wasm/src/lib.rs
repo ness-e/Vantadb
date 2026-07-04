@@ -1,5 +1,11 @@
 #![cfg_attr(target_arch = "wasm32", no_main)]
 #![warn(missing_docs)]
+//! WASM bindings for the VantaDB embedded vector database.
+//!
+//! This crate provides JavaScript-accessible types and functions via `wasm_bindgen`,
+//! exposing VantaDB's core operations (put, get, delete, search, graph traversal, etc.)
+//! to WebAssembly targets. It also includes an optional OPFS persistence layer and
+//! a SIMD-accelerated cosine distance helper.
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
@@ -10,71 +16,14 @@ use vantadb::VantaError;
 use wasm_bindgen::prelude::*;
 
 mod opfs;
+/// OPFS-based storage for persisting VantaDB state in the browser.
 pub use opfs::OpfsStorage;
 
+/// WASM SIMD-accelerated cosine distance computation.
 pub mod simd;
-
-static TRACING_INIT: AtomicBool = AtomicBool::new(false);
-
-fn init_tracing() {
-    if !TRACING_INIT.swap(true, Ordering::Relaxed) {
-        tracing_wasm::set_as_global_default();
-    }
-}
-
-fn to_js_err(e: VantaError) -> JsValue {
-    js_sys::Error::new(&e.to_string()).into()
-}
-
-fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
-    let obj = js_sys::Object::new();
-    js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).unwrap();
-    js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).unwrap();
-    js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).unwrap();
-    js_sys::Reflect::set(
-        &obj,
-        &"created_at_ms".into(),
-        &rec.created_at_ms.to_string().into(),
-    )
-    .unwrap();
-    js_sys::Reflect::set(
-        &obj,
-        &"updated_at_ms".into(),
-        &rec.updated_at_ms.to_string().into(),
-    )
-    .unwrap();
-    js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
-    js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
-    if let Some(ref vector) = rec.vector {
-        let v: JsValue =
-            serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
-        js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
-    }
-    if let Some(expires_at) = rec.expires_at_ms {
-        js_sys::Reflect::set(
-            &obj,
-            &"expires_at_ms".into(),
-            &expires_at.to_string().into(),
-        )
-        .unwrap();
-    }
-    let meta: JsValue =
-        serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
-    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).unwrap();
-    JsValue::from(&obj)
-}
-
-fn from_js<T: serde::de::DeserializeOwned>(val: JsValue) -> Result<T, JsValue> {
-    serde_wasm_bindgen::from_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
-}
-
-fn to_js<T: serde::Serialize>(val: &T) -> Result<JsValue, JsValue> {
-    serde_wasm_bindgen::to_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
-}
 
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
-#[serde(default)]
 struct WasmConfig {
     storage_path: String,
     read_only: bool,
@@ -278,6 +227,7 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
     }
 }
 
+/// The main VantaDB handle exposed to JavaScript via `wasm_bindgen`.
 #[wasm_bindgen]
 pub struct VantaDB {
     inner: VantaEmbedded,
@@ -286,6 +236,7 @@ pub struct VantaDB {
 
 #[wasm_bindgen]
 impl VantaDB {
+    /// Create a new VantaDB instance from an optional WASM config object.
     #[wasm_bindgen(constructor)]
     pub fn new(config_val: Option<JsValue>) -> Result<VantaDB, JsValue> {
         init_tracing();
@@ -298,6 +249,7 @@ impl VantaDB {
         Ok(VantaDB { inner, opfs: None })
     }
 
+    /// Open VantaDB at the given storage path.
     pub fn open(path: &str) -> Result<VantaDB, JsValue> {
         init_tracing();
         let wasm_cfg = WasmConfig {
@@ -309,6 +261,7 @@ impl VantaDB {
         Ok(VantaDB { inner, opfs: None })
     }
 
+    /// Open VantaDB with OPFS-based persistent storage in the browser.
     pub async fn connect_persistent(path: &str) -> Result<VantaDB, JsValue> {
         init_tracing();
         let opfs = OpfsStorage::open(path).await.ok();
@@ -323,6 +276,7 @@ impl VantaDB {
         Ok(db)
     }
 
+    /// Persist all in-memory records to OPFS storage.
     pub async fn save(&self) -> Result<(), JsValue> {
         let opfs = match &self.opfs {
             Some(o) => o,
@@ -344,6 +298,7 @@ impl VantaDB {
         opfs.write_file("db_state.json", &data).await
     }
 
+    /// Restore all records from OPFS storage into memory.
     pub async fn load(&self) -> Result<(), JsValue> {
         let opfs = match &self.opfs {
             Some(o) => o,
@@ -361,15 +316,18 @@ impl VantaDB {
         Ok(())
     }
 
+    /// Close the database and release underlying resources.
     pub fn close(&self) -> Result<(), JsValue> {
         self.inner.close().map_err(to_js_err)
     }
 
+    /// Return the capabilities object describing supported features.
     pub fn capabilities(&self) -> Result<JsValue, JsValue> {
         let caps = self.inner.capabilities();
         to_js(&caps)
     }
 
+    /// Insert or update a single memory record from a JS object.
     pub fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
         let input: MemoryInput = from_js(input)?;
         let vanta_input = VantaMemoryInput {
@@ -384,6 +342,7 @@ impl VantaDB {
         Ok(memory_record_to_js(record))
     }
 
+    /// Insert or update multiple memory records from a JS array.
     pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
         let inputs: Vec<MemoryInput> = from_js(inputs)?;
         let vanta_inputs: Vec<VantaMemoryInput> = inputs
@@ -405,6 +364,7 @@ impl VantaDB {
         Ok(arr.into())
     }
 
+    /// Retrieve a single record by namespace and key.
     pub fn get(&self, namespace: &str, key: &str) -> Result<JsValue, JsValue> {
         let record: Option<VantaMemoryRecord> =
             self.inner.get(namespace, key).map_err(to_js_err)?;
@@ -414,15 +374,18 @@ impl VantaDB {
         }
     }
 
+    /// Delete a single record by namespace and key. Returns whether a record was deleted.
     pub fn delete(&self, namespace: &str, key: &str) -> Result<bool, JsValue> {
         self.inner.delete(namespace, key).map_err(to_js_err)
     }
 
+    /// Return all namespaces as a JS array of strings.
     pub fn list_namespaces(&self) -> Result<JsValue, JsValue> {
         let nss = self.inner.list_namespaces().map_err(to_js_err)?;
         to_js(&nss)
     }
 
+    /// List records in a namespace with optional filters, limit, and cursor pagination.
     pub fn list(&self, namespace: &str, options: JsValue) -> Result<JsValue, JsValue> {
         let opts: ListOptions = from_js(options)?;
         let vanta_opts = VantaMemoryListOptions {
@@ -455,6 +418,7 @@ impl VantaDB {
         obj.into()
     }
 
+    /// Search memory records by vector similarity with optional filters and text query.
     pub fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: SearchRequest = from_js(request)?;
         let distance = match req.distance_metric.as_str() {
@@ -478,6 +442,7 @@ impl VantaDB {
         Ok(arr.into())
     }
 
+    /// Search nodes by raw vector without namespace scoping.
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
         let hits = self
             .inner
@@ -493,6 +458,7 @@ impl VantaDB {
         Ok(arr.into())
     }
 
+    /// Run a search with explanation metadata for debugging scoring.
     pub fn explain_memory_search(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: SearchRequest = from_js(request)?;
         let distance = match req.distance_metric.as_str() {
@@ -515,6 +481,7 @@ impl VantaDB {
         to_js(&explanation)
     }
 
+    /// Export all records in a namespace to a JSON file at the given path.
     pub fn export_namespace(&self, path: &str, namespace: &str) -> Result<JsValue, JsValue> {
         let report = self
             .inner
@@ -523,31 +490,37 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Export all records across all namespaces to the given path.
     pub fn export_all(&self, path: &str) -> Result<JsValue, JsValue> {
         let report = self.inner.export_all(path).map_err(to_js_err)?;
         to_js(&report)
     }
 
+    /// Import records from a JS array of memory record objects.
     pub fn import_records(&self, records: JsValue) -> Result<JsValue, JsValue> {
         let records: Vec<VantaMemoryRecord> = from_js(records)?;
         let report = self.inner.import_records(records).map_err(to_js_err)?;
         to_js(&report)
     }
 
+    /// Import records from a JSON file at the given path.
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
         let report = self.inner.import_file(path).map_err(to_js_err)?;
         to_js(&report)
     }
 
+    /// Rebuild the HNSW index and return a rebuild report.
     pub fn rebuild_index(&self) -> Result<JsValue, JsValue> {
         let report = self.inner.rebuild_index().map_err(to_js_err)?;
         to_js(&report)
     }
 
+    /// Compact the storage layout and return the number of freed bytes.
     pub fn compact_layout(&self) -> Result<u64, JsValue> {
         self.inner.compact_layout().map_err(to_js_err)
     }
 
+    /// Run a text index consistency audit for an optional namespace.
     pub fn audit_text_index(&self, namespace: Option<String>) -> Result<JsValue, JsValue> {
         let report = self
             .inner
@@ -556,6 +529,7 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Run a deep text index consistency audit for an optional namespace.
     pub fn audit_text_index_deep(&self, namespace: Option<String>) -> Result<JsValue, JsValue> {
         let report = self
             .inner
@@ -564,34 +538,41 @@ impl VantaDB {
         to_js(&report)
     }
 
+    /// Repair the text index and return a repair report.
     pub fn repair_text_index(&self) -> Result<JsValue, JsValue> {
         let report = self.inner.repair_text_index().map_err(to_js_err)?;
         to_js(&report)
     }
 
+    /// Flush all pending writes to disk.
     pub fn flush(&self) -> Result<(), JsValue> {
         self.inner.flush().map_err(to_js_err)
     }
 
+    /// Compact the write-ahead log.
     pub fn compact_wal(&self) -> Result<(), JsValue> {
         self.inner.compact_wal().map_err(to_js_err)
     }
 
+    /// Purge all expired records and return the number removed.
     pub fn purge_expired(&self) -> Result<u64, JsValue> {
         self.inner.purge_expired().map_err(to_js_err)
     }
 
+    /// Return operational metrics as a JS object with stringified large numbers.
     pub fn operational_metrics(&self) -> Result<JsValue, JsValue> {
         let metrics = self.inner.operational_metrics();
         let js: JsOperationalMetrics = metrics.into();
         to_js(&js)
     }
 
+    /// Execute a raw DSL query string and return the result.
     pub fn query(&self, query: &str) -> Result<JsValue, JsValue> {
         let result = self.inner.query(query).map_err(to_js_err)?;
         to_js(&result)
     }
 
+    /// Insert a graph node with optional content, vector, and fields.
     pub fn insert_node(
         &self,
         id: u64,
@@ -613,16 +594,19 @@ impl VantaDB {
         self.inner.insert_node(input).map_err(to_js_err)
     }
 
+    /// Retrieve a graph node by its numeric ID.
     pub fn get_node(&self, id: u64) -> Result<JsValue, JsValue> {
         let node: Option<VantaNodeRecord> = self.inner.get_node(id).map_err(to_js_err)?;
         let js: Option<JsNodeRecord> = node.map(Into::into);
         to_js(&js)
     }
 
+    /// Delete a graph node by ID with an associated reason string.
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<(), JsValue> {
         self.inner.delete_node(id, reason).map_err(to_js_err)
     }
 
+    /// Add a directed edge between two graph nodes with an optional weight.
     pub fn add_edge(
         &self,
         source_id: u64,
@@ -635,16 +619,19 @@ impl VantaDB {
             .map_err(to_js_err)
     }
 
+    /// Perform a breadth-first traversal from the given root node IDs.
     pub fn graph_bfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
         let result = self.inner.graph_bfs(&roots, max_depth).map_err(to_js_err)?;
         to_js(&result)
     }
 
+    /// Perform a depth-first traversal from the given root node IDs.
     pub fn graph_dfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
         let result = self.inner.graph_dfs(&roots, max_depth).map_err(to_js_err)?;
         to_js(&result)
     }
 
+    /// Compute a topological sort order starting from the given root node IDs.
     pub fn graph_topological_sort(&self, roots: Vec<u64>) -> Result<JsValue, JsValue> {
         let result = self
             .inner
@@ -653,10 +640,12 @@ impl VantaDB {
         to_js(&result)
     }
 
+    /// Return whether the subgraph reachable from the given roots forms a DAG.
     pub fn graph_is_dag(&self, roots: Vec<u64>) -> Result<bool, JsValue> {
         self.inner.graph_is_dag(&roots).map_err(to_js_err)
     }
 
+    /// Generate a text snippet with optional highlighting for a given query.
     pub fn generate_snippet(
         &self,
         payload: &str,
@@ -666,6 +655,64 @@ impl VantaDB {
         self.inner
             .generate_snippet(payload, text_query, with_highlighting)
     }
+}
+
+static TRACING_INIT: AtomicBool = AtomicBool::new(false);
+
+fn init_tracing() {
+    if !TRACING_INIT.swap(true, Ordering::Relaxed) {
+        tracing_wasm::set_as_global_default();
+    }
+}
+
+fn to_js_err(e: VantaError) -> JsValue {
+    js_sys::Error::new(&e.to_string()).into()
+}
+
+fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
+    let obj = js_sys::Object::new();
+    js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).unwrap();
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at_ms".into(),
+        &rec.created_at_ms.to_string().into(),
+    )
+    .unwrap();
+    js_sys::Reflect::set(
+        &obj,
+        &"updated_at_ms".into(),
+        &rec.updated_at_ms.to_string().into(),
+    )
+    .unwrap();
+    js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
+    js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
+    if let Some(ref vector) = rec.vector {
+        let v: JsValue =
+            serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
+        js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
+    }
+    if let Some(expires_at) = rec.expires_at_ms {
+        js_sys::Reflect::set(
+            &obj,
+            &"expires_at_ms".into(),
+            &expires_at.to_string().into(),
+        )
+        .unwrap();
+    }
+    let meta: JsValue =
+        serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
+    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).unwrap();
+    JsValue::from(&obj)
+}
+
+fn from_js<T: serde::de::DeserializeOwned>(val: JsValue) -> Result<T, JsValue> {
+    serde_wasm_bindgen::from_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
+}
+
+fn to_js<T: serde::Serialize>(val: &T) -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
 }
 
 #[cfg(test)]

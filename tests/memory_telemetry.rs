@@ -140,7 +140,7 @@ fn memory_telemetry_contract() {
             &[1.0, 1.0, 2.0, 3.0],
             None,
             None,
-            0,
+            &vantadb::node::ALL_BITSET,
             5,
             Some(&reopened.vector_store.read()),
         );

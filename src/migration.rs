@@ -8,13 +8,18 @@ use crate::storage::vfile::VFILE_VERSION;
 /// Physical format kinds that can be migrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormatKind {
+    /// VantaFile vector store format.
     VantaFile,
+    /// HNSW vector index format.
     VectorIndex,
+    /// Write-ahead log format.
     Wal,
+    /// Storage schema format.
     Schema,
 }
 
 impl FormatKind {
+    /// Return all format kinds.
     pub fn all() -> &'static [FormatKind] {
         &[
             FormatKind::VantaFile,
@@ -24,6 +29,7 @@ impl FormatKind {
         ]
     }
 
+    /// Return the human-readable name of this format kind.
     pub fn name(&self) -> &'static str {
         match self {
             FormatKind::VantaFile => "vfile",
@@ -33,7 +39,8 @@ impl FormatKind {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<FormatKind> {
+    /// Parse a format kind from a string (case-insensitive).
+    pub fn from_string(s: &str) -> Option<FormatKind> {
         match s {
             "vfile" | "vantafile" => Some(FormatKind::VantaFile),
             "index" | "vectorindex" => Some(FormatKind::VectorIndex),
@@ -48,19 +55,26 @@ impl FormatKind {
 /// Describes a planned migration.
 #[derive(Debug, Clone)]
 pub struct MigrationPlan {
+    /// Format kind to migrate.
     pub format: FormatKind,
+    /// Current format version.
     pub current_version: u16,
+    /// Target format version.
     pub target_version: u16,
+    /// Human-readable migration action description.
     pub action: String,
 }
 
 /// Database format migration engine.
 pub struct MigrationEngine {
+    /// Path to the database directory.
     db_path: PathBuf,
+    /// If true, no files are modified.
     dry_run: bool,
 }
 
 impl MigrationEngine {
+    /// Create a new migration engine for the given database path.
     pub fn new(db_path: impl Into<PathBuf>) -> Self {
         Self {
             db_path: db_path.into(),
@@ -68,18 +82,22 @@ impl MigrationEngine {
         }
     }
 
+    /// Set the dry-run flag (no files are modified when true).
     pub fn set_dry_run(&mut self, dry_run: bool) {
         self.dry_run = dry_run;
     }
 
+    /// Returns `true` if dry-run mode is active.
     pub fn dry_run(&self) -> bool {
         self.dry_run
     }
 
+    /// Returns the database path.
     pub fn path(&self) -> &Path {
         &self.db_path
     }
 
+    /// Read a binary header from a file path, checking the magic bytes.
     fn read_header(&self, path: &Path, expected_magic: [u8; 4]) -> Result<Option<VantaHeader>> {
         if !path.exists() {
             return Ok(None);
@@ -96,6 +114,7 @@ impl MigrationEngine {
         }
     }
 
+    /// Plan all migrations needed to bring formats up to date.
     pub fn plan_all(&self) -> Result<Vec<MigrationPlan>> {
         let mut plans = Vec::new();
 
@@ -142,6 +161,7 @@ impl MigrationEngine {
         Ok(plans)
     }
 
+    /// Migrate a single format kind to the latest version.
     pub fn migrate_format(&self, kind: FormatKind) -> Result<()> {
         match kind {
             FormatKind::VantaFile => self.migrate_vfile_to_latest(),
@@ -204,6 +224,7 @@ impl MigrationEngine {
         Ok(())
     }
 
+    /// Check storage integrity and return a list of issues found.
     pub fn check_integrity(&self) -> Result<Vec<String>> {
         let mut issues = Vec::new();
 
@@ -223,6 +244,7 @@ impl MigrationEngine {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
@@ -257,16 +279,22 @@ mod tests {
 
     #[test]
     fn test_format_from_str() {
-        assert_eq!(FormatKind::from_str("vfile"), Some(FormatKind::VantaFile));
         assert_eq!(
-            FormatKind::from_str("vantafile"),
+            FormatKind::from_string("vfile"),
             Some(FormatKind::VantaFile)
         );
-        assert_eq!(FormatKind::from_str("index"), Some(FormatKind::VectorIndex));
-        assert_eq!(FormatKind::from_str("wal"), Some(FormatKind::Wal));
-        assert_eq!(FormatKind::from_str("schema"), Some(FormatKind::Schema));
-        assert_eq!(FormatKind::from_str("all"), None);
-        assert_eq!(FormatKind::from_str("unknown"), None);
+        assert_eq!(
+            FormatKind::from_string("vantafile"),
+            Some(FormatKind::VantaFile)
+        );
+        assert_eq!(
+            FormatKind::from_string("index"),
+            Some(FormatKind::VectorIndex)
+        );
+        assert_eq!(FormatKind::from_string("wal"), Some(FormatKind::Wal));
+        assert_eq!(FormatKind::from_string("schema"), Some(FormatKind::Schema));
+        assert_eq!(FormatKind::from_string("all"), None);
+        assert_eq!(FormatKind::from_string("unknown"), None);
     }
 
     #[test]

@@ -195,7 +195,14 @@ fn test_concurrency_rebuild_rcu() {
         for _ in 0..100 {
             let hnsw = engine_read.hnsw.load();
             let vs = engine_read.vector_store.read();
-            let results = hnsw.search_nearest(&query_vector, None, None, 0, 5, Some(&vs));
+            let results = hnsw.search_nearest(
+                &query_vector,
+                None,
+                None,
+                &vantadb::node::ALL_BITSET,
+                5,
+                Some(&vs),
+            );
             if !results.is_empty() {
                 query_success += 1;
             }

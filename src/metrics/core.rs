@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::LazyLock;
 use web_time::Instant;
 
+/// Prometheus metrics registry, available when the `prometheus` feature is enabled.
 #[cfg(feature = "prometheus")]
 pub static METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
@@ -51,6 +52,7 @@ macro_rules! set_gauge {
     };
 }
 
+/// Query execution latency histogram.
 #[cfg(feature = "prometheus")]
 pub static QUERY_LATENCY: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -72,6 +74,7 @@ pub static QUERY_LATENCY: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     }
 });
 
+/// OOM circuit breaker trip counter.
 #[cfg(feature = "prometheus")]
 pub static OOM_TRIPS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new("vanta_oom_circuit_trips_total", "Governor OOM prevents") {
@@ -90,6 +93,7 @@ pub static OOM_TRIPS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// Page cache hit counter.
 #[cfg(feature = "prometheus")]
 pub static CACHE_HITS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new("vanta_cache_hits_total", "CP-Index fast path matches") {
@@ -108,6 +112,7 @@ pub static CACHE_HITS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// Engine startup latency histogram.
 #[cfg(feature = "prometheus")]
 pub static STARTUP_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -129,6 +134,7 @@ pub static STARTUP_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     }
 });
 
+/// WAL replay latency histogram.
 #[cfg(feature = "prometheus")]
 pub static WAL_REPLAY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -150,6 +156,7 @@ pub static WAL_REPLAY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(||
     }
 });
 
+/// ANN index rebuild latency histogram.
 #[cfg(feature = "prometheus")]
 pub static ANN_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -171,6 +178,7 @@ pub static ANN_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|
     }
 });
 
+/// Derived index rebuild latency histogram.
 #[cfg(feature = "prometheus")]
 pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -192,6 +200,7 @@ pub static DERIVED_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::n
     }
 });
 
+/// Text index rebuild latency histogram.
 #[cfg(feature = "prometheus")]
 pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -213,6 +222,7 @@ pub static TEXT_INDEX_REBUILD_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock
     }
 });
 
+/// Total records exported counter.
 #[cfg(feature = "prometheus")]
 pub static RECORDS_EXPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -234,6 +244,7 @@ pub static RECORDS_EXPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// Total records imported counter.
 #[cfg(feature = "prometheus")]
 pub static RECORDS_IMPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -255,6 +266,7 @@ pub static RECORDS_IMPORTED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// Import error counter.
 #[cfg(feature = "prometheus")]
 pub static IMPORT_ERRORS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -276,6 +288,7 @@ pub static IMPORT_ERRORS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// Text index postings written counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_POSTINGS_WRITTEN: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -297,6 +310,7 @@ pub static TEXT_POSTINGS_WRITTEN: LazyLock<Option<IntCounter>> = LazyLock::new(|
     }
 });
 
+/// Text index repair counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_INDEX_REPAIRS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -318,6 +332,7 @@ pub static TEXT_INDEX_REPAIRS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     }
 });
 
+/// BM25 lexical query latency histogram.
 #[cfg(feature = "prometheus")]
 pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -339,6 +354,7 @@ pub static TEXT_LEXICAL_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock
     }
 });
 
+/// Total lexical queries executed counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_LEXICAL_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -360,6 +376,7 @@ pub static TEXT_LEXICAL_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(||
     }
 });
 
+/// Total lexical candidates scored counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_CANDIDATES_SCORED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -381,6 +398,7 @@ pub static TEXT_CANDIDATES_SCORED: LazyLock<Option<IntCounter>> = LazyLock::new(
     }
 });
 
+/// Text index consistency audit counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_CONSISTENCY_AUDITS: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -402,6 +420,7 @@ pub static TEXT_CONSISTENCY_AUDITS: LazyLock<Option<IntCounter>> = LazyLock::new
     }
 });
 
+/// Text consistency audit failure counter.
 #[cfg(feature = "prometheus")]
 pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -423,6 +442,7 @@ pub static TEXT_CONSISTENCY_AUDIT_FAILURES: LazyLock<Option<IntCounter>> = LazyL
     }
 });
 
+/// Hybrid (text+vector) query latency histogram.
 #[cfg(feature = "prometheus")]
 pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(|| {
     let hist = match Histogram::with_opts(prometheus::HistogramOpts::new(
@@ -444,6 +464,7 @@ pub static HYBRID_QUERY_LATENCY_MS: LazyLock<Option<Histogram>> = LazyLock::new(
     }
 });
 
+/// Hybrid query candidates fused counter.
 #[cfg(feature = "prometheus")]
 pub static HYBRID_CANDIDATES_FUSED: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -465,6 +486,7 @@ pub static HYBRID_CANDIDATES_FUSED: LazyLock<Option<IntCounter>> = LazyLock::new
     }
 });
 
+/// Queries planned as hybrid route counter.
 #[cfg(feature = "prometheus")]
 pub static PLANNER_HYBRID_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -486,6 +508,7 @@ pub static PLANNER_HYBRID_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(
     }
 });
 
+/// Queries planned as text-only route counter.
 #[cfg(feature = "prometheus")]
 pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -507,6 +530,7 @@ pub static PLANNER_TEXT_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::n
     }
 });
 
+/// Queries planned as vector-only route counter.
 #[cfg(feature = "prometheus")]
 pub static PLANNER_VECTOR_ONLY_QUERIES: LazyLock<Option<IntCounter>> = LazyLock::new(|| {
     let counter = match IntCounter::new(
@@ -550,6 +574,7 @@ macro_rules! register_gauge {
     }};
 }
 
+/// Process resident set size (RSS) in bytes.
 #[cfg(feature = "prometheus")]
 pub static PROCESS_RSS_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -559,6 +584,7 @@ pub static PROCESS_RSS_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     )
 });
 
+/// Process virtual memory size in bytes.
 #[cfg(feature = "prometheus")]
 pub static PROCESS_VIRTUAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -568,6 +594,7 @@ pub static PROCESS_VIRTUAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| 
     )
 });
 
+/// Current HNSW graph node count.
 #[cfg(feature = "prometheus")]
 pub static HNSW_NODES_COUNT: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -577,6 +604,7 @@ pub static HNSW_NODES_COUNT: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     )
 });
 
+/// HNSW graph logical memory usage in bytes.
 #[cfg(feature = "prometheus")]
 pub static HNSW_LOGICAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -586,6 +614,7 @@ pub static HNSW_LOGICAL_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     )
 });
 
+/// Memory-mapped file resident bytes.
 #[cfg(feature = "prometheus")]
 pub static MMAP_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -595,6 +624,7 @@ pub static MMAP_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     )
 });
 
+/// Volatile page cache entry count.
 #[cfg(feature = "prometheus")]
 pub static VOLATILE_CACHE_ENTRIES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -604,6 +634,7 @@ pub static VOLATILE_CACHE_ENTRIES: LazyLock<Option<IntGauge>> = LazyLock::new(||
     )
 });
 
+/// Volatile cache capacity in bytes.
 #[cfg(feature = "prometheus")]
 pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -613,6 +644,7 @@ pub static VOLATILE_CACHE_CAP_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(
     )
 });
 
+/// Jemalloc allocated bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_ALLOCATED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -622,6 +654,7 @@ pub static JEMALLOC_ALLOCATED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(
     )
 });
 
+/// Jemalloc active bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_ACTIVE_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -631,6 +664,7 @@ pub static JEMALLOC_ACTIVE_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| 
     )
 });
 
+/// Jemalloc metadata bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_METADATA_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -640,6 +674,7 @@ pub static JEMALLOC_METADATA_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|
     )
 });
 
+/// Jemalloc resident bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -649,6 +684,7 @@ pub static JEMALLOC_RESIDENT_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|
     )
 });
 
+/// Jemalloc mapped bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_MAPPED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -658,6 +694,7 @@ pub static JEMALLOC_MAPPED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| 
     )
 });
 
+/// Jemalloc retained bytes.
 #[cfg(feature = "prometheus")]
 pub static JEMALLOC_RETAINED_BYTES: LazyLock<Option<IntGauge>> = LazyLock::new(|| {
     register_gauge!(
@@ -680,6 +717,7 @@ fn http_buckets() -> Option<Vec<f64>> {
     }
 }
 
+/// HTTP request duration histogram (labelled by method, path).
 #[cfg(feature = "prometheus")]
 pub static HTTP_REQUEST_DURATION_MS: LazyLock<Option<HistogramVec>> = LazyLock::new(|| {
     let buckets = match http_buckets() {
@@ -709,6 +747,7 @@ pub static HTTP_REQUEST_DURATION_MS: LazyLock<Option<HistogramVec>> = LazyLock::
     }
 });
 
+/// HTTP request total counter (labelled by method, path, status).
 #[cfg(feature = "prometheus")]
 pub static HTTP_REQUESTS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
     let counter = match IntCounterVec::new(
@@ -733,6 +772,7 @@ pub static HTTP_REQUESTS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(
     }
 });
 
+/// Record an HTTP request duration, method, route, and status for Prometheus metrics.
 #[cfg(feature = "prometheus")]
 pub fn record_http_request(method: &str, route: &str, status: u16, start: Instant) {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -746,6 +786,7 @@ pub fn record_http_request(method: &str, route: &str, status: u16, start: Instan
     }
 }
 
+/// Record an HTTP request (no-op when the `prometheus` feature is disabled).
 #[cfg(not(feature = "prometheus"))]
 pub fn record_http_request(_method: &str, _route: &str, _status: u16, _start: Instant) {}
 
@@ -825,36 +866,62 @@ pub struct MemoryBreakdownSnapshot {
     pub jemalloc_retained_bytes: Option<u64>,
 }
 
+/// Point-in-time snapshot of all operational metrics counters and latencies.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OperationalMetricsSnapshot {
+    /// Engine startup duration in milliseconds.
     pub startup_ms: u64,
+    /// WAL replay duration in milliseconds.
     pub wal_replay_ms: u64,
+    /// Number of records replayed from the WAL during startup.
     pub wal_records_replayed: u64,
+    /// ANN index rebuild duration in milliseconds.
     pub ann_rebuild_ms: u64,
+    /// Number of nodes scanned during the last ANN rebuild.
     pub ann_rebuild_scanned_nodes: u64,
+    /// Derived (namespace/payload) index rebuild duration in milliseconds.
     pub derived_rebuild_ms: u64,
+    /// Text index rebuild duration in milliseconds.
     pub text_index_rebuild_ms: u64,
+    /// Total text index postings written.
     pub text_postings_written: u64,
+    /// Total text index repairs triggered.
     pub text_index_repairs: u64,
+    /// Total BM25 lexical queries executed.
     pub text_lexical_queries: u64,
+    /// Cumulative time spent on BM25 lexical queries in milliseconds.
     pub text_lexical_query_ms: u64,
+    /// Total BM25 candidates scored across all queries.
     pub text_candidates_scored: u64,
+    /// Total text index consistency audits performed.
     pub text_consistency_audits: u64,
+    /// Total text index consistency audits that detected drift.
     pub text_consistency_audit_failures: u64,
+    /// Cumulative time spent on hybrid queries in milliseconds.
     pub hybrid_query_ms: u64,
+    /// Total unique candidates fused across all hybrid queries.
     pub hybrid_candidates_fused: u64,
+    /// Total queries planned as hybrid (text+vector).
     pub planner_hybrid_queries: u64,
+    /// Total queries planned as text-only.
     pub planner_text_only_queries: u64,
+    /// Total queries planned as vector-only.
     pub planner_vector_only_queries: u64,
+    /// Total records exported.
     pub records_exported: u64,
+    /// Total records imported.
     pub records_imported: u64,
+    /// Total import errors encountered.
     pub import_errors: u64,
+    /// Total derived index prefix scans performed.
     pub derived_prefix_scans: u64,
+    /// Total fallbacks to full scan when derived index was absent.
     pub derived_full_scan_fallbacks: u64,
     /// Per-subsystem memory breakdown at snapshot time.
     pub memory: MemoryBreakdownSnapshot,
 }
 
+/// Record engine startup and WAL replay duration.
 pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed: u64) {
     LAST_STARTUP_MS.store(startup_ms, Ordering::Relaxed);
     LAST_WAL_REPLAY_MS.store(wal_replay_ms, Ordering::Relaxed);
@@ -863,23 +930,27 @@ pub fn record_startup(startup_ms: u64, wal_replay_ms: u64, wal_records_replayed:
     observe_histogram!(WAL_REPLAY_LATENCY_MS, wal_replay_ms);
 }
 
+/// Record an ANN index rebuild event.
 pub fn record_ann_rebuild(duration_ms: u64, scanned_nodes: u64) {
     LAST_ANN_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
     LAST_ANN_REBUILD_SCANNED_NODES.store(scanned_nodes, Ordering::Relaxed);
     observe_histogram!(ANN_REBUILD_LATENCY_MS, duration_ms);
 }
 
+/// Record a derived (namespace/payload) index rebuild.
 pub fn record_derived_rebuild(duration_ms: u64) {
     LAST_DERIVED_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
     observe_histogram!(DERIVED_REBUILD_LATENCY_MS, duration_ms);
 }
 
+/// Record a text index rebuild event.
 pub fn record_text_index_rebuild(duration_ms: u64, postings_written: u64) {
     LAST_TEXT_INDEX_REBUILD_MS.store(duration_ms, Ordering::Relaxed);
     observe_histogram!(TEXT_INDEX_REBUILD_LATENCY_MS, duration_ms);
     record_text_postings_written(postings_written);
 }
 
+/// Record text index postings written to storage.
 pub fn record_text_postings_written(postings_written: u64) {
     if postings_written == 0 {
         return;
@@ -888,11 +959,13 @@ pub fn record_text_postings_written(postings_written: u64) {
     inc_counter_by!(TEXT_POSTINGS_WRITTEN, postings_written);
 }
 
+/// Record a text index repair event.
 pub fn record_text_index_repair() {
     TEXT_INDEX_REPAIRS_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(TEXT_INDEX_REPAIRS);
 }
 
+/// Record a BM25 lexical query execution.
 pub fn record_text_lexical_query(duration_ms: u64, candidates_scored: u64) {
     LAST_TEXT_LEXICAL_QUERY_MS.store(duration_ms, Ordering::Relaxed);
     TEXT_LEXICAL_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -902,6 +975,7 @@ pub fn record_text_lexical_query(duration_ms: u64, candidates_scored: u64) {
     inc_counter_by!(TEXT_CANDIDATES_SCORED, candidates_scored);
 }
 
+/// Record a text index consistency audit result.
 pub fn record_text_consistency_audit(failed: bool) {
     TEXT_CONSISTENCY_AUDITS_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(TEXT_CONSISTENCY_AUDITS);
@@ -911,6 +985,7 @@ pub fn record_text_consistency_audit(failed: bool) {
     }
 }
 
+/// Record a hybrid (text+vector) query execution.
 pub fn record_hybrid_query(duration_ms: u64, candidates_fused: u64) {
     LAST_HYBRID_QUERY_MS.store(duration_ms, Ordering::Relaxed);
     HYBRID_CANDIDATES_FUSED_TOTAL.fetch_add(candidates_fused, Ordering::Relaxed);
@@ -918,26 +993,31 @@ pub fn record_hybrid_query(duration_ms: u64, candidates_fused: u64) {
     inc_counter_by!(HYBRID_CANDIDATES_FUSED, candidates_fused);
 }
 
+/// Record a query planned as hybrid (text+vector).
 pub fn record_planner_hybrid_query() {
     PLANNER_HYBRID_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(PLANNER_HYBRID_QUERIES);
 }
 
+/// Record a query planned as text-only.
 pub fn record_planner_text_only_query() {
     PLANNER_TEXT_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(PLANNER_TEXT_ONLY_QUERIES);
 }
 
+/// Record a query planned as vector-only.
 pub fn record_planner_vector_only_query() {
     PLANNER_VECTOR_ONLY_QUERIES_TOTAL.fetch_add(1, Ordering::Relaxed);
     inc_counter!(PLANNER_VECTOR_ONLY_QUERIES);
 }
 
+/// Record memory record export.
 pub fn record_export(records: u64) {
     RECORDS_EXPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
     inc_counter_by!(RECORDS_EXPORTED, records);
 }
 
+/// Record memory record import with error count.
 pub fn record_import(records: u64, errors: u64) {
     RECORDS_IMPORTED_TOTAL.fetch_add(records, Ordering::Relaxed);
     IMPORT_ERRORS_TOTAL.fetch_add(errors, Ordering::Relaxed);
@@ -945,10 +1025,12 @@ pub fn record_import(records: u64, errors: u64) {
     inc_counter_by!(IMPORT_ERRORS, errors);
 }
 
+/// Record a derived index prefix scan.
 pub fn record_derived_prefix_scan() {
     DERIVED_PREFIX_SCANS_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Record a fallback full scan when derived index is absent.
 pub fn record_derived_full_scan_fallback() {
     DERIVED_FULL_SCAN_FALLBACKS_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
@@ -1042,6 +1124,7 @@ fn get_jemalloc_stats() -> Option<(u64, u64, u64, u64, u64, u64)> {
     None
 }
 
+/// Record per-subsystem memory breakdown snapshot.
 pub fn record_memory_breakdown(
     hnsw_nodes: u64,
     hnsw_logical_bytes: u64,
@@ -1129,6 +1212,7 @@ fn _get_rss_virt() -> (u64, u64) {
     (0, 0)
 }
 
+/// Return a point-in-time memory breakdown snapshot.
 pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
     let mmap_resident_bytes = LAST_MMAP_RESIDENT_BYTES_PRESENT
         .load(Ordering::Relaxed)
@@ -1159,6 +1243,7 @@ pub fn memory_breakdown_snapshot() -> MemoryBreakdownSnapshot {
     }
 }
 
+/// Return a point-in-time snapshot of all operational metrics.
 pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
     OperationalMetricsSnapshot {
         startup_ms: LAST_STARTUP_MS.load(Ordering::Relaxed),
@@ -1209,6 +1294,7 @@ pub fn export_metrics_text() -> String {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

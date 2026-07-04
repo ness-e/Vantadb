@@ -28,33 +28,46 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
 /// WAL record types (postcard-serialized)
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WalRecord {
+    /// Insert a new node.
     Insert(UnifiedNode),
+    /// Update an existing node.
     Update {
+        /// Node ID to update.
         id: u64,
+        /// New node data.
         node: UnifiedNode,
     },
+    /// Delete a node by ID.
     Delete {
+        /// Node ID to delete.
         id: u64,
     },
     /// Checkpoint with optional index checksum for integrity validation
     /// `index_checksum` is computed over serialized index state; None for backward compat
     /// `timestamp` allows ordering checkpoints for recovery decisions
     Checkpoint {
+        /// Number of nodes at checkpoint time.
         node_count: u64,
+        /// Optional CRC32C checksum of index state.
         index_checksum: Option<u32>,
+        /// Optional timestamp in milliseconds.
         timestamp: Option<u64>,
     },
 }
 
 // ─── WAL Header ────────────────────────────────────────────
 
+/// WAL file header with magic bytes, version, schema version, and CRC integrity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
-    pub base: crate::binary_header::VantaHeader, // 16 bytes: magic = b"VWAL", version = 1, schema = 0, timestamp
-    pub crc: u32,                                // 4 bytes: CRC32C of the base header
+    /// 16-byte VantaHeader (magic = `b"VWAL"`, version = 1, schema = 0, timestamp).
+    pub base: crate::binary_header::VantaHeader,
+    /// 4-byte CRC32C of the base header bytes.
+    pub crc: u32,
 }
 
 impl WalHeader {
+    /// Total header size in bytes (16 base + 4 CRC).
     pub const SIZE: usize = 20;
 
     /// Create a new WAL header.
@@ -81,11 +94,13 @@ impl WalHeader {
         }
     }
 
+    /// Compute CRC32C of the base header bytes.
     pub fn compute_crc(&self) -> u32 {
         let bytes = self.base.serialize();
         crc32c(&bytes)
     }
 
+    /// Serialize the header into a 20-byte array.
     pub fn serialize(&self) -> [u8; Self::SIZE] {
         let mut bytes = [0u8; Self::SIZE];
         bytes[0..16].copy_from_slice(&self.base.serialize());
@@ -93,6 +108,7 @@ impl WalHeader {
         bytes
     }
 
+    /// Deserialize a header from bytes, validating magic, CRC, and version.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != Self::SIZE {
             return Err(VantaError::WalError(format!(
@@ -152,11 +168,13 @@ impl WalHeader {
 ///
 /// File format: \[WalHeader(20 bytes)\]\[Record1\]\[Record2\]...
 /// Record format: \[len:u32\]\[payload:postcard\]\[crc:u32\]
+/// Append-only WAL writer with CRC32C integrity checks and structured header.
 pub struct WalWriter {
     writer: BufWriter<File>,
     path: PathBuf,
     bytes_written: u64,
     record_count: u64,
+    /// Whether to sync to disk on every write or periodically.
     pub sync_mode: crate::config::SyncMode,
 }
 
@@ -357,12 +375,15 @@ impl WalWriter {
         Ok(())
     }
 
+    /// Return the total bytes written to the WAL (including headers).
     pub fn bytes_written(&self) -> u64 {
         self.bytes_written
     }
+    /// Return the number of records appended so far.
     pub fn record_count(&self) -> u64 {
         self.record_count
     }
+    /// Return the path of the WAL file.
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -398,13 +419,14 @@ impl WalWriter {
 
 // ─── WAL Reader ────────────────────────────────────────────
 
-/// Sequential WAL reader for crash recovery
+/// Sequential WAL reader for crash recovery.
 pub struct WalReader {
     reader: BufReader<File>,
     records_read: u64,
 }
 
 impl WalReader {
+    /// Open a WAL file and validate its header.
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let mut file = File::open(path)?;
         let file_len = file.metadata()?.len();
@@ -599,6 +621,7 @@ impl WalRecord {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::UnifiedNode;

@@ -1,3 +1,5 @@
+//! Hybrid quantization algorithms for scalar and binary vector compression.
+
 /// Hybrid Quantization Algorithms (Phase 31)
 /// Contains carefully engineered quantization schemes for MMap Zero-Copy and L1 Caching.
 ///

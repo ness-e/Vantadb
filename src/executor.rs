@@ -13,20 +13,30 @@ use std::sync::atomic::{AtomicU32, Ordering};
 const GIB: usize = 1024 * 1024 * 1024;
 const MIB: usize = 1024 * 1024;
 
+/// Result of executing a statement against the storage engine.
 #[derive(Debug)]
 pub enum ExecutionResult {
+    /// Nodes returned from a read query.
     Read(Vec<UnifiedNode>),
+    /// Result of a write operation.
     Write {
+        /// Number of affected nodes.
         affected_nodes: usize,
+        /// Human-readable status message.
         message: String,
+        /// Optional primary node ID involved.
         node_id: Option<u64>,
     },
-    StaleContext(u64), // Phase 30: Signal that a context requires rehydration (Critical Confidence Score)
+    /// Signal that a context requires rehydration (low confidence score).
+    StaleContext(u64),
 }
 
+/// Search path mode for query execution.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SearchPathMode {
+    /// Standard path execution.
     Standard,
+    /// Uncertain path execution (lower confidence).
     Uncertain,
 }
 
@@ -54,9 +64,13 @@ impl CertitudeMode {
     }
 }
 
+/// Query executor that evaluates logical plans against the storage engine.
 pub struct Executor<'a> {
+    /// Reference to the storage engine.
     storage: &'a StorageEngine,
+    /// Current certitude mode.
     certitude: CertitudeMode,
+    /// Search path mode.
     path_mode: SearchPathMode,
     /// Tracks cumulative I/O cost of this executor session.
     /// Hardware backpressure uses this to throttle expensive agents.
@@ -64,6 +78,7 @@ pub struct Executor<'a> {
 }
 
 impl<'a> Executor<'a> {
+    /// Create a new executor with default settings (Balanced, Standard).
     pub fn new(storage: &'a StorageEngine) -> Self {
         Self {
             storage,
@@ -73,6 +88,7 @@ impl<'a> Executor<'a> {
         }
     }
 
+    /// Create an executor with a specific certitude mode.
     pub fn with_certitude(storage: &'a StorageEngine, mode: CertitudeMode) -> Self {
         Self {
             storage,
@@ -82,6 +98,7 @@ impl<'a> Executor<'a> {
         }
     }
 
+    /// Set the search path mode.
     pub fn with_path_mode(mut self, path: SearchPathMode) -> Self {
         self.path_mode = path;
         self
@@ -116,6 +133,7 @@ impl<'a> Executor<'a> {
         self.storage.insert(node)
     }
 
+    /// Parse and execute a hybrid (IQL) query string.
     #[tracing::instrument(skip(self), err)]
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
@@ -135,6 +153,7 @@ impl<'a> Executor<'a> {
         }
     }
 
+    /// Execute a pre-parsed statement against the storage engine.
     #[tracing::instrument(skip(self), err)]
     pub fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
         // ── Memory Pressure Check ──
@@ -398,6 +417,7 @@ impl<'a> Executor<'a> {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::backend::BackendKind;

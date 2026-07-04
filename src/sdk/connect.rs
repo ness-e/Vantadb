@@ -1,3 +1,6 @@
+//! Top-level convenience entry point for opening a VantaDB database
+//! from a path string, supporting both file-backed and in-memory engines.
+
 use super::VantaEmbedded;
 use crate::config::VantaConfig;
 use crate::error::Result;

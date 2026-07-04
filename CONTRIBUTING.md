@@ -39,7 +39,7 @@ target/audit-venv/bin/python -m pytest vantadb-python/tests/test_sdk.py -v
 cargo nextest run --profile audit --workspace --build-jobs 2
 
 # Experimental tests (parser, executor). Pass features on the CLI:
-cargo nextest run --profile experimental --workspace --features experimental-lisp,experimental-governance --build-jobs 2
+cargo nextest run --profile experimental --workspace --build-jobs 2
 ```
 
 ---

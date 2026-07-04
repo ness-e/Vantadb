@@ -128,3 +128,7 @@ Cargo_test.toml
 .vercel
 .env*
 .playwright-mcp/
+
+# Understand-Anything (local scratch)
+.understand-anything/
+

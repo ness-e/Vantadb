@@ -111,6 +111,7 @@ pub fn compute_confidence_friction(origins: &HashMap<String, (u64, f32)>) -> f32
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

@@ -113,6 +113,7 @@ pub fn is_advanced_tokenizer_available() -> bool {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

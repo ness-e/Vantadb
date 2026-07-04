@@ -6,6 +6,7 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
+use vantadb::node::FilterBitset;
 
 #[test]
 fn engine_executor_certification() {
@@ -25,13 +26,29 @@ fn engine_executor_certification() {
         let idx = CPIndex::new();
         TerminalReporter::sub_step("Setting up tiered bitmask dataset...");
         // Match mask + High sim
-        idx.add(1, 0b11, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        idx.add(
+            1,
+            FilterBitset::from(0b11u128),
+            VectorRepresentations::Full(vec![1.0, 0.0]),
+            0,
+        );
         // Match mask + Low sim
-        idx.add(2, 0b11, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        idx.add(
+            2,
+            FilterBitset::from(0b11u128),
+            VectorRepresentations::Full(vec![0.0, 1.0]),
+            0,
+        );
         // Fails mask
-        idx.add(3, 0b00, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        idx.add(
+            3,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0]),
+            0,
+        );
 
-        let res = idx.search_nearest(&[1.0, 0.0], None, None, 0b10, 2, None);
+        let filter_mask = FilterBitset::from(0b10u128);
+        let res = idx.search_nearest(&[1.0, 0.0], None, None, &filter_mask, 2, None);
 
         assert_eq!(res.len(), 2, "Failed to ignore bitset-filtered nodes");
         assert_eq!(res[0].0, 1, "Incorrect result ranking");

@@ -15,6 +15,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Docs: `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md` — Design doc for experimental governance subsystem (admission control, conflict resolution, consistency buffer, invalidation, maintenance worker) with 12 known bugs cataloged for Phase 5
+- Docs: `docs/architecture/LISP_ANALYSIS.md` — Analysis of deleted experimental LISP DSL, with recommendations for SDK-level query composition in Phase 5
+- Backlog: `GOV-01` — Governance redesign task for Phase 5 (2026-Q4)
+
+### Changed
+
+- Version bumps: TS SDK (0.1.4→0.2.0), WASM pkg (0.1.5→0.2.0), Homebrew (0.1.5→0.2.0), legacy adapters (0.1.5→0.2.0), integration adapters (0.1.0→0.2.0)
+
+### Removed
+
+- Deleted `archive/experimental-quarantine-2024-06/experimental-lisp/` — Crate abandonado (solo INSERT implementado), VM con borrow checker + GIL blocking insolubles. IQL cubre todas las necesidades de query.
+- Deleted `archive/experimental-quarantine-2024-06/experimental-governance/` — 12 bugs conocidos (5🔴). Design doc preservado en `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md`. Rediseño planificado para Phase 5 (`GOV-01`).
+
 ### Fixed
 
 - CI: Fix `cargo cyclonedx` syntax in sbom workflow (`--output-format` → `-f`, pin v0.5.9)

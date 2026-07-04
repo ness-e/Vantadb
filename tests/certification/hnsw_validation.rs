@@ -16,6 +16,7 @@ use rand::{Rng, SeedableRng};
 use console::style;
 use vantadb::index::{cosine_sim_f32, CPIndex, HnswConfig, VectorRepresentations};
 use vantadb::node::DistanceMetric;
+use vantadb::node::FilterBitset;
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -54,7 +55,12 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig, block_msg: &str)
     let pb = TerminalReporter::create_progress(dataset.len() as u64, block_msg);
     let index = CPIndex::new_with_config(config);
     for (id, vec) in dataset {
-        index.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
+        index.add(
+            *id,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec.clone()),
+            0,
+        );
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -73,7 +79,7 @@ fn compute_recall(
     for query in queries {
         let truth = brute_force_knn(query, dataset, k);
         let hnsw_ids: Vec<u64> = index
-            .search_nearest(query, None, None, u128::MAX, k, None)
+            .search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None)
             .into_iter()
             .map(|(id, _)| id)
             .collect();
@@ -197,10 +203,12 @@ fn hnsw_hard_validation_certification() {
         let queries = generate_vectors_seeded(20, dims, seed + 500);
         let index = build_index(&dataset, HnswConfig::default(), "Building");
         for query in &queries {
-            let first = index.search_nearest(query, None, None, u128::MAX, k, None);
+            let first =
+                index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None);
             let first_ids: Vec<u64> = first.iter().map(|(id, _)| *id).collect();
             for _ in 1..5 {
-                let repeat = index.search_nearest(query, None, None, u128::MAX, k, None);
+                let repeat =
+                    index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None);
                 let repeat_ids: Vec<u64> = repeat.iter().map(|(id, _)| *id).collect();
                 assert_eq!(first_ids, repeat_ids);
             }
@@ -241,9 +249,14 @@ fn hnsw_hard_validation_certification() {
         let iv = vec![1.0; dims];
         let index = CPIndex::new();
         for i in 0..100 {
-            index.add(i, u128::MAX, VectorRepresentations::Full(iv.clone()), 0);
+            index.add(
+                i,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(iv.clone()),
+                0,
+            );
         }
-        let results = index.search_nearest(&iv, None, None, u128::MAX, k, None);
+        let results = index.search_nearest(&iv, None, None, &vantadb::node::ALL_BITSET, k, None);
         assert_eq!(results.len(), k);
         for &(_, sim) in &results {
             assert!((sim - 1.0_f32).abs() < 0.01_f32);
@@ -253,23 +266,46 @@ fn hnsw_hard_validation_certification() {
 
     harness.execute("Edge Case: Zero Vector Resilience", || {
         let index = CPIndex::new();
-        index.add(1, u128::MAX, VectorRepresentations::Full(vec![1.0; 32]), 0);
-        index.add(2, u128::MAX, VectorRepresentations::Full(vec![0.0; 32]), 0);
-        let res = index.search_nearest(&[1.0; 32], None, None, u128::MAX, 3, None);
+        index.add(
+            1,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; 32]),
+            0,
+        );
+        index.add(
+            2,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![0.0; 32]),
+            0,
+        );
+        let res = index.search_nearest(&[1.0; 32], None, None, &vantadb::node::ALL_BITSET, 3, None);
         assert!(!res.is_empty());
         TerminalReporter::success("Zero vector in index did not cause panics.");
     });
 
     harness.execute("Edge Case: Single Node Index", || {
         let index = CPIndex::new();
-        index.add(42, u128::MAX, VectorRepresentations::Full(vec![1.0; 16]), 0);
-        let res = index.search_nearest(&[1.0; 16], None, None, u128::MAX, 10, None);
+        index.add(
+            42,
+            FilterBitset::all_set(),
+            VectorRepresentations::Full(vec![1.0; 16]),
+            0,
+        );
+        let res =
+            index.search_nearest(&[1.0; 16], None, None, &vantadb::node::ALL_BITSET, 10, None);
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].0, 42);
     });
 
     harness.execute("Edge Case: Empty Index", || {
-        let res = CPIndex::new().search_nearest(&[1.0; 16], None, None, u128::MAX, 10, None);
+        let res = CPIndex::new().search_nearest(
+            &[1.0; 16],
+            None,
+            None,
+            &vantadb::node::ALL_BITSET,
+            10,
+            None,
+        );
         assert!(res.is_empty());
     });
 
@@ -310,7 +346,7 @@ fn hnsw_hard_validation_certification() {
         let mut hits = 0;
         for q in &queries {
             let truth = brute_force_knn(q, &dataset, 1);
-            let res = index.search_nearest(q, None, None, u128::MAX, 1, None);
+            let res = index.search_nearest(q, None, None, &vantadb::node::ALL_BITSET, 1, None);
             if !res.is_empty() && res[0].0 == truth[0] {
                 hits += 1;
             }

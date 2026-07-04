@@ -5,18 +5,26 @@ use thiserror::Error;
 use crate::error::Result;
 
 const MAGIC_BYTES: &[u8; 8] = b"VTDBv001";
+/// Size of the storage header in bytes.
 pub const HEADER_SIZE: usize = 72;
+/// Current schema version.
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+/// Minimum compatible schema version.
 pub const MIN_COMPAT_VERSION: u32 = 1;
 
+/// Storage header with magic bytes, version, flags and min-compat version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StorageHeader {
+    /// Schema version.
     pub version: u32,
+    /// Feature flags.
     pub flags: u32,
+    /// Minimum compatible version.
     pub min_compat_version: u32,
 }
 
 impl StorageHeader {
+    /// Create a new header with the current schema version and flags.
     pub fn current() -> Self {
         Self {
             version: CURRENT_SCHEMA_VERSION,
@@ -25,6 +33,7 @@ impl StorageHeader {
         }
     }
 
+    /// Serialise the header into a fixed-size byte vector.
     pub fn encode(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(HEADER_SIZE);
         buf.extend_from_slice(MAGIC_BYTES);
@@ -35,6 +44,7 @@ impl StorageHeader {
         buf
     }
 
+    /// Deserialise a header from a byte slice.
     pub fn decode(bytes: &[u8]) -> std::result::Result<Self, SchemaError> {
         if bytes.len() < HEADER_SIZE {
             return Err(SchemaError::Invalid(format!(
@@ -70,6 +80,7 @@ impl StorageHeader {
         })
     }
 
+    /// Check that this header version is compatible with the current binary.
     pub fn is_compatible(&self) -> std::result::Result<(), SchemaError> {
         if self.version < self.min_compat_version {
             return Err(SchemaError::TooOld {
@@ -86,6 +97,7 @@ impl StorageHeader {
         Ok(())
     }
 
+    /// Read and decode a header from a file on disk.
     pub fn read_from(path: &Path) -> std::result::Result<Option<Self>, SchemaError> {
         if !path.exists() {
             return Ok(None);
@@ -104,6 +116,7 @@ impl StorageHeader {
         Ok(Some(Self::decode(&buf)?))
     }
 
+    /// Encode and write the header to a file on disk.
     pub fn write_to(&self, path: &Path) -> std::result::Result<(), SchemaError> {
         let encoded = self.encode();
         let mut file = std::fs::File::create(path)
@@ -116,20 +129,28 @@ impl StorageHeader {
     }
 }
 
+/// Schema versioning errors.
 #[derive(Error, Debug)]
 pub enum SchemaError {
+    /// File version is older than the minimum required.
     #[error("Storage schema version {file_version} is too old. Minimum required: {min_required}")]
     TooOld {
+        /// Version found in file.
         file_version: u32,
+        /// Minimum version required.
         min_required: u32,
     },
+    /// File version is newer than the maximum supported.
     #[error(
         "Storage schema version {file_version} is too new. Maximum supported: {max_supported}"
     )]
     TooNew {
+        /// Version found in file.
         file_version: u32,
+        /// Maximum version supported by this binary.
         max_supported: u32,
     },
+    /// General invalid header error.
     #[error("Invalid storage header: {0}")]
     Invalid(String),
 }
@@ -140,6 +161,7 @@ impl From<SchemaError> for crate::error::VantaError {
     }
 }
 
+/// Load the schema from disk, or create a new one if none exists.
 pub fn load_or_create_schema(base_path: &Path) -> Result<StorageHeader> {
     let schema_path = base_path.join(".vanta.schema");
 
@@ -156,6 +178,7 @@ pub fn load_or_create_schema(base_path: &Path) -> Result<StorageHeader> {
     }
 }
 
+/// Check that the existing schema is compatible and return the header.
 pub fn check_schema_compatibility(base_path: &Path) -> Result<StorageHeader> {
     let schema_path = base_path.join(".vanta.schema");
 
@@ -171,6 +194,7 @@ pub fn check_schema_compatibility(base_path: &Path) -> Result<StorageHeader> {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

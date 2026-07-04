@@ -1,3 +1,5 @@
+//! Storage engine: persistent vector store, WAL, HNSW index coordination.
+
 pub(crate) mod archive;
 pub(crate) mod engine;
 pub(crate) mod ops;

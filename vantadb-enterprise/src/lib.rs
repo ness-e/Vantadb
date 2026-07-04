@@ -12,9 +12,13 @@
 #![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/vantadb-enterprise")]
 
+/// Audit logging (JSONL format, timestamped operations).
 pub mod audit;
+/// Encryption at rest (AES-256-GCM, ChaCha20-Poly1305).
 pub mod encryption;
+/// Role-based access control with scoped API tokens.
 pub mod rbac;
+/// Async WAL shipping for read replicas.
 pub mod replication;
 
 /// Enterprise license verification.

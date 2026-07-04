@@ -1,0 +1,2322 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "ihrFo",
+      "x": 0,
+      "y": 0,
+      "name": "Page",
+      "width": 1440,
+      "fill": "#f9f8f6",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "PAeFr",
+          "name": "Nav",
+          "width": "fill_container",
+          "height": 56,
+          "fill": "#f9f8f6",
+          "padding": [
+            0,
+            48
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "imJh9",
+              "name": "navLogo",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "WyDMX",
+                  "name": "navDot",
+                  "fill": "#ff5500",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "Sqq9G",
+                  "name": "navName",
+                  "fill": "#000000",
+                  "content": "VantaDB",
+                  "fontFamily": "Space Grotesk",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "H41xB",
+              "name": "navLinks",
+              "width": "fill_container",
+              "gap": 24,
+              "justifyContent": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "b7AMD",
+                  "name": "nav1",
+                  "fill": "#000000",
+                  "content": "Product",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Wzuje",
+                  "name": "nav2",
+                  "fill": "#000000",
+                  "content": "Docs",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "xFTyZ",
+                  "name": "nav3",
+                  "fill": "#000000",
+                  "content": "Pricing",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "O3Q14",
+                  "name": "nav4",
+                  "fill": "#000000",
+                  "content": "Blog",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Cv5qS",
+              "name": "navCta",
+              "fill": "#000000",
+              "padding": [
+                8,
+                20
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "eWnuP",
+                  "name": "navCtaText",
+                  "fill": "#ffffff",
+                  "content": "Get Started",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hRNyX",
+          "name": "Hero",
+          "width": "fill_container",
+          "fill": "#f9f8f6",
+          "layout": "vertical",
+          "gap": 32,
+          "padding": [
+            96,
+            48,
+            64,
+            48
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "6Ai8d",
+              "name": "heroTagRow",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TpaxK",
+                  "name": "heroTag",
+                  "fill": "#5a5a5a",
+                  "content": "RUST-NATIVE",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "yhrBl",
+                  "name": "heroTag2",
+                  "fill": "#5a5a5a",
+                  "content": "IN-PROCESS",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "zTRyg",
+                  "name": "heroTag3",
+                  "fill": "#5a5a5a",
+                  "content": "ZERO-SERVERS",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "OodNf",
+                  "name": "heroTag4",
+                  "fill": "#ff5500",
+                  "content": "APACHE 2.0",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 1.5
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "jSPBE",
+              "name": "heroTitle",
+              "fill": "#000000",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Embedded Vector Database\nfor AI Agents",
+              "lineHeight": 1,
+              "fontFamily": "Space Grotesk",
+              "fontSize": 64,
+              "fontWeight": "700",
+              "letterSpacing": -3
+            },
+            {
+              "type": "text",
+              "id": "DbwRo",
+              "name": "heroDesc",
+              "fill": "#5a5a5a",
+              "textGrowth": "fixed-width",
+              "width": 640,
+              "content": "Ship semantic search, hybrid RAG pipelines, and persistent agent memory with zero infrastructure. A single 2MB Rust binary — no servers, no APIs, no orchestration.",
+              "lineHeight": 1.6,
+              "fontFamily": "Outfit",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "RZnmE",
+              "name": "heroCtaRow",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "begdi",
+                  "name": "heroCta",
+                  "fill": "#000000",
+                  "padding": [
+                    12,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Womoy",
+                      "name": "heroCtaText",
+                      "fill": "#ffffff",
+                      "content": "pip install vantadb-py",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "SMt6G",
+                  "name": "heroCtaCopy",
+                  "fill": "#000000",
+                  "content": "READ DOCS →",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "CNhYi",
+          "name": "Marquee",
+          "width": "fill_container",
+          "height": 48,
+          "fill": "#000000",
+          "gap": 48,
+          "padding": [
+            0,
+            48
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "Jifsq",
+              "name": "mq1",
+              "fill": "#ffffff",
+              "content": "RUST-NATIVE",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "LGO9F",
+              "name": "mq2",
+              "fill": "#ffffff",
+              "content": "HNSW VECTOR SEARCH",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "Vl2ns",
+              "name": "mq3",
+              "fill": "#ffffff",
+              "content": "BM25 FULL-TEXT",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "1vi7e",
+              "name": "mq4",
+              "fill": "#ffffff",
+              "content": "HYBRID RRF",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "yubUh",
+              "name": "mq5",
+              "fill": "#ffffff",
+              "content": "PYO3 BRIDGE",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "6kLOR",
+              "name": "mq6",
+              "fill": "#ffffff",
+              "content": "WAL DURABILITY",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "LxmtX",
+              "name": "mq7",
+              "fill": "#ffffff",
+              "content": "ZERO-COPY SERDE",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            },
+            {
+              "type": "text",
+              "id": "ZW3aV",
+              "name": "mq8",
+              "fill": "#ff5500",
+              "content": "APACHE 2.0",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "y1FvP",
+          "name": "Benchmark Grid",
+          "width": "fill_container",
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "MNtvx",
+              "name": "bTag",
+              "fill": "#ff5500",
+              "content": "EMBEDDED vs. CLIENT/SERVER",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "text",
+              "id": "TiQlz",
+              "name": "bTitle",
+              "fill": "#000000",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Why remove the network.",
+              "fontFamily": "Space Grotesk",
+              "fontSize": 36,
+              "fontWeight": "700",
+              "letterSpacing": -1
+            },
+            {
+              "type": "text",
+              "id": "dmL9R",
+              "name": "bDesc",
+              "fill": "#5a5a5a",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Every microsecond your data travels across a network is wasted. VantaDB runs in-process, eliminating the server tax entirely.",
+              "lineHeight": 1.5,
+              "fontFamily": "Outfit",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "zgf4o",
+              "name": "bGrid",
+              "width": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QOBTt",
+                  "name": "bVanta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "oDO7U",
+                      "name": "bVantaH",
+                      "fill": "#000000",
+                      "content": "VantaDB",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eInEw",
+                      "name": "bV1",
+                      "fill": "#000000",
+                      "content": "1.2ms",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fS4Jv",
+                      "name": "bV2",
+                      "fill": "#000000",
+                      "content": "2MB",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Fqv3a",
+                      "name": "bV3",
+                      "fill": "#000000",
+                      "content": "1 line",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "OfcYN",
+                      "name": "bV4",
+                      "fill": "#000000",
+                      "content": "Zero",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jOzMp",
+                      "name": "bV5",
+                      "fill": "#000000",
+                      "content": "WAL",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yfOUj",
+                      "name": "bV6",
+                      "fill": "#000000",
+                      "content": "Hybrid",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "W6Jfm",
+                  "name": "bClient",
+                  "width": "fill_container",
+                  "fill": "#f9f8f6",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "FuuCM",
+                      "name": "bClientH",
+                      "fill": "#5a5a5a",
+                      "content": "Client/Server",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 18,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pTpEL",
+                      "name": "bC1",
+                      "fill": "#5a5a5a",
+                      "content": "12ms",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z2niZ",
+                      "name": "bC2",
+                      "fill": "#5a5a5a",
+                      "content": "180MB",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AkUpN",
+                      "name": "bC3",
+                      "fill": "#5a5a5a",
+                      "content": "45min",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZsMA9",
+                      "name": "bC4",
+                      "fill": "#5a5a5a",
+                      "content": "12+",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AZTt6",
+                      "name": "bC5",
+                      "fill": "#5a5a5a",
+                      "content": "Manual",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YGkmQ",
+                      "name": "bC6",
+                      "fill": "#5a5a5a",
+                      "content": "Single",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 28,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "53Sy2",
+          "name": "Quickstart",
+          "width": "fill_container",
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 32,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "u9y0U",
+              "name": "qsTag",
+              "fill": "#ff5500",
+              "content": "QUICKSTART",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "frame",
+              "id": "HWie0",
+              "name": "qsRow",
+              "width": "fill_container",
+              "gap": 48,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "1r55J",
+                  "name": "qsLeft",
+                  "width": 400,
+                  "layout": "vertical",
+                  "gap": 24,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "erMVQ",
+                      "name": "qsTitle",
+                      "fill": "#000000",
+                      "content": "Zero to running.",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 36,
+                      "fontWeight": "700",
+                      "letterSpacing": -1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tl2q4",
+                      "name": "qsStep1",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Apqqm",
+                          "name": "qsS1n",
+                          "fill": "#ff5500",
+                          "content": "01  Install",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "AbpFp",
+                          "name": "qsS1d",
+                          "fill": "#5a5a5a",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Add VantaDB to your project with a single command.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lmcFW",
+                      "name": "qsStep2",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "iU8NM",
+                          "name": "qsS2n",
+                          "fill": "#000000",
+                          "content": "02  Initialize",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "MXTKN",
+                          "name": "qsS2d",
+                          "fill": "#5a5a5a",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Create an in-process database instance with one line.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "pp3na",
+                      "name": "qsStep3",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "3Jyuo",
+                          "name": "qsS3n",
+                          "fill": "#000000",
+                          "content": "03  Store",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DTSc5",
+                          "name": "qsS3d",
+                          "fill": "#5a5a5a",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Insert documents with auto-generated embeddings.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gGMMW",
+                      "name": "qsStep4",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        0,
+                        0,
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "GYWQY",
+                          "name": "qsS4n",
+                          "fill": "#000000",
+                          "content": "04  Query",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "9hzHO",
+                          "name": "qsS4d",
+                          "fill": "#5a5a5a",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Search with hybrid vector+keyword in milliseconds.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "2Nio4",
+                  "name": "qsRight",
+                  "width": "fill_container",
+                  "height": 320,
+                  "fill": "#111111",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wNEOl",
+                      "name": "qsTermH",
+                      "width": "fill_container",
+                      "height": 28,
+                      "fill": "#1a1a1a",
+                      "gap": 6,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "qXNMG",
+                          "name": "qsD1",
+                          "fill": "#ff5500",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "PT0Jv",
+                          "name": "qsD2",
+                          "fill": "#5a5a5a",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "vGiV9",
+                          "name": "qsD3",
+                          "fill": "#5a5a5a",
+                          "width": 6,
+                          "height": 6
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Nbi2q",
+                      "name": "qsTermB",
+                      "width": "fill_container",
+                      "fill": "#111111",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": 20,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "htepy",
+                          "name": "qsT1",
+                          "fill": "#e0e0e0",
+                          "content": "$ pip install vantadb-py",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "FRWoB",
+                          "name": "qsT1o",
+                          "fill": "#808080",
+                          "content": "  ✓ Installed vantadb v0.6.2 (2.1MB binary)",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nIFvd",
+                          "name": "qsT2",
+                          "fill": "#e0e0e0",
+                          "content": ">>> from vantadb import VantaDB",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "skMuY",
+                          "name": "qsT2o",
+                          "fill": "#e0e0e0",
+                          "content": ">>> db = VantaDB()",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "4pF9I",
+                          "name": "qsT2r",
+                          "fill": "#808080",
+                          "content": "  ✓ Initialized in 1.2ms",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "2FQgo",
+                          "name": "qsT3",
+                          "fill": "#e0e0e0",
+                          "content": ">>> db.store({\"text\": \"memory is all you need\"})",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "A5s8L",
+                          "name": "qsT3o",
+                          "fill": "#808080",
+                          "content": "  ✓ Stored doc#42 (768d embedding)",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "vFnWM",
+                          "name": "qsT4",
+                          "fill": "#ff5500",
+                          "content": ">>> results = db.search(\"what is memory?\")",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "n6MZo",
+                          "name": "qsT4o",
+                          "fill": "#808080",
+                          "content": "  ✓ 3 results in 0.8ms (hybrid: HNSW+BM25)",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qG9wr",
+          "name": "Core Engine",
+          "width": "fill_container",
+          "fill": "#000000",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "GrqJG",
+              "name": "ceTag",
+              "fill": "#ff5500",
+              "content": "EXPLODED ARCHITECTURE",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "text",
+              "id": "m9mJX",
+              "name": "ceTitle",
+              "fill": "#ffffff",
+              "content": "Core Engine.",
+              "fontFamily": "Space Grotesk",
+              "fontSize": 40,
+              "fontWeight": "700",
+              "letterSpacing": -2
+            },
+            {
+              "type": "frame",
+              "id": "L8hNA",
+              "name": "ceAccordion",
+              "width": "fill_container",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "S6jMp",
+                  "name": "ce1",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "IigPo",
+                      "name": "ce1i",
+                      "fill": "#ff5500",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pSW7a",
+                      "name": "ce1t",
+                      "fill": "#ffffff",
+                      "content": "Rust Core — 2MB compiled binary, zero runtime dependencies",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VSBPj",
+                  "name": "ce2",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Tofy7",
+                      "name": "ce2i",
+                      "fill": "#ffffff",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "L4kuD",
+                      "name": "ce2t",
+                      "fill": "#ffffff",
+                      "content": "HNSW Index — 768d vectors, 1M+ capacity, sub-ms lookup",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "8OlPb",
+                  "name": "ce3",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ASFyI",
+                      "name": "ce3i",
+                      "fill": "#ffffff",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "0Kr9Z",
+                      "name": "ce3t",
+                      "fill": "#ffffff",
+                      "content": "BM25 Engine — 15+ language tokenizers, full-text ranked search",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "pnjhw",
+                  "name": "ce4",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ldGDH",
+                      "name": "ce4i",
+                      "fill": "#ffffff",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YyVWP",
+                      "name": "ce4t",
+                      "fill": "#ffffff",
+                      "content": "WAL Durability — crash-safe write-ahead log, zero data loss",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "adUiv",
+                  "name": "ce5",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mc2jN",
+                      "name": "ce5i",
+                      "fill": "#ffffff",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZC88g",
+                      "name": "ce5t",
+                      "fill": "#ffffff",
+                      "content": "PyO3 Bridge — native Python bindings, no FFI overhead",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "rmU4t",
+                  "name": "ce6",
+                  "width": "fill_container",
+                  "gap": 16,
+                  "padding": [
+                    20,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SkqxS",
+                      "name": "ce6i",
+                      "fill": "#ffffff",
+                      "content": "▸",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "y75jl",
+                      "name": "ce6t",
+                      "fill": "#ffffff",
+                      "content": "Zero-Copy Serde — deserialize in-place, zero allocation overhead",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Qa4rK",
+          "name": "Architecture",
+          "width": "fill_container",
+          "fill": "#f9f8f6",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "6izAr",
+              "name": "archTag",
+              "fill": "#ff5500",
+              "content": "ARCHITECTURE",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "frame",
+              "id": "jWxGg",
+              "name": "archRow",
+              "width": "fill_container",
+              "gap": 48,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "4chC7",
+                  "name": "archLeft",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 24,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "cJnqr",
+                      "name": "archTitle",
+                      "fill": "#000000",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "No network.\nNo latency.",
+                      "lineHeight": 1.1,
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 40,
+                      "fontWeight": "700",
+                      "letterSpacing": -2
+                    },
+                    {
+                      "type": "text",
+                      "id": "I12r2",
+                      "name": "archDesc",
+                      "fill": "#5a5a5a",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "VantaDB runs as a library inside your application process. Python calls Rust directly through PyO3 — no sockets, no serialization, no network round-trips.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Outfit",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RK4n9",
+                      "name": "archStats",
+                      "gap": 32,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "dnumb",
+                          "name": "archS1",
+                          "fill": "#000000",
+                          "content": "Latency  0.0ms\nMemory  2MB",
+                          "lineHeight": 1.8,
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PxouQ",
+                          "name": "archS2",
+                          "fill": "#5a5a5a",
+                          "content": "Threads  0\nServers  0",
+                          "lineHeight": 1.8,
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "o4ool",
+                  "name": "archRight",
+                  "width": "fill_container",
+                  "height": 300,
+                  "fill": "#ffffff",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "LuoVp",
+                      "name": "archL1",
+                      "width": "fill_container",
+                      "fill": "#000000",
+                      "gap": 12,
+                      "padding": [
+                        16,
+                        20
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "b3Pks",
+                          "name": "archL1t",
+                          "fill": "#ffffff",
+                          "content": "PYTHON APP",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "g7Z9S",
+                      "name": "archL2",
+                      "width": "fill_container",
+                      "fill": "#ff5500",
+                      "gap": 12,
+                      "padding": [
+                        16,
+                        20
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WqNrJ",
+                          "name": "archL2t",
+                          "fill": "#000000",
+                          "content": "PYO3 BRIDGE",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xra4l",
+                      "name": "archL3",
+                      "width": "fill_container",
+                      "fill": "#000000",
+                      "gap": 12,
+                      "padding": [
+                        16,
+                        20
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "5VrOS",
+                          "name": "archL3t",
+                          "fill": "#ffffff",
+                          "content": "RUST CORE",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EtGRT",
+                      "name": "archL4",
+                      "width": "fill_container",
+                      "fill": "#f9f8f6",
+                      "gap": 24,
+                      "padding": [
+                        16,
+                        20
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WCBlg",
+                          "name": "archL4a",
+                          "fill": "#000000",
+                          "content": "HNSW INDEX",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "text",
+                          "id": "EtxLE",
+                          "name": "archL4b",
+                          "fill": "#000000",
+                          "content": "BM25",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "text",
+                          "id": "smpgq",
+                          "name": "archL4c",
+                          "fill": "#000000",
+                          "content": "WAL LOG",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1
+                        },
+                        {
+                          "type": "text",
+                          "id": "ExXul",
+                          "name": "archL4d",
+                          "fill": "#000000",
+                          "content": "SERDE",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xua9X",
+          "name": "Use Cases",
+          "width": "fill_container",
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "SIT0g",
+              "name": "ucTag",
+              "fill": "#ff5500",
+              "content": "APPLIED USE CASES",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "text",
+              "id": "B4Zpv",
+              "name": "ucTitle",
+              "fill": "#000000",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Use Cases.",
+              "fontFamily": "Space Grotesk",
+              "fontSize": 36,
+              "fontWeight": "700",
+              "letterSpacing": -1
+            },
+            {
+              "type": "frame",
+              "id": "xkVt0",
+              "name": "ucGrid",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "5LNIV",
+                  "name": "uc1",
+                  "width": "fill_container",
+                  "fill": "#f9f8f6",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": [
+                    32,
+                    28
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pXSuI",
+                      "name": "uc1tag",
+                      "fill": "#ff5500",
+                      "content": "AI INFRASTRUCTURE",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "hqTTB",
+                      "name": "uc1t",
+                      "fill": "#000000",
+                      "content": "Multi-Agent\nSystem Memory",
+                      "lineHeight": 1.2,
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 22,
+                      "fontWeight": "700",
+                      "letterSpacing": -0.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "0gPzV",
+                      "name": "uc1d",
+                      "fill": "#5a5a5a",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Persistent memory layer for autonomous agent swarms. Sub-millisecond hybrid retrieval over chat history, tool outputs, and knowledge graphs.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Outfit",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "BmdAj",
+                      "name": "uc1stack",
+                      "fill": "#000000",
+                      "content": "CrewAI • LangChain • AutoGen",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oH8D4",
+                  "name": "uc2",
+                  "width": "fill_container",
+                  "fill": "#f9f8f6",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": [
+                    32,
+                    28
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "G8pvb",
+                      "name": "uc2tag",
+                      "fill": "#ff5500",
+                      "content": "ENTERPRISE PRIVACY",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "oujjq",
+                      "name": "uc2t",
+                      "fill": "#000000",
+                      "content": "Offline\nLocal RAG",
+                      "lineHeight": 1.2,
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 22,
+                      "fontWeight": "700",
+                      "letterSpacing": -0.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "nqyal",
+                      "name": "uc2d",
+                      "fill": "#5a5a5a",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Bring-your-own-LLM retrieval augmented generation. Embed, index, and search documents entirely offline — no data ever leaves your network.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Outfit",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ygGox",
+                      "name": "uc2stack",
+                      "fill": "#000000",
+                      "content": "Ollama • LlamaIndex • Modal",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OF9iZ",
+                  "name": "uc3",
+                  "width": "fill_container",
+                  "fill": "#f9f8f6",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "padding": [
+                    32,
+                    28
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "cN1XQ",
+                      "name": "uc3tag",
+                      "fill": "#ff5500",
+                      "content": "DEVELOPER TOOLS",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "d1nAe",
+                      "name": "uc3t",
+                      "fill": "#000000",
+                      "content": "IDE Assistants\n& Tooling",
+                      "lineHeight": 1.2,
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 22,
+                      "fontWeight": "700",
+                      "letterSpacing": -0.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "vPjBr",
+                      "name": "uc3d",
+                      "fill": "#5a5a5a",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Semantic code search and RAG for developer tooling. Index millions of symbols across your codebase with sub-millisecond lookup.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Outfit",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "VS2wx",
+                      "name": "uc3stack",
+                      "fill": "#000000",
+                      "content": "FastAPI • Ray Serve • Pydantic",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "pqN1I",
+          "name": "Ecosystem",
+          "width": "fill_container",
+          "fill": "#f9f8f6",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            80,
+            48
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "Cpygd",
+              "name": "ecTag",
+              "fill": "#ff5500",
+              "content": "INTEGRATION MATRIX",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "letterSpacing": 2
+            },
+            {
+              "type": "frame",
+              "id": "GFPzR",
+              "name": "ecoR1",
+              "width": "fill_container",
+              "padding": [
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "6rRj6",
+                  "name": "ecoR1c",
+                  "fill": "#000000",
+                  "content": "FRAMEWORK",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "pe5jQ",
+                  "name": "ecoR1v",
+                  "fill": "#5a5a5a",
+                  "content": "Pydantic AI • LangChain • LlamaIndex",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "e3kAs",
+              "name": "ecoR2",
+              "width": "fill_container",
+              "padding": [
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PCJlw",
+                  "name": "ecoR2c",
+                  "fill": "#000000",
+                  "content": "AGENTS",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "Xnq4N",
+                  "name": "ecoR2v",
+                  "fill": "#5a5a5a",
+                  "content": "CrewAI • AutoGen • smolagents",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "825nN",
+              "name": "ecoR3",
+              "width": "fill_container",
+              "padding": [
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "anhlF",
+                  "name": "ecoR3c",
+                  "fill": "#000000",
+                  "content": "MODELS",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ibypo",
+                  "name": "ecoR3v",
+                  "fill": "#5a5a5a",
+                  "content": "OpenAI • Anthropic • Ollama",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "U3HoI",
+              "name": "ecoR4",
+              "width": "fill_container",
+              "padding": [
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "x3ems",
+                  "name": "ecoR4c",
+                  "fill": "#000000",
+                  "content": "DEPLOY",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "0bl3p",
+                  "name": "ecoR4v",
+                  "fill": "#5a5a5a",
+                  "content": "FastAPI • Modal • Ray Serve",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Bf2JN",
+              "name": "ecoR5",
+              "width": "fill_container",
+              "padding": [
+                16,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gCUwO",
+                  "name": "ecoR5c",
+                  "fill": "#000000",
+                  "content": "UI",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ERSuD",
+                  "name": "ecoR5v",
+                  "fill": "#5a5a5a",
+                  "content": "Streamlit • Gradio",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "CcMJV",
+          "name": "Monolith CTA",
+          "width": "fill_container",
+          "fill": "#000000",
+          "layout": "vertical",
+          "gap": 32,
+          "padding": [
+            96,
+            48
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "nBamy",
+              "name": "ctaCmd",
+              "fill": "#ffffff",
+              "content": "pip install vantadb-py_",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 48,
+              "fontWeight": "700",
+              "letterSpacing": -1
+            },
+            {
+              "type": "text",
+              "id": "LPkTU",
+              "name": "ctaSub",
+              "fill": "#808080",
+              "content": "Zero servers. One line. Infinite context.",
+              "fontFamily": "Space Grotesk",
+              "fontSize": 18,
+              "fontWeight": "normal",
+              "letterSpacing": -0.5
+            },
+            {
+              "type": "frame",
+              "id": "VrFn8",
+              "name": "ctaBtn",
+              "fill": "#ff5500",
+              "padding": [
+                14,
+                32
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XnMpr",
+                  "name": "ctaBtnT",
+                  "fill": "#000000",
+                  "content": "Get Started",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 16,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "m56bu",
+          "name": "Footer",
+          "width": "fill_container",
+          "fill": "#f9f8f6",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            64,
+            48,
+            32,
+            48
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "tlRfT",
+              "name": "ftTop",
+              "width": "fill_container",
+              "gap": 64,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "nBkZf",
+                  "name": "ftBrand",
+                  "width": 280,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "TrP91",
+                      "name": "ftLogo",
+                      "fill": "#000000",
+                      "content": "VantaDB",
+                      "fontFamily": "Space Grotesk",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "QQ31m",
+                      "name": "ftTag",
+                      "fill": "#5a5a5a",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Embedded Cognitive Memory for AI Agents",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Outfit",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sVJdU",
+                  "name": "ftCol",
+                  "gap": 48,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qt6Jg",
+                      "name": "ftP",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "vbvoV",
+                          "name": "ftPT",
+                          "fill": "#ff5500",
+                          "content": "PRODUCT",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "IKNiX",
+                          "name": "ftP1",
+                          "fill": "#5a5a5a",
+                          "content": "Engine",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "sDi7o",
+                          "name": "ftP2",
+                          "fill": "#5a5a5a",
+                          "content": "Architecture",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "yKjA7",
+                          "name": "ftP3",
+                          "fill": "#5a5a5a",
+                          "content": "Pricing",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uUX48",
+                          "name": "ftP4",
+                          "fill": "#5a5a5a",
+                          "content": "Integrations",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Pdute",
+                      "name": "ftR",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "RDu2s",
+                          "name": "ftRT",
+                          "fill": "#ff5500",
+                          "content": "RESOURCES",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "O2k2b",
+                          "name": "ftR1",
+                          "fill": "#5a5a5a",
+                          "content": "Docs",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "oFyVJ",
+                          "name": "ftR2",
+                          "fill": "#5a5a5a",
+                          "content": "API Reference",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "jX78L",
+                          "name": "ftR3",
+                          "fill": "#5a5a5a",
+                          "content": "Benchmarks",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "8aviz",
+                          "name": "ftR4",
+                          "fill": "#5a5a5a",
+                          "content": "Changelog",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "6U3eD",
+                      "name": "ftC",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "jVIom",
+                          "name": "ftCT",
+                          "fill": "#ff5500",
+                          "content": "COMPANY",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "zUCoB",
+                          "name": "ftC1",
+                          "fill": "#5a5a5a",
+                          "content": "About",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Rs7n6",
+                          "name": "ftC2",
+                          "fill": "#5a5a5a",
+                          "content": "Blog",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "1JGsC",
+                          "name": "ftC3",
+                          "fill": "#5a5a5a",
+                          "content": "Community",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "EgaOx",
+                          "name": "ftC4",
+                          "fill": "#5a5a5a",
+                          "content": "Contact",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LpBn6",
+                      "name": "ftS",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "NvN6q",
+                          "name": "ftST",
+                          "fill": "#ff5500",
+                          "content": "SOCIAL",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "OxopQ",
+                          "name": "ftS1",
+                          "fill": "#5a5a5a",
+                          "content": "GitHub",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "687Jr",
+                          "name": "ftS2",
+                          "fill": "#5a5a5a",
+                          "content": "Twitter / X",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xGS2c",
+                          "name": "ftS3",
+                          "fill": "#5a5a5a",
+                          "content": "Discord",
+                          "fontFamily": "Outfit",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Huifl",
+              "name": "ftBot",
+              "width": "fill_container",
+              "gap": 48,
+              "padding": [
+                24,
+                0,
+                0,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "w51Qq",
+                  "name": "ftCopy",
+                  "fill": "#808080",
+                  "content": "© 2026 VantaDB. Apache 2.0 License.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "--amber": {
+      "type": "color",
+      "value": "#ff5500"
+    },
+    "--background": {
+      "type": "color",
+      "value": "#f9f8f6"
+    },
+    "--block-dark-bg": {
+      "type": "color",
+      "value": "#0a0a0a"
+    },
+    "--block-dark-muted": {
+      "type": "color",
+      "value": "#808080"
+    },
+    "--block-dark-text": {
+      "type": "color",
+      "value": "#f0f0f0"
+    },
+    "--border": {
+      "type": "color",
+      "value": "#1a1a2e"
+    },
+    "--font-display": {
+      "type": "string",
+      "value": "Space Grotesk"
+    },
+    "--font-mono": {
+      "type": "string",
+      "value": "JetBrains Mono"
+    },
+    "--font-sans": {
+      "type": "string",
+      "value": "Outfit"
+    },
+    "--foreground": {
+      "type": "color",
+      "value": "#000000"
+    },
+    "--muted": {
+      "type": "color",
+      "value": "#666666"
+    },
+    "--space-2xl": {
+      "type": "number",
+      "value": 64
+    },
+    "--space-3xl": {
+      "type": "number",
+      "value": 96
+    },
+    "--space-lg": {
+      "type": "number",
+      "value": 32
+    },
+    "--space-xl": {
+      "type": "number",
+      "value": 48
+    },
+    "--steel": {
+      "type": "color",
+      "value": "#5a5a5a"
+    },
+    "--surface": {
+      "type": "color",
+      "value": "#ffffff"
+    }
+  }
+}

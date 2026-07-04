@@ -8,13 +8,16 @@ use crate::storage::StorageEngine;
 use std::collections::BTreeMap;
 use web_time::{SystemTime, UNIX_EPOCH};
 
+/// TTL-based garbage collector for expired nodes.
 pub struct GcWorker<'a> {
+    /// Reference to the storage engine.
     storage: &'a StorageEngine,
-    // Maps expiration timestamp (seconds) to a list of Node IDs
+    /// Maps expiration timestamp (seconds) to node IDs.
     index_ttl: BTreeMap<u64, Vec<u64>>,
 }
 
 impl<'a> GcWorker<'a> {
+    /// Create a new GC worker.
     pub fn new(storage: &'a StorageEngine) -> Self {
         Self {
             storage,
@@ -64,6 +67,7 @@ impl<'a> GcWorker<'a> {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::config::VantaConfig;

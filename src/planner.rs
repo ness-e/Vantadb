@@ -177,6 +177,7 @@ pub fn sort_hits(hits: &mut [VantaMemorySearchHit]) {
 
 // ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
 
+/// Optimise a logical plan and compile it into a physical operator.
 pub fn optimize_and_compile<'a>(
     plan: &crate::query::LogicalPlan,
     storage: &'a crate::storage::StorageEngine,

@@ -1,3 +1,5 @@
+//! Memory-mapped vector store file (VantaFile) with read/write and in-memory variants.
+
 use crate::binary_header::VantaHeader;
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
@@ -5,8 +7,6 @@ use crate::node::DiskNodeHeader;
 use std::fs::{File, OpenOptions};
 #[cfg(not(feature = "memmap2"))]
 use std::io::Read;
-#[cfg(not(feature = "memmap2"))]
-use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use zerocopy::{FromBytes, IntoBytes};
@@ -15,32 +15,39 @@ const STORAGE_ALIGNMENT: u64 = 64;
 
 /// Current VantaFile format version.
 /// Version history:
-/// - v1: initial format
-/// - v2: migrated (bumped header only, data layout identical to v1)
+///   - v1: initial format
+///   - v2: migrated (bumped header only, data layout identical to v1)
 pub(crate) const VFILE_VERSION: u16 = 2;
 
 #[cfg(feature = "memmap2")]
 pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
 
+/// Shim module providing Mmap/MmapMut when the memmap2 feature is disabled.
 #[cfg(not(feature = "memmap2"))]
 pub(crate) mod mmap_shim {
     use super::*;
+    /// A read-only memory-mapped file backed by a `Vec<u8>`.
     #[derive(Debug)]
     pub struct Mmap(Vec<u8>);
+    /// A read-write memory-mapped file backed by a `Vec<u8>`.
     #[derive(Debug)]
     pub struct MmapMut(Vec<u8>);
+    /// Options for creating memory-mapped regions (no-op shim).
     pub struct MmapOptions;
 
     impl MmapOptions {
+        /// Create a new default MmapOptions.
         pub fn new() -> Self {
             Self
         }
+        /// Map a file into read-only memory by reading its contents into a Vec.
         pub fn map(&self, file: &File) -> std::io::Result<Mmap> {
             let mut v = vec![0u8; file.metadata()?.len() as usize];
             let mut f = file.try_clone()?;
             f.read_exact(&mut v)?;
             Ok(Mmap(v))
         }
+        /// Map a file into read-write memory by reading its contents into a Vec.
         pub fn map_mut(&self, file: &File) -> std::io::Result<MmapMut> {
             let mut v = vec![0u8; file.metadata()?.len() as usize];
             let mut f = file.try_clone()?;
@@ -49,67 +56,85 @@ pub(crate) mod mmap_shim {
         }
     }
     impl Mmap {
+        /// Create a new read-only Mmap by reading the file contents.
         pub fn map(file: &File) -> std::io::Result<Self> {
             MmapOptions::new().map(file)
         }
+        /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
             self.0.as_ptr()
         }
+        /// Return the length of the mapped memory.
         pub fn len(&self) -> usize {
             self.0.len()
         }
+        /// No-op flush for the in-memory shim.
         pub fn flush(&self) -> std::io::Result<()> {
             Ok(())
         }
+        /// No-op async flush for the in-memory shim.
         pub fn flush_async(&self) -> std::io::Result<()> {
             Ok(())
         }
+        /// No-op flush range for the in-memory shim.
         pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> {
             Ok(())
         }
+        /// Returns true if the mapped memory is empty.
         pub fn is_empty(&self) -> bool {
             self.0.is_empty()
         }
     }
-    impl Deref for Mmap {
+    impl std::ops::Deref for Mmap {
         type Target = [u8];
         fn deref(&self) -> &[u8] {
             &self.0
         }
     }
     impl MmapMut {
+        /// Create a new read-write MmapMut by reading the file contents.
         pub fn map_mut(file: &File) -> std::io::Result<Self> {
             MmapOptions::new().map_mut(file)
         }
         pub fn as_ptr(&self) -> *const u8 {
             self.0.as_ptr()
         }
+        /// Return a raw pointer to the mapped memory.
+        pub fn as_ptr(&self) -> *const u8 {
+            self.0.as_ptr()
+        }
+        /// Return a mutable raw pointer to the mapped memory.
         pub fn as_mut_ptr(&mut self) -> *mut u8 {
             self.0.as_mut_ptr()
         }
+        /// Return the length of the mapped memory.
         pub fn len(&self) -> usize {
             self.0.len()
         }
+        /// No-op flush for the in-memory shim.
         pub fn flush(&self) -> std::io::Result<()> {
             Ok(())
         }
+        /// No-op async flush for the in-memory shim.
         pub fn flush_async(&self) -> std::io::Result<()> {
             Ok(())
         }
+        /// No-op flush range for the in-memory shim.
         pub fn flush_range(&self, _offset: usize, _len: usize) -> std::io::Result<()> {
             Ok(())
         }
+        /// Returns true if the mapped memory is empty.
         pub fn is_empty(&self) -> bool {
             self.0.is_empty()
         }
     }
-    impl Deref for MmapMut {
+    impl std::ops::Deref for MmapMut {
         type Target = [u8];
         fn deref(&self) -> &[u8] {
             &self.0
         }
     }
-    impl DerefMut for MmapMut {
+    impl std::ops::DerefMut for MmapMut {
         fn deref_mut(&mut self) -> &mut [u8] {
             &mut self.0
         }
@@ -133,6 +158,7 @@ static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
 #[cfg(unix)]
 static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
+/// Install a SIGBUS handler to gracefully catch mmap page faults on Unix.
 #[cfg(unix)]
 pub(crate) fn install_sigbus_handler() -> Result<()> {
     use std::sync::Once;
@@ -166,39 +192,47 @@ unsafe extern "C" fn sigbus_handler(
     }
 }
 
+/// Check if a SIGBUS has occurred and reset the flag.
 #[cfg(unix)]
 #[allow(dead_code)]
 pub fn check_sigbus() -> bool {
     SIGBUS_OCCURRED.swap(false, Ordering::SeqCst)
 }
 
+/// Get the fault address from the last SIGBUS, if any.
 #[cfg(unix)]
 #[allow(dead_code)]
 pub fn get_sigbus_fault_addr() -> *mut u8 {
     SIGBUS_FAULT_ADDR.load(Ordering::SeqCst)
 }
 
+/// Stub: SIGBUS is not applicable on non-Unix platforms.
 #[cfg(not(unix))]
 #[allow(dead_code)]
 pub fn check_sigbus() -> bool {
     false
 }
 
+/// Stub: SIGBUS is not applicable on non-Unix platforms.
 #[cfg(not(unix))]
 #[allow(dead_code)]
 pub fn get_sigbus_fault_addr() -> *mut u8 {
     std::ptr::null_mut()
 }
 
+/// Magic bytes identifying a VantaFile on disk.
 #[allow(dead_code)]
 pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
+/// On-disk VantaFile version number.
 #[allow(dead_code)]
 pub const VANTA_FILE_VERSION: u32 = 1;
 
+/// Returns the number of resident (in-RAM) bytes for the given memory region.
 pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {
     get_resident_bytes_impl(addr, len)
 }
 
+/// Platform-specific implementation of resident byte counting via mincore or QueryWorkingSetEx.
 pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
     if len == 0 || addr.is_null() {
         return Some(0);
@@ -289,6 +323,7 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
     }
 }
 
+/// Sum of resident mmap bytes across the HNSW index and vector store.
 pub(crate) fn engine_mmap_resident_bytes(hnsw: &CPIndex, vector_store: &VantaFile) -> Option<u64> {
     let mut total = None;
     for resident in [
@@ -350,11 +385,16 @@ impl VantaFileMap {
     }
 }
 
+/// A memory-mapped vector store file supporting read, write, and in-memory modes.
 pub struct VantaFile {
+    /// Optional backing file handle (None for in-memory mode).
     pub file: Option<File>,
     mmap: VantaFileMap,
+    /// File system path to the backing file.
     pub path: PathBuf,
+    /// Current file size in bytes.
     pub size: u64,
+    /// Byte offset for the next write operation.
     pub write_cursor: u64,
     read_only: bool,
 }
@@ -363,13 +403,16 @@ unsafe impl Send for VantaFile {}
 unsafe impl Sync for VantaFile {}
 
 impl VantaFile {
+    /// Open or create a VantaFile at the given path with the specified initial size.
     pub fn open(path: PathBuf, initial_size: u64) -> Result<Self> {
         Self::open_with_mode(path, initial_size, false)
     }
+    /// Open an existing VantaFile in read-only mode.
     pub fn open_read_only(path: PathBuf) -> Result<Self> {
         Self::open_with_mode(path, 0, true)
     }
 
+    /// Create a VantaFile backed entirely by in-memory storage (no disk I/O).
     pub fn create_in_memory(initial_size: u64) -> Self {
         let size = initial_size.max(STORAGE_ALIGNMENT);
         let mut data = vec![0u8; size as usize];
@@ -461,16 +504,20 @@ impl VantaFile {
         })
     }
 
+    /// Persist the write cursor position into the file header.
     pub fn save_cursor(&mut self) -> Result<()> {
         self.mmap.as_mut_slice()?[16..24].copy_from_slice(&self.write_cursor.to_le_bytes());
         Ok(())
     }
+    /// Return a byte slice over the entire mapped region.
     pub fn mmap_bytes(&self) -> &[u8] {
         self.mmap.as_slice()
     }
+    /// Return a mutable byte slice over the entire mapped region.
     pub(crate) fn mmap_bytes_mut(&mut self) -> Result<&mut [u8]> {
         self.mmap.as_mut_slice()
     }
+    /// Re-map the backing file into a new mutable memory mapping.
     pub(crate) fn remap_mut(&mut self) -> Result<()> {
         if self.read_only {
             return Err(VantaError::ValidationError {
@@ -496,6 +543,7 @@ impl VantaFile {
         Ok(())
     }
 
+    /// Replace the backing file with a new one at the same path and re-map.
     pub(crate) fn replace_backing_file(&mut self, new_size: u64) -> Result<()> {
         if self.read_only {
             return Err(VantaError::ValidationError {
@@ -519,6 +567,7 @@ impl VantaFile {
         self.remap_mut()
     }
 
+    /// Read a `DiskNodeHeader` from the given aligned offset, if valid.
     pub fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if offset + header_size > self.size || !offset.is_multiple_of(STORAGE_ALIGNMENT) {
@@ -528,6 +577,7 @@ impl VantaFile {
         DiskNodeHeader::read_from_bytes(slice).ok()
     }
 
+    /// Write a `DiskNodeHeader` at the given aligned offset, replacing existing bytes.
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if !offset.is_multiple_of(STORAGE_ALIGNMENT) {
@@ -547,6 +597,7 @@ impl VantaFile {
         Ok(())
     }
 
+    /// Extend the file to the given new size, zero-filling added space.
     pub fn grow_to(&mut self, new_size: u64) -> Result<()> {
         match &mut self.mmap {
             VantaFileMap::InMemory(data) => {
@@ -569,6 +620,7 @@ impl VantaFile {
         }
     }
 
+    /// Flush memory-mapped changes to the backing file (no-op for in-memory mode).
     pub fn flush(&self) -> Result<()> {
         #[cfg(feature = "failpoints")]
         {
@@ -579,6 +631,7 @@ impl VantaFile {
         self.mmap.flush()
     }
 
+    /// Advise the OS to prefetch the given number of bytes from the mapped region.
     pub fn warmup_top_layers(&self, _size: usize) {
         #[cfg(all(unix, feature = "memmap2"))]
         {
@@ -600,6 +653,7 @@ impl VantaFile {
         }
     }
 
+    /// Return the number of resident (in-RAM) bytes for this file's mapping.
     pub fn mmap_resident_bytes(&self) -> Option<u64> {
         get_resident_bytes_impl(self.mmap.as_ptr(), self.mmap.len())
     }

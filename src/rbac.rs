@@ -2,32 +2,45 @@
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
+/// Permissions available in the RBAC system.
 #[derive(Clone, PartialEq)]
 pub(crate) enum Permission {
+    /// Read access to all resources.
     Read,
+    /// Write access to all resources.
     Write,
+    /// Delete access to all resources.
     Delete,
+    /// Unrestricted administrative access.
     Admin,
+    /// Read access to a specific namespace.
     NamespaceRead(String),
+    /// Write access to a specific namespace.
     NamespaceWrite(String),
 }
 
+/// Configuration for a single role.
 #[derive(Clone)]
 pub(crate) struct RoleConfig {
+    /// Permissions assigned to this role.
     pub permissions: Vec<Permission>,
 }
 
+/// Role-based access control manager.
 pub(crate) struct Rbac {
+    /// Map of role names to their configurations.
     roles: RwLock<HashMap<String, RoleConfig>>,
 }
 
 impl Rbac {
+    /// Create a new empty RBAC instance.
     pub fn new() -> Self {
         Self {
             roles: RwLock::new(HashMap::new()),
         }
     }
 
+    /// Add a role with the given permissions.
     pub fn add_role(&self, name: &str, permissions: Vec<Permission>) {
         self.roles
             .write()
@@ -67,6 +80,7 @@ impl Rbac {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

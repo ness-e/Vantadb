@@ -582,9 +582,7 @@ fn security_audit_summary_report() {
         // via auth_middleware. Document this design choice.
         TerminalReporter::success("Embedded SDK: no built-in auth (by design)");
         TerminalReporter::success("Server layer: auth_middleware with ConstantTimeEq");
-        TerminalReporter::success(&format!(
-            "Input validation: key max 512 bytes, namespace max 128 bytes"
-        ));
+        TerminalReporter::success("Input validation: key max 512 bytes, namespace max 128 bytes");
         TerminalReporter::success("Rate limiting: tower_governor at HTTP layer");
     });
 }

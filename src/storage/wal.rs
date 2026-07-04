@@ -1,3 +1,5 @@
+//! Write-ahead log initialization and recovery for crash durability.
+
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::config::VantaConfig;
 use crate::error::Result;
@@ -10,6 +12,7 @@ use tracing::info;
 
 const FLAG_TOMBSTONE: u32 = 0x8;
 
+/// Open or skip WAL initialization based on the read-only configuration flag.
 pub(crate) fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<WalWriter>> {
     if config.read_only {
         return Ok(None);
@@ -19,6 +22,7 @@ pub(crate) fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<W
 }
 
 #[allow(dead_code)]
+/// Replay WAL records to restore engine state after a crash or restart.
 pub(crate) fn recover_state(
     data_dir: &Path,
     config: &VantaConfig,

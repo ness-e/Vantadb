@@ -15,7 +15,7 @@ use tracing::{info, warn};
 const MIB: usize = 1024 * 1024;
 const GIB: u64 = 1024 * 1024 * 1024;
 
-/// RocksDB adapter implementing `StorageBackend`.
+/// RocksDB-backed implementation of `StorageBackend`.
 ///
 /// Owns the `rocksdb::DB` instance and all column family configuration.
 /// Created exclusively through `RocksDbBackend::open`.
@@ -342,6 +342,7 @@ impl StorageBackend for RocksDbBackend {
 
 #[cfg(test)]
 #[cfg(feature = "rocksdb")]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::backend::BackendWriteOp;

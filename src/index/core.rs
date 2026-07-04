@@ -226,6 +226,7 @@ fn f32_dot_product(a: &[f32], b: &[f32]) -> f32 {
     dot
 }
 
+/// Compute the L2 norm of a f32 vector.
 #[inline(always)]
 pub fn f32_l2_norm(v: &[f32]) -> f32 {
     if v.is_empty() {
@@ -262,6 +263,7 @@ pub fn cosine_sim_with_query_norm(query: &[f32], query_norm: f32, b: &[f32]) -> 
     }
 }
 
+/// Compute cosine similarity between two f32 vectors without cached norms.
 #[inline(always)]
 pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
@@ -271,6 +273,7 @@ pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
     cosine_sim_with_query_norm(a, norm_a, b)
 }
 
+/// Compute squared Euclidean distance between two f32 vectors.
 #[inline(always)]
 pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
@@ -339,6 +342,7 @@ fn sq8_similarity_fallback(
     }
 }
 
+/// Compute similarity between a raw query and a node's stored vector representation.
 pub fn calculate_similarity(
     raw_query: &[f32],
     query_norm: Option<f32>,
@@ -411,10 +415,15 @@ fn f32_slice_similarity(
     }
 }
 
+/// A node in the HNSW graph with its vector data and neighbor lists.
 pub struct HnswNode {
+    /// Unique node identifier.
     pub id: u64,
+    /// Filter bitset for attribute-based filtering.
     pub bitset: FilterBitset,
+    /// Stored vector representation (full, quantized, or mmap).
     pub vec_data: VectorRepresentations,
+    /// Per-layer neighbor lists (layer 0 is the base layer).
     pub neighbors: Vec<NeighborVec>,
     /// Offset into the VantaFile (Phase 3)
     pub storage_offset: u64,
@@ -422,24 +431,32 @@ pub struct HnswNode {
     pub inv_cached_norm: f32,
 }
 
+/// Storage backend for the HNSW index data.
 #[derive(Debug)]
 pub enum IndexBackend {
+    /// Keep the index entirely in process memory.
     InMemory,
+    /// Memory-mapped file backend with optional mutable mmap handle.
     MMapFile {
+        /// Path to the mapped file on disk.
         path: PathBuf,
+        /// Optional mutable mmap handle for live memory mapping.
         mmap: Option<MmapMut>,
     },
 }
 
 impl IndexBackend {
+    /// Create a new `MMapFile` backend for the given path.
     pub fn new_mmap(path: PathBuf) -> Self {
         IndexBackend::MMapFile { path, mmap: None }
     }
 
+    /// Returns `true` if the backend uses a memory-mapped file.
     pub fn is_mmap(&self) -> bool {
         matches!(self, IndexBackend::MMapFile { .. })
     }
 
+    /// Returns the file path of the mmap backend, or `None` for in-memory.
     pub fn mmap_path(&self) -> Option<&Path> {
         match self {
             IndexBackend::MMapFile { path, .. } => Some(path.as_path()),
@@ -484,13 +501,20 @@ impl IndexBackend {
     }
 }
 
+/// Configuration parameters for the HNSW graph construction and search.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HnswConfig {
+    /// Maximum number of connections per node in upper layers.
     pub m: usize,
+    /// Maximum number of connections per node in layer 0 (base layer).
     pub m_max0: usize,
+    /// Size of the dynamic candidate list during graph construction.
     pub ef_construction: usize,
+    /// Size of the dynamic candidate list during search.
     pub ef_search: usize,
+    /// Normalization factor for level generation (1/ln(m)).
     pub ml: f64,
+    /// Distance metric used for similarity computations.
     #[serde(default)]
     pub distance_metric: DistanceMetric,
 }
@@ -558,16 +582,23 @@ impl Ord for NodeSimMin {
     }
 }
 
+/// Thread-safe HNSW graph index for approximate nearest neighbor search.
 pub struct CPIndex {
+    /// All nodes in the graph, keyed by node ID.
     pub nodes: DashMap<u64, HnswNode, BuildHasherDefault<XxHash64>>,
+    /// Highest layer currently occupied by any node.
     pub max_layer: AtomicUsize,
+    /// Entry point node ID (top-layer anchor for search).
     pub entry_point: AtomicU64,
+    /// Storage backend (in-memory or mmap).
     pub backend: IndexBackend,
+    /// HNSW construction and search configuration.
     pub config: HnswConfig,
     rng: parking_lot::Mutex<rand::rngs::StdRng>,
 }
 
 impl CPIndex {
+    /// Create a new empty HNSW index with default configuration.
     pub fn new() -> Self {
         Self {
             nodes: Default::default(),
@@ -579,6 +610,7 @@ impl CPIndex {
         }
     }
 
+    /// Create a new empty HNSW index with the given configuration.
     pub fn new_with_config(config: HnswConfig) -> Self {
         Self {
             nodes: Default::default(),
@@ -590,6 +622,7 @@ impl CPIndex {
         }
     }
 
+    /// Create a new empty HNSW index with the given storage backend.
     pub fn with_backend(backend: IndexBackend) -> Self {
         Self {
             nodes: Default::default(),
@@ -601,6 +634,7 @@ impl CPIndex {
         }
     }
 
+    /// Estimate the memory usage of the index in bytes.
     pub fn estimate_memory_bytes(&self) -> usize {
         let mut total = 0usize;
         for r in self.nodes.iter() {
@@ -1063,6 +1097,7 @@ impl CPIndex {
         false
     }
 
+    /// Insert or update a node in the HNSW graph.
     #[tracing::instrument(skip(self, vec_data), level = "debug")]
     pub fn add(
         &self,
@@ -1280,6 +1315,7 @@ impl CPIndex {
         }
     }
 
+    /// Search the HNSW graph for the nearest neighbors of the query vector.
     #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
     pub fn search_nearest(
         &self,
@@ -1398,6 +1434,7 @@ impl CPIndex {
         order
     }
 
+    /// Serialize the index into a compact byte buffer.
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
 
@@ -1509,6 +1546,7 @@ impl CPIndex {
         buf
     }
 
+    /// Deserialize an index from a byte buffer, optionally copying data into owned memory.
     pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
         use std::io::{Error, ErrorKind};
 
@@ -1793,6 +1831,7 @@ impl CPIndex {
         })
     }
 
+    /// Persist the index to a file on disk.
     pub fn persist_to_file(&self, path: &Path) -> std::io::Result<()> {
         #[cfg(feature = "failpoints")]
         {
@@ -1811,6 +1850,7 @@ impl CPIndex {
         Ok(())
     }
 
+    /// Load an index from a file, optionally using memory-mapped I/O.
     pub fn load_from_file(path: &Path, use_mmap: bool) -> Option<Self> {
         if !path.exists() {
             return None;
@@ -1881,6 +1921,7 @@ impl CPIndex {
         }
     }
 
+    /// Sync the in-memory index state to the memory-mapped file.
     pub fn sync_to_mmap(&mut self) -> std::io::Result<()> {
         #[cfg(feature = "failpoints")]
         {
@@ -2038,6 +2079,7 @@ impl CPIndex {
     }
 }
 
+/// Default creates an empty HNSW index with default configuration.
 impl Default for CPIndex {
     fn default() -> Self {
         Self::new()
@@ -2045,6 +2087,7 @@ impl Default for CPIndex {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::DistanceMetric;

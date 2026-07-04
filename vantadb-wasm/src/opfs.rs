@@ -1,6 +1,7 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
+/// OPFS-based persistent storage for VantaDB in browser environments.
 pub struct OpfsStorage {
     dir_handle: JsValue,
 }
@@ -20,6 +21,7 @@ async fn js_call(obj: &JsValue, method: &str, args: &js_sys::Array) -> Result<Js
 }
 
 impl OpfsStorage {
+    /// Open or create an OPFS storage directory with the given name.
     pub async fn open(name: &str) -> Result<Self, JsValue> {
         let global = js_sys::global();
         let navigator = Reflect::get(&global, &"navigator".into())?;
@@ -38,6 +40,7 @@ impl OpfsStorage {
         Ok(Self { dir_handle })
     }
 
+    /// Write data to a file at the given path in OPFS.
     pub async fn write_file(&self, path: &str, data: &[u8]) -> Result<(), JsValue> {
         let opts = js_sys::Object::new();
         Reflect::set(&opts, &"create".into(), &true.into())?;
@@ -59,6 +62,7 @@ impl OpfsStorage {
         Ok(())
     }
 
+    /// Read a file from OPFS, returning None if it does not exist.
     pub async fn read_file(&self, path: &str) -> Result<Option<Vec<u8>>, JsValue> {
         let get_handle = get_fn(&self.dir_handle, "getFileHandle")?;
         let result = get_handle.call1(&self.dir_handle, &path.into());
@@ -83,6 +87,7 @@ impl OpfsStorage {
         Ok(Some(vec))
     }
 
+    /// Delete a file at the given path from OPFS.
     pub async fn delete_file(&self, path: &str) -> Result<(), JsValue> {
         let remove = get_fn(&self.dir_handle, "removeEntry")?;
         remove.call1(&self.dir_handle, &path.into())?;

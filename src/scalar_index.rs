@@ -3,22 +3,27 @@ use crate::node::FieldValue;
 use dashmap::DashMap;
 use std::collections::HashMap;
 
+/// Concurrent scalar index mapping field values to node IDs.
 pub(crate) struct ScalarIndex {
+    /// Per-field maps of value to node ID list.
     indexes: DashMap<String, HashMap<FieldValue, Vec<u64>>>,
 }
 
 impl ScalarIndex {
+    /// Create a new empty scalar index.
     pub fn new() -> Self {
         Self {
             indexes: DashMap::new(),
         }
     }
 
+    /// Insert a node ID for a given field/value pair.
     pub fn insert(&self, field: &str, value: &FieldValue, node_id: u64) {
         let mut entry = self.indexes.entry(field.to_string()).or_default();
         entry.entry(value.clone()).or_default().push(node_id);
     }
 
+    /// Remove a node ID from a given field/value pair.
     pub fn remove(&self, field: &str, value: &FieldValue, node_id: u64) {
         if let Some(mut entry) = self.indexes.get_mut(field) {
             if let Some(values) = entry.get_mut(value) {
@@ -27,6 +32,7 @@ impl ScalarIndex {
         }
     }
 
+    /// Look up node IDs by field and value.
     pub fn lookup(&self, field: &str, value: &FieldValue) -> Vec<u64> {
         self.indexes
             .get(field)
@@ -34,6 +40,7 @@ impl ScalarIndex {
             .unwrap_or_default()
     }
 
+    /// Remove a node from all index entries.
     pub fn remove_node(&self, node_id: u64) {
         for mut entry in self.indexes.iter_mut() {
             entry.retain(|_, ids| {
@@ -43,16 +50,19 @@ impl ScalarIndex {
         }
     }
 
+    /// Remove all entries for a given field.
     pub fn clear_field(&self, field: &str) {
         self.indexes.remove(field);
     }
 
+    /// Return all indexed field names.
     pub fn field_names(&self) -> Vec<String> {
         self.indexes.iter().map(|e| e.key().clone()).collect()
     }
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::node::FieldValue;

@@ -28,9 +28,9 @@ use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
 use std::path::Path;
 use tracing::info;
 
-/// Fjall adapter implementing `StorageBackend`.
+/// Fjall-backed implementation of `StorageBackend`.
 ///
-/// Owns a `fjall::Database` and four `Keyspace` handles corresponding to
+/// Owns a `fjall::Database` and eight `Keyspace` handles corresponding to
 /// the `BackendPartition` variants. Created through `FjallBackend::open`.
 pub(crate) struct FjallBackend {
     db: Database,
@@ -255,6 +255,7 @@ impl StorageBackend for FjallBackend {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
     use crate::backend::BackendWriteOp;

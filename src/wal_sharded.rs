@@ -5,19 +5,28 @@ use parking_lot::Mutex;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// A write-ahead log operation for a key-value pair.
 #[derive(Debug, Clone)]
 pub(crate) enum WalOp {
+    /// Insert or update a record.
     Put {
+        /// Namespace of the record.
         namespace: String,
+        /// Key of the record.
         key: String,
+        /// Payload of the record.
         payload: String,
     },
+    /// Delete a record by namespace and key.
     Delete {
+        /// Namespace of the record.
         namespace: String,
+        /// Key of the record.
         key: String,
     },
 }
 
+/// A sharded write-ahead log that distributes writes across multiple WAL files.
 pub(crate) struct ShardedWal {
     shards: Vec<Arc<Mutex<Option<WalWriter>>>>,
     num_shards: usize,
@@ -26,6 +35,7 @@ pub(crate) struct ShardedWal {
 }
 
 impl ShardedWal {
+    /// Create a new `ShardedWal` with the given base path, shard count, and sync mode.
     pub fn new(
         base_path: &Path,
         num_shards: usize,
@@ -59,6 +69,7 @@ impl ShardedWal {
         })
     }
 
+    /// Compute the shard index for a given key using a hash function.
     fn shard_index(&self, key: &str) -> usize {
         if self.num_shards <= 1 {
             return 0;
@@ -69,6 +80,7 @@ impl ShardedWal {
         (hash as usize) % self.num_shards
     }
 
+    /// Write a record to the shard determined by the key.
     pub fn write(&self, key: &str, record: &crate::wal::WalRecord) -> Result<()> {
         let idx = self.shard_index(key);
         let mut guard = self.shards[idx].lock();
@@ -78,6 +90,7 @@ impl ShardedWal {
         Ok(())
     }
 
+    /// Flush (sync) all shards to disk.
     pub fn flush_all(&self) -> Result<()> {
         for shard in &self.shards {
             let mut guard = shard.lock();
@@ -88,6 +101,7 @@ impl ShardedWal {
         Ok(())
     }
 
+    /// Flush (sync) only the shard determined by the key.
     pub fn flush_shard(&self, key: &str) -> Result<()> {
         let idx = self.shard_index(key);
         let mut guard = self.shards[idx].lock();
@@ -97,14 +111,17 @@ impl ShardedWal {
         Ok(())
     }
 
+    /// Return a reference to the shard list.
     pub fn shards(&self) -> &[Arc<Mutex<Option<WalWriter>>>] {
         &self.shards
     }
 
+    /// Return the number of configured shards.
     pub fn num_shards(&self) -> usize {
         self.num_shards
     }
 
+    /// Return the number of shard entries.
     pub fn len(&self) -> usize {
         self.shards.len()
     }

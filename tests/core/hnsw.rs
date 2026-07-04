@@ -6,6 +6,7 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use vantadb::index::{CPIndex, VectorRepresentations};
+use vantadb::node::FilterBitset;
 
 #[test]
 fn hnsw_core_logic_certification() {
@@ -34,13 +35,33 @@ fn hnsw_core_logic_certification() {
     harness.execute("HNSW: Greedy Search Integrity", || {
         let index = CPIndex::new();
         TerminalReporter::sub_step("Populating sparse vector space...");
-        index.add(1, 0, VectorRepresentations::Full(vec![1.0, 0.0, 0.0]), 0);
-        index.add(2, 0, VectorRepresentations::Full(vec![0.8, 0.2, 0.0]), 0);
-        index.add(3, 0, VectorRepresentations::Full(vec![0.0, 1.0, 0.0]), 0);
-        index.add(4, 0, VectorRepresentations::Full(vec![0.0, 0.8, 0.2]), 0);
+        index.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
+            0,
+        );
+        index.add(
+            2,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.8, 0.2, 0.0]),
+            0,
+        );
+        index.add(
+            3,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
+            0,
+        );
+        index.add(
+            4,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![0.0, 0.8, 0.2]),
+            0,
+        );
 
         let query = vec![0.0, 0.9, 0.1];
-        let results = index.search_nearest(&query, None, None, 0, 2, None);
+        let results = index.search_nearest(&query, None, None, &vantadb::node::ALL_BITSET, 2, None);
 
         assert_eq!(results.len(), 2);
         let top_match = results[0].0;

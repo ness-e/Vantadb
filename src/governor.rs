@@ -10,18 +10,25 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// Global counter of bytes currently allocated by queries in flight.
 pub static ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
 
+/// Result of an allocation request.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AllocationStatus {
+    /// Allocation granted.
     Granted,
-    GrantedWithPressure, // Usado para invocar NMI si es necesario
+    /// Allocation granted, but the system is under memory pressure.
+    GrantedWithPressure,
 }
 
+/// Memory and timeout resource governor for query execution.
 pub struct ResourceGovernor {
+    /// Maximum memory in bytes before OOM rejection.
     pub max_memory_bytes: usize,
+    /// Query timeout in milliseconds.
     pub query_timeout_ms: u64,
 }
 
 impl ResourceGovernor {
+    /// Create a new resource governor with the given memory and timeout limits.
     pub fn new(max_memory_bytes: usize, query_timeout_ms: u64) -> Self {
         Self {
             max_memory_bytes,
@@ -72,6 +79,7 @@ impl ResourceGovernor {
 }
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests {
     use super::*;
 

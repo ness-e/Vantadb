@@ -9,14 +9,14 @@
 use proptest::prelude::*;
 use std::fs;
 use tempfile::TempDir;
-use vantadb::node::{NodeFlags, NodeTier, UnifiedNode, VectorRepresentations};
+use vantadb::node::{FilterBitset, NodeFlags, NodeTier, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
 /// Estrategia para generar nodos de prueba
 fn node_strategy() -> impl Strategy<Value = UnifiedNode> {
     (0u64..10000u64, 0u32..100u32).prop_map(|(id, cluster)| UnifiedNode {
         id,
-        bitset: 0,
+        bitset: FilterBitset::new(),
         semantic_cluster: cluster,
         tier: NodeTier::Cold,
         flags: NodeFlags::new(),

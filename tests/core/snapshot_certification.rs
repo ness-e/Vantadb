@@ -17,7 +17,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
-use vantadb::node::DistanceMetric;
+use vantadb::node::{DistanceMetric, FilterBitset};
 use vantadb::sdk::*;
 use vantadb::wal::{WalReader, WalRecord, WalWriter};
 use vantadb::VantaEmbedded;
@@ -107,14 +107,20 @@ fn hnsw_recall_snapshot_baseline() {
         let index = CPIndex::new_with_config(config);
 
         for (id, vec) in &dataset {
-            index.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
+            index.add(
+                *id,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec.clone()),
+                0,
+            );
         }
 
         // First run: compute baseline recall
         let mut total_recall_run1 = 0.0;
         for query in &query_vectors {
             let true_neighbors = brute_force_search(query, &dataset, top_k);
-            let hnsw_results = index.search_nearest(query, None, None, u128::MAX, top_k, None);
+            let hnsw_results =
+                index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
             let hnsw_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
                 .iter()
@@ -128,7 +134,8 @@ fn hnsw_recall_snapshot_baseline() {
         let mut total_recall_run2 = 0.0;
         for query in &query_vectors {
             let true_neighbors = brute_force_search(query, &dataset, top_k);
-            let hnsw_results = index.search_nearest(query, None, None, u128::MAX, top_k, None);
+            let hnsw_results =
+                index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
             let hnsw_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
                 .iter()
@@ -187,13 +194,18 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
         for run in 0..3 {
             let index = CPIndex::new_with_config(HnswConfig::default());
             for (id, vec) in &dataset {
-                index.add(*id, u128::MAX, VectorRepresentations::Full(vec.clone()), 0);
+                index.add(
+                    *id,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    0,
+                );
             }
             let mut total = 0.0;
             for query in &queries {
                 let truth = brute_force_search(query, &dataset, k);
                 let hnsw_ids: Vec<u64> = index
-                    .search_nearest(query, None, None, u128::MAX, k, None)
+                    .search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None)
                     .into_iter()
                     .map(|(id, _)| id)
                     .collect();
@@ -358,7 +370,7 @@ fn export_format_preserves_all_record_fields() {
                 .insert("int_field".to_string(), VantaValue::Int(42));
             input
                 .metadata
-                .insert("float_field".to_string(), VantaValue::Float(3.14));
+                .insert("float_field".to_string(), VantaValue::Float(2.72));
             input
                 .metadata
                 .insert("bool_field".to_string(), VantaValue::Bool(true));
@@ -381,7 +393,7 @@ fn export_format_preserves_all_record_fields() {
             assert_eq!(record.metadata.get("int_field"), Some(&VantaValue::Int(42)));
             assert_eq!(
                 record.metadata.get("float_field"),
-                Some(&VantaValue::Float(3.14))
+                Some(&VantaValue::Float(2.72))
             );
             assert_eq!(
                 record.metadata.get("bool_field"),
