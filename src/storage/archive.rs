@@ -21,6 +21,12 @@ pub(crate) fn compact_layout(
     bfs_order: &[u64],
     header_size: u64,
 ) -> Result<(HashMap<u64, u64>, u64)> {
+    if bfs_order.is_empty() {
+        return Err(VantaError::ValidationError {
+            field: "bfs_order".into(),
+            reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
+        });
+    }
     let mut new_file_size: u64 = 64;
     for &node_id in bfs_order {
         if let Some(node_ref) = hnsw.nodes.get(&node_id) {
