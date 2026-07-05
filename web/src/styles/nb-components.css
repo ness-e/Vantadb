@@ -704,6 +704,11 @@
   align-items: center;
 }
 
+.nb-meta-row--centered {
+  justify-content: center;
+  margin-top: var(--space-xl);
+}
+
 .nb-meta-tag {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
