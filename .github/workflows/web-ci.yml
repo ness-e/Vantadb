@@ -30,3 +30,8 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
       - run: npm run build
+      - run: npx vitest run
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e tests
+        run: npx playwright test

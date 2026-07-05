@@ -3,9 +3,19 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+// rollup-plugin-visualizer: install with `npm i -D rollup-plugin-visualizer`
+import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig({
-  plugins: [TanStackRouterVite(), react(), tailwindcss(), tsConfigPaths()],
+  plugins: [
+    TanStackRouterVite(),
+    react(),
+    tailwindcss(),
+    tsConfigPaths(),
+    ...(process.env.ANALYZE
+      ? [visualizer({ filename: "dist/stats.html", open: true })]
+      : []),
+  ],
   base: "/",
   build: {
     rollupOptions: {
@@ -33,5 +43,6 @@ export default defineConfig({
     setupFiles: "./src/test/setup.ts",
     css: true,
     exclude: ["e2e/**", "node_modules/**"],
+    coverage: { provider: "v8", reporter: ["text", "html"] },
   },
 });
