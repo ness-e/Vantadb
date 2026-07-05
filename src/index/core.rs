@@ -429,6 +429,8 @@ pub struct HnswNode {
     pub storage_offset: u64,
     /// Pre-computed inverse L2 norm (1.0 / L2_norm) for Cosine fast-path. 0.0 = not cached.
     pub inv_cached_norm: f32,
+    /// Tombstone & feature flags (bit 0x8 = tombstone).
+    pub flags: u32,
 }
 
 /// Storage backend for the HNSW index data.
@@ -594,6 +596,8 @@ pub struct CPIndex {
     pub backend: IndexBackend,
     /// HNSW construction and search configuration.
     pub config: HnswConfig,
+    /// Cached node count to avoid O(n) in estimate_memory_bytes.
+    pub total_nodes: AtomicU64,
     rng: parking_lot::Mutex<rand::rngs::StdRng>,
 }
 
@@ -606,6 +610,7 @@ impl CPIndex {
             entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
@@ -618,6 +623,7 @@ impl CPIndex {
             entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config,
+            total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
@@ -630,6 +636,7 @@ impl CPIndex {
             entry_point: AtomicU64::new(ENTRY_POINT_NONE),
             backend,
             config: HnswConfig::default(),
+            total_nodes: AtomicU64::new(0),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         }
     }
@@ -653,7 +660,7 @@ impl CPIndex {
             }
             total += std::mem::size_of::<HnswNode>();
         }
-        total += self.nodes.len() * 60;
+        total += self.total_nodes.load(Ordering::Relaxed) as usize * 60;
         total
     }
 
@@ -797,7 +804,7 @@ impl CPIndex {
                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                         .unwrap_or(false)
                 } else {
-                    true
+                    (node.flags & FLAG_TOMBSTONE) == 0
                 };
                 if eligible && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask)) {
                     results.push(NodeSimMin(d, ep));
@@ -929,7 +936,7 @@ impl CPIndex {
                                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                                         .unwrap_or(false)
                                 } else {
-                                    true
+                                    (neighbor.flags & FLAG_TOMBSTONE) == 0
                                 };
                                 if eligible
                                     && (query_mask.is_all_set()
@@ -1089,8 +1096,10 @@ impl CPIndex {
                     neighbors: vec![NeighborVec::new()],
                     storage_offset,
                     inv_cached_norm: 0.0,
+                    flags: 0,
                 },
             );
+            self.total_nodes.fetch_add(1, Ordering::Relaxed);
             return true;
         }
 
@@ -1152,6 +1161,7 @@ impl CPIndex {
             neighbors: vec![NeighborVec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
+            flags: 0,
         };
 
         let ep = match self.get_entry_point() {
@@ -1159,12 +1169,14 @@ impl CPIndex {
                 self.set_entry_point(id);
                 self.max_layer.store(level, Ordering::Release);
                 self.nodes.insert(id, node);
+                self.total_nodes.fetch_add(1, Ordering::Relaxed);
                 return;
             }
             Some(entry) => entry,
         };
 
         self.nodes.insert(id, node);
+        self.total_nodes.fetch_add(1, Ordering::Relaxed);
 
         let query_f32 = match query_f32 {
             Some(v) => v,
@@ -1176,6 +1188,7 @@ impl CPIndex {
                 let norm = f32_l2_norm(&query_f32);
                 if norm < f32::EPSILON {
                     self.nodes.remove(&id);
+                    self.total_nodes.fetch_sub(1, Ordering::Relaxed);
                     return;
                 }
                 (Some(norm), Some(1.0 / norm))
@@ -1380,7 +1393,9 @@ impl CPIndex {
             effective_metric,
         );
 
-        let mut result = w.into_sorted_vec();
+        // Filter NaN scores before sorting (CODE-030)
+        let mut result: Vec<NodeSimMin> = w.into_sorted_vec();
+        result.retain(|ns| !ns.0.is_nan());
 
         // into_sorted_vec returns highest similarity (best) first!
         result.truncate(top_k);
@@ -1437,64 +1452,102 @@ impl CPIndex {
     /// Serialize the index into a compact byte buffer.
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
+        self.serialize_to_writer(&mut buf).unwrap();
+        buf
+    }
 
+    /// Streaming variant that writes directly to a writer without allocating a giant Vec.
+    pub fn serialize_to_writer(&self, w: &mut impl Write) -> std::io::Result<()> {
         let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
-        buf.extend_from_slice(&header.serialize());
-        buf.extend_from_slice(&(self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes());
+        let mut pos = 0usize;
+
+        let hdr = header.serialize();
+        w.write_all(&hdr)?;
+        pos += hdr.len();
+
+        let max_layer_bytes = (self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes();
+        w.write_all(&max_layer_bytes)?;
+        pos += max_layer_bytes.len();
 
         // Config block (only in V2+)
-        buf.extend_from_slice(&(self.config.m as u64).to_le_bytes());
-        buf.extend_from_slice(&(self.config.m_max0 as u64).to_le_bytes());
-        buf.extend_from_slice(&(self.config.ef_construction as u64).to_le_bytes());
-        buf.extend_from_slice(&(self.config.ef_search as u64).to_le_bytes());
-        buf.extend_from_slice(&self.config.ml.to_le_bytes());
+        for val in [
+            (self.config.m as u64).to_le_bytes(),
+            (self.config.m_max0 as u64).to_le_bytes(),
+            (self.config.ef_construction as u64).to_le_bytes(),
+            (self.config.ef_search as u64).to_le_bytes(),
+            self.config.ml.to_le_bytes(),
+        ] {
+            w.write_all(&val)?;
+            pos += val.len();
+        }
+
         // V3+: distance metric byte (0 = Cosine, 1 = Euclidean)
         let metric_byte: u8 = match self.config.distance_metric {
             DistanceMetric::Cosine => 0,
             DistanceMetric::Euclidean => 1,
         };
-        buf.push(metric_byte);
+        w.write_all(&[metric_byte])?;
+        pos += 1;
 
         match self.get_entry_point() {
             Some(ep) => {
-                buf.push(1);
-                buf.extend_from_slice(&ep.to_le_bytes());
+                w.write_all(&[1])?;
+                w.write_all(&ep.to_le_bytes())?;
+                pos += 9;
             }
             None => {
-                buf.push(0);
-                buf.extend_from_slice(&0u64.to_le_bytes());
+                w.write_all(&[0])?;
+                w.write_all(&0u64.to_le_bytes())?;
+                pos += 9;
             }
         }
 
         let node_count = self.nodes.len() as u64;
-        buf.extend_from_slice(&node_count.to_le_bytes());
+        let nc = node_count.to_le_bytes();
+        w.write_all(&nc)?;
+        pos += nc.len();
 
         for node_id in self.serialization_order() {
             let Some(node) = self.nodes.get(&node_id) else {
                 continue;
             };
-            buf.extend_from_slice(&node.id.to_le_bytes());
-            buf.extend_from_slice(&node.bitset.to_bytes());
-            buf.extend_from_slice(&node.storage_offset.to_le_bytes());
+            let id_bytes = node.id.to_le_bytes();
+            w.write_all(&id_bytes)?;
+            pos += id_bytes.len();
+
+            let bs = node.bitset.to_bytes();
+            w.write_all(&bs)?;
+            pos += bs.len();
+
+            let so = node.storage_offset.to_le_bytes();
+            w.write_all(&so)?;
+            pos += so.len();
 
             match &node.vec_data {
                 VectorRepresentations::Full(f) => {
-                    buf.push(1);
-                    buf.extend_from_slice(&(f.len() as u64).to_le_bytes());
-                    let padding = (4 - (buf.len() % 4)) % 4;
+                    w.write_all(&[1])?;
+                    w.write_all(&(f.len() as u64).to_le_bytes())?;
+                    pos += 9;
+                    // V4+: f32 alignment padding
+                    let padding = (4 - (pos % 4)) % 4;
                     if padding > 0 {
-                        buf.extend(std::iter::repeat_n(0, padding));
+                        w.write_all(&[0u8; 4][..padding])?;
+                        pos += padding;
                     }
                     for &val in f {
-                        buf.extend_from_slice(&val.to_le_bytes());
+                        let b = val.to_le_bytes();
+                        w.write_all(&b)?;
+                        pos += b.len();
                     }
                 }
                 VectorRepresentations::MmapFull(ptr, len) => {
-                    buf.push(1);
-                    buf.extend_from_slice(&(*len as u64).to_le_bytes());
-                    let padding = (4 - (buf.len() % 4)) % 4;
+                    w.write_all(&[1])?;
+                    w.write_all(&(*len as u64).to_le_bytes())?;
+                    pos += 9;
+                    let padding = (4 - (pos % 4)) % 4;
                     if padding > 0 {
-                        buf.extend(std::iter::repeat_n(0, padding));
+                        w.write_all(&[0u8; 4][..padding])?;
+                        pos += padding;
                     }
                     debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in serialize");
                     debug_assert!(
@@ -1503,47 +1556,65 @@ impl CPIndex {
                     );
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
-                        buf.extend_from_slice(&val.to_le_bytes());
+                        let b = val.to_le_bytes();
+                        w.write_all(&b)?;
+                        pos += b.len();
                     }
                 }
                 VectorRepresentations::Binary(b) => {
-                    buf.push(2);
-                    buf.extend_from_slice(&(b.len() as u64).to_le_bytes());
+                    w.write_all(&[2])?;
+                    w.write_all(&(b.len() as u64).to_le_bytes())?;
+                    pos += 9;
                     for &val in b {
-                        buf.extend_from_slice(&val.to_le_bytes());
+                        let b2 = val.to_le_bytes();
+                        w.write_all(&b2)?;
+                        pos += b2.len();
                     }
                 }
                 VectorRepresentations::Turbo(t) => {
-                    buf.push(3);
-                    buf.extend_from_slice(&(t.len() as u64).to_le_bytes());
-                    buf.extend_from_slice(t);
+                    w.write_all(&[3])?;
+                    w.write_all(&(t.len() as u64).to_le_bytes())?;
+                    pos += 9;
+                    w.write_all(t)?;
+                    pos += t.len();
                 }
                 VectorRepresentations::SQ8(d, scale) => {
-                    buf.push(4);
-                    buf.extend_from_slice(&(d.len() as u64).to_le_bytes());
+                    w.write_all(&[4])?;
+                    w.write_all(&(d.len() as u64).to_le_bytes())?;
+                    pos += 9;
                     for &v in d {
-                        buf.push(v as u8);
+                        w.write_all(&[v as u8])?;
+                        pos += 1;
                     }
-                    buf.extend_from_slice(&scale.to_le_bytes());
+                    let sb = scale.to_le_bytes();
+                    w.write_all(&sb)?;
+                    pos += sb.len();
                 }
                 VectorRepresentations::None => {
-                    buf.push(0);
-                    buf.extend_from_slice(&0u64.to_le_bytes());
+                    w.write_all(&[0])?;
+                    w.write_all(&0u64.to_le_bytes())?;
+                    pos += 9;
                 }
             }
 
             let layer_count = node.neighbors.len() as u64;
-            buf.extend_from_slice(&layer_count.to_le_bytes());
+            let lc = layer_count.to_le_bytes();
+            w.write_all(&lc)?;
+            pos += lc.len();
             for layer in &node.neighbors {
                 let neighbor_count = layer.len() as u64;
-                buf.extend_from_slice(&neighbor_count.to_le_bytes());
+                let nc = neighbor_count.to_le_bytes();
+                w.write_all(&nc)?;
+                pos += nc.len();
                 for &nid in layer {
-                    buf.extend_from_slice(&nid.to_le_bytes());
+                    let nidb = nid.to_le_bytes();
+                    w.write_all(&nidb)?;
+                    pos += nidb.len();
                 }
             }
         }
 
-        buf
+        Ok(())
     }
 
     /// Deserialize an index from a byte buffer, optionally copying data into owned memory.
@@ -1817,16 +1888,19 @@ impl CPIndex {
                     neighbors,
                     storage_offset,
                     inv_cached_norm,
+                    flags: 0,
                 },
             );
         }
 
+        let node_count = nodes.len() as u64;
         Ok(Self {
             nodes,
             max_layer: AtomicUsize::new(max_layer),
             entry_point: AtomicU64::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
             config,
+            total_nodes: AtomicU64::new(node_count),
             rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
         })
     }
@@ -1841,12 +1915,11 @@ impl CPIndex {
                 ))
             });
         }
-        let data = self.serialize_to_bytes();
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
-        writer.write_all(&data)?;
+        self.serialize_to_writer(&mut writer)?;
         writer.flush()?;
-        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW index persisted");
+        info!(path = %path.display(), node_count = self.nodes.len(), "HNSW index persisted (streaming)");
         Ok(())
     }
 
