@@ -1,7 +1,7 @@
 @import "./nb-base.css";
 @import "./nb-components.css";
 
-@import "./nav.css";
+@import "./nb-nav.css";
 @import "./metrics-bar.css";
 @import "./benchmark.css";
 @import "./quickstart.css";
@@ -16,3 +16,4 @@
 @import "./docs.css";
 @import "./terminal.css";
 @import "./pricing.css";
+@import "./arch-preview.css";

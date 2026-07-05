@@ -44,7 +44,6 @@ function MaintPage() {
     <div>
       <NbSubpageHero
         num="11"
-        eyebrow="Operations & Maintenance"
         title={
           <span>
             Zero ops.
@@ -58,11 +57,29 @@ function MaintPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">01 / 02 — Maintenance Comparison</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Maintenance Comparison
+            </h2>
 
             <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY — 3 services to maintain
                 </div>
                 <ul
@@ -83,7 +100,17 @@ function MaintPage() {
                 </ul>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">VANTADB — nothing to maintain</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  VANTADB — nothing to maintain
+                </div>
                 <ul
                   className="flex flex-col gap-3 mt-4"
                   style={{ listStyle: "none", margin: 0, padding: 0 }}
@@ -107,7 +134,17 @@ function MaintPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">02 / 02 — Weekly Ops Timeline</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Weekly Ops Timeline
+            </h2>
             <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[-0.04em] mt-4 mb-12 leading-tight">
               From 4 hours to 30 seconds.
             </h2>
@@ -208,9 +245,6 @@ function MaintPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

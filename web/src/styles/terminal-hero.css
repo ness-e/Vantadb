@@ -29,23 +29,6 @@
   width: 100%;
 }
 
-.nb-telemetry {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  color: var(--steel);
-  display: flex;
-  gap: var(--space-md);
-  align-items: center;
-  margin-bottom: var(--space-lg);
-  flex-wrap: wrap;
-}
-
-.nb-telemetry span::before {
-  content: ">";
-  color: var(--amber);
-  margin-right: 0.25rem;
-}
-
 .nb-terminal-hero-pills {
   display: flex;
   gap: 0.5rem;
@@ -56,7 +39,7 @@
 .nb-terminal-hero-title {
   font-family: var(--font-display);
   font-size: clamp(3rem, 7vw, 5.5rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 0.92;
   letter-spacing: -0.04em;
   color: var(--foreground);

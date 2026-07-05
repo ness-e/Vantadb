@@ -17,5 +17,17 @@ export const Route = createFileRoute("/about/community")({
       { property: "og:url", content: "https://vantadb.dev/about/community" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/about/community" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Community",
+          description:
+            "Join the VantaDB community. Contribute on GitHub, discuss on Discord, ask questions, and help shape the future of embedded AI data infrastructure.",
+        }),
+      },
+    ],
   }),
 });

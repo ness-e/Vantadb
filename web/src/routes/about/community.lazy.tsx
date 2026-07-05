@@ -74,7 +74,6 @@ function CommunityPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="06"
-        eyebrow="About — Community"
         title={
           <span>
             Built in the open.
@@ -87,12 +86,17 @@ function CommunityPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Community</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 02 — Where to Find Us</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Where to Find Us
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
@@ -114,7 +118,15 @@ function CommunityPage() {
                   background: "var(--background)",
                 }}
               >
-                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: 0,
+                  }}
+                >
                   {ch.tag}
                 </span>
                 <h3
@@ -152,7 +164,17 @@ function CommunityPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 02 — Contribute</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Contribute
+          </h2>
           <div className="nb-divider" />
           <p
             style={{
@@ -170,7 +192,15 @@ function CommunityPage() {
           <div className="nb-grid nb-grid--cols-3">
             {WAYS.map((w) => (
               <div key={w.num} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
-                <span className="nb-label" style={{ marginBottom: "var(--space-2xs)" }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--muted)",
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
+                >
                   {w.num}
                 </span>
                 <h3
@@ -205,7 +235,15 @@ function CommunityPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               WANT TO CONTRIBUTE?
             </span>
             <p
@@ -248,7 +286,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

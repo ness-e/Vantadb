@@ -9,7 +9,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "0.72rem", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "0.72rem",
+          letterSpacing: "0.12em",
+          color: "var(--muted)",
+        }}
+      >
         Loading...
       </span>
     </div>

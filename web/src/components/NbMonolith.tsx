@@ -99,7 +99,11 @@ export const NbMonolith = memo(function NbMonolith() {
   );
 
   return (
-    <section ref={containerRef} className="nb-section nb-section--lg nb-section--dark" aria-label="Get started">
+    <section
+      ref={containerRef}
+      className="nb-section nb-section--lg nb-section--dark"
+      aria-label="Get started"
+    >
       <div className="nb-inner">
         <div className="monolith-block">
           <div className="monolith-command-wrap">

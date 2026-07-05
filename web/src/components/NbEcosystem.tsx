@@ -58,7 +58,7 @@ export function NbEcosystem() {
   return (
     <section ref={sectionRef} className="nb-section" aria-label="Integration ecosystem">
       <div className="nb-inner">
-        <div className="nb-frame" data-frame-label="INTEGRATION MATRIX">
+        <div>
           <div className="nb-section-header">
             <h2 className="eco-heading">Integration Matrix.</h2>
           </div>

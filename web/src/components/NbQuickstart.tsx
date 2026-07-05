@@ -123,7 +123,6 @@ export function NbQuickstart() {
       <div className="nb-inner nb-split-5-7">
         <div>
           <div className="nb-section-header nb-section-header--bordered">
-            <span className="nb-label nb-label--amber">&gt; quickstart</span>
             <h2 className="nb-crt-heading">Zero to running.</h2>
           </div>
 
@@ -151,9 +150,7 @@ export function NbQuickstart() {
                     &gt;
                   </span>
                   <div className="nb-crt-step-body">
-                    <span className="nb-crt-step-title nb-label">
-                      [{step.num}] {step.title}
-                    </span>
+                    <span className="nb-crt-step-title">{step.title}</span>
                     <p className="nb-crt-step-desc">{step.desc}</p>
                   </div>
                 </button>

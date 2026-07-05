@@ -17,5 +17,17 @@ export const Route = createFileRoute("/playground")({
       { property: "og:url", content: "https://vantadb.dev/playground" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/playground" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          name: "VantaDB Playground",
+          applicationCategory: "DeveloperApplication",
+          browserRequirements: "Requires JavaScript",
+        }),
+      },
+    ],
   }),
 });

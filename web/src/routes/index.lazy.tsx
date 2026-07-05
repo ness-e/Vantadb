@@ -1,14 +1,24 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbTerminalHero } from "@/components/NbTerminalHero";
+import { NbTrustBar } from "@/components/NbTrustBar";
 import { NbMetricsBar } from "@/components/NbMetricsBar";
+import { NbFeatureGrid } from "@/components/NbFeatureGrid";
 import { NbCoreEngine } from "@/components/NbCoreEngine";
 import { NbQuickstart } from "@/components/NbQuickstart";
-import { NbArchSection } from "@/components/NbArchSection";
-import { NbBenchmarkGrid } from "@/components/NbBenchmarkGrid";
+import { NbArchPreview } from "@/components/NbArchPreview";
+import { NbBenchmarkRace } from "@/components/NbBenchmarkRace";
 import { NbUseCases } from "@/components/NbUseCases";
 import { NbEcosystem } from "@/components/NbEcosystem";
+import { NbFaqAccordion } from "@/components/NbFaqAccordion";
+import { NbPricingPreview } from "@/components/NbPricingPreview";
 import { NbMonolith } from "@/components/NbMonolith";
 import "../styles/terminal-hero.css";
+import "../styles/trust-bar.css";
+import "../styles/feature-grid.css";
+import "../styles/arch-preview.css";
+import "../styles/benchmark-race.css";
+import "../styles/faq-accordion.css";
+import "../styles/pricing-preview.css";
 
 export const Route = createLazyRoute("/")({
   component: IndexPage,
@@ -19,13 +29,17 @@ function IndexPage() {
   return (
     <main className="nb-page-content">
       <NbTerminalHero />
+      <NbTrustBar />
       <NbMetricsBar />
+      <NbFeatureGrid />
       <NbCoreEngine />
       <NbQuickstart />
-      <NbArchSection />
-      <NbBenchmarkGrid />
+      <NbArchPreview />
+      <NbBenchmarkRace />
       <NbUseCases />
       <NbEcosystem />
+      <NbFaqAccordion />
+      <NbPricingPreview />
       <NbMonolith />
     </main>
   );

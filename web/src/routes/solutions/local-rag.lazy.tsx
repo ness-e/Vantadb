@@ -58,7 +58,6 @@ function LocalRagPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="02"
-        eyebrow="Solution — Local RAG"
         title={
           <span>
             Your data never
@@ -71,13 +70,17 @@ function LocalRagPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Solutions</span>
-            <span>Local RAG</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 03 — Privacy Gap</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Privacy Gap
+          </h2>
           <div className="nb-divider" />
 
           <div
@@ -90,7 +93,15 @@ function LocalRagPage() {
             }}
           >
             <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
+              >
                 Cloud RAG leaks data
               </span>
               <ul className="nb-list">
@@ -121,8 +132,14 @@ function LocalRagPage() {
               }}
             >
               <span
-                className="nb-label nb-label--amber"
-                style={{ marginBottom: "var(--space-md)" }}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
               >
                 Local-first, zero exposure
               </span>
@@ -151,7 +168,17 @@ function LocalRagPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 03 — Pipeline</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Pipeline
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
@@ -202,14 +229,20 @@ function LocalRagPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">03 / 03 — Implementation</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Implementation
+          </h2>
           <div className="nb-divider" />
 
-          <div
-            className="nb-frame"
-            data-frame-label="local_rag.py"
-            style={{ marginTop: "var(--space-xl)" }}
-          >
+          <div className="nb-frame" style={{ marginTop: "var(--space-xl)" }}>
             <pre
               style={{
                 margin: 0,
@@ -229,7 +262,15 @@ function LocalRagPage() {
             className="nb-block-amber"
             style={{ marginTop: "var(--space-xl)", textAlign: "center" }}
           >
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               GO LOCAL
             </span>
             <p
@@ -272,7 +313,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

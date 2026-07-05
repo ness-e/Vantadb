@@ -17,5 +17,17 @@ export const Route = createFileRoute("/use-cases")({
       { property: "og:url", content: "https://vantadb.dev/use-cases" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/use-cases" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Persistent Memory Use Cases",
+          description:
+            "8 production patterns for AI agent memory, local-first RAG, codebase intelligence, multi-agent orchestration, semantic search, edge IoT, healthcare RAG, and financial document processing.",
+        }),
+      },
+    ],
   }),
 });

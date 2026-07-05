@@ -17,5 +17,15 @@ export const Route = createFileRoute("/about/contact")({
       { property: "og:url", content: "https://vantadb.dev/about/contact" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/about/contact" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          name: "Contact VantaDB",
+        }),
+      },
+    ],
   }),
 });

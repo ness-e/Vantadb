@@ -55,7 +55,7 @@
   --shadow-amber: 4px 4px 0px 0px var(--amber);
   --shadow-brutal: 8px 8px 0px 0px #111111;
   --shadow-brutal-hover: 2px 2px 0px 0px #111111;
-  --shadow-glow: 0 0 20px rgba(255, 85, 0, 0.15);
+  --shadow-amber-lg: 8px 8px 0px 0px var(--amber);
   --shadow-none: none;
 
   --text-micro: 0.6rem;
@@ -114,6 +114,7 @@
   --space-4xl: 8rem;
 
   --z-base: 1;
+  --nav-height: 64px;
   --z-dropdown: 100;
   --z-sticky: 200;
   --z-overlay: 300;

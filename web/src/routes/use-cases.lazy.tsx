@@ -84,7 +84,6 @@ function UseCasesPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="04"
-        eyebrow="Use Cases"
         title={
           <span>
             Built for agents
@@ -97,7 +96,17 @@ function UseCasesPage() {
 
       <main className="nb-main">
         <section className="nb-section nb-section--bordered">
-          <span className="nb-eyebrow">01 / 02 — Production Patterns</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Production Patterns
+          </h2>
           <div
             style={{
               display: "grid",
@@ -189,7 +198,17 @@ function UseCasesPage() {
         </section>
 
         <section className="nb-section">
-          <span className="nb-eyebrow">02 / 02 — Core Pipeline</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Core Pipeline
+          </h2>
           <h2
             style={{
               fontFamily: "var(--font-display)",

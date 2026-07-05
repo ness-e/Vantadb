@@ -57,7 +57,6 @@ function AiAgentsPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="01"
-        eyebrow="Solution — AI Agent Memory"
         title={
           <span>
             Memory that
@@ -70,13 +69,17 @@ function AiAgentsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Solutions</span>
-            <span>AI Agents</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 03 — The Problem</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            The Problem
+          </h2>
           <div className="nb-divider" />
 
           <div
@@ -89,7 +92,15 @@ function AiAgentsPage() {
             }}
           >
             <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
+              >
                 Stateless agents
               </span>
               <ul className="nb-list">
@@ -120,8 +131,14 @@ function AiAgentsPage() {
               }}
             >
               <span
-                className="nb-label nb-label--amber"
-                style={{ marginBottom: "var(--space-md)" }}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
               >
                 Embedded memory
               </span>
@@ -150,15 +167,31 @@ function AiAgentsPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 03 — Memory Primitives</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Memory Primitives
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {PRIMITIVES.map((p) => (
               <div key={p.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: "var(--space-2xs)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
                 >
                   {p.num}
                 </span>
@@ -193,14 +226,20 @@ function AiAgentsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">03 / 03 — Implementation</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Implementation
+          </h2>
           <div className="nb-divider" />
 
-          <div
-            className="nb-frame"
-            data-frame-label="agent_memory.py"
-            style={{ marginTop: "var(--space-xl)" }}
-          >
+          <div className="nb-frame" style={{ marginTop: "var(--space-xl)" }}>
             <pre
               style={{
                 margin: 0,
@@ -220,7 +259,15 @@ function AiAgentsPage() {
             className="nb-block-amber"
             style={{ marginTop: "var(--space-xl)", textAlign: "center" }}
           >
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               BUILD YOUR AGENT
             </span>
             <p
@@ -263,7 +310,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

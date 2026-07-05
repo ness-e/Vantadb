@@ -23,5 +23,17 @@ export const Route = createFileRoute("/security")({
       { property: "og:url", content: "https://vantadb.dev/security" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/security" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB Security Posture",
+          description:
+            "Security is a first-class citizen. Learn how VantaDB protects agent memory.",
+        }),
+      },
+    ],
   }),
 });

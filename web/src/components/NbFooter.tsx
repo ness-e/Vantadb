@@ -4,72 +4,101 @@ import VantaDBLogo from "./VantaDBLogo";
 
 export const NbFooter = memo(function NbFooter() {
   return (
-    <footer className="nb-section nb-section--dark" data-frame-label="FOOTER">
+    <footer className="nb-section nb-section--dark">
       <div className="nb-inner">
-        <div className="footer-grid nb-frame">
+        <div className="footer-grid">
           <div className="footer-col footer-col--brand">
             <VantaDBLogo variant="full" size="sm" />
             <span className="footer-tagline">Embedded Cognitive Memory.</span>
-            <div className="footer-meta">
-              <span className="nb-pill">v0.1.0</span>
-              <span className="nb-pill">MIT</span>
-            </div>
           </div>
 
           <div className="footer-col">
-            <span className="nb-label">Product</span>
+            <h3
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.65rem",
+                letterSpacing: "0.12em",
+                color: "var(--amber)",
+                textTransform: "uppercase",
+                marginBottom: "var(--space-sm)",
+              }}
+            >
+              Product
+            </h3>
             <Link to="/engine" className="footer-link">
-              &gt; Core Engine
+              Core Engine
             </Link>
             <Link to="/architecture" className="footer-link">
-              &gt; Architecture
+              Architecture
             </Link>
             <Link to="/integrations" className="footer-link">
-              &gt; Integrations
+              Integrations
             </Link>
             <Link to="/solutions/ai-agents" className="footer-link">
-              &gt; AI Agents
+              AI Agents
             </Link>
             <Link to="/solutions/local-rag" className="footer-link">
-              &gt; Local RAG
+              Local RAG
             </Link>
             <Link to="/pricing" className="footer-link">
-              &gt; Pricing
+              Pricing
             </Link>
           </div>
 
           <div className="footer-col">
-            <span className="nb-label">Resources</span>
+            <h3
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.65rem",
+                letterSpacing: "0.12em",
+                color: "var(--amber)",
+                textTransform: "uppercase",
+                marginBottom: "var(--space-sm)",
+              }}
+            >
+              Resources
+            </h3>
             <Link to="/docs" className="footer-link">
-              &gt; Documentation
+              Documentation
             </Link>
             <Link to="/use-cases" className="footer-link">
-              &gt; Use Cases
+              Use Cases
             </Link>
             <Link to="/solutions/security" className="footer-link">
-              &gt; Security
+              Security
             </Link>
             <Link to="/changelog" className="footer-link">
-              &gt; Changelog
+              Changelog
             </Link>
             <Link to="/product/benchmarks" className="footer-link">
-              &gt; Benchmarks
+              Benchmarks
             </Link>
             <Link to="/blog" className="footer-link">
-              &gt; Blog
+              Blog
             </Link>
           </div>
 
           <div className="footer-col">
-            <span className="nb-label">Company</span>
+            <h3
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.65rem",
+                letterSpacing: "0.12em",
+                color: "var(--amber)",
+                textTransform: "uppercase",
+                marginBottom: "var(--space-sm)",
+              }}
+            >
+              Company
+            </h3>
             <Link to="/about" className="footer-link">
-              &gt; About
+              About
             </Link>
             <Link to="/about/community" className="footer-link">
-              &gt; Community
+              Community
             </Link>
             <Link to="/about/contact" className="footer-link">
-              &gt; Contact
+              Contact
             </Link>
           </div>
         </div>
@@ -85,7 +114,7 @@ export const NbFooter = memo(function NbFooter() {
               rel="noreferrer"
               className="footer-link footer-link--sm"
             >
-              &gt; GitHub
+              GitHub
             </a>
             <a
               href="https://twitter.com/vantadb"
@@ -93,7 +122,7 @@ export const NbFooter = memo(function NbFooter() {
               rel="noreferrer"
               className="footer-link footer-link--sm"
             >
-              &gt; Twitter
+              Twitter
             </a>
             <a
               href="https://discord.gg/vantadb"
@@ -101,7 +130,7 @@ export const NbFooter = memo(function NbFooter() {
               rel="noreferrer"
               className="footer-link footer-link--sm"
             >
-              &gt; Discord
+              Discord
             </a>
           </div>
         </div>

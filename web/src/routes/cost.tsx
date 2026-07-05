@@ -17,5 +17,17 @@ export const Route = createFileRoute("/cost")({
       { property: "og:url", content: "https://vantadb.dev/cost" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/cost" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Infrastructure Cost: Zero Runtime",
+          description:
+            "Eliminate $200+/mo infrastructure costs. VantaDB runs in-process with zero cloud dependencies and no per-query pricing.",
+        }),
+      },
+    ],
   }),
 });

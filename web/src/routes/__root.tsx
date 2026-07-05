@@ -9,7 +9,8 @@ import {
 } from "@tanstack/react-router";
 import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
-import { Nav } from "../components/Nav";
+import { NbNav } from "../components/NbNav";
+import "../styles/nb-nav.css";
 import { NbFooter } from "../components/NbFooter";
 import { NbBackToTop } from "../components/NbBackToTop";
 import { PendingComponent } from "../components/PendingComponent";
@@ -238,7 +239,7 @@ function RootComponent() {
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <Nav />
+        <NbNav />
         <Suspense fallback={<PendingComponent />}>
           <div id="main-content" className="route-content">
             <Outlet />

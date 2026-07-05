@@ -11,13 +11,41 @@ export const Route = createLazyRoute("/architecture")({
 function SpecRow({ label, val, desc }: { label: string; val: string; desc: string }) {
   return (
     <tr>
-      <td className="font-mono font-bold text-[0.7rem] tracking-[0.05em] text-foreground border-2 border-[var(--border-visible)] px-4 py-4">
+      <td
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontWeight: 700,
+          fontSize: "0.7rem",
+          letterSpacing: "0.05em",
+          color: "var(--foreground)",
+          border: "2px solid var(--border-visible)",
+          padding: "var(--space-md)",
+        }}
+      >
         {label}
       </td>
-      <td className="font-mono font-bold text-[0.7rem] text-amber border-2 border-[var(--border-visible)] px-4 py-4">
+      <td
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontWeight: 700,
+          fontSize: "0.7rem",
+          color: "var(--amber)",
+          border: "2px solid var(--border-visible)",
+          padding: "var(--space-md)",
+        }}
+      >
         {val}
       </td>
-      <td className="font-sans text-[0.82rem] text-muted leading-relaxed border-2 border-[var(--border-visible)] px-4 py-4">
+      <td
+        style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: "var(--text-code)",
+          color: "var(--muted)",
+          lineHeight: 1.6,
+          border: "2px solid var(--border-visible)",
+          padding: "var(--space-md)",
+        }}
+      >
         {desc}
       </td>
     </tr>
@@ -61,20 +89,51 @@ function PerformanceProfiler() {
   const hoveredData = segments.find((s) => s.id === hoveredSegment);
 
   return (
-    <div className="nb-frame" data-frame-label="CPU TIME DISTRIBUTION">
-      <div className="flex justify-between items-baseline mb-6">
-        <span className="font-mono text-[0.65rem] text-steel uppercase tracking-[0.05em]">
+    <div className="nb-frame">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          marginBottom: "var(--space-lg)",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.65rem",
+            color: "var(--steel)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
           CPU TIME DISTRIBUTION
         </span>
-        <span className="font-mono text-[0.65rem] text-muted">HOVER SEGMENTS TO PROFILE</span>
+        <span
+          style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)" }}
+        >
+          HOVER SEGMENTS TO PROFILE
+        </span>
       </div>
 
-      <div className="flex w-full h-8 gap-[1px] mb-8" style={{ background: "var(--border)" }}>
+      <div
+        style={{
+          display: "flex",
+          width: "100%",
+          height: "2rem",
+          gap: "1px",
+          marginBottom: "var(--space-xl)",
+          background: "var(--border)",
+        }}
+      >
         {segments.map((seg) => (
           <div
             key={seg.id}
-            className="flex items-center justify-center cursor-pointer"
             style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
               width: `${seg.share}%`,
               height: "100%",
               background: seg.id === hoveredSegment ? "var(--amber)" : seg.color,
@@ -84,10 +143,13 @@ function PerformanceProfiler() {
             onMouseLeave={() => setHoveredSegment(null)}
           >
             <span
-              className="font-mono text-[0.65rem] font-bold"
               style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.65rem",
+                fontWeight: 700,
                 color: seg.id === hoveredSegment ? "#000000" : "var(--background)",
                 opacity: seg.share > 15 ? 1 : 0,
+                fontVariantNumeric: "tabular-nums",
               }}
             >
               {seg.share}%
@@ -96,22 +158,65 @@ function PerformanceProfiler() {
         ))}
       </div>
 
-      <div className="pt-5 min-h-[5.5rem]" style={{ borderTop: "1px solid var(--border)" }}>
+      <div
+        style={{
+          paddingTop: "var(--space-lg)",
+          minHeight: "5.5rem",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
         {hoveredData ? (
           <div>
-            <div className="font-mono text-[0.7rem] font-bold uppercase text-amber tracking-[0.08em] mb-1">
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--amber)",
+                letterSpacing: "0.08em",
+                marginBottom: "var(--space-2xs)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
               {hoveredData.label} — {hoveredData.share}% of query budget
             </div>
-            <p className="font-sans text-[0.78rem] text-muted m-0 leading-relaxed">
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "0.78rem",
+                color: "var(--muted)",
+                margin: 0,
+                lineHeight: 1.6,
+              }}
+            >
               {hoveredData.desc}
             </p>
           </div>
         ) : (
           <div>
-            <div className="font-mono text-[0.7rem] font-bold uppercase text-steel tracking-[0.08em] mb-1">
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--steel)",
+                letterSpacing: "0.08em",
+                marginBottom: "var(--space-2xs)",
+              }}
+            >
               Engine Performance Summary
             </div>
-            <p className="font-sans text-[0.78rem] text-muted m-0 leading-relaxed">
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "0.78rem",
+                color: "var(--muted)",
+                margin: 0,
+                lineHeight: 1.6,
+              }}
+            >
               Hover over the latency bar segments above to analyze where the database spends CPU
               cycles during typical multi-modal queries.
             </p>
@@ -154,7 +259,6 @@ function ArchitecturePage() {
     <div>
       <NbSubpageHero
         num="02"
-        eyebrow="Architecture"
         title={
           <span>
             Direct compilation.
@@ -170,30 +274,90 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <div className="nb-label">01 / 03 — The Stack</div>
-                <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-tight">
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(2rem,4vw,3rem)",
+                    fontWeight: 800,
+                    letterSpacing: "-0.04em",
+                    marginTop: "var(--space-lg)",
+                    marginBottom: "var(--space-lg)",
+                    lineHeight: 1.25,
+                  }}
+                >
                   Stack Layers
                 </h2>
-                <p className="font-sans text-[0.95rem] text-muted leading-relaxed">
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "0.95rem",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                  }}
+                >
                   VantaDB provides safe bindings on top of a highly optimized multi-modal execution
                   core and storage layer.
                 </p>
               </div>
               <div className="nb-grid nb-grid--cols-2">
                 {layers.map((lyr) => (
-                  <div key={lyr.num} className="nb-cell flex flex-col gap-2">
-                    <div className="flex justify-between items-baseline">
-                      <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.05em]">
+                  <div
+                    key={lyr.num}
+                    className="nb-cell"
+                    style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.6rem",
+                          color: "var(--steel)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
                         {lyr.tag}
                       </span>
-                      <span className="font-mono text-[0.6rem] text-amber font-bold">
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: "0.6rem",
+                          color: "var(--amber)",
+                          fontWeight: 700,
+                        }}
+                      >
                         LAYER {lyr.num}
                       </span>
                     </div>
-                    <h3 className="font-display text-xl font-bold mt-2 mb-0 text-foreground">
+                    <h3
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "1.25rem",
+                        lineHeight: "1.75rem",
+                        fontWeight: 700,
+                        marginTop: "var(--space-xs)",
+                        marginBottom: 0,
+                        color: "var(--foreground)",
+                      }}
+                    >
                       {lyr.title}
                     </h3>
-                    <p className="text-[0.82rem] text-muted leading-relaxed m-0">{lyr.body}</p>
+                    <p
+                      style={{
+                        fontSize: "var(--text-code)",
+                        color: "var(--muted)",
+                        lineHeight: 1.6,
+                        margin: 0,
+                      }}
+                    >
+                      {lyr.body}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -210,11 +374,28 @@ function ArchitecturePage() {
                 <PerformanceProfiler />
               </div>
               <div>
-                <div className="nb-label">02 / 03 — Profiling</div>
-                <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-tight">
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(2rem,4vw,3rem)",
+                    fontWeight: 800,
+                    letterSpacing: "-0.04em",
+                    marginTop: "var(--space-lg)",
+                    marginBottom: "var(--space-lg)",
+                    lineHeight: 1.25,
+                  }}
+                >
                   Query Latency
                 </h2>
-                <p className="font-sans text-[0.95rem] text-muted leading-relaxed mb-0">
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "0.95rem",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    marginBottom: 0,
+                  }}
+                >
                   Due to direct sharing of pointer addresses, the cost of crossing FFI bindings is
                   less than 12% of total search time, leaving CPU resources free to evaluate
                   similarity indexes.
@@ -230,17 +411,34 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <div className="nb-label">03 / 03 — Specifications</div>
-                <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-tight">
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(2rem,4vw,3rem)",
+                    fontWeight: 800,
+                    letterSpacing: "-0.04em",
+                    marginTop: "var(--space-lg)",
+                    marginBottom: "var(--space-lg)",
+                    lineHeight: 1.25,
+                  }}
+                >
                   Operational Limits
                 </h2>
-                <p className="font-sans text-[0.95rem] text-muted leading-relaxed mb-0">
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "0.95rem",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    marginBottom: 0,
+                  }}
+                >
                   Technical limits enforced at memory layer boundaries to prevent out-of-memory
                   states during heavy concurrent query evaluations.
                 </p>
               </div>
               <div>
-                <div className="nb-frame" data-frame-label="SPECS">
+                <div className="nb-frame">
                   <table className="nb-table" style={{ border: "none" }}>
                     <thead>
                       <tr>
@@ -296,24 +494,39 @@ function ArchitecturePage() {
         <section className="nb-section nb-bg-dot">
           <div className="nb-inner">
             <div className="nb-block-amber">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "var(--space-md)",
+                  flexWrap: "wrap",
+                }}
+              >
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "1.5rem",
+                      lineHeight: "2rem",
+                      fontWeight: 800,
+                      color: "var(--text-on-amber)",
+                    }}
                   >
                     Compiles to native. Runs in your process.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p style={{ fontSize: "0.875rem", color: "var(--text-on-amber)", opacity: 0.8 }}>
                     Install VantaDB in one command.
                   </p>
                 </div>
                 <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "1.125rem",
+                    lineHeight: "1.75rem",
+                    fontWeight: 700,
+                    color: "var(--text-on-amber)",
+                  }}
                 >
                   pip install vantadb-py
                 </code>

@@ -144,7 +144,6 @@ function IntegrationsPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="03"
-        eyebrow="Ecosystem & Integrations"
         title={
           <span>
             Fits your stack.
@@ -157,7 +156,17 @@ function IntegrationsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">01 / 02 — Framework Connectors</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Framework Connectors
+          </h2>
           <div className="nb-divider" />
 
           <div
@@ -190,8 +199,12 @@ function IntegrationsPage() {
                     }}
                   >
                     <span
-                      className="nb-label"
-                      style={{ color: selectedId === int.id ? "var(--amber)" : "var(--steel)" }}
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "var(--text-micro)",
+                        color: selectedId === int.id ? "var(--amber)" : "var(--steel)",
+                        marginBottom: 0,
+                      }}
                     >
                       {int.category}
                     </span>
@@ -219,11 +232,31 @@ function IntegrationsPage() {
                     marginBottom: "var(--space-2xs)",
                   }}
                 >
-                  <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
-                    &gt; {active.tag}
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "var(--text-micro)",
+                      color: "var(--amber)",
+                      fontWeight: 700,
+                      marginBottom: 0,
+                    }}
+                  >
+                    {active.tag}
                   </span>
                   {active.experimental && (
-                    <span className="nb-pill-status nb-pill-status--amber">EXPERIMENTAL</span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "var(--text-micro)",
+                        color: "var(--amber)",
+                        fontWeight: 700,
+                        border: "1px solid var(--amber)",
+                        padding: "2px 6px",
+                        marginLeft: "var(--space-2xs)",
+                      }}
+                    >
+                      EXPERIMENTAL
+                    </span>
                   )}
                 </div>
                 <p
@@ -240,7 +273,7 @@ function IntegrationsPage() {
               </div>
             </div>
 
-            <div className="nb-frame" data-frame-label={active.label} style={{ overflowX: "auto" }}>
+            <div className="nb-frame" style={{ overflowX: "auto" }}>
               <div
                 style={{
                   display: "flex",
@@ -249,7 +282,14 @@ function IntegrationsPage() {
                   marginBottom: "var(--space-sm)",
                 }}
               >
-                <span className="nb-label" style={{ marginBottom: 0 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--muted)",
+                    marginBottom: 0,
+                  }}
+                >
                   {active.tag}
                 </span>
                 <button
@@ -280,7 +320,17 @@ function IntegrationsPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 02 — Ecosystem</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Ecosystem
+          </h2>
           <div className="nb-divider" />
           <p
             style={{
@@ -312,7 +362,16 @@ function IntegrationsPage() {
                 >
                   {item.name}
                 </div>
-                <span className="nb-label" style={{ marginTop: "var(--space-3xs)" }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--muted)",
+                    marginTop: "var(--space-3xs)",
+                    marginBottom: 0,
+                    display: "block",
+                  }}
+                >
                   {item.tag}
                 </span>
               </div>
@@ -324,7 +383,15 @@ function IntegrationsPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               BUILD YOUR INTEGRATION
             </span>
             <p

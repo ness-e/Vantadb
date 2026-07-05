@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { NbCursor } from "./nb/NbCursor";
 import { NbLogLine } from "./nb/NbLogLine";
-import { NbPill } from "./nb/NbPill";
 import { NbNoise } from "./nb/NbNoise";
 
 const BOOT_LOG = [
@@ -23,7 +22,7 @@ const DEMO_COMMANDS = [
   '  1. "Quantum computing basics" — score: 0.94',
   '  2. "Introduction to qubits" — score: 0.87',
   '  3. "Quantum algorithms" — score: 0.81',
-  '  Time: 0.47ms (zero network)',
+  "  Time: 0.47ms (zero network)",
 ];
 
 export function NbTerminalHero() {
@@ -65,32 +64,46 @@ export function NbTerminalHero() {
   }, []);
 
   return (
-    <section className="nb-terminal-hero" aria-label="Terminal hero">
+    <section className="nb-terminal-hero" aria-label="Hero">
       <NbNoise />
       <div className="nb-terminal-hero-grid" aria-hidden="true">
-        <svg viewBox="0 0 1280 800" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <svg
+          viewBox="0 0 1280 800"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+        >
           {Array.from({ length: 12 }, (_, i) => (
-            <line key={`v${i}`} x1={`${(i / 12) * 100}%`} y1="0" x2={`${(i / 12) * 100}%`} y2="100%" stroke="var(--border)" strokeWidth="0.5" />
+            <line
+              key={`v${i}`}
+              x1={`${(i / 12) * 100}%`}
+              y1="0"
+              x2={`${(i / 12) * 100}%`}
+              y2="100%"
+              stroke="var(--border)"
+              strokeWidth="0.5"
+            />
           ))}
           {Array.from({ length: 8 }, (_, i) => (
-            <line key={`h${i}`} x1="0" y1={`${(i / 7) * 100}%`} x2="100%" y2={`${(i / 7) * 100}%`} stroke="var(--border)" strokeWidth="0.5" />
+            <line
+              key={`h${i}`}
+              x1="0"
+              y1={`${(i / 7) * 100}%`}
+              x2="100%"
+              y2={`${(i / 7) * 100}%`}
+              stroke="var(--border)"
+              strokeWidth="0.5"
+            />
           ))}
         </svg>
       </div>
 
       <div className="nb-terminal-hero-inner">
-        <div className="nb-telemetry" aria-hidden="true">
-          <span>[ VANTADB v0.1.5 ]</span>
-          <span>ENGINE: READY</span>
-          <span>MODE: EMBEDDED</span>
-          <span>LATENCY: SUB-MS</span>
-        </div>
-
         <div className="nb-terminal-hero-pills">
-          <NbPill variant="amber">OPEN SOURCE</NbPill>
-          <NbPill>RUST-NATIVE</NbPill>
-          <NbPill>IN-PROCESS</NbPill>
-          <NbPill>APACHE 2.0</NbPill>
+          <span className="nb-terminal-hero-pill">OPEN SOURCE</span>
+          <span className="nb-terminal-hero-pill">RUST-NATIVE</span>
+          <span className="nb-terminal-hero-pill">IN-PROCESS</span>
+          <span className="nb-terminal-hero-pill">APACHE 2.0</span>
         </div>
 
         <h1 className="nb-terminal-hero-title">
@@ -98,7 +111,10 @@ export function NbTerminalHero() {
             Embedded Memory
           </span>
           <br />
-          <span className="nb-terminal-hero-glitch nb-terminal-hero-glitch--amber" data-text="Engine">
+          <span
+            className="nb-terminal-hero-glitch nb-terminal-hero-glitch--amber"
+            data-text="Engine"
+          >
             Engine
           </span>
           <span className="nb-terminal-hero-title-muted"> for AI</span>
@@ -107,17 +123,48 @@ export function NbTerminalHero() {
         <p className="nb-terminal-hero-desc">
           HNSW vector search, BM25 full-text, and hybrid RRF in a single Rust binary.
           <br />
-          <span className="nb-terminal-hero-desc-sub">[ zero servers &middot; zero ops &middot; sub-millisecond ]</span>
+          <span className="nb-terminal-hero-desc-sub">
+            [ zero servers &middot; zero ops &middot; sub-millisecond ]
+          </span>
         </p>
 
         <div className="nb-terminal-hero-actions">
-          <button onClick={handleCopy} className="nb-terminal-hero-cta" aria-label="Copy install command">
+          <button
+            onClick={handleCopy}
+            className="nb-terminal-hero-cta"
+            aria-label="Copy install command"
+          >
             <span className="nb-terminal-hero-cta-prefix">{">"}</span>
-            <span className="nb-terminal-hero-cta-text">{copied ? "Copied!" : "pip install vantadb-py"}</span>
+            <span className="nb-terminal-hero-cta-text">
+              {copied ? "Copied!" : "pip install vantadb-py"}
+            </span>
             {copied ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
             )}
           </button>
           <Link to="/docs" className="nb-arrow">
@@ -152,7 +199,9 @@ export function NbTerminalHero() {
             </div>
           ))}
           {cmdIndex < DEMO_COMMANDS.length && showPrompt && (
-            <span className="nb-terminal-window-prompt-ready">&gt;&gt;&gt; <NbCursor /></span>
+            <span className="nb-terminal-window-prompt-ready">
+              &gt;&gt;&gt; <NbCursor />
+            </span>
           )}
           {cmdIndex >= DEMO_COMMANDS.length && (
             <div className="nb-terminal-window-prompt">
@@ -160,25 +209,6 @@ export function NbTerminalHero() {
               <NbCursor />
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="nb-terminal-marquee" aria-hidden="true">
-        <div className="nb-terminal-marquee-track">
-          <span>sub-millisecond hybrid queries</span>
-          <span>zero infrastructure</span>
-          <span>HNSW + BM25 + RRF</span>
-          <span>WAL durability</span>
-          <span>Apache 2.0</span>
-          <span>Rust native</span>
-          <span>embedded in-process</span>
-          <span>sub-millisecond hybrid queries</span>
-          <span>zero infrastructure</span>
-          <span>HNSW + BM25 + RRF</span>
-          <span>WAL durability</span>
-          <span>Apache 2.0</span>
-          <span>Rust native</span>
-          <span>embedded in-process</span>
         </div>
       </div>
     </section>

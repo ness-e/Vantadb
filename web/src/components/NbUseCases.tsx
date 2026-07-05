@@ -59,7 +59,6 @@ export function NbUseCases() {
     <section ref={sectionRef} className="nb-section" aria-label="Use cases">
       <div className="nb-inner">
         <div className="nb-section-header">
-          <span className="nb-label nb-label--amber">[USE CASES]</span>
           <h2 className="usecase-heading">Built for real AI workflows.</h2>
         </div>
 
@@ -70,9 +69,6 @@ export function NbUseCases() {
               className="usecase-card"
               aria-label={`Use case ${uc.id}: ${uc.title}`}
             >
-              <span className="usecase-prefix" aria-hidden="true">
-                &gt; [{uc.id}]
-              </span>
               <h3 className="usecase-title">{uc.title}</h3>
               <p className="usecase-desc">{uc.desc}</p>
             </article>

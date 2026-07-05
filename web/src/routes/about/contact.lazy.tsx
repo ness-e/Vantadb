@@ -49,7 +49,6 @@ function ContactPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="06"
-        eyebrow="About — Contact"
         title={
           <span>
             Get in touch.
@@ -62,22 +61,29 @@ function ContactPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Contact</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 02 — Contact Channels</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Contact Channels
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
             {CONTACTS.map((c) => (
               <div key={c.channel} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
                 <span
-                  className="nb-label"
                   style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
                     color: c.type === "email" ? "var(--amber)" : "var(--steel)",
                     marginBottom: "var(--space-2xs)",
+                    display: "block",
                   }}
                 >
                   {c.type === "email" ? "EMAIL" : "LINK"}
@@ -95,8 +101,14 @@ function ContactPage() {
                   {c.channel}
                 </h3>
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: "var(--space-2xs)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
                 >
                   {c.detail}
                 </span>
@@ -119,7 +131,17 @@ function ContactPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 02 — Security</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Security
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-split-7-5" style={{ marginTop: "var(--space-xl)" }}>
@@ -148,8 +170,14 @@ function ContactPage() {
               >
                 Found a security vulnerability? Email{" "}
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ display: "inline", marginBottom: 0 }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    display: "inline",
+                    marginBottom: 0,
+                  }}
                 >
                   security@vantadb.dev
                 </span>
@@ -177,7 +205,15 @@ function ContactPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               GET STARTED
             </span>
             <p
@@ -220,7 +256,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

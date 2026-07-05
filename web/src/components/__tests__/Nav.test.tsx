@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { Nav } from "../Nav";
+import { NbNav } from "../NbNav";
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -19,18 +19,18 @@ vi.mock("@tanstack/react-router", () => ({
   useLocation: () => ({ pathname: "/" }),
 }));
 
-describe("Nav", () => {
+describe("NbNav", () => {
   it("renders the logo (appears in desktop header and mobile drawer)", () => {
-    render(<Nav />);
+    render(<NbNav />);
     const logos = screen.getAllByText("VantaDB");
     expect(logos.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders nav links in desktop nav", () => {
-    render(<Nav />);
-    const desktopNav = document.querySelector(".nav-desktop")!;
+    render(<NbNav />);
+    const desktopNav = document.querySelector(".nb-nav-desktop")!;
     expect(desktopNav).toBeInTheDocument();
-    expect(desktopNav.querySelectorAll(".nav-link").length).toBe(7);
+    expect(desktopNav.querySelectorAll(".nb-nav-link").length).toBe(7);
     expect(desktopNav.textContent).toContain("Core Engine");
     expect(desktopNav.textContent).toContain("Architecture");
     expect(desktopNav.textContent).toContain("AI Agents");
@@ -40,7 +40,7 @@ describe("Nav", () => {
   });
 
   it("renders Docs and GitHub CTAs", () => {
-    render(<Nav />);
+    render(<NbNav />);
     const docsLinks = screen.getAllByText("Docs");
     expect(docsLinks.length).toBeGreaterThanOrEqual(1);
     const ghLinks = screen.getAllByText("GitHub");
@@ -48,7 +48,7 @@ describe("Nav", () => {
   });
 
   it("toggles mobile menu on hamburger click", () => {
-    render(<Nav />);
+    render(<NbNav />);
     const hamburger = screen.getByLabelText("Menu");
     expect(hamburger).toBeInTheDocument();
 
@@ -61,9 +61,9 @@ describe("Nav", () => {
   });
 
   it("shows overlay when mobile menu is open", () => {
-    render(<Nav />);
+    render(<NbNav />);
     fireEvent.click(screen.getByLabelText("Menu"));
-    const overlay = document.querySelector(".nav-overlay")!;
+    const overlay = document.querySelector(".nb-nav-overlay")!;
     expect(overlay).toBeInTheDocument();
     fireEvent.click(overlay);
     expect(screen.getByLabelText("Menu")).toBeInTheDocument();

@@ -33,6 +33,7 @@ import { Route as SolutionsAiIdeToolingRouteImport } from './routes/solutions/ai
 import { Route as SolutionsAiAgentsRouteImport } from './routes/solutions/ai-agents'
 import { Route as ProductBenchmarksRouteImport } from './routes/product/benchmarks'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as AboutTeamRouteImport } from './routes/about/team'
 import { Route as AboutContactRouteImport } from './routes/about/contact'
 import { Route as AboutCompanyRouteImport } from './routes/about/company'
 import { Route as AboutCommunityRouteImport } from './routes/about/community'
@@ -165,6 +166,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/blog/$slug.lazy').then((d) => d.Route))
+const AboutTeamRoute = AboutTeamRouteImport.update({
+  id: '/about/team',
+  path: '/about/team',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/about/team.lazy').then((d) => d.Route))
 const AboutContactRoute = AboutContactRouteImport.update({
   id: '/about/contact',
   path: '/about/contact',
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
+  '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/team'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/team'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -352,6 +363,7 @@ export interface FileRouteTypes {
     | '/about/community'
     | '/about/company'
     | '/about/contact'
+    | '/about/team'
     | '/blog/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
@@ -382,6 +394,7 @@ export interface RootRouteChildren {
   AboutCommunityRoute: typeof AboutCommunityRoute
   AboutCompanyRoute: typeof AboutCompanyRoute
   AboutContactRoute: typeof AboutContactRoute
+  AboutTeamRoute: typeof AboutTeamRoute
   BlogSlugRoute: typeof BlogSlugRoute
   ProductBenchmarksRoute: typeof ProductBenchmarksRoute
   SolutionsAiAgentsRoute: typeof SolutionsAiAgentsRoute
@@ -561,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about/team': {
+      id: '/about/team'
+      path: '/about/team'
+      fullPath: '/about/team'
+      preLoaderRoute: typeof AboutTeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about/contact': {
       id: '/about/contact'
       path: '/about/contact'
@@ -606,6 +626,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutCommunityRoute: AboutCommunityRoute,
   AboutCompanyRoute: AboutCompanyRoute,
   AboutContactRoute: AboutContactRoute,
+  AboutTeamRoute: AboutTeamRoute,
   BlogSlugRoute: BlogSlugRoute,
   ProductBenchmarksRoute: ProductBenchmarksRoute,
   SolutionsAiAgentsRoute: SolutionsAiAgentsRoute,

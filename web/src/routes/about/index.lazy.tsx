@@ -1,6 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/about.css";
 
 export const Route = createLazyRoute("/about/")({
   component: AboutIndex,
@@ -40,7 +41,6 @@ function AboutIndex() {
     <div className="nb-page">
       <NbSubpageHero
         num="06"
-        eyebrow="About VantaDB"
         title={
           <span>
             The database that
@@ -55,30 +55,9 @@ function AboutIndex() {
         <div className="nb-inner">
           <div className="nb-grid nb-grid--cols-4">
             {STATS.map((s) => (
-              <div
-                key={s.label}
-                className="nb-cell"
-                style={{ padding: "var(--space-lg) var(--space-xl)" }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-metric)",
-                    fontWeight: 800,
-                    letterSpacing: "var(--tracking-tight)",
-                    color: "var(--foreground)",
-                    lineHeight: 1,
-                    display: "block",
-                  }}
-                >
-                  {s.value}
-                </span>
-                <span
-                  className="nb-label"
-                  style={{ marginTop: "var(--space-3xs)", marginBottom: 0 }}
-                >
-                  {s.label}
-                </span>
+              <div key={s.label} className="nb-cell about-stat-card">
+                <span className="about-stat-value">{s.value}</span>
+                <span className="about-stat-label">{s.label}</span>
               </div>
             ))}
           </div>
@@ -87,57 +66,15 @@ function AboutIndex() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">01 / 01 — Navigation</span>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-3 about-nav-grid">
             {NAV_SECTIONS.map((s) => (
-              <Link
-                key={s.num}
-                to={s.href as "/"}
-                className="nb-cell"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-sm)",
-                  padding: "var(--space-xl)",
-                  textDecoration: "none",
-                  borderLeft: "2px solid transparent",
-                  transition: "all 150ms var(--ease-brutal)",
-                  background: "var(--background)",
-                  borderLeftColor: "transparent",
-                }}
-              >
-                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
-                  {s.num}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 800,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
-                  {s.title}
-                </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
-                  {s.desc}
-                </p>
-                <span className="nb-arrow" style={{ marginTop: "auto" }}>
-                  {s.href}
-                </span>
+              <Link key={s.num} to={s.href as "/"} className="nb-cell about-nav-card">
+                <span className="about-nav-number">{s.num}</span>
+                <h2 className="about-nav-title">{s.title}</h2>
+                <p className="about-nav-desc">{s.desc}</p>
+                <span className="nb-arrow about-nav-arrow">{s.href}</span>
               </Link>
             ))}
           </div>

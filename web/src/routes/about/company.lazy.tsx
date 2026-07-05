@@ -47,7 +47,6 @@ function CompanyPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="06"
-        eyebrow="About — Company"
         title={
           <span>
             Built for the
@@ -60,12 +59,17 @@ function CompanyPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Company</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 03 — Purpose</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Purpose
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-split-7-5" style={{ marginTop: "var(--space-xl)" }}>
@@ -101,15 +105,31 @@ function CompanyPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 03 — Values</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Values
+          </h2>
           <div className="nb-divider" />
 
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {VALUES.map((v) => (
               <div key={v.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: "var(--space-2xs)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
                 >
                   {v.num}
                 </span>
@@ -144,7 +164,17 @@ function CompanyPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">03 / 03 — Why VantaDB</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Why VantaDB
+          </h2>
           <div className="nb-divider" />
           <p
             style={{
@@ -171,7 +201,15 @@ function CompanyPage() {
               className="nb-card"
               style={{ border: "none", boxShadow: "none", background: "var(--background)" }}
             >
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
+              >
                 The alternatives
               </span>
               <ul className="nb-list">
@@ -202,8 +240,14 @@ function CompanyPage() {
               }}
             >
               <span
-                className="nb-label nb-label--amber"
-                style={{ marginBottom: "var(--space-md)" }}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
               >
                 VantaDB
               </span>
@@ -233,7 +277,15 @@ function CompanyPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               READ OUR STORY
             </span>
             <p
@@ -276,7 +328,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

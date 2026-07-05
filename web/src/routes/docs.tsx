@@ -17,5 +17,17 @@ export const Route = createFileRoute("/docs")({
       { property: "og:url", content: "https://vantadb.dev/docs" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/docs" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Documentation",
+          description:
+            "Get started with VantaDB: embedded database for AI agents. Installation, quickstart, SDK reference, and guides.",
+        }),
+      },
+    ],
   }),
 });

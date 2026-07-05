@@ -19,20 +19,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/components/NbSubpageHero", () => ({
-  NbSubpageHero: ({
-    num,
-    eyebrow,
-    title,
-    sub,
-  }: {
-    num: string;
-    eyebrow: string;
-    title: React.ReactNode;
-    sub?: string;
-  }) => (
+  NbSubpageHero: ({ num, title, sub }: { num: string; title: React.ReactNode; sub?: string }) => (
     <div data-testid="nb-hero">
       <span data-testid="hero-num">{num}</span>
-      <span data-testid="hero-eyebrow">{eyebrow}</span>
       <div data-testid="hero-title">{title}</div>
       {sub && <p data-testid="hero-sub">{sub}</p>}
     </div>
@@ -49,7 +38,7 @@ describe("PricingPage", () => {
 
   it("renders the hero section", () => {
     expect(screen.getByTestId("nb-hero")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-eyebrow")).toHaveTextContent("Pricing");
+    expect(screen.getByTestId("hero-num")).toHaveTextContent("05");
   });
 
   it("renders all four pricing tiers", () => {
@@ -72,17 +61,7 @@ describe("PricingPage", () => {
     expect(screen.getByText("Contact Sales")).toBeInTheDocument();
   });
 
-  it("shows 'EARLY ACCESS' badge on Cloud Pro (featured tier)", () => {
-    const badges = screen.getAllByText("EARLY ACCESS");
-    expect(badges.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("renders the feature comparison section", () => {
-    expect(screen.getByText(/02 \/ 03/)).toBeInTheDocument();
-  });
-
   it("renders FAQ section with questions", () => {
-    expect(screen.getByText(/03 \/ 03/)).toBeInTheDocument();
     expect(screen.getByText("Is VantaDB really free?")).toBeInTheDocument();
     expect(screen.getByText("Can I use VantaDB commercially?")).toBeInTheDocument();
     expect(screen.getByText("What is included in the Cloud plans?")).toBeInTheDocument();

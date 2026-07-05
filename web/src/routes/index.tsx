@@ -16,5 +16,20 @@ export const Route = createFileRoute("/")({
       },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "VantaDB",
+          applicationCategory: "DatabaseApplication",
+          operatingSystem: "Linux, macOS, Windows",
+          description:
+            "Open-source embedded vector database for AI agents. HNSW + BM25 hybrid search in one Rust binary.",
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        }),
+      },
+    ],
   }),
 });

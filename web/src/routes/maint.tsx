@@ -17,5 +17,17 @@ export const Route = createFileRoute("/maint")({
       { property: "og:url", content: "https://vantadb.dev/maint" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/maint" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Zero Maintenance Operations",
+          description:
+            "No daemons to monitor, no clusters to scale, no patches to schedule. VantaDB runs as an embedded library — your app IS the database server.",
+        }),
+      },
+    ],
   }),
 });

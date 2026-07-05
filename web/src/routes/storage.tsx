@@ -17,5 +17,17 @@ export const Route = createFileRoute("/storage")({
       { property: "og:url", content: "https://vantadb.dev/storage" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/storage" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Single-Binary Storage Architecture",
+          description:
+            "VantaDB replaces Pinecone + Redis + S3 with a single Rust binary. LSM-tree storage, WAL durability, HNSW indexing — everything in one file.",
+        }),
+      },
+    ],
   }),
 });
