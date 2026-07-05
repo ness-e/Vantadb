@@ -35,7 +35,12 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
-                    index.add(id as u64, FilterBitset::all_set(), VectorRepresentations::Full(vec), 0);
+                    index.add(
+                        id as u64,
+                        FilterBitset::all_set(),
+                        VectorRepresentations::Full(vec),
+                        0,
+                    );
                 }
                 total_duration += start.elapsed();
             }
@@ -68,7 +73,14 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
         b.iter(|| {
             for query in &queries {
-                std::hint::black_box(index.search_nearest(query, None, None, &FilterBitset::all_set(), 10, None));
+                std::hint::black_box(index.search_nearest(
+                    query,
+                    None,
+                    None,
+                    &FilterBitset::all_set(),
+                    10,
+                    None,
+                ));
             }
         });
     });

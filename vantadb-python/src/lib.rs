@@ -788,11 +788,7 @@ impl VantaDB {
         }
 
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .insert_node(input)
-                .map_err(map_vanta_error)
-        })?;
+        py.detach(move || engine.insert_node(input).map_err(map_vanta_error))?;
 
         Ok(())
     }
@@ -853,11 +849,7 @@ impl VantaDB {
         }
 
         let engine = self.engine.clone();
-        let records = py.detach(move || {
-            engine
-                .put_batch(inputs)
-                .map_err(map_vanta_error)
-        })?;
+        let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
 
         records
             .iter()
@@ -890,11 +882,7 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
-        let record = py.detach(move || {
-            engine
-                .put(input)
-                .map_err(map_vanta_error)
-        })?;
+        let record = py.detach(move || engine.put(input).map_err(map_vanta_error))?;
         memory_record_to_pydict(py, &record)
     }
 
@@ -903,11 +891,7 @@ impl VantaDB {
         let engine = self.engine.clone();
         let n = namespace.to_string();
         let k = key.to_string();
-        let record = py.detach(move || {
-            engine
-                .get(&n, &k)
-                .map_err(map_vanta_error)
-        })?;
+        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
         match record {
             Some(record) => Ok(Some(memory_record_to_pydict(py, &record)?)),
             None => Ok(None),
@@ -919,11 +903,7 @@ impl VantaDB {
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let key = key.to_string();
-        py.detach(move || {
-            engine
-                .delete(&namespace, &key)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
     }
 
     /// List namespace-scoped persistent memory records.
@@ -999,11 +979,7 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
-        let hits = py.detach(move || {
-            engine
-                .search(request)
-                .map_err(map_vanta_error)
-        })?;
+        let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
 
         hits.iter()
             .map(|hit| memory_hit_to_pydict(py, hit))
@@ -1013,11 +989,7 @@ impl VantaDB {
     /// Rebuild ANN and derived memory indexes from canonical storage.
     fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
-        let report = py.detach(move || {
-            engine
-                .rebuild_index()
-                .map_err(map_vanta_error)
-        })?;
+        let report = py.detach(move || engine.rebuild_index().map_err(map_vanta_error))?;
         rebuild_report_to_pydict(py, &report)
     }
 
@@ -1038,11 +1010,7 @@ impl VantaDB {
     fn export_all(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || {
-            engine
-                .export_all(&path)
-                .map_err(map_vanta_error)
-        })?;
+        let report = py.detach(move || engine.export_all(&path).map_err(map_vanta_error))?;
         export_report_to_pydict(py, &report)
     }
 
@@ -1050,11 +1018,7 @@ impl VantaDB {
     fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
         let path = path.to_string();
-        let report = py.detach(move || {
-            engine
-                .import_file(&path)
-                .map_err(map_vanta_error)
-        })?;
+        let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
         import_report_to_pydict(py, &report)
     }
 
@@ -1084,11 +1048,7 @@ impl VantaDB {
     /// Rebuild the text index from canonical storage as a repair primitive.
     fn repair_text_index(&self, py: Python) -> PyResult<Py<PyAny>> {
         let engine = self.engine.clone();
-        let report = py.detach(move || {
-            engine
-                .repair_text_index()
-                .map_err(map_vanta_error)
-        })?;
+        let report = py.detach(move || engine.repair_text_index().map_err(map_vanta_error))?;
         text_index_repair_report_to_pydict(py, &report)
     }
 
@@ -1103,11 +1063,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
     fn get(&self, py: Python, id: u64) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
-        let node = py.detach(move || {
-            engine
-                .get_node(id)
-                .map_err(map_vanta_error)
-        })?;
+        let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
         match node {
             Some(node) => Ok(Some(node_to_pydict(py, &node)?)),
             None => Ok(None),
@@ -1121,11 +1077,7 @@ impl VantaDB {
     fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || {
-            engine
-                .delete_node(id, &reason_str)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.delete_node(id, &reason_str).map_err(map_vanta_error))
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -1213,11 +1165,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
     fn flush(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .flush()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.flush().map_err(map_vanta_error))
     }
 
     /// Compact the WAL: flush, archive ``vanta.wal`` as
@@ -1225,11 +1173,7 @@ impl VantaDB {
     #[pyo3(signature = ())]
     fn compact_wal(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .compact_wal()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.compact_wal().map_err(map_vanta_error))
     }
 
     /// Scan all memory records and physically delete expired ones.
@@ -1237,11 +1181,7 @@ impl VantaDB {
     #[pyo3(signature = ())]
     fn purge_expired(&self, py: Python) -> PyResult<u64> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .purge_expired()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.purge_expired().map_err(map_vanta_error))
     }
 
     /// Introspect the stable runtime capabilities exposed by the SDK boundary.
@@ -1314,11 +1254,7 @@ impl VantaDB {
     /// Flush and close the embedded engine handle.
     fn close(&self, py: Python) -> PyResult<()> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .close()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.close().map_err(map_vanta_error))
     }
 
     /// String representation showing the stable runtime profile.
@@ -1340,11 +1276,7 @@ impl VantaDB {
     #[pyo3(signature = (roots, max_depth=999999))]
     fn graph_bfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_bfs(&roots, max_depth)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_bfs(&roots, max_depth).map_err(map_vanta_error))
     }
 
     /// Depth-First-Search starting from a designated set of root IDs,
@@ -1354,11 +1286,7 @@ impl VantaDB {
     #[pyo3(signature = (roots, max_depth=999999))]
     fn graph_dfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_dfs(&roots, max_depth)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_dfs(&roots, max_depth).map_err(map_vanta_error))
     }
 
     /// Performs a topological sort on the subgraph reachable from the given roots.
@@ -1379,32 +1307,20 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
     fn graph_is_dag(&self, py: Python, roots: Vec<u64>) -> PyResult<bool> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .graph_is_dag(&roots)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
     }
 
     /// Compact the storage layout: reorders nodes in BFS order to improve
     /// locality and free unused pages. Returns the number of nodes compacted.
     fn compact_layout(&self, py: Python) -> PyResult<u64> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .compact_layout()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.compact_layout().map_err(map_vanta_error))
     }
 
     /// List all namespaces currently registered in the database.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
         let engine = self.engine.clone();
-        py.detach(move || {
-            engine
-                .list_namespaces()
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.list_namespaces().map_err(map_vanta_error))
     }
 
     /// Generate a text snippet from a payload, highlighting matched query terms.
@@ -1463,7 +1379,9 @@ impl VantaDB {
 
         let engine = self.engine.clone();
         let explanation = py.detach(move || {
-            engine.explain_memory_search(request).map_err(map_vanta_error)
+            engine
+                .explain_memory_search(request)
+                .map_err(map_vanta_error)
         })?;
 
         search_explanation_to_pydict(py, &explanation)

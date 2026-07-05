@@ -707,11 +707,13 @@ pub async fn build_tls13_config(
         .pop()
         .expect("keys has exactly one element after guard");
 
-    let mut config =
-        rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS12, &rustls::version::TLS13])
-            .with_no_client_auth()
-            .with_single_cert(certs, key)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+    let mut config = rustls::ServerConfig::builder_with_protocol_versions(&[
+        &rustls::version::TLS12,
+        &rustls::version::TLS13,
+    ])
+    .with_no_client_auth()
+    .with_single_cert(certs, key)
+    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     Ok(config)

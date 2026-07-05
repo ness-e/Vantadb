@@ -100,10 +100,10 @@ record = db.put(
 )
 
 # 3. Retrieve exact record by key
-stored = db.get_memory("agent/main", "memory-001")
+stored = db.get("agent/main", "memory-001")
 
 # 4. Hybrid Search (BM25 + Cosine Similarity fused via RRF)
-hits = db.search_memory("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Operational Telemetry & Safe Shutdown
 caps = db.hardware_profile()

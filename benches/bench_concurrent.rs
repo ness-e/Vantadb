@@ -110,8 +110,14 @@ fn run_read_only_bench(
                 {
                     let hnsw = storage.hnsw.load();
                     let vstore = storage.vector_store.read();
-                    let _results =
-                        hnsw.search_nearest(query, None, None, &FilterBitset::all_set(), 10, Some(&vstore));
+                    let _results = hnsw.search_nearest(
+                        query,
+                        None,
+                        None,
+                        &FilterBitset::all_set(),
+                        10,
+                        Some(&vstore),
+                    );
                     std::hint::black_box(_results);
                 }
 
@@ -221,8 +227,14 @@ fn run_mixed_bench(
                 {
                     let hnsw = storage.hnsw.load();
                     let vstore = storage.vector_store.read();
-                    let _results =
-                        hnsw.search_nearest(query, None, None, &FilterBitset::all_set(), 10, Some(&vstore));
+                    let _results = hnsw.search_nearest(
+                        query,
+                        None,
+                        None,
+                        &FilterBitset::all_set(),
+                        10,
+                        Some(&vstore),
+                    );
                     std::hint::black_box(_results);
                 }
 

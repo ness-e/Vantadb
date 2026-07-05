@@ -1487,7 +1487,11 @@ impl StorageEngine {
     /// Paginated scan: returns a page of nodes and the next cursor.
     /// Pass cursor="" for the first page. The returned cursor is empty when
     /// there are no more pages.
-    pub fn scan_nodes_page(&self, cursor: &str, limit: usize) -> Result<(Vec<UnifiedNode>, String)> {
+    pub fn scan_nodes_page(
+        &self,
+        cursor: &str,
+        limit: usize,
+    ) -> Result<(Vec<UnifiedNode>, String)> {
         let cursor_id: u64 = cursor.parse().unwrap_or(0);
         let entries = self.backend.scan(BackendPartition::Default)?;
 
@@ -1505,9 +1509,8 @@ impl StorageEngine {
                     continue;
                 }
 
-                let id = u64::from_le_bytes(
-                    key.as_slice().try_into().expect("key slice fits [u8; 8]"),
-                );
+                let id =
+                    u64::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 8]"));
                 if id <= cursor_id {
                     continue;
                 }
@@ -1810,10 +1813,18 @@ impl StorageEngine {
                 let freq = *val_map.get(&val_key).unwrap_or(&0);
                 return match op {
                     crate::query::RelOp::Eq => {
-                        if freq > 0 { 1.0 } else { 0.0 }
+                        if freq > 0 {
+                            1.0
+                        } else {
+                            0.0
+                        }
                     }
                     crate::query::RelOp::Neq => {
-                        if freq > 0 { 0.0 } else { 1.0 }
+                        if freq > 0 {
+                            0.0
+                        } else {
+                            1.0
+                        }
                     }
                     _ => 0.5,
                 };
