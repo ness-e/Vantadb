@@ -599,3 +599,116 @@
     grid-column: span 1;
   }
 }
+
+/* ── Section amber title ────────────────────── */
+.nb-amber-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--amber);
+}
+
+/* ── Footer heading ─────────────────────────── */
+.nb-footer-heading {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+/* ── FAQ accordion ──────────────────────────── */
+.nb-faq-container {
+  margin-top: var(--space-xl);
+}
+
+/* ── Trust bar ──────────────────────────────── */
+.nb-trust-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.nb-trust-stars {
+  font-family: var(--font-mono);
+  font-size: var(--text-metric);
+  font-weight: 700;
+  color: var(--amber);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.nb-trust-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--steel);
+  text-transform: uppercase;
+}
+
+.nb-trust-integrations {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-lg);
+}
+
+.nb-trust-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6ch;
+  height: 2.4em;
+  border: 1px solid var(--border-visible);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.nb-trust-marquee-container {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-md);
+}
+
+/* ── Monolith feedback ──────────────────────── */
+.nb-monolith-feedback {
+  opacity: 0;
+}
+
+/* ── Pending component ──────────────────────── */
+.nb-pending-label {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+/* ── Scroll progress bar ────────────────────── */
+.nb-scroll-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--amber);
+  z-index: 9999;
+  pointer-events: none;
+  transition: width 100ms linear;
+}
+
+/* ── Benchmark race ─────────────────────────── */
+.nb-benchmark-inner {
+  width: 0;
+}
