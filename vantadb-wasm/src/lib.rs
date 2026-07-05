@@ -316,7 +316,10 @@ impl VantaDB {
         Ok(())
     }
 
-    /// Close the database and release underlying resources.
+    /// Close the database and release underlying engine resources.
+    /// After close, the VantaDB handle should not be used for further operations.
+    /// This does NOT free the JS wrapper object — callers should drop references
+    /// after close to allow WASM GC to reclaim the wrapper.
     pub fn close(&self) -> Result<(), JsValue> {
         self.inner.close().map_err(to_js_err)
     }
@@ -406,6 +409,8 @@ impl VantaDB {
         Ok(obj.into())
     }
 
+    /// Serialize a `VantaMemorySearchHit` into a JS object.
+    /// Sanitizes NaN/Infinity in explanation scores to avoid JSON serialization errors.
     fn search_hit_to_js(hit: VantaMemorySearchHit) -> JsValue {
         let obj = js_sys::Object::new();
         js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).unwrap();
@@ -698,6 +703,8 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
     js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
     if let Some(ref vector) = rec.vector {
+        // Sanitize NaN/Inf → 0.0: JSON/JS cannot represent NaN or Infinity as
+        // f32 values, and serde_wasm_bindgen would throw on serialization.
         let sanitized: Vec<f32> = vector
             .iter()
             .map(|x| {
@@ -739,6 +746,11 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::*;
 
+    // Tests use #[wasm_bindgen_test] which supports both sync and async
+    // functions. Async tests run inside the browser's microtask queue;
+    // wasm-bindgen-test handles the executor. These tests require a
+    // browser environment — run with `wasm-pack test --chrome`.
+
     fn create_db() -> VantaDB {
         VantaDB::new(None).expect("failed to create VantaDB")
     }
@@ -756,6 +768,8 @@ mod tests {
         let got = db.get("test", "hello").unwrap();
         assert!(!got.is_null());
     }
+
+    // ── Basic CRUD Operations ──
 
     #[wasm_bindgen_test]
     fn test_get_nonexistent() {
@@ -870,6 +884,8 @@ mod tests {
         }
     }
 
+    // ── Batch & Concurrent Operations ──
+
     #[wasm_bindgen_test]
     async fn test_concurrent_put_get() {
         let db = create_db();
@@ -886,6 +902,8 @@ mod tests {
             assert!(!got.is_null());
         }
     }
+
+    // ── Capabilities & Maintenance ──
 
     #[wasm_bindgen_test]
     fn test_capabilities() {

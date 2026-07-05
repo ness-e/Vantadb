@@ -1,3 +1,9 @@
+//! Browser-only integration tests for VantaDB WASM bindings.
+//!
+//! These tests require a browser environment (via `wasm-bindgen-test`) and will
+//! not run in a standard Rust test runner. Use `wasm-pack test --chrome` (or
+//! `--firefox` / `--safari`) to execute them.
+
 use vantadb_wasm::{OpfsStorage, VantaDB};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::*;
@@ -102,6 +108,7 @@ async fn test_opfs_read_nonexistent() {
     assert!(result.is_none());
 }
 
+// delete_file handles NotFoundError gracefully (no-op), not an error.
 #[wasm_bindgen_test]
 async fn test_opfs_delete_nonexistent() {
     let storage = match try_opfs("vantadb_test_del_missing").await {

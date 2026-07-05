@@ -31,8 +31,19 @@ function _mapRecord(r: any): MemoryRecord {
   return r;
 }
 
+/**
+ * VantaDB — The vector-graph database that thinks.
+ * In-process TypeScript binding via WASM. Zero network overhead.
+ *
+ * Usage:
+ *   const db = VantaDB.connect("./my_brain");
+ *   db.put({ namespace: "ns", key: "k", payload: "Hello" });
+ *   const record = db.get("ns", "k");
+ *   db.close();
+ */
 export class VantaDB {
   private inner: WasmVantaDB;
+  /** Whether this instance has been closed. Guards all public methods. */
   private _closed: boolean = false;
 
   private constructor(inner: WasmVantaDB) {
@@ -52,8 +63,8 @@ export class VantaDB {
   /**
    * Create a new VantaDB instance with the given config.
    * @param config - Configuration options.
-   *   Note: In WASM mode, `storage_path` is accepted but ignored — the WASM backend
-   *   always uses an in-memory engine. For persistent storage, use `connect()`.
+   *   Note: In WASM mode, `storage_path` is accepted but ignored (CODE-089) — the
+   *   WASM backend always uses an in-memory engine. For persistent storage, use `connect()`.
    */
   static create(config?: VantaConfig): VantaDB {
     if (config?.storage_path) {
@@ -70,12 +81,22 @@ export class VantaDB {
     return new VantaDB(inner);
   }
 
+  /**
+   * Assert the instance is not yet closed.
+   * @throws {Error} If close() has already been called.
+   */
   private _assertOpen(): void {
     if (this._closed) {
       throw new Error("VantaDB instance is closed");
     }
   }
 
+  /**
+   * Close the database and release underlying WASM engine resources.
+   *
+   * After close(), all public methods throw. Unlike relying on WASM GC/finalization,
+   * this explicitly marks the instance as closed and prevents accidental use-after-free.
+   */
   close(): void {
     if (this._closed) return;
     this.inner.close();
@@ -174,7 +195,7 @@ export class VantaDB {
     const raw: any[] = this.inner.search(this._buildSearchRequest(request));
     return raw.map((hit: any) => ({
       record: _mapRecord(hit.record),
-      distance: hit.score,
+      distance: hit.score, // score from WASM is the L2/cosine distance
       explanation: hit.explanation ?? undefined,
     }));
   }
@@ -187,7 +208,7 @@ export class VantaDB {
     const raw: any[] = this.inner.search_vector(new Float32Array(vector), topK);
     return raw.map((hit: any) => ({
       node_id: hit.node_id,
-      distance: hit.score,
+      distance: hit.score, // score from WASM is the L2/cosine distance
     }));
   }
 
@@ -266,6 +287,12 @@ export class VantaDB {
     return this.inner.query(query);
   }
 
+  /**
+   * Insert a graph node.
+   *
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53 (CODE-090).
+   */
   insertNode(
     id: number | bigint,
     content?: string,

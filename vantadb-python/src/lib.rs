@@ -51,6 +51,8 @@ impl LruCache {
         }
     }
 
+    /// Retrieve a cached metadata map by key.
+    /// Moves the entry to the most-recently-used position on access.
     fn get(&mut self, key: &str) -> Option<std::collections::BTreeMap<String, VantaValue>> {
         if let Some(value) = self.map.get(key) {
             // Move to back (most recently used)
@@ -64,6 +66,9 @@ impl LruCache {
         }
     }
 
+    /// Insert or update a metadata cache entry.
+    /// Evicts the least recently used entry when at capacity.
+    /// Refreshes access order on update (CODE-038).
     fn put(&mut self, key: String, value: std::collections::BTreeMap<String, VantaValue>) {
         if self.map.len() >= self.capacity && !self.map.contains_key(&key) {
             if let Some(lru_key) = self.order.first().cloned() {
@@ -677,7 +682,19 @@ fn py_dict_to_metadata(
 ///     results = db.search([0.1] * 384, top_k=5)
 ///     db.flush()
 /// Map a VantaError to the appropriate Python exception type for ergonomic
-/// error handling on the Python side (KeyError, ValueError, OSError, etc.).
+/// error handling on the Python side.
+///
+/// Mapping:
+/// - `IoError(NotFound)` → `FileNotFoundError`
+/// - `IoError(PermissionDenied)` → `PermissionError`
+/// - `IoError(AlreadyExists)` → `FileExistsError`
+/// - `IoError` (other) → `OSError`
+/// - `NotFound` / `NodeNotFound` → `KeyError`
+/// - `ValidationError`, `DuplicateNode`, `DimensionMismatch`, `SerializationError`,
+///   `OldSerializationError`, `InvalidInput`, `SchemaError`, `IncompatibleFormat`,
+///   `NodeIdCollision`, `IqlParseError`, `IqlError` → `ValueError`
+/// - `Timeout` → `TimeoutError`
+/// - All other variants → `RuntimeError` (catch-all)
 fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
     use vantadb::error::VantaError;
     match &err {
@@ -795,7 +812,8 @@ impl VantaDB {
 
     /// Insert or update multiple namespace-scoped records in parallel (batched).
     ///
-    /// Each entry is a 5-tuple: `(namespace, key, payload, metadata_dict_or_None, vector_or_None)`.
+    /// Each entry is a tuple: `(namespace, key, payload, metadata_dict_or_None, vector_or_None, ttl_ms_or_None)`.
+    /// Only `namespace`, `key`, `payload` are required; the remaining are keyword-style optional positional args.
     ///
     /// Returns a list of record dicts in the same order as inputs.
     /// Up to ~5x faster than sequential `put()` calls for large batches.
@@ -1393,6 +1411,8 @@ impl VantaDB {
 /// Args:
 ///     path: Filesystem path, empty string, or ":memory:" for in-memory.
 ///     memory_limit: Optional memory budget in bytes.
+///         Sets an upper bound on heap usage; when exceeded, VantaDB triggers a
+///         controlled flush and architection of cold data to stay within budget.
 #[pyfunction]
 #[pyo3(signature = (path, memory_limit=None))]
 fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
