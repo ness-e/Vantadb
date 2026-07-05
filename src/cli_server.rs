@@ -809,7 +809,6 @@ async fn serve_http_or_tls(
     console::print_ready(&addr);
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    let storage_clone = storage.clone();
     tokio::spawn(async move {
         wait_for_shutdown_signal().await;
         console::warn("Shutting down HTTP server gracefully...", None);
