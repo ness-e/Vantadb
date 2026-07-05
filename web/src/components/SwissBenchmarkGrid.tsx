@@ -134,20 +134,14 @@ export function SwissBenchmarkGrid() {
   );
 
   return (
-    <section
-      className="nb-section"
-      ref={sectionRef}
-      aria-label="Benchmark comparison"
-    >
+    <section className="nb-section" ref={sectionRef} aria-label="Benchmark comparison">
       <div className="nb-inner">
         <div className="nb-frame" data-frame-label="BENCHMARKS">
           <div className="nb-section-header">
-            <h2 className="benchmark-title">
-              Embedded vs. Client/Server.
-            </h2>
+            <h2 className="benchmark-title">Embedded vs. Client/Server.</h2>
             <p className="benchmark-subtitle">
-              By removing the network boundary, VantaDB achieves latencies
-              impossible for traditional vector databases.
+              By removing the network boundary, VantaDB achieves latencies impossible for
+              traditional vector databases.
             </p>
           </div>
 
@@ -163,23 +157,14 @@ export function SwissBenchmarkGrid() {
               </thead>
               <tbody>
                 {METRICS.map((m) => (
-                  <tr
-                    key={m.id}
-                    data-metric={m.id}
-                  >
+                  <tr key={m.id} data-metric={m.id}>
                     <td>
-                      <span className="benchmark-metric-label">
-                        {m.label}
-                      </span>
+                      <span className="benchmark-metric-label">{m.label}</span>
                     </td>
                     <td className="benchmark-col-vanta">
-                      <span data-countup>
-                        {m.numericTarget !== null ? "0" : m.vanta}
-                      </span>
+                      <span data-countup>{m.numericTarget !== null ? "0" : m.vanta}</span>
                     </td>
-                    <td className="benchmark-col-trad">
-                      {m.traditional}
-                    </td>
+                    <td className="benchmark-col-trad">{m.traditional}</td>
                     <td className="benchmark-col-diff">{m.diff}</td>
                   </tr>
                 ))}

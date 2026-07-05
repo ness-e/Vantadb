@@ -66,17 +66,11 @@ export function SwissHero() {
         </div>
 
         <h1 className="hero-title">
-          <span
-            className="hero-title-glitch"
-            data-text="Embedded Vector"
-          >
+          <span className="hero-title-glitch" data-text="Embedded Vector">
             Embedded Vector
           </span>
           <br />
-          <span
-            className="hero-title-glitch hero-title-glitch--amber"
-            data-text="Database"
-          >
+          <span className="hero-title-glitch hero-title-glitch--amber" data-text="Database">
             Database
           </span>
           <span className="hero-title-muted"> for AI Agents</span>
@@ -84,8 +78,7 @@ export function SwissHero() {
 
         <div className="hero-desc-group">
           <p className="hero-desc">
-            HNSW vector search, BM25 full-text, and hybrid RRF in a single Rust
-            binary.
+            HNSW vector search, BM25 full-text, and hybrid RRF in a single Rust binary.
           </p>
           <p className="hero-desc-sub">
             <span className="hero-bracket">[</span>
@@ -95,15 +88,9 @@ export function SwissHero() {
         </div>
 
         <div className="hero-actions">
-          <button
-            onClick={handleCopy}
-            className="hero-cta"
-            aria-label="Copy pip install command"
-          >
+          <button onClick={handleCopy} className="hero-cta" aria-label="Copy pip install command">
             <span className="hero-cta-prefix">{">"}</span>
-            <span className="hero-cta-text">
-              {copied ? "Copied!" : "pip install vantadb-py"}
-            </span>
+            <span className="hero-cta-text">{copied ? "Copied!" : "pip install vantadb-py"}</span>
             {copied ? (
               <svg
                 width="14"

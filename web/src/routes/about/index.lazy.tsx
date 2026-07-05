@@ -55,11 +55,30 @@ function AboutIndex() {
         <div className="nb-inner">
           <div className="nb-grid nb-grid--cols-4">
             {STATS.map((s) => (
-              <div key={s.label} className="nb-cell" style={{ padding: "var(--space-lg) var(--space-xl)" }}>
-                <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 800, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)", lineHeight: 1, display: "block" }}>
+              <div
+                key={s.label}
+                className="nb-cell"
+                style={{ padding: "var(--space-lg) var(--space-xl)" }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-metric)",
+                    fontWeight: 800,
+                    letterSpacing: "var(--tracking-tight)",
+                    color: "var(--foreground)",
+                    lineHeight: 1,
+                    display: "block",
+                  }}
+                >
                   {s.value}
                 </span>
-                <span className="nb-label" style={{ marginTop: "var(--space-3xs)", marginBottom: 0 }}>{s.label}</span>
+                <span
+                  className="nb-label"
+                  style={{ marginTop: "var(--space-3xs)", marginBottom: 0 }}
+                >
+                  {s.label}
+                </span>
               </div>
             ))}
           </div>
@@ -89,14 +108,36 @@ function AboutIndex() {
                   borderLeftColor: "transparent",
                 }}
               >
-                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>{s.num}</span>
-                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
+                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
+                  {s.num}
+                </span>
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 800,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: 0,
+                  }}
+                >
                   {s.title}
                 </h2>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0, flex: 1 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                    flex: 1,
+                  }}
+                >
                   {s.desc}
                 </p>
-                <span className="nb-arrow" style={{ marginTop: "auto" }}>{s.href}</span>
+                <span className="nb-arrow" style={{ marginTop: "auto" }}>
+                  {s.href}
+                </span>
               </Link>
             ))}
           </div>

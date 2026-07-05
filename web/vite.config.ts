@@ -12,9 +12,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     tsConfigPaths(),
-    ...(process.env.ANALYZE
-      ? [visualizer({ filename: "dist/stats.html", open: true })]
-      : []),
+    ...(process.env.ANALYZE ? [visualizer({ filename: "dist/stats.html", open: true })] : []),
   ],
   base: "/",
   build: {

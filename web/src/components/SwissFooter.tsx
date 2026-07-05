@@ -18,29 +18,59 @@ export const SwissFooter = memo(function SwissFooter() {
 
           <div className="footer-col">
             <span className="nb-label">Product</span>
-            <Link to="/engine" className="footer-link">&gt; Core Engine</Link>
-            <Link to="/architecture" className="footer-link">&gt; Architecture</Link>
-            <Link to="/integrations" className="footer-link">&gt; Integrations</Link>
-            <Link to="/solutions/ai-agents" className="footer-link">&gt; AI Agents</Link>
-            <Link to="/solutions/local-rag" className="footer-link">&gt; Local RAG</Link>
-            <Link to="/pricing" className="footer-link">&gt; Pricing</Link>
+            <Link to="/engine" className="footer-link">
+              &gt; Core Engine
+            </Link>
+            <Link to="/architecture" className="footer-link">
+              &gt; Architecture
+            </Link>
+            <Link to="/integrations" className="footer-link">
+              &gt; Integrations
+            </Link>
+            <Link to="/solutions/ai-agents" className="footer-link">
+              &gt; AI Agents
+            </Link>
+            <Link to="/solutions/local-rag" className="footer-link">
+              &gt; Local RAG
+            </Link>
+            <Link to="/pricing" className="footer-link">
+              &gt; Pricing
+            </Link>
           </div>
 
           <div className="footer-col">
             <span className="nb-label">Resources</span>
-            <Link to="/docs" className="footer-link">&gt; Documentation</Link>
-            <Link to="/use-cases" className="footer-link">&gt; Use Cases</Link>
-            <Link to="/solutions/security" className="footer-link">&gt; Security</Link>
-            <Link to="/changelog" className="footer-link">&gt; Changelog</Link>
-            <Link to="/product/benchmarks" className="footer-link">&gt; Benchmarks</Link>
-            <Link to="/blog" className="footer-link">&gt; Blog</Link>
+            <Link to="/docs" className="footer-link">
+              &gt; Documentation
+            </Link>
+            <Link to="/use-cases" className="footer-link">
+              &gt; Use Cases
+            </Link>
+            <Link to="/solutions/security" className="footer-link">
+              &gt; Security
+            </Link>
+            <Link to="/changelog" className="footer-link">
+              &gt; Changelog
+            </Link>
+            <Link to="/product/benchmarks" className="footer-link">
+              &gt; Benchmarks
+            </Link>
+            <Link to="/blog" className="footer-link">
+              &gt; Blog
+            </Link>
           </div>
 
           <div className="footer-col">
             <span className="nb-label">Company</span>
-            <Link to="/about" className="footer-link">&gt; About</Link>
-            <Link to="/about/community" className="footer-link">&gt; Community</Link>
-            <Link to="/about/contact" className="footer-link">&gt; Contact</Link>
+            <Link to="/about" className="footer-link">
+              &gt; About
+            </Link>
+            <Link to="/about/community" className="footer-link">
+              &gt; Community
+            </Link>
+            <Link to="/about/contact" className="footer-link">
+              &gt; Contact
+            </Link>
           </div>
         </div>
 

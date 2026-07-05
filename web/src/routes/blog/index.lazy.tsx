@@ -31,7 +31,11 @@ function BlogIndex() {
           <div className="nb-divider" />
 
           {posts.length === 0 ? (
-            <div className="nb-frame" data-frame-label="EMPTY" style={{ marginTop: "var(--space-xl)", padding: "var(--space-3xl)" }}>
+            <div
+              className="nb-frame"
+              data-frame-label="EMPTY"
+              style={{ marginTop: "var(--space-xl)", padding: "var(--space-3xl)" }}
+            >
               <span className="nb-label" style={{ textAlign: "center", marginBottom: 0 }}>
                 No posts yet. Check back soon.
               </span>
@@ -60,23 +64,56 @@ function BlogIndex() {
                     {post.date}
                   </span>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xs)" }}>
-                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xs)" }}
+                  >
+                    <h2
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "var(--text-title)",
+                        fontWeight: 700,
+                        letterSpacing: "var(--tracking-display)",
+                        color: "var(--foreground)",
+                        margin: 0,
+                      }}
+                    >
                       {post.title}
                     </h2>
                     {post.description && (
-                      <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+                      <p
+                        style={{
+                          fontFamily: "var(--font-sans)",
+                          fontSize: "var(--text-code)",
+                          color: "var(--muted)",
+                          lineHeight: 1.5,
+                          margin: 0,
+                        }}
+                      >
                         {post.description}
                       </p>
                     )}
-                    <div style={{ display: "flex", gap: "var(--space-2xs)", flexWrap: "wrap", marginTop: "var(--space-3xs)" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "var(--space-2xs)",
+                        flexWrap: "wrap",
+                        marginTop: "var(--space-3xs)",
+                      }}
+                    >
                       {post.author && (
-                        <span className="nb-pill-status nb-pill-status--amber" style={{ fontSize: "var(--text-micro)" }}>
+                        <span
+                          className="nb-pill-status nb-pill-status--amber"
+                          style={{ fontSize: "var(--text-micro)" }}
+                        >
                           {post.author}
                         </span>
                       )}
                       {post.tags?.map((t) => (
-                        <span key={t} className="nb-pill-status" style={{ fontSize: "var(--text-micro)" }}>
+                        <span
+                          key={t}
+                          className="nb-pill-status"
+                          style={{ fontSize: "var(--text-micro)" }}
+                        >
                           {t}
                         </span>
                       ))}
@@ -100,8 +137,18 @@ function BlogIndex() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+        Loading...
+      </span>
     </div>
   );
 }

@@ -723,6 +723,7 @@ fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
 }
 
 #[pyclass]
+/// Python-accessible embedded VantaDB engine.
 pub struct VantaDB {
     engine: VantaEmbedded,
 }

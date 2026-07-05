@@ -87,10 +87,7 @@ export const Nav = memo(function Nav() {
 
   return (
     <>
-      <nav
-        className={`vanta-nav${scrolled ? " vanta-nav--scrolled" : ""}`}
-        data-frame-label="NAV"
-      >
+      <nav className={`vanta-nav${scrolled ? " vanta-nav--scrolled" : ""}`} data-frame-label="NAV">
         <Link to="/" className="vanta-logo">
           <VantaDBLogo variant="full" size="sm" />
         </Link>

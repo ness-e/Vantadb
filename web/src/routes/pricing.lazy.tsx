@@ -225,20 +225,59 @@ function PricingPage() {
                   position: "relative",
                 }}
               >
-                {tier.featured && <span className="nb-pill-status nb-pill-status--amber" style={{ position: "absolute", top: "var(--space-sm)", right: "var(--space-sm)" }}>EARLY ACCESS</span>}
+                {tier.featured && (
+                  <span
+                    className="nb-pill-status nb-pill-status--amber"
+                    style={{
+                      position: "absolute",
+                      top: "var(--space-sm)",
+                      right: "var(--space-sm)",
+                    }}
+                  >
+                    EARLY ACCESS
+                  </span>
+                )}
                 <div>
-                  <div className="nb-label nb-label--amber" style={{ fontSize: "var(--text-title)", letterSpacing: "var(--tracking-display)", fontFamily: "var(--font-display)", textTransform: "none", marginBottom: "var(--space-2xs)" }}>
+                  <div
+                    className="nb-label nb-label--amber"
+                    style={{
+                      fontSize: "var(--text-title)",
+                      letterSpacing: "var(--tracking-display)",
+                      fontFamily: "var(--font-display)",
+                      textTransform: "none",
+                      marginBottom: "var(--space-2xs)",
+                    }}
+                  >
                     {tier.name}
                   </div>
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-label)", color: "var(--muted)", margin: 0, lineHeight: 1.4 }}>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "var(--text-label)",
+                      color: "var(--muted)",
+                      margin: 0,
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {tier.tagline}
                   </p>
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-metric)",
+                      fontWeight: 700,
+                      letterSpacing: "var(--tracking-tight)",
+                      color: "var(--foreground)",
+                    }}
+                  >
                     {tier.price}
                   </span>
-                  <span className="nb-label" style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}>
+                  <span
+                    className="nb-label"
+                    style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}
+                  >
                     {tier.period}
                   </span>
                 </div>
@@ -273,18 +312,46 @@ function PricingPage() {
                 }}
               >
                 <div>
-                  <div className="nb-label" style={{ fontSize: "var(--text-title)", letterSpacing: "var(--tracking-display)", fontFamily: "var(--font-display)", textTransform: "none", marginBottom: "var(--space-2xs)" }}>
+                  <div
+                    className="nb-label"
+                    style={{
+                      fontSize: "var(--text-title)",
+                      letterSpacing: "var(--tracking-display)",
+                      fontFamily: "var(--font-display)",
+                      textTransform: "none",
+                      marginBottom: "var(--space-2xs)",
+                    }}
+                  >
                     {tier.name}
                   </div>
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-label)", color: "var(--muted)", margin: 0, lineHeight: 1.4 }}>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "var(--text-label)",
+                      color: "var(--muted)",
+                      margin: 0,
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {tier.tagline}
                   </p>
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-metric)",
+                      fontWeight: 700,
+                      letterSpacing: "var(--tracking-tight)",
+                      color: "var(--foreground)",
+                    }}
+                  >
                     {tier.price}
                   </span>
-                  <span className="nb-label" style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}>
+                  <span
+                    className="nb-label"
+                    style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}
+                  >
                     {tier.period}
                   </span>
                 </div>
@@ -313,12 +380,26 @@ function PricingPage() {
           <span className="nb-label nb-label--amber">02 / 03 — Feature Breakdown</span>
           <div className="nb-divider" />
 
-          <div className="nb-frame" data-frame-label="COMPARISON" style={{ marginTop: "var(--space-xl)", overflowX: "auto" }}>
+          <div
+            className="nb-frame"
+            data-frame-label="COMPARISON"
+            style={{ marginTop: "var(--space-xl)", overflowX: "auto" }}
+          >
             <table className="nb-table" style={{ minWidth: "750px" }}>
               <thead>
                 <tr>
                   {comparisonColumns.map((col, idx) => (
-                    <th key={col} style={{ color: idx === 2 ? "var(--amber)" : idx === 0 ? "var(--foreground)" : "var(--steel)" }}>
+                    <th
+                      key={col}
+                      style={{
+                        color:
+                          idx === 2
+                            ? "var(--amber)"
+                            : idx === 0
+                              ? "var(--foreground)"
+                              : "var(--steel)",
+                      }}
+                    >
                       {col}
                     </th>
                   ))}
@@ -326,7 +407,10 @@ function PricingPage() {
               </thead>
               <tbody>
                 {comparisonRows.map((row, i) => (
-                  <tr key={row.feature} style={{ background: i % 2 === 0 ? "var(--background)" : "var(--surface)" }}>
+                  <tr
+                    key={row.feature}
+                    style={{ background: i % 2 === 0 ? "var(--background)" : "var(--surface)" }}
+                  >
                     <td style={{ fontWeight: 600, color: "var(--foreground)" }}>{row.feature}</td>
                     <td>{row.os}</td>
                     <td style={{ color: "var(--amber)", fontWeight: 500 }}>{row.pro}</td>
@@ -348,10 +432,27 @@ function PricingPage() {
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {FAQ_ITEMS.map((item) => (
               <div key={item.q} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-sm)" }}>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 700,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: "0 0 var(--space-sm)",
+                  }}
+                >
                   {item.q}
                 </h3>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
                   {item.a}
                 </p>
               </div>
@@ -363,14 +464,43 @@ function PricingPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)", marginBottom: "var(--space-xs)" }}>READY TO BUILD?</span>
-            <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "var(--tracking-display)", margin: 0 }}>
+            <span
+              className="nb-label"
+              style={{ color: "var(--text-on-amber)", marginBottom: "var(--space-xs)" }}
+            >
+              READY TO BUILD?
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-display)",
+                fontWeight: 700,
+                letterSpacing: "var(--tracking-display)",
+                margin: 0,
+              }}
+            >
               Start with Self-Hosted.
             </p>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-sm) 0 var(--space-md)", opacity: 0.85 }}>
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--text-on-amber)",
+                margin: "var(--space-sm) 0 var(--space-md)",
+                opacity: 0.85,
+              }}
+            >
               Free forever. No signup required.
             </p>
-            <Link to="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+            <Link
+              to="/docs"
+              className="btn-ghost"
+              style={{
+                borderColor: "var(--text-on-amber)",
+                color: "var(--text-on-amber)",
+                boxShadow: "var(--shadow-brutal)",
+              }}
+            >
               GET STARTED
             </Link>
           </div>

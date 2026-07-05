@@ -56,17 +56,11 @@ export function SwissUseCases() {
   );
 
   return (
-    <section
-      ref={sectionRef}
-      className="nb-section"
-      aria-label="Use cases"
-    >
+    <section ref={sectionRef} className="nb-section" aria-label="Use cases">
       <div className="nb-inner">
         <div className="nb-section-header">
           <span className="nb-label nb-label--amber">[USE CASES]</span>
-          <h2 className="usecase-heading">
-            Built for real AI workflows.
-          </h2>
+          <h2 className="usecase-heading">Built for real AI workflows.</h2>
         </div>
 
         <div className="usecase-grid">

@@ -30,7 +30,8 @@ const STEPS = [
     title: "Query",
     cmd: 'results = db.search_memory(\n  namespace="agent/main",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)',
     desc: "Semantic + keyword in one call.",
-    output: "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
+    output:
+      "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
   },
 ];
 
@@ -146,7 +147,9 @@ export function SwissQuickstart() {
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Step ${step.num}: ${step.title}`}
                 >
-                  <span className="nb-crt-step-prefix" aria-hidden="true">&gt;</span>
+                  <span className="nb-crt-step-prefix" aria-hidden="true">
+                    &gt;
+                  </span>
                   <div className="nb-crt-step-body">
                     <span className="nb-crt-step-title nb-label">
                       [{step.num}] {step.title}
@@ -159,11 +162,7 @@ export function SwissQuickstart() {
           </nav>
 
           <div className="nb-crt-cta">
-            <Link
-              to="/docs"
-              className="nb-arrow"
-              aria-label="Read documentation"
-            >
+            <Link to="/docs" className="nb-arrow" aria-label="Read documentation">
               Read Documentation
             </Link>
           </div>
@@ -178,7 +177,9 @@ export function SwissQuickstart() {
             <div className="nb-crt-terminal-body">
               <pre className="nb-crt-code-pre">
                 <code ref={codeRef} className="nb-crt-code" aria-live="polite" />
-                <span className="nb-crt-cursor" aria-hidden="true">_</span>
+                <span className="nb-crt-cursor" aria-hidden="true">
+                  _
+                </span>
               </pre>
 
               <div ref={outputRef} className="nb-crt-output" aria-live="polite">

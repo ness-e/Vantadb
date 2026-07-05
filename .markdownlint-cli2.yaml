@@ -9,9 +9,6 @@ config:
       - br
   MD041: false
 
-globs:
-  - "**/*.md"
-  - "**/*.MD"
-
 ignores:
   - ".github/ISSUE_TEMPLATE/*.yml"
+  - "web/node_modules/**"

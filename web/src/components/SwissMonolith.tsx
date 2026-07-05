@@ -103,7 +103,9 @@ export const SwissMonolith = memo(function SwissMonolith() {
       <div className="nb-inner">
         <div className="monolith-block">
           <div className="monolith-command-wrap">
-            <span className="monolith-command-prefix" aria-hidden="true">$</span>
+            <span className="monolith-command-prefix" aria-hidden="true">
+              $
+            </span>
             <code
               className="monolith-command"
               onClick={handleCopy}
@@ -135,9 +137,7 @@ export const SwissMonolith = memo(function SwissMonolith() {
             </span>
           </div>
 
-          <p className="monolith-subtitle">
-            Zero servers. One line. Infinite context.
-          </p>
+          <p className="monolith-subtitle">Zero servers. One line. Infinite context.</p>
 
           <div className="monolith-cta-row">
             <Link to="/docs" className="monolith-cta" aria-label="Get started with VantaDB">

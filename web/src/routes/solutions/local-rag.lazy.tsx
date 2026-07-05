@@ -80,24 +80,66 @@ function LocalRagPage() {
           <span className="nb-label nb-label--amber">01 / 03 — Privacy Gap</span>
           <div className="nb-divider" />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "var(--border-visible)", marginTop: "var(--space-xl)" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1px",
+              background: "var(--border-visible)",
+              marginTop: "var(--space-xl)",
+            }}
+          >
             <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>Cloud RAG leaks data</span>
+              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+                Cloud RAG leaks data
+              </span>
               <ul className="nb-list">
                 {COMPARISON.problems.map((p) => (
                   <li key={p} style={{ color: "var(--muted)" }}>
-                    <span style={{ color: "var(--danger)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>✗</span>
+                    <span
+                      style={{
+                        color: "var(--danger)",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        marginRight: "var(--space-2xs)",
+                      }}
+                    >
+                      ✗
+                    </span>
                     {p}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-cell" style={{ padding: "var(--space-xl)", borderLeft: "2px solid var(--amber)", background: "var(--surface-alt)" }}>
-              <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-md)" }}>Local-first, zero exposure</span>
+            <div
+              className="nb-cell"
+              style={{
+                padding: "var(--space-xl)",
+                borderLeft: "2px solid var(--amber)",
+                background: "var(--surface-alt)",
+              }}
+            >
+              <span
+                className="nb-label nb-label--amber"
+                style={{ marginBottom: "var(--space-md)" }}
+              >
+                Local-first, zero exposure
+              </span>
               <ul className="nb-list">
                 {COMPARISON.solutions.map((s) => (
                   <li key={s} style={{ color: "var(--foreground)" }}>
-                    <span style={{ color: "var(--amber)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>✓</span>
+                    <span
+                      style={{
+                        color: "var(--amber)",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        marginRight: "var(--space-2xs)",
+                      }}
+                    >
+                      ✓
+                    </span>
                     {s}
                   </li>
                 ))}
@@ -115,13 +157,41 @@ function LocalRagPage() {
           <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
             {PIPELINE.map((step) => (
               <div key={step.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-metric)", fontWeight: 800, color: "var(--border-strong)", lineHeight: 1, letterSpacing: "var(--tracking-tight)", display: "block", marginBottom: "var(--space-sm)" }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-metric)",
+                    fontWeight: 800,
+                    color: "var(--border-strong)",
+                    lineHeight: 1,
+                    letterSpacing: "var(--tracking-tight)",
+                    display: "block",
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   {step.num}
                 </span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-2xs)" }}>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 700,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: "0 0 var(--space-2xs)",
+                  }}
+                >
                   {step.title}
                 </h3>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
                   {step.desc}
                 </p>
               </div>
@@ -135,18 +205,53 @@ function LocalRagPage() {
           <span className="nb-label nb-label--amber">03 / 03 — Implementation</span>
           <div className="nb-divider" />
 
-          <div className="nb-frame" data-frame-label="local_rag.py" style={{ marginTop: "var(--space-xl)" }}>
-            <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre", overflowX: "auto" }}>
+          <div
+            className="nb-frame"
+            data-frame-label="local_rag.py"
+            style={{ marginTop: "var(--space-xl)" }}
+          >
+            <pre
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-code)",
+                lineHeight: 1.6,
+                color: "var(--foreground)",
+                whiteSpace: "pre",
+                overflowX: "auto",
+              }}
+            >
               <code>{RAG_CODE}</code>
             </pre>
           </div>
 
-          <div className="nb-block-amber" style={{ marginTop: "var(--space-xl)", textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>GO LOCAL</span>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+          <div
+            className="nb-block-amber"
+            style={{ marginTop: "var(--space-xl)", textAlign: "center" }}
+          >
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+              GO LOCAL
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--text-on-amber)",
+                margin: "var(--space-2xs) 0",
+                opacity: 0.85,
+              }}
+            >
               Start building privacy-first RAG today.
             </p>
-            <Link to="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+            <Link
+              to="/docs"
+              className="btn-ghost"
+              style={{
+                borderColor: "var(--text-on-amber)",
+                color: "var(--text-on-amber)",
+                boxShadow: "var(--shadow-brutal)",
+              }}
+            >
               DOCS
             </Link>
           </div>
@@ -158,8 +263,18 @@ function LocalRagPage() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+        Loading...
+      </span>
     </div>
   );
 }
