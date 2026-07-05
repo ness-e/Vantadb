@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
+import { HeroBackground } from "./HeroBackground";
 
 export function SwissHero() {
   const [copied, setCopied] = useState(false);
@@ -16,6 +17,7 @@ export function SwissHero() {
 
   return (
     <section className="swiss-hero" aria-label="Hero">
+      <HeroBackground />
       <div className="swiss-hero-grid-bg" aria-hidden="true">
         <svg
           viewBox="0 0 1280 800"
