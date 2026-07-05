@@ -39,16 +39,16 @@ describe("DX-04: Error handling", () => {
     db.close();
   });
 
-  it("empty namespace returns error", async () => {
-    await expect(
+  it("empty namespace returns error", () => {
+    expect(() =>
       db.put({ namespace: "", key: "k", payload: "v" })
-    ).rejects.toThrow();
+    ).toThrow();
   });
 
-  it("empty key returns error", async () => {
-    await expect(
+  it("empty key returns error", () => {
+    expect(() =>
       db.put({ namespace: "ns", key: "", payload: "v" })
-    ).rejects.toThrow();
+    ).toThrow();
   });
 
   it("invalid vector (wrong dims inconsistency) is handled", async () => {
@@ -102,13 +102,13 @@ describe("DX-04: Edge cases", () => {
   });
 
   it("very long namespace name (128 bytes, max allowed)", async () => {
+    expect.assertions(1);
     const longNs = "a_really_long_namespace_that_is_just_under_the_limit_" + "b".repeat(60);
-    // If it exceeds max, it should error; otherwise it works
     try {
       await db.put({ namespace: longNs, key: "k", payload: "long ns" });
-      // May succeed if under max length
-    } catch {
-      // Accept error if over limit
+      expect(true).toBe(true);
+    } catch (e: unknown) {
+      expect(String(e)).toMatch(/namespace|limit|too long/i);
     }
   });
 
@@ -253,11 +253,11 @@ describe("DX-04: Search and query", () => {
     expect(hits.length).toBeGreaterThan(0);
   });
 
-  it("searchVector returns ordered by score desc", async () => {
-    const hits = await db.searchVector([1.0, 0.0, 0.0, 0.0], 5);
+  it("searchVector returns ordered by distance", () => {
+    const hits = db.searchVector([1.0, 0.0, 0.0, 0.0], 5);
     expect(hits.length).toBeGreaterThan(0);
     for (let i = 1; i < hits.length; i++) {
-      expect(hits[i - 1].score).toBeGreaterThanOrEqual(hits[i].score);
+      expect(hits[i - 1].distance).toBeGreaterThanOrEqual(hits[i].distance);
     }
   });
 
@@ -286,14 +286,13 @@ describe("DX-04: Search and query", () => {
     expect(explanation.route).toBeDefined();
   });
 
-  it("query IQL (if available)", async () => {
+  it("query IQL (if available)", () => {
+    expect.assertions(1);
     try {
-      const result = await db.query("(entity :id 1)");
-      // Should either return a result or throw an informative error
+      const result = db.query("(entity :id 1)");
       expect(result).toBeDefined();
-    } catch (e: any) {
-      // IQL may not be available in WASM — acceptable
-      expect(e).toBeDefined();
+    } catch (e: unknown) {
+      expect(String(e)).toMatch(/not supported|unavailable|IQL|parse|requires|LISP/i);
     }
   });
 });
@@ -324,18 +323,18 @@ describe("DX-04: Batch operations", () => {
     expect(records[99].payload).toBe("v99");
   });
 
-  it("putBatch with mixed valid/invalid handles gracefully", async () => {
+  it("putBatch with mixed valid/invalid handles gracefully", () => {
+    expect.assertions(1);
     const inputs: any[] = [
       { namespace: "batch_mixed", key: "valid", payload: "ok" },
       { namespace: "batch_mixed", key: "", payload: "empty-key" },
       { namespace: "batch_mixed", key: "valid2", payload: "ok2" },
     ];
-    // Should not throw entirely; some records may succeed
     try {
-      const records = await db.putBatch(inputs);
+      const records = db.putBatch(inputs);
       expect(records.length).toBeGreaterThanOrEqual(2);
-    } catch {
-      // Accept overall rejection
+    } catch (e: any) {
+      expect(e).toBeDefined();
     }
   });
 
@@ -350,27 +349,27 @@ describe("DX-04: Batch operations", () => {
     expect(Number(got!.version)).toBe(2);
   });
 
-  it("importRecords round-trip", async () => {
-    // Export first to get records in the right format
-    // Since we can't easily create importable records, test the method exists
+  it("importRecords round-trip", () => {
+    expect.assertions(1);
     const records = [
       { namespace: "import_rt", key: "k1", payload: "v1" },
       { namespace: "import_rt", key: "k2", payload: "v2" },
     ];
     try {
-      const report = await db.importRecords(records);
+      const report = db.importRecords(records);
       expect(report).toBeDefined();
-    } catch {
-      // importRecords may not accept raw format — it expects export format
+    } catch (e: any) {
+      expect(e).toBeDefined();
     }
   });
 
-  it("importRecords with empty array", async () => {
+  it("importRecords with empty array", () => {
+    expect.assertions(1);
     try {
-      const report = await db.importRecords([]);
+      const report = db.importRecords([]);
       expect(report).toBeDefined();
-    } catch {
-      // Accept rejection on empty
+    } catch (e: any) {
+      expect(e).toBeDefined();
     }
   });
 });
@@ -386,13 +385,13 @@ describe("DX-04: Lifecycle and maintenance", () => {
     db.close();
   });
 
-  it("flush after writes", async () => {
-    await db.put({ namespace: "lifecycle", key: "k", payload: "v" });
-    await expect(db.flush()).resolves.toBeUndefined();
+  it("flush after writes", () => {
+    db.put({ namespace: "lifecycle", key: "k", payload: "v" });
+    expect(db.flush()).toBeUndefined();
   });
 
-  it("compactWal", async () => {
-    await expect(db.compactWal()).resolves.toBeUndefined();
+  it("compactWal", () => {
+    expect(db.compactWal()).toBeUndefined();
   });
 
   it("purgeExpired", async () => {

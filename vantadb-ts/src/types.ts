@@ -56,7 +56,7 @@ export interface SearchRequest {
 
 export interface SearchHit {
   record: MemoryRecord;
-  score: number;
+  distance: number;
   explanation?: SearchExplanationHit;
 }
 
@@ -123,12 +123,38 @@ export interface OperationalMetrics {
   wal_records_replayed: string;
   ann_rebuild_ms: string;
   ann_rebuild_scanned_nodes: string;
+  derived_rebuild_ms: string;
+  text_index_rebuild_ms: string;
+  text_postings_written: string;
+  text_index_repairs: string;
+  text_lexical_queries: string;
+  text_lexical_query_ms: string;
+  text_candidates_scored: string;
+  text_consistency_audits: string;
+  text_consistency_audit_failures: string;
+  hybrid_query_ms: string;
+  hybrid_candidates_fused: string;
+  planner_hybrid_queries: string;
+  planner_text_only_queries: string;
+  planner_vector_only_queries: string;
+  records_exported: string;
+  records_imported: string;
+  import_errors: string;
+  derived_prefix_scans: string;
+  derived_full_scan_fallbacks: string;
   process_rss_bytes: string;
   process_virtual_bytes: string;
   hnsw_nodes_count: string;
   hnsw_logical_bytes: string;
+  mmap_resident_bytes: string | null;
   volatile_cache_entries: string;
   volatile_cache_cap_bytes: string;
+  jemalloc_allocated_bytes: string | null;
+  jemalloc_active_bytes: string | null;
+  jemalloc_metadata_bytes: string | null;
+  jemalloc_resident_bytes: string | null;
+  jemalloc_mapped_bytes: string | null;
+  jemalloc_retained_bytes: string | null;
 }
 
 export interface Capabilities {
