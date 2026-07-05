@@ -153,6 +153,9 @@ use tracing::warn;
 #[cfg(unix)]
 use libc;
 
+/// Atomic flag set by the SIGBUS handler instead of logging directly.
+/// Replaced the previous `warn!()` approach to avoid reentrancy issues
+/// inside a signal handler (async-signal-unsafe functions).
 #[allow(dead_code)]
 static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
 #[cfg(unix)]
@@ -470,6 +473,8 @@ impl VantaFile {
             let header = VantaHeader::new(*b"VFLE", 1, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
             mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
+            // Zero-fill the remainder of the header block (bytes 24..64) to
+            // ensure a clean slate for a potentially corrupt or uninitialized file.
             mmap.as_mut_slice()?[24..STORAGE_ALIGNMENT as usize].fill(0);
             mmap.flush()?;
         }
@@ -598,6 +603,10 @@ impl VantaFile {
     }
 
     /// Extend the file to the given new size, zero-filling added space.
+    ///
+    /// Shrinking is rejected because the VantaFile layout is append-only:
+    /// existing node offsets would become invalid. Use `compact_layout` in
+    /// `archive.rs` to reclaim space instead.
     pub fn grow_to(&mut self, new_size: u64) -> Result<()> {
         if new_size < self.size {
             return Err(VantaError::ValidationError {

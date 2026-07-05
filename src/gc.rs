@@ -46,6 +46,9 @@ impl<'a> GcWorker<'a> {
         let mut keys_to_remove = Vec::new();
         for (expiry, ids) in self.index_ttl.iter_mut() {
             if *expiry <= now {
+                // retain() serves as a retry mechanism: on success the ID is
+                // removed from the list (false); on transient failure it stays
+                // (true) so the next sweep will attempt deletion again.
                 ids.retain(|&id| match self.storage.delete(id, "GC TTL Expired") {
                     Ok(_) => {
                         expired_count += 1;
@@ -71,8 +74,11 @@ impl<'a> GcWorker<'a> {
         Ok(expired_count)
     }
 
-    /// Removes TTL entries for node IDs that are no longer in the active set.
-    /// Call this after a manual delete to prevent unbounded TTL map growth.
+    /// Remove TTL entries for node IDs that are no longer in the active set.
+    ///
+    /// Call this after a manual (non-TTL) delete so the GC does not accumulate
+    /// stale entries for already-deleted nodes, preventing unbounded TTL map
+    /// growth. Entries whose ID sets become empty are removed entirely.
     pub fn purge_ttl_for_deleted(&mut self, active_ids: &HashSet<u64>) {
         self.index_ttl.retain(|_, ids| {
             ids.retain(|id| active_ids.contains(id));

@@ -21,7 +21,8 @@ pub(crate) fn compact_layout(
     bfs_order: &[u64],
     header_size: u64,
 ) -> Result<(HashMap<u64, u64>, u64)> {
-    // CODE-010: Skip compaction for in-memory stores (replace_backing_file is a no-op)
+    // In-memory VantaFile has no disk backing to compact — return a trivial
+    // offset map that preserves existing offsets (CODE-010).
     if vstore.file.is_none() {
         let offset_map: HashMap<u64, u64> = bfs_order
             .iter()
