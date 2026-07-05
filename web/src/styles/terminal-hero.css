@@ -75,20 +75,42 @@
 }
 
 @keyframes nb-hero-glitch-offset {
-  0% { transform: translate(0); }
-  20% { transform: translate(-2px, 1px); }
-  40% { transform: translate(2px, -1px); }
-  60% { transform: translate(-1px, 2px); }
-  80% { transform: translate(1px, -2px); }
-  100% { transform: translate(0); }
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 1px);
+  }
+  40% {
+    transform: translate(2px, -1px);
+  }
+  60% {
+    transform: translate(-1px, 2px);
+  }
+  80% {
+    transform: translate(1px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
 }
 
 @keyframes nb-hero-glitch-offset-2 {
-  0% { transform: translate(0); }
-  25% { transform: translate(3px, -1px); }
-  50% { transform: translate(-3px, 2px); }
-  75% { transform: translate(1px, -3px); }
-  100% { transform: translate(0); }
+  0% {
+    transform: translate(0);
+  }
+  25% {
+    transform: translate(3px, -1px);
+  }
+  50% {
+    transform: translate(-3px, 2px);
+  }
+  75% {
+    transform: translate(1px, -3px);
+  }
+  100% {
+    transform: translate(0);
+  }
 }
 
 .nb-terminal-hero-glitch--amber {
@@ -158,7 +180,7 @@
 }
 
 .nb-terminal-hero-cta-prefix {
-  color: rgba(0,0,0,0.4);
+  color: rgba(0, 0, 0, 0.4);
   font-weight: 400;
 }
 
@@ -295,8 +317,12 @@
 }
 
 @keyframes nb-marquee-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @media (max-width: 640px) {

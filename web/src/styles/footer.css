@@ -57,7 +57,9 @@
   font-size: 0.82rem;
   color: var(--muted);
   text-decoration: none;
-  transition: color 150ms var(--ease-brutal), padding-left 150ms var(--ease-brutal);
+  transition:
+    color 150ms var(--ease-brutal),
+    padding-left 150ms var(--ease-brutal);
   line-height: 1.4;
   padding: 0.15rem 0;
 }
