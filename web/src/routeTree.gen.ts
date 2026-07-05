@@ -9,10 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WhyVantadbRouteImport } from './routes/why-vantadb'
 import { Route as UseCasesRouteImport } from './routes/use-cases'
 import { Route as StorageRouteImport } from './routes/storage'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as MaintRouteImport } from './routes/maint'
 import { Route as LatencyRouteImport } from './routes/latency'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
@@ -35,6 +37,11 @@ import { Route as AboutContactRouteImport } from './routes/about/contact'
 import { Route as AboutCompanyRouteImport } from './routes/about/company'
 import { Route as AboutCommunityRouteImport } from './routes/about/community'
 
+const WhyVantadbRoute = WhyVantadbRouteImport.update({
+  id: '/why-vantadb',
+  path: '/why-vantadb',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/why-vantadb.lazy').then((d) => d.Route))
 const UseCasesRoute = UseCasesRouteImport.update({
   id: '/use-cases',
   path: '/use-cases',
@@ -55,6 +62,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/pricing.lazy').then((d) => d.Route))
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/playground.lazy').then((d) => d.Route))
 const MaintRoute = MaintRouteImport.update({
   id: '/maint',
   path: '/maint',
@@ -183,10 +195,12 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
+  '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
+  '/why-vantadb': typeof WhyVantadbRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
@@ -210,10 +224,12 @@ export interface FileRoutesByTo {
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
+  '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
+  '/why-vantadb': typeof WhyVantadbRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
@@ -238,10 +254,12 @@ export interface FileRoutesById {
   '/integrations': typeof IntegrationsRoute
   '/latency': typeof LatencyRoute
   '/maint': typeof MaintRoute
+  '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
+  '/why-vantadb': typeof WhyVantadbRoute
   '/about/community': typeof AboutCommunityRoute
   '/about/company': typeof AboutCompanyRoute
   '/about/contact': typeof AboutContactRoute
@@ -267,10 +285,12 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/latency'
     | '/maint'
+    | '/playground'
     | '/pricing'
     | '/security'
     | '/storage'
     | '/use-cases'
+    | '/why-vantadb'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
@@ -294,10 +314,12 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/latency'
     | '/maint'
+    | '/playground'
     | '/pricing'
     | '/security'
     | '/storage'
     | '/use-cases'
+    | '/why-vantadb'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
@@ -321,10 +343,12 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/latency'
     | '/maint'
+    | '/playground'
     | '/pricing'
     | '/security'
     | '/storage'
     | '/use-cases'
+    | '/why-vantadb'
     | '/about/community'
     | '/about/company'
     | '/about/contact'
@@ -349,10 +373,12 @@ export interface RootRouteChildren {
   IntegrationsRoute: typeof IntegrationsRoute
   LatencyRoute: typeof LatencyRoute
   MaintRoute: typeof MaintRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   PricingRoute: typeof PricingRoute
   SecurityRoute: typeof SecurityRoute
   StorageRoute: typeof StorageRoute
   UseCasesRoute: typeof UseCasesRoute
+  WhyVantadbRoute: typeof WhyVantadbRoute
   AboutCommunityRoute: typeof AboutCommunityRoute
   AboutCompanyRoute: typeof AboutCompanyRoute
   AboutContactRoute: typeof AboutContactRoute
@@ -367,6 +393,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/why-vantadb': {
+      id: '/why-vantadb'
+      path: '/why-vantadb'
+      fullPath: '/why-vantadb'
+      preLoaderRoute: typeof WhyVantadbRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/use-cases': {
       id: '/use-cases'
       path: '/use-cases'
@@ -393,6 +426,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maint': {
@@ -557,10 +597,12 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsRoute: IntegrationsRoute,
   LatencyRoute: LatencyRoute,
   MaintRoute: MaintRoute,
+  PlaygroundRoute: PlaygroundRoute,
   PricingRoute: PricingRoute,
   SecurityRoute: SecurityRoute,
   StorageRoute: StorageRoute,
   UseCasesRoute: UseCasesRoute,
+  WhyVantadbRoute: WhyVantadbRoute,
   AboutCommunityRoute: AboutCommunityRoute,
   AboutCompanyRoute: AboutCompanyRoute,
   AboutContactRoute: AboutContactRoute,
