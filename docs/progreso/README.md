@@ -1042,6 +1042,23 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `src/storage/engine.rs` — WAL replay en `recover_state()`
 - **Ids:** `CODE-001`
 
+### CODE-003: Reemplazar process::exit(1) con graceful shutdown + WAL flush
+- **Fecha:** 2026-07-04
+- **Objetivo:** 6 puntos de `process::exit(1)` en `cli_server.rs` saltaban todos los Drop. BufWriter perdía records buffered y file lock nunca se liberaba. Se reemplazaron con `flush_on_shutdown()` (flushea storage antes de retornar) y se propagaron errores vía `Result` en lugar de exit.
+- **Checklist:**
+  - [x] Crear `flush_on_shutdown()` helper que flushea storage + telemetry
+  - [x] TLS startup errors: reemplazar exit(1) con flush + return false
+  - [x] TLS bind error: reemplazar exit(1) con flush + return false
+  - [x] TLS serve error: reemplazar exit(1) con flush + return false
+  - [x] Non-TLS bind error: reemplazar exit(1) con flush + return false
+  - [x] Non-TLS serve error: reemplazar exit(1) con flush + return true (flush ocurre después)
+  - [x] Storage engine open error: reemplazar exit(1) con return Err(e)
+  - [x] Actualizar `serve_http_or_tls` para retornar bool (graceful?) + `run()` propaga error
+  - [x] 440 tests pasan
+- **Archivos Modificados:**
+  - `src/cli_server.rs` — refactor completo de shutdown
+- **Ids:** `CODE-003`
+
 ### CODE-002: WAL append antes de validación — FIXED
 - **Fecha:** 2026-07-04
 - **Objetivo:** `insert()`/`update()`/`delete()` escribían WAL antes de validar duplicados. Si validación fallaba, WAL tenía registro fantasma. Auditoría confirmó que `ensure_writable()` corre antes del WAL append — no hay registro sin validación previa.

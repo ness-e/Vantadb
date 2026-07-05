@@ -3,6 +3,7 @@
 //! Builds an [`axum`] application, mounts middleware and API routes,
 //! and binds to the configured address.
 
+use crate::VantaError;
 use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
@@ -626,7 +627,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         }
         Err(e) => {
             console::error("Failed to open storage engine", Some(&e.to_string()));
-            std::process::exit(1);
+            return Err(e);
         }
     };
 
@@ -646,7 +647,9 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let router = app(state, rpm);
     let addr = format!("{}:{}", config.host, config.port);
 
-    serve_http_or_tls(router, addr, &config, storage.clone()).await;
+    if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
+        return Err(VantaError::CliError("Server exited with errors".into()));
+    }
 
     Ok(())
 }
@@ -714,20 +717,34 @@ pub async fn build_tls13_config(
     Ok(config)
 }
 
+/// Flush storage and log the result.
+fn flush_on_shutdown(storage: &crate::storage::StorageEngine) {
+    console::warn("Flushing storage before exit...", None);
+    if let Err(e) = storage.flush() {
+        console::error("Flush failed during shutdown", Some(&e.to_string()));
+    } else {
+        console::ok("Storage flushed", None);
+    }
+    #[cfg(feature = "opentelemetry")]
+    shutdown_telemetry();
+}
+
+/// Returns `true` if the server completed a graceful shutdown (flush was called).
 #[cfg_attr(not(feature = "tls"), allow(unused_variables))]
 async fn serve_http_or_tls(
     router: axum::Router,
     addr: String,
     config: &VantaConfig,
     storage: Arc<crate::storage::StorageEngine>,
-) {
+) -> bool {
     #[cfg(feature = "tls")]
     if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
         let tls_config = match build_tls13_config(cert, key).await {
             Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
             Err(e) => {
                 console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
-                std::process::exit(1);
+                flush_on_shutdown(&storage);
+                return false;
             }
         };
 
@@ -735,7 +752,8 @@ async fn serve_http_or_tls(
             Ok(a) => a,
             Err(e) => {
                 console::error("Invalid bind address", Some(&e.to_string()));
-                std::process::exit(1);
+                flush_on_shutdown(&storage);
+                return false;
             }
         };
 
@@ -763,10 +781,12 @@ async fn serve_http_or_tls(
             .await
         {
             console::error("TLS server terminated unexpectedly", Some(&e.to_string()));
-            std::process::exit(1);
+            flush_on_shutdown(&storage);
+            return false;
         }
 
-        return;
+        flush_on_shutdown(&storage);
+        return true;
     }
 
     let listener = match TcpListener::bind(&addr).await {
@@ -776,7 +796,8 @@ async fn serve_http_or_tls(
         }
         Err(e) => {
             console::error("Failed to bind port", Some(&e.to_string()));
-            std::process::exit(1);
+            flush_on_shutdown(&storage);
+            return false;
         }
     };
 
@@ -800,16 +821,8 @@ async fn serve_http_or_tls(
     .await
     {
         console::error("Server terminated unexpectedly", Some(&e.to_string()));
-        std::process::exit(1);
     }
 
-    console::warn("Flushing storage after graceful drain...", None);
-    if let Err(e) = storage_clone.flush() {
-        console::error("Flush failed during shutdown", Some(&e.to_string()));
-    } else {
-        console::ok("Storage flushed successfully", None);
-    }
-
-    #[cfg(feature = "opentelemetry")]
-    shutdown_telemetry();
+    flush_on_shutdown(&storage);
+    true
 }
