@@ -403,7 +403,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Embedded-memory hybrid benchmark and certification corpora for text-only, vector-only, phrase, and hybrid retrieval paths.
 - Text-index structural audit coverage and operational metrics for lexical queries, candidates scored, and audit failures.
 - Public read-only text-index audit through Rust SDK, Python SDK, and `vanta-cli audit-index`.
-<!-- TODO: create and reference docs/operations/ROADMAP.md -->
+<!-- TODO: create and reference docs/strategy/ROADMAP.md -->
 - Fjall cold-copy restore validation covering canonical records, BM25/phrase text search, and hybrid retrieval.
 - Project tracking CSV and text-index phase closeout evidence before BM25/RRF.
 - `memory_export_import`, `derived_indexes`, and `memory_brutality` tests, including a 10K-record operational smoke.
