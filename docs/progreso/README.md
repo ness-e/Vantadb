@@ -981,6 +981,15 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Archivos Modificados:**
   - `web/content/blog/introducing-vantadb.md`
 
+### CODE-022: Remove unused Three.js dependency (600KB+ bundle reduction)
+- **Fecha:** 2026-07-04
+- **Objetivo:** Three.js no tenía ningún import en `web/src/` pero estaba listado en package.json. Ya fue eliminado en commit previo — verificado: no está en package.json, node_modules, ni imports.
+- **Checklist:**
+  - [x] Verificar que no haya imports de three en `web/src/` (0 imports ✅)
+  - [x] Verificar que no esté en `package.json` (ya removido ✅)
+  - [x] Verificar que no esté en `npm ls three` (empty ✅)
+- **Ids:** `CODE-022`
+
 ### CODE-027: Replace .expect() panic in get_many() with proper error
 - **Fecha:** 2026-07-04
 - **Objetivo:** Reemplazar `.expect("backend key must be 8 bytes")` con `map_err` que propaga `VantaError::BackendError`. Evita crash del server completo si el backend retorna una key corrupta.

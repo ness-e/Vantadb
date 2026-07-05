@@ -501,7 +501,7 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 23 | 0 | 23 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **28** | **34** | **38** | **41** | **20** | **161** |
+| **Total** | **28** | **33** | **38** | **41** | **20** | **160** |
 
 Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se debe a subtareas ✅ completadas dentro de categorías que igual listamos para tracking.
 
@@ -510,17 +510,17 @@ Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se de
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 31 items):
+Jul 4-11   TIER 0 (🔴 28 items):
            ─ Data loss: CODE-001/002/003/009/026/027
            ─ Security: CODE-012/020/021, SEC-08/09/10
            ─ Migration: DB-01/02
            ─ Crash: CODE-015/018/019
            ─ Python bugs: CODE-004/005/011/014
            ─ Integrations: INT-01→10, DEVOPS-05, REL-02, tests
-Jul 11-18  TIER 1 (🟠 34 items):
-           ─ Marketing: MKT-11/12, DX-02, CODE-091
-           ─ Index: CODE-007/008/010/024/029/030
-           ─ Web: MKT-13/14, CODE-022/023/070/073/078/079/080
+Jul 11-18  TIER 1 (🟠 33 items):
+            ─ Marketing: MKT-11/12, DX-02, CODE-091
+            ─ Index: CODE-007/008/010/024/029/030
+            ─ Web: MKT-13/14, CODE-023/070/073/078/079/080
            ─ Docs: MCP per-IDE, CODE-085
            ─ WASM: MCP-03, CODE-059/060
            ─ Distribución: DEVOPS-02/06/10
