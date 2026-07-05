@@ -34,17 +34,8 @@ export function ScrollProgress() {
 
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: `${progress * 100}%`,
-        height: 2,
-        background: "var(--amber)",
-        zIndex: 9999,
-        pointerEvents: "none",
-        transition: "width 100ms linear",
-      }}
+      className="nb-scroll-bar"
+      style={{ width: `${progress * 100}%` }}
       role="progressbar"
       aria-valuenow={Math.round(progress * 100)}
       aria-valuemin={0}

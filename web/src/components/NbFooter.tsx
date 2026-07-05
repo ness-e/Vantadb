@@ -13,18 +13,7 @@ export const NbFooter = memo(function NbFooter() {
           </div>
 
           <div className="footer-col">
-            <h3
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.65rem",
-                letterSpacing: "0.12em",
-                color: "var(--amber)",
-                textTransform: "uppercase",
-                marginBottom: "var(--space-sm)",
-              }}
-            >
-              Product
-            </h3>
+            <h3 className="nb-footer-heading">Product</h3>
             <Link to="/engine" className="footer-link">
               Core Engine
             </Link>
@@ -46,18 +35,7 @@ export const NbFooter = memo(function NbFooter() {
           </div>
 
           <div className="footer-col">
-            <h3
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.65rem",
-                letterSpacing: "0.12em",
-                color: "var(--amber)",
-                textTransform: "uppercase",
-                marginBottom: "var(--space-sm)",
-              }}
-            >
-              Resources
-            </h3>
+            <h3 className="nb-footer-heading">Resources</h3>
             <Link to="/docs" className="footer-link">
               Documentation
             </Link>
@@ -79,18 +57,7 @@ export const NbFooter = memo(function NbFooter() {
           </div>
 
           <div className="footer-col">
-            <h3
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.65rem",
-                letterSpacing: "0.12em",
-                color: "var(--amber)",
-                textTransform: "uppercase",
-                marginBottom: "var(--space-sm)",
-              }}
-            >
-              Company
-            </h3>
+            <h3 className="nb-footer-heading">Company</h3>
             <Link to="/about" className="footer-link">
               About
             </Link>

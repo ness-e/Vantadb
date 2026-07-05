@@ -62,16 +62,7 @@ export function NbBenchmarkRace() {
   return (
     <section className="nb-section" ref={sectionRef} aria-label="Benchmarks">
       <div className="nb-inner">
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "var(--amber)",
-          }}
-        >
-          Benchmarks
-        </h2>
+        <h2 className="nb-amber-title">Benchmarks</h2>
         <div className="nb-divider" />
 
         {GROUPS.map((g) => (
@@ -83,9 +74,8 @@ export function NbBenchmarkRace() {
                   <span className="bm-race-label">{b.label}</span>
                   <div className="bm-race-bar-track">
                     <div
-                      className={`bm-race-bar-inner ${b.amber ? "bm-race-bar--amber" : "bm-race-bar--steel"}`}
+                      className={`bm-race-bar-inner nb-benchmark-inner ${b.amber ? "bm-race-bar--amber" : "bm-race-bar--steel"}`}
                       data-target={`${b.pct}%`}
-                      style={{ width: 0 }}
                     />
                   </div>
                   <span className="bm-race-value">{b.value}</span>
