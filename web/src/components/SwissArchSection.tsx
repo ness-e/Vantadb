@@ -38,40 +38,29 @@ export function SwissArchSection() {
         const layers = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer");
         const labels = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer-name");
 
-        gsap.fromTo(
-          layers,
-          { y: (i) => -(i + 1) * 60, opacity: 0.6 },
-          {
-            y: 0,
-            opacity: 1,
-            ease: "none",
-            stagger: 0.15,
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top 60%",
-              end: "bottom 80%",
-              scrub: 1,
-            },
+        gsap.from(layers, {
+          y: 40,
+          opacity: 0,
+          duration: 0.5,
+          stagger: 0.12,
+          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 75%",
           },
-        );
+        });
 
-        gsap.fromTo(
-          labels,
-          { clipPath: "inset(0 100% 0 0)", opacity: 0 },
-          {
-            clipPath: "inset(0)",
-            opacity: 1,
-            duration: 0.35,
-            stagger: 0.15,
-            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top 55%",
-              end: "bottom 75%",
-              scrub: 1,
-            },
+        gsap.from(labels, {
+          clipPath: "inset(0 100% 0 0)",
+          opacity: 0,
+          duration: 0.35,
+          stagger: 0.12,
+          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 70%",
           },
-        );
+        });
       });
     },
     { scope: sectionRef },
