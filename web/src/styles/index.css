@@ -1,16 +1,7 @@
 @import "./nb-base.css";
 @import "./nb-components.css";
 
-/* Legacy — will be replaced as components migrate to Nb* classes */
-@import "./layout.css";
-@import "./swiss-grid.css";
-@import "./buttons.css";
-@import "./utilities.css";
-@import "./animations.css";
-@import "./neubrutalism.css";
-
 @import "./nav.css";
-@import "./hero.css";
 @import "./metrics-bar.css";
 @import "./benchmark.css";
 @import "./quickstart.css";
