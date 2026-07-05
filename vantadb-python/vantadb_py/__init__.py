@@ -38,6 +38,9 @@ class AsyncVantaDB:
         return self
 
     async def __aexit__(self, *exc):
+        # Use to_thread to release the GIL so the Rust engine can close
+        # without blocking the asyncio event loop. The close call itself
+        # already uses py.allow_threads() on the Rust side.
         await asyncio.to_thread(self._sync.close)
 
     # ── Query methods (async via to_thread) ──
