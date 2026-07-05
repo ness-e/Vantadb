@@ -87,17 +87,11 @@ function LatencyPage() {
           <div className="nb-inner">
             <div className="nb-grid nb-grid--cols-2 latency-grid">
               <div className="nb-cell">
-                <div className="latency-label-legacy">
-                  LEGACY — ~200ms
-                </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4 latency-list"
-                >
+                <div className="latency-label-legacy">LEGACY — ~200ms</div>
+                <ul className="flex flex-col gap-3 mt-4 latency-list">
                   {LEGACY_ITEMS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
-                      <span
-                        className="font-mono font-bold flex-shrink-0 latency-icon-danger"
-                      >
+                      <span className="font-mono font-bold flex-shrink-0 latency-icon-danger">
                         ✗
                       </span>
                       {item}
@@ -109,9 +103,7 @@ function LatencyPage() {
                 <div className="latency-label-vanta">
                   VANTADB {mode === "rust" ? "Rust Core" : "Python SDK"} — {vantaLatency}ms
                 </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4 latency-list"
-                >
+                <ul className="flex flex-col gap-3 mt-4 latency-list">
                   {VANTA_ITEMS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
                       <span className="font-mono font-bold flex-shrink-0 text-amber">✓</span>
@@ -119,9 +111,7 @@ function LatencyPage() {
                     </li>
                   ))}
                 </ul>
-                <div
-                  className="mt-4 pt-3 font-mono text-[0.65rem] text-steel leading-relaxed tracking-[0.02em] latency-footnote"
-                >
+                <div className="mt-4 pt-3 font-mono text-[0.65rem] text-steel leading-relaxed tracking-[0.02em] latency-footnote">
                   <span className="text-amber">▲</span>{" "}
                   {mode === "rust"
                     ? "1.2ms p50 applies to Rust Core (native). Python SDK adds ~39.74ms p50 (FFI + serialization). Toggle above to compare."
@@ -134,9 +124,7 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="latency-section-title">
-              Pipeline Impact
-            </h2>
+            <h2 className="latency-section-title">Pipeline Impact</h2>
             <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[-0.04em] mt-4 mb-12 leading-tight">
               Multi-query impact.
             </h2>
@@ -161,12 +149,8 @@ function LatencyPage() {
 
             <div className="nb-grid nb-grid--cols-3">
               <div className="nb-cell">
-                <div className="latency-label-value">
-                  LEGACY
-                </div>
-                <div
-                  className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none latency-value-danger"
-                >
+                <div className="latency-label-value">LEGACY</div>
+                <div className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none latency-value-danger">
                   {(legacyTotal / 1000).toFixed(1)}s
                 </div>
                 <div className="font-mono text-[0.6rem] text-steel mt-2">
@@ -200,14 +184,10 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="latency-section-title">
-              Where the Milliseconds Go
-            </h2>
+            <h2 className="latency-section-title">Where the Milliseconds Go</h2>
 
             <div className="nb-frame mt-12">
-              <div
-                className="grid grid-cols-[120px_1fr_80px_80px] gap-4 px-4 py-3 latency-table-header"
-              >
+              <div className="grid grid-cols-[120px_1fr_80px_80px] gap-4 px-4 py-3 latency-table-header">
                 <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
                   Phase
                 </span>
@@ -267,18 +247,12 @@ function LatencyPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <h2
-                    className="font-display text-2xl font-extrabold latency-cta-title"
-                  >
+                  <h2 className="font-display text-2xl font-extrabold latency-cta-title">
                     1.2ms at the core. No network tax.
                   </h2>
-                  <p className="text-sm latency-cta-sub">
-                    Install VantaDB in one command.
-                  </p>
+                  <p className="text-sm latency-cta-sub">Install VantaDB in one command.</p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold latency-cta-code"
-                >
+                <code className="font-mono text-lg font-bold latency-cta-code">
                   pip install vantadb-py
                 </code>
               </div>

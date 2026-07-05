@@ -12,15 +12,9 @@ export const Route = createLazyRoute("/architecture")({
 function SpecRow({ label, val, desc }: { label: string; val: string; desc: string }) {
   return (
     <tr>
-      <td className="architecture-spec-label">
-        {label}
-      </td>
-      <td className="architecture-spec-value">
-        {val}
-      </td>
-      <td className="architecture-spec-desc">
-        {desc}
-      </td>
+      <td className="architecture-spec-label">{label}</td>
+      <td className="architecture-spec-value">{val}</td>
+      <td className="architecture-spec-desc">{desc}</td>
     </tr>
   );
 }
@@ -64,12 +58,8 @@ function PerformanceProfiler() {
   return (
     <div className="nb-frame">
       <div className="architecture-profiler-header">
-        <span className="architecture-profiler-title">
-          CPU TIME DISTRIBUTION
-        </span>
-        <span className="architecture-profiler-hint">
-          HOVER SEGMENTS TO PROFILE
-        </span>
+        <span className="architecture-profiler-title">CPU TIME DISTRIBUTION</span>
+        <span className="architecture-profiler-hint">HOVER SEGMENTS TO PROFILE</span>
       </div>
 
       <div className="architecture-profiler-bar">
@@ -111,15 +101,11 @@ function PerformanceProfiler() {
             <div className="architecture-hovered-title">
               {hoveredData.label} — {hoveredData.share}% of query budget
             </div>
-            <p className="architecture-hovered-desc">
-              {hoveredData.desc}
-            </p>
+            <p className="architecture-hovered-desc">{hoveredData.desc}</p>
           </div>
         ) : (
           <div>
-            <div className="architecture-default-title">
-              Engine Performance Summary
-            </div>
+            <div className="architecture-default-title">Engine Performance Summary</div>
             <p className="architecture-default-desc">
               Hover over the latency bar segments above to analyze where the database spends CPU
               cycles during typical multi-modal queries.
@@ -178,9 +164,7 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <h2 className="architecture-section-title">
-                  Stack Layers
-                </h2>
+                <h2 className="architecture-section-title">Stack Layers</h2>
                 <p className="architecture-section-desc">
                   VantaDB provides safe bindings on top of a highly optimized multi-modal execution
                   core and storage layer.
@@ -188,24 +172,13 @@ function ArchitecturePage() {
               </div>
               <div className="nb-grid nb-grid--cols-2">
                 {layers.map((lyr) => (
-                  <div
-                    key={lyr.num}
-                    className="nb-cell architecture-layer-cell"
-                  >
+                  <div key={lyr.num} className="nb-cell architecture-layer-cell">
                     <div className="architecture-layer-header">
-                      <span className="architecture-layer-tag">
-                        {lyr.tag}
-                      </span>
-                      <span className="architecture-layer-num">
-                        LAYER {lyr.num}
-                      </span>
+                      <span className="architecture-layer-tag">{lyr.tag}</span>
+                      <span className="architecture-layer-num">LAYER {lyr.num}</span>
                     </div>
-                    <h3 className="architecture-layer-title">
-                      {lyr.title}
-                    </h3>
-                    <p className="architecture-layer-body">
-                      {lyr.body}
-                    </p>
+                    <h3 className="architecture-layer-title">{lyr.title}</h3>
+                    <p className="architecture-layer-body">{lyr.body}</p>
                   </div>
                 ))}
               </div>
@@ -222,9 +195,7 @@ function ArchitecturePage() {
                 <PerformanceProfiler />
               </div>
               <div>
-                <h2 className="architecture-section-title">
-                  Query Latency
-                </h2>
+                <h2 className="architecture-section-title">Query Latency</h2>
                 <p className="architecture-section-desc architecture-section-desc--compact">
                   Due to direct sharing of pointer addresses, the cost of crossing FFI bindings is
                   less than 12% of total search time, leaving CPU resources free to evaluate
@@ -241,9 +212,7 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <h2 className="architecture-section-title">
-                  Operational Limits
-                </h2>
+                <h2 className="architecture-section-title">Operational Limits</h2>
                 <p className="architecture-section-desc architecture-section-desc--compact">
                   Technical limits enforced at memory layer boundaries to prevent out-of-memory
                   states during heavy concurrent query evaluations.
@@ -311,13 +280,9 @@ function ArchitecturePage() {
                   <h2 className="architecture-cta-title">
                     Compiles to native. Runs in your process.
                   </h2>
-                  <p className="architecture-cta-sub">
-                    Install VantaDB in one command.
-                  </p>
+                  <p className="architecture-cta-sub">Install VantaDB in one command.</p>
                 </div>
-                <code className="architecture-cta-code">
-                  pip install vantadb-py
-                </code>
+                <code className="architecture-cta-code">pip install vantadb-py</code>
               </div>
             </div>
           </div>

@@ -64,44 +64,26 @@ function CostPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="cost-section-title">
-              Cost Comparison
-            </h2>
+            <h2 className="cost-section-title">Cost Comparison</h2>
 
             <div className="nb-grid nb-grid--cols-2 cost-grid">
               <div className="nb-cell">
-                <div className="cost-label-legacy">
-                  LEGACY — ~$200/mo
-                </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4 cost-list"
-                >
+                <div className="cost-label-legacy">LEGACY — ~$200/mo</div>
+                <ul className="flex flex-col gap-3 mt-4 cost-list">
                   {LEGACY_COSTS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
-                      <span
-                        className="font-mono font-bold flex-shrink-0 cost-icon-danger"
-                      >
-                        ✗
-                      </span>
+                      <span className="font-mono font-bold flex-shrink-0 cost-icon-danger">✗</span>
                       {item}
                     </li>
                   ))}
                 </ul>
               </div>
               <div className="nb-cell cost-cell-border">
-                <div className="cost-label-vanta">
-                  VANTADB — $0
-                </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4 cost-list"
-                >
+                <div className="cost-label-vanta">VANTADB — $0</div>
+                <ul className="flex flex-col gap-3 mt-4 cost-list">
                   {VANTA_COSTS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
-                      <span
-                        className="font-mono font-bold flex-shrink-0 cost-icon-amber"
-                      >
-                        ✓
-                      </span>
+                      <span className="font-mono font-bold flex-shrink-0 cost-icon-amber">✓</span>
                       {item}
                     </li>
                   ))}
@@ -113,9 +95,7 @@ function CostPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="cost-section-title">
-              Monthly Cost by Provider
-            </h2>
+            <h2 className="cost-section-title">Monthly Cost by Provider</h2>
 
             <div className="nb-frame mt-12">
               <table className="nb-table cost-table">
@@ -170,9 +150,7 @@ function CostPage() {
             </div>
 
             <div className="nb-grid nb-grid--cols-2 cost-grid-flush">
-              <div
-                className="nb-cell cost-tco-cell"
-              >
+              <div className="nb-cell cost-tco-cell">
                 <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                   TCO NOTE
                 </span>
@@ -191,18 +169,12 @@ function CostPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <h2
-                    className="font-display text-2xl font-extrabold cost-cta-title"
-                  >
+                  <h2 className="font-display text-2xl font-extrabold cost-cta-title">
                     Free software. Zero runtime cost.
                   </h2>
-                  <p className="text-sm cost-cta-sub">
-                    Install VantaDB in one command.
-                  </p>
+                  <p className="text-sm cost-cta-sub">Install VantaDB in one command.</p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold cost-cta-code"
-                >
+                <code className="font-mono text-lg font-bold cost-cta-code">
                   pip install vantadb-py
                 </code>
               </div>

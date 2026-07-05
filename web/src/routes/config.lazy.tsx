@@ -69,15 +69,11 @@ function ConfigPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="config-section-title">
-              Setup Comparison
-            </h2>
+            <h2 className="config-section-title">Setup Comparison</h2>
 
             <div className="nb-grid nb-grid--cols-2 config-grid">
               <div className="nb-cell">
-                <div className="config-label-legacy">
-                  LEGACY — Pages of config
-                </div>
+                <div className="config-label-legacy">LEGACY — Pages of config</div>
                 <ul className="nb-list mt-4">
                   {LEGACY_CONFIG.map((item) => (
                     <li key={item}>{item}</li>
@@ -85,9 +81,7 @@ function ConfigPage() {
                 </ul>
               </div>
               <div className="nb-cell config-cell-border">
-                <div className="config-label-vanta">
-                  VANTADB — Zero lines
-                </div>
+                <div className="config-label-vanta">VANTADB — Zero lines</div>
                 <ul className="nb-list mt-4">
                   {VANTA_CONFIG.map((item) => (
                     <li key={item}>{item}</li>
@@ -100,15 +94,11 @@ function ConfigPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2 className="config-section-title">
-              Code: From 50 Lines to 1
-            </h2>
+            <h2 className="config-section-title">Code: From 50 Lines to 1</h2>
 
             <div className="nb-grid nb-grid--cols-2 config-grid">
               <div className="nb-cell config-cell-code">
-                <div
-                  className="flex items-center justify-between px-5 py-3 config-code-header"
-                >
+                <div className="flex items-center justify-between px-5 py-3 config-code-header">
                   <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
                     legacy_setup.py
                   </span>
@@ -118,12 +108,8 @@ function ConfigPage() {
                   <code>{LEGACY_CODE}</code>
                 </pre>
               </div>
-              <div
-                className="nb-cell config-cell-code-accent"
-              >
-                <div
-                  className="flex items-center justify-between px-5 py-3 config-code-header"
-                >
+              <div className="nb-cell config-cell-code-accent">
+                <div className="flex items-center justify-between px-5 py-3 config-code-header">
                   <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                     vantadb_setup.py
                   </span>
@@ -142,18 +128,12 @@ function ConfigPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <h2
-                    className="font-display text-2xl font-extrabold config-cta-title"
-                  >
+                  <h2 className="font-display text-2xl font-extrabold config-cta-title">
                     Zero config. Ship faster.
                   </h2>
-                  <p className="text-sm config-cta-sub">
-                    Install VantaDB in one command.
-                  </p>
+                  <p className="text-sm config-cta-sub">Install VantaDB in one command.</p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold config-cta-code"
-                >
+                <code className="font-mono text-lg font-bold config-cta-code">
                   pip install vantadb-py
                 </code>
               </div>

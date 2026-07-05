@@ -20,9 +20,7 @@ function BlogPost() {
         <section className="nb-section">
           <div className="nb-inner">
             <div className="nb-frame blog-slug-not-found-frame">
-              <span className="blog-slug-not-found-text">
-                Post not found
-              </span>
+              <span className="blog-slug-not-found-text">Post not found</span>
               <br />
               <Link to="/blog" className="nb-arrow">
                 Back to blog
@@ -44,29 +42,17 @@ function BlogPost() {
           </div>
 
           <div className="blog-slug-header">
-            <span className="blog-slug-date">
-              {post.date}
-            </span>
-            <h1 className="blog-slug-title">
-              {post.title}
-            </h1>
+            <span className="blog-slug-date">{post.date}</span>
+            <h1 className="blog-slug-title">{post.title}</h1>
             <div className="blog-slug-meta">
-              {post.author && (
-                <span className="blog-slug-author">
-                  By {post.author}
-                </span>
-              )}
+              {post.author && <span className="blog-slug-author">By {post.author}</span>}
               {post.tags?.map((t) => (
                 <span key={t} className="blog-slug-tag">
                   {t}
                 </span>
               ))}
             </div>
-            {post.description && (
-              <p className="blog-slug-desc">
-                {post.description}
-              </p>
-            )}
+            {post.description && <p className="blog-slug-desc">{post.description}</p>}
           </div>
 
           <div className="nb-divider" />
@@ -107,9 +93,7 @@ function BlogPost() {
 export function PendingComponent() {
   return (
     <div className="blog-pending">
-      <span className="blog-pending-text">
-        Loading...
-      </span>
+      <span className="blog-pending-text">Loading...</span>
     </div>
   );
 }

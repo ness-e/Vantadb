@@ -70,13 +70,8 @@ function WhyVantaDBPage() {
           <div className="nb-divider" />
           <div className="nb-grid nb-grid--cols-2 why-vantadb-compare-grid">
             {COMPARISONS.map((c) => (
-              <div
-                key={c.category}
-                className="why-vantadb-compare-item"
-              >
-                <span className="why-vantadb-compare-category">
-                  {c.category}
-                </span>
+              <div key={c.category} className="why-vantadb-compare-item">
+                <span className="why-vantadb-compare-category">{c.category}</span>
                 <div className="why-vantadb-compare-row">
                   <span className="why-vantadb-compare-vantadb">{c.vantadb}</span>
                   <NbArrow />
@@ -90,22 +85,13 @@ function WhyVantaDBPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2 className="why-vantadb-principles-title">
-            Principles
-          </h2>
+          <h2 className="why-vantadb-principles-title">Principles</h2>
           <div className="nb-divider" />
           <div className="nb-grid nb-grid--cols-3 why-vantadb-principles-grid">
             {PRINCIPLES.map((p) => (
-              <div
-                key={p.title}
-                className="why-vantadb-principle-card"
-              >
-                <h2 className="why-vantadb-principle-heading">
-                  {p.title}
-                </h2>
-                <p className="why-vantadb-principle-desc">
-                  {p.desc}
-                </p>
+              <div key={p.title} className="why-vantadb-principle-card">
+                <h2 className="why-vantadb-principle-heading">{p.title}</h2>
+                <p className="why-vantadb-principle-desc">{p.desc}</p>
               </div>
             ))}
           </div>
@@ -115,10 +101,7 @@ function WhyVantaDBPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="why-vantadb-cta-row">
-            <Link
-              to="/about/company"
-              className="why-vantadb-cta-link"
-            >
+            <Link to="/about/company" className="why-vantadb-cta-link">
               cd about/company
             </Link>
           </div>
@@ -129,9 +112,5 @@ function WhyVantaDBPage() {
 }
 
 function NbArrow() {
-  return (
-    <span className="why-vantadb-arrow">
-      →
-    </span>
-  );
+  return <span className="why-vantadb-arrow">→</span>;
 }

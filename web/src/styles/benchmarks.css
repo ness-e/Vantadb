@@ -1,0 +1,70 @@
+.benchmarks-hero-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
+}
+.benchmarks-mt-3rem {
+  margin-top: 3rem;
+}
+.benchmarks-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+.benchmarks-thead-tr {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--steel);
+}
+.benchmarks-th {
+  padding: 1rem;
+  text-align: left;
+}
+.benchmarks-th-right {
+  padding: 1rem;
+  text-align: right;
+}
+.benchmarks-tbody-tr {
+  border-bottom: 1px solid var(--border);
+}
+.benchmarks-td {
+  padding: 1rem;
+}
+.benchmarks-td-right {
+  padding: 1rem;
+  text-align: right;
+}
+.benchmarks-amber-text {
+  color: var(--amber);
+  font-weight: bold;
+}
+.benchmarks-footnote {
+  margin-top: 2rem;
+  color: var(--steel);
+  line-height: 1.6;
+}
+.benchmarks-note-box {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border: 1px solid var(--amber);
+  background: rgba(255, 85, 0, 0.04);
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--steel);
+  line-height: 1.7;
+}
+.benchmarks-code-inline {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.benchmarks-pending {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+  color: var(--muted);
+}
