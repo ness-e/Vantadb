@@ -1,23 +1,17 @@
 interface NbSubpageHeroProps {
-  num: string;
+  pattern?: string;
   title: React.ReactNode;
   sub?: string;
 }
 
-export function NbSubpageHero({ num, title, sub }: NbSubpageHeroProps) {
+export function NbSubpageHero({ pattern = "p01", title, sub }: NbSubpageHeroProps) {
   return (
-    <header className="nb-subpage-hero" role="banner">
+    <header className={`nb-subpage-hero nb-subpage-hero--${pattern}`} role="banner">
+      <div className="nb-subpage-hero-bg" />
       <div className="nb-inner">
-        <div className="nb-subpage-hero-grid">
-          <div className="nb-subpage-hero-meta">
-            <span className="nb-subpage-hero-num" aria-hidden="true">
-              [{num}]
-            </span>
-          </div>
-          <div>
-            <h1 className="nb-subpage-hero-title">{title}</h1>
-            {sub && <p className="nb-subpage-hero-desc">{sub}</p>}
-          </div>
+        <div className="nb-subpage-hero-body">
+          <h1 className="nb-subpage-hero-title">{title}</h1>
+          {sub && <p className="nb-subpage-hero-desc">{sub}</p>}
         </div>
       </div>
     </header>

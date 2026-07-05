@@ -1,8 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Link } from "@tanstack/react-router";
-import { NbCursor } from "./nb/NbCursor";
-import { NbLogLine } from "./nb/NbLogLine";
-import { NbNoise } from "./nb/NbNoise";
+import { NbArrow, NbCursor, NbLogLine, NbNoise } from "./nb";
 
 const BOOT_LOG = [
   { level: "info" as const, msg: "VantaDB Engine v0.1.5 (commit 4a2f1b9)" },
@@ -167,9 +164,7 @@ export function NbTerminalHero() {
               </svg>
             )}
           </button>
-          <Link to="/docs" className="nb-arrow">
-            READ DOCS
-          </Link>
+          <NbArrow href="/docs">READ DOCS</NbArrow>
         </div>
       </div>
 

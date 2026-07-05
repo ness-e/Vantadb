@@ -1,7 +1,8 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import VantaDBLogo from "./VantaDBLogo";
 import { useState, useEffect, useCallback, memo, useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
+import { NbButton } from "./nb";
 
 const navLinks = [
   { path: "/engine", label: "Core Engine" },
@@ -17,6 +18,7 @@ export const NbNav = memo(function NbNav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const drawerBodyRef = useRef<HTMLDivElement>(null);
 
@@ -32,9 +34,9 @@ export const NbNav = memo(function NbNav() {
       if (drawerOpen && drawerBodyRef.current) {
         gsap.from(drawerBodyRef.current.children, {
           opacity: 0,
-          x: -16,
-          duration: 0.15,
-          stagger: 0.03,
+          x: -20,
+          duration: 0.18,
+          stagger: 0.04,
           ease: "power2.out",
         });
       }
@@ -83,12 +85,10 @@ export const NbNav = memo(function NbNav() {
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
-  const activeLabel = navLinks.find((l) => isActive(l.path))?.label ?? "HOME";
-
   return (
     <>
-      <nav className={`nb-nav${scrolled ? " nb-nav--scrolled" : ""}`}>
-        <Link to="/" className="nb-nav-logo">
+      <nav className={`nb-nav${scrolled ? " nb-nav--scrolled" : ""}`} role="navigation">
+        <Link to="/" className="nb-nav-logo" aria-label="VantaDB home">
           <VantaDBLogo variant="full" size="sm" />
         </Link>
 
@@ -99,20 +99,21 @@ export const NbNav = memo(function NbNav() {
               to={item.path}
               className={`nb-nav-link${isActive(item.path) ? " active" : ""}`}
             >
-              {item.label}
+              <span className="nb-nav-link-label">{item.label}</span>
+              {isActive(item.path) && <span className="nb-nav-link-dot" />}
             </Link>
           ))}
         </div>
 
         <div className="nb-nav-actions">
-          <Link to="/docs" className="nb-nav-cta">
+          <NbButton variant="ghost" size="sm" onClick={() => navigate({ to: "/docs" })}>
             Docs
-          </Link>
+          </NbButton>
           <a
             href="https://github.com/ness-e/Vantadb"
             target="_blank"
             rel="noreferrer"
-            className="nb-nav-cta"
+            className="nb-btn nb-btn--sm"
           >
             GitHub
           </a>
@@ -121,31 +122,12 @@ export const NbNav = memo(function NbNav() {
         <button
           className={`nb-nav-hamburger${drawerOpen ? " nb-nav-hamburger--open" : ""}`}
           onClick={() => setDrawerOpen((v) => !v)}
-          aria-label="Menu"
+          aria-label={drawerOpen ? "Close menu" : "Open menu"}
           aria-expanded={drawerOpen}
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            {drawerOpen ? (
-              <>
-                <line x1="3" y1="3" x2="15" y2="15" />
-                <line x1="15" y1="3" x2="3" y2="15" />
-              </>
-            ) : (
-              <>
-                <line x1="2" y1="4.5" x2="16" y2="4.5" />
-                <line x1="2" y1="9" x2="16" y2="9" />
-                <line x1="2" y1="13.5" x2="16" y2="13.5" />
-              </>
-            )}
-          </svg>
+          <span className="nb-hamburger-line" />
+          <span className="nb-hamburger-line" />
+          <span className="nb-hamburger-line" />
         </button>
       </nav>
 
@@ -177,17 +159,31 @@ export const NbNav = memo(function NbNav() {
         </div>
 
         <div className="nb-nav-drawer-body" ref={drawerBodyRef}>
-          {navLinks.concat({ path: "/docs", label: "Docs" }).map((item) => (
-            <div key={item.path}>
-              <Link
-                to={item.path}
-                className={`nb-nav-drawer-link${isActive(item.path) ? " active" : ""}`}
-                onClick={closeDrawer}
-              >
-                {item.label}
-              </Link>
-            </div>
+          {navLinks.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`nb-nav-drawer-link${isActive(item.path) ? " active" : ""}`}
+              onClick={closeDrawer}
+            >
+              <span className="nb-nav-drawer-link-num">
+                {String(navLinks.indexOf(item) + 1).padStart(2, "0")}
+              </span>
+              <span className="nb-nav-drawer-link-label">{item.label}</span>
+              <span className="nb-nav-drawer-link-arrow">&gt;</span>
+            </Link>
           ))}
+          <Link
+            to="/docs"
+            className={`nb-nav-drawer-link${isActive("/docs") ? " active" : ""}`}
+            onClick={closeDrawer}
+          >
+            <span className="nb-nav-drawer-link-num">
+              {String(navLinks.length + 1).padStart(2, "0")}
+            </span>
+            <span className="nb-nav-drawer-link-label">Docs</span>
+            <span className="nb-nav-drawer-link-arrow">&gt;</span>
+          </Link>
         </div>
 
         <div className="nb-nav-drawer-footer">

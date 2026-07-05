@@ -1,4 +1,5 @@
 import "../styles/feature-grid.css";
+import { NbSection, NbSectionHeader } from "./nb";
 
 const FEATURES = [
   {
@@ -71,30 +72,27 @@ function NbFgIcon({ id }: { id: string }) {
 
 export function NbFeatureGrid() {
   return (
-    <section className="nb-section" aria-label="Features">
-      <div className="nb-inner">
-        <div className="nb-split-7-5">
-          <div>
-            <span className="nb-mono-label">[CAPABILITIES]</span>
-            <h2 className="nb-section-headline">Everything you need. Nothing you don't.</h2>
-            <p className="nb-section-sub">
-              HNSW vector search, BM25 full-text, SQL — fused in one embedded engine.
-              Sub-millisecond queries. Zero servers.
-            </p>
-          </div>
-          <div>
-            {FEATURES.filter((f) => f.id !== "converged").map((feat) => (
-              <article key={feat.id} className="nb-fg-row">
-                <NbFgIcon id={feat.id} />
-                <div>
-                  <h3 className="nb-fg-title">{feat.title}</h3>
-                  <p className="nb-fg-desc">{feat.desc}</p>
-                </div>
-              </article>
-            ))}
-          </div>
+    <NbSection ariaLabel="Features">
+      <div className="nb-split-7-5">
+        <div>
+          <NbSectionHeader
+            monoLabel="[CAPABILITIES]"
+            headline="Everything you need. Nothing you don't."
+            sub="HNSW vector search, BM25 full-text, SQL — fused in one embedded engine. Sub-millisecond queries. Zero servers."
+          />
+        </div>
+        <div>
+          {FEATURES.filter((f) => f.id !== "converged").map((feat) => (
+            <article key={feat.id} className="nb-fg-row">
+              <NbFgIcon id={feat.id} />
+              <div>
+                <h3 className="nb-fg-title">{feat.title}</h3>
+                <p className="nb-fg-desc">{feat.desc}</p>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
-    </section>
+    </NbSection>
   );
 }

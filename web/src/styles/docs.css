@@ -12,16 +12,11 @@
 
 .docs-section-title {
   font-family: var(--font-display);
-  font-size: var(--text-title);
   font-weight: 700;
-  color: var(--foreground);
   margin: 0 0 var(--space-md);
 }
 
 .docs-section-desc {
-  font-family: var(--font-sans);
-  font-size: var(--text-code);
-  color: var(--muted);
   line-height: 1.6;
   margin: var(--space-sm) 0 var(--space-md);
 }
@@ -32,11 +27,8 @@
 
 .docs-code-pre {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-code);
-  line-height: 1.6;
-  color: var(--foreground);
   white-space: pre;
+  overflow-x: auto;
 }
 
 .docs-help-block {
@@ -45,24 +37,18 @@
 
 .docs-help-label {
   font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  color: var(--text-on-amber);
   margin-bottom: var(--space-2xs);
   display: block;
 }
 
 .docs-help-text {
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  color: var(--text-on-amber);
   margin: var(--space-2xs) 0;
   opacity: 0.85;
 }
 
 .docs-help-link {
   border-color: var(--text-on-amber);
-  color: var(--text-on-amber);
-  box-shadow: var(--shadow-brutal);
+  box-shadow: var(--shadow-amber-lg);
 }
 
 @media (max-width: 768px) {

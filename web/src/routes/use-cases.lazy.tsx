@@ -1,5 +1,10 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../styles/use-cases.css";
 
@@ -10,81 +15,87 @@ export const Route = createLazyRoute("/use-cases")({
 
 const CASES = [
   {
-    num: "01",
     title: "AI Agent Memory",
     tags: ["persistent", "≤1ms read", "crash-safe"],
-    desc: "Store conversational history, agent thoughts, and user preferences locally. Context survives restarts with WAL crash safety — no external database needed.",
+    desc: "Store conversational history, agent thoughts, and user preferences locally. Context survives restarts with WAL crash safety.",
   },
   {
-    num: "02",
     title: "Local-First RAG",
     tags: ["hybrid search", "zero deps", "on-device"],
-    desc: "Run BM25 lexical + HNSW vector fusion in-process. No external server, no network overhead — full hybrid search without spinning up a container.",
+    desc: "Run BM25 lexical + HNSW vector fusion in-process. No external server, no network overhead.",
   },
   {
-    num: "03",
     title: "Codebase Intelligence",
     tags: ["graph edges", "AST-aware", "30K loc/s"],
-    desc: "Map function definitions, imports, and caller relations in a local knowledge graph. Traverse graph hops with vector similarity for accurate code retrieval.",
+    desc: "Map function definitions, imports, and caller relations in a local knowledge graph.",
   },
   {
-    num: "04",
     title: "Multi-Agent Orchestration",
     tags: ["namespaces", "isolation", "concurrent"],
-    desc: "Run hundreds of independent agents on a single DB file. Namespace-level isolation prevents key collisions while keeping a unified storage footprint.",
+    desc: "Run hundreds of independent agents on a single DB file. Namespace-level isolation.",
   },
   {
-    num: "05",
     title: "E-Commerce Semantic Search",
     tags: ["vector", "metadata filter", "real-time"],
-    desc: "Serve personalized product recommendations using vector similarity on behavior embeddings — updated in real-time with zero reindexing.",
+    desc: "Serve personalized product recommendations using vector similarity on behavior embeddings.",
   },
   {
-    num: "06",
     title: "Edge / IoT Inference",
     tags: ["embedded", "ARM/RISC-V", "WAL-safe"],
-    desc: "Persist device state and sensor telemetry on embedded hardware. Sub-millisecond reads with CRC32C WAL crash protection on ARM and RISC-V.",
+    desc: "Persist device state and sensor telemetry on embedded hardware with WAL crash protection.",
   },
   {
-    num: "07",
     title: "Healthcare RAG",
     tags: ["PHI-safe", "audit log", "zero-server"],
-    desc: "Run private medical RAG on-device with full audit trails. Embeddings and FHIR documents stay local — no PHI leaves the hospital network.",
+    desc: "Run private medical RAG on-device with full audit trails. No PHI leaves the network.",
   },
   {
-    num: "08",
     title: "Financial Document Processing",
     tags: ["compliance", "high-throughput", "WAL"],
-    desc: "Parse, index, and search invoices, statements, and regulatory filings with crash-safe durability. Thousands of documents per second on a single thread.",
+    desc: "Parse, index, and search documents with crash-safe durability at thousands per second.",
   },
 ];
 
 const PIPELINE_STEPS = [
   {
-    num: "01",
     title: "Memory",
-    desc: "Embeddings and metadata are written to the LSM-tree engine with immediate durability. The WAL guarantees crash recovery — every vector, every key, every byte.",
+    desc: "Embeddings and metadata are written to the LSM-tree engine with immediate durability. WAL guarantees crash recovery.",
     tags: ["write-ahead log", "CRC32C", "O(1) append"],
   },
   {
-    num: "02",
     title: "Search",
-    desc: "HNSW vector index + BM25 lexical index fused via RRF in a single call. Sub-millisecond latency with zero network — all computation is in-process.",
+    desc: "HNSW vector index + BM25 lexical index fused via RRF in a single call. Sub-millisecond in-process latency.",
     tags: ["HNSW", "BM25", "RRF fusion"],
   },
   {
-    num: "03",
     title: "Persist",
-    desc: "Everything lives in a single portable DB file. Backup via SCP, move across machines, survive process kills — no reindexing, no restore procedure.",
+    desc: "Everything lives in a single portable DB file. Backup via SCP, move across machines, survive kills.",
     tags: ["single file", "portable", "zero reindex"],
   },
 ];
 
 function UseCasesPage() {
+  const patternsRef = useRef<HTMLElement>(null);
+  const pipelineRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(patternsRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, patternsRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, pipelineRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="04"
+        pattern="p14"
         title={
           <span>
             Built for agents
@@ -92,63 +103,59 @@ function UseCasesPage() {
             that need context.
           </span>
         }
-        sub="Eight production-tested patterns for persistent memory, hybrid search, and agentic data — all running in-process with zero external dependencies."
+        sub="Eight production-tested patterns for persistent memory, hybrid search, and agentic data."
       />
 
-      <main className="nb-main">
-        <section className="nb-section nb-section--bordered">
-          <h2 className="use-cases-section-title">Production Patterns</h2>
-          <div className="use-cases-patterns-grid">
-            {CASES.map((c) => (
-              <div key={c.num} className="usecase-card use-cases-card">
-                <div className="use-cases-card-header">
-                  <span className="use-cases-card-num">{c.num}</span>
-                </div>
-                <h3 className="use-cases-card-title">{c.title}</h3>
-                <p className="use-cases-card-desc">{c.desc}</p>
-                <div className="use-cases-tags-wrap">
-                  {c.tags.map((tag) => (
-                    <span key={tag} className="use-cases-tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+      <NbSection ref={patternsRef} ariaLabel="Production patterns">
+        <NbSectionHeader
+          monoLabel="[PATTERNS]"
+          headline="Production patterns."
+          sub="Eight proven architectures for embedded vector search in real-world applications."
+        />
+        <div className="use-cases-bento nb-engine-part">
+          {CASES.map((c) => (
+            <div key={c.title} className="use-cases-pattern-card">
+              <h3 className="nb-card-frame-title">{c.title}</h3>
+              <p className="nb-card-frame-desc">{c.desc}</p>
+              <div className="use-cases-tags-wrap">
+                {c.tags.map((tag) => (
+                  <span key={tag} className="use-cases-tag">
+                    {tag}
+                  </span>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+          ))}
+        </div>
+      </NbSection>
 
-        <section className="nb-section">
-          <h2 className="use-cases-section-title">Core Pipeline</h2>
-          <h2 className="use-cases-subtitle">Memory → Search → Persist.</h2>
-          <div className="use-cases-pipeline-grid">
-            {PIPELINE_STEPS.map((step) => (
-              <div key={step.num} className="use-cases-pipeline-card">
-                <span className="use-cases-pipeline-num">{step.num}</span>
-                <h3 className="use-cases-pipeline-title">{step.title}</h3>
-                <p className="use-cases-pipeline-desc">{step.desc}</p>
-                <div className="use-cases-tags-wrap">
-                  {step.tags.map((tag) => (
-                    <span key={tag} className="use-cases-tag-amber">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+      <NbSection
+        ref={pipelineRef}
+        variant="lg"
+        className="nb-bg-cross--faint"
+        ariaLabel="Core pipeline"
+      >
+        <NbSectionHeader
+          monoLabel="[PIPELINE]"
+          headline="Memory → Search → Persist."
+          sub="Three stages from ingestion to durable storage, all in-process."
+        />
+        <div className="use-cases-pipeline-grid nb-engine-part">
+          {PIPELINE_STEPS.map((step) => (
+            <div key={step.title} className="use-cases-pipeline-card">
+              <h3 className="nb-card-frame-title">{step.title}</h3>
+              <p className="nb-card-frame-desc">{step.desc}</p>
+              <div className="use-cases-tags-wrap">
+                {step.tags.map((tag) => (
+                  <span key={tag} className="use-cases-tag-amber">
+                    {tag}
+                  </span>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      <style>{`
-        .usecase-card:hover {
-          background: var(--surface-raised) !important;
-        }
-        @media (max-width: 768px) {
-          [style*="grid-template-columns: repeat(2, 1fr)"] { grid-template-columns: 1fr !important; }
-          [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+            </div>
+          ))}
+        </div>
+      </NbSection>
     </div>
   );
 }

@@ -1,0 +1,56 @@
+.about-company-value-card {
+  padding: var(--space-xl);
+}
+.about-company-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border-visible);
+}
+.about-company-compare-card-left {
+  border: none;
+  box-shadow: none;
+  background: var(--background);
+}
+.about-company-compare-card-right {
+  border: 2px solid var(--amber);
+  box-shadow: var(--shadow-amber);
+  background: var(--surface-alt);
+}
+.about-company-compare-item-left {
+  color: var(--muted);
+}
+.about-company-compare-item-right {
+  color: var(--foreground);
+}
+.about-company-bullet {
+  flex-shrink: 0;
+  margin-right: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.about-company-bullet--x {
+  color: var(--danger);
+}
+.about-company-bullet--check {
+  color: var(--amber);
+}
+.about-company-cta-desc {
+  margin: var(--space-2xs) 0;
+  opacity: 0.85;
+}
+.about-company-pending {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .about-company-compare-grid {
+    grid-template-columns: 1fr;
+  }
+  .about-company-compare-card-right {
+    border-top: 2px solid var(--amber);
+  }
+}

@@ -820,6 +820,50 @@ button:focus-visible {
   }
 }
 
+/* ─── SKIP TO MAIN CONTENT ─── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  z-index: calc(var(--z-overlay) + 10);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  padding: 0.5rem 1rem;
+  background: var(--amber);
+  color: var(--text-on-amber);
+  text-decoration: none;
+  border: 2px solid var(--amber);
+  transition: top 150ms var(--ease-brutal);
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* ─── LOGO ─── */
+.vdb-logo-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  text-decoration: none;
+}
+
+.vdb-wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  line-height: 1;
+  user-select: none;
+}
+
+.vdb-wordmark-db {
+  color: var(--amber);
+}
+
 /* Dithering filter for team images */
 .nb-dither {
   filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='dither'%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='discrete' tableValues='0 1'/%3E%3CfeFuncG type='discrete' tableValues='0 1'/%3E%3CfeFuncB type='discrete' tableValues='0 1'/%3E%3C/feComponentTransfer%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3C/svg%3E#dither");

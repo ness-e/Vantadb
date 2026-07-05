@@ -1,29 +1,17 @@
 .architecture-spec-label {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  color: var(--foreground);
   border: 2px solid var(--border-visible);
   padding: var(--space-md);
 }
 
 .architecture-spec-value {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 0.7rem;
-  color: var(--amber);
   border: 2px solid var(--border-visible);
   padding: var(--space-md);
 }
 
 .architecture-spec-desc {
-  font-family: var(--font-sans);
-  font-size: var(--text-code);
-  color: var(--muted);
-  line-height: 1.6;
   border: 2px solid var(--border-visible);
   padding: var(--space-md);
+  line-height: 1.6;
 }
 
 .architecture-profiler-header {
@@ -56,6 +44,34 @@
   background: var(--border);
 }
 
+.architecture-profiler-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-cut);
+}
+
+.architecture-profiler-segment--hovered {
+  background: var(--amber);
+}
+
+.architecture-profiler-pct {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.architecture-profiler-pct--visible {
+  opacity: 1;
+}
+
+.architecture-profiler-pct--hidden {
+  opacity: 0;
+}
+
 .architecture-profiler-detail {
   padding-top: var(--space-lg);
   min-height: 5.5rem;
@@ -74,11 +90,8 @@
 }
 
 .architecture-hovered-desc {
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin: 0;
   line-height: 1.6;
+  margin: 0;
 }
 
 .architecture-default-title {
@@ -92,32 +105,8 @@
 }
 
 .architecture-default-desc {
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  color: var(--muted);
+  line-height: 1.6;
   margin: 0;
-  line-height: 1.6;
-}
-
-.architecture-section-title {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  margin-top: var(--space-lg);
-  margin-bottom: var(--space-lg);
-  line-height: 1.25;
-}
-
-.architecture-section-desc {
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.architecture-section-desc--compact {
-  margin-bottom: 0;
 }
 
 .architecture-layer-cell {
@@ -154,12 +143,9 @@
   font-weight: 700;
   margin-top: var(--space-xs);
   margin-bottom: 0;
-  color: var(--foreground);
 }
 
 .architecture-layer-body {
-  font-size: var(--text-code);
-  color: var(--muted);
   line-height: 1.6;
   margin: 0;
 }
@@ -182,12 +168,13 @@
   line-height: 2rem;
   font-weight: 800;
   color: var(--text-on-amber);
+  margin: 0;
 }
 
 .architecture-cta-sub {
-  font-size: 0.875rem;
   color: var(--text-on-amber);
   opacity: 0.8;
+  margin: 0;
 }
 
 .architecture-cta-code {

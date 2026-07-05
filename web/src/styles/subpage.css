@@ -1,71 +1,267 @@
 .nb-subpage-hero {
-  border-bottom: 2px solid var(--border-visible);
-  padding: var(--space-4xl) 0 var(--space-lg);
-  background: var(--background);
   position: relative;
+  padding: calc(var(--nav-height) + var(--space-4xl)) clamp(1.5rem, 5vw, 4rem) var(--space-3xl);
+  background: var(--background);
+  overflow: hidden;
+  border-bottom: 2px solid var(--border-visible);
 }
 
-.nb-subpage-hero::before {
-  content: "[ " attr(data-label) " ]";
+.nb-subpage-hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.nb-subpage-hero-bg::after {
+  content: "";
   position: absolute;
   top: 0;
-  left: clamp(1.5rem, 5vw, 4rem);
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--steel);
-  padding: var(--space-2xs) var(--space-xs);
-  border: 1px solid var(--border-visible);
-  border-top: none;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--amber), transparent 60%);
 }
 
-.nb-subpage-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: var(--space-lg);
-  align-items: flex-end;
-  max-width: var(--grid-max);
-  margin: 0 auto;
-  width: 100%;
-  padding: 0 clamp(1.5rem, 5vw, 4rem);
+/* ─── 25 patrones únicos, uno por subpágina ─── */
+
+/* p01: engine — dots finos medianos */
+.nb-subpage-hero--p01 .nb-subpage-hero-bg {
+  background-image: radial-gradient(var(--border-visible) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-.nb-subpage-meta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
+/* p02: architecture — dots grandes dispersos */
+.nb-subpage-hero--p02 .nb-subpage-hero-bg {
+  background-image: radial-gradient(var(--steel) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-.nb-subpage-num {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-bold);
-  color: var(--amber);
-  letter-spacing: var(--tracking-wide);
+/* p03: changelog — dots muy pequeños tupidos */
+.nb-subpage-hero--p03 .nb-subpage-hero-bg {
+  background-image: radial-gradient(var(--border-strong) 0.5px, transparent 0.5px);
+  background-size: 12px 12px;
 }
 
-.nb-subpage-eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-bold);
-  color: var(--steel);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+/* p04: config — dots amber tenues */
+.nb-subpage-hero--p04 .nb-subpage-hero-bg {
+  background-image: radial-gradient(var(--amber-dim) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
 }
 
-.nb-subpage-title {
+/* p05: cost — dots frost */
+.nb-subpage-hero--p05 .nb-subpage-hero-bg {
+  background-image: radial-gradient(var(--frost) 0.75px, transparent 0.75px);
+  background-size: 28px 28px;
+}
+
+/* p06: docs — cuadrícula visible */
+.nb-subpage-hero--p06 .nb-subpage-hero-bg {
+  background-image:
+    linear-gradient(0deg, var(--border-visible) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-visible) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* p07: integrations — cuadrícula amber */
+.nb-subpage-hero--p07 .nb-subpage-hero-bg {
+  background-image:
+    linear-gradient(0deg, var(--amber-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--amber-dim) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* p08: latency — líneas horizontales finas */
+.nb-subpage-hero--p08 .nb-subpage-hero-bg {
+  background-image: linear-gradient(0deg, var(--steel) 0.5px, transparent 0.5px);
+  background-size: 100% 16px;
+}
+
+/* p09: maint — cuadrícula grande frost */
+.nb-subpage-hero--p09 .nb-subpage-hero-bg {
+  background-image:
+    linear-gradient(0deg, var(--frost) 0.5px, transparent 0.5px),
+    linear-gradient(90deg, var(--frost) 0.5px, transparent 0.5px);
+  background-size: 48px 48px;
+}
+
+/* p10: playground — cuadrícula densa strong */
+.nb-subpage-hero--p10 .nb-subpage-hero-bg {
+  background-image:
+    linear-gradient(0deg, var(--border-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-strong) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* p11: pricing — diagonal -45° visible */
+.nb-subpage-hero--p11 .nb-subpage-hero-bg {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 20px,
+    var(--border-visible) 20px,
+    var(--border-visible) 21px
+  );
+}
+
+/* p12: security — diagonal 45° amber */
+.nb-subpage-hero--p12 .nb-subpage-hero-bg {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 28px,
+    var(--amber-dim) 28px,
+    var(--amber-dim) 29px
+  );
+}
+
+/* p13: storage — diagonal -60° steel fina */
+.nb-subpage-hero--p13 .nb-subpage-hero-bg {
+  background-image: repeating-linear-gradient(
+    -60deg,
+    transparent,
+    transparent 24px,
+    var(--steel) 24px,
+    var(--steel) 24.5px
+  );
+}
+
+/* p14: use-cases — diagonal 30° frost */
+.nb-subpage-hero--p14 .nb-subpage-hero-bg {
+  background-image: repeating-linear-gradient(
+    30deg,
+    transparent,
+    transparent 36px,
+    var(--frost) 36px,
+    var(--frost) 36.5px
+  );
+}
+
+/* p15: why-vantadb — diagonal -15° strong */
+.nb-subpage-hero--p15 .nb-subpage-hero-bg {
+  background-image: repeating-linear-gradient(
+    -15deg,
+    transparent,
+    transparent 16px,
+    var(--border-strong) 16px,
+    var(--border-strong) 16.5px
+  );
+}
+
+/* p16: about/company — circuit amber denso */
+.nb-subpage-hero--p16 .nb-subpage-hero-bg {
+  background-image: radial-gradient(circle, var(--amber-dim) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+/* p17: about/community — circuit visible */
+.nb-subpage-hero--p17 .nb-subpage-hero-bg {
+  background-image: radial-gradient(circle, var(--border-visible) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* p18: about/contact — circuit steel fino */
+.nb-subpage-hero--p18 .nb-subpage-hero-bg {
+  background-image: radial-gradient(circle, var(--steel) 0.75px, transparent 0.75px);
+  background-size: 12px 12px;
+}
+
+/* p19: about/index — circuit frost */
+.nb-subpage-hero--p19 .nb-subpage-hero-bg {
+  background-image: radial-gradient(circle, var(--frost) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* p20: about/team — circuit strong denso */
+.nb-subpage-hero--p20 .nb-subpage-hero-bg {
+  background-image: radial-gradient(circle, var(--border-strong) 1.5px, transparent 1.5px);
+  background-size: 8px 8px;
+}
+
+/* p21: blog — gradiente vertical suave */
+.nb-subpage-hero--p21 .nb-subpage-hero-bg {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--background) 100%);
+}
+
+/* p22: benchmarks — gradiente diagonal */
+.nb-subpage-hero--p22 .nb-subpage-hero-bg {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+}
+
+/* p23: ai-agents — dots + cuadrícula combinados */
+.nb-subpage-hero--p23 .nb-subpage-hero-bg {
+  background:
+    radial-gradient(var(--border-visible) 1px, transparent 1px),
+    linear-gradient(0deg, var(--border-visible) 0.5px, transparent 0.5px),
+    linear-gradient(90deg, var(--border-visible) 0.5px, transparent 0.5px);
+  background-size:
+    24px 24px,
+    48px 48px,
+    48px 48px;
+}
+
+/* p24: ai-ide-tooling — doble línea ambient dim */
+.nb-subpage-hero--p24 .nb-subpage-hero-bg {
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 24px,
+      var(--amber-dim) 24px,
+      var(--amber-dim) 24.5px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 24px,
+      var(--amber-dim) 24px,
+      var(--amber-dim) 24.5px
+    );
+}
+
+/* p25: local-rag — dots steel + diagonal combinados */
+.nb-subpage-hero--p25 .nb-subpage-hero-bg {
+  background:
+    radial-gradient(var(--steel) 0.5px, transparent 0.5px),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 48px,
+      var(--steel) 48px,
+      var(--steel) 48.5px
+    );
+  background-size:
+    16px 16px,
+    auto;
+}
+
+/* ─── Body ─── */
+.nb-subpage-hero-body {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+}
+
+.nb-subpage-hero-title {
   font-family: var(--font-display);
-  font-size: var(--text-hero);
+  font-size: var(--text-display);
   font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-tight);
-  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  line-height: 1.1;
   color: var(--foreground);
   margin: 0 0 var(--space-sm);
 }
 
-.nb-subpage-desc {
+.nb-subpage-hero-title::before {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 4px;
+  background: var(--amber);
+  margin-bottom: var(--space-lg);
+}
+
+.nb-subpage-hero-desc {
   font-family: var(--font-sans);
   font-size: var(--text-lead);
   line-height: var(--leading-normal);
@@ -76,12 +272,15 @@
 
 @media (max-width: 768px) {
   .nb-subpage-hero {
-    padding: var(--space-3xl) 0 var(--space-lg);
+    padding: calc(var(--nav-height) + var(--space-3xl)) 1.25rem var(--space-2xl);
   }
 
-  .nb-subpage-grid {
-    grid-template-columns: 1fr;
-    gap: var(--space-md);
-    align-items: flex-start;
+  .nb-subpage-hero-title {
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+  }
+
+  .nb-subpage-hero-title::before {
+    width: 36px;
+    margin-bottom: var(--space-md);
   }
 }

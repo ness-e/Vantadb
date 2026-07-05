@@ -1,5 +1,10 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../../styles/ai-ide-tooling.css";
 
 export const Route = createLazyRoute("/solutions/ai-ide-tooling")({
@@ -39,10 +44,27 @@ const BENEFITS = [
 ];
 
 function IdeToolingPage() {
+  const gapRef = useRef<HTMLElement>(null);
+  const useCasesRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(gapRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, gapRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(useCasesRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, useCasesRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="03"
+        pattern="p24"
         title={
           <span>
             Your codebase,
@@ -53,29 +75,36 @@ function IdeToolingPage() {
         sub="Augment your IDE with semantic code search, AST-aware retrieval, and context-aware completions. VantaDB powers the next generation of AI coding tools."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="ai-ide-tooling-section-title">The Gap</h2>
-          <div className="nb-divider" />
+      <NbSection ref={gapRef} ariaLabel="The Gap">
+        <NbSectionHeader
+          monoLabel="[THE GAP]"
+          headline="Code search is still text-only."
+          sub="Traditional tools search strings, not meaning. VantaDB embeds semantic understanding directly into your IDE tooling."
+        />
 
+        <div className="nb-engine-part">
           <div className="ai-ide-tooling-grid-2col">
-            <div className="nb-cell ai-ide-tooling-cell-padded">
-              <span className="ai-ide-tooling-label-muted">Code search is still text-only</span>
+            <div className="ai-ide-tooling-cell-padded">
+              <span className="nb-mono-label">Problems</span>
               <ul className="nb-list">
                 {PROBLEMS.map((p) => (
                   <li key={p} className="ai-ide-tooling-list-item-muted">
-                    <span className="ai-ide-tooling-list-icon-danger">✗</span>
+                    <span className="ai-ide-tooling-list-icon ai-ide-tooling-list-icon--danger">
+                      ✗
+                    </span>
                     {p}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-cell ai-ide-tooling-cell-amber-border">
-              <span className="ai-ide-tooling-label-amber">Semantic, embedded</span>
+            <div className="ai-ide-tooling-cell-amber-border">
+              <span className="nb-mono-label">Solution</span>
               <ul className="nb-list">
                 {BENEFITS.map((s) => (
                   <li key={s} className="ai-ide-tooling-list-item-foreground">
-                    <span className="ai-ide-tooling-list-icon-amber">✓</span>
+                    <span className="ai-ide-tooling-list-icon ai-ide-tooling-list-icon--amber">
+                      ✓
+                    </span>
                     {s}
                   </li>
                 ))}
@@ -83,57 +112,53 @@ function IdeToolingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <h2 className="ai-ide-tooling-section-title">Use Cases</h2>
-          <div className="nb-divider" />
-          <p className="ai-ide-tooling-title-large">Beyond grep.</p>
+      <NbSection ref={useCasesRef} className="nb-bg-cross--faint" ariaLabel="Use Cases">
+        <NbSectionHeader
+          monoLabel="[USE CASES]"
+          headline="Beyond grep."
+          sub="Natural-language queries that understand your codebase architecture."
+        />
 
+        <div className="nb-engine-part">
           <div className="nb-grid nb-grid--cols-3">
             {USE_CASES.map((uc) => (
               <div key={uc.num} className="nb-cell ai-ide-tooling-cell-padded">
-                <span className="ai-ide-tooling-card-num">{uc.num}</span>
-                <h3 className="ai-ide-tooling-card-title">{uc.title}</h3>
-                <p className="ai-ide-tooling-card-desc">{uc.desc}</p>
+                <span className="nb-mono-label">{uc.num}</span>
+                <h3 className="nb-card-frame-title">{uc.title}</h3>
+                <p className="nb-card-frame-desc">{uc.desc}</p>
               </div>
             ))}
           </div>
+        </div>
 
-          <div className="nb-card ai-ide-tooling-card-surface">
-            <div className="ai-ide-tooling-inner-grid">
-              <span className="ai-ide-tooling-inner-label">HOW IT WORKS</span>
-              <p className="ai-ide-tooling-inner-text">
-                Each code unit (function, class, module) is indexed as a vector embedding plus
-                structured AST metadata (name, signature, dependencies, docstring). Queries use
-                hybrid search: BM25 for symbol matching, HNSW for semantic similarity, with RRF
-                fusion for final ranking.
-              </p>
-            </div>
+        <div className="nb-engine-part">
+          <div className="ai-ide-tooling-inner-grid">
+            <span className="nb-mono-label">HYBRID SEARCH</span>
+            <p className="ai-ide-tooling-inner-text">
+              Each code unit (function, class, module) is indexed as a vector embedding plus
+              structured AST metadata (name, signature, dependencies, docstring). Queries use hybrid
+              search: BM25 for symbol matching, HNSW for semantic similarity, with RRF fusion for
+              final ranking.
+            </p>
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-block-amber ai-ide-tooling-cta-block">
-            <span className="ai-ide-tooling-cta-label">BUILD IDE TOOLS</span>
+      <NbSection ariaLabel="Get started">
+        <NbBlockAmber>
+          <div className="nb-text-center">
+            <span className="nb-mono-label">BUILD IDE TOOLS</span>
             <p className="ai-ide-tooling-cta-text">
               Read the docs to integrate semantic code search.
             </p>
-            <Link to="/docs" className="nb-btn nb-btn--ghost ai-ide-tooling-cta-link">
+            <Link to="/docs" className="nb-btn nb-btn--ghost">
               DOCS
             </Link>
           </div>
-        </div>
-      </section>
-
-      <style>{`
-        @media (max-width: 640px) {
-          [style*="grid-template-columns: 120px 1fr"] { grid-template-columns: 1fr !important; gap: var(--space-sm) !important; }
-        }
-      `}</style>
+        </NbBlockAmber>
+      </NbSection>
     </div>
   );
 }
@@ -141,7 +166,7 @@ function IdeToolingPage() {
 export function PendingComponent() {
   return (
     <div className="ai-ide-tooling-pending">
-      <span className="ai-ide-tooling-pending-text">Loading...</span>
+      <span>Loading...</span>
     </div>
   );
 }

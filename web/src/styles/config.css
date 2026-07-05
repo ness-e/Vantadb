@@ -1,28 +1,12 @@
-.config-section-title {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--foreground);
-  margin: 0 0 var(--space-md);
-}
-
 .config-grid {
   margin-top: 3rem;
 }
 
 .config-label-legacy {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--steel);
-  font-weight: 700;
   margin-bottom: var(--space-sm);
 }
 
 .config-label-vanta {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--amber);
-  font-weight: 700;
   margin-bottom: var(--space-sm);
 }
 
@@ -42,18 +26,75 @@
 }
 
 .config-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) 1.25rem;
   border-bottom: 1px solid var(--border);
 }
 
-.config-cta-title {
-  color: var(--text-on-amber);
+.config-code-filename {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.config-code-lines {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+}
+
+.config-code-filename--amber {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+}
+
+.config-code-lines--amber {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--amber);
+}
+
+.config-code-pre {
+  margin: 0;
+  padding: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.config-code-pre--fg {
+  margin: 0;
+  padding: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.config-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.config-cta-heading {
+  margin: 0 0 var(--space-2xs);
 }
 
 .config-cta-sub {
-  color: var(--text-on-amber);
-  opacity: 0.8;
+  margin: 0;
 }
 
 .config-cta-code {
-  color: var(--text-on-amber);
+  margin: 0;
 }

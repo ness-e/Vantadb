@@ -1,5 +1,10 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 
 export const Route = createLazyRoute("/about/contact")({
   component: ContactPage,
@@ -45,10 +50,27 @@ const CONTACTS = [
 ];
 
 function ContactPage() {
+  const contactsRef = useRef<HTMLElement>(null);
+  const securityRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(contactsRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, contactsRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(securityRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, securityRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="06"
+        pattern="p16"
         title={
           <span>
             Get in touch.
@@ -59,79 +81,72 @@ function ContactPage() {
         sub="Whether you're evaluating VantaDB for your enterprise, interested in a partnership, or just want to say hello — we'd love to hear from you."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="about-contact-section-title">Contact Channels</h2>
-          <div className="nb-divider" />
+      <NbSection ref={contactsRef} ariaLabel="Contact channels">
+        <NbSectionHeader
+          monoLabel="[CONTACT]"
+          headline="Contact channels."
+          sub="The right channel for every conversation."
+        />
 
-          <div className="nb-grid nb-grid--cols-3 about-contact-grid-top">
+        <div className="nb-engine-part">
+          <div className="nb-grid nb-grid--cols-3">
             {CONTACTS.map((c) => (
-              <div key={c.channel} className="nb-cell about-contact-channel-card">
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: c.type === "email" ? "var(--amber)" : "var(--steel)",
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
-                  {c.type === "email" ? "EMAIL" : "LINK"}
-                </span>
-                <h3 className="about-contact-channel-name">{c.channel}</h3>
-                <span className="about-contact-channel-detail">{c.detail}</span>
-                <p className="about-contact-channel-sub">{c.sub}</p>
+              <div key={c.channel} className="nb-cell nb-card-frame">
+                <span className="nb-mono-label">{c.type === "email" ? "EMAIL" : "LINK"}</span>
+                <h3 className="nb-card-frame-title">{c.channel}</h3>
+                <span className="nb-card-frame-desc">{c.detail}</span>
+                <p className="nb-section-sub">{c.sub}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <h2 className="about-contact-section-title">Security</h2>
-          <div className="nb-divider" />
+      <NbSection ref={securityRef} variant="dark" ariaLabel="Security">
+        <NbSectionHeader
+          monoLabel="[SECURITY]"
+          headline="Responsible disclosure."
+          sub="How we handle security vulnerabilities."
+        />
 
-          <div className="nb-split-7-5 about-contact-split-top">
-            <h2 className="about-contact-security-title">Responsible disclosure</h2>
+        <div className="nb-engine-part">
+          <div className="nb-split-7-5">
             <div>
-              <p className="about-contact-security-desc">
+              <p>
                 Found a security vulnerability? Email{" "}
-                <span className="about-contact-security-email">security@vantadb.dev</span>. We
-                practice responsible disclosure and will work with you to validate, fix, and release
-                a patch before public disclosure. We don't have a formal bug bounty program yet, but
-                we'll credit you in the release notes.
+                <span className="nb-mono-label">security@vantadb.dev</span>. We practice responsible
+                disclosure and will work with you to validate, fix, and release a patch before
+                public disclosure. We don't have a formal bug bounty program yet, but we'll credit
+                you in the release notes.
               </p>
-              <p className="about-contact-security-desc-p2">
+              <p>
                 Response time: &lt;48h for critical, &lt;72h for high severity. We follow a 90-day
                 disclosure timeline from first contact.
               </p>
             </div>
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-block-amber about-contact-cta-block">
-            <span className="about-contact-cta-label">GET STARTED</span>
-            <p className="about-contact-cta-desc">
-              VantaDB is free and open source. Start building today.
-            </p>
-            <Link to="/docs" className="nb-btn nb-btn--ghost about-contact-cta-btn">
+      <NbSection ariaLabel="Get started">
+        <NbBlockAmber>
+          <div className="nb-text-center">
+            <span className="nb-mono-label">GET STARTED</span>
+            <p className="nb-section-sub">VantaDB is free and open source. Start building today.</p>
+            <Link to="/docs" className="nb-btn nb-btn--ghost">
               DOCS
             </Link>
           </div>
-        </div>
-      </section>
+        </NbBlockAmber>
+      </NbSection>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div className="about-pending-container">
-      <span className="about-pending-text">Loading...</span>
+    <div className="nb-pending">
+      <span>Loading...</span>
     </div>
   );
 }
