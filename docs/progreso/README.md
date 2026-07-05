@@ -1042,6 +1042,19 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `src/storage/engine.rs` — WAL replay en `recover_state()`
 - **Ids:** `CODE-001`
 
+### CODE-009: save_vector_index() traga errores de persistencia — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `save_vector_index()` retornaba `()`, no `Result`. Si `persist_to_file()` fallaba, solo emitía un warn log y el caller (flush/compact) creía que persistió OK. Cambiado a retornar `Result<()>` para que los errores de persistencia se propaguen correctamente.
+- **Checklist:**
+  - [x] Cambiar firma de `save_vector_index()` a `fn save_vector_index(&self) -> Result<()>`
+  - [x] MMap RCU path: propagar error vía `return Err(VantaError::IoError(e))`
+  - [x] InMemory path: usar `?` para propagar error de `persist_to_file()`
+  - [x] Actualizar callers `flush()` y `compact_layout_bfs()` con `?`
+  - [x] 440 tests pasan
+- **Archivos Modificados:**
+  - `src/storage/engine.rs` — save_vector_index, flush, compact_layout_bfs
+- **Ids:** `CODE-009`
+
 ### CODE-003: Reemplazar process::exit(1) con graceful shutdown + WAL flush
 - **Fecha:** 2026-07-04
 - **Objetivo:** 6 puntos de `process::exit(1)` en `cli_server.rs` saltaban todos los Drop. BufWriter perdía records buffered y file lock nunca se liberaba. Se reemplazaron con `flush_on_shutdown()` (flushea storage antes de retornar) y se propagaron errores vía `Result` en lugar de exit.
