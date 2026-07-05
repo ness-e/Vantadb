@@ -1,4 +1,4 @@
-import { createLazyRoute } from "@tanstack/react-router";
+import { createLazyRoute, Link } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/contact")({
@@ -46,7 +46,7 @@ const CONTACTS = [
 
 function ContactPage() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About — Contact"
@@ -60,178 +60,84 @@ function ContactPage() {
         sub="Whether you're evaluating VantaDB for your enterprise, interested in a partnership, or just want to say hello — we'd love to hear from you."
       />
 
-      <main className="swiss-main">
-        <nav
-          aria-label="Breadcrumb"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--muted)",
-            marginBottom: "0",
-            padding: "0 clamp(1.5rem, 5vw, 4rem)",
-            marginTop: "1rem",
-          }}
-        >
-          <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>
-            Home
-          </a>
-          <span style={{ margin: "0 0.5rem" }}>/</span>
-          <span style={{ color: "var(--foreground)" }}>Contact</span>
-        </nav>
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Contact Channels</span>
-          <div
-            className="contact-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
+            <span>Home</span>
+            <span>Contact</span>
+          </div>
+
+          <span className="nb-label nb-label--amber">01 / 02 — Contact Channels</span>
+          <div className="nb-divider" />
+
+          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
             {CONTACTS.map((c) => (
-              <div
-                key={c.channel}
-                className="contact-card"
-                style={{
-                  padding: "2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                  transition: "background-color 150ms var(--ease-cut)",
-                  background: "var(--background)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.55rem",
-                    color: c.type === "email" ? "var(--amber)" : "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
+              <div key={c.channel} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
+                <span className="nb-label" style={{ color: c.type === "email" ? "var(--amber)" : "var(--steel)", marginBottom: "var(--space-2xs)" }}>
                   {c.type === "email" ? "EMAIL" : "LINK"}
                 </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.1rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.03em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-3xs)" }}>
                   {c.channel}
                 </h3>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.72rem",
-                    color: "var(--amber)",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {c.detail}
-                </span>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.75rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
+                <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-2xs)" }}>{c.detail}</span>
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
                   {c.sub}
                 </p>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Security</span>
-          <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
-            <div className="col-span-4">
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.5rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  color: "var(--foreground)",
-                  lineHeight: 1.1,
-                }}
-              >
-                Responsible disclosure
-              </h2>
-            </div>
-            <div className="col-span-8">
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.85rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.75,
-                  margin: 0,
-                }}
-              >
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">02 / 02 — Security</span>
+          <div className="nb-divider" />
+
+          <div className="nb-split-7-5" style={{ marginTop: "var(--space-xl)" }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", lineHeight: 1.1, margin: 0 }}>
+              Responsible disclosure
+            </h2>
+            <div>
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--muted)", lineHeight: 1.75, margin: 0 }}>
                 Found a security vulnerability? Email{" "}
-                <span style={{ color: "var(--amber)", fontFamily: "var(--font-mono)" }}>
+                <span className="nb-label nb-label--amber" style={{ display: "inline", marginBottom: 0 }}>
                   security@vantadb.dev
                 </span>
                 . We practice responsible disclosure and will work with you to validate, fix, and
                 release a patch before public disclosure. We don't have a formal bug bounty program
                 yet, but we'll credit you in the release notes.
               </p>
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "0.85rem",
-                  color: "var(--muted)",
-                  lineHeight: 1.75,
-                  margin: "1rem 0 0",
-                }}
-              >
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--muted)", lineHeight: 1.75, margin: "var(--space-sm) 0 0" }}>
                 Response time: &lt;48h for critical, &lt;72h for high severity. We follow a 90-day
                 disclosure timeline from first contact.
               </p>
             </div>
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <style>{`
-        .contact-card:hover {
-          background: var(--surface-raised) !important;
-        }
-        @media (max-width: 640px) {
-          .contact-grid { grid-template-columns: 1fr !important; }
-        }
-        @media (min-width: 641px) and (max-width: 768px) {
-          .contact-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-block-amber" style={{ textAlign: "center" }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>GET STARTED</span>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+              VantaDB is free and open source. Start building today.
+            </p>
+            <Link to="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+              DOCS
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <div>Loading...</div>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
     </div>
   );
 }

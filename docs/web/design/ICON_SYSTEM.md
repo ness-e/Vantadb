@@ -1,94 +1,65 @@
-# Icon System — Swiss Monoline
+# Icon System — Swiss + Neubrutalism
 
-> Fuente: `design/DiseñoNuevo.md §11` | Estilo: Planos Técnicos
+> Versión: 2.0 | 2026-07
 
 ---
 
-## Estilo
+## Styling Rules
 
-| Propiedad | Valor |
-|:---|:---|
-| Trazo | `1.5px` constante |
-| Relleno | Sin relleno — solo contornos |
-| Geometría | 90° exclusivamente |
-| Color resting | `--steel` |
-| Color hover/active | `--amber` |
-| Tamaño base | `20×20px` (escala por contexto) |
+| Property | Value |
+|---|---|
+| Stroke | Lucide icons, `stroke-width: 2` minimum |
+| Size (inline) | `1.125rem` (18px) |
+| Size (nav) | `1.25rem` (20px) |
+| Size (hero) | `1.5rem` (24px) |
+| Color default | `currentColor` |
+| Color on cards | `var(--amber)` |
+| Container | `.nb-icon-box` |
+| Container size | `2.5rem` (40px) square |
+| Container border | `2px solid var(--border-visible)` |
+| Container radius | `0` |
 
-## Prohibiciones
+## Container Pattern (`.nb-icon-box`)
 
-- ❌ Lucide, FontAwesome, Material Icons genéricos
-- ❌ Iconos con relleno sólido
-- ❌ Multi-color en un solo icono
-- ❌ Stroke-width variable
-- ❌ Curvas bezier suaves (solo 90°)
-
-## Permitidos
-
-| Fuente | Uso | Nota |
-|:---|:---|:---|
-| **Phosphor Bold** | Compatible con monoline | Preferir variante Bold |
-| **Radix UI Icons** | Compatible con monoline | Trazo consistente |
-| **SVG monoline custom** | Diagramas técnicos, benchmarks | Ideal para planos |
-
-## Iconos del Sistema
-
-### Core Engine (DiseñoNuevo §9.4)
-
-| Icono | Descripción SVG |
-|:---|:---|
-| Engranaje | Círculo con dientes 90° |
-| Grafo nodos | Círculos + líneas ortogonales |
-| Documento + lupa | Rectángulo + círculo con línea |
-| Disco + check | Círculo segmentado + marca |
-| Puente | Dos rectángulos conectados |
-| Flecha bidireccional | Línea con puntas opuestas |
-
-### Benchmarks (DiseñoNuevo §9.2)
-
-| Icono | Descripción |
-|:---|:---|
-| `↓` (faster) | Flecha abajo en `--amber` |
-| `↑` (slower) | Flecha arriba en `--danger` |
-| Barra horizontal | SVG rect con `--amber` fill |
-
-### Ecosystem (DiseñoNuevo §9.6)
-
-| Categoría | Icono |
-|:---|:---|
-| Frameworks | Cuadrícula 2×2 |
-| LLM Providers | Nube con nodo |
-| Deployment | Contenedor rectangular |
-
-### Technical Diagrams (DiseñoNuevo §9.5)
-
-| Elemento | Especificación |
-|:---|:---|
-| Líneas de cota | Flechas horizontales/verticales con medida |
-| Capas | Rectángulos apilados con borde 1px |
-| Flechas ortogonales | Líneas con giros 90° |
-| Nodos de red | Puntos `ø 4px` con líneas de conexión |
-
-## Guidelines de Implementación
-
-```tsx
-// Componente base para iconos monoline
-const SwissIcon = ({ paths, size = 20, color = "var(--steel)" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke={color}
-    strokeWidth={1.5}
-    strokeLinecap="square"
-    strokeLinejoin="miter"
-  >
-    {paths.map((d, i) => <path key={i} d={d} />)}
-  </svg>
-);
+```
+┌────────────────────┐
+│                    │
+│       [icon]       │  20×20px stroke icon
+│                    │
+└────────────────────┘
+  ← 40px →
 ```
 
-- `strokeLinecap: "square"` — esquinas rectas
-- `strokeLinejoin: "miter"` — ángulos 90° nítidos
-- Transición de color: `150ms var(--ease-swiss)`
+| State | Border | Background |
+|---|---|---|
+| Resting | `var(--border-visible)` | `transparent` |
+| Card hover | `var(--amber)` | — |
+
+## Implementation
+
+```tsx
+<div className="nb-icon-box">
+  <Search size={20} strokeWidth={2} />
+</div>
+```
+
+## Prohibitions
+
+- ❌ Filled icons (except brand mark)
+- ❌ Custom SVG that doesn't fit 2px stroke style
+- ❌ Multi-color icons
+- ❌ Icon-only buttons without labels (except hamburger)
+- ❌ Gradient, shadow, or glow on icons
+
+## Approved Categories
+
+| Category | Token |
+|---|---|
+| Search / Vector | `Search`, `Scan`, `Network` |
+| Database / Storage | `Database`, `HardDrive`, `Server` |
+| Performance | `Zap`, `Gauge`, `Activity` |
+| Code / CLI | `Terminal`, `Code2`, `Brackets` |
+| Security | `Shield`, `Lock`, `Key` |
+| Arrow / Action | `ArrowRight`, `ChevronRight`, `ExternalLink` |
+| Status | `Check`, `X`, `AlertCircle` |
+| Navigation | `Menu`, `X`, `Home` |

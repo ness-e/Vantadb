@@ -9,7 +9,7 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="swiss-eyebrow" style={{ fontSize: "0.72rem" }}>
+      <span className="nb-label" style={{ fontSize: "0.72rem", marginBottom: 0 }}>
         Loading...
       </span>
     </div>

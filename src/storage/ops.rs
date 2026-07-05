@@ -58,7 +58,6 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     Ok(offset)
 }
 
-#[allow(dead_code)]
 /// Insert a node's metadata into the KV backend under the given column family.
 pub(crate) fn insert_node_to_backend(
     backend: &Arc<dyn StorageBackend>,

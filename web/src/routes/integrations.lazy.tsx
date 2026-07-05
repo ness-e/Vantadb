@@ -141,7 +141,7 @@ function IntegrationsPage() {
   };
 
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="03"
         eyebrow="Ecosystem & Integrations"
@@ -155,261 +155,108 @@ function IntegrationsPage() {
         sub="Connect VantaDB directly to the frameworks you already know. Built for first-class Python and Rust ecosystems."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Framework Connectors</span>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">01 / 02 — Framework Connectors</span>
+          <div className="nb-divider" />
 
-          <div className="swiss-grid-12" style={{ alignItems: "start", marginTop: "3rem" }}>
-            <div className="col-span-4">
-              <div
-                style={{
-                  border: "1px solid var(--border)",
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "1px",
-                  background: "var(--border)",
-                }}
-              >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-xl)", marginTop: "var(--space-xl)", alignItems: "start" }}>
+            <div>
+              <div className="nb-grid nb-grid--cols-2">
                 {INTEGRATIONS.map((int) => (
                   <button
                     key={int.id}
                     onClick={() => setSelectedId(int.id)}
+                    className="nb-cell"
                     style={{
-                      background:
-                        selectedId === int.id ? "var(--surface-raised)" : "var(--background)",
+                      background: selectedId === int.id ? "var(--surface-alt)" : "var(--background)",
                       border: "none",
-                      borderLeft:
-                        selectedId === int.id ? "2px solid var(--amber)" : "2px solid transparent",
-                      padding: "1.5rem 1.25rem",
+                      borderLeft: selectedId === int.id ? "2px solid var(--amber)" : "2px solid transparent",
                       cursor: "pointer",
                       textAlign: "left",
-                      transition: "background-color 150ms var(--ease-cut)",
+                      width: "100%",
+                      fontFamily: "inherit",
+                      color: "inherit",
                     }}
                   >
-                    <div
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: selectedId === int.id ? "var(--amber)" : "var(--steel)",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
+                    <span className="nb-label" style={{ color: selectedId === int.id ? "var(--amber)" : "var(--steel)" }}>
                       {int.category}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "0.9rem",
-                        fontWeight: 700,
-                        color: selectedId === int.id ? "var(--foreground)" : "var(--muted)",
-                      }}
-                    >
+                    </span>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: selectedId === int.id ? "var(--foreground)" : "var(--muted)" }}>
                       {int.label}
                     </div>
                   </button>
                 ))}
               </div>
 
-              <div
-                style={{
-                  marginTop: "2rem",
-                  padding: "1.5rem",
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      color: "var(--amber)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {active.tag}
-                  </span>
-                  {active.experimental && (
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.5rem",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        color: "var(--amber)",
-                        border: "1px solid var(--amber)",
-                        padding: "0.15rem 0.4rem",
-                        lineHeight: 1,
-                      }}
-                    >
-                      EXPERIMENTAL
-                    </span>
-                  )}
+              <div className="nb-card" style={{ marginTop: "var(--space-md)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2xs)", marginBottom: "var(--space-2xs)" }}>
+                  <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>&gt; {active.tag}</span>
+                  {active.experimental && <span className="nb-pill-status nb-pill-status--amber">EXPERIMENTAL</span>}
                 </div>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.82rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
                   {active.desc}
                 </p>
               </div>
             </div>
 
-            <div className="col-span-8">
-              <div
-                style={{
-                  border: "1px solid var(--border)",
-                  background: "var(--block-dark-bg)",
-                  position: "relative",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "0.75rem 1.25rem",
-                    borderBottom: "1px solid var(--block-dark-border)",
-                  }}
+            <div className="nb-frame" data-frame-label={active.label} style={{ overflowX: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-sm)" }}>
+                <span className="nb-label" style={{ marginBottom: 0 }}>{active.tag}</span>
+                <button
+                  onClick={handleCopy}
+                  className="btn-ghost"
+                  style={{ padding: "4px 12px", fontSize: "var(--text-micro)" }}
                 >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      color: "var(--block-dark-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {active.label} — {active.tag}
-                  </span>
-                  <button
-                    onClick={handleCopy}
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: copied ? "var(--amber)" : "var(--block-dark-muted)",
-                      background: "none",
-                      border: "1px solid var(--block-dark-border)",
-                      padding: "0.3rem 0.7rem",
-                      cursor: "pointer",
-                      transition: "color 150ms var(--ease-cut)",
-                    }}
-                  >
-                    {copied ? "COPIED ✓" : "COPY"}
-                  </button>
-                </div>
-
-                <pre
-                  style={{
-                    margin: 0,
-                    padding: "2rem 1.5rem",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.78rem",
-                    lineHeight: 1.7,
-                    color: "var(--block-dark-text)",
-                    overflowX: "auto",
-                    whiteSpace: "pre",
-                  }}
-                >
-                  <code>{active.code}</code>
-                </pre>
+                  {copied ? "COPIED" : "COPY"}
+                </button>
               </div>
+              <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre", overflowX: "auto" }}>
+                <code>{active.code}</code>
+              </pre>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Ecosystem</span>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(2rem, 4vw, 3rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              margin: "1.25rem 0 3rem",
-              lineHeight: 1.05,
-            }}
-          >
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">02 / 02 — Ecosystem</span>
+          <div className="nb-divider" />
+          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "var(--tracking-display)", margin: "var(--space-sm) 0 var(--space-xl)", lineHeight: 1.05 }}>
             Works with your stack.
-          </h2>
+          </p>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginBottom: "3rem",
-            }}
-          >
+          <div className="nb-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
             {ECOSYSTEM_GRID.map((item) => (
-              <div
-                key={item.name}
-                className="ecosystem-grid-item"
-                style={{
-                  padding: "2rem 1.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.25rem",
-                  transition: "background-color 150ms var(--ease-cut)",
-                  cursor: "default",
-                  background: "var(--background)",
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "0.9rem",
-                    fontWeight: 700,
-                    color: "var(--foreground)",
-                  }}
-                >
+              <div key={item.name} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)" }}>
                   {item.name}
                 </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {item.tag}
-                </div>
+                <span className="nb-label" style={{ marginTop: "var(--space-3xs)" }}>{item.tag}</span>
               </div>
             ))}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-block-amber" style={{ textAlign: "center" }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>BUILD YOUR INTEGRATION</span>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+              Check the docs to build your own connector.
+            </p>
+            <a href="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+              DOCS
+            </a>
+          </div>
+        </div>
+      </section>
 
       <style>{`
-        .ecosystem-grid-item:hover {
-          background: var(--surface-raised) !important;
-        }
         @media (max-width: 768px) {
-          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+          [style*="grid-template-columns: 1fr 1fr"][style*="gap: var(--space-xl)"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

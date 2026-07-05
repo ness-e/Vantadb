@@ -4,14 +4,16 @@
   font-weight: var(--weight-bold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 10px 24px;
-  border: none;
+  padding: 12px 28px;
+  border: 2px solid #cc4400;
   cursor: pointer;
   background: var(--amber);
   color: var(--text-on-amber);
+  box-shadow: var(--shadow-md);
   transition:
-    opacity 150ms var(--ease-swiss),
-    transform 150ms var(--ease-swiss);
+    box-shadow 80ms var(--ease-brutal),
+    transform 80ms var(--ease-brutal),
+    background 80ms linear;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -20,12 +22,14 @@
 }
 
 .btn-primary:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+  background: var(--amber-light);
+  box-shadow: var(--shadow-sm);
+  transform: translate(3px, 3px);
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
+  box-shadow: none;
+  transform: translate(6px, 6px);
 }
 
 .btn-ghost {
@@ -34,16 +38,18 @@
   font-weight: var(--weight-bold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  padding: 10px 24px;
-  border: 1px solid var(--border);
+  padding: 12px 28px;
+  border: 2px solid var(--border-visible);
   cursor: pointer;
   background: transparent;
   color: var(--foreground);
+  box-shadow: var(--shadow-sm);
   transition:
-    background 150ms var(--ease-swiss),
-    color 150ms,
-    border-color 150ms,
-    transform 150ms var(--ease-swiss);
+    background 80ms linear,
+    color 80ms linear,
+    border-color 80ms linear,
+    box-shadow 80ms var(--ease-brutal),
+    transform 80ms var(--ease-brutal);
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -55,11 +61,13 @@
   background: var(--foreground);
   color: var(--background);
   border-color: var(--foreground);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: translate(3px, 3px);
 }
 
 .btn-ghost:active {
-  transform: scale(0.98);
+  box-shadow: none;
+  transform: translate(6px, 6px);
 }
 
 .btn-ghost--inverted {
@@ -80,14 +88,14 @@
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: var(--weight-semibold);
-  padding: 8px 18px;
-  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border: 2px solid var(--border-visible);
   background: var(--surface);
   color: var(--foreground);
   cursor: pointer;
   transition:
-    background 150ms var(--ease-swiss),
-    border-color 100ms;
+    background 80ms linear,
+    border-color 80ms linear;
 }
 
 .btn-install:hover {

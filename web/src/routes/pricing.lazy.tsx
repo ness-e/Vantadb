@@ -191,7 +191,7 @@ const FAQ_ITEMS = [
 
 function PricingPage() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="05"
         eyebrow="Pricing"
@@ -205,199 +205,120 @@ function PricingPage() {
         sub="VantaDB is open source (Apache 2.0) and free forever. Sign up for cloud databases to scale in production with SLAs, team features, and zero ops."
       />
 
-      <main className="swiss-main">
-        {/* Plans section */}
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 03 — Plans</span>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">01 / 03 — Plans</span>
+          <div className="nb-divider" />
 
-          <div
-            className="pricing-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
-            {tiers.map((tier) => (
+          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+            {tiers.slice(0, 2).map((tier) => (
               <div
                 key={tier.name}
-                className="pricing-card"
+                className="nb-card"
                 style={{
-                  background: tier.featured ? "var(--surface-raised)" : "var(--background)",
-                  padding: "3rem 2rem 2.5rem 2rem",
+                  background: tier.featured ? "var(--surface-alt)" : "var(--background)",
+                  borderColor: tier.featured ? "var(--amber)" : "var(--border-visible)",
+                  boxShadow: tier.featured ? "var(--shadow-amber)" : "var(--shadow-md)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "1.5rem",
-                  border: tier.featured ? "1px solid var(--amber)" : "1px solid transparent",
+                  gap: "var(--space-md)",
                   position: "relative",
-                  transition: "all 150ms cubic-bezier(0.25, 1, 0.5, 1)",
                 }}
               >
-                {tier.featured && (
-                  <span
-                    className="pricing-badge"
-                    style={{
-                      position: "absolute",
-                      top: "1.25rem",
-                      right: "1.25rem",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.55rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase" as const,
-                      letterSpacing: "0.1em",
-                      color: "var(--amber)",
-                      background: "var(--amber-dim)",
-                      padding: "0.2rem 0.6rem",
-                    }}
-                  >
-                    EARLY ACCESS
-                  </span>
-                )}
-
+                {tier.featured && <span className="nb-pill-status nb-pill-status--amber" style={{ position: "absolute", top: "var(--space-sm)", right: "var(--space-sm)" }}>EARLY ACCESS</span>}
                 <div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "1.4rem",
-                      fontWeight: 700,
-                      letterSpacing: "-0.04em",
-                      color: tier.featured ? "var(--amber)" : "var(--foreground)",
-                    }}
-                  >
+                  <div className="nb-label nb-label--amber" style={{ fontSize: "var(--text-title)", letterSpacing: "var(--tracking-display)", fontFamily: "var(--font-display)", textTransform: "none", marginBottom: "var(--space-2xs)" }}>
                     {tier.name}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.75rem",
-                      color: "var(--muted)",
-                      marginTop: "0.5rem",
-                      lineHeight: 1.4,
-                    }}
-                  >
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-label)", color: "var(--muted)", margin: 0, lineHeight: 1.4 }}>
                     {tier.tagline}
-                  </div>
+                  </p>
                 </div>
-
-                <div style={{ display: "flex", alignItems: "baseline", gap: "0.4rem" }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "3rem",
-                      fontWeight: 700,
-                      letterSpacing: "-0.05em",
-                      color: "var(--foreground)",
-                    }}
-                  >
+                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)" }}>
                     {tier.price}
                   </span>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--steel)",
-                      textTransform: "uppercase" as const,
-                      letterSpacing: "0.06em",
-                    }}
-                  >
+                  <span className="nb-label" style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}>
                     {tier.period}
                   </span>
                 </div>
-
-                <ul
-                  style={{
-                    listStyle: "none",
-                    margin: 0,
-                    padding: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.75rem",
-                    flex: 1,
-                  }}
-                >
+                <ul className="nb-list" style={{ flex: 1 }}>
                   {tier.features.map((f) => (
-                    <li
-                      key={f}
-                      style={{
-                        display: "flex",
-                        gap: "0.6rem",
-                        fontFamily: "var(--font-sans)",
-                        fontSize: "0.8rem",
-                        color: "var(--muted)",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: tier.featured ? "var(--amber)" : "var(--steel)",
-                          fontFamily: "var(--font-mono)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        ✓
-                      </span>
+                    <li key={f} style={{ fontSize: "var(--text-code)", color: "var(--muted)" }}>
                       {f}
                     </li>
                   ))}
                 </ul>
-
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className={`pricing-cta ${tier.featured ? "pricing-cta--featured" : "pricing-cta--default"}`}
+                  className={tier.featured ? "btn-primary" : "btn-ghost"}
+                  style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
                 >
                   {tier.cta}
                 </Link>
               </div>
             ))}
           </div>
-        </section>
 
-        {/* Feature Breakdown Section */}
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">02 / 03 — Feature Breakdown</span>
-
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-              overflowX: "auto",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.82rem",
-                minWidth: "750px",
-              }}
-            >
-              <thead>
-                <tr
-                  style={{ borderBottom: "2px solid var(--border)", background: "var(--surface)" }}
+          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "1px" }}>
+            {tiers.slice(2).map((tier) => (
+              <div
+                key={tier.name}
+                className="nb-card"
+                style={{
+                  background: "var(--background)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--space-md)",
+                }}
+              >
+                <div>
+                  <div className="nb-label" style={{ fontSize: "var(--text-title)", letterSpacing: "var(--tracking-display)", fontFamily: "var(--font-display)", textTransform: "none", marginBottom: "var(--space-2xs)" }}>
+                    {tier.name}
+                  </div>
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-label)", color: "var(--muted)", margin: 0, lineHeight: 1.4 }}>
+                    {tier.tagline}
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)" }}>
+                    {tier.price}
+                  </span>
+                  <span className="nb-label" style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}>
+                    {tier.period}
+                  </span>
+                </div>
+                <ul className="nb-list" style={{ flex: 1 }}>
+                  {tier.features.map((f) => (
+                    <li key={f} style={{ fontSize: "var(--text-code)", color: "var(--muted)" }}>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
+                  className="btn-ghost"
+                  style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
                 >
+                  {tier.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">02 / 03 — Feature Breakdown</span>
+          <div className="nb-divider" />
+
+          <div className="nb-frame" data-frame-label="COMPARISON" style={{ marginTop: "var(--space-xl)", overflowX: "auto" }}>
+            <table className="nb-table" style={{ minWidth: "750px" }}>
+              <thead>
+                <tr>
                   {comparisonColumns.map((col, idx) => (
-                    <th
-                      key={col}
-                      style={{
-                        padding: "1.2rem 1.5rem",
-                        textAlign: "left",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.7rem",
-                        textTransform: "uppercase" as const,
-                        letterSpacing: "0.08em",
-                        color:
-                          idx === 2
-                            ? "var(--amber)"
-                            : idx === 0
-                              ? "var(--foreground)"
-                              : "var(--steel)",
-                        fontWeight: 600,
-                      }}
-                    >
+                    <th key={col} style={{ color: idx === 2 ? "var(--amber)" : idx === 0 ? "var(--foreground)" : "var(--steel)" }}>
                       {col}
                     </th>
                   ))}
@@ -405,110 +326,56 @@ function PricingPage() {
               </thead>
               <tbody>
                 {comparisonRows.map((row, i) => (
-                  <tr
-                    key={row.feature}
-                    className="pricing-comparison-row"
-                    style={{
-                      borderBottom: "1px solid var(--border)",
-                      background: i % 2 === 0 ? "var(--background)" : "var(--surface)",
-                      transition: "background 100ms",
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: "1rem 1.5rem",
-                        fontWeight: 600,
-                        color: "var(--foreground)",
-                      }}
-                    >
-                      {row.feature}
-                    </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>{row.os}</td>
-                    <td
-                      style={{
-                        padding: "1rem 1.5rem",
-                        color: "var(--foreground)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {row.pro}
-                    </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--foreground)" }}>
-                      {row.biz}
-                    </td>
-                    <td style={{ padding: "1rem 1.5rem", color: "var(--muted)" }}>{row.ent}</td>
+                  <tr key={row.feature} style={{ background: i % 2 === 0 ? "var(--background)" : "var(--surface)" }}>
+                    <td style={{ fontWeight: 600, color: "var(--foreground)" }}>{row.feature}</td>
+                    <td>{row.os}</td>
+                    <td style={{ color: "var(--amber)", fontWeight: 500 }}>{row.pro}</td>
+                    <td>{row.biz}</td>
+                    <td style={{ color: "var(--muted)" }}>{row.ent}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* FAQ Section */}
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">03 / 03 — FAQ</span>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">03 / 03 — FAQ</span>
+          <div className="nb-divider" />
 
-          <div
-            className="faq-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {FAQ_ITEMS.map((item) => (
-              <div
-                key={item.q}
-                style={{
-                  background: "var(--background)",
-                  padding: "2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1rem",
-                }}
-              >
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "0.95rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+              <div key={item.q} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-sm)" }}>
                   {item.q}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.85rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
                   {item.a}
                 </p>
               </div>
             ))}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <style>{`
-        .pricing-comparison-row:hover {
-          background: var(--surface-hover) !important;
-        }
-        @media (max-width: 768px) {
-          .faq-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-block-amber" style={{ textAlign: "center" }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)", marginBottom: "var(--space-xs)" }}>READY TO BUILD?</span>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "var(--tracking-display)", margin: 0 }}>
+              Start with Self-Hosted.
+            </p>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-sm) 0 var(--space-md)", opacity: 0.85 }}>
+              Free forever. No signup required.
+            </p>
+            <Link to="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+              GET STARTED
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

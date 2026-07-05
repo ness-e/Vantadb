@@ -345,6 +345,7 @@ async fn test_vector_search_with_explain() {
         "explainable",
         vec![0.5, 0.5, 0.5, 0.5],
     ))
+    .await
     .unwrap();
 
     let query = serde_wasm_bindgen::to_value(&serde_json::json!({

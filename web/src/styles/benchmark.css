@@ -1,0 +1,111 @@
+.benchmark-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-mega);
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-xs);
+}
+
+.benchmark-subtitle {
+  font-size: var(--text-lead);
+  color: var(--muted);
+  line-height: var(--leading-normal);
+  margin: 0;
+  max-width: 640px;
+}
+
+.benchmark-table-wrap {
+  overflow-x: auto;
+}
+
+.benchmark-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  border: 2px solid var(--border-visible);
+}
+
+.benchmark-table thead {
+  border-bottom: 2px solid var(--border-visible);
+}
+
+.benchmark-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--steel);
+  background: var(--surface);
+  font-weight: var(--weight-semibold);
+}
+
+.benchmark-table th:not(:last-child),
+.benchmark-table td:not(:last-child) {
+  border-right: 1px solid var(--border-visible);
+}
+
+.benchmark-table td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.benchmark-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.benchmark-table tbody tr {
+  transition: background 150ms var(--ease-brutal);
+}
+
+.benchmark-table tbody tr:hover {
+  background: var(--surface-alt);
+}
+
+.benchmark-table tbody tr:hover td:first-child {
+  border-left: 2px solid var(--amber);
+  padding-left: calc(var(--space-md) - 2px);
+}
+
+.benchmark-col-vanta {
+  color: var(--amber);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  min-width: 100px;
+}
+
+.benchmark-col-trad {
+  color: var(--subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-col-diff {
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--success);
+}
+
+.benchmark-metric-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+@media (max-width: 768px) {
+  .benchmark-table th,
+  .benchmark-table td {
+    padding: var(--space-2xs) var(--space-xs);
+    font-size: var(--text-micro);
+  }
+
+  .benchmark-metric-label {
+    font-size: var(--text-code);
+  }
+}

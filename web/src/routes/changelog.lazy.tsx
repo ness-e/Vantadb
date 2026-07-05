@@ -204,7 +204,7 @@ function ChangelogPage() {
   );
 
   return (
-    <div className="swiss-page">
+    <div>
       <SwissSubpageHero
         num="12"
         eyebrow="Changelog"
@@ -218,233 +218,159 @@ function ChangelogPage() {
         sub="Every release — features, performance gains, fixes, and migration notes. No marketing fluff."
       />
 
-      <main className="swiss-main">
-        <div
-          style={{
-            display: "flex",
-            gap: "1px",
-            background: "var(--border)",
-            border: "1px solid var(--border)",
-            marginBottom: "4rem",
-            width: "fit-content",
-          }}
-        >
-          {ALL_TYPES.map((t) => {
-            const cfg = TYPE_CONFIG[t];
-            const isActive = activeFilter === t;
-            return (
-              <button
-                key={t}
-                onClick={() => setActiveFilter(t)}
-                style={{
-                  background: isActive ? "var(--surface-raised)" : "var(--background)",
-                  border: "none",
-                  borderBottom: isActive
-                    ? `2px solid ${t === "all" ? "var(--foreground)" : cfg?.color || "var(--foreground)"}`
-                    : "2px solid transparent",
-                  padding: "0.75rem 1.5rem",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  color: isActive
-                    ? t === "all"
-                      ? "var(--foreground)"
-                      : cfg?.color || "var(--foreground)"
-                    : "var(--steel)",
-                  cursor: "pointer",
-                  transition: "all 150ms var(--ease-cut)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {t === "all" ? "ALL" : cfg?.label || t.toUpperCase()}
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "1px",
-            background: "var(--border)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          {filteredReleases.map((release, i) => (
+      <main>
+        <div className="nb-section--sm">
+          <div className="nb-inner">
             <div
-              key={release.version}
+              className="flex gap-[1px]"
               style={{
-                display: "grid",
-                gridTemplateColumns: "220px 1fr",
-                background: "var(--background)",
+                background: "var(--border-visible)",
+                border: "2px solid var(--border-visible)",
+                width: "fit-content",
               }}
             >
-              <div
-                style={{
-                  padding: "2.5rem 2rem",
-                  borderRight: "1px solid var(--border)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                  position: "relative",
-                }}
-              >
-                {i === 0 && (
-                  <span
+              {ALL_TYPES.map((t) => {
+                const cfg = TYPE_CONFIG[t];
+                const isActive = activeFilter === t;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setActiveFilter(t)}
+                    className="font-mono text-[0.6rem] font-bold uppercase tracking-[0.1em] cursor-pointer whitespace-nowrap transition-all"
                     style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.55rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      color: "var(--amber)",
-                      background: "rgba(255, 85, 0, 0.1)",
-                      padding: "0.2rem 0.5rem",
-                      marginBottom: "0.5rem",
-                      width: "fit-content",
+                      background: isActive ? "var(--surface-alt)" : "var(--background)",
+                      border: "none",
+                      borderBottom: isActive
+                        ? `2px solid ${t === "all" ? "var(--foreground)" : cfg?.color || "var(--foreground)"}`
+                        : "2px solid transparent",
+                      padding: "0.75rem 1.5rem",
+                      color: isActive
+                        ? t === "all"
+                          ? "var(--foreground)"
+                          : cfg?.color || "var(--foreground)"
+                        : "var(--steel)",
                     }}
                   >
-                    CURRENT
-                  </span>
-                )}
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.5rem",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    color: "var(--foreground)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {release.version}
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {release.date}
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.72rem",
-                    color: "var(--muted)",
-                    marginTop: "0.25rem",
-                  }}
-                >
-                  {release.tag}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  padding: "2.5rem 2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0",
-                }}
-              >
-                {release.changes.map((change, ci) => {
-                  const cfg = TYPE_CONFIG[change.type] || {
-                    label: change.type.toUpperCase(),
-                    color: "var(--muted)",
-                  };
-                  return (
-                    <div
-                      key={ci}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "80px 1fr",
-                        gap: "1rem",
-                        alignItems: "baseline",
-                        padding: "0.85rem 0",
-                        borderBottom:
-                          ci < release.changes.length - 1 ? "1px solid var(--border)" : "none",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.55rem",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.1em",
-                          color: cfg.color,
-                          paddingTop: "2px",
-                        }}
-                      >
-                        {cfg.label}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: "var(--font-sans)",
-                          fontSize: "0.82rem",
-                          color: "var(--muted)",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {change.text}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                    {t === "all" ? "ALL" : cfg?.label || t.toUpperCase()}
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          </div>
         </div>
 
-        <section
-          className="swiss-page-section"
-          style={{
-            borderTop: "1px solid var(--border)",
-            marginTop: "1px",
-            background: "var(--surface)",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "220px 1fr",
-              gap: "3rem",
-              alignItems: "start",
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--amber)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                SEMVER
-              </span>
-            </div>
-            <p
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div
+              className="flex flex-col gap-[1px]"
               style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.82rem",
-                color: "var(--muted)",
-                lineHeight: 1.7,
-                margin: 0,
-                maxWidth: "600px",
+                background: "var(--border-visible)",
+                border: "2px solid var(--border-visible)",
               }}
             >
-              VantaDB follows semantic versioning. Patch upgrades (0.1.x → 0.1.y) require no code
-              changes. Minor bumps (0.1 → 0.2) may include breaking changes — check those tags
-              before deploying to production.
-            </p>
+              {filteredReleases.map((release, i) => (
+                <div
+                  key={release.version}
+                  className="grid grid-cols-[220px_1fr]"
+                  style={{ background: "var(--background)" }}
+                >
+                  <div
+                    className="p-8 flex flex-col gap-2 relative"
+                    style={{ borderRight: "2px solid var(--border-visible)" }}
+                  >
+                    {i === 0 && (
+                      <span
+                        className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.1em] text-amber w-fit px-2 py-1 mb-2"
+                        style={{ background: "var(--amber-dim)" }}
+                      >
+                        CURRENT
+                      </span>
+                    )}
+                    <span className="font-display text-[1.5rem] font-extrabold tracking-[-0.04em] text-foreground leading-none">
+                      {release.version}
+                    </span>
+                    <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.06em]">
+                      {release.date}
+                    </span>
+                    <span className="text-[0.72rem] text-muted mt-1">{release.tag}</span>
+                  </div>
+
+                  <div className="p-8 flex flex-col gap-0">
+                    {release.changes.map((change, ci) => {
+                      const cfg = TYPE_CONFIG[change.type] || {
+                        label: change.type.toUpperCase(),
+                        color: "var(--muted)",
+                      };
+                      return (
+                        <div
+                          key={ci}
+                          className="grid grid-cols-[80px_1fr] gap-4 items-baseline py-3"
+                          style={{
+                            borderBottom:
+                              ci < release.changes.length - 1 ? "1px solid var(--border)" : "none",
+                          }}
+                        >
+                          <span
+                            className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.1em] pt-[2px]"
+                            style={{ color: cfg.color }}
+                          >
+                            {cfg.label}
+                          </span>
+                          <span className="text-[0.82rem] text-muted leading-relaxed">
+                            {change.text}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="grid grid-cols-[220px_1fr] gap-8 items-start mt-8 p-8"
+              style={{ border: "2px solid var(--border-visible)", background: "var(--surface)" }}
+            >
+              <div>
+                <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
+                  SEMVER
+                </span>
+              </div>
+              <p className="text-[0.82rem] text-muted leading-relaxed m-0 max-w-[600px]">
+                VantaDB follows semantic versioning. Patch upgrades (0.1.x → 0.1.y) require no code
+                changes. Minor bumps (0.1 → 0.2) may include breaking changes — check those tags
+                before deploying to production.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="nb-section nb-bg-dot">
+          <div className="nb-inner">
+            <div className="nb-block-amber">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                    GET STARTED
+                  </div>
+                  <h2
+                    className="font-display text-2xl font-extrabold"
+                    style={{ color: "var(--text-on-amber)" }}
+                  >
+                    Always improving. Ship with confidence.
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                    Install VantaDB in one command.
+                  </p>
+                </div>
+                <code
+                  className="font-mono text-lg font-bold"
+                  style={{ color: "var(--text-on-amber)" }}
+                >
+                  pip install vantadb-py
+                </code>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -452,7 +378,6 @@ function ChangelogPage() {
       <style>{`
         @media (max-width: 768px) {
           [style*="grid-template-columns: 220px 1fr"] { grid-template-columns: 1fr !important; }
-          .swiss-page-section [style*="grid-template-columns: 220px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
         }
         @media (max-width: 640px) {
           [style*="grid-template-columns: 80px 1fr"] { grid-template-columns: 1fr !important; gap: 0.25rem !important; }

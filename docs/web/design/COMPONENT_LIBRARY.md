@@ -1,168 +1,163 @@
-# Component Library — Swiss High-Contrast Minimal
+# Component Library — Swiss + Neubrutalism
 
-> Fuente: `design/DiseñoNuevo.md §8` | Versión: 1.0 | 2026-07
-
----
-
-## Convenciones
-
-- **Sin sombras**: `box-shadow: none` en todos los componentes
-- **Border-radius**: 0px (botones, inputs), max 6px (terminales)
-- **Transiciones**: 100-150ms, `var(--ease-swiss)`
-- **Tokens**: todas las variables desde `tokens.css`
-- **Sin gradientes**, sin efectos decorativos
+> Versión: 2.0 | 2026-07
+> Convenciones globales: `border-radius: 0`, hard offset shadows, 2px borders, 80ms transitions
 
 ---
 
-## Nav (`SwissNav`)
+## Layout Components
 
-| Prop | Valor |
-|:---|:---|
-| Altura | 64px (max 80px desktop) |
-| Fondo | `var(--surface-glass)` + `backdrop-filter: blur(12px)` |
-| Borde inferior | `1px solid var(--border)` |
-| Layout | Logo izquierda \| Links centro \| CTA derecha |
-| Links | `--text-label` (JetBrains Mono, 0.72rem, ALL CAPS, tracking 0.14em) |
-| Link color resting | `--steel` |
-| Link color hover | `--foreground` (100ms) |
-| Link color active | `--amber` |
-| Mobile | Hamburger → panel lateral `--surface` con borde 1px |
+| Component | Class | Description |
+|---|---|---|
+| Section | `.nb-section` | Section container with 96px vertical padding |
+| Section (dark) | `.nb-section--dark` | Dark background variant |
+| Section (large) | `.nb-section--lg` | 160px vertical padding |
+| Inner | `.nb-inner` | Centered content, max 1200px |
+| Inner (wide) | `.nb-inner--wide` | Centered content, max 1440px |
+| Grid 2-col | `.nb-grid--cols-2` | 2 equal columns, 1px gap |
+| Grid 3-col | `.nb-grid--cols-3` | 3 equal columns, 1px gap |
+| Grid 4-col | `.nb-grid--cols-4` | 4 equal columns, 1px gap |
+| Grid 6-col | `.nb-grid--cols-6` | 6 equal columns, 1px gap |
+| Cell | `.nb-cell` | Grid cell — bg `--background`, pad `--space-lg` |
+| Cell span 2 | `.nb-cell--span2` | Spans 2 columns |
+| Cell span 3 | `.nb-cell--span3` | Spans 3 columns |
+| Cell row 2 | `.nb-cell--row2` | Spans 2 rows |
+| Asymmetric | `.nb-asymmetric` | 8fr 4fr split |
+| Asymmetric right | `.nb-asymmetric--right` | 4fr 8fr split |
+| Split 7-5 | `.nb-split-7-5` | 7fr 5fr split |
+| Split 5-7 | `.nb-split-5-7` | 5fr 7fr split |
+| Bento | `.nb-bento` | Grid with 1px gap |
+| Bento 3-col | `.nb-bento--3col` | 3-column bento |
+| Bento 4-col | `.nb-bento--4col` | 4-column bento |
+| Bento cell | `.nb-bento-cell` | Bento grid cell |
+| Bento featured | `.nb-bento-cell--featured` | 2x2 anchor cell |
+| Bento span 2 | `.nb-bento-cell--span2` | 2-column span |
+| Bento span 3 | `.nb-bento-cell--span3` | 3-column span |
+| Divider | `.nb-divider` | 2px horizontal line |
+| Divider amber | `.nb-divider--amber` | Amber-colored divider |
+| Divider strong | `.nb-divider--strong` | Strong border divider |
+| Section header | `.nb-section-header` | Label + heading block |
+| Section header bordered | `.nb-section-header--bordered` | With bottom border |
+| Section header right-border | `.nb-section-header--right-border` | With right border |
 
-### Estados
+## Surface Components
 
-| Estado | Link | CTA |
-|:---|:---|:---|
-| Resting | `--steel` | Primary amber |
-| Hover | `--foreground` (100ms) | `background: #000` |
-| Active route | `--amber` | — |
-| Focus | Outline visible (WCAG) | Outline visible |
+| Component | Class | Description |
+|---|---|---|
+| Card | `.nb-card` | 2px border, hard shadow, hover → amber border |
+| Card amber | `.nb-card--amber` | Amber border permanently |
+| Card strong | `.nb-card--strong` | Strong border (#333) |
+| Frame | `.nb-frame` | 2px border with floating label via `data-frame-label` |
+| Block warning | `.nb-block-warning` | 3px amber border, `⚠ WARNING` label |
+| Icon box | `.nb-icon-box` | 40px square, 2px border, centered amber icon |
 
----
+## Typography Components
 
-## Buttons
+| Component | Class | Description |
+|---|---|---|
+| Label | `.nb-label` | Section label — micro mono, uppercase |
+| Label amber | `.nb-label--amber` | Amber-colored label |
+| Index | `.nb-index` | Numeric index — `[01]`, steel → amber on hover |
+| Index amber | `.nb-index--amber` | Amber index permanently |
+| Bracket | `.nb-bracket` | Auto-wraps in `[ ]` monospace brackets |
+| Arrow | `.nb-arrow` | Amber link with `>>>` suffix, gap animates on hover |
+| Pill status | `.nb-pill-status` | Status indicator with dot |
+| Pill amber | `.nb-pill-status--amber` | Amber-colored pill |
+| Pill green | `.nb-pill-status--green` | Green-colored pill |
+| Telemetry | `.nb-telemetry` | Data row with `>` prefix |
 
-### Primary
+## Interactive Components
 
-| Prop | Valor |
-|:---|:---|
-| Background resting | `--amber` |
-| Text | `#ffffff` |
-| Background hover | `#000000` |
-| Border-radius | `0px` |
-| Padding | `10px 24px` |
-| Transition | `150ms var(--ease-swiss)` |
-| Active | `scale(0.97)` |
+| Component | Class | Description |
+|---|---|---|
+| Primary button | `.btn-primary` | Amber bg, hard shadow, mechanical press |
+| Ghost button | `.btn-ghost` | Transparent bg, border, hard shadow |
+| Ghost inverted | `.btn-ghost--inverted` | For dark surfaces |
+| Install button | `.btn-install` | Monospace install command button |
+| List | `.nb-list` | Telemetry-style list with `>` prefix |
+| Table | `.nb-table` | Monospace data table, visible borders |
 
-### Ghost
+## Animation Components
 
-| Prop | Valor |
-|:---|:---|
-| Background resting | `transparent` |
-| Border | `1px solid var(--border)` |
-| Text | `--foreground` |
-| Hover | `background: var(--border)`, text `#ffffff` |
-| Ghost inverted (dark sections) | Border white, text white, hover: bg white + text black |
+| Component | Class | Description |
+|---|---|---|
+| Ticker | `.nb-ticker` | Opacity flash 0.8s `steps(1)` — live indicator |
+| Cursor | `.nb-cursor` | Amber cursor blink 1s `step-end` |
+| Split flip | `.nb-split` | Vertical split-flip animation container |
+| Split inner | `.nb-split-inner` | Animated inner element |
 
-### Link
+## Background Textures
 
-| Prop | Valor |
-|:---|:---|
-| Text | `--amber` |
-| Underline | Animado left→right, 200ms |
-| Sin borde, sin bg |
+| Component | Class | Description |
+|---|---|---|
+| Scanline | `.scanline` | CRT scanline overlay (fixed, z-noise) |
+| Noise | `.noise-overlay` | Fractal noise grain (fixed, 3.5% opacity) |
+| Dot grid | `.nb-bg-dot` | Radial dot grid, 24px spacing |
+| Cross grid | `.nb-bg-cross` | Cross hatch grid, 24px spacing |
+| Cross grid faint | `.nb-bg-cross--faint` | Subtle cross grid, 48px spacing |
 
-### Reglas
+## Grid Hairlines
 
-- Button text MUST fit 1 line (design-taste §4.5)
-- No duplicate CTA intent per page (design-taste §4.5)
-
----
-
-## Cards / Blocks (`SwissCard`)
-
-| Prop | Valor |
-|:---|:---|
-| Fondo | `--surface` |
-| Borde | `1px solid var(--border)` |
-| Hover borde | `--border-strong` (100ms) |
-| Padding | `24px` |
-| Index label | `[01]` en `--text-label`, esquina superior izquierda |
-| Sin sombras | `box-shadow: none` |
-| Border-radius | `0px` (max `4px`) |
-
-### Variants
-
-| Variant | Modificación |
-|:---|:---|
-| Dark section card | Fondo transparent, borde `var(--block-dark-border)`, hover `rgba(255,255,255,0.03)` |
-| Benchmark cell | Tamaños variables (bento), números display + count-up |
-| Ecosystem card | Icono monoline + label ALL CAPS, hover icon → `--amber` |
-| Use case card | Layout grid `3fr 9fr`, número display `--subtle` → `--amber` hover |
-
----
-
-## Terminal / Code Block (`SwissTerminal`)
-
-| Prop | Valor |
-|:---|:---|
-| Fondo | `--void` |
-| Borde | `1px solid var(--border)` |
-| Border-radius | `max 4px` |
-| Header | 3 dots `--subtle` + título en `--text-label` |
-| Font | JetBrains Mono |
-| Syntax | keywords `--foreground`, strings `--amber`, comments `--muted` |
-| Output | `border-left: 2px solid var(--amber)` |
-
----
-
-## Footer (`SwissFooter`)
-
-| Prop | Valor |
-|:---|:---|
-| Fondo | `#0a0a0a` (OLED) |
-| Grid | 5 columnas |
-| Links resting | `--block-dark-muted` (#808080) |
-| Links hover | `#ffffff` |
-| Column titles | `--text-label` ALL CAPS, `--block-dark-text` |
-| Dividers | `1px solid rgba(255,255,255,0.08)` |
-| Bottom bar | Mark + copyright + GitHub link |
+| Component | Class | Description |
+|---|---|---|
+| Hairline V | `.nb-hairline-v` | 1px vertical grid line |
+| Grid overlay | `.nb-grid-overlay` | SVG grid overlay (absolute positioned) |
 
 ---
 
-## Hero (`SwissHero`)
+## Usage Examples
 
-| Prop | Valor |
-|:---|:---|
-| Fondo | `--background` (warm paper) |
-| Layout | Grid 12 cols: título 1-8, vacío 9-12 (asimetría) |
-| Etiquetas | `[RUST-NATIVE]` `[IN-PROCESS]` `[ZERO-SERVERS]` en `--amber` |
-| Título | "VantaDB" en `--text-hero`, Space Grotesk 700 |
-| Subtítulo | "Embedded cognitive memory..." en `--text-body`, `--muted` |
-| CTAs | Primary (amber) + Ghost (borde negro) |
+### Card with Index
+```tsx
+<div className="nb-card">
+  <span className="nb-index">[01]</span>
+  <div className="nb-icon-box">
+    <SearchIcon />
+  </div>
+  <h3 className="text-title">Hybrid Search</h3>
+  <p className="text-body">HNSW + BM25 in a single query.</p>
+  <a className="nb-arrow">Learn more</a>
+</div>
+```
 
----
+### Telemetry Row
+```tsx
+<div className="nb-telemetry">
+  <span>QUERY: 1.2ms</span>
+  <span>RECALL: 0.998</span>
+  <span>INDEXED: 10K</span>
+</div>
+```
 
-## Monolith CTA (`SwissMonolith`)
+### Warning Block
+```tsx
+<div className="nb-block-warning">
+  <p>This API will be deprecated in v0.8.0. Migrate to the new query interface.</p>
+</div>
+```
 
-| Prop | Valor |
-|:---|:---|
-| Fondo | `#0a0a0a` OLED full-width |
-| Padding | `160px` vertical |
-| Texto | Centrado (excepción: CTA aislado) |
-| Comando | `--text-hero`, `#ffffff` |
-| Subtítulo | `--block-dark-muted` |
-| Botón | Primary amber centrado |
+### Frame with Label
+```tsx
+<div className="nb-frame" data-frame-label="ARCHITECTURE">
+  {/* content */}
+</div>
+```
 
----
+### Bento Grid with Anchor
+```tsx
+<div className="nb-bento nb-bento--3col">
+  <div className="nb-bento-cell nb-bento-cell--featured">
+    {/* featured content — spans 2x2 */}
+  </div>
+  <div className="nb-bento-cell">{/* content */}</div>
+  <div className="nb-bento-cell">{/* content */}</div>
+  <div className="nb-bento-cell nb-bento-cell--span2">{/* content */}</div>
+</div>
+```
 
-## Subpage Hero (`SwissSubpageHero`)
-
-| Prop | Valor |
-|:---|:---|
-| Props | `label`, `title`, `description`, `breadcrumb` |
-| Layout | Grid 12 cols: título 1-8, asimetría |
-| Label | `[ENGINE]` en `--text-label` naranja |
-| Breadcrumb | `Home / Engine` en `--text-label`, `--steel` |
-| Título | `--text-display` |
-| Descripción | `--text-body`, `--muted` |
-| Borde inferior | `1px solid var(--border)` full-width |
+### Mechanical Button
+```tsx
+<button className="btn-primary">
+  GET STARTED
+</button>
+```
