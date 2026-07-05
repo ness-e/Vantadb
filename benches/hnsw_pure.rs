@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::Instant;
-use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
+use vantadb::index::{CPIndex, FilterBitset, HnswConfig, VectorRepresentations};
 
 fn generate_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(42);
@@ -35,7 +35,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
-                    index.add(id as u64, u128::MAX, VectorRepresentations::Full(vec), 0);
+                    index.add(id as u64, FilterBitset::all_set(), VectorRepresentations::Full(vec), 0);
                 }
                 total_duration += start.elapsed();
             }
@@ -58,7 +58,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
         for (id, vec) in vectors.iter().enumerate() {
             index.add(
                 id as u64,
-                u128::MAX,
+                FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
                 0,
             );
@@ -68,7 +68,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
         b.iter(|| {
             for query in &queries {
-                std::hint::black_box(index.search_nearest(query, None, None, u128::MAX, 10, None));
+                std::hint::black_box(index.search_nearest(query, None, None, &FilterBitset::all_set(), 10, None));
             }
         });
     });

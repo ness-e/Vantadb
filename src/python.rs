@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyModuleMethods;
 
 #[pyclass]
+/// Python bindings for the VantaDB storage engine.
 pub struct ClientEngine {
     /// Inner storage engine instance.
     _storage: StorageEngine,

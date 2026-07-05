@@ -3,6 +3,7 @@ use rand::Rng;
 use std::env;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
+use vantadb::index::FilterBitset;
 use vantadb::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
@@ -76,7 +77,7 @@ fn high_density_benchmark(c: &mut Criterion) {
                     let results = storage
                         .hnsw
                         .load()
-                        .search_nearest(&query_vec, None, None, 0, 10, None);
+                        .search_nearest(&query_vec, None, None, &FilterBitset::new(), 10, None);
                     // Force materialization to prevent optimization drop
                     assert!(results.len() <= 10);
                 });
