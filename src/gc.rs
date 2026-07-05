@@ -5,7 +5,7 @@
 
 use crate::error::{Result, VantaError};
 use crate::storage::StorageEngine;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use web_time::{SystemTime, UNIX_EPOCH};
 
 /// TTL-based garbage collector for expired nodes.
@@ -44,17 +44,25 @@ impl<'a> GcWorker<'a> {
         let mut expired_count = 0;
 
         let mut keys_to_remove = Vec::new();
-        for (expiry, ids) in self.index_ttl.iter() {
+        for (expiry, ids) in self.index_ttl.iter_mut() {
             if *expiry <= now {
-                for &id in ids {
-                    // Attempt deletion via StorageEngine physical store
-                    if self.storage.delete(id, "GC TTL Expired").is_ok() {
-                        expired_count += 1;
+                ids.retain(|&id| {
+                    match self.storage.delete(id, "GC TTL Expired") {
+                        Ok(_) => {
+                            expired_count += 1;
+                            false
+                        }
+                        Err(e) => {
+                            tracing::error!("GC failed to delete node {id}: {e}");
+                            true
+                        }
                     }
+                });
+                if ids.is_empty() {
+                    keys_to_remove.push(*expiry);
                 }
-                keys_to_remove.push(*expiry);
             } else {
-                break; // Because it's a BTreeMap, subsequent keys are > now
+                break;
             }
         }
 
@@ -63,6 +71,15 @@ impl<'a> GcWorker<'a> {
         }
 
         Ok(expired_count)
+    }
+
+    /// Removes TTL entries for node IDs that are no longer in the active set.
+    /// Call this after a manual delete to prevent unbounded TTL map growth.
+    pub fn purge_ttl_for_deleted(&mut self, active_ids: &HashSet<u64>) {
+        self.index_ttl.retain(|_, ids| {
+            ids.retain(|id| active_ids.contains(id));
+            !ids.is_empty()
+        });
     }
 }
 
