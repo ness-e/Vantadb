@@ -46,16 +46,7 @@ export function NbFeatureGrid() {
     <section className="nb-section" aria-label="Features">
       <div className="nb-inner">
         <div className="nb-section-header nb-section-header--bordered">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--amber)",
-            }}
-          >
-            Features
-          </h2>
+          <h2 className="nb-amber-title">Features</h2>
         </div>
 
         <div className="nb-feature-grid">

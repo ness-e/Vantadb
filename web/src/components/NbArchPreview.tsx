@@ -57,16 +57,7 @@ export function NbArchPreview() {
     <section className="nb-section" aria-label="Architecture">
       <div className="nb-inner">
         <div className="nb-section-header">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--amber)",
-            }}
-          >
-            Architecture
-          </h2>
+          <h2 className="nb-amber-title">Architecture</h2>
         </div>
         <hr className="nb-divider" />
 

@@ -133,9 +133,8 @@ export const NbMonolith = memo(function NbMonolith() {
             </button>
             <span
               ref={feedbackRef}
-              className="monolith-copy-feedback"
+              className="monolith-copy-feedback nb-monolith-feedback"
               aria-live="polite"
-              style={{ opacity: 0 }}
             >
               {copied ? "copied to clipboard" : ""}
             </span>

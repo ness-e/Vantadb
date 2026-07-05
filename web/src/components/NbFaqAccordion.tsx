@@ -30,19 +30,10 @@ export function NbFaqAccordion() {
   return (
     <section className="nb-section" aria-label="Frequently Asked Questions">
       <div className="nb-inner">
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "var(--amber)",
-          }}
-        >
-          FAQ
-        </h2>
+        <h2 className="nb-amber-title">FAQ</h2>
         <div className="nb-divider" />
 
-        <div className="faq-accordion" style={{ marginTop: "var(--space-xl)" }}>
+        <div className="faq-accordion nb-faq-container">
           {FAQ_ITEMS.map((item, index) => {
             const isOpen = activeIndex === index;
             return (

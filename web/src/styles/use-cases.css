@@ -1,73 +1,122 @@
-.usecase-heading {
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-mega);
-  line-height: var(--leading-tight);
-  margin: 0;
-}
-
-.usecase-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--border-visible);
-  border: 2px solid var(--border-visible);
-}
-
-.usecase-card {
-  background: var(--background);
-  padding: var(--space-xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  transition:
-    border-color 150ms var(--ease-brutal),
-    box-shadow 150ms var(--ease-brutal);
-  position: relative;
-  border: 2px solid transparent;
-  margin: -1px;
-}
-
-.usecase-card:hover {
-  border-color: var(--amber);
-  box-shadow: 3px 3px 0px var(--amber);
-  z-index: 1;
-}
-
-.usecase-prefix {
-  font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--steel);
-  display: block;
-  margin-bottom: var(--space-2xs);
-}
-
-.usecase-title {
+.use-cases-section-title {
   font-family: var(--font-display);
   font-size: var(--text-title);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-tight);
-  margin: 0;
-  line-height: var(--leading-snug);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
 }
-
-.usecase-desc {
-  font-size: var(--text-body);
+.use-cases-patterns-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-top: 3rem;
+}
+.use-cases-card {
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: background-color 150ms var(--ease-cut);
+  background: var(--background);
+}
+.use-cases-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.use-cases-card-num {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.use-cases-card-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  margin: 0;
+}
+.use-cases-card-desc {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
   color: var(--muted);
-  line-height: var(--leading-normal);
+  line-height: 1.6;
+  margin: 0;
+  flex: 1;
+}
+.use-cases-tags-wrap {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.use-cases-tag {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--steel);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+}
+.use-cases-subtitle {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin: 1.25rem 0 3rem;
+  line-height: 1.05;
+}
+.use-cases-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.use-cases-pipeline-card {
+  background: var(--background);
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.use-cases-pipeline-num {
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--border);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.use-cases-pipeline-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--foreground);
   margin: 0;
 }
-
-@media (max-width: 720px) {
-  .usecase-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .usecase-card {
-    padding: var(--space-lg);
-  }
+.use-cases-pipeline-desc {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+  flex: 1;
+}
+.use-cases-tag-amber {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+  border: 1px solid rgba(255, 85, 0, 0.3);
+  padding: 0.2rem 0.5rem;
 }

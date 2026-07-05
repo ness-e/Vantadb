@@ -9,16 +9,7 @@ export function NbPricingPreview() {
   return (
     <section className="nb-section" aria-label="Pricing">
       <div className="nb-inner">
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "var(--amber)",
-          }}
-        >
-          Pricing
-        </h2>
+        <h2 className="nb-amber-title">Pricing</h2>
 
         <hr className="nb-divider" />
 
