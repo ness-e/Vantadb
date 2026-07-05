@@ -35,6 +35,12 @@ const FEATURES = [
   },
 ];
 
+const LAYERS = [
+  { label: "QUERY", features: FEATURES.slice(0, 3) },
+  { label: "ENGINE", features: [FEATURES[3], FEATURES[5]] },
+  { label: "STORAGE", features: [FEATURES[4]] },
+] as const;
+
 export function NbCoreEngine() {
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -42,8 +48,8 @@ export function NbCoreEngine() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const cells = gsap.utils.toArray<HTMLElement>(".nb-core-cell");
-        if (!cells.length) return;
+        const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+        if (!parts.length) return;
 
         const tl = gsap.timeline({
           scrollTrigger: {
@@ -52,9 +58,9 @@ export function NbCoreEngine() {
           },
         });
 
-        cells.forEach((cell) => {
+        parts.forEach((part) => {
           tl.fromTo(
-            cell,
+            part,
             { opacity: 0, y: 24 },
             { opacity: 1, y: 0, duration: 0.4, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
             "-=0.15",
@@ -66,22 +72,27 @@ export function NbCoreEngine() {
   );
 
   return (
-    <section
-      ref={sectionRef}
-      className="nb-section nb-section--lg"
-      aria-label="Core engine architecture"
-    >
+    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Core engine">
       <div className="nb-inner">
-        <div className="nb-section-header nb-section-header--bordered">
-          <h2 className="nb-core-title">Exploded Architecture.</h2>
-        </div>
+        <span className="nb-mono-label">[ARCHITECTURE]</span>
+        <h2 className="nb-section-headline">Engine breakdown.</h2>
 
-        <div className="nb-core-grid" role="list">
-          {FEATURES.map((feat) => (
-            <article key={feat.num} className="nb-core-cell" role="listitem">
-              <h3 className="nb-core-feature-title">{feat.title}</h3>
-              <p className="nb-core-feature-desc">{feat.desc}</p>
-            </article>
+        <div className="nb-engine-diagram">
+          {LAYERS.map((layer, i) => (
+            <div key={layer.label}>
+              {i > 0 && <div className="nb-hairline--strong" />}
+              <div className="nb-engine-layer">
+                <span className="nb-engine-layer-label">{layer.label}</span>
+                <div className="nb-engine-components">
+                  {layer.features.map((feat) => (
+                    <article key={feat.num} className="nb-engine-part">
+                      <h3>{feat.title}</h3>
+                      <p>{feat.desc}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>

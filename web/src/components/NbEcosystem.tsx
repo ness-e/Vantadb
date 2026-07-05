@@ -3,26 +3,11 @@ import { gsap, useGSAP } from "../lib/gsap";
 import "../styles/ecosystem.css";
 
 const CATEGORIES = [
-  {
-    label: "FRAMEWORK",
-    items: ["Pydantic AI", "LangChain", "LlamaIndex"],
-  },
-  {
-    label: "AGENTS",
-    items: ["CrewAI", "AutoGen", "smolagents"],
-  },
-  {
-    label: "MODELS",
-    items: ["OpenAI", "Anthropic", "Ollama"],
-  },
-  {
-    label: "DEPLOY",
-    items: ["FastAPI", "Modal", "Ray Serve"],
-  },
-  {
-    label: "UI",
-    items: ["Streamlit", "Gradio"],
-  },
+  { label: "FRAMEWORK", items: ["Pydantic AI", "LangChain", "LlamaIndex"] },
+  { label: "AGENTS", items: ["CrewAI", "AutoGen", "smolagents"] },
+  { label: "MODELS", items: ["OpenAI", "Anthropic", "Ollama"] },
+  { label: "DEPLOY", items: ["FastAPI", "Modal", "Ray Serve"] },
+  { label: "UI", items: ["Streamlit", "Gradio"] },
 ];
 
 export function NbEcosystem() {
@@ -32,12 +17,12 @@ export function NbEcosystem() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const cells = gsap.utils.toArray<HTMLElement>(".eco-cell");
-        if (!cells.length) return;
+        const cols = gsap.utils.toArray<HTMLElement>(".nb-eco-col");
+        if (!cols.length) return;
 
         gsap.fromTo(
-          cells,
-          { opacity: 0, y: 20, transformOrigin: "top center" },
+          cols,
+          { opacity: 0, y: 20 },
           {
             opacity: 1,
             y: 0,
@@ -56,27 +41,22 @@ export function NbEcosystem() {
   );
 
   return (
-    <section ref={sectionRef} className="nb-section" aria-label="Integration ecosystem">
+    <section ref={sectionRef} className="nb-section" aria-label="Ecosystem">
       <div className="nb-inner">
-        <div>
-          <div className="nb-section-header">
-            <h2 className="eco-heading">Integration Matrix.</h2>
-          </div>
+        <span className="nb-mono-label">[INTEGRATIONS]</span>
+        <h2 className="nb-section-headline">Works with your stack.</h2>
 
-          <div className="eco-grid" role="list">
-            {CATEGORIES.map((cat) => (
-              <div key={cat.label} className="eco-cell" role="listitem">
-                <span className="eco-category-label">{cat.label}</span>
-                <div className="eco-items">
-                  {cat.items.map((item) => (
-                    <span key={item} className="eco-item">
-                      {item}
-                    </span>
-                  ))}
-                </div>
+        <div className="nb-eco-matrix">
+          {CATEGORIES.map((cat) => (
+            <div key={cat.label} className="nb-eco-col">
+              <span className="nb-eco-col-label">{cat.label}</span>
+              <div className="nb-eco-items">
+                {cat.items.map((item) => (
+                  <span key={item} className="nb-eco-item">{item}</span>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

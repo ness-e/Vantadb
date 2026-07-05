@@ -11,24 +11,31 @@ const METRICS = [
 
 export const NbMetricsBar = memo(function NbMetricsBar() {
   return (
-    <section className="nb-section nb-section--sm" aria-label="Key metrics">
+    <section className="nb-section" aria-label="Key metrics">
       <div className="nb-inner">
-        <div>
-          <div className="nb-metrics-strip">
+        <div className="nb-asymmetric">
+          <div>
+            <span className="nb-mono-label">[PERFORMANCE DATA]</span>
+            <h2 className="nb-section-headline">Built for speed.</h2>
+            <p className="nb-section-sub">
+              Every number speaks for itself — no fluff, no marketing.
+            </p>
+          </div>
+          <div className="nb-metrics-grid">
             {METRICS.map((m) => (
-              <div key={m.label} className="nb-metrics-cell">
-                <span className="nb-metrics-value nb-metrics-value--tabular">
+              <div key={m.label} className="nb-metric-cell">
+                <span className="nb-metric-value">
                   <NbSplitFlap value={m.value} />
                   {m.suffix}
                 </span>
-                <span className="nb-metrics-label">{m.label}</span>
+                <span className="nb-metric-desc">{m.label}</span>
               </div>
             ))}
           </div>
-          <p className="nb-metrics-disclaimer">
-            * Core Rust benchmarks. Python SDK performance may vary.
-          </p>
         </div>
+        <p className="nb-metrics-footnote">
+          * Core Rust benchmarks. Python SDK performance may vary.
+        </p>
       </div>
     </section>
   );

@@ -1,64 +1,55 @@
-.nb-core-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--border-visible);
-}
-
-.nb-core-cell {
-  background: var(--background);
-  padding: var(--space-lg);
-  border: 2px solid transparent;
-  transition:
-    background 150ms var(--ease-brutal),
-    border-color 150ms var(--ease-brutal),
-    box-shadow 150ms var(--ease-brutal);
+.nb-engine-diagram {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  position: relative;
+  gap: 0;
+  margin-top: var(--space-2xl);
 }
 
-.nb-core-cell:hover {
-  background: var(--surface-alt);
+.nb-engine-layer {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: var(--space-xl);
+  padding: var(--space-xl) 0;
+  align-items: start;
+}
+
+.nb-engine-layer-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  color: var(--amber);
+  padding-top: var(--space-sm);
+}
+
+.nb-engine-components {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+.nb-engine-part {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-md);
+  background: var(--surface);
+}
+
+.nb-engine-part:hover {
   border-color: var(--amber);
-  box-shadow: var(--shadow-amber);
 }
 
-.nb-core-feature-title {
+.nb-engine-part h3 {
   font-family: var(--font-display);
   font-size: var(--text-lead);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-tight);
-  margin: 0;
+  font-weight: 700;
+  margin: 0 0 var(--space-xs);
 }
 
-.nb-core-feature-desc {
-  font-family: var(--font-mono);
-  font-size: var(--text-code);
-  line-height: var(--leading-normal);
+.nb-engine-part p {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
   color: var(--muted);
   margin: 0;
-}
-
-.nb-core-title {
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-tight);
-  margin: 0;
-}
-
-@media (max-width: 960px) {
-  .nb-core-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .nb-core-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

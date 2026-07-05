@@ -32,7 +32,7 @@ export function NbUseCases() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const cards = gsap.utils.toArray<HTMLElement>(".usecase-card");
+        const cards = gsap.utils.toArray<HTMLElement>(".nb-uc-card");
         if (!cards.length) return;
 
         gsap.fromTo(
@@ -56,21 +56,20 @@ export function NbUseCases() {
   );
 
   return (
-    <section ref={sectionRef} className="nb-section" aria-label="Use cases">
+    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Use cases">
       <div className="nb-inner">
-        <div className="nb-section-header">
-          <h2 className="usecase-heading">Built for real AI workflows.</h2>
-        </div>
+        <span className="nb-mono-label">[USE CASES]</span>
+        <h2 className="nb-section-headline">Built for real AI workflows.</h2>
 
-        <div className="usecase-grid">
+        <div className="nb-uc-grid">
           {CASES.map((uc) => (
-            <article
-              key={uc.id}
-              className="usecase-card"
-              aria-label={`Use case ${uc.id}: ${uc.title}`}
-            >
-              <h3 className="usecase-title">{uc.title}</h3>
-              <p className="usecase-desc">{uc.desc}</p>
+            <article key={uc.id} className="nb-uc-card">
+              <span className="nb-num-marker nb-num-marker--amber">{uc.id}</span>
+              <div>
+                <h3 className="nb-uc-title">{uc.title}</h3>
+                <p className="nb-uc-desc">{uc.desc}</p>
+                <span className="nb-arrow">Learn more</span>
+              </div>
             </article>
           ))}
         </div>
