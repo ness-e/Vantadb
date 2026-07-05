@@ -4,7 +4,10 @@
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
 
-use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::exceptions::{
+    PyFileExistsError, PyFileNotFoundError, PyKeyError, PyOSError, PyPermissionError,
+    PyRuntimeError, PyTimeoutError, PyTypeError, PyValueError,
+};
 use pyo3::prelude::*;
 use pyo3::types::{
     PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
@@ -657,6 +660,36 @@ fn py_dict_to_metadata(
 ///     node = db.get(1)
 ///     results = db.search([0.1] * 384, top_k=5)
 ///     db.flush()
+/// Map a VantaError to the appropriate Python exception type for ergonomic
+/// error handling on the Python side (KeyError, ValueError, OSError, etc.).
+fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
+    use vantadb::error::VantaError;
+    match &err {
+        VantaError::IoError(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => PyFileNotFoundError::new_err(err.to_string()),
+            std::io::ErrorKind::PermissionDenied => PyPermissionError::new_err(err.to_string()),
+            std::io::ErrorKind::AlreadyExists => PyFileExistsError::new_err(err.to_string()),
+            _ => PyOSError::new_err(err.to_string()),
+        },
+        VantaError::NotFound { .. } | VantaError::NodeNotFound(_) => {
+            PyKeyError::new_err(err.to_string())
+        }
+        VantaError::ValidationError { .. }
+        | VantaError::DuplicateNode(_)
+        | VantaError::DimensionMismatch { .. }
+        | VantaError::SerializationError(_)
+        | VantaError::OldSerializationError(_)
+        | VantaError::InvalidInput(_)
+        | VantaError::SchemaError(_)
+        | VantaError::IncompatibleFormat { .. }
+        | VantaError::NodeIdCollision(_)
+        | VantaError::IqlParseError { .. }
+        | VantaError::IqlError(_) => PyValueError::new_err(err.to_string()),
+        VantaError::Timeout { .. } => PyTimeoutError::new_err(err.to_string()),
+        _ => PyRuntimeError::new_err(err.to_string()),
+    }
+}
+
 #[pyclass]
 pub struct VantaDB {
     engine: VantaEmbedded,
@@ -703,9 +736,7 @@ impl VantaDB {
         };
         let engine = py
             .detach(move || VantaEmbedded::open_with_config(config))
-            .map_err(|e| {
-                PyRuntimeError::new_err(format!("VantaDB initialization error: {:?}", e))
-            })?;
+            .map_err(map_vanta_error)?;
 
         Ok(VantaDB { engine })
     }
@@ -744,7 +775,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .insert_node(input)
-                .map_err(|e| PyRuntimeError::new_err(format!("Insert error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
 
         Ok(())
@@ -809,7 +840,7 @@ impl VantaDB {
         let records = py.detach(move || {
             engine
                 .put_batch(inputs)
-                .map_err(|e| PyRuntimeError::new_err(format!("Put batch error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
 
         records
@@ -846,7 +877,7 @@ impl VantaDB {
         let record = py.detach(move || {
             engine
                 .put(input)
-                .map_err(|e| PyRuntimeError::new_err(format!("Put error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         memory_record_to_pydict(py, &record)
     }
@@ -859,7 +890,7 @@ impl VantaDB {
         let record = py.detach(move || {
             engine
                 .get(&n, &k)
-                .map_err(|e| PyRuntimeError::new_err(format!("Get memory error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         match record {
             Some(record) => Ok(Some(memory_record_to_pydict(py, &record)?)),
@@ -875,7 +906,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .delete(&namespace, &key)
-                .map_err(|e| PyRuntimeError::new_err(format!("Delete memory error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -902,7 +933,7 @@ impl VantaDB {
                         cursor,
                     },
                 )
-                .map_err(|e| PyRuntimeError::new_err(format!("List memory error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
 
         let dict = PyDict::new(py);
@@ -955,7 +986,7 @@ impl VantaDB {
         let hits = py.detach(move || {
             engine
                 .search(request)
-                .map_err(|e| PyRuntimeError::new_err(format!("Search memory error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
 
         hits.iter()
@@ -969,7 +1000,7 @@ impl VantaDB {
         let report = py.detach(move || {
             engine
                 .rebuild_index()
-                .map_err(|e| PyRuntimeError::new_err(format!("Rebuild index error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         rebuild_report_to_pydict(py, &report)
     }
@@ -982,7 +1013,7 @@ impl VantaDB {
         let report = py.detach(move || {
             engine
                 .export_namespace(&path, &namespace)
-                .map_err(|e| PyRuntimeError::new_err(format!("Export namespace error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         export_report_to_pydict(py, &report)
     }
@@ -994,7 +1025,7 @@ impl VantaDB {
         let report = py.detach(move || {
             engine
                 .export_all(&path)
-                .map_err(|e| PyRuntimeError::new_err(format!("Export all error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         export_report_to_pydict(py, &report)
     }
@@ -1006,7 +1037,7 @@ impl VantaDB {
         let report = py.detach(move || {
             engine
                 .import_file(&path)
-                .map_err(|e| PyRuntimeError::new_err(format!("Import file error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         import_report_to_pydict(py, &report)
     }
@@ -1030,7 +1061,7 @@ impl VantaDB {
                     engine.audit_text_index(ns_ref)
                 }
             })
-            .map_err(|e| PyRuntimeError::new_err(format!("Text index audit error: {:?}", e)))?;
+            .map_err(map_vanta_error)?;
         text_index_audit_report_to_pydict(py, &report)
     }
 
@@ -1040,7 +1071,7 @@ impl VantaDB {
         let report = py.detach(move || {
             engine
                 .repair_text_index()
-                .map_err(|e| PyRuntimeError::new_err(format!("Repair text index error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         text_index_repair_report_to_pydict(py, &report)
     }
@@ -1059,7 +1090,7 @@ impl VantaDB {
         let node = py.detach(move || {
             engine
                 .get_node(id)
-                .map_err(|e| PyRuntimeError::new_err(format!("Get error: {:?}", e)))
+                .map_err(map_vanta_error)
         })?;
         match node {
             Some(node) => Ok(Some(node_to_pydict(py, &node)?)),
@@ -1077,7 +1108,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .delete_node(id, &reason_str)
-                .map_err(|e| PyRuntimeError::new_err(format!("Delete error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1105,7 +1136,7 @@ impl VantaDB {
                         .map(|hit| (hit.node_id, hit.distance))
                         .collect()
                 })
-                .map_err(|e| PyRuntimeError::new_err(format!("Search error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1139,9 +1170,7 @@ impl VantaDB {
                                 .map(|hit| (hit.node_id, hit.distance))
                                 .collect()
                         })
-                        .map_err(|e| {
-                            PyRuntimeError::new_err(format!("Batch search error: {:?}", e))
-                        })
+                        .map_err(map_vanta_error)
                 })
                 .collect::<Result<Vec<Vec<(u64, f32)>>, _>>()
         })
@@ -1159,7 +1188,7 @@ impl VantaDB {
             engine
                 .query(&query_str)
                 .map(|result| format_query_result(&result))
-                .map_err(|e| PyRuntimeError::new_err(format!("Query error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1171,7 +1200,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .flush()
-                .map_err(|e| PyRuntimeError::new_err(format!("Flush error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1183,7 +1212,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .compact_wal()
-                .map_err(|e| PyRuntimeError::new_err(format!("Compact WAL error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1195,7 +1224,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .purge_expired()
-                .map_err(|e| PyRuntimeError::new_err(format!("Purge expired error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1257,7 +1286,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .add_edge(source_id, target_id, &label_str, weight)
-                .map_err(|e| PyRuntimeError::new_err(format!("Insert edge error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1267,7 +1296,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .close()
-                .map_err(|e| PyRuntimeError::new_err(format!("Close error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1293,7 +1322,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .graph_bfs(&roots, max_depth)
-                .map_err(|e| PyRuntimeError::new_err(format!("BFS error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1307,7 +1336,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .graph_dfs(&roots, max_depth)
-                .map_err(|e| PyRuntimeError::new_err(format!("DFS error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1320,7 +1349,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .graph_topological_sort(&roots)
-                .map_err(|e| PyRuntimeError::new_err(format!("Topological sort error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1332,7 +1361,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .graph_is_dag(&roots)
-                .map_err(|e| PyRuntimeError::new_err(format!("DAG check error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1343,7 +1372,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .compact_layout()
-                .map_err(|e| PyRuntimeError::new_err(format!("Compact layout error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1353,7 +1382,7 @@ impl VantaDB {
         py.detach(move || {
             engine
                 .list_namespaces()
-                .map_err(|e| PyRuntimeError::new_err(format!("List namespaces error: {:?}", e)))
+                .map_err(map_vanta_error)
         })
     }
 
@@ -1413,9 +1442,7 @@ impl VantaDB {
 
         let engine = self.engine.clone();
         let explanation = py.detach(move || {
-            engine.explain_memory_search(request).map_err(|e| {
-                PyRuntimeError::new_err(format!("Explain memory search error: {:?}", e))
-            })
+            engine.explain_memory_search(request).map_err(map_vanta_error)
         })?;
 
         search_explanation_to_pydict(py, &explanation)
@@ -1429,9 +1456,9 @@ impl VantaDB {
 #[pyfunction]
 fn connect(path: &str) -> PyResult<VantaDB> {
     let engine = if path.is_empty() || path == ":memory:" {
-        vantadb::sdk::connect(":memory:").map_err(|e| PyRuntimeError::new_err(e.to_string()))?
+        vantadb::sdk::connect(":memory:").map_err(map_vanta_error)?
     } else {
-        vantadb::sdk::connect(path).map_err(|e| PyRuntimeError::new_err(e.to_string()))?
+        vantadb::sdk::connect(path).map_err(map_vanta_error)?
     };
     Ok(VantaDB { engine })
 }
