@@ -21,6 +21,14 @@ pub(crate) fn compact_layout(
     bfs_order: &[u64],
     header_size: u64,
 ) -> Result<(HashMap<u64, u64>, u64)> {
+    // CODE-010: Skip compaction for in-memory stores (replace_backing_file is a no-op)
+    if vstore.file.is_none() {
+        let offset_map: HashMap<u64, u64> = bfs_order
+            .iter()
+            .filter_map(|&id| hnsw.nodes.get(&id).map(|n| (id, n.storage_offset)))
+            .collect();
+        return Ok((offset_map, vstore.write_cursor));
+    }
     if bfs_order.is_empty() {
         return Err(VantaError::ValidationError {
             field: "bfs_order".into(),

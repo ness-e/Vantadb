@@ -975,6 +975,8 @@ impl StorageEngine {
                 (score, n)
             })
             .collect();
+        // Filter NaN scores that would poison the sort (CODE-030)
+        scored.retain(|(score, _)| !score.is_nan());
         // Sort ascending — lowest score = best eviction candidate
         scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -1226,15 +1228,17 @@ impl StorageEngine {
         }
 
         let hnsw = self.hnsw.load();
-        if let Some(index_node) = hnsw.nodes.get(&id) {
-            let offset = index_node.storage_offset;
+        let offset = hnsw.nodes.get(&id).map(|n| n.storage_offset);
 
+        if let Some(offset) = offset {
             let mut vstore = self.vector_store.write();
             if let Some(mut header) = vstore.read_header(offset) {
                 header.flags |= FLAG_TOMBSTONE;
                 vstore.write_header(offset, &header)?;
             }
         }
+
+        hnsw.nodes.remove(&id);
 
         self.volatile_cache.write().remove(&id);
 
@@ -1476,59 +1480,86 @@ impl StorageEngine {
     /// Unlike `get()`, this parses the metadata directly from the scan
     /// result to avoid one backend lookup per node.
     pub fn scan_nodes(&self) -> Result<Vec<UnifiedNode>> {
+        let (nodes, _) = self.scan_nodes_page("", usize::MAX)?;
+        Ok(nodes)
+    }
+
+    /// Paginated scan: returns a page of nodes and the next cursor.
+    /// Pass cursor="" for the first page. The returned cursor is empty when
+    /// there are no more pages.
+    pub fn scan_nodes_page(&self, cursor: &str, limit: usize) -> Result<(Vec<UnifiedNode>, String)> {
+        let cursor_id: u64 = cursor.parse().unwrap_or(0);
         let entries = self.backend.scan(BackendPartition::Default)?;
-        let mut nodes = Vec::with_capacity(entries.len());
-        let hnsw = self.hnsw.load();
-        let vstore = self.vector_store.read();
 
-        for (key, value) in entries {
-            if key.len() != std::mem::size_of::<u64>() {
-                continue;
+        // Step 1: collect raw data under the lock, then drop it (CODE-029)
+        let raw_nodes = {
+            let hnsw = self.hnsw.load();
+            let vstore = self.vector_store.read();
+
+            let mut collected = Vec::with_capacity(entries.len().min(limit));
+            for (key, value) in entries {
+                if collected.len() >= limit {
+                    break;
+                }
+                if key.len() != std::mem::size_of::<u64>() {
+                    continue;
+                }
+
+                let id = u64::from_le_bytes(
+                    key.as_slice().try_into().expect("key slice fits [u8; 8]"),
+                );
+                if id <= cursor_id {
+                    continue;
+                }
+
+                let metadata: NodeMetadata = match postcard::from_bytes(&value) {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+
+                let index_node = match hnsw.nodes.get(&id) {
+                    Some(n) => n,
+                    None => continue,
+                };
+                let storage_offset = index_node.storage_offset;
+
+                let header = match vstore.read_header(storage_offset) {
+                    Some(h) => h,
+                    None => continue,
+                };
+
+                if (header.flags & FLAG_TOMBSTONE) != 0 {
+                    continue;
+                }
+
+                let vec_start = header.vector_offset as usize;
+                let vec_end = vec_start + (header.vector_len as usize * 4);
+                if vec_end > vstore.size as usize {
+                    continue;
+                }
+
+                let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+                let f32_vec: Vec<f32> = unsafe {
+                    std::slice::from_raw_parts(
+                        vec_bytes.as_ptr() as *const f32,
+                        header.vector_len as usize,
+                    )
+                }
+                .to_vec();
+
+                collected.push((id, metadata, header, f32_vec));
             }
+            collected
+        };
 
-            let id = u64::from_le_bytes(
-                key.as_slice()
-                    .try_into()
-                    .expect("key slice fits [u8; 8] after length guard"),
-            );
-
-            let metadata: NodeMetadata = match postcard::from_bytes(&value) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-
-            let index_node = match hnsw.nodes.get(&id) {
-                Some(n) => n,
-                None => continue,
-            };
-            let storage_offset = index_node.storage_offset;
-
-            let header = match vstore.read_header(storage_offset) {
-                Some(h) => h,
-                None => continue,
-            };
-
-            if (header.flags & FLAG_TOMBSTONE) != 0 {
-                continue;
-            }
-
-            let vec_start = header.vector_offset as usize;
-            let vec_end = vec_start + (header.vector_len as usize * 4);
-            if vec_end > vstore.size as usize {
-                continue;
-            }
-
-            let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-            let f32_vec: &[f32] = unsafe {
-                std::slice::from_raw_parts(
-                    vec_bytes.as_ptr() as *const f32,
-                    header.vector_len as usize,
-                )
-            };
-
+        // Process outside the lock
+        let mut nodes = Vec::with_capacity(raw_nodes.len());
+        let mut last_id = 0u64;
+        for (id, metadata, header, f32_vec) in raw_nodes {
+            last_id = id;
             let mut node = UnifiedNode::new(id);
             node.bitset = FilterBitset::from_u128(header.bitset);
-            node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
+            node.vector = crate::node::VectorRepresentations::Full(f32_vec);
             node.relational = metadata.relational;
             node.edges = metadata.edges;
             node.confidence_score = header.confidence_score;
@@ -1542,10 +1573,13 @@ impl StorageEngine {
             nodes.push(node);
         }
 
-        drop(vstore);
-        drop(hnsw);
+        let next_cursor = if nodes.len() == limit && limit > 0 {
+            last_id.to_string()
+        } else {
+            String::new()
+        };
 
-        Ok(nodes)
+        Ok((nodes, next_cursor))
     }
 
     // ─── Delegation methods for external modules ────────────────
@@ -1766,6 +1800,24 @@ impl StorageEngine {
         let stats = self.cardinality_stats.read();
         let total_nodes = self.hnsw.load().nodes.len();
         if total_nodes == 0 {
+            // When HNSW is empty, fall back to absolute existence from stats
+            let val_keys = value.to_cardinality_keys();
+            let val_key = val_keys
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "null".to_string());
+            if let Some(val_map) = stats.get(field) {
+                let freq = *val_map.get(&val_key).unwrap_or(&0);
+                return match op {
+                    crate::query::RelOp::Eq => {
+                        if freq > 0 { 1.0 } else { 0.0 }
+                    }
+                    crate::query::RelOp::Neq => {
+                        if freq > 0 { 0.0 } else { 1.0 }
+                    }
+                    _ => 0.5,
+                };
+            }
             return 1.0;
         }
 
