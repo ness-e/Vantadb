@@ -38,7 +38,7 @@ class AsyncVantaDB:
         return self
 
     async def __aexit__(self, *exc):
-        self._sync.close()
+        await asyncio.to_thread(self._sync.close)
 
     # ── Query methods (async via to_thread) ──
 
@@ -226,11 +226,10 @@ class AsyncVantaDB:
             distance_metric,
         )
 
-    # ── Passthrough for sync methods that are instant ──
+    # ── Passthrough for sync methods ──
 
-    @property
-    def hardware_profile(self):
-        return self._sync.hardware_profile()
+    async def hardware_profile(self):
+        return await asyncio.to_thread(self._sync.hardware_profile)
 
     def __repr__(self):
         return f"AsyncVantaDB(sync={self._sync!r})"

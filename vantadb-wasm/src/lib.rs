@@ -328,7 +328,7 @@ impl VantaDB {
     }
 
     /// Insert or update a single memory record from a JS object.
-    pub fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
+    pub async fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
         let input: MemoryInput = from_js(input)?;
         let vanta_input = VantaMemoryInput {
             namespace: input.namespace,
@@ -343,7 +343,7 @@ impl VantaDB {
     }
 
     /// Insert or update multiple memory records from a JS array.
-    pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
+    pub async fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
         let inputs: Vec<MemoryInput> = from_js(inputs)?;
         let vanta_inputs: Vec<VantaMemoryInput> = inputs
             .into_iter()
@@ -428,7 +428,7 @@ impl VantaDB {
     }
 
     /// Search memory records by vector similarity with optional filters and text query.
-    pub fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
+    pub async fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: SearchRequest = from_js(request)?;
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
@@ -738,7 +738,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_put_and_get() {
+    async fn test_put_and_get() {
         let db = create_db();
         let input = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
@@ -746,7 +746,7 @@ mod tests {
             "payload": "world"
         }))
         .unwrap();
-        db.put(input).unwrap();
+        db.put(input).await.unwrap();
         let got = db.get("test", "hello").unwrap();
         assert!(!got.is_null());
     }
@@ -759,7 +759,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_delete_record() {
+    async fn test_delete_record() {
         let db = create_db();
         let input = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
@@ -767,7 +767,7 @@ mod tests {
             "payload": "bye"
         }))
         .unwrap();
-        db.put(input).unwrap();
+        db.put(input).await.unwrap();
         let deleted = db.delete("test", "todelete").unwrap();
         assert!(deleted);
         let got = db.get("test", "todelete").unwrap();
@@ -782,7 +782,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_empty_vector_put() {
+    async fn test_empty_vector_put() {
         let db = create_db();
         let input = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
@@ -791,14 +791,14 @@ mod tests {
             "vector": []
         }))
         .unwrap();
-        let record = db.put(input).unwrap();
+        let record = db.put(input).await.unwrap();
         assert!(!record.is_null());
         let got = db.get("test", "empty_vec").unwrap();
         assert!(!got.is_null());
     }
 
     #[wasm_bindgen_test]
-    fn test_put_and_get_with_vector() {
+    async fn test_put_and_get_with_vector() {
         let db = create_db();
         let input = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
@@ -807,13 +807,13 @@ mod tests {
             "vector": [0.1, 0.2, 0.3, 0.4]
         }))
         .unwrap();
-        db.put(input).unwrap();
+        db.put(input).await.unwrap();
         let got = db.get("test", "vec_key").unwrap();
         assert!(!got.is_null());
     }
 
     #[wasm_bindgen_test]
-    fn test_large_metadata() {
+    async fn test_large_metadata() {
         let db = create_db();
         let mut meta = serde_json::Map::new();
         for i in 0..100 {
@@ -829,22 +829,22 @@ mod tests {
             "metadata": meta
         });
         let input = serde_wasm_bindgen::to_value(&input_val).unwrap();
-        db.put(input).unwrap();
+        db.put(input).await.unwrap();
         let got = db.get("test", "large_meta").unwrap();
         assert!(!got.is_null());
     }
 
     #[wasm_bindgen_test]
-    fn test_put_batch_empty() {
+    async fn test_put_batch_empty() {
         let db = create_db();
         let items: Vec<serde_json::Value> = vec![];
         let batch = serde_wasm_bindgen::to_value(&items).unwrap();
-        let records = db.put_batch(batch).unwrap();
+        let records = db.put_batch(batch).await.unwrap();
         assert!(records.is_array());
     }
 
     #[wasm_bindgen_test]
-    fn test_put_batch_multiple() {
+    async fn test_put_batch_multiple() {
         let db = create_db();
         let items: Vec<serde_json::Value> = (0..10)
             .map(|i| {
@@ -857,7 +857,7 @@ mod tests {
             })
             .collect();
         let batch = serde_wasm_bindgen::to_value(&items).unwrap();
-        db.put_batch(batch).unwrap();
+        db.put_batch(batch).await.unwrap();
         for i in 0..10 {
             let got = db.get("batch", &format!("item_{}", i)).unwrap();
             assert!(!got.is_null());
@@ -865,7 +865,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_concurrent_put_get() {
+    async fn test_concurrent_put_get() {
         let db = create_db();
         for i in 0..20 {
             let input = serde_wasm_bindgen::to_value(&serde_json::json!({
@@ -875,7 +875,7 @@ mod tests {
                 "vector": [i as f32 * 0.05, 0.1, 0.2, 0.3]
             }))
             .unwrap();
-            db.put(input).unwrap();
+            db.put(input).await.unwrap();
             let got = db.get("concurrent", &format!("key_{}", i)).unwrap();
             assert!(!got.is_null());
         }
@@ -896,7 +896,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn test_search_without_results() {
+    async fn test_search_without_results() {
         let db = create_db();
         let input = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
@@ -904,14 +904,14 @@ mod tests {
             "payload": "some text content for text-only search"
         }))
         .unwrap();
-        db.put(input).unwrap();
+        db.put(input).await.unwrap();
         let req = serde_wasm_bindgen::to_value(&serde_json::json!({
             "namespace": "test",
             "query_vector": [0.1, 0.2, 0.3, 0.4],
             "top_k": 5
         }))
         .unwrap();
-        let hits = db.search(req).unwrap();
+        let hits = db.search(req).await.unwrap();
         assert!(hits.is_array() || hits.is_null());
     }
 
