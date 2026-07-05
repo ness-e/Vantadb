@@ -188,7 +188,6 @@ unsafe extern "C" fn sigbus_handler(
     if !siginfo.is_null() {
         let addr = (*siginfo).si_addr() as *mut u8;
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
-        warn!("SIGBUS occurred at address: {:p}", addr);
     }
 }
 
@@ -471,6 +470,7 @@ impl VantaFile {
             let header = VantaHeader::new(*b"VFLE", 1, 0);
             mmap.as_mut_slice()?[0..16].copy_from_slice(&header.serialize());
             mmap.as_mut_slice()?[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
+            mmap.as_mut_slice()?[24..STORAGE_ALIGNMENT as usize].fill(0);
             mmap.flush()?;
         }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
@@ -599,6 +599,15 @@ impl VantaFile {
 
     /// Extend the file to the given new size, zero-filling added space.
     pub fn grow_to(&mut self, new_size: u64) -> Result<()> {
+        if new_size < self.size {
+            return Err(VantaError::ValidationError {
+                field: "new_size".into(),
+                reason: format!(
+                    "grow_to called with new_size {} < current size {}",
+                    new_size, self.size
+                ),
+            });
+        }
         match &mut self.mmap {
             VantaFileMap::InMemory(data) => {
                 data.resize(new_size as usize, 0);
