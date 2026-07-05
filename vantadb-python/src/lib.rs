@@ -162,7 +162,7 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
             }
             return Ok(VantaValue::ListString(vec));
         }
-        let first_type = first.get_type().name().unwrap_or("unknown");
+        let first_type = first.get_type().name().ok().map(|n| n.to_string()).unwrap_or("unknown".into());
         return Err(PyTypeError::new_err(format!(
             "Unsupported list element type '{first_type}' (inferred from first element). \
              All list elements must be the same type: bool, int, float, str, or datetime."

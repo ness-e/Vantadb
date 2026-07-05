@@ -1,3 +1,9 @@
+.nb-trust-label {
+  display: block;
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
 .nb-trust-grid {
   display: flex;
   gap: var(--space-sm);

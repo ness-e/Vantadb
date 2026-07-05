@@ -146,10 +146,7 @@ export const NbMonolith = memo(function NbMonolith() {
           </span>
         </div>
 
-        <div
-          className="nb-meta-row"
-          style={{ marginTop: "var(--space-xl)", justifyContent: "center" }}
-        >
+        <div className="nb-meta-row nb-meta-row--centered">
           <span className="nb-meta-tag">ONE BINARY</span>
           <span className="nb-meta-tag">ZERO DEPS</span>
           <span className="nb-meta-tag">MIT LICENSE</span>

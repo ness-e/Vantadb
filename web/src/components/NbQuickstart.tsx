@@ -14,24 +14,23 @@ const STEPS = [
   {
     num: "02",
     title: "Initialize",
-    cmd: 'import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./memory.db")',
+    cmd: 'db = VantaDB("./memory.db")',
     desc: "One import. Database file created automatically.",
-    output: "[VantaDB] Initialized successfully. Embedded engine ready.",
+    output: "[VantaDB] Initialized successfully.",
   },
   {
     num: "03",
     title: "Store",
-    cmd: 'db.put(\n  namespace="agent/main",\n  key="user_42",\n  payload="Paris is the capital of France",\n  metadata={"source": "wiki"},\n  vector=[0.1, 0.2, 0.3]\n)',
-    desc: "Schema-free. Store text payloads with metadata and vectors.",
+    cmd: 'db.put(namespace="agent/main", key="user_42", ..., vector=[...])',
+    desc: "Schema-free. Text + metadata + vectors in one call.",
     output: "[VantaDB] Inserted 1 record. Vector stored.",
   },
   {
     num: "04",
     title: "Query",
-    cmd: 'results = db.search_memory(\n  namespace="agent/main",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)',
-    desc: "Semantic + keyword in one call.",
-    output:
-      "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
+    cmd: "results = db.search_memory(query=[...], top_k=5)",
+    desc: "Semantic + keyword fused in a single query.",
+    output: "Found 5 records. Score: 0.92",
   },
 ];
 
@@ -40,7 +39,6 @@ export function NbQuickstart() {
   const [hasEntered, setHasEntered] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const codeRef = useRef<HTMLElement>(null);
-  const outputRef = useRef<HTMLDivElement>(null);
   const loopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useGSAP(
@@ -67,8 +65,7 @@ export function NbQuickstart() {
 
     setActiveStep(stepIndex);
 
-    if (codeRef.current && outputRef.current) {
-      gsap.set(outputRef.current, { opacity: 0 });
+    if (codeRef.current) {
       gsap.killTweensOf(codeRef.current);
 
       const duration = Math.max(0.25, step.cmd.length * 0.03);
@@ -77,10 +74,7 @@ export function NbQuickstart() {
         duration,
         text: step.cmd,
         ease: "none",
-        onComplete: () => {
-          gsap.set(outputRef.current, { opacity: 1 });
-          onComplete();
-        },
+        onComplete,
       });
     } else {
       onComplete();
@@ -104,7 +98,7 @@ export function NbQuickstart() {
         }
         typeStep(i, () => {
           i++;
-          setTimeout(playNext, 400);
+          setTimeout(playNext, 1200);
         });
       };
       playNext();
@@ -119,59 +113,58 @@ export function NbQuickstart() {
   }, [hasEntered, typeStep]);
 
   return (
-    <section ref={sectionRef} className="nb-section" aria-label="Quickstart guide">
-      <div className="nb-inner nb-split-5-7">
-        <div>
-          <span className="nb-mono-label">[QUICKSTART]</span>
-          <h2 className="nb-section-headline">Zero to running.</h2>
-          <p className="nb-section-sub">Four steps to your first semantic query.</p>
+    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Quickstart guide">
+      <div className="nb-inner">
+        <span className="nb-mono-label">[QUICKSTART]</span>
+        <h2 className="nb-section-headline">Zero to running.</h2>
+        <p className="nb-section-sub">Four commands. One embedded database.</p>
 
-          <div className="nb-qs-steps">
-            {STEPS.map((step, i) => {
-              const isActive = activeStep === i;
-              return (
-                <button
-                  key={step.num}
-                  onClick={() => {
-                    setActiveStep(i);
-                    if (codeRef.current) {
-                      gsap.killTweensOf(codeRef.current);
-                      gsap.set(codeRef.current, { text: step.cmd });
-                    }
-                    if (outputRef.current) {
-                      gsap.set(outputRef.current, { opacity: 1 });
-                    }
-                  }}
-                  className="nb-qs-step"
-                  aria-current={isActive ? "step" : undefined}
-                  aria-label={`Step ${step.num}: ${step.title}`}
-                >
-                  <span className="nb-step-marker">{step.num}</span>
-                  <div className="nb-step-content">
-                    <span className="nb-step-title">{step.title}</span>
-                    <p className="nb-step-desc">{step.desc}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        <div className="nb-qs-grid">
+          {STEPS.map((step, i) => {
+            const isActive = activeStep === i;
+            return (
+              <button
+                key={step.num}
+                type="button"
+                className={`nb-qs-card ${isActive ? "nb-qs-card--active" : ""}`}
+                onClick={() => {
+                  setActiveStep(i);
+                  if (codeRef.current) {
+                    gsap.killTweensOf(codeRef.current);
+                    gsap.set(codeRef.current, { text: step.cmd });
+                  }
+                }}
+                aria-current={isActive ? "step" : undefined}
+              >
+                <span className="nb-qs-card-num" aria-hidden="true">
+                  {step.num}
+                </span>
+
+                <div className="nb-qs-card-cmd">
+                  <span className="nb-qs-card-prompt" aria-hidden="true">
+                    $
+                  </span>
+                  {isActive ? (
+                    <code ref={codeRef} className="nb-qs-card-code" aria-live="polite" />
+                  ) : (
+                    <code className="nb-qs-card-code">{step.cmd}</code>
+                  )}
+                  {isActive && <span className="nb-qs-cursor" aria-hidden="true" />}
+                </div>
+
+                <h3 className="nb-qs-card-title">{step.title}</h3>
+                <p className="nb-qs-card-desc">{step.desc}</p>
+
+                {isActive && <div className="nb-qs-card-out">{step.output}</div>}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="nb-qs-terminal" role="region" aria-label="Terminal preview">
-          <header className="nb-qs-term-header">
-            <span className="nb-mono-label">[QUICKSTART]</span>
-          </header>
-
-          <div className="nb-qs-term-body">
-            <pre className="nb-qs-code">
-              <code ref={codeRef} aria-live="polite" />
-              <span className="nb-qs-cursor" aria-hidden="true" />
-            </pre>
-
-            <div ref={outputRef} className="nb-qs-output" aria-live="polite">
-              {STEPS[activeStep]!.output}
-            </div>
-          </div>
+        <div className="nb-qs-cta">
+          <Link to="/docs" className="nb-arrow" aria-label="Read documentation">
+            Read Documentation
+          </Link>
         </div>
       </div>
     </section>

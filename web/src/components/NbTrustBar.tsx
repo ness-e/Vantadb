@@ -7,10 +7,7 @@ export const NbTrustBar = memo(function NbTrustBar() {
   return (
     <section className="nb-section nb-section--sm" aria-label="Trust indicators">
       <div className="nb-inner">
-        <span
-          className="nb-mono-label"
-          style={{ display: "block", textAlign: "center", marginBottom: "var(--space-md)" }}
-        >
+        <span className="nb-mono-label nb-trust-label">
           TRUSTED BY ENGINEERS AT
         </span>
         <div className="nb-trust-grid">
