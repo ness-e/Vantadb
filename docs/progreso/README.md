@@ -1029,6 +1029,19 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/package.json` — dompurify dependency
 - **Ids:** `CODE-021`
 
+### CODE-001: WAL replay no escribe backend metadata — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `recover_state()` reaplicaba Insert/Update en vstore+HNSW pero nunca persistía `NodeMetadata` en el StorageBackend. Tras crash, `get()` retornaba vacío. Se agregaron llamadas a `backend.put(Default, key, metadata)` en los handlers Insert y Update durante replay. También se agregó `backend.delete()` en Delete.
+- **Checklist:**
+  - [x] Agregar `backend.put(BackendPartition::Default, &key, &metadata_val)` en WAL Insert replay
+  - [x] Agregar `backend.put(BackendPartition::Default, &key, &metadata_val)` en WAL Update replay
+  - [x] Agregar `backend.delete(BackendPartition::Default, &key)` en WAL Delete replay
+  - [x] Verificar compilación (`cargo check --lib` ✅)
+  - [x] 440 tests pasan (`cargo test --lib` ✅)
+- **Archivos Modificados:**
+  - `src/storage/engine.rs` — WAL replay en `recover_state()`
+- **Ids:** `CODE-001`
+
 ### CODE-002: WAL append antes de validación — FIXED
 - **Fecha:** 2026-07-04
 - **Objetivo:** `insert()`/`update()`/`delete()` escribían WAL antes de validar duplicados. Si validación fallaba, WAL tenía registro fantasma. Auditoría confirmó que `ensure_writable()` corre antes del WAL append — no hay registro sin validación previa.

@@ -414,10 +414,26 @@ impl StorageEngine {
                     crate::wal::WalRecord::Insert(node) => {
                         let offset = super::ops::write_node_to_vstore(vector_store, &node)?;
                         hnsw.add(node.id, node.bitset, node.vector.clone(), offset);
+                        let key = node.id.to_le_bytes();
+                        let metadata = NodeMetadata {
+                            relational: node.relational.clone(),
+                            edges: node.edges.clone(),
+                        };
+                        let metadata_val = postcard::to_allocvec(&metadata)
+                            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                        backend.put(BackendPartition::Default, &key, &metadata_val)?;
                     }
                     crate::wal::WalRecord::Update { id, node } => {
                         let offset = super::ops::write_node_to_vstore(vector_store, &node)?;
                         hnsw.add(id, node.bitset, node.vector.clone(), offset);
+                        let key = node.id.to_le_bytes();
+                        let metadata = NodeMetadata {
+                            relational: node.relational.clone(),
+                            edges: node.edges.clone(),
+                        };
+                        let metadata_val = postcard::to_allocvec(&metadata)
+                            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                        backend.put(BackendPartition::Default, &key, &metadata_val)?;
                     }
                     crate::wal::WalRecord::Delete { id } => {
                         if let Some(index_node) = hnsw.nodes.get(&id) {
@@ -428,6 +444,7 @@ impl StorageEngine {
                                 vector_store.write_header(offset, &tombstoned)?;
                             }
                         }
+                        let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                     }
                     crate::wal::WalRecord::Checkpoint { .. } => {}
                 }

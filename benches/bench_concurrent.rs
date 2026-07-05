@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
+use vantadb::index::FilterBitset;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
@@ -110,7 +111,7 @@ fn run_read_only_bench(
                     let hnsw = storage.hnsw.load();
                     let vstore = storage.vector_store.read();
                     let _results =
-                        hnsw.search_nearest(query, None, None, u128::MAX, 10, Some(&vstore));
+                        hnsw.search_nearest(query, None, None, &FilterBitset::all_set(), 10, Some(&vstore));
                     std::hint::black_box(_results);
                 }
 
@@ -221,7 +222,7 @@ fn run_mixed_bench(
                     let hnsw = storage.hnsw.load();
                     let vstore = storage.vector_store.read();
                     let _results =
-                        hnsw.search_nearest(query, None, None, u128::MAX, 10, Some(&vstore));
+                        hnsw.search_nearest(query, None, None, &FilterBitset::all_set(), 10, Some(&vstore));
                     std::hint::black_box(_results);
                 }
 
