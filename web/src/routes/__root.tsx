@@ -7,7 +7,7 @@ import {
   useRouter,
   useMatches,
 } from "@tanstack/react-router";
-import { gsap, useGSAP } from "../lib/gsap";
+import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
 import { Nav } from "../components/Nav";
 import { SwissFooter } from "../components/SwissFooter";
@@ -223,7 +223,10 @@ function RootComponent() {
         });
       });
 
-      return () => mm.revert();
+      return () => {
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+        mm.revert();
+      };
     },
     { dependencies: [routeId] },
   );
@@ -232,10 +235,10 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="page-container">
         <ScrollProgress />
-        <Nav />
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
+        <Nav />
         <Suspense fallback={<PendingComponent />}>
           <div id="main-content" className="route-content">
             <Outlet />

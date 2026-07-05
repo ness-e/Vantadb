@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 
 const CASES = [
@@ -30,7 +30,6 @@ const CASES = [
 
 export function SwissUseCases() {
   const sectionRef = useRef<HTMLElement>(null);
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   useGSAP(
     () => {
@@ -72,9 +71,7 @@ export function SwissUseCases() {
           {CASES.map((uc) => (
             <article
               key={uc.id}
-              className={`swiss-uc-card swiss-uc-card--${uc.size}${hoveredCard === uc.id ? " swiss-uc-card--hover" : ""}`}
-              onMouseEnter={() => setHoveredCard(uc.id)}
-              onMouseLeave={() => setHoveredCard(null)}
+              className={`swiss-uc-card swiss-uc-card--${uc.size}`}
               aria-label={`Use case ${uc.id}: ${uc.title}`}
             >
               <span className="swiss-uc-num" aria-hidden="true">

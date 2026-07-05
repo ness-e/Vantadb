@@ -1,5 +1,4 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/solutions/ai-ide-tooling")({
@@ -39,7 +38,6 @@ const BENEFITS = [
 ];
 
 function IdeToolingPage() {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -225,19 +223,18 @@ function IdeToolingPage() {
               border: "1px solid var(--border)",
             }}
           >
-            {USE_CASES.map((uc, idx) => (
+            {USE_CASES.map((uc) => (
               <div
                 key={uc.num}
+                className="ide-usecase-card"
                 style={{
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.75rem",
                   transition: "background-color 150ms var(--ease-cut)",
-                  background: hoveredIdx === idx ? "var(--surface-raised)" : "var(--background)",
+                  background: "var(--background)",
                 }}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
               >
                 <span
                   style={{
@@ -319,6 +316,9 @@ function IdeToolingPage() {
       </main>
 
       <style>{`
+        .ide-usecase-card:hover {
+          background: var(--surface-raised) !important;
+        }
         @media (max-width: 640px) {
           [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: 120px 1fr"] { grid-template-columns: 1fr !important; gap: 0.75rem !important; }

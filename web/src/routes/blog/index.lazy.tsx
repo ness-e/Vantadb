@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { getAllPosts } from "../../lib/blog";
 
@@ -8,8 +8,7 @@ export const Route = createLazyRoute("/blog/")({
 });
 
 function BlogIndex() {
-  const posts = getAllPosts();
-  const [hoveredPost, setHoveredPost] = useState<string | null>(null);
+  const posts = useMemo(() => getAllPosts(), []);
 
   return (
     <div className="swiss-page">
@@ -68,6 +67,7 @@ function BlogIndex() {
                   key={post.slug}
                   to="/blog/$slug"
                   params={{ slug: post.slug }}
+                  className="blog-post-link"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "160px 1fr auto",
@@ -77,12 +77,9 @@ function BlogIndex() {
                     textDecoration: "none",
                     borderLeft: "2px solid transparent",
                     transition: "all 150ms var(--ease-cut)",
-                    ...(hoveredPost === post.slug
-                      ? { background: "var(--surface-raised)", borderLeftColor: "var(--amber)" }
-                      : { background: "var(--background)", borderLeftColor: "transparent" }),
+                    background: "var(--background)",
+                    borderLeftColor: "transparent",
                   }}
-                  onMouseEnter={() => setHoveredPost(post.slug)}
-                  onMouseLeave={() => setHoveredPost(null)}
                 >
                   <span
                     style={{
@@ -183,6 +180,13 @@ function BlogIndex() {
           )}
         </section>
       </main>
+
+      <style>{`
+        .blog-post-link:hover {
+          background: var(--surface-raised) !important;
+          border-left-color: var(--amber) !important;
+        }
+      `}</style>
     </div>
   );
 }

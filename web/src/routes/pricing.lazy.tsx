@@ -1,5 +1,4 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
@@ -191,7 +190,6 @@ const FAQ_ITEMS = [
 ];
 
 function PricingPage() {
-  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -409,18 +407,12 @@ function PricingPage() {
                 {comparisonRows.map((row, i) => (
                   <tr
                     key={row.feature}
+                    className="pricing-comparison-row"
                     style={{
                       borderBottom: "1px solid var(--border)",
-                      background:
-                        hoveredRow === i
-                          ? "var(--surface-hover)"
-                          : i % 2 === 0
-                            ? "var(--background)"
-                            : "var(--surface)",
+                      background: i % 2 === 0 ? "var(--background)" : "var(--surface)",
                       transition: "background 100ms",
                     }}
-                    onMouseEnter={() => setHoveredRow(i)}
-                    onMouseLeave={() => setHoveredRow(null)}
                   >
                     <td
                       style={{
@@ -508,6 +500,9 @@ function PricingPage() {
       </main>
 
       <style>{`
+        .pricing-comparison-row:hover {
+          background: var(--surface-hover) !important;
+        }
         @media (max-width: 768px) {
           .faq-grid {
             grid-template-columns: 1fr !important;

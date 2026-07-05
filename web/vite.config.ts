@@ -27,7 +27,6 @@ export default defineConfig({
             return "vendor-router";
 
           if (id.includes("node_modules/gsap") || id.includes("@gsap/react")) return "vendor-gsap";
-          if (id.includes("node_modules/motion")) return "vendor-motion";
         },
       },
     },

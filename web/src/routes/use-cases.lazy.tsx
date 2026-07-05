@@ -1,5 +1,4 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
@@ -81,7 +80,6 @@ const PIPELINE_STEPS = [
 ];
 
 function UseCasesPage() {
-  const [hoveredCase, setHoveredCase] = useState<string | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -113,16 +111,15 @@ function UseCasesPage() {
             {CASES.map((c) => (
               <div
                 key={c.num}
+                className="usecase-card"
                 style={{
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.75rem",
                   transition: "background-color 150ms var(--ease-cut)",
-                  background: hoveredCase === c.num ? "var(--surface-raised)" : "var(--background)",
+                  background: "var(--background)",
                 }}
-                onMouseEnter={() => setHoveredCase(c.num)}
-                onMouseLeave={() => setHoveredCase(null)}
               >
                 <div
                   style={{
@@ -287,6 +284,9 @@ function UseCasesPage() {
       </main>
 
       <style>{`
+        .usecase-card:hover {
+          background: var(--surface-raised) !important;
+        }
         @media (max-width: 768px) {
           [style*="grid-template-columns: repeat(2, 1fr)"] { grid-template-columns: 1fr !important; }
           [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }

@@ -127,7 +127,6 @@ const ECOSYSTEM_GRID = [
 function IntegrationsPage() {
   const [selectedId, setSelectedId] = useState<string>("openai");
   const [copied, setCopied] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const active = useMemo(
     () => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0],
@@ -367,6 +366,7 @@ function IntegrationsPage() {
             {ECOSYSTEM_GRID.map((item) => (
               <div
                 key={item.name}
+                className="ecosystem-grid-item"
                 style={{
                   padding: "2rem 1.5rem",
                   display: "flex",
@@ -374,11 +374,8 @@ function IntegrationsPage() {
                   gap: "0.25rem",
                   transition: "background-color 150ms var(--ease-cut)",
                   cursor: "default",
-                  background:
-                    hoveredItem === item.name ? "var(--surface-raised)" : "var(--background)",
+                  background: "var(--background)",
                 }}
-                onMouseEnter={() => setHoveredItem(item.name)}
-                onMouseLeave={() => setHoveredItem(null)}
               >
                 <div
                   style={{
@@ -408,6 +405,9 @@ function IntegrationsPage() {
       </main>
 
       <style>{`
+        .ecosystem-grid-item:hover {
+          background: var(--surface-raised) !important;
+        }
         @media (max-width: 768px) {
           [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
