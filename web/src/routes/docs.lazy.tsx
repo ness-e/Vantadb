@@ -1,6 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { DocsSidebar } from "@/components/DocsSidebar";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../styles/docs.css";
 
@@ -23,7 +28,7 @@ $ python
 >>> results = db.search_memory(query=[0.12, 0.45, 0.78, 0.33], top_k=5)
 >>> results[0].score
 0.9421`,
-    desc: "Install VantaDB and run your first hybrid query in under 60 seconds. Ships as a single native binary with zero system dependencies — Python 3.10+ or Rust 1.75+ required.",
+    desc: "Install VantaDB and run your first hybrid query in under 60 seconds. Ships as a single native binary with zero system dependencies \u2014 Python 3.10+ or Rust 1.75+ required.",
   },
   {
     id: "python-sdk",
@@ -63,18 +68,18 @@ fn main() -> Result<()> {
   )?;
 
   for doc in results {
-    println!("{} — {}", doc.score, doc.field::<str>("title"));
+    println!("{} \u2014 {}", doc.score, doc.field::<str>("title"));
   }
   Ok(())
 }`,
-    desc: "Zero-cost abstractions over the core Rust engine. Embed VantaDB directly into your application with no sidecars or IPC — ideal for edge devices, CLI tools, and agent runtimes.",
+    desc: "Zero-cost abstractions over the core Rust engine. Embed VantaDB directly into your application with no sidecars or IPC \u2014 ideal for edge devices, CLI tools, and agent runtimes.",
   },
   {
     id: "cli-reference",
     num: "04",
     title: "CLI Reference",
     code: `$ vanta-cli --help
-VantaDB 0.1.5 — Embedded vector database for AI agents
+VantaDB 0.1.5 \u2014 Embedded vector database for AI agents
 
 COMMANDS:
     put           Insert or update a document
@@ -95,7 +100,7 @@ OPTIONS:
 
 $ vanta-cli put --db-path ./my_db.vdb --key doc-1 --vector "0.12,0.45,0.78,0.33"
 [INFO] Document 'doc-1' inserted`,
-    desc: "The vanta-cli provides full database management from the terminal — put, get, delete, search, list, export, import, rebuild the index, inspect stats, and compact the WAL without writing code.",
+    desc: "The vanta-cli provides full database management from the terminal \u2014 put, get, delete, search, list, export, import, rebuild the index, inspect stats, and compact the WAL without writing code.",
   },
   {
     id: "configuration",
@@ -132,12 +137,12 @@ max_collections = 256`,
     id: "migration-guide",
     num: "06",
     title: "Migration Guide",
-    code: `# VantaDB v0.1.5 — Feature Overview
+    code: `# VantaDB v0.1.5 \u2014 Feature Overview
 
 ## Available
 - Python SDK (pip install vantadb-py, import vantadb_py)
 - Rust SDK (crates.io)
-- CLI (vanta-cli — put, get, delete, search, list, server, export, import)
+- CLI (vanta-cli \u2014 put, get, delete, search, list, server, export, import)
 - HNSW vector search + BM25 full-text + hybrid RRF
 - WAL-backed durability with WAL compaction
 - 3 storage backends (Memory, Sled, RocksDB)
@@ -174,17 +179,26 @@ results = db.search_memory(
     query_vector=[0.1, 0.2, 0.3, 0.4],
     top_k=5,
 )`,
-    desc: "The complete API reference for VantaDB — Python SDK (PyO3), Rust SDK, CLI commands, and HTTP server endpoints with code examples. Full documentation is hosted on GitHub.",
+    desc: "The complete API reference for VantaDB \u2014 Python SDK (PyO3), Rust SDK, CLI commands, and HTTP server endpoints with code examples. Full documentation is hosted on GitHub.",
   },
 ];
 
 const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
 
 function DocsPage() {
+  const docsRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(docsRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, docsRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="06"
+        pattern="p03"
         title={
           <span>
             Start in 60
@@ -192,50 +206,50 @@ function DocsPage() {
             seconds.
           </span>
         }
-        sub="Comprehensive guides, SDK references, and configuration reference for VantaDB — the embedded database for AI agents."
+        sub="Comprehensive guides, SDK references, and configuration reference for VantaDB \u2014 the embedded database for AI agents."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="docs-layout">
-            <DocsSidebar items={sidebarItems} />
+      <NbSection ref={docsRef} ariaLabel="Documentation">
+        <NbSectionHeader
+          monoLabel="[DOCUMENTATION]"
+          headline="Everything you need to ship."
+          sub="Comprehensive guides, SDK references, and configuration for every language and platform."
+        />
 
-            <div>
-              {sections.map((s) => (
-                <div key={s.id} id={s.id} className="nb-card nb-bg-cross--faint docs-card">
-                  <h3 className="docs-section-title">
-                    {s.num} — {s.title}
-                  </h3>
-                  <div className="nb-divider" />
-                  <p className="docs-section-desc">{s.desc}</p>
-                  <div className="nb-frame docs-code-frame">
-                    <pre className="docs-code-pre">
-                      <code>{s.code}</code>
-                    </pre>
-                  </div>
+        <div className="docs-layout">
+          <DocsSidebar items={sidebarItems} />
+
+          <div>
+            {sections.map((s) => (
+              <div
+                key={s.id}
+                id={s.id}
+                className="nb-card nb-bg-cross--faint docs-card nb-engine-part"
+              >
+                <h3 className="docs-section-title">{s.title}</h3>
+                <div className="nb-divider" />
+                <p className="docs-section-desc">{s.desc}</p>
+                <div className="nb-frame docs-code-frame">
+                  <pre className="docs-code-pre">
+                    <code>{s.code}</code>
+                  </pre>
                 </div>
-              ))}
-
-              <div className="nb-block-amber docs-help-block">
-                <span className="docs-help-label">NEED HELP?</span>
-                <p className="docs-help-text">Join our Discord or open a GitHub discussion.</p>
-                <a
-                  href="https://github.com/ness-e/Vantadb/discussions"
-                  className="nb-btn nb-btn--ghost docs-help-link"
-                >
-                  DISCUSSIONS
-                </a>
               </div>
+            ))}
+
+            <div className="nb-block-amber docs-help-block nb-engine-part">
+              <span className="docs-help-label">NEED HELP?</span>
+              <p className="docs-help-text">Join our Discord or open a GitHub discussion.</p>
+              <a
+                href="https://github.com/ness-e/Vantadb/discussions"
+                className="nb-btn nb-btn--ghost docs-help-link"
+              >
+                DISCUSSIONS
+              </a>
             </div>
           </div>
         </div>
-      </section>
-
-      <style>{`
-        @media (max-width: 768px) {
-          [style*="grid-template-columns: 240px 1fr"] { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      </NbSection>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useSingleOpen } from "../hooks/useSingleOpen";
+import { NbSection, NbSectionHeader } from "../components/nb";
 import "../styles/arch-preview.css";
 
 const LAYERS = [
@@ -47,43 +48,38 @@ const LAYERS = [
 ];
 
 export function NbArchPreview() {
-  const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
-
-  const handleSelect = (index: number) => {
-    setSelectedLayer((prev) => (prev === index ? null : index));
-  };
+  const [openLayer, toggleLayer] = useSingleOpen();
 
   return (
-    <section className="nb-section" aria-label="Architecture">
-      <div className="nb-inner">
-        <span className="nb-mono-label">[LAYERS]</span>
-        <h2 className="nb-section-headline">Full stack architecture.</h2>
-
-        <div className="nb-arch-stack">
-          {LAYERS.map((layer, i) => {
-            const isSelected = selectedLayer === i;
-            return (
-              <div key={layer.id}>
-                <button
-                  type="button"
-                  className="nb-arch-row"
-                  onClick={() => handleSelect(i)}
-                  aria-expanded={isSelected}
-                >
-                  <span className="nb-arch-row-label">{layer.label}</span>
-                  <span className="nb-arch-row-items">{layer.items}</span>
-                  <span className="nb-arch-row-arrow">{isSelected ? "\u2212" : "+"}</span>
-                </button>
-                {isSelected && (
-                  <div className="nb-arch-detail" role="region">
-                    <p>{layer.detail}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+    <NbSection ariaLabel="Architecture">
+      <NbSectionHeader monoLabel="[ARCHITECTURE]" headline="Architecture." />
+      <div className="nb-arch-stack">
+        {LAYERS.map((layer, i) => {
+          const isSelected = openLayer === i;
+          return (
+            <div key={layer.id} className={`nb-arch-row-wrap${isSelected ? " is-expanded" : ""}`}>
+              <button
+                type="button"
+                className="nb-arch-row"
+                onClick={() => toggleLayer(i)}
+                aria-expanded={isSelected}
+              >
+                <span className="nb-arch-row-num">{String(i + 1).padStart(2, "0")}</span>
+                <span className="nb-arch-row-label">{layer.label}</span>
+                <span className="nb-arch-row-items">{layer.items}</span>
+                <span className="nb-arch-row-toggle" aria-hidden="true">
+                  {isSelected ? "\u2212" : "+"}
+                </span>
+              </button>
+              {isSelected && (
+                <div className="nb-arch-detail" role="region">
+                  <p>{layer.detail}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </section>
+    </NbSection>
   );
 }

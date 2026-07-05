@@ -1,51 +1,214 @@
-.storage-section-title {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--foreground);
-  margin: 0 0 var(--space-md);
+.storage-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  align-items: center;
+  margin-top: 3rem;
+  margin-bottom: 3rem;
 }
+
+.storage-compare-col {
+  border: 2px solid var(--border-visible);
+  display: flex;
+  flex-direction: column;
+}
+
+.storage-compare-col--accent {
+  border-color: var(--border-visible);
+  border-left-color: var(--amber);
+}
+
+.storage-arrow-col {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .storage-cell-border-bottom {
   border-bottom: 1px solid var(--border-visible);
 }
+
 .storage-cell-border-top {
   border-top: 1px solid var(--border-visible);
 }
-.storage-danger-text {
+
+.storage-label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.storage-label-mono--steel {
+  color: var(--steel);
+}
+
+.storage-label-mono--amber {
+  color: var(--amber);
+}
+
+.storage-label-mono--danger {
   color: var(--danger);
 }
-.storage-label-steel {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--steel);
+
+.storage-service-name {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
   font-weight: 700;
-  margin-bottom: var(--space-sm);
+  color: var(--foreground);
 }
+
+.storage-service-role {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.25rem;
+}
+
+.storage-brand-name {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--amber);
+}
+
+.storage-brand-tags {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
 .storage-ul-reset {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.storage-danger-icon {
+
+.storage-list-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.storage-li-item {
+  display: flex;
+  gap: 0.75rem;
+  line-height: 1.6;
+}
+
+.storage-li-item--muted {
+  color: var(--muted);
+}
+
+.storage-li-item--foreground {
+  color: var(--foreground);
+}
+
+.storage-icon {
+  flex-shrink: 0;
+  min-width: 1rem;
+}
+
+.storage-icon--danger {
   color: var(--danger);
 }
+
+.storage-icon--vanta {
+  color: var(--amber);
+}
+
 .storage-cell-amber-border {
   border-left: 2px solid var(--amber);
 }
-.storage-label-amber {
+
+.storage-arch-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.storage-arch-num {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
+  font-size: 0.6rem;
   color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.storage-arch-title {
+  font-family: var(--font-display);
   font-weight: 700;
-  margin-bottom: var(--space-sm);
+  letter-spacing: -0.02em;
+  margin: 0;
 }
-.storage-mt-3rem {
-  margin-top: 3rem;
+
+.storage-arch-desc {
+  line-height: 1.6;
+  margin: 0;
 }
-.storage-text-on-amber {
+
+.storage-state-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.storage-state-name {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+  margin-bottom: 0.75rem;
+}
+
+.storage-state-desc {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.storage-cta-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.storage-cta-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 800;
   color: var(--text-on-amber);
+  margin: 0;
 }
-.storage-text-on-amber-dim {
+
+.storage-cta-sub {
   color: var(--text-on-amber);
   opacity: 0.8;
+  margin: 0;
+}
+
+.storage-cta-code {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: var(--text-on-amber);
+}
+
+@media (max-width: 768px) {
+  .storage-compare-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }

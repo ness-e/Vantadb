@@ -1,37 +1,53 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/engine.css";
 
 export const Route = createLazyRoute("/engine")({
   component: EnginePage,
   pendingComponent: PendingComponent,
 });
 
+const GRAPH_NODES = [
+  { x: 160, y: 90, label: "agent:main", size: 14 },
+  { x: 320, y: 50, label: "memory:001", size: 10 },
+  { x: 280, y: 180, label: "context:rag", size: 11 },
+  { x: 80, y: 200, label: "vector:embed", size: 9 },
+  { x: 420, y: 130, label: "hnsw:idx", size: 10 },
+  { x: 370, y: 240, label: "edge:weight", size: 8 },
+  { x: 150, y: 290, label: "bm25:score", size: 9 },
+  { x: 460, y: 60, label: "namespace:db", size: 12 },
+];
+
+const GRAPH_EDGES: [number, number][] = [
+  [0, 1],
+  [0, 3],
+  [0, 2],
+  [1, 4],
+  [2, 4],
+  [2, 5],
+  [3, 6],
+  [4, 7],
+  [1, 7],
+  [2, 6],
+];
+
+const PIPELINE_STAGES = [
+  { name: "Query", desc: "Tokenizer", accent: "amber" },
+  { name: "BM25", desc: "Lexical Score", accent: "steel" },
+  { name: "HNSW", desc: "Vector Recall", accent: "steel" },
+  { name: "RRF", desc: "Fused Ranker", accent: "amber" },
+  { name: "Edges", desc: "Local Graph", accent: "steel" },
+  { name: "WAL", desc: "Durable Write", accent: "steel" },
+] as const;
+
 function GraphTopology() {
   const [activeNode, setActiveNode] = useState<number | null>(null);
-  const nodes = [
-    { x: 160, y: 90, label: "agent:main", size: 14 },
-    { x: 320, y: 50, label: "memory:001", size: 10 },
-    { x: 280, y: 180, label: "context:rag", size: 11 },
-    { x: 80, y: 200, label: "vector:embed", size: 9 },
-    { x: 420, y: 130, label: "hnsw:idx", size: 10 },
-    { x: 370, y: 240, label: "edge:weight", size: 8 },
-    { x: 150, y: 290, label: "bm25:score", size: 9 },
-    { x: 460, y: 60, label: "namespace:db", size: 12 },
-  ];
-  const edges = [
-    [0, 1],
-    [0, 3],
-    [0, 2],
-    [1, 4],
-    [2, 4],
-    [2, 5],
-    [3, 6],
-    [4, 7],
-    [1, 7],
-    [2, 6],
-  ];
 
   const isEdgeHighlighted = (a: number, b: number) => {
     if (activeNode === null) return false;
@@ -41,8 +57,7 @@ function GraphTopology() {
   return (
     <svg
       viewBox="0 0 540 330"
-      className="graph-topology-svg"
-      style={{ display: "block", background: "var(--background)" }}
+      className="engine-svg-graph"
       aria-label="Graph database node connection visualization"
     >
       <defs>
@@ -51,23 +66,23 @@ function GraphTopology() {
           <stop offset="100%" stopColor="var(--amber)" stopOpacity="0" />
         </radialGradient>
       </defs>
-      {edges.map(([a, b]) => (
+      {GRAPH_EDGES.map(([a, b]) => (
         <line
           key={`${a}-${b}`}
-          x1={nodes[a].x}
-          y1={nodes[a].y}
-          x2={nodes[b].x}
-          y2={nodes[b].y}
+          x1={GRAPH_NODES[a].x}
+          y1={GRAPH_NODES[a].y}
+          x2={GRAPH_NODES[b].x}
+          y2={GRAPH_NODES[b].y}
           stroke={isEdgeHighlighted(a, b) ? "var(--amber)" : "var(--border)"}
           strokeWidth={isEdgeHighlighted(a, b) ? "1.5" : "1"}
           strokeDasharray={isEdgeHighlighted(a, b) ? "none" : "2 2"}
-          style={{ transition: "stroke 150ms ease, stroke-width 150ms ease" }}
+          className="engine-graph-edge"
         />
       ))}
-      {nodes.map((n, i) => (
+      {GRAPH_NODES.map((n, i) => (
         <g
           key={n.label}
-          style={{ cursor: "pointer" }}
+          className="engine-graph-node"
           onMouseEnter={() => setActiveNode(i)}
           onMouseLeave={() => setActiveNode(null)}
         >
@@ -79,7 +94,7 @@ function GraphTopology() {
             fill="var(--surface)"
             stroke={activeNode === i ? "var(--amber)" : "var(--border)"}
             strokeWidth="1"
-            style={{ transition: "stroke 150ms ease" }}
+            className="engine-graph-ring"
           />
           <circle
             cx={n.x}
@@ -95,7 +110,7 @@ function GraphTopology() {
             fontSize="9"
             fontFamily="var(--font-mono)"
             fontWeight="600"
-            style={{ transition: "fill 150ms ease" }}
+            className="engine-graph-label"
           >
             {n.label}
           </text>
@@ -116,18 +131,16 @@ function RRFWeightsSlider() {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between border-b border-[var(--border-visible)] pb-4 mb-6">
-        <h4 className="font-mono text-[0.8rem] uppercase tracking-[0.08em] m-0 font-semibold">
-          RRF Weights Planner
-        </h4>
-        <span className="font-mono text-[0.7rem]">LATENCY: {queryLatency}ms</span>
+      <div className="engine-slider-header">
+        <span className="engine-slider-title">RRF Weights Planner</span>
+        <span className="engine-slider-latency">LATENCY: {queryLatency}ms</span>
       </div>
 
-      <p className="text-[0.85rem] text-muted leading-relaxed m-0 mb-6">
+      <p className="engine-slider-desc">
         Adjust the slider to coordinate keyword recall against vector space clustering.
       </p>
 
-      <div className="flex justify-between font-mono text-[0.7rem] font-semibold mb-4">
+      <div className="engine-slider-labels">
         <span>BM25: {bm25Weight}%</span>
         <span>HNSW: {hnswWeight}%</span>
       </div>
@@ -138,28 +151,26 @@ function RRFWeightsSlider() {
         max="100"
         value={bm25Weight}
         onChange={(e) => setBm25Weight(Number(e.target.value))}
-        className="rrf-slider w-full my-6"
+        className="engine-slider"
         aria-label="BM25 to HNSW fusion weight ratio"
       />
 
-      <div className="nb-grid nb-grid--cols-3">
-        <div className="nb-cell">
-          <div className="font-mono text-[0.55rem] text-steel uppercase tracking-[0.05em]">
-            LEXICAL RECALL
-          </div>
-          <div className="font-mono text-[1.1rem] font-bold text-foreground">{lexicalRecall}%</div>
+      <div className="engine-slider-stats">
+        <div className="engine-slider-stat">
+          <span className="engine-slider-stat-label">LEXICAL RECALL</span>
+          <span className="engine-slider-stat-value">{lexicalRecall}%</span>
         </div>
-        <div className="nb-cell">
-          <div className="font-mono text-[0.55rem] text-steel uppercase tracking-[0.05em]">
-            VECTOR RECALL
-          </div>
-          <div className="font-mono text-[1.1rem] font-bold text-foreground">{vectorRecall}%</div>
+        <div className="engine-slider-stat">
+          <span className="engine-slider-stat-label">VECTOR RECALL</span>
+          <span className="engine-slider-stat-value">{vectorRecall}%</span>
         </div>
-        <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-          <div className="font-mono text-[0.55rem] text-amber font-bold uppercase tracking-[0.05em]">
+        <div className="engine-slider-stat engine-slider-stat--fused">
+          <span className="engine-slider-stat-label engine-slider-stat-label--amber">
             FUSED @10
-          </div>
-          <div className="font-mono text-[1.1rem] font-bold text-amber">{fusedRecall}%</div>
+          </span>
+          <span className="engine-slider-stat-value engine-slider-stat-value--amber">
+            {fusedRecall}%
+          </span>
         </div>
       </div>
     </div>
@@ -212,60 +223,37 @@ function WALSimulator() {
     }, 1200);
   };
 
-  const getLogColor = (log: string) => {
-    if (log.includes("!!!")) return "var(--danger)";
-    if (log.includes("READY") || log.includes("OK")) return "var(--amber)";
-    if (log.includes("RECOVER") || log.includes("Syncing")) return "var(--steel)";
-    return "var(--muted)";
+  const getLogLevel = (log: string) => {
+    if (log.includes("!!!")) return "error";
+    if (log.includes("READY") || log.includes("OK")) return "ok";
+    if (log.includes("RECOVER") || log.includes("Syncing")) return "warn";
+    return "info";
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-[var(--border-visible)] pb-4 mb-6">
-        <div className="flex items-center gap-3">
-          <span
-            className="inline-block"
-            style={{
-              width: 8,
-              height: 8,
-              background:
-                engineState === "ready"
-                  ? "var(--amber)"
-                  : engineState === "crashed"
-                    ? "var(--danger)"
-                    : "var(--steel)",
-            }}
-          />
-          <span className="font-mono text-[0.72rem]">STATUS: {engineState}</span>
+      <div className="engine-wal-header">
+        <div className="engine-wal-status">
+          <span className="engine-wal-dot" data-state={engineState} />
+          <span className="engine-wal-status-text">STATUS: {engineState.toUpperCase()}</span>
         </div>
-        <div className="flex gap-2">
+        <div className="engine-wal-actions">
           <button
-            className="nb-btn nb-btn--ghost px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
+            className="nb-btn nb-btn--ghost"
             onClick={triggerCrash}
             disabled={engineState !== "ready"}
           >
             CRASH ENGINE
           </button>
-          <button
-            className="nb-btn px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
-            onClick={recoverFromWAL}
-            disabled={engineState !== "crashed"}
-          >
+          <button className="nb-btn" onClick={recoverFromWAL} disabled={engineState !== "crashed"}>
             RECOVER FROM WAL
           </button>
         </div>
       </div>
 
-      <div
-        className="wal-console font-mono text-[0.7rem] h-[180px] overflow-y-auto leading-relaxed border-2 border-[var(--border-visible)] p-5"
-        style={{ background: "var(--surface)" }}
-      >
+      <div className="engine-console">
         {logs.map((log) => (
-          <div
-            key={log}
-            className="py-1 border-b border-[var(--border)]"
-            style={{ color: getLogColor(log) }}
-          >
+          <div key={log} className="engine-console-line" data-level={getLogLevel(log)}>
             {log}
           </div>
         ))}
@@ -276,60 +264,73 @@ function WALSimulator() {
 }
 
 function ArchitecturePipeline() {
-  const stages = [
-    { name: "Query", desc: "Tokenizer", color: "var(--amber)" },
-    { name: "BM25", desc: "Lexical Score", color: "var(--steel)" },
-    { name: "HNSW", desc: "Vector Recall", color: "var(--steel)" },
-    { name: "RRF", desc: "Fused Ranker", color: "var(--amber)" },
-    { name: "Edges", desc: "Local Graph", color: "var(--steel)" },
-    { name: "WAL", desc: "Durable Write", color: "var(--steel)" },
-  ];
-
   return (
-    <section className="nb-section">
-      <div className="nb-inner">
-        <div className="nb-label">03 / 03 — Pipeline</div>
-        <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 mb-12 leading-tight">
-          End-to-End Query Execution
-        </h2>
-
-        <div
-          className="overflow-x-auto border-2 border-[var(--border-visible)] p-8 py-12"
-          style={{ background: "var(--surface)" }}
-        >
-          <div className="flex gap-4 items-center min-w-max">
-            {stages.map((s, i) => (
-              <div key={s.name} className="flex items-center gap-4">
-                <div
-                  className="min-w-[140px] text-left"
-                  style={{
-                    border: `2px solid ${s.color}`,
-                    padding: "1.25rem 2rem",
-                    background: "var(--background)",
-                  }}
-                >
-                  <div className="font-display text-[0.9rem] font-bold text-foreground">
-                    {s.name}
-                  </div>
-                  <div className="font-mono text-[0.55rem] text-muted uppercase mt-1">{s.desc}</div>
-                </div>
-                {i < stages.length - 1 && (
-                  <span className="font-mono text-[var(--border-visible)] text-base">→</span>
-                )}
-              </div>
-            ))}
+    <div className="engine-pipeline-scroll">
+      <div className="engine-pipeline-track">
+        {PIPELINE_STAGES.map((s, i) => (
+          <div key={s.name} className="engine-pipeline-stage">
+            <div className="engine-pipeline-card" data-accent={s.accent}>
+              <div className="engine-pipeline-card-name">{s.name}</div>
+              <div className="engine-pipeline-card-desc">{s.desc}</div>
+            </div>
+            {i < PIPELINE_STAGES.length - 1 && (
+              <span className="engine-pipeline-arrow" aria-hidden="true">
+                →
+              </span>
+            )}
           </div>
-        </div>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 function EnginePage() {
+  const hybridRef = useRef<HTMLElement>(null);
+  const graphRef = useRef<HTMLElement>(null);
+  const walRef = useRef<HTMLElement>(null);
+  const pipelineRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(hybridRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, hybridRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(graphRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, graphRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(walRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, walRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, pipelineRef);
+
   return (
     <div>
       <NbSubpageHero
-        num="01"
+        pattern="p02"
         title={
           <span>
             Four modalities.
@@ -341,238 +342,136 @@ function EnginePage() {
       />
 
       <main>
-        <section className="nb-section">
-          <div className="nb-inner">
-            <div className="nb-asymmetric">
-              <div>
-                <div className="nb-label">01 / 03 — Hybrid Search</div>
-                <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-tight">
-                  BM25 + HNSW + RRF
-                </h2>
-                <p className="font-sans text-[0.95rem] text-muted leading-relaxed">
-                  VantaDB query planner optimizes combined metadata filters, HNSW vector similarity,
-                  and BM25 full-text queries, synthesizing them into a single-pass execution plan.
-                </p>
-              </div>
-              <div className="nb-grid nb-grid--cols-2">
-                <div className="nb-cell">
-                  <span className="font-mono text-[0.6rem] text-steel">[01] LEXICAL</span>
-                  <h3 className="font-display text-xl font-bold my-2 text-foreground">
-                    BM25 Search
-                  </h3>
-                  <p className="text-[0.82rem] text-muted leading-relaxed m-0 mb-6">
-                    Full-text lexical search at ~1.2ms p50 with 0.998 recall. Zero infrastructure
-                    required.
-                  </p>
-                  <div className="flex gap-8">
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-amber">~1.2ms</div>
-                      <div className="font-mono text-[0.55rem] text-steel">P50 LATENCY</div>
-                    </div>
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-foreground">
-                        0.998
-                      </div>
-                      <div className="font-mono text-[0.55rem] text-steel">RECALL@10</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="nb-cell">
-                  <span className="font-mono text-[0.6rem] text-steel">[02] VECTOR</span>
-                  <h3 className="font-display text-xl font-bold my-2 text-foreground">
-                    HNSW Recall
-                  </h3>
-                  <p className="text-[0.82rem] text-muted leading-relaxed m-0 mb-6">
-                    Hierarchical Navigable Small World graphs for approximate nearest neighbor
-                    search across vectors.
-                  </p>
-                  <div className="flex gap-8">
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-amber">M=16</div>
-                      <div className="font-mono text-[0.55rem] text-steel">CONNECTIONS</div>
-                    </div>
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-foreground">
-                        Cosine
-                      </div>
-                      <div className="font-mono text-[0.55rem] text-steel">METRIC</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <NbSection ref={hybridRef} variant="lg" ariaLabel="Hybrid search">
+          <NbSectionHeader
+            monoLabel="[HYBRID SEARCH]"
+            headline="BM25 + HNSW + RRF."
+            sub="VantaDB query planner optimizes combined metadata filters, HNSW vector similarity, and BM25 full-text queries, synthesizing them into a single-pass execution plan."
+          />
+
+          <div className="nb-asymmetric">
+            <div className="nb-engine-part">
+              <p className="nb-section-sub">
+                Each query pass is fused through Reciprocal Rank Fusion, giving you the precision of
+                keyword search with the semantic reach of vector embeddings — without managing
+                separate infrastructure.
+              </p>
             </div>
-          </div>
-        </section>
 
-        <div className="nb-divider" />
-
-        <section className="nb-section">
-          <div className="nb-inner">
             <div className="nb-grid nb-grid--cols-2">
-              <div className="nb-cell flex flex-col gap-6">
-                <div className="nb-frame" data-frame-label="LIVE TOPOLOGY">
-                  <div className="flex justify-between items-baseline mb-4">
-                    <span className="font-mono text-[0.65rem] text-steel uppercase tracking-[0.05em]">
-                      Live Topology
-                    </span>
-                    <span className="font-mono text-[0.55rem] text-muted">HOVER TO TRAVERSE</span>
-                  </div>
-                  <GraphTopology />
-                </div>
-                <div>
-                  <h3 className="font-display text-xl font-bold m-0 mb-2">
-                    Knowledge Graph Relations
-                  </h3>
-                  <p className="text-[0.85rem] text-muted leading-relaxed m-0">
-                    Hover nodes to explore in-memory relations. VantaDB stores directed adjacency
-                    lists alongside vectors for graph-based agent memory applications.
-                  </p>
-                </div>
-              </div>
-              <div className="nb-cell flex flex-col gap-6">
-                <div className="nb-frame" data-frame-label="RRF WEIGHTS">
-                  <RRFWeightsSlider />
-                </div>
-                <div>
-                  <h3 className="font-display text-xl font-bold m-0 mb-2">Dynamic Rank Fusion</h3>
-                  <p className="text-[0.85rem] text-muted leading-relaxed m-0">
-                    Adjust weights to tune BM25 and HNSW fused recall. VantaDB coordinates sparse
-                    token matching and dense vectors at the query level.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="nb-divider" />
-
-        <section className="nb-section">
-          <div className="nb-inner">
-            <div className="nb-asymmetric">
-              <div>
-                <div className="nb-label">02 / 03 — Durability</div>
-                <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-extrabold tracking-[-0.04em] my-5 leading-tight">
-                  Crash-Safe WAL
-                </h2>
-                <p className="font-sans text-[0.95rem] text-muted leading-relaxed">
-                  VantaDB guarantees complete transaction safety. Write-Ahead Logging forces log
-                  flushes before write acknowledgment, recovering state instantly on reboot.
+              <div className="nb-card-frame nb-engine-part">
+                <span className="nb-mono-label">LEXICAL</span>
+                <h3 className="nb-card-frame-title">BM25 Search</h3>
+                <p className="nb-card-frame-desc">
+                  Full-text lexical search at ~1.2ms p50 with 0.998 recall. Zero infrastructure
+                  required.
                 </p>
-              </div>
-              <div className="nb-grid nb-grid--cols-2">
-                <div className="nb-cell">
-                  <span className="font-mono text-[0.6rem] text-steel">[01] PERSISTENCE</span>
-                  <h3 className="font-display text-xl font-bold my-2 text-foreground">
-                    WAL Journal
-                  </h3>
-                  <p className="text-[0.82rem] text-muted leading-relaxed m-0 mb-6">
-                    Append-only write journal with CRC32C checks. Zero data corruption on hardware
-                    failures.
-                  </p>
-                  <div className="flex gap-8">
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-amber">CRC32C</div>
-                      <div className="font-mono text-[0.55rem] text-steel">INTEGRITY</div>
+                <div className="nb-card-frame-stats">
+                  <div>
+                    <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
+                      ~1.2ms
                     </div>
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-foreground">
-                        Fsync
-                      </div>
-                      <div className="font-mono text-[0.55rem] text-steel">ON WRITE</div>
-                    </div>
+                    <div className="nb-card-frame-stat-label">P50 LATENCY</div>
                   </div>
-                </div>
-                <div className="nb-cell">
-                  <span className="font-mono text-[0.6rem] text-steel">[02] RESILIENCE</span>
-                  <h3 className="font-display text-xl font-bold my-2 text-foreground">
-                    Crash Recovery
-                  </h3>
-                  <p className="text-[0.82rem] text-muted leading-relaxed m-0 mb-6">
-                    Automatic log replay during engine bootstrap. Corrupted segments are filtered
-                    before reaching memory.
-                  </p>
-                  <div className="flex gap-8">
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-amber">
-                        &lt; 1ms
-                      </div>
-                      <div className="font-mono text-[0.55rem] text-steel">REBOOT RECOVER</div>
-                    </div>
-                    <div>
-                      <div className="font-display text-2xl font-extrabold text-foreground">
-                        Auto
-                      </div>
-                      <div className="font-mono text-[0.55rem] text-steel">REPLAY SCAN</div>
-                    </div>
+                  <div>
+                    <div className="nb-card-frame-stat-value">0.998</div>
+                    <div className="nb-card-frame-stat-label">RECALL@10</div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
 
-        <div className="nb-divider" />
-
-        <section className="nb-section">
-          <div className="nb-inner">
-            <div className="nb-asymmetric--right">
-              <div className="flex flex-col gap-6">
-                <div className="nb-frame" data-frame-label="WAL SIMULATOR">
-                  <WALSimulator />
-                </div>
-              </div>
-              <div>
-                <div className="nb-label">Simulate Integrity</div>
-                <h3 className="font-display text-2xl font-extrabold mt-4 mb-2 leading-tight">
-                  Test WAL Resilience
-                </h3>
-                <p className="text-sm text-muted leading-relaxed m-0">
-                  Crash the simulator to write unflushed records, then trigger recovery to scan
-                  integrity checksums and sync state under 1ms.
+              <div className="nb-card-frame nb-engine-part">
+                <span className="nb-mono-label">VECTOR</span>
+                <h3 className="nb-card-frame-title">HNSW Recall</h3>
+                <p className="nb-card-frame-desc">
+                  Hierarchical Navigable Small World graphs for approximate nearest neighbor search
+                  across vectors.
                 </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <ArchitecturePipeline />
-
-        <section className="nb-section nb-bg-dot">
-          <div className="nb-inner">
-            <div className="nb-block-amber">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
+                <div className="nb-card-frame-stats">
+                  <div>
+                    <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
+                      M=16
+                    </div>
+                    <div className="nb-card-frame-stat-label">CONNECTIONS</div>
                   </div>
-                  <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
-                  >
-                    Four modalities. One dependency.
-                  </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
-                    Install VantaDB in one command.
-                  </p>
+                  <div>
+                    <div className="nb-card-frame-stat-value">Cosine</div>
+                    <div className="nb-card-frame-stat-label">METRIC</div>
+                  </div>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
-                >
-                  pip install vantadb-py
-                </code>
               </div>
             </div>
           </div>
-        </section>
+        </NbSection>
+
+        <NbSection ref={graphRef} ariaLabel="Graph topology">
+          <NbSectionHeader
+            monoLabel="[GRAPH QUERY]"
+            headline="Knowledge topology."
+            sub="Hover nodes to explore in-memory relations. VantaDB stores directed adjacency lists alongside vectors for graph-based agent memory applications."
+          />
+
+          <div className="nb-grid nb-grid--cols-2">
+            <div className="nb-card-frame nb-engine-part">
+              <div className="nb-card-frame-header">
+                <span className="nb-card-frame-header-label">Live Topology</span>
+                <span className="nb-card-frame-header-hint">HOVER TO TRAVERSE</span>
+              </div>
+              <GraphTopology />
+            </div>
+
+            <div className="nb-card-frame nb-engine-part">
+              <RRFWeightsSlider />
+            </div>
+          </div>
+        </NbSection>
+
+        <NbSection ref={walRef} ariaLabel="WAL durability">
+          <NbSectionHeader
+            monoLabel="[DURABILITY]"
+            headline="Crash-safe WAL."
+            sub="VantaDB guarantees complete transaction safety. Write-Ahead Logging forces log flushes before write acknowledgment, recovering state instantly on reboot."
+          />
+
+          <div className="nb-asymmetric">
+            <div className="nb-engine-part">
+              <p className="nb-section-sub">
+                The WAL journal uses CRC32C integrity checksums with fsync-on-write semantics. On
+                crash, automatic log replay detects the last consistent checkpoint and restores
+                state in under 1ms.
+              </p>
+            </div>
+
+            <div className="nb-card-frame nb-engine-part">
+              <WALSimulator />
+            </div>
+          </div>
+        </NbSection>
+
+        <NbSection ref={pipelineRef} ariaLabel="Query pipeline">
+          <NbSectionHeader
+            monoLabel="[PIPELINE]"
+            headline="End-to-end query execution."
+            sub="A query travels through six stages — from parsing and hybrid search through graph traversal to a durable write confirmation."
+          />
+
+          <div className="nb-engine-part">
+            <ArchitecturePipeline />
+          </div>
+        </NbSection>
+
+        <NbSection variant="dark" className="nb-bg-dot" ariaLabel="Get started">
+          <NbBlockAmber as="div">
+            <div className="engine-cta-layout">
+              <div>
+                <h2 className="engine-cta-heading">Four modalities. One dependency.</h2>
+                <p className="engine-cta-sub">Install VantaDB in one command.</p>
+              </div>
+              <code className="engine-cta-code">pip install vantadb-py</code>
+            </div>
+          </NbBlockAmber>
+        </NbSection>
       </main>
-
-      <style>{`
-        @media (max-width: 768px) {
-          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 }

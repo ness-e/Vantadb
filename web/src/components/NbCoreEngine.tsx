@@ -1,6 +1,9 @@
 import { useRef } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { gsap } from "../lib/gsap";
+import { useAnimationSafe } from "../hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "../lib/gsap-utils";
 import "../styles/core-engine.css";
+import { NbSection, NbSectionHeader } from "./nb";
 
 const FEATURES = [
   {
@@ -44,58 +47,42 @@ const LAYERS = [
 export function NbCoreEngine() {
   const sectionRef = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
-        if (!parts.length) return;
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 60%",
-          },
-        });
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(sectionRef.current, 60),
+    });
 
-        parts.forEach((part) => {
-          tl.fromTo(
-            part,
-            { opacity: 0, y: 24 },
-            { opacity: 1, y: 0, duration: 0.4, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
-            "-=0.15",
-          );
-        });
-      });
-    },
-    { scope: sectionRef },
-  );
+    parts.forEach((part) => {
+      tl.add(fadeUp(part, { stagger: 0 }), "-=0.15");
+    });
+  }, sectionRef);
 
   return (
-    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Core engine">
-      <div className="nb-inner">
-        <span className="nb-mono-label">[ARCHITECTURE]</span>
-        <h2 className="nb-section-headline">Engine breakdown.</h2>
+    <NbSection ref={sectionRef} variant="lg" ariaLabel="Engine layers">
+      <NbSectionHeader monoLabel="[LAYERS]" headline="Engine breakdown." />
 
-        <div className="nb-engine-diagram">
-          {LAYERS.map((layer, i) => (
-            <div key={layer.label}>
-              {i > 0 && <div className="nb-hairline--strong" />}
-              <div className="nb-engine-layer">
-                <span className="nb-engine-layer-label">{layer.label}</span>
-                <div className="nb-engine-components">
-                  {layer.features.map((feat) => (
-                    <article key={feat.num} className="nb-engine-part">
-                      <h3>{feat.title}</h3>
-                      <p>{feat.desc}</p>
-                    </article>
-                  ))}
-                </div>
-              </div>
+      <div className="nb-engine-grid">
+        {LAYERS.map((layer, i) => (
+          <div key={layer.label} className="nb-engine-col">
+            <div className="nb-engine-col-head">
+              <span className="nb-engine-col-num">{String(i + 1).padStart(2, "0")}</span>
+              <span className="nb-engine-col-label">{layer.label}</span>
             </div>
-          ))}
-        </div>
+            <div className="nb-engine-col-body">
+              {layer.features.map((feat) => (
+                <article key={feat.num} className="nb-engine-part">
+                  <span className="nb-num-marker">{feat.num}</span>
+                  <h3 className="nb-engine-part-title">{feat.title}</h3>
+                  <p className="nb-engine-part-desc">{feat.desc}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    </section>
+    </NbSection>
   );
 }

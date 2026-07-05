@@ -1,6 +1,10 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../styles/integrations.css";
 
@@ -128,6 +132,8 @@ const ECOSYSTEM_GRID = [
 function IntegrationsPage() {
   const [selectedId, setSelectedId] = useState<string>("openai");
   const [copied, setCopied] = useState(false);
+  const connectorsRef = useRef<HTMLElement>(null);
+  const ecosystemRef = useRef<HTMLElement>(null);
 
   const active = useMemo(
     () => INTEGRATIONS.find((i) => i.id === selectedId) || INTEGRATIONS[0],
@@ -141,10 +147,28 @@ function IntegrationsPage() {
     });
   };
 
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(connectorsRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, connectorsRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({
+      scrollTrigger: scrollTriggerConfig(ecosystemRef.current, 60),
+    });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, ecosystemRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="03"
+        pattern="p01"
         title={
           <span>
             Fits your stack.
@@ -155,117 +179,88 @@ function IntegrationsPage() {
         sub="Connect VantaDB directly to the frameworks you already know. Built for first-class Python and Rust ecosystems."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="integrations-section-title">Framework Connectors</h2>
-          <div className="nb-divider" />
+      <NbSection ref={connectorsRef} variant="lg" ariaLabel="Framework connectors">
+        <NbSectionHeader
+          monoLabel="[CONNECTORS]"
+          headline="Framework Connectors."
+          sub="Drop-in integrations for the most popular AI frameworks — no glue code, no middleware."
+        />
 
-          <div className="integrations-grid">
-            <div>
-              <div className="nb-grid nb-grid--cols-2">
-                {INTEGRATIONS.map((int) => (
-                  <button
-                    key={int.id}
-                    onClick={() => setSelectedId(int.id)}
-                    className="nb-cell"
-                    style={{
-                      background:
-                        selectedId === int.id ? "var(--surface-alt)" : "var(--background)",
-                      border: "none",
-                      borderLeft:
-                        selectedId === int.id ? "2px solid var(--amber)" : "2px solid transparent",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      width: "100%",
-                      fontFamily: "inherit",
-                      color: "inherit",
-                    }}
+        <div className="integrations-grid">
+          <div>
+            <div className="nb-grid nb-grid--cols-2">
+              {INTEGRATIONS.map((int) => (
+                <button
+                  key={int.id}
+                  onClick={() => setSelectedId(int.id)}
+                  className={
+                    "nb-cell integrations-btn" +
+                    (selectedId === int.id ? " integrations-btn--active" : "")
+                  }
+                >
+                  <span
+                    className={
+                      "nb-mono-label" + (selectedId === int.id ? "" : " nb-mono-label--steel")
+                    }
                   >
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--text-micro)",
-                        color: selectedId === int.id ? "var(--amber)" : "var(--steel)",
-                        marginBottom: 0,
-                      }}
-                    >
-                      {int.category}
-                    </span>
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "var(--text-title)",
-                        fontWeight: 700,
-                        letterSpacing: "var(--tracking-display)",
-                        color: selectedId === int.id ? "var(--foreground)" : "var(--muted)",
-                      }}
-                    >
-                      {int.label}
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="nb-card integrations-card-margin">
-                <div className="integrations-tag-row">
-                  <span className="integrations-tag">{active.tag}</span>
-                  {active.experimental && (
-                    <span className="integrations-experimental-tag">EXPERIMENTAL</span>
-                  )}
-                </div>
-                <p className="integrations-desc">{active.desc}</p>
-              </div>
-            </div>
-
-            <div className="nb-frame integrations-code-frame">
-              <div className="integrations-code-header">
-                <span className="integrations-code-label">{active.tag}</span>
-                <button onClick={handleCopy} className="nb-btn nb-btn--ghost integrations-copy-btn">
-                  {copied ? "COPIED" : "COPY"}
+                    {int.category}
+                  </span>
+                  <div className="integrations-btn-label">{int.label}</div>
                 </button>
+              ))}
+            </div>
+
+            <div className="nb-card-frame integrations-card nb-engine-part">
+              <div className="integrations-tag-row">
+                <span className="nb-mono-label">{active.tag}</span>
+                {active.experimental && (
+                  <span className="integrations-tag--experimental">EXPERIMENTAL</span>
+                )}
               </div>
-              <pre className="integrations-code-pre">
-                <code>{active.code}</code>
-              </pre>
+              <p className="integrations-desc">{active.desc}</p>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <h2 className="integrations-ecosystem-title">Ecosystem</h2>
-          <div className="nb-divider" />
-          <p className="integrations-ecosystem-lead">Works with your stack.</p>
-
-          <div className="nb-grid integrations-ecosystem-grid">
-            {ECOSYSTEM_GRID.map((item) => (
-              <div key={item.name} className="nb-cell integrations-ecosystem-cell">
-                <div className="integrations-ecosystem-name">{item.name}</div>
-                <span className="integrations-ecosystem-tag">{item.tag}</span>
-              </div>
-            ))}
+          <div className="nb-card-frame integrations-code-frame nb-engine-part">
+            <div className="integrations-code-header">
+              <span className="nb-mono-label nb-mono-label--muted">{active.tag}</span>
+              <button onClick={handleCopy} className="nb-btn nb-btn--ghost integrations-copy-btn">
+                {copied ? "COPIED" : "COPY"}
+              </button>
+            </div>
+            <pre className="integrations-code-pre">
+              <code>{active.code}</code>
+            </pre>
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-block-amber integrations-cta-block">
-            <span className="integrations-cta-label">BUILD YOUR INTEGRATION</span>
-            <p className="integrations-cta-text">Check the docs to build your own connector.</p>
-            <a href="/docs" className="nb-btn nb-btn--ghost integrations-cta-link">
-              DOCS
-            </a>
-          </div>
+      <NbSection ref={ecosystemRef} className="nb-bg-cross--faint" ariaLabel="Ecosystem">
+        <NbSectionHeader
+          monoLabel="[ECOSYSTEM]"
+          headline="Ecosystem."
+          sub="Works with your stack."
+        />
+
+        <div className="nb-grid integrations-ecosystem-grid nb-engine-part">
+          {ECOSYSTEM_GRID.map((item) => (
+            <div key={item.name} className="nb-card-frame integrations-ecosystem-cell">
+              <div className="integrations-ecosystem-name">{item.name}</div>
+              <span className="nb-mono-label nb-mono-label--steel">{item.tag}</span>
+            </div>
+          ))}
         </div>
-      </section>
+      </NbSection>
 
-      <style>{`
-        @media (max-width: 768px) {
-          [style*="grid-template-columns: 1fr 1fr"][style*="gap: var(--space-xl)"] { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      <NbSection ariaLabel="Build your integration">
+        <NbBlockAmber className="integrations-cta-wrapper">
+          <span className="nb-mono-label">BUILD YOUR INTEGRATION</span>
+          <p className="integrations-cta-text">Check the docs to build your own connector.</p>
+          <a href="/docs" className="nb-btn nb-btn--ghost integrations-cta-link">
+            DOCS
+          </a>
+        </NbBlockAmber>
+      </NbSection>
     </div>
   );
 }

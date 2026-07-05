@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { gsap, useGSAP, TextPlugin, ScrollTrigger } from "../lib/gsap";
+import { NbSection, NbSectionHeader } from "./nb";
 import "../styles/quickstart.css";
 
 const STEPS = [
@@ -113,20 +114,25 @@ export function NbQuickstart() {
   }, [hasEntered, typeStep]);
 
   return (
-    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Quickstart guide">
-      <div className="nb-inner">
-        <span className="nb-mono-label">[QUICKSTART]</span>
-        <h2 className="nb-section-headline">Zero to running.</h2>
-        <p className="nb-section-sub">Four commands. One embedded database.</p>
+    <NbSection ref={sectionRef} variant="lg" ariaLabel="Quickstart guide">
+      <NbSectionHeader
+        monoLabel="[QUICKSTART]"
+        headline="Zero to running."
+        sub="Four commands. One embedded database."
+      />
 
-        <div className="nb-qs-grid">
-          {STEPS.map((step, i) => {
-            const isActive = activeStep === i;
-            return (
+      <div className="qs-steps">
+        {STEPS.map((step, i) => {
+          const isActive = activeStep === i;
+          const isPast = i < activeStep;
+
+          return (
+            <div key={step.num} className="qs-step">
+              {i > 0 && <div className="qs-connector" aria-hidden="true" />}
+
               <button
-                key={step.num}
                 type="button"
-                className={`nb-qs-card ${isActive ? "nb-qs-card--active" : ""}`}
+                className={`qs-card ${isActive ? "qs-card--active" : ""} ${isPast ? "qs-card--past" : ""}`}
                 onClick={() => {
                   setActiveStep(i);
                   if (codeRef.current) {
@@ -136,37 +142,51 @@ export function NbQuickstart() {
                 }}
                 aria-current={isActive ? "step" : undefined}
               >
-                <span className="nb-qs-card-num" aria-hidden="true">
+                <span className="nb-num-marker qs-card-num" aria-hidden="true">
                   {step.num}
                 </span>
 
-                <div className="nb-qs-card-cmd">
-                  <span className="nb-qs-card-prompt" aria-hidden="true">
+                <div className="qs-card-header">
+                  <span className="qs-step-badge">{step.num}</span>
+                  <h3 className="qs-card-title">{step.title}</h3>
+                  {isActive && (
+                    <span className="qs-badge-active" aria-hidden="true">
+                      RUNNING
+                    </span>
+                  )}
+                </div>
+
+                <div className="qs-card-cmd">
+                  <span className="qs-card-prompt" aria-hidden="true">
                     $
                   </span>
                   {isActive ? (
-                    <code ref={codeRef} className="nb-qs-card-code" aria-live="polite" />
+                    <code ref={codeRef} className="qs-card-code" aria-live="polite" />
                   ) : (
-                    <code className="nb-qs-card-code">{step.cmd}</code>
+                    <code className="qs-card-code">{step.cmd}</code>
                   )}
-                  {isActive && <span className="nb-qs-cursor" aria-hidden="true" />}
+                  {isActive && <span className="qs-cursor" aria-hidden="true" />}
                 </div>
 
-                <h3 className="nb-qs-card-title">{step.title}</h3>
-                <p className="nb-qs-card-desc">{step.desc}</p>
+                <p className="qs-card-desc">{step.desc}</p>
 
-                {isActive && <div className="nb-qs-card-out">{step.output}</div>}
+                <div className="qs-card-out">
+                  <span className="qs-out-prefix" aria-hidden="true">
+                    &gt;
+                  </span>
+                  <span className="qs-out-text">{step.output}</span>
+                </div>
               </button>
-            );
-          })}
-        </div>
-
-        <div className="nb-qs-cta">
-          <Link to="/docs" className="nb-arrow" aria-label="Read documentation">
-            Read Documentation
-          </Link>
-        </div>
+            </div>
+          );
+        })}
       </div>
-    </section>
+
+      <div className="qs-cta">
+        <Link to="/docs" className="nb-arrow" aria-label="Read documentation">
+          Read Documentation
+        </Link>
+      </div>
+    </NbSection>
   );
 }

@@ -1,5 +1,10 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/about/team")({
@@ -53,53 +58,64 @@ const TEAM = [
 ];
 
 function TeamPage() {
+  const teamRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(teamRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, teamRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="04"
+        pattern="p18"
         title="The people behind VantaDB."
         sub="Distributed across 6 time zones. United by one mission: make vector search invisible."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="about-team-section-title">Members</h2>
-          <div className="nb-divider" />
+      <NbSection ref={teamRef} ariaLabel="Team members">
+        <NbSectionHeader
+          monoLabel="[TEAM]"
+          headline="The people behind VantaDB."
+          sub="Distributed across 6 time zones. United by one mission."
+        />
 
-          <div className="nb-grid nb-grid--cols-3 about-team-grid-top">
+        <div className="nb-engine-part">
+          <div className="nb-grid nb-grid--cols-3">
             {TEAM.map((m) => (
-              <div key={m.name} className="nb-cell about-team-member-card">
-                <div className="nb-dither about-team-avatar">
+              <div key={m.name} className="nb-cell nb-card-frame">
+                <div className="nb-dither">
                   <div>{"> user: " + m.avatarUser}</div>
                   <div>{"> status: " + m.avatarStatus}</div>
                 </div>
 
-                <div className="about-team-member-info">
-                  <span className="about-team-member-name">{m.name}</span>
-
-                  <span className="about-team-member-role">[{m.role}]</span>
-
-                  <p className="about-team-member-desc">{m.desc}</p>
+                <div className="nb-card-frame-header">
+                  <h3 className="nb-card-frame-title">{m.name}</h3>
+                  <span className="nb-mono-label">[{m.role}]</span>
                 </div>
+
+                <p className="nb-card-frame-desc">{m.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <div className="nb-block-amber about-team-cta-block">
-            <span className="about-team-cta-label">JOIN THE TEAM</span>
-            <p className="about-team-cta-desc">
+      <NbSection variant="dark" ariaLabel="Join the team">
+        <NbBlockAmber>
+          <div className="nb-text-center">
+            <span className="nb-mono-label">JOIN THE TEAM</span>
+            <p className="nb-section-sub">
               We're always looking for talented people who share our mission. Say hello.
             </p>
-            <Link to="/about/contact" className="nb-btn nb-btn--ghost about-team-cta-btn">
+            <Link to="/about/contact" className="nb-btn nb-btn--ghost">
               CONTACT US
             </Link>
           </div>
-        </div>
-      </section>
+        </NbBlockAmber>
+      </NbSection>
     </div>
   );
 }

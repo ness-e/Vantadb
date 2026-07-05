@@ -1,15 +1,3 @@
-/**
- * VantaDBLogo — Official Swiss Minimalist Identity System
- *
- * Design:
- * - An outer circle stroke in var(--foreground) (black in light mode)
- * - An inner solid circle core in var(--amber) (neon orange)
- *
- * Variants:
- *   mark   → Icon only (outer stroke + solid inner core)
- *   full   → Icon + "VantaDB" wordmark (horizontal)
- */
-
 import React from "react";
 
 type LogoVariant = "mark" | "full";
@@ -18,13 +6,10 @@ type LogoSize = "xs" | "sm" | "md" | "lg" | "xl";
 interface VantaDBLogoProps {
   variant?: LogoVariant;
   size?: LogoSize;
-  /** Override amber with custom color */
   accentColor?: string;
   noAnimation?: boolean;
   className?: string;
-  /** Accessible label */
   "aria-label"?: string;
-  /** Invert colors for dark backgrounds */
   inverted?: boolean;
 }
 
@@ -52,10 +37,7 @@ const VantaDBMark: React.FC<{
       aria-hidden="true"
       className={`vdb-mark ${className}${inverted ? " vdb-mark--inverted" : ""}`}
     >
-      {/* ── Outer Circle (Stroke) ──────────────── */}
       <circle cx="32" cy="32" r="24" fill="none" stroke="var(--foreground)" strokeWidth="6" />
-
-      {/* ── Inner Core (Solid Amber) ───────────── */}
       <circle cx="32" cy="32" r="10" fill={accentColor} />
     </svg>
   );
@@ -77,7 +59,8 @@ export const VantaDBLogoFull: React.FC<{
     >
       <VantaDBMark size={markPx} inverted={inverted} />
       <span className="vdb-wordmark" style={{ fontSize: `${fontPx}px` }} aria-hidden="true">
-        VantaDB
+        <span>Vanta</span>
+        <span className="vdb-wordmark-db">DB</span>
       </span>
     </div>
   );

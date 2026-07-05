@@ -1,28 +1,12 @@
-.cost-section-title {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--foreground);
-  margin: 0 0 var(--space-md);
-}
-
 .cost-grid {
   margin-top: 3rem;
 }
 
 .cost-label-legacy {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--steel);
-  font-weight: 700;
   margin-bottom: var(--space-sm);
 }
 
 .cost-label-vanta {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  color: var(--amber);
-  font-weight: 700;
   margin-bottom: var(--space-sm);
 }
 
@@ -30,15 +14,26 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.cost-list-item {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.cost-list-item--foreground {
+  gap: var(--space-sm);
 }
 
 .cost-icon-danger {
-  color: var(--danger);
   min-width: 1rem;
 }
 
 .cost-icon-amber {
-  color: var(--amber);
   min-width: 1rem;
 }
 
@@ -50,8 +45,20 @@
   border: none;
 }
 
+.cost-th[data-amber="true"] {
+  color: var(--amber);
+}
+
+.cost-td[data-amber="true"] {
+  color: var(--amber);
+}
+
 .cost-tfoot-row {
   border-top: 2px solid var(--border-visible);
+}
+
+.cost-tfoot-value[data-amber="true"] {
+  color: var(--amber);
 }
 
 .cost-muted-cell {
@@ -70,15 +77,26 @@
   align-items: center;
 }
 
-.cost-cta-title {
-  color: var(--text-on-amber);
+.cost-tco-text {
+  margin: 0;
+}
+
+.cost-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.cost-cta-heading {
+  margin: 0 0 var(--space-2xs);
 }
 
 .cost-cta-sub {
-  color: var(--text-on-amber);
-  opacity: 0.8;
+  margin: 0;
 }
 
 .cost-cta-code {
-  color: var(--text-on-amber);
+  margin: 0;
 }

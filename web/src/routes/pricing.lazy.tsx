@@ -1,5 +1,10 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber, NbCard } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../styles/pricing.css";
 
@@ -191,10 +196,35 @@ const FAQ_ITEMS = [
 ];
 
 function PricingPage() {
+  const plansRef = useRef<HTMLElement>(null);
+  const compareRef = useRef<HTMLElement>(null);
+  const faqRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(plansRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, plansRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, compareRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(faqRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, faqRef);
+
   return (
-    <div className="nb-page">
+    <div>
       <NbSubpageHero
-        num="05"
+        pattern="p11"
         title={
           <span>
             Free to build.
@@ -205,144 +235,162 @@ function PricingPage() {
         sub="VantaDB is open source (Apache 2.0) and free forever. Sign up for cloud databases to scale in production with SLAs, team features, and zero ops."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="pricing-plans">Plans</h2>
-          <div className="nb-divider" />
+      <main>
+        <NbSection ref={plansRef} ariaLabel="Pricing plans">
+          <NbSectionHeader
+            monoLabel="[PLANS]"
+            headline="Four tiers. One free."
+            sub="Self-hosted is free forever under Apache 2.0. Cloud plans unlock managed infrastructure for teams that need it."
+          />
 
-          <div className="nb-grid nb-grid--cols-2 pricing-grid">
-            {tiers.slice(0, 2).map((tier) => (
-              <div
-                key={tier.name}
-                className={`nb-card pricing-card ${tier.featured ? "pricing-card--featured" : "pricing-card--default"}`}
-              >
-                <div>
-                  <div className="pricing-tier-name">{tier.name}</div>
-                  <p className="pricing-tier-tagline">{tier.tagline}</p>
-                </div>
-                <div className="pricing-price-row">
-                  <span className="pricing-price-value">{tier.price}</span>
-                  <span className="pricing-period">{tier.period}</span>
-                </div>
-                <ul className="nb-list pricing-features-list">
-                  {tier.features.map((f) => (
-                    <li key={f} className="pricing-feature-item">
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className={
-                    tier.featured
-                      ? "nb-btn pricing-card-cta"
-                      : "nb-btn nb-btn--ghost pricing-card-cta"
-                  }
+          <div className="nb-engine-part">
+            <div className="nb-grid nb-grid--cols-2 pricing-grid">
+              {tiers.slice(0, 2).map((tier) => (
+                <NbCard
+                  key={tier.name}
+                  variant={tier.featured ? "amber" : "default"}
+                  className="pricing-card"
                 >
-                  {tier.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-
-          <div className="nb-grid nb-grid--cols-2 pricing-grid--tight">
-            {tiers.slice(2).map((tier) => (
-              <div key={tier.name} className="nb-card pricing-card pricing-card--default">
-                <div>
-                  <div className="pricing-tier-name">{tier.name}</div>
-                  <p className="pricing-tier-tagline">{tier.tagline}</p>
-                </div>
-                <div className="pricing-price-row">
-                  <span className="pricing-price-value">{tier.price}</span>
-                  <span className="pricing-period">{tier.period}</span>
-                </div>
-                <ul className="nb-list pricing-features-list">
-                  {tier.features.map((f) => (
-                    <li key={f} className="pricing-feature-item">
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className="nb-btn nb-btn--ghost pricing-card-cta"
-                >
-                  {tier.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <div className="nb-divider" />
-
-          <div className="nb-frame pricing-table-wrapper">
-            <table className="nb-table pricing-table">
-              <thead>
-                <tr>
-                  {comparisonColumns.map((col, idx) => {
-                    const thClass =
-                      idx === 2
-                        ? "pricing-th--featured"
-                        : idx === 0
-                          ? "pricing-th--first"
-                          : "pricing-th--default";
-                    return (
-                      <th key={col} className={thClass}>
-                        {col}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonRows.map((row, i) => (
-                  <tr
-                    key={row.feature}
-                    className={i % 2 === 0 ? "pricing-tr--even" : "pricing-tr--odd"}
+                  <div>
+                    <div className="pricing-tier-name">{tier.name}</div>
+                    <p className="pricing-tier-tagline">{tier.tagline}</p>
+                  </div>
+                  <div className="pricing-price-row">
+                    <span className="pricing-price-value">{tier.price}</span>
+                    <span className="pricing-period">{tier.period}</span>
+                  </div>
+                  <ul className="nb-list pricing-features-list">
+                    {tier.features.map((f) => (
+                      <li key={f} className="pricing-feature-item">
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
+                    className={
+                      tier.featured
+                        ? "nb-btn pricing-card-cta"
+                        : "nb-btn nb-btn--ghost pricing-card-cta"
+                    }
                   >
-                    <td className="pricing-td-feature">{row.feature}</td>
-                    <td>{row.os}</td>
-                    <td className="pricing-td--pro">{row.pro}</td>
-                    <td>{row.biz}</td>
-                    <td className="pricing-td--ent">{row.ent}</td>
+                    {tier.cta}
+                  </Link>
+                </NbCard>
+              ))}
+            </div>
+          </div>
+
+          <div className="nb-engine-part">
+            <div className="nb-grid nb-grid--cols-2 pricing-grid--tight">
+              {tiers.slice(2).map((tier) => (
+                <NbCard key={tier.name} variant="default" className="pricing-card">
+                  <div>
+                    <div className="pricing-tier-name">{tier.name}</div>
+                    <p className="pricing-tier-tagline">{tier.tagline}</p>
+                  </div>
+                  <div className="pricing-price-row">
+                    <span className="pricing-price-value">{tier.price}</span>
+                    <span className="pricing-period">{tier.period}</span>
+                  </div>
+                  <ul className="nb-list pricing-features-list">
+                    {tier.features.map((f) => (
+                      <li key={f} className="pricing-feature-item">
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
+                    className="nb-btn nb-btn--ghost pricing-card-cta"
+                  >
+                    {tier.cta}
+                  </Link>
+                </NbCard>
+              ))}
+            </div>
+          </div>
+        </NbSection>
+
+        <NbSection ref={compareRef} className="nb-bg-cross--faint" ariaLabel="Feature comparison">
+          <NbSectionHeader
+            monoLabel="[COMPARE]"
+            headline="Side-by-side feature comparison."
+            sub="Compare capabilities across all four tiers to find the right fit for your project."
+          />
+
+          <div className="nb-engine-part">
+            <div className="nb-card-frame pricing-table-wrapper">
+              <table className="nb-table pricing-table">
+                <thead>
+                  <tr>
+                    {comparisonColumns.map((col, idx) => {
+                      const thClass =
+                        idx === 2
+                          ? "pricing-th--featured"
+                          : idx === 0
+                            ? "pricing-th--first"
+                            : "pricing-th--default";
+                      return (
+                        <th key={col} className={thClass}>
+                          {col}
+                        </th>
+                      );
+                    })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {comparisonRows.map((row, i) => (
+                    <tr
+                      key={row.feature}
+                      className={i % 2 === 0 ? "pricing-tr--even" : "pricing-tr--odd"}
+                    >
+                      <td className="pricing-td-feature">{row.feature}</td>
+                      <td>{row.os}</td>
+                      <td className="pricing-td--pro">{row.pro}</td>
+                      <td>{row.biz}</td>
+                      <td className="pricing-td--ent">{row.ent}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </section>
+        </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-divider" />
+        <NbSection ref={faqRef} ariaLabel="FAQ">
+          <NbSectionHeader
+            monoLabel="[FAQ]"
+            headline="Common questions."
+            sub="Everything you need to know about VantaDB pricing, licensing, and cloud plans."
+          />
 
-          <div className="nb-grid nb-grid--cols-2 pricing-faq-grid">
-            {FAQ_ITEMS.map((item) => (
-              <div key={item.q} className="nb-cell pricing-faq-item">
-                <h3 className="pricing-faq-question">{item.q}</h3>
-                <p className="pricing-faq-answer">{item.a}</p>
+          <div className="nb-engine-part">
+            <div className="nb-grid nb-grid--cols-2 pricing-faq-grid">
+              {FAQ_ITEMS.map((item) => (
+                <div key={item.q} className="nb-cell pricing-faq-item">
+                  <h3 className="pricing-faq-question">{item.q}</h3>
+                  <p className="pricing-faq-answer">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </NbSection>
+
+        <NbSection ariaLabel="Get started">
+          <NbBlockAmber as="div">
+            <div className="pricing-cta-row">
+              <div>
+                <h2 className="pricing-cta-heading">Start with Self-Hosted.</h2>
+                <p className="pricing-cta-sub">Free forever. No signup required.</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-block-amber pricing-cta-block">
-            <p className="pricing-cta-heading">Start with Self-Hosted.</p>
-            <p className="pricing-cta-sub">Free forever. No signup required.</p>
-            <Link to="/docs" className="nb-btn nb-btn--ghost pricing-cta-btn">
-              GET STARTED
-            </Link>
-          </div>
-        </div>
-      </section>
+              <Link to="/docs" className="nb-btn nb-btn--ghost pricing-cta-btn">
+                GET STARTED
+              </Link>
+            </div>
+          </NbBlockAmber>
+        </NbSection>
+      </main>
     </div>
   );
 }

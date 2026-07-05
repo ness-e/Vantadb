@@ -11,3 +11,8 @@ export { NbDitherImage } from "./NbDitherImage";
 export { NbNoise } from "./NbNoise";
 export { NbSplitFlap } from "./NbSplitFlap";
 export { NbCursor } from "./NbCursor";
+export { NbSection } from "./NbSection";
+export { NbSectionHeader } from "./NbSectionHeader";
+export { NbAccordion } from "./NbAccordion";
+export { NbAccordionItem } from "./NbAccordionItem";
+export { NbCopyCommand } from "./NbCopyCommand";

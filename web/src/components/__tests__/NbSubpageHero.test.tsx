@@ -4,7 +4,6 @@ import { NbSubpageHero } from "../NbSubpageHero";
 
 describe("NbSubpageHero", () => {
   const defaultProps = {
-    num: "01",
     title: "Page Title",
     sub: "Optional description text",
   };
@@ -12,11 +11,6 @@ describe("NbSubpageHero", () => {
   it("renders without crashing", () => {
     const { container } = render(<NbSubpageHero {...defaultProps} />);
     expect(container).toBeInTheDocument();
-  });
-
-  it("displays the number prefix", () => {
-    render(<NbSubpageHero {...defaultProps} />);
-    expect(screen.getByText("[01]")).toBeInTheDocument();
   });
 
   it("displays the title", () => {
@@ -30,7 +24,7 @@ describe("NbSubpageHero", () => {
   });
 
   it("does not render subtitle when sub is omitted", () => {
-    render(<NbSubpageHero num="02" title="No Sub" />);
+    render(<NbSubpageHero title="No Sub" />);
     expect(screen.queryByText("Optional description text")).not.toBeInTheDocument();
   });
 
@@ -43,7 +37,6 @@ describe("NbSubpageHero", () => {
   it("accepts React nodes as title", () => {
     render(
       <NbSubpageHero
-        num="03"
         title={
           <span>
             Rich <em>Title</em>

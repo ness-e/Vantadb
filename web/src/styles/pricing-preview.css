@@ -3,28 +3,48 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--space-xl);
   margin-top: var(--space-2xl);
+  align-items: start;
 }
 
 .nb-price-card {
-  border: 2px solid var(--border-strong);
-  padding: var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  position: relative;
+}
+
+.nb-price-card--free {
+  border: 2px solid var(--border-strong);
   background: var(--surface);
+  padding: var(--space-xl);
   box-shadow: var(--shadow-md);
 }
 
-.nb-price-card.nb-card-frame--featured {
-  border-color: var(--amber);
-  box-shadow: var(--shadow-amber-lg);
+.nb-price-card--enterprise {
+  background: var(--surface);
+  padding: var(--space-xl);
+  margin-top: calc(var(--space-lg) * -1);
+  margin-bottom: calc(var(--space-lg) * -1);
+  padding-top: calc(var(--space-xl) + var(--space-lg));
+  padding-bottom: calc(var(--space-xl) + var(--space-lg));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.nb-price-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 .nb-price-amount {
   font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 700;
+  font-size: var(--text-metric);
+  font-weight: 900;
   line-height: 0.9;
+  letter-spacing: var(--tracking-mega);
+  margin-top: var(--space-2xs);
 }
 
 .nb-price-features {
@@ -33,26 +53,44 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
 .nb-price-features li {
-  font-family: var(--font-mono);
-  font-size: var(--text-code);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  color: var(--foreground);
 }
 
-.nb-price-features li::before {
-  content: ">";
+.nb-price-feature-num {
+  font-family: var(--font-display);
+  font-size: var(--text-code);
+  font-weight: 900;
+  letter-spacing: var(--tracking-wide);
+  color: var(--border-strong);
+  width: 3ch;
+  flex-shrink: 0;
+}
+
+.nb-price-feature-num--amber {
   color: var(--amber);
-  font-weight: 700;
 }
 
-.nb-price-card .nb-btn {
+.nb-price-btn {
   align-self: flex-start;
   margin-top: auto;
+}
+
+.nb-price-btn-arr {
+  display: inline-block;
+  transition: transform 80ms var(--ease-brutal);
+}
+
+.nb-price-btn:hover .nb-price-btn-arr {
+  transform: translateX(4px);
 }
 
 .nb-price-card .nb-hairline {
@@ -62,5 +100,12 @@
 @media (max-width: 768px) {
   .nb-price-grid {
     grid-template-columns: 1fr;
+  }
+
+  .nb-price-card--enterprise {
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: var(--space-xl);
+    padding-bottom: var(--space-xl);
   }
 }

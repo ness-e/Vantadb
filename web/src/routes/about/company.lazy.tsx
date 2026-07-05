@@ -1,5 +1,11 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import "../../styles/about-company.css";
 
 export const Route = createLazyRoute("/about/company")({
   component: CompanyPage,
@@ -43,10 +49,35 @@ const COMPARISON_RIGHT = [
 ];
 
 function CompanyPage() {
+  const purposeRef = useRef<HTMLElement>(null);
+  const valuesRef = useRef<HTMLElement>(null);
+  const compareRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(purposeRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, purposeRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(valuesRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, valuesRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, compareRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="06"
+        pattern="p20"
         title={
           <span>
             Built for the
@@ -57,65 +88,60 @@ function CompanyPage() {
         sub="VantaDB unifies vector search (HNSW), lexical search (BM25), and hybrid search (RRF) in a single Rust binary. Zero servers. Zero ops. One pip install."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="about-company-section-title">Purpose</h2>
-          <div className="nb-divider" />
+      <NbSection ref={purposeRef} ariaLabel="Purpose">
+        <NbSectionHeader
+          monoLabel="[PURPOSE]"
+          headline="Make vector-native data infrastructure invisible."
+          sub="Every AI agent, every RAG pipeline, every intelligent application deserves a database that embeds in-process but understands vectors, text, and hybrid search — without requiring a dedicated infrastructure team."
+        />
+      </NbSection>
 
-          <div className="nb-split-7-5 about-company-split-top">
-            <h2 className="about-company-hero-title">
-              Make vector-native data infrastructure invisible.
-            </h2>
-            <p className="about-company-hero-desc">
-              Every AI agent, every RAG pipeline, every intelligent application deserves a database
-              that embeds in-process but understands vectors, text, and hybrid search — without
-              requiring a dedicated infrastructure team.
-            </p>
-          </div>
-        </div>
-      </section>
+      <NbSection ref={valuesRef} className="nb-bg-cross--faint" ariaLabel="Values">
+        <NbSectionHeader
+          monoLabel="[VALUES]"
+          headline="What drives us."
+          sub="Four principles that guide every line of code."
+        />
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <h2 className="about-company-section-title">Values</h2>
-          <div className="nb-divider" />
-
-          <div className="nb-grid nb-grid--cols-2 about-company-grid-top">
+        <div className="nb-engine-part">
+          <div className="nb-grid nb-grid--cols-2">
             {VALUES.map((v) => (
               <div key={v.num} className="nb-cell about-company-value-card">
-                <span className="about-company-value-num">{v.num}</span>
-                <h3 className="about-company-value-title">{v.title}</h3>
-                <p className="about-company-value-desc">{v.desc}</p>
+                <span className="nb-mono-label">{v.num}</span>
+                <h3 className="nb-card-frame-title">{v.title}</h3>
+                <p className="nb-card-frame-desc">{v.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <h2 className="about-company-section-title">Why VantaDB</h2>
-          <div className="nb-divider" />
-          <p className="about-company-feature-lead">The AI stack shouldn't need a database team.</p>
+      <NbSection ref={compareRef} ariaLabel="Why VantaDB">
+        <NbSectionHeader
+          monoLabel="[WHY VANTADB]"
+          headline="The AI stack shouldn't need a database team."
+          sub="Compare the alternatives."
+        />
 
+        <div className="nb-engine-part">
           <div className="about-company-compare-grid">
-            <div className="nb-card about-company-compare-card-left">
-              <span className="about-company-compare-label-alt">The alternatives</span>
+            <div className="about-company-compare-card-left">
+              <span className="nb-mono-label">The alternatives</span>
               <ul className="nb-list">
                 {COMPARISON_LEFT.map((item) => (
                   <li key={item} className="about-company-compare-item-left">
-                    <span className="about-company-bullet-x">✗</span>
+                    <span className="about-company-bullet about-company-bullet--x">✗</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-card about-company-compare-card-right">
-              <span className="about-company-compare-label-highlight">VantaDB</span>
+            <div className="about-company-compare-card-right">
+              <span className="nb-mono-label">VantaDB</span>
               <ul className="nb-list">
                 {COMPARISON_RIGHT.map((item) => (
                   <li key={item} className="about-company-compare-item-right">
-                    <span className="about-company-bullet-check">✓</span>
+                    <span className="about-company-bullet about-company-bullet--check">✓</span>
                     {item}
                   </li>
                 ))}
@@ -123,27 +149,27 @@ function CompanyPage() {
             </div>
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section">
-        <div className="nb-inner">
-          <div className="nb-block-amber about-company-cta-block">
-            <span className="about-company-cta-label">READ OUR STORY</span>
+      <NbSection ariaLabel="Get started">
+        <NbBlockAmber>
+          <div className="nb-text-center">
+            <span className="nb-mono-label">READ OUR STORY</span>
             <p className="about-company-cta-desc">Learn more about our community.</p>
-            <Link to="/about/community" className="nb-btn nb-btn--ghost about-company-cta-btn">
+            <Link to="/about/community" className="nb-btn nb-btn--ghost">
               COMMUNITY
             </Link>
           </div>
-        </div>
-      </section>
+        </NbBlockAmber>
+      </NbSection>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div className="about-pending-container">
-      <span className="about-pending-text">Loading...</span>
+    <div className="about-company-pending">
+      <span>Loading...</span>
     </div>
   );
 }

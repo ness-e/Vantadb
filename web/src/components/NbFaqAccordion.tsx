@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { NbSection, NbSectionHeader, NbAccordion, NbAccordionItem } from "../components/nb";
 import "../styles/faq-accordion.css";
 
 const FAQ_ITEMS = [
@@ -21,44 +21,17 @@ const FAQ_ITEMS = [
 ];
 
 export function NbFaqAccordion() {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-
-  const toggle = (index: number) => {
-    setActiveIndex((prev) => (prev === index ? null : index));
-  };
-
   return (
-    <section className="nb-section" aria-label="FAQ">
-      <div className="nb-inner">
-        <span className="nb-mono-label">[QUESTIONS]</span>
-        <h2 className="nb-section-headline">Frequently asked.</h2>
-
-        <div className="nb-faq-list">
-          {FAQ_ITEMS.map((item, i) => {
-            const isOpen = activeIndex === i;
-            return (
-              <div key={i} className="nb-faq-item">
-                <button
-                  type="button"
-                  className="nb-faq-q"
-                  onClick={() => toggle(i)}
-                  aria-expanded={isOpen}
-                >
-                  <span>{item.q}</span>
-                  <span className={`nb-faq-toggle ${isOpen ? "nb-faq-toggle--open" : ""}`}>
-                    {isOpen ? "−" : "+"}
-                  </span>
-                </button>
-                {isOpen && (
-                  <div className="nb-faq-a">
-                    <p>{item.a}</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
+    <NbSection ariaLabel="FAQ">
+      <NbSectionHeader monoLabel="[QUESTIONS]" headline="Frequently asked." />
+      <NbAccordion
+        items={FAQ_ITEMS}
+        renderItem={(item, i, isOpen, toggle) => (
+          <NbAccordionItem key={i} label="" title={item.q} isOpen={isOpen} onToggle={toggle}>
+            <p>{item.a}</p>
+          </NbAccordionItem>
+        )}
+      />
+    </NbSection>
   );
 }

@@ -1,15 +1,55 @@
-.nb-qs-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-lg);
-  margin-top: var(--space-2xl);
+/* ── Intro ──────────────────────────────────── */
+.qs-intro {
+  margin-bottom: var(--space-2xl);
 }
 
-.nb-qs-card {
+.qs-headline {
+  margin-top: var(--space-sm);
+}
+
+.qs-sub {
+  max-width: 48ch;
+}
+
+/* ── Steps vertical stack ──────────────────── */
+.qs-steps {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.qs-step {
+  position: relative;
+}
+
+/* ── Connector between cards ───────────────── */
+.qs-connector {
+  position: relative;
+  width: 2px;
+  height: var(--space-lg);
+  background: var(--border-strong);
+  margin-left: calc(3rem + 2px);
+}
+
+.qs-connector::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  translate: -50% 0;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--border-strong);
+  background: var(--background);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* ── Card ───────────────────────────────────── */
+.qs-card {
   position: relative;
   border: 2px solid var(--border-strong);
   background: var(--surface);
-  padding: var(--space-xl);
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -21,91 +61,186 @@
   overflow: hidden;
   transition:
     border-color 80ms var(--ease-brutal),
-    box-shadow 80ms var(--ease-brutal);
+    box-shadow 80ms var(--ease-brutal),
+    background 80ms var(--ease-brutal);
 }
 
-.nb-qs-card:hover {
+.qs-card:hover {
   border-color: var(--amber);
+  background: var(--surface-alt);
 }
 
-.nb-qs-card--active {
+.qs-card:active {
+  translate: 2px 2px;
+}
+
+.qs-card--active {
   border-color: var(--amber);
   box-shadow: var(--shadow-amber-lg);
+  background: var(--surface);
 }
 
-.nb-qs-card-num {
+.qs-card--active:hover {
+  background: var(--surface);
+}
+
+.qs-card--past {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.qs-card--past:hover {
+  opacity: 0.7;
+  filter: grayscale(0.3);
+}
+
+/* ── Watermark number ──────────────────────── */
+.qs-card-num {
   position: absolute;
-  top: -0.1em;
-  right: 0.1em;
-  font-family: var(--font-display);
-  font-size: clamp(3.5rem, 6vw, 5.5rem);
-  font-weight: 900;
+  top: -0.08em;
+  right: 0.08em;
+  font-size: clamp(4.5rem, 10vw, 7rem);
   color: var(--border);
-  line-height: 1;
-  user-select: none;
   pointer-events: none;
+  z-index: 0;
 }
 
-.nb-qs-card-cmd {
+/* ── Header: badge + title ─────────────────── */
+.qs-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.qs-step-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 2px solid var(--amber);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: var(--weight-bold);
+  color: var(--amber);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.qs-card--active .qs-step-badge {
+  background: var(--amber);
+  color: var(--text-on-amber);
+}
+
+.qs-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0;
+  letter-spacing: var(--tracking-display);
+}
+
+.qs-badge-active {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 0.15rem 0.45rem;
+  margin-left: auto;
+  line-height: 1.2;
+}
+
+/* ── Command block ──────────────────────────── */
+.qs-card-cmd {
   font-family: var(--font-mono);
   font-size: var(--text-code);
   color: var(--foreground);
   display: flex;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   align-items: baseline;
-  min-height: 1.5em;
+  background: var(--terminal-bg);
+  border: 2px solid var(--border-strong);
+  padding: var(--space-sm) var(--space-md);
+  position: relative;
+  z-index: 1;
 }
 
-.nb-qs-card-prompt {
+.qs-card--active .qs-card-cmd {
+  border-color: var(--amber);
+}
+
+.qs-card-prompt {
   color: var(--steel);
   user-select: none;
   flex-shrink: 0;
 }
 
-.nb-qs-card-code {
+.qs-card-code {
   font-family: var(--font-mono);
   font-size: var(--text-code);
   color: var(--amber);
   word-break: break-all;
 }
 
-.nb-qs-card-title {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: var(--weight-bold);
-  color: var(--foreground);
-  margin: 0;
-}
-
-.nb-qs-card-desc {
+/* ── Description ────────────────────────────── */
+.qs-card-desc {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   color: var(--muted);
   margin: 0;
-  max-width: 50ch;
+  max-width: 55ch;
+  position: relative;
+  z-index: 1;
 }
 
-.nb-qs-card-out {
+/* ── Terminal output ────────────────────────── */
+.qs-card-out {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   color: var(--steel);
+  display: flex;
+  gap: var(--space-2xs);
+  align-items: baseline;
+  border-top: 2px solid var(--border);
   padding-top: var(--space-sm);
-  margin-top: auto;
-  border-top: 1px solid var(--border);
+  margin-top: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.nb-qs-cursor {
+.qs-card--active .qs-card-out {
+  border-top-color: var(--border-strong);
+}
+
+.qs-out-prefix {
+  color: var(--amber);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+}
+
+.qs-out-text {
+  color: var(--steel);
+}
+
+/* ── Cursor ─────────────────────────────────── */
+.qs-cursor {
   display: inline-block;
   width: 2px;
   height: 1.2em;
   background: var(--amber);
-  animation: nb-qs-cursor-blink 1s step-end infinite;
-  margin-left: 0.15em;
+  animation: qs-cursor-blink 1s step-end infinite;
+  margin-left: 0.1em;
   vertical-align: text-bottom;
   flex-shrink: 0;
 }
 
-@keyframes nb-qs-cursor-blink {
+@keyframes qs-cursor-blink {
   0%,
   100% {
     opacity: 1;
@@ -115,21 +250,61 @@
   }
 }
 
-.nb-qs-cta {
+/* ── CTA ────────────────────────────────────── */
+.qs-cta {
   margin-top: var(--space-xl);
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
-@media (max-width: 768px) {
-  .nb-qs-grid {
-    grid-template-columns: 1fr;
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 640px) {
+  .qs-connector {
+    margin-left: calc(2rem + 2px);
+    height: var(--space-md);
+  }
+
+  .qs-card {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .qs-step-badge {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.75rem;
+  }
+
+  .qs-card-num {
+    font-size: clamp(3rem, 12vw, 4.5rem);
+  }
+
+  .qs-card-cmd {
+    padding: var(--space-2xs) var(--space-sm);
+    font-size: var(--text-micro);
+  }
+
+  .qs-badge-active {
+    display: none;
+  }
+
+  .qs-cta {
+    justify-content: center;
   }
 }
 
+/* ── Reduced motion ─────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .nb-qs-cursor {
+  .qs-cursor {
     animation: none;
     opacity: 1;
+  }
+
+  .qs-card,
+  .qs-card--active {
+    transition: none;
+  }
+
+  .qs-card:active {
+    translate: 0;
   }
 }

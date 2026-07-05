@@ -1,5 +1,10 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../../styles/about.css";
 
@@ -37,10 +42,27 @@ const NAV_SECTIONS = [
 ];
 
 function AboutIndex() {
+  const statsRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statsRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, statsRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(navRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, navRef);
+
   return (
     <div className="nb-page">
       <NbSubpageHero
-        num="06"
+        pattern="p19"
         title={
           <span>
             The database that
@@ -51,35 +73,45 @@ function AboutIndex() {
         sub="We're building the data infrastructure for the AI era — embedded, open-source, and engineered for sub-millisecond performance."
       />
 
-      <section className="nb-section">
-        <div className="nb-inner">
+      <NbSection ref={statsRef} ariaLabel="Stats">
+        <NbSectionHeader
+          monoLabel="[STATS]"
+          headline="Facts at a glance."
+          sub="What makes VantaDB different, measured."
+        />
+
+        <div className="nb-engine-part">
           <div className="nb-grid nb-grid--cols-4">
             {STATS.map((s) => (
               <div key={s.label} className="nb-cell about-stat-card">
                 <span className="about-stat-value">{s.value}</span>
-                <span className="about-stat-label">{s.label}</span>
+                <span className="nb-mono-label">{s.label}</span>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </NbSection>
 
-      <section className="nb-section nb-bg-cross--faint">
-        <div className="nb-inner">
-          <div className="nb-divider" />
+      <NbSection ref={navRef} className="nb-bg-cross--faint" ariaLabel="Explore">
+        <NbSectionHeader
+          monoLabel="[EXPLORE]"
+          headline="Learn more about VantaDB."
+          sub="Company, community, and contact."
+        />
 
-          <div className="nb-grid nb-grid--cols-3 about-nav-grid">
+        <div className="nb-engine-part">
+          <div className="nb-grid nb-grid--cols-3">
             {NAV_SECTIONS.map((s) => (
               <Link key={s.num} to={s.href as "/"} className="nb-cell about-nav-card">
-                <span className="about-nav-number">{s.num}</span>
-                <h2 className="about-nav-title">{s.title}</h2>
-                <p className="about-nav-desc">{s.desc}</p>
-                <span className="nb-arrow about-nav-arrow">{s.href}</span>
+                <span className="nb-mono-label">{s.num}</span>
+                <h3 className="nb-card-frame-title">{s.title}</h3>
+                <p className="nb-card-frame-desc">{s.desc}</p>
+                <span className="about-nav-arrow">{s.href}</span>
               </Link>
             ))}
           </div>
         </div>
-      </section>
+      </NbSection>
     </div>
   );
 }

@@ -23,21 +23,21 @@
   --success: #00c853;
   --danger: #ff1744;
 
-  --steel: oklch(45% 0 0);
-  --frost: oklch(55% 0 0);
-  --muted: #808080;
-  --subtle: #5a5a5a;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.2);
-  --border-strong: #333333;
-  --border-visible: rgba(255, 255, 255, 0.15);
+  --steel: oklch(50% 0 0);
+  --frost: oklch(56% 0 0);
+  --muted: oklch(63% 0 0);
+  --subtle: oklch(48% 0 0);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-hover: rgba(255, 255, 255, 0.25);
+  --border-strong: oklch(38% 0 0);
+  --border-visible: rgba(255, 255, 255, 0.2);
 
-  --background: #111111;
+  --background: #0d0d0d;
   --foreground: #f5f5f5;
   --surface: #1a1a1a;
-  --surface-alt: #222222;
-  --surface-glass: rgba(17, 17, 17, 0.85);
-  --text-on-amber: #111111;
+  --surface-alt: #282828;
+  --surface-glass: rgba(13, 13, 13, 0.85);
+  --text-on-amber: #0d0d0d;
 
   --terminal-bg: #0d0d0d;
   --surface-card-dark: rgba(255, 255, 255, 0.03);
@@ -49,12 +49,10 @@
   --radius-xl: 0px;
   --radius-pill: 0px;
 
-  --shadow-sm: 4px 4px 0px 0px #000000;
-  --shadow-md: 6px 6px 0px 0px #000000;
-  --shadow-lg: 8px 8px 0px 0px #000000;
-  --shadow-amber: 4px 4px 0px 0px var(--amber);
-  --shadow-brutal: 8px 8px 0px 0px #111111;
-  --shadow-brutal-hover: 2px 2px 0px 0px #111111;
+  --shadow-sm: 3px 3px 0px 0px var(--amber);
+  --shadow-md: 5px 5px 0px 0px var(--amber);
+  --shadow-lg: 10px 10px 0px 0px var(--amber);
+  --shadow-amber: 4px 4px 0px 0px var(--amber-light);
   --shadow-amber-lg: 8px 8px 0px 0px var(--amber);
   --shadow-none: none;
 
@@ -87,11 +85,11 @@
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-brutal: cubic-bezier(0.05, 0.95, 0.3, 1);
 
-  --block-dark-bg: #111111;
+  --block-dark-bg: #080808;
   --block-dark-text: #f5f5f5;
-  --block-dark-muted: #808080;
-  --block-dark-border: rgba(255, 255, 255, 0.08);
-  --block-dark-amber: rgba(255, 85, 0, 0.12);
+  --block-dark-muted: oklch(63% 0 0);
+  --block-dark-border: rgba(255, 255, 255, 0.14);
+  --block-dark-amber: rgba(255, 85, 0, 0.18);
 
   --section-gap: 96px;
   --section-gap-lg: 160px;

@@ -1,54 +1,177 @@
-.nb-uc-grid {
+.use-cases-bento {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--border-visible);
+  gap: var(--space-md);
+  margin-top: var(--space-2xl);
+}
+
+.use-cases-pattern-card {
   border: 2px solid var(--border-strong);
+  background: var(--surface);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  transition:
+    transform 120ms var(--ease-brutal),
+    box-shadow 120ms var(--ease-brutal),
+    border-color 120ms var(--ease-brutal);
+}
+
+.use-cases-pattern-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-md);
+}
+
+.use-cases-tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.use-cases-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--space-2xs) var(--space-sm);
+  background: var(--surface-raised);
+  color: var(--steel);
+  border: 1px solid var(--border);
+}
+
+.use-cases-tag-amber {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--space-2xs) var(--space-sm);
+  background: var(--surface-raised);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+}
+
+.use-cases-pipeline-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.use-cases-pipeline-card {
+  padding: var(--space-xl);
+  border-left: 2px solid var(--amber);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ── NbUseCases (index page) ── */
+.nb-uc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
   margin-top: var(--space-2xl);
 }
 
 .nb-uc-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-lg);
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
   padding: var(--space-xl);
-  background: var(--background);
-  align-items: start;
-  transition: background 80ms var(--ease-brutal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  transition:
+    transform 120ms var(--ease-brutal),
+    box-shadow 120ms var(--ease-brutal),
+    border-color 120ms var(--ease-brutal);
 }
 
 .nb-uc-card:hover {
-  background: var(--surface-alt);
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-md);
+}
+
+.nb-uc-card--featured {
+  border-color: var(--amber);
+}
+
+.nb-uc-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.nb-uc-hline {
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.nb-uc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .nb-uc-title {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-family: var(--font-heading);
+  font-size: var(--text-md);
+  font-weight: 600;
   color: var(--foreground);
-  margin: 0 0 var(--space-xs);
+  line-height: 1.2;
 }
 
 .nb-uc-desc {
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  color: var(--muted);
-  margin: 0 0 var(--space-md);
-  max-width: 45ch;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--steel);
+  line-height: 1.6;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   .nb-uc-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .nb-uc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nb-uc-card {
+    padding: var(--space-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-uc-card {
+    transition: none;
+  }
+
+  .nb-uc-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .use-cases-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .use-cases-pipeline-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .use-cases-pattern-card {
+    transition: none;
+  }
+
+  .use-cases-pattern-card:hover {
+    transform: none;
   }
 }

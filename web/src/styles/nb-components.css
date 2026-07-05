@@ -11,10 +11,12 @@
 .nb-card:hover {
   border-color: var(--amber);
   box-shadow: var(--shadow-amber);
+  transform: translate(-2px, -2px);
 }
 
 .nb-card:active {
-  transform: translate(2px, 2px);
+  box-shadow: none;
+  transform: translate(3px, 3px);
 }
 
 .nb-card--amber {
@@ -31,7 +33,7 @@
 }
 
 .nb-card--offset {
-  box-shadow: 4px 4px 0px var(--black);
+  box-shadow: var(--shadow-md);
 }
 
 .nb-card--offset-amber {
@@ -56,7 +58,7 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 12px 28px;
-  border: 2px solid #cc4400;
+  border: 2px solid var(--amber);
   cursor: pointer;
   background: var(--amber);
   color: var(--text-on-amber);
@@ -74,13 +76,13 @@
 
 .nb-btn:hover {
   background: var(--amber-light);
-  box-shadow: var(--shadow-sm);
-  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-2px, -2px);
 }
 
 .nb-btn:active {
   box-shadow: none;
-  transform: translate(6px, 6px);
+  transform: translate(3px, 3px);
 }
 
 .nb-btn--ghost {
@@ -100,13 +102,13 @@
   background: var(--foreground);
   color: var(--background);
   border-color: var(--foreground);
-  box-shadow: none;
-  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-2px, -2px);
 }
 
 .nb-btn--ghost:active {
   box-shadow: none;
-  transform: translate(6px, 6px);
+  transform: translate(3px, 3px);
 }
 
 .nb-btn--ghost-light {
@@ -118,6 +120,13 @@
   background: #ffffff;
   color: #000000;
   border-color: #ffffff;
+  box-shadow: var(--shadow-lg);
+  transform: translate(-2px, -2px);
+}
+
+.nb-btn--ghost-light:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
 }
 
 .nb-btn--install {
@@ -636,10 +645,12 @@
 .nb-card-frame:hover {
   border-color: var(--amber);
   box-shadow: var(--shadow-amber);
+  transform: translate(-2px, -2px);
 }
 
 .nb-card-frame:active {
-  transform: translate(2px, 2px);
+  box-shadow: none;
+  transform: translate(3px, 3px);
 }
 
 .nb-card-frame--featured {
@@ -900,4 +911,288 @@
 /* ── Benchmark race ─────────────────────────── */
 .nb-benchmark-inner {
   width: 0;
+}
+
+/* ── Copy command block ─────────────────────── */
+.nb-cmd-block {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border: 2px solid var(--amber);
+  padding: var(--space-md) var(--space-md);
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  user-select: all;
+  box-shadow: var(--shadow-md);
+  transition:
+    box-shadow 80ms var(--ease-brutal),
+    transform 80ms var(--ease-brutal);
+}
+
+.nb-cmd-block:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translate(-2px, -2px);
+}
+
+.nb-cmd-block:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+
+.nb-cmd-prompt {
+  font-family: var(--font-mono);
+  font-size: var(--text-lead);
+  color: var(--steel);
+  flex-shrink: 0;
+}
+
+.nb-cmd-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-lead);
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+.nb-cmd-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.3em;
+  background: var(--amber);
+  animation: nb-cursor-blink 1s step-end infinite;
+  flex-shrink: 0;
+}
+
+.nb-cmd-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  height: 2.4rem;
+  border: 2px solid var(--amber);
+  background: transparent;
+  color: var(--amber);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  transition:
+    background 80ms var(--ease-brutal),
+    color 80ms var(--ease-brutal),
+    box-shadow 80ms var(--ease-brutal),
+    transform 80ms var(--ease-brutal);
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.nb-cmd-copy:hover {
+  background: var(--amber);
+  color: var(--text-on-amber);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-2px, -2px);
+}
+
+.nb-cmd-copy:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+}
+
+.nb-cmd-feedback {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-cmd-cursor {
+    animation: none;
+    opacity: 1;
+  }
+
+  .nb-cmd-block {
+    transition: none;
+  }
+}
+
+/* ── Section header compound ───────────────── */
+.nb-section-header {
+  margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  position: relative;
+}
+
+.nb-section-header--center {
+  text-align: center;
+}
+
+.nb-section-header--center .nb-section-headline {
+  margin: 0 auto;
+}
+
+.nb-section-header--center .nb-section-sub {
+  margin: var(--space-sm) auto 0;
+}
+
+/* ── Accordion shared ──────────────────────── */
+.nb-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.nb-accordion-item {
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.nb-accordion-item:first-child {
+  border-top: 2px solid var(--border-strong);
+}
+
+.nb-accordion-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: var(--space-lg) 0;
+  cursor: pointer;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 600;
+  gap: var(--space-md);
+  transition: color 80ms var(--ease-brutal);
+}
+
+.nb-accordion-btn:hover {
+  color: var(--amber);
+}
+
+.nb-accordion-toggle {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--amber);
+  width: 2rem;
+  text-align: center;
+  flex-shrink: 0;
+  transition: transform 80ms var(--ease-brutal);
+}
+
+.nb-accordion-content {
+  padding: 0 0 var(--space-lg);
+}
+
+.nb-accordion-content p {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--muted);
+  max-width: 65ch;
+  margin: 0;
+}
+
+/* ── Toggle symbol in accordion ────────── */
+.nb-accordion-toggle--open {
+  transform: rotate(45deg);
+}
+
+/* ── Section title for subpages ──────────── */
+.nb-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
+}
+
+/* ── Card title + desc for subpages ──────── */
+.nb-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+  margin: 0 0 var(--space-2xs);
+}
+
+.nb-card-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── CTA block (subpages) ────────────────── */
+.nb-cta-block {
+  text-align: center;
+}
+
+.nb-cta-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--text-on-amber);
+  margin-bottom: var(--space-2xs);
+  display: block;
+}
+
+.nb-cta-text {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--text-on-amber);
+  margin: var(--space-2xs) 0;
+  opacity: 0.85;
+}
+
+/* ── Pipeline step connector ────────────────── */
+.nb-connector {
+  position: relative;
+  padding-left: var(--space-lg);
+}
+
+.nb-connector::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--amber);
+}
+
+/* ── Comparison label pair ──────────────────── */
+.nb-label--steel {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  display: block;
+}
+
+.nb-label--amber {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--amber);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  display: block;
+}
+
+/* ── 2-col grid with 1px gap ────────────────── */
+.nb-grid--border-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border-visible);
+  margin-top: var(--space-xl);
+}
+
+/* ── Amber left border cell ─────────────────── */
+.nb-cell--amber-left {
+  padding: var(--space-xl);
+  border-left: 2px solid var(--amber);
+  background: var(--surface-alt);
 }

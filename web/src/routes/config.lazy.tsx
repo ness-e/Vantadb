@@ -1,5 +1,10 @@
 import { createLazyRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
+import { gsap } from "@/lib/gsap";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
 import "../styles/config.css";
 
@@ -52,10 +57,27 @@ db = vantadb_py.VantaDB("./my_db.vdb")
 # Ready. No config, no schema, no cloud.`;
 
 function ConfigPage() {
+  const setupRef = useRef<HTMLElement>(null);
+  const codeRef = useRef<HTMLElement>(null);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(setupRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, setupRef);
+
+  useAnimationSafe(() => {
+    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    if (!parts.length) return;
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(codeRef.current, 60) });
+    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+  }, codeRef);
+
   return (
     <div>
       <NbSubpageHero
-        num="10"
+        pattern="p07"
         title={
           <span>
             Zero config.
@@ -67,14 +89,18 @@ function ConfigPage() {
       />
 
       <main>
-        <section className="nb-section">
-          <div className="nb-inner">
-            <h2 className="config-section-title">Setup Comparison</h2>
+        <NbSection ref={setupRef} ariaLabel="Setup comparison">
+          <NbSectionHeader
+            monoLabel="[SETUP]"
+            headline="Setup comparison."
+            sub="No API keys, no host/port/password, no cloud credentials — just a file path."
+          />
 
+          <div className="nb-engine-part">
             <div className="nb-grid nb-grid--cols-2 config-grid">
               <div className="nb-cell">
                 <div className="config-label-legacy">LEGACY — Pages of config</div>
-                <ul className="nb-list mt-4">
+                <ul className="nb-list">
                   {LEGACY_CONFIG.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -82,7 +108,7 @@ function ConfigPage() {
               </div>
               <div className="nb-cell config-cell-border">
                 <div className="config-label-vanta">VANTADB — Zero lines</div>
-                <ul className="nb-list mt-4">
+                <ul className="nb-list">
                   {VANTA_CONFIG.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -90,56 +116,50 @@ function ConfigPage() {
               </div>
             </div>
           </div>
-        </section>
+        </NbSection>
 
-        <section className="nb-section">
-          <div className="nb-inner">
-            <h2 className="config-section-title">Code: From 50 Lines to 1</h2>
+        <NbSection ref={codeRef} ariaLabel="Code comparison">
+          <NbSectionHeader
+            monoLabel="[CODE]"
+            headline="From 50 lines to 3."
+            sub="Compare the configuration overhead of a traditional stack against VantaDB's zero-config approach."
+          />
 
+          <div className="nb-engine-part">
             <div className="nb-grid nb-grid--cols-2 config-grid">
               <div className="nb-cell config-cell-code">
-                <div className="flex items-center justify-between px-5 py-3 config-code-header">
-                  <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
-                    legacy_setup.py
-                  </span>
-                  <span className="font-mono text-[0.55rem] text-muted">50+ lines</span>
+                <div className="config-code-header">
+                  <span className="config-code-filename">legacy_setup.py</span>
+                  <span className="config-code-lines">50+ lines</span>
                 </div>
-                <pre className="m-0 p-6 font-mono text-[0.72rem] leading-relaxed text-muted overflow-x-auto whitespace-pre">
+                <pre className="config-code-pre">
                   <code>{LEGACY_CODE}</code>
                 </pre>
               </div>
               <div className="nb-cell config-cell-code-accent">
-                <div className="flex items-center justify-between px-5 py-3 config-code-header">
-                  <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
-                    vantadb_setup.py
-                  </span>
-                  <span className="font-mono text-[0.55rem] text-amber">3 lines</span>
+                <div className="config-code-header">
+                  <span className="config-code-filename--amber">vantadb_setup.py</span>
+                  <span className="config-code-lines--amber">3 lines</span>
                 </div>
-                <pre className="m-0 p-6 font-mono text-[0.72rem] leading-relaxed text-foreground overflow-x-auto whitespace-pre">
+                <pre className="config-code-pre--fg">
                   <code>{VANTA_CODE}</code>
                 </pre>
               </div>
             </div>
           </div>
-        </section>
+        </NbSection>
 
-        <section className="nb-section nb-bg-dot">
-          <div className="nb-inner">
-            <div className="nb-block-amber">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <h2 className="font-display text-2xl font-extrabold config-cta-title">
-                    Zero config. Ship faster.
-                  </h2>
-                  <p className="text-sm config-cta-sub">Install VantaDB in one command.</p>
-                </div>
-                <code className="font-mono text-lg font-bold config-cta-code">
-                  pip install vantadb-py
-                </code>
+        <NbSection className="nb-bg-dot" ariaLabel="Get started">
+          <NbBlockAmber as="div">
+            <div className="config-cta-row">
+              <div>
+                <h2 className="config-cta-heading">Zero config. Ship faster.</h2>
+                <p className="config-cta-sub">Install VantaDB in one command.</p>
               </div>
+              <code className="config-cta-code">pip install vantadb-py</code>
             </div>
-          </div>
-        </section>
+          </NbBlockAmber>
+        </NbSection>
       </main>
     </div>
   );

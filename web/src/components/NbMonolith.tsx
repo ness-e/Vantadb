@@ -1,97 +1,60 @@
-import { useRef, useState, useCallback, memo } from "react";
+import { useRef, memo } from "react";
 import { Link } from "@tanstack/react-router";
 import { gsap, useGSAP } from "../lib/gsap";
+import { NbSection, NbCopyCommand } from "./nb";
 import "../styles/monolith.css";
 
 const CLI_COMMAND = "pip install vantadb-py";
 
 export const NbMonolith = memo(function NbMonolith() {
   const containerRef = useRef<HTMLElement>(null);
-  const feedbackRef = useRef<HTMLSpanElement>(null);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(CLI_COMMAND);
-      setCopied(true);
-      if (feedbackRef.current) {
-        feedbackRef.current.style.opacity = "1";
-      }
-      setTimeout(() => {
-        setCopied(false);
-        if (feedbackRef.current) {
-          feedbackRef.current.style.opacity = "0";
-        }
-      }, 2000);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = CLI_COMMAND;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true);
-      if (feedbackRef.current) {
-        feedbackRef.current.style.opacity = "1";
-      }
-      setTimeout(() => {
-        setCopied(false);
-        if (feedbackRef.current) {
-          feedbackRef.current.style.opacity = "0";
-        }
-      }, 2000);
-    }
-  }, []);
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top 75%",
+          },
+        });
+
+        tl.fromTo(
           ".nb-cta-command",
-          { clipPath: "inset(0 0 100% 0)", opacity: 0 },
+          { clipPath: "inset(0 0 100% 0)", opacity: 0, y: 30 },
           {
             clipPath: "inset(0)",
             opacity: 1,
-            duration: 0.5,
+            y: 0,
+            duration: 0.6,
             ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
-            scrollTrigger: {
-              trigger: containerRef.current,
-              start: "top 75%",
-            },
           },
         );
 
-        gsap.fromTo(
+        tl.fromTo(
           ".nb-cta-sub",
           { opacity: 0, y: 12 },
           {
             opacity: 1,
             y: 0,
             duration: 0.35,
-            delay: 0.2,
             ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
-            scrollTrigger: {
-              trigger: containerRef.current,
-              start: "top 75%",
-            },
           },
+          "-=0.15",
         );
 
-        gsap.fromTo(
+        tl.fromTo(
           ".nb-meta-tag",
-          { opacity: 0 },
+          { opacity: 0, scale: 0.95 },
           {
             opacity: 1,
+            scale: 1,
             duration: 0.25,
-            stagger: 0.12,
-            delay: 0.4,
+            stagger: 0.1,
             ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
-            scrollTrigger: {
-              trigger: containerRef.current,
-              start: "top 75%",
-            },
           },
+          "-=0.1",
         );
       });
     },
@@ -99,59 +62,27 @@ export const NbMonolith = memo(function NbMonolith() {
   );
 
   return (
-    <section
-      ref={containerRef}
-      className="nb-section nb-section--lg nb-section--dark"
-      aria-label="Get started"
-    >
-      <div className="nb-inner">
-        <div className="nb-cta-frame">
-          <h2 className="nb-cta-headline">SHIP IT.</h2>
+    <NbSection ref={containerRef} variant="dark" ariaLabel="Get started">
+      <div className="nb-cta-frame">
+        <h2 className="nb-cta-headline">SHIP IT.</h2>
 
-          <div
-            className="nb-cta-command"
-            onClick={handleCopy}
-            role="button"
-            tabIndex={0}
-            aria-label="Copy install command"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") handleCopy();
-            }}
-          >
-            <span className="nb-cta-prompt" aria-hidden="true">
-              $
-            </span>
-            <code className="nb-cta-code">{CLI_COMMAND}</code>
-            <span className="nb-cta-cursor" aria-hidden="true">
-              _
-            </span>
-            <button
-              className="nb-cta-copy"
-              onClick={handleCopy}
-              aria-label="Copy to clipboard"
-              type="button"
-            >
-              {copied ? "OK" : "[]"}
-            </button>
-          </div>
+        <NbCopyCommand command={CLI_COMMAND} variant="hero" showCopy={true} />
 
-          <p className="nb-cta-sub">Zero servers. One line. Infinite context.</p>
+        <p className="nb-cta-sub">Zero servers. One line. Infinite context.</p>
 
+        <div className="nb-cta-actions">
           <Link to="/docs" className="nb-btn nb-btn--ghost nb-btn--ghost-light">
             FULL DOCS
+            <span className="nb-cta-arrow">&gt;</span>
           </Link>
-
-          <span ref={feedbackRef} className="nb-cta-feedback" aria-live="polite">
-            {copied ? "copied to clipboard" : ""}
-          </span>
-        </div>
-
-        <div className="nb-meta-row nb-meta-row--centered">
-          <span className="nb-meta-tag">ONE BINARY</span>
-          <span className="nb-meta-tag">ZERO DEPS</span>
-          <span className="nb-meta-tag">MIT LICENSE</span>
         </div>
       </div>
-    </section>
+
+      <div className="nb-meta-row nb-meta-row--centered">
+        <span className="nb-meta-tag">ONE BINARY</span>
+        <span className="nb-meta-tag">ZERO DEPS</span>
+        <span className="nb-meta-tag">MIT LICENSE</span>
+      </div>
+    </NbSection>
   );
 });

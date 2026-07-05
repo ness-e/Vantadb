@@ -316,15 +316,6 @@
   color: var(--amber);
 }
 
-@keyframes nb-marquee-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
 @media (max-width: 640px) {
   .nb-terminal-hero {
     padding: 6rem 1.25rem 3rem;

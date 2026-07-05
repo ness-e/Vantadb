@@ -7,15 +7,6 @@
   background: var(--background);
 }
 
-.why-vantadb-compare-category {
-  font-family: var(--font-display);
-  font-size: var(--text-label);
-  font-weight: 700;
-  color: var(--amber);
-  margin-bottom: var(--space-sm);
-  display: block;
-}
-
 .why-vantadb-compare-row {
   display: flex;
   gap: var(--space-md);
@@ -23,6 +14,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-code);
   line-height: 1.5;
+  margin-top: var(--space-xs);
 }
 
 .why-vantadb-compare-vantadb {
@@ -35,18 +27,6 @@
   flex: 1;
 }
 
-.why-vantadb-principles-title {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--foreground);
-  margin: 0 0 var(--space-md);
-}
-
-.why-vantadb-principles-grid {
-  margin-top: var(--space-xl);
-}
-
 .why-vantadb-principle-card {
   padding: var(--space-xl);
   display: flex;
@@ -55,48 +35,29 @@
   border-left: 2px solid var(--border-visible);
 }
 
-.why-vantadb-principle-heading {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 800;
-  letter-spacing: var(--tracking-display);
-  color: var(--foreground);
-  margin: 0;
-}
-
-.why-vantadb-principle-desc {
-  font-family: var(--font-sans);
-  font-size: var(--text-code);
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0;
-}
-
 .why-vantadb-cta-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-lg);
   flex-wrap: wrap;
 }
 
-.why-vantadb-cta-link {
-  font-family: var(--font-mono);
-  font-size: var(--text-code);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--amber);
-  padding: 12px 28px;
-  background: var(--background);
-  box-shadow: var(--shadow-md);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+.why-vantadb-cta-heading {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 0 var(--space-2xs);
+}
+
+.why-vantadb-cta-sub {
+  font-size: 0.875rem;
+  opacity: 0.8;
+  margin: 0;
 }
 
 .why-vantadb-arrow {
   font-family: var(--font-mono);
-  font-size: var(--text-title);
   color: var(--amber);
   line-height: 1;
 }

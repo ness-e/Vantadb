@@ -1,7 +1,54 @@
 .changelog-filter-bar {
+  display: flex;
+  gap: 1px;
   background: var(--border-visible);
   border: 2px solid var(--border-visible);
   width: fit-content;
+}
+
+.changelog-filter-btn {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--background);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1.5rem;
+  color: var(--steel);
+  transition:
+    background 150ms var(--ease-cut),
+    border-color 150ms var(--ease-cut),
+    color 150ms var(--ease-cut);
+}
+
+.changelog-filter-btn--active {
+  background: var(--surface-alt);
+  border-bottom-color: var(--foreground);
+  color: var(--foreground);
+}
+
+.changelog-filter-btn--active.changelog-filter-btn--perf {
+  border-bottom-color: var(--amber);
+  color: var(--amber);
+}
+
+.changelog-filter-btn--active.changelog-filter-btn--fix {
+  border-bottom-color: var(--steel);
+  color: var(--steel);
+}
+
+.changelog-filter-btn--active.changelog-filter-btn--breaking {
+  border-bottom-color: var(--steel);
+  color: var(--steel);
+}
+
+.changelog-filter-btn--active.changelog-filter-btn--security {
+  border-bottom-color: var(--foreground);
+  color: var(--foreground);
 }
 
 .changelog-releases-container {
@@ -10,31 +57,173 @@
 }
 
 .changelog-release {
+  display: grid;
+  grid-template-columns: 220px 1fr;
   background: var(--background);
 }
 
 .changelog-release-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 2rem;
+  position: relative;
   border-right: 2px solid var(--border-visible);
 }
 
 .changelog-current-badge {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--amber);
   background: var(--amber-dim);
+  width: fit-content;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.changelog-version {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.changelog-date {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.changelog-tag {
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.changelog-release-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 2rem;
+}
+
+.changelog-change {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.75rem 0;
+}
+
+.changelog-change--bordered {
+  border-bottom: 1px solid var(--border);
+}
+
+.changelog-change-type {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-top: 2px;
+}
+
+.changelog-change-type--feature,
+.changelog-change-type--security {
+  color: var(--foreground);
+}
+
+.changelog-change-type--perf {
+  color: var(--amber);
+}
+
+.changelog-change-type--fix,
+.changelog-change-type--breaking {
+  color: var(--steel);
+}
+
+.changelog-change-text {
+  line-height: 1.6;
+  color: var(--muted);
 }
 
 .changelog-semver-box {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 2rem;
+  align-items: start;
+  margin-top: 2rem;
+  padding: 2rem;
   border: 2px solid var(--border-visible);
   background: var(--surface);
 }
 
+.changelog-semver-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.changelog-semver-text {
+  line-height: 1.6;
+  margin: 0;
+  max-width: 600px;
+}
+
+.changelog-cta-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .changelog-cta-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 800;
   color: var(--text-on-amber);
+  margin: 0;
 }
 
 .changelog-cta-text {
   color: var(--text-on-amber);
   opacity: 0.8;
+  margin: 0;
 }
 
 .changelog-cta-code {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   color: var(--text-on-amber);
+}
+
+@media (max-width: 768px) {
+  .changelog-release {
+    grid-template-columns: 1fr;
+  }
+  .changelog-release-sidebar {
+    border-right: none;
+    border-bottom: 2px solid var(--border-visible);
+  }
+  .changelog-semver-box {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .changelog-change {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
 }
