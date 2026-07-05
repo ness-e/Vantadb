@@ -10,8 +10,8 @@ import {
 import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
 
 import { Nav } from "../components/Nav";
-import { SwissFooter } from "../components/SwissFooter";
-import { SwissBackToTop } from "../components/SwissBackToTop";
+import { NbFooter } from "../components/NbFooter";
+import { NbBackToTop } from "../components/NbBackToTop";
 import { PendingComponent } from "../components/PendingComponent";
 import { ScrollProgress } from "../components/ScrollProgress";
 
@@ -41,7 +41,7 @@ function NotFoundComponent() {
         >
           404
         </h1>
-        <hr className="hairline" style={{ margin: "1.5rem 0" }} />
+        <hr className="nb-hairline" style={{ margin: "1.5rem 0" }} />
         <p
           style={{
             fontFamily: "var(--font-sans)",
@@ -52,7 +52,7 @@ function NotFoundComponent() {
         >
           This page doesn't exist.
         </p>
-        <Link to="/" className="btn-primary">
+        <Link to="/" className="nb-btn">
           BACK HOME
         </Link>
       </div>
@@ -75,7 +75,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       }}
     >
       <div style={{ maxWidth: "480px", textAlign: "center" }}>
-        <hr className="hairline" style={{ marginBottom: "1.5rem" }} />
+        <hr className="nb-hairline" style={{ marginBottom: "1.5rem" }} />
         <p
           style={{
             fontFamily: "var(--font-sans)",
@@ -94,11 +94,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               router.invalidate();
               reset();
             }}
-            className="btn-primary"
+            className="nb-btn"
           >
             TRY AGAIN
           </button>
-          <a href="/" className="btn-ghost">
+          <a href="/" className="nb-btn nb-btn--ghost">
             GO HOME
           </a>
         </div>
@@ -188,9 +188,9 @@ function RootComponent() {
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.from(".route-content", { opacity: 0, y: 8, duration: 0.25, ease: "power2.out" });
 
-        const sections = gsap.utils.toArray<HTMLElement>(".swiss-page-section");
+        const sections = gsap.utils.toArray<HTMLElement>(".nb-page-section");
         sections.forEach((section) => {
-          const eyebrow = section.querySelector<HTMLElement>(".swiss-eyebrow");
+          const eyebrow = section.querySelector<HTMLElement>(".nb-eyebrow");
           const heading = section.querySelector<HTMLElement>("h2");
 
           if (eyebrow) {
@@ -233,7 +233,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="page-container">
+      <div className="nb-page">
         <ScrollProgress />
         <a href="#main-content" className="skip-link">
           Skip to main content
@@ -244,8 +244,8 @@ function RootComponent() {
             <Outlet />
           </div>
         </Suspense>
-        <SwissFooter />
-        <SwissBackToTop />
+        <NbFooter />
+        <NbBackToTop />
       </div>
     </QueryClientProvider>
   );
