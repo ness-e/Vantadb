@@ -1,6 +1,6 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { getAllPosts } from "../../lib/blog";
 
 export const Route = createLazyRoute("/blog/")({
@@ -12,7 +12,7 @@ function BlogIndex() {
 
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="00"
         eyebrow="Blog"
         title={

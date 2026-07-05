@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/pricing")({
@@ -192,7 +192,7 @@ const FAQ_ITEMS = [
 function PricingPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="05"
         eyebrow="Pricing"
         title={
@@ -290,7 +290,7 @@ function PricingPage() {
                 </ul>
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className={tier.featured ? "btn-primary" : "btn-ghost"}
+                  className={tier.featured ? "nb-btn" : "nb-btn nb-btn--ghost"}
                   style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
                 >
                   {tier.cta}
@@ -364,7 +364,7 @@ function PricingPage() {
                 </ul>
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className="btn-ghost"
+                  className="nb-btn nb-btn--ghost"
                   style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
                 >
                   {tier.cta}
@@ -494,7 +494,7 @@ function PricingPage() {
             </p>
             <Link
               to="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",

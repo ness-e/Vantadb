@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/use-cases")({
@@ -81,8 +81,8 @@ const PIPELINE_STEPS = [
 
 function UseCasesPage() {
   return (
-    <div className="swiss-page">
-      <SwissSubpageHero
+    <div className="nb-page">
+      <NbSubpageHero
         num="04"
         eyebrow="Use Cases"
         title={
@@ -95,9 +95,9 @@ function UseCasesPage() {
         sub="Eight production-tested patterns for persistent memory, hybrid search, and agentic data — all running in-process with zero external dependencies."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Production Patterns</span>
+      <main className="nb-main">
+        <section className="nb-section nb-section--bordered">
+          <span className="nb-eyebrow">01 / 02 — Production Patterns</span>
           <div
             style={{
               display: "grid",
@@ -188,8 +188,8 @@ function UseCasesPage() {
           </div>
         </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Core Pipeline</span>
+        <section className="nb-section">
+          <span className="nb-eyebrow">02 / 02 — Core Pipeline</span>
           <h2
             style={{
               fontFamily: "var(--font-display)",

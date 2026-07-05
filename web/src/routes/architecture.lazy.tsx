@@ -1,6 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/architecture")({
@@ -152,7 +152,7 @@ function ArchitecturePage() {
 
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="02"
         eyebrow="Architecture"
         title={

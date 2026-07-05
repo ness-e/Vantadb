@@ -1,6 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/integrations")({
@@ -142,7 +142,7 @@ function IntegrationsPage() {
 
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="03"
         eyebrow="Ecosystem & Integrations"
         title={
@@ -254,7 +254,7 @@ function IntegrationsPage() {
                 </span>
                 <button
                   onClick={handleCopy}
-                  className="btn-ghost"
+                  className="nb-btn nb-btn--ghost"
                   style={{ padding: "4px 12px", fontSize: "var(--text-micro)" }}
                 >
                   {copied ? "COPIED" : "COPY"}
@@ -340,7 +340,7 @@ function IntegrationsPage() {
             </p>
             <a
               href="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",

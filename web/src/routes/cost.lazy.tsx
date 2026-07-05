@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/cost")({
@@ -48,7 +48,7 @@ const VANTA_COSTS = [
 function CostPage() {
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="08"
         eyebrow="Infrastructure Cost"
         title={

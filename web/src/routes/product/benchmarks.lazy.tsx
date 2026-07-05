@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/product/benchmarks")({
   component: BenchmarksPage,
@@ -7,8 +7,8 @@ export const Route = createLazyRoute("/product/benchmarks")({
 
 function BenchmarksPage() {
   return (
-    <div className="swiss-page">
-      <SwissSubpageHero
+    <div className="nb-page">
+      <NbSubpageHero
         num="01"
         eyebrow="Benchmarks"
         title={
@@ -21,9 +21,9 @@ function BenchmarksPage() {
         sub="VantaDB is engineered for extreme low latency on edge devices. See how we compare against the industry."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">Throughput vs Latency</span>
+      <main className="nb-main">
+        <section className="nb-section">
+          <span className="nb-eyebrow">Throughput vs Latency</span>
 
           <div style={{ marginTop: "3rem" }}>
             <table

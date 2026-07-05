@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/solutions/ai-agents")({
   component: AiAgentsPage,
@@ -55,7 +55,7 @@ results = db.search_memory(query=embedding, top_k=5)`;
 function AiAgentsPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="01"
         eyebrow="Solution — AI Agent Memory"
         title={
@@ -236,7 +236,7 @@ function AiAgentsPage() {
             </p>
             <Link
               to="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",

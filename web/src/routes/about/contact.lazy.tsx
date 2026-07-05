@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/about/contact")({
   component: ContactPage,
@@ -47,7 +47,7 @@ const CONTACTS = [
 function ContactPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="06"
         eyebrow="About — Contact"
         title={
@@ -193,7 +193,7 @@ function ContactPage() {
             </p>
             <Link
               to="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",
