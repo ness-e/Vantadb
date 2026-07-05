@@ -411,7 +411,16 @@ impl VantaDB {
         js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).unwrap();
         js_sys::Reflect::set(&obj, &"score".into(), &(hit.score as f64).into()).unwrap();
         if let Some(ref explanation) = hit.explanation {
-            let expl_js: JsValue = serde_wasm_bindgen::to_value(explanation)
+            let mut sanitized = explanation.clone();
+            if sanitized.score.is_nan() || sanitized.score.is_infinite() {
+                sanitized.score = 0.0;
+            }
+            for term in &mut sanitized.bm25_terms {
+                if term.contribution.is_nan() || term.contribution.is_infinite() {
+                    term.contribution = 0.0;
+                }
+            }
+            let expl_js: JsValue = serde_wasm_bindgen::to_value(&sanitized)
                 .expect("search explanation serialization");
             js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).unwrap();
         }
@@ -689,8 +698,12 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
     js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
     if let Some(ref vector) = rec.vector {
+        let sanitized: Vec<f32> = vector
+            .iter()
+            .map(|x| if x.is_nan() || x.is_infinite() { 0.0 } else { *x })
+            .collect();
         let v: JsValue =
-            serde_wasm_bindgen::to_value(vector).expect("vector Vec<f32> serialization");
+            serde_wasm_bindgen::to_value(&sanitized).expect("vector Vec<f32> serialization");
         js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
     }
     if let Some(expires_at) = rec.expires_at_ms {

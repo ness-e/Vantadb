@@ -90,7 +90,16 @@ impl OpfsStorage {
     /// Delete a file at the given path from OPFS.
     pub async fn delete_file(&self, path: &str) -> Result<(), JsValue> {
         let remove = get_fn(&self.dir_handle, "removeEntry")?;
-        remove.call1(&self.dir_handle, &path.into())?;
+        let result = remove.call1(&self.dir_handle, &path.into());
+        if let Err(e) = result {
+            let name = Reflect::get(&e, &"name".into())
+                .ok()
+                .and_then(|v| v.as_string());
+            if name.as_deref() == Some("NotFoundError") {
+                return Ok(());
+            }
+            return Err(e);
+        }
         Ok(())
     }
 }
