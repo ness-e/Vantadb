@@ -46,14 +46,16 @@ impl<'a> GcWorker<'a> {
         let mut keys_to_remove = Vec::new();
         for (expiry, ids) in self.index_ttl.iter_mut() {
             if *expiry <= now {
-                // retain() serves as a retry mechanism: on success the ID is
-                // removed from the list (false); on transient failure it stays
-                // (true) so the next sweep will attempt deletion again.
+                // retain() serves as a retry mechanism:
+                // - Ok: removed from TTL map (false)
+                // - NodeNotFound: node was already manually deleted — remove (false)
+                // - Other error: transient failure — keep (true) for retry next sweep
                 ids.retain(|&id| match self.storage.delete(id, "GC TTL Expired") {
                     Ok(_) => {
                         expired_count += 1;
                         false
                     }
+                    Err(VantaError::NodeNotFound(_)) => false,
                     Err(e) => {
                         tracing::error!("GC failed to delete node {id}: {e}");
                         true

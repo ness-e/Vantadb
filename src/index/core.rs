@@ -429,7 +429,14 @@ pub struct HnswNode {
     pub storage_offset: u64,
     /// Pre-computed inverse L2 norm (1.0 / L2_norm) for Cosine fast-path. 0.0 = not cached.
     pub inv_cached_norm: f32,
-    /// Tombstone & feature flags (bit 0x8 = tombstone).
+    /// Tombstone & feature flags.
+    ///
+    /// Bit layout:
+    /// - 0x01: Reserved
+    /// - 0x02: Reserved
+    /// - 0x04: Reserved
+    /// - 0x08: Tombstone — node was deleted and should be ignored by search
+    /// - 0xF0..0x8000_0000: Unassigned — available for future feature flags
     pub flags: u32,
 }
 
@@ -838,10 +845,10 @@ impl CPIndex {
             };
 
             if let Some(neighbors_list) = neighbors {
-                // SCALE-01: Prefetch predictivo — emitimos sugerencias de pre-carga para
-                // TODOS los vecinos del candidato actual antes de calcular cualquier distancia.
-                // Esto permite al kernel (y al controlador de SSD) iniciar DMA de las páginas
-                // físicas en paralelo mientras la CPU calcula la distancia del nodo actual.
+                // SCALE-01: Predictive prefetch — issue prefetch hints for ALL neighbors of
+                // the current candidate before computing any distance. This lets the kernel
+                // (and SSD controller) start DMA of the physical pages in parallel while the
+                // CPU computes the current node's distance.
                 if should_prefetch() {
                     if let Some(vs) = vector_store {
                         let mmap_base = vs.mmap_bytes().as_ptr();
