@@ -420,8 +420,8 @@ impl VantaDB {
                     term.contribution = 0.0;
                 }
             }
-            let expl_js: JsValue = serde_wasm_bindgen::to_value(&sanitized)
-                .expect("search explanation serialization");
+            let expl_js: JsValue =
+                serde_wasm_bindgen::to_value(&sanitized).expect("search explanation serialization");
             js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).unwrap();
         }
         obj.into()
@@ -700,7 +700,13 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     if let Some(ref vector) = rec.vector {
         let sanitized: Vec<f32> = vector
             .iter()
-            .map(|x| if x.is_nan() || x.is_infinite() { 0.0 } else { *x })
+            .map(|x| {
+                if x.is_nan() || x.is_infinite() {
+                    0.0
+                } else {
+                    *x
+                }
+            })
             .collect();
         let v: JsValue =
             serde_wasm_bindgen::to_value(&sanitized).expect("vector Vec<f32> serialization");

@@ -46,16 +46,14 @@ impl<'a> GcWorker<'a> {
         let mut keys_to_remove = Vec::new();
         for (expiry, ids) in self.index_ttl.iter_mut() {
             if *expiry <= now {
-                ids.retain(|&id| {
-                    match self.storage.delete(id, "GC TTL Expired") {
-                        Ok(_) => {
-                            expired_count += 1;
-                            false
-                        }
-                        Err(e) => {
-                            tracing::error!("GC failed to delete node {id}: {e}");
-                            true
-                        }
+                ids.retain(|&id| match self.storage.delete(id, "GC TTL Expired") {
+                    Ok(_) => {
+                        expired_count += 1;
+                        false
+                    }
+                    Err(e) => {
+                        tracing::error!("GC failed to delete node {id}: {e}");
+                        true
                     }
                 });
                 if ids.is_empty() {
