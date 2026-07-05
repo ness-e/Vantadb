@@ -50,17 +50,16 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `CODE-018` | **`expect()` panic en serialización WASM vectors NaN/Inf** — Mata instancia WASM completa. Un nodo corrupto → DB inaccesible | `lib.rs:48-51` | 🟢 4h | 🔴 | ❌ |
 
-| `CODE-019` | **TS `close()` llama `free()` no `close()` del Rust** — Puede saltar shutdown completo del engine. Sin flush WAL | `vantadb.ts:49-51` | 🟢 4h | 🔴 | ❌ |
+
 
 ### 🐛 Python SDK Data Bugs
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `CODE-004` | **`hardware_profile()` muta dict de `capabilities()`** — `PyDict::clone()` es shallow ref. `merged_dict` y `caps_dict` apuntan al MISMO objeto | `lib.rs:1204-1231` | 🟡 1d | 🔴 | ❌ |
-| `CODE-005` | **WASM `delete_file()` nunca hace await de la Promise** — `removeEntry()` retorna Promise que se pierde. Errores silenciosos | `opfs.rs:86-90` | 🟡 1d | 🔴 | ❌ |
-| `CODE-011` | **100% errores Rust → `PyRuntimeError`** — Sin KeyError, ValueError, FileNotFoundError. Backend indescifrable | `lib.rs:700-846` (~40 sites) | 🟡 2-3d | 🔴 | ❌ |
+
+
 
 ### 📦 Publicación de Integraciones (BLOQUEA ADOPCIÓN)
 
@@ -395,7 +394,7 @@ aliases: []
     🔴  MKT-15 (bench)  │   🔴  CODE-007 (tombstone bypass)
     🔴  TS SDK hardening│   🔴  CODE-008 (HNSW never removes)
     🔴  Python errors    │   🔴  CODE-020/021 (XSS)
-    🔴  MKT-11 (llms.txt)│   🔴  CODE-011 (PyRuntimeError)
+    🔴  MKT-11 (llms.txt)│   ✅  CODE-011 (PyRuntimeError)  
     🟡  DX-02 (62ms)    │   🟡  CODE-024 (scan_nodes OOM)
                         │   🟡  CODE-029 (read lock search)
                         │
@@ -435,7 +434,7 @@ Esfuerzo                │   Esfuerzo
 | `CODE-002` | WAL append después de validación | 2-3d | ⚠️ Phantom records |
 | `CODE-007` | Tombstone check en HNSW insert | 2-3d | 🟡 Degradación calidad |
 | `CODE-008` | Implementar HNSW remove() | 1-2d | 🟡 Memory leak |
-| `CODE-011` | Mapeo VantaError→Python exceptions | 2-3d | 🟢 Adopción SDK |
+| ~~`CODE-011`~~ | ~~Mapeo VantaError→Python exceptions~~ | ~~2-3d~~ | 🟢 ✅ Adopción SDK |
 | `CODE-024` | scan_nodes paginado o streaming | 2-3d | 🟡 OOM |
 | `CODE-029` | Read lock acotado en search | 2-3d | 🟡 Write starvation |
 | `INT-01/02` | LangChain + LlamaIndex → PyPI | 1-2d | ⚠️ Bloquea adopción |
@@ -447,14 +446,17 @@ Esfuerzo                │   Esfuerzo
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|-------------|---------|------------|
-| BFS order vacío destruye DB | 🟢 Baja | 🔴 Data-loss total | **CODE-026** TIER 0 |
+| BFS order vacío destruye DB | 🟢 Baja | 🔴 Data-loss total | **CODE-026** TIER 0 ✅ |
 | XSS via blog raw HTML | 🟢 Baja | 🟡 Ejecución remota (blog posts estáticos + DOMPurify) | **CODE-021** TIER 0 ✅ |
-| Path traversal Python SDK | 🟡 Media | 🔴 File system access | **CODE-012** TIER 0 |
+| Path traversal Python SDK | 🟢 Baja | 🔴 File system access | **CODE-012** TIER 0 ✅ |
 | HNSW sin remove + tombstone bypass | 🔴 Alta | 🟡 Degradación calidad | **CODE-007/008** TIER 1 |
 | scan_nodes OOM | 🟡 Media | 🟡 Server crash | **CODE-024** TIER 1 |
 | Read lock en search bloquea writes | 🟡 Media | 🟡 Write starvation | **CODE-029** TIER 1 |
-| Python 100% RuntimeError | 🔴 Alta | 🟡 Sin diagnóstico | **CODE-011** TIER 0 |
+| Python 100% RuntimeError | 🟢 Baja | 🟡 Sin diagnóstico | **CODE-011** TIER 0 ✅ |
 | Migration runner roto | 🟡 Media | 🔴 Data loss | DB-01 TIER 0 |
+| WASM expect() panic on NaN/Inf | 🟢 Baja | 🔴 WASM instance crash | **CODE-018** TIER 0 ✅ |
+| TS close() llama free() no close() | 🟢 Baja | 🔴 WAL flush skip | **CODE-019** TIER 0 ✅ |
+| WASM delete_file() sin await | 🟢 Baja | 🟡 Errores silenciosos | **CODE-005** TIER 0 ✅ |
 | LangChain/LlamaIndex no publicados | 🔴 Alta | 🔴 Sin adopción | INT-01/02 TIER 0 |
 | Latencia 62ms vs target 20ms | 🟡 Media | 🟡 Claims engañosos | DX-02 TIER 1 |
 | Trademark no registrado | 🟡 Media | 🔴 Name squatting | LEG-01 TIER 2 |
@@ -506,11 +508,11 @@ Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se de
 
 ```
 Jul 4-11   TIER 0 (🔴 23 items):
-           ─ Data loss: CODE-026
-           ─ Security: CODE-012, SEC-08/09/10
-           ─ Migration: DB-01/02
-           ─ Crash: CODE-018/019
-           ─ Python bugs: CODE-004/005/011/014
+            ─ Data loss: ~~CODE-026~~
+            ─ Security: ~~CODE-012~~, SEC-08/09/10
+            ─ Migration: DB-01/02
+             ─ Crash: ~~CODE-018/019~~
+             ─ Python bugs: CODE-004/~~005~~/~~011~~/014
            ─ Integrations: INT-01→10, DEVOPS-05, REL-02, tests
 Jul 11-18  TIER 1 (🟠 33 items):
             ─ Marketing: MKT-11/12, DX-02, CODE-091
