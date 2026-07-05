@@ -691,7 +691,7 @@ fn py_dict_to_metadata(
 /// - `IoError` (other) → `OSError`
 /// - `NotFound` / `NodeNotFound` → `KeyError`
 /// - `ValidationError`, `DuplicateNode`, `DimensionMismatch`, `SerializationError`,
-///   `OldSerializationError`, `InvalidInput`, `SchemaError`, `IncompatibleFormat`,
+///   `InvalidInput`, `SchemaError`, `IncompatibleFormat`,
 ///   `NodeIdCollision`, `IqlParseError`, `IqlError` → `ValueError`
 /// - `Timeout` → `TimeoutError`
 /// - All other variants → `RuntimeError` (catch-all)
@@ -711,7 +711,6 @@ fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
         | VantaError::DuplicateNode(_)
         | VantaError::DimensionMismatch { .. }
         | VantaError::SerializationError(_)
-        | VantaError::OldSerializationError(_)
         | VantaError::InvalidInput(_)
         | VantaError::SchemaError(_)
         | VantaError::IncompatibleFormat { .. }
