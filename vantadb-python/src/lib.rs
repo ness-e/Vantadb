@@ -37,7 +37,7 @@ thread_local! {
 }
 
 struct LruCache {
-    map: HashMap<String, String>,
+    map: HashMap<String, std::collections::BTreeMap<String, VantaValue>>,
     order: Vec<String>,
     capacity: usize,
 }
@@ -51,20 +51,20 @@ impl LruCache {
         }
     }
 
-    fn get(&mut self, key: &str) -> Option<&str> {
+    fn get(&mut self, key: &str) -> Option<std::collections::BTreeMap<String, VantaValue>> {
         if let Some(value) = self.map.get(key) {
             // Move to back (most recently used)
             if let Some(pos) = self.order.iter().position(|k| k == key) {
                 self.order.remove(pos);
                 self.order.push(key.to_string());
             }
-            Some(value.as_str())
+            Some(value.clone())
         } else {
             None
         }
     }
 
-    fn put(&mut self, key: String, value: String) {
+    fn put(&mut self, key: String, value: std::collections::BTreeMap<String, VantaValue>) {
         if self.map.len() >= self.capacity && !self.map.contains_key(&key) {
             if let Some(lru_key) = self.order.first().cloned() {
                 self.map.remove(&lru_key);
@@ -73,6 +73,12 @@ impl LruCache {
         }
         if !self.map.contains_key(&key) {
             self.order.push(key.clone());
+        } else {
+            // CODE-038: refresh order on update
+            if let Some(pos) = self.order.iter().position(|k| *k == key) {
+                self.order.remove(pos);
+                self.order.push(key.clone());
+            }
         }
         self.map.insert(key, value);
     }
@@ -198,14 +204,23 @@ fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec
             return Ok(v);
         }
     }
-    // Try f64 buffer (common in NumPy) and downcast to f32 using buffer cache
+    // Try f64 buffer (common in NumPy) and downcast to f32
     if let Ok(buf) = pyo3::buffer::PyBuffer::<f64>::get(obj) {
         if buf.is_c_contiguous() {
             if let Ok(v) = buf.to_vec(py) {
                 let len = v.len();
                 let mut result = Vec::with_capacity(len);
                 for x in v {
-                    result.push(x as f32);
+                    let cast = x as f32;
+                    // CODE-082: warn on significant precision loss
+                    if (cast as f64 - x).abs() > 1e-7 {
+                        tracing::debug!(
+                            "Precision loss casting f64 {} to f32: delta={}",
+                            x,
+                            (cast as f64 - x).abs()
+                        );
+                    }
+                    result.push(cast);
                 }
                 return Ok(result);
             }
@@ -594,23 +609,28 @@ fn py_dict_to_metadata(
 ) -> PyResult<std::collections::BTreeMap<String, VantaValue>> {
     let mut metadata = std::collections::BTreeMap::new();
     if let Some(extra) = fields {
-        // Generate a cache key from dict repr for small/common patterns
+        // Build value-aware cache key for small/common dicts
         let mut use_cache = extra.len() <= 4;
         let cache_key = if use_cache {
             let mut buf = String::with_capacity(64);
-            let mut keys: Vec<String> = Vec::with_capacity(extra.len());
-            for (key, _) in extra.iter() {
-                if let Ok(k) = key.extract::<String>() {
-                    keys.push(k);
-                } else {
-                    use_cache = false;
-                    break;
+            let mut entries: Vec<(String, String)> = Vec::with_capacity(extra.len());
+            for (key, value) in extra.iter() {
+                let k: Result<String, _> = key.extract();
+                let v = value.repr().map(|r| r.to_string());
+                match (k, v) {
+                    (Ok(k), Ok(v)) => entries.push((k, v)),
+                    _ => {
+                        use_cache = false;
+                        break;
+                    }
                 }
             }
             if use_cache {
-                keys.sort();
-                for k in &keys {
+                entries.sort_by(|a, b| a.0.cmp(&b.0));
+                for (k, v) in &entries {
                     buf.push_str(k);
+                    buf.push('=');
+                    buf.push_str(v);
                     buf.push('\n');
                 }
             }
@@ -619,17 +639,14 @@ fn py_dict_to_metadata(
             String::new()
         };
 
+        // Check cache first (CODE-014)
         if use_cache {
-            let hit = LRU_CACHE.with(|cache| {
+            let cached = LRU_CACHE.with(|cache| {
                 let mut cache = cache.borrow_mut();
-                cache.get(&cache_key).map(|s| s.to_string())
+                cache.get(&cache_key)
             });
-            if let Some(_cached) = hit {
-                // Fast path: cached metadata result matches common pattern.
-                // We still need to parse it again since dict values may differ,
-                // but the cache hit means we've seen this key shape before.
-                // For truly identical dicts, cache the serialized BTreeMap.
-                // For now, just proceed to normal parsing.
+            if let Some(meta) = cached {
+                return Ok(meta);
             }
         }
 
@@ -640,10 +657,9 @@ fn py_dict_to_metadata(
 
         // Cache the result for small dicts
         if use_cache && metadata.len() <= 4 {
-            let ser = format!("{:?}", metadata);
             LRU_CACHE.with(|cache| {
                 let mut cache = cache.borrow_mut();
-                cache.put(cache_key, ser);
+                cache.put(cache_key, metadata.clone());
             });
         }
     }
@@ -1242,7 +1258,12 @@ impl VantaDB {
         let caps_dict = caps_obj.bind(py).cast::<PyDict>()?;
         let metrics_dict = metrics_obj.bind(py).cast::<PyDict>()?;
 
-        let merged_dict = caps_dict.clone();
+        // CODE-004: create a NEW dict instead of shallow-cloning caps_dict
+        let merged_dict = PyDict::new(py);
+        for entry in caps_dict.iter() {
+            let (key, value) = entry;
+            merged_dict.set_item(key, value)?;
+        }
 
         let memory_keys = [
             "process_rss_bytes",
@@ -1453,13 +1474,22 @@ impl VantaDB {
 ///
 /// Args:
 ///     path: Filesystem path, empty string, or ":memory:" for in-memory.
+///     memory_limit: Optional memory budget in bytes.
 #[pyfunction]
-fn connect(path: &str) -> PyResult<VantaDB> {
-    let engine = if path.is_empty() || path == ":memory:" {
-        vantadb::sdk::connect(":memory:").map_err(map_vanta_error)?
-    } else {
-        vantadb::sdk::connect(path).map_err(map_vanta_error)?
+#[pyo3(signature = (path, memory_limit=None))]
+fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
+    use vantadb::config::VantaConfig;
+    use vantadb::sdk::VantaEmbedded;
+    let config = VantaConfig {
+        storage_path: if path.is_empty() || path == ":memory:" {
+            ":memory:".to_string()
+        } else {
+            path.to_string()
+        },
+        memory_limit,
+        ..Default::default()
     };
+    let engine = VantaEmbedded::open_with_config(config).map_err(map_vanta_error)?;
     Ok(VantaDB { engine })
 }
 
