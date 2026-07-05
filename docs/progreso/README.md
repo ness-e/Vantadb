@@ -1107,6 +1107,53 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] Auditoría — `web-deploy.yml` no existe en el repo ✅
 - **Ids:** `CODE-079`
 
+### CODE-012: Path traversal en Python SDK export/import/constructor — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `../../etc/passwd` pasaba sin validación en constructor, export_namespace, export_all, import_file. Se añadió `prevent_path_traversal()` que rechaza paths con `..`.
+- **Checklist:**
+  - [x] `prevent_path_traversal()` en `ops.rs`
+  - [x] Validación en `init_storage()` — protege constructor/CLI
+  - [x] Validación en `export_namespace/export_all/import_file` (serialization.rs)
+- **Ids:** `CODE-012`
+
+### CODE-026: BFS order vacío destruye DB en compact — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** bfs_order vacío escribía stub 64-byte sobre vector_store.vanta. Ahora `compact_layout()` retorna `ValidationError`.
+- **Checklist:**
+  - [x] Early return en compact_layout si bfs_order está vacío
+- **Ids:** `CODE-026`
+
+### CODE-011: 100% errores Rust → PyRuntimeError — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** Todo error Rust se mapeaba a PyRuntimeError genérico. map_vanta_error() asigna KeyError, ValueError, OSError, TimeoutError según la variante.
+- **Checklist:**
+  - [x] map_vanta_error() con 11 categorías de mapeo
+  - [x] 33 call sites reemplazados
+- **Ids:** `CODE-011`
+
+### CODE-018: expect() panic en serialización WASM vectors NaN/Inf — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `serde_wasm_bindgen::to_value(vector).expect(...)` paniqueaba si el vector contenía NaN/Inf, matando la instancia WASM completa.
+- **Checklist:**
+  - [x] Sanitización NaN/Inf → 0.0 antes de serializar en `memory_record_to_js`
+  - [x] Sanitización en `search_hit_to_js` para scores y BM25 contributions
+- **Ids:** `CODE-018`
+
+### CODE-019: TS close() llama free() no close() del Rust — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `close()` llamaba `this.inner.free()` saltando el shutdown graceful. Sin guard contra double-free.
+- **Checklist:**
+  - [x] `this.inner.free()` → `this.inner.close()` (WAL flush ahora ocurre)
+  - [x] `_closed: boolean` + `_assertOpen()` guard en todos los métodos
+- **Ids:** `CODE-019`
+
+### CODE-005: WASM delete_file() nunca maneja NotFoundError — FIXED
+- **Fecha:** 2026-07-04
+- **Objetivo:** `removeEntry()` sin try/catch — si el archivo no existe, DOMException propagaba como error.
+- **Checklist:**
+  - [x] NotFoundError atrapado → Ok(()), otros errores se propagan
+- **Ids:** `CODE-005`
+
 ### DOC-12: Update llms.txt Version Ranges
 - **Fecha:** 2026-07-02
 - **Objetivo:** Actualizar el archivo de especificación para consumo de LLMs (`llms.txt`) para reflejar la versión correcta del proyecto (v0.2.0) en la sección de historial de cambios.
