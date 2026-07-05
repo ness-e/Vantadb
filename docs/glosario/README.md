@@ -1,4 +1,5 @@
 ---
+title: Glosario VantaDB
 type: glossary
 status: stable
 tags: [vantadb, glossary, reference, concepts, technical]
