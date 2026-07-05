@@ -47,7 +47,9 @@
   color: var(--foreground);
   border: 1px solid var(--border-visible);
   padding: 0.3rem 0.5rem;
-  transition: border-color 80ms var(--ease-brutal), color 80ms var(--ease-brutal);
+  transition:
+    border-color 80ms var(--ease-brutal),
+    color 80ms var(--ease-brutal);
 }
 
 .nb-eco-item:hover {

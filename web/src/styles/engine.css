@@ -80,7 +80,9 @@
 }
 
 .engine-graph-edge {
-  transition: stroke 150ms ease, stroke-width 150ms ease;
+  transition:
+    stroke 150ms ease,
+    stroke-width 150ms ease;
 }
 
 .engine-graph-node {
