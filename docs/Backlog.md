@@ -25,7 +25,6 @@ aliases: []
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `CODE-001` | **WAL replay no escribe backend metadata** — `recover_state()` reaplica Insert/Update en vstore+HNSW pero NUNCA en StorageBackend. Tras crash, nodos en HNSW pero `get()` retorna nada | `engine.rs:395-398` | 🔴 2-3d | 🔴 | ❌ |
-| `CODE-002` | **WAL append antes de validación** — `insert()` escribe WAL (L132) ANTES de check duplicado (L135). Si falla, WAL tiene registro fantasma. Mismo bug en `update()` (L154→L159) y `delete()` (L168→L170) | `engine.rs:132-173` | 🔴 2-3d | 🔴 | ❌ |
 | `CODE-003` | **6 puntos de `process::exit(1)` sin flush WAL** — Salta todos los Drop. BufWriter pierde records buffered. File lock `vanta.lock` nunca se libera | `cli_server.rs:595-767` | 🟡 1-2d | 🔴 | ❌ |
 | `CODE-009` | **`save_vector_index()` traga errores de persistencia** — Retorna `()`, no `Result`. `persist_to_file()` falla → solo warn log. Caller cree que salvó OK | `engine.rs:1374` | 🟡 1d | 🔴 | ❌ |
 | `CODE-026` | **BFS order vacío destruye DB en compact** — Si `bfs_order` está vacío, compact reemplaza DB real con archivo vacío de 64 bytes | `archive.rs:15-107` | 🟡 1d | 🔴 | ❌ |
@@ -52,7 +51,7 @@ aliases: []
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `CODE-018` | **`expect()` panic en serialización WASM vectors NaN/Inf** — Mata instancia WASM completa. Un nodo corrupto → DB inaccesible | `lib.rs:48-51` | 🟢 4h | 🔴 | ❌ |
-| `CODE-015` | **`search_batch` usa rayon thread pool dentro de `py.detach`** — Deadlock por GIL si hilo re-entra Python | `lib.rs:1126-1143` | 🟡 1d | 🔴 | ❌ |
+
 | `CODE-019` | **TS `close()` llama `free()` no `close()` del Rust** — Puede saltar shutdown completo del engine. Sin flush WAL | `vantadb.ts:49-51` | 🟢 4h | 🔴 | ❌ |
 
 ### 🐛 Python SDK Data Bugs
@@ -182,7 +181,7 @@ aliases: []
 | `CODE-070` | **Sin bundle analysis** — Ni visualizer ni size budget. Three.js pasó desapercibido | `vite.config.ts` | 🟢 2h | 🟡 | ❌ |
 | `CODE-073` | **Cero e2e tests reales** — 2 tests, 11 líneas, solo homepage title check | `smoke.spec.ts` | 🟡 2-3d | 🟡 | ❌ |
 | `CODE-078` | **Sin `playwright install` en CI** — Si se agregan e2e, van a fallar | `web-ci.yml` | 🟢 1h | 🟢 | ❌ |
-| `CODE-079` | **`VERCEL_TOKEN` expuesto en CLI** — Mejor usar vercel-action | `web-deploy.yml:33-35` | 🟢 1h | 🟡 | ❌ |
+
 | `CODE-080` | **Dependabot sin npm ecosystem** — Frontend sin update automático | `dependabot.yml` | 🟢 1h | 🟢 | ❌ |
 
 ---
@@ -268,7 +267,7 @@ aliases: []
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | `CODE-048` | **Skip link después de `<Nav />`** — Usuario de teclado tabula toda nav antes de verlo | `__root.tsx:140-143` | 🟢 1h | 🟡 | ❌ |
-| `CODE-049` | **Sin focus trapping en drawer mobile** — Foco escapa detrás del overlay. No retorna al cerrar | `Nav.tsx` | 🟡 1d | 🟡 | ❌ |
+
 
 ---
 
@@ -325,7 +324,7 @@ aliases: []
 | `CODE-042` | **`BUFFER_CACHE` thread-local declarado, NUNCA usado** | `lib.rs:24-26` | 🟢 1h | 🟢 | ❌ |
 | `CODE-050` | **Date sorting produce NaN** — `new Date("").getTime()` cuando falta frontmatter | `blog.ts:67` | 🟢 1h | 🟢 | ❌ |
 | `CODE-051` | **`motion` chunk config para dep no instalado** — Dead config | `vite.config.ts:18` | 🟢 1h | 🟢 | ❌ |
-| `CODE-052` | **`marked.parse()` en import time** — Parse eager de todos los posts | `blog.ts:53` | 🟡 1d | 🟢 | ❌ |
+
 | `CODE-053` | **docs-api: 130 líneas dead code, nunca renderizado** — Redirect antes del lazy | `docs-api.*` | 🟢 1h | 🟢 | ❌ |
 | `CODE-054` | **`QueryClient` recreado en cada `getRouter()`** — Cache loss frágil | `router.tsx:5-16` | 🟢 1h | 🟢 | ❌ |
 | `CODE-055` | **Sin `rust-version.workspace` en miembros** — MSRV no enforced | Todos los member `Cargo.toml` | 🟢 1h | 🟢 | ❌ |
@@ -449,7 +448,6 @@ Esfuerzo                │   Esfuerzo
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|-------------|---------|------------|
 | WAL replay no escribe backend | 🔴 Alta | 🔴 Data-loss post-crash | **CODE-001** TIER 0 |
-| WAL append antes de validación | 🟡 Media | 🔴 Phantom recovery | **CODE-002** TIER 0 |
 | `process::exit()` sin flush | 🟡 Media | 🔴 Lost records | **CODE-003** TIER 0 |
 | save_vector_index traga errores | 🟡 Media | 🔴 Persistencia falsa | **CODE-009** TIER 0 |
 | BFS order vacío destruye DB | 🟢 Baja | 🔴 Data-loss total | **CODE-026** TIER 0 |
@@ -473,10 +471,10 @@ Esfuerzo                │   Esfuerzo
 
 | Categoría | TIER 0 ❌ | TIER 1 ❌ | TIER 2 ❌ | TIER 3 ❌ | PHASE 5 ❌ | Total |
 |-----------|----------|----------|----------|----------|-----------|-------|
-| 🩹 Data Loss & Crash Prev | 5 | 0 | 0 | 0 | 0 | 5 |
+| 🩹 Data Loss & Crash Prev | 4 | 0 | 0 | 0 | 0 | 4 |
 | 🛡️ Seguridad & Integrity | 1 | 0 | 0 | 3 | 0 | 4 |
 | ⚡ Migration Runner | 3 | 0 | 0 | 0 | 0 | 3 |
-| 💥 Crash/Deadlock Fixes | 3 | 0 | 0 | 0 | 0 | 3 |
+| 💥 Crash/Deadlock Fixes | 2 | 0 | 0 | 0 | 0 | 2 |
 | 🐛 Python SDK Data Bugs | 3 | 0 | 0 | 0 | 0 | 3 |
 | 📦 Integraciones & Release | 12 | 0 | 0 | 0 | 0 | 12 |
 | 🧪 Testing | 0 | 0 | 0 | 2 | 0 | 2 |
@@ -487,21 +485,21 @@ Esfuerzo                │   Esfuerzo
 | 🧪 WASM & MCP | 0 | 6 | 0 | 0 | 0 | 6 |
 | 📦 Distribución | 0 | 1 | 0 | 1 | 0 | 2 |
 | 🧹 Code Health Core | 0 | 4 | 0 | 0 | 0 | 4 |
-| 🧪 CI/CD Web Quality | 0 | 6 | 0 | 0 | 0 | 6 |
+| 🧪 CI/CD Web Quality | 0 | 5 | 0 | 0 | 0 | 5 |
 | 🚀 Launch Campaign | 0 | 0 | 10 | 0 | 0 | 10 |
 | 🌐 Conversión & SEO | 0 | 0 | 2 | 0 | 0 | 2 |
 | 🗄️ Database Evolution | 0 | 0 | 1 | 0 | 0 | 1 |
 | 🐛 GC & Background Tasks | 0 | 0 | 6 | 0 | 0 | 6 |
 | 👥 Comunidad | 0 | 0 | 5 | 0 | 0 | 5 |
 | 🎨 SDK Mejoras | 0 | 0 | 12 | 0 | 0 | 12 |
-| 🔧 Accesibilidad Web | 0 | 0 | 2 | 0 | 0 | 2 |
+| 🔧 Accesibilidad Web | 0 | 0 | 1 | 0 | 0 | 1 |
 | 📦 Distribución Avanzada | 0 | 0 | 0 | 1 | 0 | 1 |
 | 🧪 Testing Post-Launch | 0 | 0 | 0 | 8 | 0 | 8 |
 | 🛡️ Seguridad Post-Launch | 0 | 0 | 0 | 3 | 0 | 3 |
-| 🧹 Code Health General | 0 | 0 | 0 | 23 | 0 | 23 |
+| 🧹 Code Health General | 0 | 0 | 0 | 22 | 0 | 22 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **28** | **33** | **38** | **41** | **20** | **160** |
+| **Total** | **26** | **32** | **37** | **40** | **20** | **155** |
 
 Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se debe a subtareas ✅ completadas dentro de categorías que igual listamos para tracking.
 
@@ -510,27 +508,27 @@ Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se de
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 28 items):
-           ─ Data loss: CODE-001/002/003/009/026/027
-           ─ Security: CODE-012/020/021, SEC-08/09/10
+Jul 4-11   TIER 0 (🔴 26 items):
+           ─ Data loss: CODE-001/003/009/026
+           ─ Security: CODE-012, SEC-08/09/10
            ─ Migration: DB-01/02
-           ─ Crash: CODE-015/018/019
+           ─ Crash: CODE-018/019
            ─ Python bugs: CODE-004/005/011/014
            ─ Integrations: INT-01→10, DEVOPS-05, REL-02, tests
 Jul 11-18  TIER 1 (🟠 33 items):
             ─ Marketing: MKT-11/12, DX-02, CODE-091
             ─ Index: CODE-007/008/010/024/029/030
-            ─ Web: MKT-13/14, CODE-023/070/073/078/079/080
+            ─ Web: MKT-13/14, CODE-023/070/073/078/080
            ─ Docs: MCP per-IDE, CODE-085
            ─ WASM: MCP-03, CODE-059/060
            ─ Distribución: DEVOPS-02/06/10
            �─ Code health: CODE-014/067/089/090
-Jul 18-25  TIER 2 (🟡 38 items):
+Jul 18-25  TIER 2 (🟡 37 items):
            ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104
            ─ GC: CODE-031/032/037/064/065/066
            ─ Comunidad: COM-01, TSK-106/107/108, Good first issues
            ─ SDK: CODE-045/046/047/081/083/084/086/087/088, DX-01/04
-           ─ Accesibilidad: CODE-048/049
+           ─ Accesibilidad: CODE-048
            ─ SEO/Conversion: MKT-17, WEB-08
 Ago-Sep    TIER 3 (🔵 41 items):
            ─ Testing: CODE-033/035/043/044/057/074/075
