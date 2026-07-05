@@ -202,10 +202,7 @@ function PlaygroundPage() {
                       {results.length} results ({results[0]?.score.toFixed(3)} max score)
                     </span>
                     {results.map((r) => (
-                      <div
-                        key={r.id}
-                        className="playground-result-row"
-                      >
+                      <div key={r.id} className="playground-result-row">
                         <span
                           style={{
                             ...CMD_LINE_STYLE,
@@ -277,16 +274,9 @@ function PlaygroundPage() {
               { label: "Mode", value: "HNSW + BM25" },
               { label: "Dims", value: "1536d" },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="playground-stat-card"
-              >
-                <span className="playground-stat-value">
-                  {s.value}
-                </span>
-                <span className="playground-stat-label">
-                  {s.label}
-                </span>
+              <div key={s.label} className="playground-stat-card">
+                <span className="playground-stat-value">{s.value}</span>
+                <span className="playground-stat-label">{s.label}</span>
               </div>
             ))}
           </div>
@@ -295,12 +285,12 @@ function PlaygroundPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2 className="playground-heading">
-            Quick Start
-          </h2>
+          <h2 className="playground-heading">Quick Start</h2>
           <div className="nb-divider" />
           <div className="playground-code-block">
-            <span className="playground-syntax-steel">// Embed VantaDB in any JS runtime{"\n"}</span>
+            <span className="playground-syntax-steel">
+              // Embed VantaDB in any JS runtime{"\n"}
+            </span>
             <span className="playground-syntax-amber">import</span>{" "}
             <span className="playground-syntax-default">{`{ VantaDB }`}</span>{" "}
             <span className="playground-syntax-amber">from</span>{" "}

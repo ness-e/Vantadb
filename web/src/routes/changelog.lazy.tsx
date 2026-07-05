@@ -221,9 +221,7 @@ function ChangelogPage() {
       <main>
         <div className="nb-section--sm">
           <div className="nb-inner">
-            <div
-              className="flex gap-[1px] changelog-filter-bar"
-            >
+            <div className="flex gap-[1px] changelog-filter-bar">
               {ALL_TYPES.map((t) => {
                 const cfg = TYPE_CONFIG[t];
                 const isActive = activeFilter === t;
@@ -256,21 +254,12 @@ function ChangelogPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div
-              className="flex flex-col gap-[1px] changelog-releases-container"
-            >
+            <div className="flex flex-col gap-[1px] changelog-releases-container">
               {filteredReleases.map((release, i) => (
-                <div
-                  key={release.version}
-                  className="grid grid-cols-[220px_1fr] changelog-release"
-                >
-                  <div
-                    className="p-8 flex flex-col gap-2 relative changelog-release-sidebar"
-                  >
+                <div key={release.version} className="grid grid-cols-[220px_1fr] changelog-release">
+                  <div className="p-8 flex flex-col gap-2 relative changelog-release-sidebar">
                     {i === 0 && (
-                      <span
-                        className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.1em] text-amber w-fit px-2 py-1 mb-2 changelog-current-badge"
-                      >
+                      <span className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.1em] text-amber w-fit px-2 py-1 mb-2 changelog-current-badge">
                         CURRENT
                       </span>
                     )}
@@ -315,9 +304,7 @@ function ChangelogPage() {
               ))}
             </div>
 
-            <div
-              className="grid grid-cols-[220px_1fr] gap-8 items-start mt-8 p-8 changelog-semver-box"
-            >
+            <div className="grid grid-cols-[220px_1fr] gap-8 items-start mt-8 p-8 changelog-semver-box">
               <div>
                 <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                   SEMVER
@@ -337,18 +324,12 @@ function ChangelogPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <h2
-                      className="font-display text-2xl font-extrabold changelog-cta-title"
-                    >
-                      Always improving. Ship with confidence.
-                    </h2>
-                    <p className="text-sm changelog-cta-text">
-                      Install VantaDB in one command.
-                    </p>
+                  <h2 className="font-display text-2xl font-extrabold changelog-cta-title">
+                    Always improving. Ship with confidence.
+                  </h2>
+                  <p className="text-sm changelog-cta-text">Install VantaDB in one command.</p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold changelog-cta-code"
-                >
+                <code className="font-mono text-lg font-bold changelog-cta-code">
                   pip install vantadb-py
                 </code>
               </div>

@@ -83,15 +83,9 @@ function CompanyPage() {
           <div className="nb-grid nb-grid--cols-2 about-company-grid-top">
             {VALUES.map((v) => (
               <div key={v.num} className="nb-cell about-company-value-card">
-                <span className="about-company-value-num">
-                  {v.num}
-                </span>
-                <h3 className="about-company-value-title">
-                  {v.title}
-                </h3>
-                <p className="about-company-value-desc">
-                  {v.desc}
-                </p>
+                <span className="about-company-value-num">{v.num}</span>
+                <h3 className="about-company-value-title">{v.title}</h3>
+                <p className="about-company-value-desc">{v.desc}</p>
               </div>
             ))}
           </div>
@@ -102,36 +96,26 @@ function CompanyPage() {
         <div className="nb-inner">
           <h2 className="about-company-section-title">Why VantaDB</h2>
           <div className="nb-divider" />
-          <p className="about-company-feature-lead">
-            The AI stack shouldn't need a database team.
-          </p>
+          <p className="about-company-feature-lead">The AI stack shouldn't need a database team.</p>
 
           <div className="about-company-compare-grid">
             <div className="nb-card about-company-compare-card-left">
-              <span className="about-company-compare-label-alt">
-                The alternatives
-              </span>
+              <span className="about-company-compare-label-alt">The alternatives</span>
               <ul className="nb-list">
                 {COMPARISON_LEFT.map((item) => (
                   <li key={item} className="about-company-compare-item-left">
-                    <span className="about-company-bullet-x">
-                      ✗
-                    </span>
+                    <span className="about-company-bullet-x">✗</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
             <div className="nb-card about-company-compare-card-right">
-              <span className="about-company-compare-label-highlight">
-                VantaDB
-              </span>
+              <span className="about-company-compare-label-highlight">VantaDB</span>
               <ul className="nb-list">
                 {COMPARISON_RIGHT.map((item) => (
                   <li key={item} className="about-company-compare-item-right">
-                    <span className="about-company-bullet-check">
-                      ✓
-                    </span>
+                    <span className="about-company-bullet-check">✓</span>
                     {item}
                   </li>
                 ))}
@@ -144,16 +128,9 @@ function CompanyPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber about-company-cta-block">
-            <span className="about-company-cta-label">
-              READ OUR STORY
-            </span>
-            <p className="about-company-cta-desc">
-              Learn more about our community.
-            </p>
-            <Link
-              to="/about/community"
-              className="nb-btn nb-btn--ghost about-company-cta-btn"
-            >
+            <span className="about-company-cta-label">READ OUR STORY</span>
+            <p className="about-company-cta-desc">Learn more about our community.</p>
+            <Link to="/about/community" className="nb-btn nb-btn--ghost about-company-cta-btn">
               COMMUNITY
             </Link>
           </div>
@@ -166,9 +143,7 @@ function CompanyPage() {
 export function PendingComponent() {
   return (
     <div className="about-pending-container">
-      <span className="about-pending-text">
-        Loading...
-      </span>
+      <span className="about-pending-text">Loading...</span>
     </div>
   );
 }

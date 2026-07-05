@@ -68,27 +68,18 @@ function TeamPage() {
 
           <div className="nb-grid nb-grid--cols-3 about-team-grid-top">
             {TEAM.map((m) => (
-              <div
-                key={m.name}
-                className="nb-cell about-team-member-card"
-              >
+              <div key={m.name} className="nb-cell about-team-member-card">
                 <div className="nb-dither about-team-avatar">
                   <div>{"> user: " + m.avatarUser}</div>
                   <div>{"> status: " + m.avatarStatus}</div>
                 </div>
 
                 <div className="about-team-member-info">
-                  <span className="about-team-member-name">
-                    {m.name}
-                  </span>
+                  <span className="about-team-member-name">{m.name}</span>
 
-                  <span className="about-team-member-role">
-                    [{m.role}]
-                  </span>
+                  <span className="about-team-member-role">[{m.role}]</span>
 
-                  <p className="about-team-member-desc">
-                    {m.desc}
-                  </p>
+                  <p className="about-team-member-desc">{m.desc}</p>
                 </div>
               </div>
             ))}
@@ -99,16 +90,11 @@ function TeamPage() {
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
           <div className="nb-block-amber about-team-cta-block">
-            <span className="about-team-cta-label">
-              JOIN THE TEAM
-            </span>
+            <span className="about-team-cta-label">JOIN THE TEAM</span>
             <p className="about-team-cta-desc">
               We're always looking for talented people who share our mission. Say hello.
             </p>
-            <Link
-              to="/about/contact"
-              className="nb-btn nb-btn--ghost about-team-cta-btn"
-            >
+            <Link to="/about/contact" className="nb-btn nb-btn--ghost about-team-cta-btn">
               CONTACT US
             </Link>
           </div>

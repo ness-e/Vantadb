@@ -202,18 +202,12 @@ function DocsPage() {
 
             <div>
               {sections.map((s) => (
-                <div
-                  key={s.id}
-                  id={s.id}
-                  className="nb-card nb-bg-cross--faint docs-card"
-                >
+                <div key={s.id} id={s.id} className="nb-card nb-bg-cross--faint docs-card">
                   <h3 className="docs-section-title">
                     {s.num} — {s.title}
                   </h3>
                   <div className="nb-divider" />
-                  <p className="docs-section-desc">
-                    {s.desc}
-                  </p>
+                  <p className="docs-section-desc">{s.desc}</p>
                   <div className="nb-frame docs-code-frame">
                     <pre className="docs-code-pre">
                       <code>{s.code}</code>
@@ -223,12 +217,8 @@ function DocsPage() {
               ))}
 
               <div className="nb-block-amber docs-help-block">
-                <span className="docs-help-label">
-                  NEED HELP?
-                </span>
-                <p className="docs-help-text">
-                  Join our Discord or open a GitHub discussion.
-                </p>
+                <span className="docs-help-label">NEED HELP?</span>
+                <p className="docs-help-text">Join our Discord or open a GitHub discussion.</p>
                 <a
                   href="https://github.com/ness-e/Vantadb/discussions"
                   className="nb-btn nb-btn--ghost docs-help-link"

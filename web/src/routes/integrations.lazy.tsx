@@ -157,9 +157,7 @@ function IntegrationsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2 className="integrations-section-title">
-            Framework Connectors
-          </h2>
+          <h2 className="integrations-section-title">Framework Connectors</h2>
           <div className="nb-divider" />
 
           <div className="integrations-grid">
@@ -210,30 +208,19 @@ function IntegrationsPage() {
 
               <div className="nb-card integrations-card-margin">
                 <div className="integrations-tag-row">
-                  <span className="integrations-tag">
-                    {active.tag}
-                  </span>
+                  <span className="integrations-tag">{active.tag}</span>
                   {active.experimental && (
-                    <span className="integrations-experimental-tag">
-                      EXPERIMENTAL
-                    </span>
+                    <span className="integrations-experimental-tag">EXPERIMENTAL</span>
                   )}
                 </div>
-                <p className="integrations-desc">
-                  {active.desc}
-                </p>
+                <p className="integrations-desc">{active.desc}</p>
               </div>
             </div>
 
             <div className="nb-frame integrations-code-frame">
               <div className="integrations-code-header">
-                <span className="integrations-code-label">
-                  {active.tag}
-                </span>
-                <button
-                  onClick={handleCopy}
-                  className="nb-btn nb-btn--ghost integrations-copy-btn"
-                >
+                <span className="integrations-code-label">{active.tag}</span>
+                <button onClick={handleCopy} className="nb-btn nb-btn--ghost integrations-copy-btn">
                   {copied ? "COPIED" : "COPY"}
                 </button>
               </div>
@@ -247,25 +234,15 @@ function IntegrationsPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2 className="integrations-ecosystem-title">
-            Ecosystem
-          </h2>
+          <h2 className="integrations-ecosystem-title">Ecosystem</h2>
           <div className="nb-divider" />
-          <p className="integrations-ecosystem-lead">
-            Works with your stack.
-          </p>
+          <p className="integrations-ecosystem-lead">Works with your stack.</p>
 
-          <div
-            className="nb-grid integrations-ecosystem-grid"
-          >
+          <div className="nb-grid integrations-ecosystem-grid">
             {ECOSYSTEM_GRID.map((item) => (
               <div key={item.name} className="nb-cell integrations-ecosystem-cell">
-                <div className="integrations-ecosystem-name">
-                  {item.name}
-                </div>
-                <span className="integrations-ecosystem-tag">
-                  {item.tag}
-                </span>
+                <div className="integrations-ecosystem-name">{item.name}</div>
+                <span className="integrations-ecosystem-tag">{item.tag}</span>
               </div>
             ))}
           </div>
@@ -275,16 +252,9 @@ function IntegrationsPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber integrations-cta-block">
-            <span className="integrations-cta-label">
-              BUILD YOUR INTEGRATION
-            </span>
-            <p className="integrations-cta-text">
-              Check the docs to build your own connector.
-            </p>
-            <a
-              href="/docs"
-              className="nb-btn nb-btn--ghost integrations-cta-link"
-            >
+            <span className="integrations-cta-label">BUILD YOUR INTEGRATION</span>
+            <p className="integrations-cta-text">Check the docs to build your own connector.</p>
+            <a href="/docs" className="nb-btn nb-btn--ghost integrations-cta-link">
               DOCS
             </a>
           </div>

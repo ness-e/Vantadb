@@ -98,18 +98,10 @@ function CommunityPage() {
                 rel="noopener noreferrer"
                 className="nb-cell about-community-channel-card"
               >
-                <span className="about-community-channel-tag">
-                  {ch.tag}
-                </span>
-                <h3 className="about-community-channel-name">
-                  {ch.name}
-                </h3>
-                <p className="about-community-channel-desc">
-                  {ch.desc}
-                </p>
-                <span className="nb-arrow about-community-channel-cta">
-                  {ch.cta}
-                </span>
+                <span className="about-community-channel-tag">{ch.tag}</span>
+                <h3 className="about-community-channel-name">{ch.name}</h3>
+                <p className="about-community-channel-desc">{ch.desc}</p>
+                <span className="nb-arrow about-community-channel-cta">{ch.cta}</span>
               </a>
             ))}
           </div>
@@ -120,22 +112,14 @@ function CommunityPage() {
         <div className="nb-inner">
           <h2 className="about-community-section-title">Contribute</h2>
           <div className="nb-divider" />
-          <p className="about-community-feature-lead">
-            Ways to get involved.
-          </p>
+          <p className="about-community-feature-lead">Ways to get involved.</p>
 
           <div className="nb-grid nb-grid--cols-3">
             {WAYS.map((w) => (
               <div key={w.num} className="nb-cell about-community-way-card">
-                <span className="about-community-way-num">
-                  {w.num}
-                </span>
-                <h3 className="about-community-way-title">
-                  {w.title}
-                </h3>
-                <p className="about-community-way-desc">
-                  {w.desc}
-                </p>
+                <span className="about-community-way-num">{w.num}</span>
+                <h3 className="about-community-way-title">{w.title}</h3>
+                <p className="about-community-way-desc">{w.desc}</p>
               </div>
             ))}
           </div>
@@ -145,12 +129,8 @@ function CommunityPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber about-community-cta-block">
-            <span className="about-community-cta-label">
-              WANT TO CONTRIBUTE?
-            </span>
-            <p className="about-community-cta-desc">
-              Check out our GitHub for open issues.
-            </p>
+            <span className="about-community-cta-label">WANT TO CONTRIBUTE?</span>
+            <p className="about-community-cta-desc">Check out our GitHub for open issues.</p>
             <a
               href="https://github.com/ness-e/Vantadb"
               className="nb-btn nb-btn--ghost about-community-cta-btn"
@@ -167,9 +147,7 @@ function CommunityPage() {
 export function PendingComponent() {
   return (
     <div className="about-pending-container">
-      <span className="about-pending-text">
-        Loading...
-      </span>
+      <span className="about-pending-text">Loading...</span>
     </div>
   );
 }

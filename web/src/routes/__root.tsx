@@ -20,13 +20,9 @@ function NotFoundComponent() {
   return (
     <div className="nb-not-found-container">
       <div className="nb-not-found-card">
-        <h1 className="nb-not-found-code">
-          404
-        </h1>
+        <h1 className="nb-not-found-code">404</h1>
         <hr className="nb-hairline nb-not-found-divider" />
-        <p className="nb-not-found-text">
-          This page doesn't exist.
-        </p>
+        <p className="nb-not-found-text">This page doesn't exist.</p>
         <Link to="/" className="nb-btn">
           BACK HOME
         </Link>
@@ -42,9 +38,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="nb-error-container">
       <div className="nb-error-card">
         <hr className="nb-hairline nb-error-divider" />
-        <p className="nb-error-text">
-          Something went wrong. You can try again or go home.
-        </p>
+        <p className="nb-error-text">Something went wrong. You can try again or go home.</p>
         <div className="nb-error-actions">
           <button
             onClick={() => {
