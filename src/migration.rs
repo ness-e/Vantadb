@@ -4,6 +4,7 @@ use crate::binary_header::VantaHeader;
 use crate::error::Result;
 use crate::index::core::VECTOR_INDEX_VERSION;
 use crate::storage::vfile::VFILE_VERSION;
+use crate::wal::WAL_POSTCARD_VERSION;
 
 /// Physical format kinds that can be migrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,12 +149,15 @@ impl MigrationEngine {
         }
 
         if let Some(header) = self.read_header(&self.db_path.join("wal.log"), *b"VWAL")? {
-            if header.format_version < 1 {
+            if header.format_version < WAL_POSTCARD_VERSION {
                 plans.push(MigrationPlan {
                     format: FormatKind::Wal,
                     current_version: header.format_version,
-                    target_version: 1,
-                    action: "No WAL migration needed at current version".into(),
+                    target_version: WAL_POSTCARD_VERSION,
+                    action: format!(
+                        "WAL format version v{} → v{}",
+                        header.format_version, WAL_POSTCARD_VERSION
+                    ),
                 });
             }
         }
@@ -170,7 +174,7 @@ impl MigrationEngine {
                 Ok(())
             }
             FormatKind::Wal => {
-                println!("  ✓ WAL: current (v1) — no migration needed");
+                println!("  ✓ WAL: current (v{WAL_POSTCARD_VERSION}) — no migration needed");
                 Ok(())
             }
             FormatKind::Schema => {

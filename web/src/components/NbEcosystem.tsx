@@ -52,7 +52,9 @@ export function NbEcosystem() {
               <span className="nb-eco-col-label">{cat.label}</span>
               <div className="nb-eco-items">
                 {cat.items.map((item) => (
-                  <span key={item} className="nb-eco-item">{item}</span>
+                  <span key={item} className="nb-eco-item">
+                    {item}
+                  </span>
                 ))}
               </div>
             </div>

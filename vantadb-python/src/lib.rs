@@ -29,10 +29,6 @@ use vantadb::sdk::{
 use vantadb::DistanceMetric;
 
 thread_local! {
-    static BUFFER_CACHE: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
-}
-
-thread_local! {
     static LRU_CACHE: RefCell<LruCache> = RefCell::new(LruCache::new(64));
 }
 
@@ -166,7 +162,11 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
             }
             return Ok(VantaValue::ListString(vec));
         }
-        return Err(PyTypeError::new_err("Unsupported list element type."));
+        let first_type = first.get_type().name().unwrap_or("unknown");
+        return Err(PyTypeError::new_err(format!(
+            "Unsupported list element type '{first_type}' (inferred from first element). \
+             All list elements must be the same type: bool, int, float, str, or datetime."
+        )));
     }
     if let Ok(string) = value.extract::<String>() {
         return Ok(VantaValue::String(string));
@@ -1071,8 +1071,11 @@ impl VantaDB {
     }
 
     /// Return operational metrics for startup, replay, rebuild, export, and import.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during metrics snapshot.
     fn operational_metrics(&self, py: Python) -> PyResult<Py<PyAny>> {
-        let metrics = self.engine.operational_metrics();
+        let engine = self.engine.clone();
+        let metrics = py.detach(move || engine.operational_metrics());
         operational_metrics_to_pydict(py, &metrics)
     }
 
