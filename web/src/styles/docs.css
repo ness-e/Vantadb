@@ -1,203 +1,72 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Docs Layout & Sidebar Stylesheet
-   ═══════════════════════════════════════════════════════════ */
-
 .docs-layout {
-  display: flex;
-  gap: 4rem;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--space-xl);
+  align-items: start;
 }
 
-/* ── Sidebar ── */
-.docs-sidebar {
-  position: sticky;
-  top: 6rem;
-  width: 220px;
-  flex-shrink: 0;
-  max-height: calc(100vh - 8rem);
-  overflow-y: auto;
-}
-
-.docs-sidebar-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.docs-sidebar-label {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-
-.docs-sidebar-search {
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--foreground);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  outline: none;
-  transition: border-color 200ms var(--ease-out);
-}
-
-.docs-sidebar-search::placeholder {
-  color: var(--muted);
-}
-
-.docs-sidebar-search:focus {
-  border-color: var(--amber);
-}
-
-.docs-sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.docs-nav-link {
-  display: block;
-  width: 100%;
-  padding: 0.4rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-decoration: none;
-  border: 1px solid transparent;
-  background: transparent;
-  transition: all 200ms var(--ease-out);
-  cursor: pointer;
-}
-
-.docs-nav-link:hover {
-  color: var(--foreground);
-  border-color: var(--border);
-  background: var(--surface);
-}
-
-.docs-nav-link.active {
-  color: var(--amber);
-  border-color: var(--amber);
-  background: var(--amber-dim);
-}
-
-.docs-nav-link--hidden {
-  display: none;
-}
-
-/* ── Content ── */
-.docs-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.docs-section-header {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.docs-section-num {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--amber);
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
+.docs-card {
+  margin-bottom: var(--space-xl);
+  padding: var(--space-xl);
 }
 
 .docs-section-title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-size: var(--text-title);
+  font-weight: 700;
   color: var(--foreground);
-  line-height: 1.1;
+  margin: 0 0 var(--space-md);
 }
 
-.docs-section-body {
-  display: grid;
-  grid-template-columns: 4fr 8fr;
-  gap: 2rem;
-  align-items: start;
-}
-
-.docs-desc {
+.docs-section-desc {
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: var(--text-code);
   color: var(--muted);
-  line-height: 1.7;
-  margin: 0;
+  line-height: 1.6;
+  margin: var(--space-sm) 0 var(--space-md);
 }
 
-.docs-code-block {
-  border: 1px solid var(--border);
-  background: var(--block-dark-bg);
-}
-
-.docs-code-header {
-  padding: 0.65rem 1.25rem;
-  border-bottom: 1px solid var(--block-dark-border);
-}
-
-.docs-code-label {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--block-dark-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.docs-code-frame {
+  overflow-x: auto;
 }
 
 .docs-code-pre {
   margin: 0;
-  padding: 1.5rem;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.65;
-  color: var(--block-dark-text);
-  overflow-x: auto;
+  font-size: var(--text-code);
+  line-height: 1.6;
+  color: var(--foreground);
   white-space: pre;
 }
 
-/* ── Mobile ── */
-@media (max-width: 900px) {
+.docs-help-block {
+  text-align: center;
+}
+
+.docs-help-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--text-on-amber);
+  margin-bottom: var(--space-2xs);
+  display: block;
+}
+
+.docs-help-text {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--text-on-amber);
+  margin: var(--space-2xs) 0;
+  opacity: 0.85;
+}
+
+.docs-help-link {
+  border-color: var(--text-on-amber);
+  color: var(--text-on-amber);
+  box-shadow: var(--shadow-brutal);
+}
+
+@media (max-width: 768px) {
   .docs-layout {
-    flex-direction: column;
-    gap: 2rem;
-  }
-
-  .docs-sidebar {
-    position: static;
-    width: 100%;
-    max-height: none;
-    overflow-y: visible;
-  }
-
-  .docs-sidebar-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
-
-  .docs-nav-link {
-    white-space: nowrap;
-    font-size: 0.6rem;
-    padding: 0.35rem 0.6rem;
-  }
-
-  .docs-section-body {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+    grid-template-columns: 1fr !important;
   }
 }

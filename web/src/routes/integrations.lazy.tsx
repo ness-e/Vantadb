@@ -2,6 +2,7 @@ import { createLazyRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/integrations.css";
 
 export const Route = createLazyRoute("/integrations")({
   component: IntegrationsPage,
@@ -156,28 +157,12 @@ function IntegrationsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
+          <h2 className="integrations-section-title">
             Framework Connectors
           </h2>
           <div className="nb-divider" />
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "var(--space-xl)",
-              marginTop: "var(--space-xl)",
-              alignItems: "start",
-            }}
-          >
+          <div className="integrations-grid">
             <div>
               <div className="nb-grid nb-grid--cols-2">
                 {INTEGRATIONS.map((int) => (
@@ -223,94 +208,36 @@ function IntegrationsPage() {
                 ))}
               </div>
 
-              <div className="nb-card" style={{ marginTop: "var(--space-md)" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-2xs)",
-                    marginBottom: "var(--space-2xs)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-micro)",
-                      color: "var(--amber)",
-                      fontWeight: 700,
-                      marginBottom: 0,
-                    }}
-                  >
+              <div className="nb-card integrations-card-margin">
+                <div className="integrations-tag-row">
+                  <span className="integrations-tag">
                     {active.tag}
                   </span>
                   {active.experimental && (
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--text-micro)",
-                        color: "var(--amber)",
-                        fontWeight: 700,
-                        border: "1px solid var(--amber)",
-                        padding: "2px 6px",
-                        marginLeft: "var(--space-2xs)",
-                      }}
-                    >
+                    <span className="integrations-experimental-tag">
                       EXPERIMENTAL
                     </span>
                   )}
                 </div>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p className="integrations-desc">
                   {active.desc}
                 </p>
               </div>
             </div>
 
-            <div className="nb-frame" style={{ overflowX: "auto" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "var(--space-sm)",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--muted)",
-                    marginBottom: 0,
-                  }}
-                >
+            <div className="nb-frame integrations-code-frame">
+              <div className="integrations-code-header">
+                <span className="integrations-code-label">
                   {active.tag}
                 </span>
                 <button
                   onClick={handleCopy}
-                  className="nb-btn nb-btn--ghost"
-                  style={{ padding: "4px 12px", fontSize: "var(--text-micro)" }}
+                  className="nb-btn nb-btn--ghost integrations-copy-btn"
                 >
                   {copied ? "COPIED" : "COPY"}
                 </button>
               </div>
-              <pre
-                style={{
-                  margin: 0,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-code)",
-                  lineHeight: 1.6,
-                  color: "var(--foreground)",
-                  whiteSpace: "pre",
-                  overflowX: "auto",
-                }}
-              >
+              <pre className="integrations-code-pre">
                 <code>{active.code}</code>
               </pre>
             </div>
@@ -320,58 +247,23 @@ function IntegrationsPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
+          <h2 className="integrations-ecosystem-title">
             Ecosystem
           </h2>
           <div className="nb-divider" />
-          <p
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-display)",
-              fontWeight: 700,
-              letterSpacing: "var(--tracking-display)",
-              margin: "var(--space-sm) 0 var(--space-xl)",
-              lineHeight: 1.05,
-            }}
-          >
+          <p className="integrations-ecosystem-lead">
             Works with your stack.
           </p>
 
           <div
-            className="nb-grid"
-            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
+            className="nb-grid integrations-ecosystem-grid"
           >
             {ECOSYSTEM_GRID.map((item) => (
-              <div key={item.name} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                  }}
-                >
+              <div key={item.name} className="nb-cell integrations-ecosystem-cell">
+                <div className="integrations-ecosystem-name">
                   {item.name}
                 </div>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--muted)",
-                    marginTop: "var(--space-3xs)",
-                    marginBottom: 0,
-                    display: "block",
-                  }}
-                >
+                <span className="integrations-ecosystem-tag">
                   {item.tag}
                 </span>
               </div>
@@ -382,37 +274,16 @@ function IntegrationsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
+          <div className="nb-block-amber integrations-cta-block">
+            <span className="integrations-cta-label">
               BUILD YOUR INTEGRATION
             </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
+            <p className="integrations-cta-text">
               Check the docs to build your own connector.
             </p>
             <a
               href="/docs"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
+              className="nb-btn nb-btn--ghost integrations-cta-link"
             >
               DOCS
             </a>

@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/config.css";
 
 export const Route = createLazyRoute("/config")({
   component: ConfigPage,
@@ -68,29 +69,13 @@ function ConfigPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="config-section-title">
               Setup Comparison
             </h2>
 
-            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-2 config-grid">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="config-label-legacy">
                   LEGACY — Pages of config
                 </div>
                 <ul className="nb-list mt-4">
@@ -99,16 +84,8 @@ function ConfigPage() {
                   ))}
                 </ul>
               </div>
-              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+              <div className="nb-cell config-cell-border">
+                <div className="config-label-vanta">
                   VANTADB — Zero lines
                 </div>
                 <ul className="nb-list mt-4">
@@ -123,23 +100,14 @@ function ConfigPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="config-section-title">
               Code: From 50 Lines to 1
             </h2>
 
-            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
-              <div className="nb-cell" style={{ padding: 0, background: "var(--black)" }}>
+            <div className="nb-grid nb-grid--cols-2 config-grid">
+              <div className="nb-cell config-cell-code">
                 <div
-                  className="flex items-center justify-between px-5 py-3"
-                  style={{ borderBottom: "1px solid var(--border)" }}
+                  className="flex items-center justify-between px-5 py-3 config-code-header"
                 >
                   <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
                     legacy_setup.py
@@ -151,16 +119,10 @@ function ConfigPage() {
                 </pre>
               </div>
               <div
-                className="nb-cell"
-                style={{
-                  padding: 0,
-                  background: "var(--black)",
-                  borderLeft: "2px solid var(--amber)",
-                }}
+                className="nb-cell config-cell-code-accent"
               >
                 <div
-                  className="flex items-center justify-between px-5 py-3"
-                  style={{ borderBottom: "1px solid var(--border)" }}
+                  className="flex items-center justify-between px-5 py-3 config-code-header"
                 >
                   <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                     vantadb_setup.py
@@ -181,18 +143,16 @@ function ConfigPage() {
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
+                    className="font-display text-2xl font-extrabold config-cta-title"
                   >
                     Zero config. Ship faster.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="text-sm config-cta-sub">
                     Install VantaDB in one command.
                   </p>
                 </div>
                 <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
+                  className="font-mono text-lg font-bold config-cta-code"
                 >
                   pip install vantadb-py
                 </code>

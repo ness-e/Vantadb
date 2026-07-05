@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/security.css";
 
 export const Route = createLazyRoute("/security")({
   component: SecurityPage,
@@ -25,29 +26,13 @@ function SecurityPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="security-heading">
               CORE PRINCIPLES
             </h2>
 
-            <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-3 security-grid">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="security-cell-label">
                   NO TELEMETRY
                 </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
@@ -57,15 +42,7 @@ function SecurityPage() {
                 </p>
               </div>
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="security-cell-label">
                   AES-256-GCM ENCRYPTION
                 </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
@@ -74,15 +51,7 @@ function SecurityPage() {
                 </p>
               </div>
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="security-cell-label">
                   MEMORY SAFETY
                 </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
@@ -100,19 +69,15 @@ function SecurityPage() {
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
+                    className="font-display text-2xl font-extrabold security-block-heading"
                   >
                     Built on Rust. Safe by default.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="text-sm security-block-text">
                     Install VantaDB in one command.
                   </p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
-                >
+                <code className="font-mono text-lg font-bold security-block-code">
                   pip install vantadb-py
                 </code>
               </div>

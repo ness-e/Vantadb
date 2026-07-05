@@ -1,189 +1,159 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Integrations Section
-   ═══════════════════════════════════════════════════════════ */
-
-/* ── Integration page layout ── */
-.int-section {
-  padding: 4rem 0;
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 6rem;
-  align-items: center;
+.integrations-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
 }
 
-.int-header {
+.integrations-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xl);
+  margin-top: var(--space-xl);
+  align-items: start;
+}
+
+.integrations-card-margin {
+  margin-top: var(--space-md);
+}
+
+.integrations-tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-2xs);
+}
+
+.integrations-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  font-weight: 700;
+  margin-bottom: 0;
+}
+
+.integrations-experimental-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  font-weight: 700;
+  border: 1px solid var(--amber);
+  padding: 2px 6px;
+  margin-left: var(--space-2xs);
+}
+
+.integrations-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.integrations-code-frame {
+  overflow-x: auto;
+}
+
+.integrations-code-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 1rem;
-}
-
-.int-card-row {
-  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  margin-bottom: var(--space-sm);
 }
 
-/* ── Integration selector grid ── */
-.int-selector-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0; /* hairline unificada */
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.int-selector-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1.75rem 1.5rem;
-  background: #ffffff;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 150ms linear;
-  font-family: inherit;
-  color: inherit;
-  border-radius: 0;
-}
-
-.int-selector-card:nth-child(2n) {
-  border-right: none;
-}
-.int-selector-card:nth-last-child(-n + 2) {
-  border-bottom: none;
-}
-
-.int-selector-card:hover {
-  background: var(--surface);
-}
-
-.int-selector-card.active {
-  background: var(--surface);
-  border-left: 2px solid var(--amber);
-}
-
-.int-selector-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  transition: color 150ms linear;
-}
-
-.int-selector-card.active .int-selector-icon {
-  color: var(--amber);
-}
-
-.int-selector-label {
+.integrations-code-label {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
+  font-size: var(--text-micro);
   color: var(--muted);
+  margin-bottom: 0;
 }
 
-.int-selector-card.active .int-selector-label {
+.integrations-copy-btn {
+  padding: 4px 12px;
+  font-size: var(--text-micro);
+}
+
+.integrations-code-pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  line-height: 1.6;
   color: var(--foreground);
+  white-space: pre;
+  overflow-x: auto;
 }
 
-/* ── Integration grid cards ── */
-.int-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.int-card-inner {
-  background: #ffffff;
-  padding: 1.25rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.int-card-inner:nth-child(2n) {
-  border-right: none;
-}
-.int-card-inner:nth-last-child(-n + 2) {
-  border-bottom: none;
-}
-
-/* Swiss icon box — hairline negra */
-.int-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.int-name {
+.integrations-ecosystem-title {
   font-family: var(--font-display);
-  font-size: 0.85rem;
+  font-size: var(--text-title);
   font-weight: 700;
   color: var(--foreground);
-  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-md);
 }
 
-.int-protocol {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--muted);
-  margin-top: 0.1rem;
-  letter-spacing: 0.06em;
-}
-
-/* Badge — fondo tenue claro */
-.int-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  align-self: flex-start;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--amber);
-  letter-spacing: 0.06em;
+.integrations-ecosystem-lead {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
   font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  margin: var(--space-sm) 0 var(--space-xl);
+  line-height: 1.05;
 }
 
-.status-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  display: inline-block;
+.integrations-ecosystem-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
-.int-tag {
+.integrations-ecosystem-cell {
+  padding: var(--space-lg);
+}
+
+.integrations-ecosystem-name {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  color: var(--foreground);
+}
+
+.integrations-ecosystem-tag {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--text-micro);
   color: var(--muted);
-  border: 1px solid var(--border);
-  padding: 0.25rem 0.65rem;
-  border-radius: var(--radius-sm);
+  margin-top: var(--space-3xs);
+  margin-bottom: 0;
+  display: block;
 }
 
-@media (max-width: 1024px) {
-  .int-section {
-    grid-template-columns: 1fr;
-    gap: 3rem;
+.integrations-cta-block {
+  text-align: center;
+}
+
+.integrations-cta-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--text-on-amber);
+  margin-bottom: var(--space-2xs);
+  display: block;
+}
+
+.integrations-cta-text {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--text-on-amber);
+  margin: var(--space-2xs) 0;
+  opacity: 0.85;
+}
+
+.integrations-cta-link {
+  border-color: var(--text-on-amber);
+  color: var(--text-on-amber);
+  box-shadow: var(--shadow-brutal);
+}
+
+@media (max-width: 768px) {
+  .integrations-grid {
+    grid-template-columns: 1fr !important;
   }
 }

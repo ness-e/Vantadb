@@ -6,9 +6,8 @@ last_reviewed: 2026-07-03
 aliases: []
 ---
 
-# Playwright CLI — Visual Review Tool
-
-Integrado al flujo de diseño VantaDB para verificar visualmente que los cambios se vean como se planeó.
+Integrado al flujo de diseño VantaDB para verificar
+visualmente que los cambios se vean como se planeó.
 
 ## Setup
 

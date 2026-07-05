@@ -63,94 +63,30 @@ function TeamPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Members
-          </h2>
+          <h2 className="about-team-section-title">Members</h2>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-3 about-team-grid-top">
             {TEAM.map((m) => (
               <div
                 key={m.name}
-                className="nb-cell"
-                style={{
-                  display: "flex",
-                  gap: "var(--space-md)",
-                  padding: "var(--space-lg)",
-                  alignItems: "flex-start",
-                }}
+                className="nb-cell about-team-member-card"
               >
-                <div
-                  className="nb-dither"
-                  style={{
-                    width: 64,
-                    height: 64,
-                    flexShrink: 0,
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    lineHeight: 1.3,
-                    background: "#0a0a0a",
-                    border: "2px solid var(--border-visible)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    padding: "var(--space-2xs)",
-                    color: "var(--amber)",
-                    whiteSpace: "pre",
-                  }}
-                >
+                <div className="nb-dither about-team-avatar">
                   <div>{"> user: " + m.avatarUser}</div>
                   <div>{"> status: " + m.avatarStatus}</div>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-3xs)",
-                    minWidth: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "var(--text-title)",
-                      fontWeight: 700,
-                      color: "var(--foreground)",
-                      lineHeight: 1.2,
-                    }}
-                  >
+                <div className="about-team-member-info">
+                  <span className="about-team-member-name">
                     {m.name}
                   </span>
 
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-micro)",
-                      color: "var(--amber)",
-                      textTransform: "uppercase",
-                    }}
-                  >
+                  <span className="about-team-member-role">
                     [{m.role}]
                   </span>
 
-                  <p
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "var(--text-code)",
-                      color: "var(--muted)",
-                      lineHeight: 1.6,
-                      margin: 0,
-                    }}
-                  >
+                  <p className="about-team-member-desc">
                     {m.desc}
                   </p>
                 </div>
@@ -162,37 +98,16 @@ function TeamPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
+          <div className="nb-block-amber about-team-cta-block">
+            <span className="about-team-cta-label">
               JOIN THE TEAM
             </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
+            <p className="about-team-cta-desc">
               We're always looking for talented people who share our mission. Say hello.
             </p>
             <Link
               to="/about/contact"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
+              className="nb-btn nb-btn--ghost about-team-cta-btn"
             >
               CONTACT US
             </Link>

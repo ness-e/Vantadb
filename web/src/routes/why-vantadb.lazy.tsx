@@ -1,6 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/why-vantadb.css";
 
 export const Route = createLazyRoute("/why-vantadb")({
   component: WhyVantaDBPage,
@@ -67,40 +68,19 @@ function WhyVantaDBPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-divider" />
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-2 why-vantadb-compare-grid">
             {COMPARISONS.map((c) => (
               <div
                 key={c.category}
-                style={{
-                  padding: "var(--space-lg) var(--space-xl)",
-                  background: "var(--background)",
-                }}
+                className="why-vantadb-compare-item"
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-label)",
-                    fontWeight: 700,
-                    color: "var(--amber)",
-                    marginBottom: "var(--space-sm)",
-                    display: "block",
-                  }}
-                >
+                <span className="why-vantadb-compare-category">
                   {c.category}
                 </span>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "var(--space-md)",
-                    alignItems: "center",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-code)",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <span style={{ color: "var(--amber)", flex: 1 }}>{c.vantadb}</span>
+                <div className="why-vantadb-compare-row">
+                  <span className="why-vantadb-compare-vantadb">{c.vantadb}</span>
                   <NbArrow />
-                  <span style={{ color: "var(--steel)", flex: 1 }}>{c.others}</span>
+                  <span className="why-vantadb-compare-others">{c.others}</span>
                 </div>
               </div>
             ))}
@@ -110,51 +90,20 @@ function WhyVantaDBPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
+          <h2 className="why-vantadb-principles-title">
             Principles
           </h2>
           <div className="nb-divider" />
-          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-3 why-vantadb-principles-grid">
             {PRINCIPLES.map((p) => (
               <div
                 key={p.title}
-                style={{
-                  padding: "var(--space-xl)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-sm)",
-                  borderLeft: "2px solid var(--border-visible)",
-                }}
+                className="why-vantadb-principle-card"
               >
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 800,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+                <h2 className="why-vantadb-principle-heading">
                   {p.title}
                 </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p className="why-vantadb-principle-desc">
                   {p.desc}
                 </p>
               </div>
@@ -165,30 +114,10 @@ function WhyVantaDBPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-lg)",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="why-vantadb-cta-row">
             <Link
               to="/about/company"
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-code)",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                textDecoration: "none",
-                color: "var(--amber)",
-                padding: "12px 28px",
-                background: "var(--background)",
-                boxShadow: "var(--shadow-md)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
+              className="why-vantadb-cta-link"
             >
               cd about/company
             </Link>
@@ -201,14 +130,7 @@ function WhyVantaDBPage() {
 
 function NbArrow() {
   return (
-    <span
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: "var(--text-title)",
-        color: "var(--amber)",
-        lineHeight: 1,
-      }}
-    >
+    <span className="why-vantadb-arrow">
       →
     </span>
   );

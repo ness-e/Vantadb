@@ -330,7 +330,6 @@ function EnginePage() {
     <div>
       <NbSubpageHero
         num="01"
-        eyebrow="Core Engine"
         title={
           <span>
             Four modalities.

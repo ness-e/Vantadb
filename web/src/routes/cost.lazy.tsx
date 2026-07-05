@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/cost.css";
 
 export const Route = createLazyRoute("/cost")({
   component: CostPage,
@@ -63,40 +64,22 @@ function CostPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="cost-section-title">
               Cost Comparison
             </h2>
 
-            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-2 cost-grid">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="cost-label-legacy">
                   LEGACY — ~$200/mo
                 </div>
                 <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                  className="flex flex-col gap-3 mt-4 cost-list"
                 >
                   {LEGACY_COSTS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
                       <span
-                        className="font-mono font-bold flex-shrink-0"
-                        style={{ color: "var(--danger)", minWidth: "1rem" }}
+                        className="font-mono font-bold flex-shrink-0 cost-icon-danger"
                       >
                         ✗
                       </span>
@@ -105,27 +88,17 @@ function CostPage() {
                   ))}
                 </ul>
               </div>
-              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+              <div className="nb-cell cost-cell-border">
+                <div className="cost-label-vanta">
                   VANTADB — $0
                 </div>
                 <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                  className="flex flex-col gap-3 mt-4 cost-list"
                 >
                   {VANTA_COSTS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
                       <span
-                        className="font-mono font-bold flex-shrink-0"
-                        style={{ color: "var(--amber)", minWidth: "1rem" }}
+                        className="font-mono font-bold flex-shrink-0 cost-icon-amber"
                       >
                         ✓
                       </span>
@@ -140,20 +113,12 @@ function CostPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="cost-section-title">
               Monthly Cost by Provider
             </h2>
 
             <div className="nb-frame mt-12">
-              <table className="nb-table" style={{ border: "none" }}>
+              <table className="nb-table cost-table">
                 <thead>
                   <tr>
                     <th>Component</th>
@@ -171,7 +136,7 @@ function CostPage() {
                 <tbody>
                   {(["Vector DB", "Cache", "Storage", "Egress", "Ops"] as const).map((comp) => (
                     <tr key={comp}>
-                      <td style={{ color: "var(--muted)" }}>{comp}</td>
+                      <td className="cost-muted-cell">{comp}</td>
                       {PROVIDERS.map((p) => {
                         const val = p.breakdown[comp];
                         return (
@@ -188,7 +153,7 @@ function CostPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ borderTop: "2px solid var(--border-visible)" }}>
+                  <tr className="cost-tfoot-row">
                     <td className="font-display font-extrabold">Total</td>
                     {PROVIDERS.map((p) => (
                       <td
@@ -204,16 +169,9 @@ function CostPage() {
               </table>
             </div>
 
-            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "0" }}>
+            <div className="nb-grid nb-grid--cols-2 cost-grid-flush">
               <div
-                className="nb-cell"
-                style={{
-                  gridColumn: "1 / -1",
-                  display: "grid",
-                  gridTemplateColumns: "140px 1fr",
-                  gap: "2rem",
-                  alignItems: "center",
-                }}
+                className="nb-cell cost-tco-cell"
               >
                 <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                   TCO NOTE
@@ -234,18 +192,16 @@ function CostPage() {
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
+                    className="font-display text-2xl font-extrabold cost-cta-title"
                   >
                     Free software. Zero runtime cost.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="text-sm cost-cta-sub">
                     Install VantaDB in one command.
                   </p>
                 </div>
                 <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
+                  className="font-mono text-lg font-bold cost-cta-code"
                 >
                   pip install vantadb-py
                 </code>

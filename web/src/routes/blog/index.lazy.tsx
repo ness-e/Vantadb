@@ -2,6 +2,7 @@ import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { getAllPosts } from "../../lib/blog";
+import "../../styles/blog.css";
 
 export const Route = createLazyRoute("/blog/")({
   component: BlogIndex,
@@ -26,138 +27,56 @@ function BlogIndex() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
+          <h2 className="blog-heading">
             Posts — {posts.length} articles
           </h2>
           <div className="nb-divider" />
 
           {posts.length === 0 ? (
             <div
-              className="nb-frame"
-              style={{ marginTop: "var(--space-xl)", padding: "var(--space-3xl)" }}
+              className="nb-frame blog-frame-empty"
             >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--muted)",
-                  marginBottom: 0,
-                  display: "block",
-                  textAlign: "center",
-                }}
-              >
+              <span className="blog-empty-text">
                 No posts yet. Check back soon.
               </span>
             </div>
           ) : (
-            <div className="nb-grid" style={{ marginTop: "var(--space-xl)" }}>
+            <div className="nb-grid blog-post-list">
               {posts.map((post) => (
                 <Link
                   key={post.slug}
                   to="/blog/$slug"
                   params={{ slug: post.slug }}
-                  className="nb-cell"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "140px 1fr auto",
-                    gap: "var(--space-lg)",
-                    alignItems: "start",
-                    padding: "var(--space-lg) var(--space-xl)",
-                    textDecoration: "none",
-                    borderLeft: "2px solid transparent",
-                    transition: "all 150ms var(--ease-brutal)",
-                    background: "var(--background)",
-                  }}
+                  className="nb-cell blog-post-link"
                 >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "var(--text-micro)",
-                      color: "var(--muted)",
-                      marginBottom: 0,
-                      paddingTop: "2px",
-                      display: "block",
-                    }}
-                  >
+                  <span className="blog-post-date">
                     {post.date}
                   </span>
 
-                  <div
-                    style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xs)" }}
-                  >
-                    <h2
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "var(--text-title)",
-                        fontWeight: 700,
-                        letterSpacing: "var(--tracking-display)",
-                        color: "var(--foreground)",
-                        margin: 0,
-                      }}
-                    >
+                  <div className="blog-post-body">
+                    <h2 className="blog-post-title">
                       {post.title}
                     </h2>
                     {post.description && (
-                      <p
-                        style={{
-                          fontFamily: "var(--font-sans)",
-                          fontSize: "var(--text-code)",
-                          color: "var(--muted)",
-                          lineHeight: 1.5,
-                          margin: 0,
-                        }}
-                      >
+                      <p className="blog-post-desc">
                         {post.description}
                       </p>
                     )}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "var(--space-2xs)",
-                        flexWrap: "wrap",
-                        marginTop: "var(--space-3xs)",
-                      }}
-                    >
+                    <div className="blog-post-tags">
                       {post.author && (
-                        <span
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "var(--text-micro)",
-                            color: "var(--amber)",
-                            fontWeight: 700,
-                            border: "1px solid var(--amber)",
-                            padding: "2px 6px",
-                          }}
-                        >
+                        <span className="blog-tag-author">
                           {post.author}
                         </span>
                       )}
                       {post.tags?.map((t) => (
-                        <span
-                          key={t}
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "var(--text-micro)",
-                            color: "var(--muted)",
-                            border: "1px solid var(--border)",
-                            padding: "2px 6px",
-                          }}
-                        >
-                          {t}
-                        </span>
+                          <span key={t} className="blog-tag">
+                            {t}
+                          </span>
                       ))}
                     </div>
                   </div>
 
-                  <span className="nb-arrow" style={{ alignSelf: "center", marginTop: 0 }} />
+                  <span className="nb-arrow blog-arrow" />
                 </Link>
               ))}
             </div>
@@ -165,32 +84,14 @@ function BlogIndex() {
         </div>
       </section>
 
-      <style>{`
-        .nb-cell:hover { border-left-color: var(--amber) !important; }
-      `}</style>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
+    <div className="blog-pending">
+      <span className="blog-pending-text">
         Loading...
       </span>
     </div>

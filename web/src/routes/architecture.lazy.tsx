@@ -2,6 +2,7 @@ import { createLazyRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/architecture.css";
 
 export const Route = createLazyRoute("/architecture")({
   component: ArchitecturePage,
@@ -11,41 +12,13 @@ export const Route = createLazyRoute("/architecture")({
 function SpecRow({ label, val, desc }: { label: string; val: string; desc: string }) {
   return (
     <tr>
-      <td
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700,
-          fontSize: "0.7rem",
-          letterSpacing: "0.05em",
-          color: "var(--foreground)",
-          border: "2px solid var(--border-visible)",
-          padding: "var(--space-md)",
-        }}
-      >
+      <td className="architecture-spec-label">
         {label}
       </td>
-      <td
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700,
-          fontSize: "0.7rem",
-          color: "var(--amber)",
-          border: "2px solid var(--border-visible)",
-          padding: "var(--space-md)",
-        }}
-      >
+      <td className="architecture-spec-value">
         {val}
       </td>
-      <td
-        style={{
-          fontFamily: "var(--font-sans)",
-          fontSize: "var(--text-code)",
-          color: "var(--muted)",
-          lineHeight: 1.6,
-          border: "2px solid var(--border-visible)",
-          padding: "var(--space-md)",
-        }}
-      >
+      <td className="architecture-spec-desc">
         {desc}
       </td>
     </tr>
@@ -90,42 +63,16 @@ function PerformanceProfiler() {
 
   return (
     <div className="nb-frame">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: "var(--space-lg)",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--steel)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
+      <div className="architecture-profiler-header">
+        <span className="architecture-profiler-title">
           CPU TIME DISTRIBUTION
         </span>
-        <span
-          style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--muted)" }}
-        >
+        <span className="architecture-profiler-hint">
           HOVER SEGMENTS TO PROFILE
         </span>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          width: "100%",
-          height: "2rem",
-          gap: "1px",
-          marginBottom: "var(--space-xl)",
-          background: "var(--border)",
-        }}
-      >
+      <div className="architecture-profiler-bar">
         {segments.map((seg) => (
           <div
             key={seg.id}
@@ -158,65 +105,22 @@ function PerformanceProfiler() {
         ))}
       </div>
 
-      <div
-        style={{
-          paddingTop: "var(--space-lg)",
-          minHeight: "5.5rem",
-          borderTop: "1px solid var(--border)",
-        }}
-      >
+      <div className="architecture-profiler-detail">
         {hoveredData ? (
           <div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                color: "var(--amber)",
-                letterSpacing: "0.08em",
-                marginBottom: "var(--space-2xs)",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
+            <div className="architecture-hovered-title">
               {hoveredData.label} — {hoveredData.share}% of query budget
             </div>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.78rem",
-                color: "var(--muted)",
-                margin: 0,
-                lineHeight: 1.6,
-              }}
-            >
+            <p className="architecture-hovered-desc">
               {hoveredData.desc}
             </p>
           </div>
         ) : (
           <div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                color: "var(--steel)",
-                letterSpacing: "0.08em",
-                marginBottom: "var(--space-2xs)",
-              }}
-            >
+            <div className="architecture-default-title">
               Engine Performance Summary
             </div>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.78rem",
-                color: "var(--muted)",
-                margin: 0,
-                lineHeight: 1.6,
-              }}
-            >
+            <p className="architecture-default-desc">
               Hover over the latency bar segments above to analyze where the database spends CPU
               cycles during typical multi-modal queries.
             </p>
@@ -274,27 +178,10 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "clamp(2rem,4vw,3rem)",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    marginTop: "var(--space-lg)",
-                    marginBottom: "var(--space-lg)",
-                    lineHeight: 1.25,
-                  }}
-                >
+                <h2 className="architecture-section-title">
                   Stack Layers
                 </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.95rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                  }}
-                >
+                <p className="architecture-section-desc">
                   VantaDB provides safe bindings on top of a highly optimized multi-modal execution
                   core and storage layer.
                 </p>
@@ -303,59 +190,20 @@ function ArchitecturePage() {
                 {layers.map((lyr) => (
                   <div
                     key={lyr.num}
-                    className="nb-cell"
-                    style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}
+                    className="nb-cell architecture-layer-cell"
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.6rem",
-                          color: "var(--steel)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
+                    <div className="architecture-layer-header">
+                      <span className="architecture-layer-tag">
                         {lyr.tag}
                       </span>
-                      <span
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: "0.6rem",
-                          color: "var(--amber)",
-                          fontWeight: 700,
-                        }}
-                      >
+                      <span className="architecture-layer-num">
                         LAYER {lyr.num}
                       </span>
                     </div>
-                    <h3
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.25rem",
-                        lineHeight: "1.75rem",
-                        fontWeight: 700,
-                        marginTop: "var(--space-xs)",
-                        marginBottom: 0,
-                        color: "var(--foreground)",
-                      }}
-                    >
+                    <h3 className="architecture-layer-title">
                       {lyr.title}
                     </h3>
-                    <p
-                      style={{
-                        fontSize: "var(--text-code)",
-                        color: "var(--muted)",
-                        lineHeight: 1.6,
-                        margin: 0,
-                      }}
-                    >
+                    <p className="architecture-layer-body">
                       {lyr.body}
                     </p>
                   </div>
@@ -374,28 +222,10 @@ function ArchitecturePage() {
                 <PerformanceProfiler />
               </div>
               <div>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "clamp(2rem,4vw,3rem)",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    marginTop: "var(--space-lg)",
-                    marginBottom: "var(--space-lg)",
-                    lineHeight: 1.25,
-                  }}
-                >
+                <h2 className="architecture-section-title">
                   Query Latency
                 </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.95rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    marginBottom: 0,
-                  }}
-                >
+                <p className="architecture-section-desc architecture-section-desc--compact">
                   Due to direct sharing of pointer addresses, the cost of crossing FFI bindings is
                   less than 12% of total search time, leaving CPU resources free to evaluate
                   similarity indexes.
@@ -411,35 +241,17 @@ function ArchitecturePage() {
           <div className="nb-inner">
             <div className="nb-asymmetric">
               <div>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "clamp(2rem,4vw,3rem)",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    marginTop: "var(--space-lg)",
-                    marginBottom: "var(--space-lg)",
-                    lineHeight: 1.25,
-                  }}
-                >
+                <h2 className="architecture-section-title">
                   Operational Limits
                 </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.95rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    marginBottom: 0,
-                  }}
-                >
+                <p className="architecture-section-desc architecture-section-desc--compact">
                   Technical limits enforced at memory layer boundaries to prevent out-of-memory
                   states during heavy concurrent query evaluations.
                 </p>
               </div>
               <div>
                 <div className="nb-frame">
-                  <table className="nb-table" style={{ border: "none" }}>
+                  <table className="nb-table architecture-table">
                     <thead>
                       <tr>
                         <th>Parameter</th>
@@ -494,40 +306,16 @@ function ArchitecturePage() {
         <section className="nb-section nb-bg-dot">
           <div className="nb-inner">
             <div className="nb-block-amber">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "var(--space-md)",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div className="architecture-cta-wrap">
                 <div>
-                  <h2
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "1.5rem",
-                      lineHeight: "2rem",
-                      fontWeight: 800,
-                      color: "var(--text-on-amber)",
-                    }}
-                  >
+                  <h2 className="architecture-cta-title">
                     Compiles to native. Runs in your process.
                   </h2>
-                  <p style={{ fontSize: "0.875rem", color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="architecture-cta-sub">
                     Install VantaDB in one command.
                   </p>
                 </div>
-                <code
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "1.125rem",
-                    lineHeight: "1.75rem",
-                    fontWeight: 700,
-                    color: "var(--text-on-amber)",
-                  }}
-                >
+                <code className="architecture-cta-code">
                   pip install vantadb-py
                 </code>
               </div>

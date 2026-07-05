@@ -1,0 +1,32 @@
+.security-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
+}
+
+.security-grid {
+  margin-top: 3rem;
+}
+
+.security-cell-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--amber);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.security-block-heading {
+  color: var(--text-on-amber);
+}
+
+.security-block-text {
+  color: var(--text-on-amber);
+  opacity: 0.8;
+}
+
+.security-block-code {
+  color: var(--text-on-amber);
+}
