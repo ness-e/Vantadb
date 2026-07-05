@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/maint")({
@@ -42,7 +42,7 @@ const VANTA_OPS = [
 function MaintPage() {
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="11"
         eyebrow="Operations & Maintenance"
         title={

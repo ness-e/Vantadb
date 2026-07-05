@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { DocsSidebar } from "@/components/DocsSidebar";
 import { PendingComponent } from "@/components/PendingComponent";
 
@@ -182,7 +182,7 @@ const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
 function DocsPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="06"
         eyebrow="Documentation"
         title={
@@ -264,7 +264,7 @@ function DocsPage() {
                 </p>
                 <a
                   href="https://github.com/ness-e/Vantadb/discussions"
-                  className="btn-ghost"
+                  className="nb-btn nb-btn--ghost"
                   style={{
                     borderColor: "var(--text-on-amber)",
                     color: "var(--text-on-amber)",

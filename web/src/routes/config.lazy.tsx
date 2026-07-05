@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/config")({
@@ -53,7 +53,7 @@ db = vantadb_py.VantaDB("./my_db.vdb")
 function ConfigPage() {
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="10"
         eyebrow="Configuration"
         title={

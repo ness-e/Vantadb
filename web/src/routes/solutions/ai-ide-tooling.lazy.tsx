@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/solutions/ai-ide-tooling")({
   component: IdeToolingPage,
@@ -40,7 +40,7 @@ const BENEFITS = [
 function IdeToolingPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="03"
         eyebrow="Solution — AI IDE Tooling"
         title={
@@ -236,7 +236,7 @@ function IdeToolingPage() {
             </p>
             <Link
               to="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",

@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/solutions/local-rag")({
   component: LocalRagPage,
@@ -56,7 +56,7 @@ const COMPARISON = {
 function LocalRagPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="02"
         eyebrow="Solution — Local RAG"
         title={
@@ -245,7 +245,7 @@ function LocalRagPage() {
             </p>
             <Link
               to="/docs"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",

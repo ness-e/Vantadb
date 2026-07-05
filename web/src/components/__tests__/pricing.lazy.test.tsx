@@ -18,8 +18,8 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }));
 
-vi.mock("@/components/SwissSubpageHero", () => ({
-  SwissSubpageHero: ({
+vi.mock("@/components/NbSubpageHero", () => ({
+  NbSubpageHero: ({
     num,
     eyebrow,
     title,
@@ -30,7 +30,7 @@ vi.mock("@/components/SwissSubpageHero", () => ({
     title: React.ReactNode;
     sub?: string;
   }) => (
-    <div data-testid="swiss-hero">
+    <div data-testid="nb-hero">
       <span data-testid="hero-num">{num}</span>
       <span data-testid="hero-eyebrow">{eyebrow}</span>
       <div data-testid="hero-title">{title}</div>
@@ -48,7 +48,7 @@ describe("PricingPage", () => {
   });
 
   it("renders the hero section", () => {
-    expect(screen.getByTestId("swiss-hero")).toBeInTheDocument();
+    expect(screen.getByTestId("nb-hero")).toBeInTheDocument();
     expect(screen.getByTestId("hero-eyebrow")).toHaveTextContent("Pricing");
   });
 

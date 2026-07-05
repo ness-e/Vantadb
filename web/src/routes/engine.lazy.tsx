@@ -1,6 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/engine")({
@@ -240,14 +240,14 @@ function WALSimulator() {
         </div>
         <div className="flex gap-2">
           <button
-            className="btn-ghost px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
+            className="nb-btn nb-btn--ghost px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
             onClick={triggerCrash}
             disabled={engineState !== "ready"}
           >
             CRASH ENGINE
           </button>
           <button
-            className="btn-primary px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
+            className="nb-btn px-3 py-[0.4rem] text-[0.65rem] font-mono uppercase"
             onClick={recoverFromWAL}
             disabled={engineState !== "crashed"}
           >
@@ -328,7 +328,7 @@ function ArchitecturePipeline() {
 function EnginePage() {
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="01"
         eyebrow="Core Engine"
         title={

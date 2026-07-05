@@ -1,5 +1,5 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
 export const Route = createLazyRoute("/storage")({
@@ -43,7 +43,7 @@ const LAYERS = [
 function StoragePage() {
   return (
     <div>
-      <SwissSubpageHero
+      <NbSubpageHero
         num="09"
         eyebrow="Storage Architecture"
         title={

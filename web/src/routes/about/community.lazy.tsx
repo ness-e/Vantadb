@@ -1,5 +1,5 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { SwissSubpageHero } from "@/components/SwissSubpageHero";
+import { NbSubpageHero } from "@/components/NbSubpageHero";
 
 export const Route = createLazyRoute("/about/community")({
   component: CommunityPage,
@@ -72,7 +72,7 @@ const WAYS = [
 function CommunityPage() {
   return (
     <div className="nb-page">
-      <SwissSubpageHero
+      <NbSubpageHero
         num="06"
         eyebrow="About — Community"
         title={
@@ -221,7 +221,7 @@ function CommunityPage() {
             </p>
             <a
               href="https://github.com/ness-e/Vantadb"
-              className="btn-ghost"
+              className="nb-btn nb-btn--ghost"
               style={{
                 borderColor: "var(--text-on-amber)",
                 color: "var(--text-on-amber)",
