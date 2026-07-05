@@ -71,7 +71,7 @@ jobs:
         components: rustfmt, clippy
 
     - name: sccache (shared compilation cache)
-      uses: mozilla-actions/sccache-action@v0.0.10
+      uses: mozilla-actions/sccache-action@v0.0.9
       with:
         version: "latest"
 
