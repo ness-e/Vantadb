@@ -1,5 +1,6 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import "../../styles/benchmarks.css";
 
 export const Route = createLazyRoute("/product/benchmarks")({
   component: BenchmarksPage,
@@ -22,94 +23,54 @@ function BenchmarksPage() {
 
       <main className="nb-main">
         <section className="nb-section">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Throughput vs Latency
-          </h2>
+          <h2 className="benchmarks-hero-title">Throughput vs Latency</h2>
 
-          <div style={{ marginTop: "3rem" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                border: "1px solid var(--border)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.9rem",
-              }}
-            >
+          <div className="benchmarks-mt-3rem">
+            <table className="benchmarks-table">
               <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid var(--border)",
-                    background: "var(--surface-raised)",
-                    color: "var(--steel)",
-                  }}
-                >
-                  <th style={{ padding: "1rem", textAlign: "left" }}>Engine</th>
-                  <th style={{ padding: "1rem", textAlign: "right" }}>Insert (QPS)</th>
-                  <th style={{ padding: "1rem", textAlign: "right" }}>Search (QPS)</th>
-                  <th style={{ padding: "1rem", textAlign: "right" }}>p99 Latency (ms)</th>
+                <tr className="benchmarks-thead-tr">
+                  <th className="benchmarks-th">Engine</th>
+                  <th className="benchmarks-th-right">Insert (QPS)</th>
+                  <th className="benchmarks-th-right">Search (QPS)</th>
+                  <th className="benchmarks-th-right">p99 Latency (ms)</th>
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "1rem" }}>
-                    <span style={{ color: "var(--amber)", fontWeight: "bold" }}>
-                      VantaDB (Rust)
-                    </span>
+                <tr className="benchmarks-tbody-tr">
+                  <td className="benchmarks-td">
+                    <span className="benchmarks-amber-text">VantaDB (Rust)</span>
                   </td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>8,450</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>1,195</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>2.43</td>
+                  <td className="benchmarks-td-right">8,450</td>
+                  <td className="benchmarks-td-right">1,195</td>
+                  <td className="benchmarks-td-right">2.43</td>
                 </tr>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "1rem" }}>ChromaDB (Local)</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>1,200</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>450</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>12.50</td>
+                <tr className="benchmarks-tbody-tr">
+                  <td className="benchmarks-td">ChromaDB (Local)</td>
+                  <td className="benchmarks-td-right">1,200</td>
+                  <td className="benchmarks-td-right">450</td>
+                  <td className="benchmarks-td-right">12.50</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "1rem" }}>Qdrant (Local Docker)</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>4,100</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>890</td>
-                  <td style={{ padding: "1rem", textAlign: "right" }}>5.10</td>
+                  <td className="benchmarks-td">Qdrant (Local Docker)</td>
+                  <td className="benchmarks-td-right">4,100</td>
+                  <td className="benchmarks-td-right">890</td>
+                  <td className="benchmarks-td-right">5.10</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <p style={{ marginTop: "2rem", color: "var(--steel)", lineHeight: "1.6" }}>
+          <p className="benchmarks-footnote">
             *Benchmarks run on AMD Ryzen 12-Core @ 3.5GHz with 100K 128-dimensional SIFT1M vectors.
             VantaDB uses BFS-compacted Memmapped HNSW and Fjall LSM-tree storage.
           </p>
 
-          <div
-            style={{
-              marginTop: "2rem",
-              padding: "1.25rem",
-              border: "1px solid var(--amber)",
-              background: "rgba(255, 85, 0, 0.04)",
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--text-code)",
-              color: "var(--steel)",
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "var(--amber)" }}>Note:</strong> Benchmarks shown represent raw
+          <div className="benchmarks-note-box">
+            <strong className="benchmarks-amber-text">Note:</strong> Benchmarks shown represent raw
             Rust core performance on the SIFT1M dataset (100K vectors, 128-dim, Balanced Cos
             configuration). Real-world performance varies by dataset size, dimensionality, and
             hardware configuration. See full methodology in{" "}
-            <code style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem" }}>
-              docs/operations/BENCHMARKS.md
-            </code>
-            .
+            <code className="benchmarks-code-inline">docs/operations/BENCHMARKS.md</code>.
           </div>
         </section>
       </main>
@@ -126,15 +87,7 @@ function BenchmarksPage() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
+    <div className="benchmarks-pending">
       <div>Loading...</div>
     </div>
   );

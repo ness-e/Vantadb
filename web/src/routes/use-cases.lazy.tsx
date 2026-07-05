@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/use-cases.css";
 
 export const Route = createLazyRoute("/use-cases")({
   component: UseCasesPage,
@@ -96,98 +97,18 @@ function UseCasesPage() {
 
       <main className="nb-main">
         <section className="nb-section nb-section--bordered">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Production Patterns
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+          <h2 className="use-cases-section-title">Production Patterns</h2>
+          <div className="use-cases-patterns-grid">
             {CASES.map((c) => (
-              <div
-                key={c.num}
-                className="usecase-card"
-                style={{
-                  padding: "2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
-                  transition: "background-color 150ms var(--ease-cut)",
-                  background: "var(--background)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.6rem",
-                      color: "var(--amber)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    {c.num}
-                  </span>
+              <div key={c.num} className="usecase-card use-cases-card">
+                <div className="use-cases-card-header">
+                  <span className="use-cases-card-num">{c.num}</span>
                 </div>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
-                  {c.title}
-                </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
-                  {c.desc}
-                </p>
-                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                <h3 className="use-cases-card-title">{c.title}</h3>
+                <p className="use-cases-card-desc">{c.desc}</p>
+                <div className="use-cases-tags-wrap">
                   {c.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: "var(--steel)",
-                        border: "1px solid var(--border)",
-                        padding: "0.2rem 0.5rem",
-                      }}
-                    >
+                    <span key={tag} className="use-cases-tag">
                       {tag}
                     </span>
                   ))}
@@ -198,100 +119,17 @@ function UseCasesPage() {
         </section>
 
         <section className="nb-section">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Core Pipeline
-          </h2>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.5rem, 3vw, 2rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              margin: "1.25rem 0 3rem",
-              lineHeight: 1.05,
-            }}
-          >
-            Memory → Search → Persist.
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-            }}
-          >
+          <h2 className="use-cases-section-title">Core Pipeline</h2>
+          <h2 className="use-cases-subtitle">Memory → Search → Persist.</h2>
+          <div className="use-cases-pipeline-grid">
             {PIPELINE_STEPS.map((step) => (
-              <div
-                key={step.num}
-                style={{
-                  background: "var(--background)",
-                  padding: "2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: "var(--border)",
-                    lineHeight: 1,
-                    letterSpacing: "-0.04em",
-                  }}
-                >
-                  {step.num}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.2rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.03em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
-                  {step.title}
-                </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
-                  {step.desc}
-                </p>
-                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+              <div key={step.num} className="use-cases-pipeline-card">
+                <span className="use-cases-pipeline-num">{step.num}</span>
+                <h3 className="use-cases-pipeline-title">{step.title}</h3>
+                <p className="use-cases-pipeline-desc">{step.desc}</p>
+                <div className="use-cases-tags-wrap">
                   {step.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "0.55rem",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: "var(--amber)",
-                        border: "1px solid rgba(255, 85, 0, 0.3)",
-                        padding: "0.2rem 0.5rem",
-                      }}
-                    >
+                    <span key={tag} className="use-cases-tag-amber">
                       {tag}
                     </span>
                   ))}

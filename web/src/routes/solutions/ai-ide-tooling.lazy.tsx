@@ -1,5 +1,6 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import "../../styles/ai-ide-tooling.css";
 
 export const Route = createLazyRoute("/solutions/ai-ide-tooling")({
   component: IdeToolingPage,
@@ -54,93 +55,27 @@ function IdeToolingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            The Gap
-          </h2>
+          <h2 className="ai-ide-tooling-section-title">The Gap</h2>
           <div className="nb-divider" />
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1px",
-              background: "var(--border-visible)",
-              marginTop: "var(--space-xl)",
-            }}
-          >
-            <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--muted)",
-                  marginBottom: "var(--space-md)",
-                  display: "block",
-                }}
-              >
-                Code search is still text-only
-              </span>
+          <div className="ai-ide-tooling-grid-2col">
+            <div className="nb-cell ai-ide-tooling-cell-padded">
+              <span className="ai-ide-tooling-label-muted">Code search is still text-only</span>
               <ul className="nb-list">
                 {PROBLEMS.map((p) => (
-                  <li key={p} style={{ color: "var(--muted)" }}>
-                    <span
-                      style={{
-                        color: "var(--danger)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        marginRight: "var(--space-2xs)",
-                      }}
-                    >
-                      ✗
-                    </span>
+                  <li key={p} className="ai-ide-tooling-list-item-muted">
+                    <span className="ai-ide-tooling-list-icon-danger">✗</span>
                     {p}
                   </li>
                 ))}
               </ul>
             </div>
-            <div
-              className="nb-cell"
-              style={{
-                padding: "var(--space-xl)",
-                borderLeft: "2px solid var(--amber)",
-                background: "var(--surface-alt)",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--amber)",
-                  fontWeight: 700,
-                  marginBottom: "var(--space-md)",
-                  display: "block",
-                }}
-              >
-                Semantic, embedded
-              </span>
+            <div className="nb-cell ai-ide-tooling-cell-amber-border">
+              <span className="ai-ide-tooling-label-amber">Semantic, embedded</span>
               <ul className="nb-list">
                 {BENEFITS.map((s) => (
-                  <li key={s} style={{ color: "var(--foreground)" }}>
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        marginRight: "var(--space-2xs)",
-                      }}
-                    >
-                      ✓
-                    </span>
+                  <li key={s} className="ai-ide-tooling-list-item-foreground">
+                    <span className="ai-ide-tooling-list-icon-amber">✓</span>
                     {s}
                   </li>
                 ))}
@@ -152,101 +87,24 @@ function IdeToolingPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Use Cases
-          </h2>
+          <h2 className="ai-ide-tooling-section-title">Use Cases</h2>
           <div className="nb-divider" />
-          <p
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-display)",
-              fontWeight: 800,
-              letterSpacing: "var(--tracking-display)",
-              margin: "var(--space-sm) 0 var(--space-xl)",
-              lineHeight: 1.05,
-            }}
-          >
-            Beyond grep.
-          </p>
+          <p className="ai-ide-tooling-title-large">Beyond grep.</p>
 
           <div className="nb-grid nb-grid--cols-3">
             {USE_CASES.map((uc) => (
-              <div key={uc.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
-                  {uc.num}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: "0 0 var(--space-2xs)",
-                  }}
-                >
-                  {uc.title}
-                </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
-                  {uc.desc}
-                </p>
+              <div key={uc.num} className="nb-cell ai-ide-tooling-cell-padded">
+                <span className="ai-ide-tooling-card-num">{uc.num}</span>
+                <h3 className="ai-ide-tooling-card-title">{uc.title}</h3>
+                <p className="ai-ide-tooling-card-desc">{uc.desc}</p>
               </div>
             ))}
           </div>
 
-          <div className="nb-card" style={{ marginTop: "1px", background: "var(--surface)" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "120px 1fr",
-                gap: "var(--space-lg)",
-                alignItems: "start",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--muted)",
-                  marginBottom: 0,
-                }}
-              >
-                HOW IT WORKS
-              </span>
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "var(--text-code)",
-                  color: "var(--muted)",
-                  lineHeight: 1.7,
-                  margin: 0,
-                }}
-              >
+          <div className="nb-card ai-ide-tooling-card-surface">
+            <div className="ai-ide-tooling-inner-grid">
+              <span className="ai-ide-tooling-inner-label">HOW IT WORKS</span>
+              <p className="ai-ide-tooling-inner-text">
                 Each code unit (function, class, module) is indexed as a vector embedding plus
                 structured AST metadata (name, signature, dependencies, docstring). Queries use
                 hybrid search: BM25 for symbol matching, HNSW for semantic similarity, with RRF
@@ -259,38 +117,12 @@ function IdeToolingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
-              BUILD IDE TOOLS
-            </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
+          <div className="nb-block-amber ai-ide-tooling-cta-block">
+            <span className="ai-ide-tooling-cta-label">BUILD IDE TOOLS</span>
+            <p className="ai-ide-tooling-cta-text">
               Read the docs to integrate semantic code search.
             </p>
-            <Link
-              to="/docs"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
-            >
+            <Link to="/docs" className="nb-btn nb-btn--ghost ai-ide-tooling-cta-link">
               DOCS
             </Link>
           </div>
@@ -308,25 +140,8 @@ function IdeToolingPage() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
-        Loading...
-      </span>
+    <div className="ai-ide-tooling-pending">
+      <span className="ai-ide-tooling-pending-text">Loading...</span>
     </div>
   );
 }

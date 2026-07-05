@@ -1,6 +1,7 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/storage.css";
 
 export const Route = createLazyRoute("/storage")({
   component: StoragePage,
@@ -58,24 +59,11 @@ function StoragePage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
-              Stack Consolidation
-            </h2>
+            <h2 className="storage-section-title">Stack Consolidation</h2>
 
             <div className="grid grid-cols-[1fr_60px_1fr] items-center mt-12 mb-12">
               <div className="border-2 border-[var(--border-visible)] flex flex-col">
-                <div
-                  className="nb-cell"
-                  style={{ borderBottom: "1px solid var(--border-visible)" }}
-                >
+                <div className="nb-cell storage-cell-border-bottom">
                   <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
                     Legacy — 3 services
                   </span>
@@ -98,8 +86,8 @@ function StoragePage() {
                     </div>
                   </div>
                 ))}
-                <div className="nb-cell" style={{ borderTop: "1px solid var(--border-visible)" }}>
-                  <span className="font-mono text-[0.6rem]" style={{ color: "var(--danger)" }}>
+                <div className="nb-cell storage-cell-border-top">
+                  <span className="font-mono text-[0.6rem] storage-danger-text">
                     3 SDKs · 3 bills · $200/mo
                   </span>
                 </div>
@@ -119,10 +107,7 @@ function StoragePage() {
               </div>
 
               <div className="border-2 border-[var(--border-visible)] border-l-[var(--amber)] flex flex-col">
-                <div
-                  className="nb-cell"
-                  style={{ borderBottom: "1px solid var(--border-visible)" }}
-                >
+                <div className="nb-cell storage-cell-border-bottom">
                   <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
                     VantaDB — 1 binary
                   </span>
@@ -135,7 +120,7 @@ function StoragePage() {
                     Vector · Full-text · Hybrid · WAL
                   </div>
                 </div>
-                <div className="nb-cell" style={{ borderTop: "1px solid var(--border-visible)" }}>
+                <div className="nb-cell storage-cell-border-top">
                   <span className="font-mono text-[0.6rem] text-amber">1 SDK · 1 install · $0</span>
                 </div>
               </div>
@@ -143,27 +128,11 @@ function StoragePage() {
 
             <div className="nb-grid nb-grid--cols-2">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
-                  LEGACY STACK
-                </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
-                >
+                <div className="storage-label-steel">LEGACY STACK</div>
+                <ul className="flex flex-col gap-3 mt-4 storage-ul-reset">
                   {LEGACY_STACK.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
-                      <span
-                        className="font-mono font-bold flex-shrink-0"
-                        style={{ color: "var(--danger)" }}
-                      >
+                      <span className="font-mono font-bold flex-shrink-0 storage-danger-icon">
                         ✗
                       </span>
                       {item}
@@ -171,22 +140,9 @@ function StoragePage() {
                   ))}
                 </ul>
               </div>
-              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
-                  VANTADB
-                </div>
-                <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
-                >
+              <div className="nb-cell storage-cell-amber-border">
+                <div className="storage-label-amber">VANTADB</div>
+                <ul className="flex flex-col gap-3 mt-4 storage-ul-reset">
                   {VANTA_STACK.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
                       <span className="font-mono font-bold flex-shrink-0 text-amber">✓</span>
@@ -201,19 +157,9 @@ function StoragePage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
-              Storage Architecture
-            </h2>
+            <h2 className="storage-section-title">Storage Architecture</h2>
 
-            <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-3 storage-mt-3rem">
               {LAYERS.map((l) => (
                 <div key={l.num} className="nb-cell flex flex-col gap-3">
                   <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
@@ -231,19 +177,9 @@ function StoragePage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
-              Engine States
-            </h2>
+            <h2 className="storage-section-title">Engine States</h2>
 
-            <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-3 storage-mt-3rem">
               {[
                 {
                   state: "Active",
@@ -277,20 +213,14 @@ function StoragePage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
-                  >
+                  <h2 className="font-display text-2xl font-extrabold storage-text-on-amber">
                     One binary. Three engines. Zero ops.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="text-sm storage-text-on-amber-dim">
                     Install VantaDB in one command.
                   </p>
                 </div>
-                <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
-                >
+                <code className="font-mono text-lg font-bold storage-text-on-amber">
                   pip install vantadb-py
                 </code>
               </div>

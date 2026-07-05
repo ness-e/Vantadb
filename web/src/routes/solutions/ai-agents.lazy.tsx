@@ -1,5 +1,6 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
+import "../../styles/ai-agents.css";
 
 export const Route = createLazyRoute("/solutions/ai-agents")({
   component: AiAgentsPage,
@@ -69,93 +70,27 @@ function AiAgentsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            The Problem
-          </h2>
+          <h2 className="ai-agents-section-title">The Problem</h2>
           <div className="nb-divider" />
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1px",
-              background: "var(--border-visible)",
-              marginTop: "var(--space-xl)",
-            }}
-          >
-            <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--muted)",
-                  marginBottom: "var(--space-md)",
-                  display: "block",
-                }}
-              >
-                Stateless agents
-              </span>
+          <div className="ai-agents-grid-2col">
+            <div className="nb-cell ai-agents-cell-padded">
+              <span className="ai-agents-label-muted">Stateless agents</span>
               <ul className="nb-list">
                 {PROBLEMS.map((p) => (
-                  <li key={p.text} style={{ color: "var(--muted)" }}>
-                    <span
-                      style={{
-                        color: "var(--danger)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        marginRight: "var(--space-2xs)",
-                      }}
-                    >
-                      {p.icon}
-                    </span>
+                  <li key={p.text} className="ai-agents-list-item-muted">
+                    <span className="ai-agents-list-icon-danger">{p.icon}</span>
                     {p.text}
                   </li>
                 ))}
               </ul>
             </div>
-            <div
-              className="nb-cell"
-              style={{
-                padding: "var(--space-xl)",
-                borderLeft: "2px solid var(--amber)",
-                background: "var(--surface-alt)",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "var(--text-micro)",
-                  color: "var(--amber)",
-                  fontWeight: 700,
-                  marginBottom: "var(--space-md)",
-                  display: "block",
-                }}
-              >
-                Embedded memory
-              </span>
+            <div className="nb-cell ai-agents-cell-amber-border">
+              <span className="ai-agents-label-amber">Embedded memory</span>
               <ul className="nb-list">
                 {SOLUTIONS_LIST.map((s) => (
-                  <li key={s.text} style={{ color: "var(--foreground)" }}>
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        marginRight: "var(--space-2xs)",
-                      }}
-                    >
-                      {s.icon}
-                    </span>
+                  <li key={s.text} className="ai-agents-list-item-foreground">
+                    <span className="ai-agents-list-icon-amber">{s.icon}</span>
                     {s.text}
                   </li>
                 ))}
@@ -167,57 +102,15 @@ function AiAgentsPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Memory Primitives
-          </h2>
+          <h2 className="ai-agents-section-title">Memory Primitives</h2>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-2 ai-agents-mt-xl">
             {PRIMITIVES.map((p) => (
-              <div key={p.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
-                  {p.num}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: "0 0 var(--space-2xs)",
-                  }}
-                >
-                  {p.title}
-                </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
-                  {p.desc}
-                </p>
+              <div key={p.num} className="nb-cell ai-agents-cell-padded">
+                <span className="ai-agents-card-num">{p.num}</span>
+                <h3 className="ai-agents-card-title">{p.title}</h3>
+                <p className="ai-agents-card-desc">{p.desc}</p>
               </div>
             ))}
           </div>
@@ -226,70 +119,19 @@ function AiAgentsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Implementation
-          </h2>
+          <h2 className="ai-agents-section-title">Implementation</h2>
           <div className="nb-divider" />
 
-          <div className="nb-frame" style={{ marginTop: "var(--space-xl)" }}>
-            <pre
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-code)",
-                lineHeight: 1.6,
-                color: "var(--foreground)",
-                whiteSpace: "pre",
-                overflowX: "auto",
-              }}
-            >
+          <div className="nb-frame ai-agents-mt-xl">
+            <pre className="ai-agents-code-block">
               <code>{MEMORY_CODE}</code>
             </pre>
           </div>
 
-          <div
-            className="nb-block-amber"
-            style={{ marginTop: "var(--space-xl)", textAlign: "center" }}
-          >
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
-              BUILD YOUR AGENT
-            </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
-              Get started with the docs.
-            </p>
-            <Link
-              to="/docs"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
-            >
+          <div className="nb-block-amber ai-agents-cta-block">
+            <span className="ai-agents-cta-label">BUILD YOUR AGENT</span>
+            <p className="ai-agents-cta-text">Get started with the docs.</p>
+            <Link to="/docs" className="nb-btn nb-btn--ghost ai-agents-cta-link">
               DOCS
             </Link>
           </div>
@@ -301,25 +143,8 @@ function AiAgentsPage() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
-        Loading...
-      </span>
+    <div className="ai-agents-pending">
+      <span className="ai-agents-pending-text">Loading...</span>
     </div>
   );
 }
