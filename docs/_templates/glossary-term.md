@@ -1,4 +1,5 @@
 ---
+title: "{{term}}"
 type: glossary-entry
 status: stable
 tags: [concept, architecture]

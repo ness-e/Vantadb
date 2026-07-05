@@ -53,7 +53,9 @@ playwright-cli show
 
 ```bash
 # Todas las páginas clave en desktop + mobile
-for page in "/" "/pricing" "/about" "/changelog" "/engine" "/architecture" "/docs" "/blog"; do
+for page in \
+  "/" "/pricing" "/about" "/changelog" "/engine" \
+  "/architecture" "/docs" "/blog"; do
   playwright-cli goto "http://localhost:3000$page"
   playwright-cli screenshot --filename="$(echo $page | tr '/' '_')_desktop.png"
   playwright-cli resize 390 844
