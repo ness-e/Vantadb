@@ -292,6 +292,7 @@ impl Default for VantaConfig {
                 let v = match env::var("VANTA_BACKEND").ok().as_deref() {
                     Some("rocksdb") => BackendKind::RocksDb,
                     Some("memory") => BackendKind::InMemory,
+                    Some("fjall") => BackendKind::Fjall,
                     Some(other) => {
                         warn!(
                             "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
