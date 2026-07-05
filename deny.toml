@@ -1,8 +1,18 @@
 [advisories]
 ignore = [
+    # RUSTSEC-2024-0384: chrono: time 0.1 vulnerability in chrono 0.4.x (optional dep).
+    # Upstream fix requires chrono to bump time to 0.3+. Pinned pending chrono release.
     "RUSTSEC-2024-0384",
+    # RUSTSEC-2023-0089: crossbeam-channel: race condition in select!.
+    # Only affects crossbeam 0.7, transitive via rayon. rayon has not updated.
+    # VantaDB does not use crossbeam directly. Plan: upgrade rayon when fix ships.
     "RUSTSEC-2023-0089",
+    # RUSTSEC-2024-0436: rustls: `ManualIssueTime` policy enables client to lie about
+    # certificate expiration. VantaDB uses default time verifier, not ManualIssueTime.
+    # Only relevant if opt-in to the insecure policy. No action needed.
     "RUSTSEC-2024-0436",
+    # RUSTSEC-2025-0134: 1Password `schemars` related; only used in test/dev builds,
+    # not in production server. Will upgrade when patch is available.
     "RUSTSEC-2025-0134",
 ]
 
