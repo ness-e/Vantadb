@@ -1,7 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
-import "../styles/about.css";
+import "../../styles/about.css";
 
 export const Route = createLazyRoute("/about/")({
   component: AboutIndex,
