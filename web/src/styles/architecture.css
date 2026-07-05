@@ -1,95 +1,199 @@
-.nb-arch-title {
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
+.architecture-spec-label {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
   color: var(--foreground);
-  margin: 0;
+  border: 2px solid var(--border-visible);
+  padding: var(--space-md);
 }
 
-.nb-arch-body {
+.architecture-spec-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: var(--amber);
+  border: 2px solid var(--border-visible);
+  padding: var(--space-md);
+}
+
+.architecture-spec-desc {
   font-family: var(--font-sans);
-  font-size: var(--text-lead);
-  line-height: var(--leading-normal);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  border: 2px solid var(--border-visible);
+  padding: var(--space-md);
+}
+
+.architecture-profiler-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-lg);
+}
+
+.architecture-profiler-title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.architecture-profiler-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.architecture-profiler-bar {
+  display: flex;
+  width: 100%;
+  height: 2rem;
+  gap: 1px;
+  margin-bottom: var(--space-xl);
+  background: var(--border);
+}
+
+.architecture-profiler-detail {
+  padding-top: var(--space-lg);
+  min-height: 5.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.architecture-hovered-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.architecture-hovered-desc {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
   color: var(--muted);
   margin: 0;
-  max-width: 480px;
+  line-height: 1.6;
 }
 
-.nb-frame--pipeline {
-  overflow: hidden;
+.architecture-default-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--steel);
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-2xs);
 }
 
-.nb-pipeline-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.35;
+.architecture-default-desc {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.6;
 }
 
-.nb-arch-pipeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  position: relative;
-  z-index: 1;
+.architecture-section-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  line-height: 1.25;
 }
 
-.nb-arch-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+.architecture-section-desc {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
-.nb-arch-stage .nb-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  padding: var(--space-md) var(--space-lg);
-  border-width: 2px;
-  transition:
-    border-color 150ms var(--ease-brutal),
-    box-shadow 150ms var(--ease-brutal);
-}
-
-.nb-arch-stage .nb-card:hover {
-  border-color: var(--amber);
-  box-shadow: var(--shadow-amber);
-}
-
-.nb-arch-stage .nb-card--amber {
-  box-shadow: var(--shadow-amber);
-}
-
-.nb-arch-stage-label {
+.architecture-section-desc--compact {
   margin-bottom: 0;
 }
 
-.nb-arch-stage-name {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: var(--weight-bold);
-  color: var(--foreground);
-  letter-spacing: var(--tracking-tight);
-  line-height: var(--leading-tight);
+.architecture-layer-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
-.nb-arch-connector {
+.architecture-layer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.architecture-layer-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.architecture-layer-num {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.architecture-layer-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  margin-top: var(--space-xs);
+  margin-bottom: 0;
+  color: var(--foreground);
+}
+
+.architecture-layer-body {
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.architecture-table {
+  border: none;
+}
+
+.architecture-cta-wrap {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-2xs) 0;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
 }
 
-.nb-arch-connector-arrow {
+.architecture-cta-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 800;
+  color: var(--text-on-amber);
+}
+
+.architecture-cta-sub {
+  font-size: 0.875rem;
+  color: var(--text-on-amber);
+  opacity: 0.8;
+}
+
+.architecture-cta-code {
   font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: var(--weight-bold);
-  color: var(--amber);
-  letter-spacing: 0;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: var(--text-on-amber);
 }

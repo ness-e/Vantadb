@@ -2,6 +2,7 @@ import { createLazyRoute, Link } from "@tanstack/react-router";
 import { getPostBySlug } from "../../lib/blog";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import DOMPurify from "dompurify";
+import "../../styles/blog.css";
 
 export const Route = createLazyRoute("/blog/$slug")({
   component: BlogPost,
@@ -18,17 +19,8 @@ function BlogPost() {
       <div className="nb-page">
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-frame" style={{ padding: "var(--space-3xl)", textAlign: "center" }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "var(--text-display)",
-                  color: "var(--amber)",
-                  fontWeight: 700,
-                  marginBottom: "var(--space-md)",
-                  display: "block",
-                }}
-              >
+            <div className="nb-frame blog-slug-not-found-frame">
+              <span className="blog-slug-not-found-text">
                 Post not found
               </span>
               <br />
@@ -46,83 +38,32 @@ function BlogPost() {
     <div className="nb-page">
       <section className="nb-section">
         <div className="nb-inner">
-          <div style={{ marginBottom: "var(--space-md)" }}>
+          <div className="blog-slug-breadcrumb">
             <span>Blog</span>
             <span>{post.slug}</span>
           </div>
 
-          <div style={{ marginBottom: "var(--space-xl)" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-label)",
-                color: "var(--amber)",
-                fontWeight: 700,
-                marginBottom: 0,
-              }}
-            >
+          <div className="blog-slug-header">
+            <span className="blog-slug-date">
               {post.date}
             </span>
-            <h1
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-hero)",
-                fontWeight: 700,
-                letterSpacing: "var(--tracking-tight)",
-                lineHeight: 1.05,
-                color: "var(--foreground)",
-                margin: "var(--space-sm) 0",
-              }}
-            >
+            <h1 className="blog-slug-title">
               {post.title}
             </h1>
-            <div
-              style={{
-                display: "flex",
-                gap: "var(--space-sm)",
-                alignItems: "center",
-                marginBottom: "var(--space-md)",
-              }}
-            >
+            <div className="blog-slug-meta">
               {post.author && (
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: 0,
-                  }}
-                >
+                <span className="blog-slug-author">
                   By {post.author}
                 </span>
               )}
               {post.tags?.map((t) => (
-                <span
-                  key={t}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--muted)",
-                    border: "1px solid var(--border)",
-                    padding: "2px 6px",
-                  }}
-                >
+                <span key={t} className="blog-slug-tag">
                   {t}
                 </span>
               ))}
             </div>
             {post.description && (
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "var(--text-lead)",
-                  color: "var(--muted)",
-                  lineHeight: 1.6,
-                  margin: 0,
-                  maxWidth: "65ch",
-                }}
-              >
+              <p className="blog-slug-desc">
                 {post.description}
               </p>
             )}
@@ -131,21 +72,13 @@ function BlogPost() {
           <div className="nb-divider" />
 
           <div
-            className="article-body"
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--text-body)",
-              lineHeight: 1.8,
-              color: "var(--foreground)",
-              marginTop: "var(--space-xl)",
-              maxWidth: "75ch",
-            }}
+            className="article-body blog-slug-body"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }}
           />
 
-          <div className="nb-divider" style={{ marginTop: "var(--space-xl)" }} />
+          <div className="nb-divider blog-slug-divider" />
 
-          <nav style={{ marginTop: "var(--space-lg)" }}>
+          <nav className="blog-slug-nav">
             <Link to="/blog" className="nb-arrow">
               Back to blog
             </Link>
@@ -173,23 +106,8 @@ function BlogPost() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
+    <div className="blog-pending">
+      <span className="blog-pending-text">
         Loading...
       </span>
     </div>

@@ -1,0 +1,84 @@
+.cost-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
+}
+
+.cost-grid {
+  margin-top: 3rem;
+}
+
+.cost-label-legacy {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.cost-label-vanta {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--amber);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.cost-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cost-icon-danger {
+  color: var(--danger);
+  min-width: 1rem;
+}
+
+.cost-icon-amber {
+  color: var(--amber);
+  min-width: 1rem;
+}
+
+.cost-cell-border {
+  border-left: 2px solid var(--amber);
+}
+
+.cost-table {
+  border: none;
+}
+
+.cost-tfoot-row {
+  border-top: 2px solid var(--border-visible);
+}
+
+.cost-muted-cell {
+  color: var(--muted);
+}
+
+.cost-grid-flush {
+  margin-top: 0;
+}
+
+.cost-tco-cell {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.cost-cta-title {
+  color: var(--text-on-amber);
+}
+
+.cost-cta-sub {
+  color: var(--text-on-amber);
+  opacity: 0.8;
+}
+
+.cost-cta-code {
+  color: var(--text-on-amber);
+}

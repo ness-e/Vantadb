@@ -1,0 +1,40 @@
+.changelog-filter-bar {
+  background: var(--border-visible);
+  border: 2px solid var(--border-visible);
+  width: fit-content;
+}
+
+.changelog-releases-container {
+  background: var(--border-visible);
+  border: 2px solid var(--border-visible);
+}
+
+.changelog-release {
+  background: var(--background);
+}
+
+.changelog-release-sidebar {
+  border-right: 2px solid var(--border-visible);
+}
+
+.changelog-current-badge {
+  background: var(--amber-dim);
+}
+
+.changelog-semver-box {
+  border: 2px solid var(--border-visible);
+  background: var(--surface);
+}
+
+.changelog-cta-title {
+  color: var(--text-on-amber);
+}
+
+.changelog-cta-text {
+  color: var(--text-on-amber);
+  opacity: 0.8;
+}
+
+.changelog-cta-code {
+  color: var(--text-on-amber);
+}

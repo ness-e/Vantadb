@@ -502,6 +502,81 @@
   background-size: 256px 256px;
 }
 
+.nb-pending {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+  color: var(--muted);
+}
+
+.nb-not-found-container {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  padding: 0 1rem;
+}
+
+.nb-not-found-card {
+  max-width: 480px;
+  text-align: center;
+}
+
+.nb-not-found-code {
+  font-family: var(--font-display);
+  font-size: 8rem;
+  font-weight: 900;
+  color: var(--border);
+  line-height: 1;
+  letter-spacing: -0.08em;
+  margin: 0;
+}
+
+.nb-not-found-divider {
+  margin: 1.5rem 0;
+}
+
+.nb-not-found-text {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.nb-error-container {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  padding: 0 1rem;
+}
+
+.nb-error-card {
+  max-width: 480px;
+  text-align: center;
+}
+
+.nb-error-divider {
+  margin-bottom: 1.5rem;
+}
+
+.nb-error-text {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.nb-error-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 960px) {
   .nb-bento--col4 {
     grid-template-columns: repeat(2, 1fr);

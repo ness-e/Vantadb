@@ -2,6 +2,7 @@ import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { DocsSidebar } from "@/components/DocsSidebar";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/docs.css";
 
 export const Route = createLazyRoute("/docs")({
   component: DocsPage,
@@ -196,14 +197,7 @@ function DocsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "240px 1fr",
-              gap: "var(--space-xl)",
-              alignItems: "start",
-            }}
-          >
+          <div className="docs-layout">
             <DocsSidebar items={sidebarItems} />
 
             <div>
@@ -211,80 +205,33 @@ function DocsPage() {
                 <div
                   key={s.id}
                   id={s.id}
-                  className="nb-card nb-bg-cross--faint"
-                  style={{ marginBottom: "var(--space-xl)", padding: "var(--space-xl)" }}
+                  className="nb-card nb-bg-cross--faint docs-card"
                 >
-                  <h3
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "var(--text-title)",
-                      fontWeight: 700,
-                      color: "var(--foreground)",
-                      margin: "0 0 var(--space-md)",
-                    }}
-                  >
+                  <h3 className="docs-section-title">
                     {s.num} — {s.title}
                   </h3>
                   <div className="nb-divider" />
-                  <p
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "var(--text-code)",
-                      color: "var(--muted)",
-                      lineHeight: 1.6,
-                      margin: "var(--space-sm) 0 var(--space-md)",
-                    }}
-                  >
+                  <p className="docs-section-desc">
                     {s.desc}
                   </p>
-                  <div className="nb-frame" style={{ overflowX: "auto" }}>
-                    <pre
-                      style={{
-                        margin: 0,
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "var(--text-code)",
-                        lineHeight: 1.6,
-                        color: "var(--foreground)",
-                        whiteSpace: "pre",
-                      }}
-                    >
+                  <div className="nb-frame docs-code-frame">
+                    <pre className="docs-code-pre">
                       <code>{s.code}</code>
                     </pre>
                   </div>
                 </div>
               ))}
 
-              <div className="nb-block-amber" style={{ textAlign: "center" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--text-on-amber)",
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
+              <div className="nb-block-amber docs-help-block">
+                <span className="docs-help-label">
                   NEED HELP?
                 </span>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-body)",
-                    color: "var(--text-on-amber)",
-                    margin: "var(--space-2xs) 0",
-                    opacity: 0.85,
-                  }}
-                >
+                <p className="docs-help-text">
                   Join our Discord or open a GitHub discussion.
                 </p>
                 <a
                   href="https://github.com/ness-e/Vantadb/discussions"
-                  className="nb-btn nb-btn--ghost"
-                  style={{
-                    borderColor: "var(--text-on-amber)",
-                    color: "var(--text-on-amber)",
-                    boxShadow: "var(--shadow-brutal)",
-                  }}
+                  className="nb-btn nb-btn--ghost docs-help-link"
                 >
                   DISCUSSIONS
                 </a>

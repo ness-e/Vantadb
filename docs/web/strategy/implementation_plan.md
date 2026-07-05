@@ -6,6 +6,8 @@ last_reviewed: 2026-07-03
 aliases: []
 ---
 
+<!-- markdownlint-disable-file MD013 MD022 MD025 MD026 MD031 MD040 MD058 -->
+
 # Rediseño Completo VantaDB — Swiss High-Contrast Minimal (Neon Precision)
 
 ## Descripción del Objetivo
@@ -700,20 +702,28 @@ npm run build
 
 ### Visual Verification (por fase)
 - [ ] **Fase 0:** Tokens correctos, sin errores de compilación
-- [ ] **Fase 1:** Nav funcional desktop/mobile, footer con todas las páginas, links correctos
-- [ ] **Fase 2:** Hero tipográfico con fondo animado, benchmark grid con count-up, quickstart terminal, core engine pin funcional, architecture exploded view, ecosystem grid, use cases cards, monolith CTA
-- [ ] **Fase 3:** Engine/Architecture/Integrations/UseCases con Swiss style, SVG diagramas funcionales
-- [ ] **Fase 4:** Cost/Latency/Storage/Config/Maint con métricas legibles, changelog timeline
-- [ ] **Fase 5:** Solutions/Docs/Pricing/About/Blog/Community/Contact redesigned, roadmap 404
-- [ ] **Fase 6:** Anti-slop audit passed, responsive en 375px/768px/1280px/1920px
+- [ ] **Fase 1:** Nav funcional desktop/mobile, footer con todas las páginas,
+  links correctos
+- [ ] **Fase 2:** Hero tipográfico con fondo animado, benchmark grid con
+  count-up, quickstart terminal, core engine pin funcional, architecture
+  exploded view, ecosystem grid, use cases cards, monolith CTA
+- [ ] **Fase 3:** Engine/Architecture/Integrations/UseCases con Swiss style,
+  SVG diagramas funcionales
+- [ ] **Fase 4:** Cost/Latency/Storage/Config/Maint con métricas legibles,
+  changelog timeline
+- [ ] **Fase 5:** Solutions/Docs/Pricing/About/Blog/Community/Contact
+  redesigned, roadmap 404
+- [ ] **Fase 6:** Anti-slop audit passed, responsive en
+  375px/768px/1280px/1920px
 
 ### Git Commits (al final de cada fase)
+
 ```bash
-git add -A && git commit -m "feat(design): phase 0 — swiss design tokens and grid system"
+git add -A && git commit -m "feat(design): phase 0 — design tokens + grid"
 git add -A && git commit -m "feat(nav): phase 1 — swiss nav and OLED footer"
-git add -A && git commit -m "feat(index): phase 2 — complete landing page redesign"
-git add -A && git commit -m "feat(pages): phase 3 — technical subpages redesign"
-git add -A && git commit -m "feat(pages): phase 4 — metrics subpages and changelog"
-git add -A && git commit -m "feat(pages): phase 5 — solutions, about, blog, pricing"
-git add -A && git commit -m "chore(cleanup): phase 6 — purge legacy components and anti-slop audit"
+git add -A && git commit -m "feat(index): phase 2 — landing page redesign"
+git add -A && git commit -m "feat(pages): phase 3 — technical subpages"
+git add -A && git commit -m "feat(pages): phase 4 — metrics + changelog"
+git add -A && git commit -m "feat(pages): phase 5 — solutions, about, blog"
+git add -A && git commit -m "chore(cleanup): phase 6 — purge + anti-slop"
 ```

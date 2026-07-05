@@ -86,74 +86,28 @@ function CommunityPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Where to Find Us
-          </h2>
+          <h2 className="about-community-section-title">Where to Find Us</h2>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-2 about-community-grid-top">
             {CHANNELS.map((ch) => (
               <a
                 key={ch.name}
                 href={ch.href}
                 target={ch.href.startsWith("http") ? "_blank" : undefined}
                 rel="noopener noreferrer"
-                className="nb-cell"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-sm)",
-                  padding: "var(--space-xl)",
-                  textDecoration: "none",
-                  borderLeft: "2px solid transparent",
-                  transition: "all 150ms var(--ease-brutal)",
-                  background: "var(--background)",
-                }}
+                className="nb-cell about-community-channel-card"
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: 0,
-                  }}
-                >
+                <span className="about-community-channel-tag">
                   {ch.tag}
                 </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 800,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+                <h3 className="about-community-channel-name">
                   {ch.name}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
+                <p className="about-community-channel-desc">
                   {ch.desc}
                 </p>
-                <span className="nb-arrow" style={{ marginTop: "auto" }}>
+                <span className="nb-arrow about-community-channel-cta">
                   {ch.cta}
                 </span>
               </a>
@@ -164,66 +118,22 @@ function CommunityPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Contribute
-          </h2>
+          <h2 className="about-community-section-title">Contribute</h2>
           <div className="nb-divider" />
-          <p
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-display)",
-              fontWeight: 800,
-              letterSpacing: "var(--tracking-display)",
-              margin: "var(--space-sm) 0 var(--space-xl)",
-              lineHeight: 1.05,
-            }}
-          >
+          <p className="about-community-feature-lead">
             Ways to get involved.
           </p>
 
           <div className="nb-grid nb-grid--cols-3">
             {WAYS.map((w) => (
-              <div key={w.num} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--muted)",
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
+              <div key={w.num} className="nb-cell about-community-way-card">
+                <span className="about-community-way-num">
                   {w.num}
                 </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: "0 0 var(--space-2xs)",
-                  }}
-                >
+                <h3 className="about-community-way-title">
                   {w.title}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p className="about-community-way-desc">
                   {w.desc}
                 </p>
               </div>
@@ -234,37 +144,16 @@ function CommunityPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
+          <div className="nb-block-amber about-community-cta-block">
+            <span className="about-community-cta-label">
               WANT TO CONTRIBUTE?
             </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
+            <p className="about-community-cta-desc">
               Check out our GitHub for open issues.
             </p>
             <a
               href="https://github.com/ness-e/Vantadb"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
+              className="nb-btn nb-btn--ghost about-community-cta-btn"
             >
               GITHUB
             </a>
@@ -277,23 +166,8 @@ function CommunityPage() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
+    <div className="about-pending-container">
+      <span className="about-pending-text">
         Loading...
       </span>
     </div>

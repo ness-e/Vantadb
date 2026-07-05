@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createLazyRoute } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/playground.css";
 
 export const Route = createLazyRoute("/playground")({
   component: PlaygroundPage,
@@ -102,48 +103,11 @@ function PlaygroundPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <div
-            style={{
-              background: "#0a0a0a",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.375rem",
-                padding: "0.5rem 0.75rem",
-                background: "#141414",
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#ff5f56",
-                  display: "inline-block",
-                }}
-              />
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#ffbd2e",
-                  display: "inline-block",
-                }}
-              />
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#27c93f",
-                  display: "inline-block",
-                }}
-              />
+          <div className="playground-terminal">
+            <div className="playground-terminal-header">
+              <span className="playground-dot-red" />
+              <span className="playground-dot-yellow" />
+              <span className="playground-dot-green" />
               <span
                 style={{
                   ...CMD_LINE_STYLE,
@@ -156,15 +120,8 @@ function PlaygroundPage() {
               </span>
             </div>
 
-            <div style={{ padding: "var(--space-md)" }}>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  alignItems: "center",
-                  marginBottom: "var(--space-md)",
-                }}
-              >
+            <div className="playground-terminal-content">
+              <div className="playground-prompt-row">
                 <span style={{ ...CMD_LINE_STYLE, color: "var(--amber)" }}>
                   vantadb@playground:~$
                 </span>
@@ -204,14 +161,7 @@ function PlaygroundPage() {
                 </button>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.375rem",
-                  flexWrap: "wrap",
-                  marginBottom: "var(--space-md)",
-                }}
-              >
+              <div className="playground-sample-row">
                 {SAMPLE_QUERIES.map((q) => (
                   <button
                     key={q}
@@ -231,13 +181,7 @@ function PlaygroundPage() {
                 ))}
               </div>
 
-              <div
-                style={{
-                  minHeight: 200,
-                  borderTop: "1px solid var(--border)",
-                  paddingTop: "var(--space-md)",
-                }}
-              >
+              <div className="playground-results-area">
                 {simulating && (
                   <span style={{ ...CMD_LINE_STYLE, color: "var(--amber)" }}>
                     simulating query...
@@ -260,12 +204,7 @@ function PlaygroundPage() {
                     {results.map((r) => (
                       <div
                         key={r.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "var(--space-sm)",
-                          padding: "0.375rem 0",
-                        }}
+                        className="playground-result-row"
                       >
                         <span
                           style={{
@@ -279,14 +218,7 @@ function PlaygroundPage() {
                         >
                           {r.id}
                         </span>
-                        <div
-                          style={{
-                            width: 60,
-                            height: 6,
-                            background: "var(--border)",
-                            flexShrink: 0,
-                          }}
-                        >
+                        <div className="playground-score-bar">
                           <div
                             style={{
                               width: `${r.score * 100}%`,
@@ -347,34 +279,12 @@ function PlaygroundPage() {
             ].map((s) => (
               <div
                 key={s.label}
-                style={{
-                  padding: "var(--space-lg) var(--space-xl)",
-                  textAlign: "center",
-                }}
+                className="playground-stat-card"
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-metric)",
-                    fontWeight: 800,
-                    color: "var(--amber)",
-                    lineHeight: 1,
-                    display: "block",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
+                <span className="playground-stat-value">
                   {s.value}
                 </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--steel)",
-                    marginTop: "var(--space-3xs)",
-                    marginBottom: 0,
-                    display: "block",
-                  }}
-                >
+                <span className="playground-stat-label">
                   {s.label}
                 </span>
               </div>
@@ -385,92 +295,53 @@ function PlaygroundPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
+          <h2 className="playground-heading">
             Quick Start
           </h2>
           <div className="nb-divider" />
-          <div
-            style={{
-              background: "#0a0a0a",
-              padding: "var(--space-lg)",
-              marginTop: "var(--space-xl)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "var(--text-code)",
-              lineHeight: 2,
-              color: "#e0e0e0",
-              overflowX: "auto",
-              whiteSpace: "pre",
-            }}
-          >
-            <span style={{ color: "var(--steel)" }}>// Embed VantaDB in any JS runtime{"\n"}</span>
-            <span style={{ color: "var(--amber)" }}>import</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>{`{ VantaDB }`}</span>{" "}
-            <span style={{ color: "var(--amber)" }}>from</span>{" "}
-            <span style={{ color: "var(--steel)" }}>"@vantadb/wasm"</span>
-            <span style={{ color: "#e0e0e0" }}>;</span>
+          <div className="playground-code-block">
+            <span className="playground-syntax-steel">// Embed VantaDB in any JS runtime{"\n"}</span>
+            <span className="playground-syntax-amber">import</span>{" "}
+            <span className="playground-syntax-default">{`{ VantaDB }`}</span>{" "}
+            <span className="playground-syntax-amber">from</span>{" "}
+            <span className="playground-syntax-steel">"@vantadb/wasm"</span>
+            <span className="playground-syntax-default">;</span>
             {"\n\n"}
-            <span style={{ color: "var(--amber)" }}>const</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>db = </span>
-            <span style={{ color: "var(--amber)" }}>await</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>VantaDB.init();</span>
+            <span className="playground-syntax-amber">const</span>{" "}
+            <span className="playground-syntax-default">db = </span>
+            <span className="playground-syntax-amber">await</span>{" "}
+            <span className="playground-syntax-default">VantaDB.init();</span>
             {"\n\n"}
-            <span style={{ color: "var(--amber)" }}>await</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>db.insert({"{"}</span>
+            <span className="playground-syntax-amber">await</span>{" "}
+            <span className="playground-syntax-default">db.insert({"{"}</span>
             {"\n"}
-            <span style={{ color: "#e0e0e0" }}> id: </span>
-            <span style={{ color: "var(--steel)" }}>"doc1"</span>
-            <span style={{ color: "#e0e0e0" }}>,</span>
+            <span className="playground-syntax-default"> id: </span>
+            <span className="playground-syntax-steel">"doc1"</span>
+            <span className="playground-syntax-default">,</span>
             {"\n"}
-            <span style={{ color: "#e0e0e0" }}> vector: [...],</span>
+            <span className="playground-syntax-default"> vector: [...],</span>
             {"\n"}
-            <span style={{ color: "#e0e0e0" }}> text: </span>
-            <span style={{ color: "var(--steel)" }}>"..."</span>
-            <span style={{ color: "#e0e0e0" }}>,</span>
+            <span className="playground-syntax-default"> text: </span>
+            <span className="playground-syntax-steel">"..."</span>
+            <span className="playground-syntax-default">,</span>
             {"\n"}
-            <span style={{ color: "#e0e0e0" }}>{"}"});</span>
+            <span className="playground-syntax-default">{"}"});</span>
             {"\n\n"}
-            <span style={{ color: "var(--amber)" }}>const</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>results = </span>
-            <span style={{ color: "var(--amber)" }}>await</span>{" "}
-            <span style={{ color: "#e0e0e0" }}>db.hybridSearch(</span>
-            <span style={{ color: "var(--steel)" }}>"query"</span>
-            <span style={{ color: "#e0e0e0" }}>, {"{ topK: 10 }"});</span>
+            <span className="playground-syntax-amber">const</span>{" "}
+            <span className="playground-syntax-default">results = </span>
+            <span className="playground-syntax-amber">await</span>{" "}
+            <span className="playground-syntax-default">db.hybridSearch(</span>
+            <span className="playground-syntax-steel">"query"</span>
+            <span className="playground-syntax-default">, {"{ topK: 10 }"});</span>
           </div>
         </div>
       </section>
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-lg)",
-              flexWrap: "wrap",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-code)",
-                letterSpacing: "0.12em",
-                color: "var(--steel)",
-                padding: "12px 28px",
-                background: "#0a0a0a",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <span style={{ color: "var(--amber)" }}>$</span>
+          <div className="playground-install-row">
+            <div className="playground-install-command">
+              <span className="playground-syntax-amber">$</span>
               npm install @vantadb/wasm
             </div>
           </div>

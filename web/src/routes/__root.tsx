@@ -18,39 +18,13 @@ import { ScrollProgress } from "../components/ScrollProgress";
 
 function NotFoundComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--background)",
-        padding: "0 1rem",
-      }}
-    >
-      <div style={{ maxWidth: "480px", textAlign: "center" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "8rem",
-            fontWeight: 900,
-            color: "var(--border)",
-            lineHeight: 1,
-            letterSpacing: "-0.08em",
-            margin: 0,
-          }}
-        >
+    <div className="nb-not-found-container">
+      <div className="nb-not-found-card">
+        <h1 className="nb-not-found-code">
           404
         </h1>
-        <hr className="nb-hairline" style={{ margin: "1.5rem 0" }} />
-        <p
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: "1rem",
-            color: "var(--muted)",
-            marginBottom: "2rem",
-          }}
-        >
+        <hr className="nb-hairline nb-not-found-divider" />
+        <p className="nb-not-found-text">
           This page doesn't exist.
         </p>
         <Link to="/" className="nb-btn">
@@ -65,31 +39,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--background)",
-        padding: "0 1rem",
-      }}
-    >
-      <div style={{ maxWidth: "480px", textAlign: "center" }}>
-        <hr className="nb-hairline" style={{ marginBottom: "1.5rem" }} />
-        <p
-          style={{
-            fontFamily: "var(--font-sans)",
-            fontSize: "0.9rem",
-            color: "var(--muted)",
-            marginBottom: "2rem",
-          }}
-        >
+    <div className="nb-error-container">
+      <div className="nb-error-card">
+        <hr className="nb-hairline nb-error-divider" />
+        <p className="nb-error-text">
           Something went wrong. You can try again or go home.
         </p>
-        <div
-          style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}
-        >
+        <div className="nb-error-actions">
           <button
             onClick={() => {
               router.invalidate();

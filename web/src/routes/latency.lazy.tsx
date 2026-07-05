@@ -2,6 +2,7 @@ import { createLazyRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/latency.css";
 
 export const Route = createLazyRoute("/latency")({
   component: LatencyPage,
@@ -84,28 +85,18 @@ function LatencyPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+            <div className="nb-grid nb-grid--cols-2 latency-grid">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="latency-label-legacy">
                   LEGACY — ~200ms
                 </div>
                 <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                  className="flex flex-col gap-3 mt-4 latency-list"
                 >
                   {LEGACY_ITEMS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
                       <span
-                        className="font-mono font-bold flex-shrink-0"
-                        style={{ color: "var(--danger)", minWidth: "1rem" }}
+                        className="font-mono font-bold flex-shrink-0 latency-icon-danger"
                       >
                         ✗
                       </span>
@@ -114,21 +105,12 @@ function LatencyPage() {
                   ))}
                 </ul>
               </div>
-              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+              <div className="nb-cell latency-cell-border">
+                <div className="latency-label-vanta">
                   VANTADB {mode === "rust" ? "Rust Core" : "Python SDK"} — {vantaLatency}ms
                 </div>
                 <ul
-                  className="flex flex-col gap-3 mt-4"
-                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                  className="flex flex-col gap-3 mt-4 latency-list"
                 >
                   {VANTA_ITEMS.map((item) => (
                     <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
@@ -138,8 +120,7 @@ function LatencyPage() {
                   ))}
                 </ul>
                 <div
-                  className="mt-4 pt-3 font-mono text-[0.65rem] text-steel leading-relaxed tracking-[0.02em]"
-                  style={{ borderTop: "1px solid var(--border)" }}
+                  className="mt-4 pt-3 font-mono text-[0.65rem] text-steel leading-relaxed tracking-[0.02em] latency-footnote"
                 >
                   <span className="text-amber">▲</span>{" "}
                   {mode === "rust"
@@ -153,15 +134,7 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="latency-section-title">
               Pipeline Impact
             </h2>
             <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[-0.04em] mt-4 mb-12 leading-tight">
@@ -182,26 +155,17 @@ function LatencyPage() {
                 max={200}
                 value={pipelineSize}
                 onChange={(e) => setPipelineSize(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "var(--amber)", cursor: "pointer" }}
+                className="latency-slider"
               />
             </div>
 
             <div className="nb-grid nb-grid--cols-3">
               <div className="nb-cell">
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--steel)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div className="latency-label-value">
                   LEGACY
                 </div>
                 <div
-                  className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none"
-                  style={{ color: "var(--danger)" }}
+                  className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none latency-value-danger"
                 >
                   {(legacyTotal / 1000).toFixed(1)}s
                 </div>
@@ -209,16 +173,8 @@ function LatencyPage() {
                   {pipelineSize} × 200ms
                 </div>
               </div>
-              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-label)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+              <div className="nb-cell latency-cell-border">
+                <div className="latency-label-vanta">
                   VANTADB {mode === "rust" ? "RUST CORE" : "PYTHON SDK"}
                 </div>
                 <div className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none text-amber">
@@ -244,25 +200,13 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-title)",
-                fontWeight: 700,
-                color: "var(--foreground)",
-                margin: "0 0 var(--space-md)",
-              }}
-            >
+            <h2 className="latency-section-title">
               Where the Milliseconds Go
             </h2>
 
             <div className="nb-frame mt-12">
               <div
-                className="grid grid-cols-[120px_1fr_80px_80px] gap-4 px-4 py-3"
-                style={{
-                  borderBottom: "2px solid var(--border-visible)",
-                  background: "var(--surface)",
-                }}
+                className="grid grid-cols-[120px_1fr_80px_80px] gap-4 px-4 py-3 latency-table-header"
               >
                 <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
                   Phase
@@ -285,7 +229,7 @@ function LatencyPage() {
                 >
                   <span className="text-sm text-muted">{row.label}</span>
                   <div className="flex flex-col gap-[3px]">
-                    <div className="h-[6px] relative" style={{ background: "var(--surface)" }}>
+                    <div className="h-[6px] relative latency-bar-bg">
                       <div
                         className="absolute left-0 top-0 bottom-0"
                         style={{
@@ -295,7 +239,7 @@ function LatencyPage() {
                         }}
                       />
                     </div>
-                    <div className="h-[6px] relative" style={{ background: "var(--surface)" }}>
+                    <div className="h-[6px] relative latency-bar-bg">
                       <div
                         className="absolute left-0 top-0 bottom-0"
                         style={{
@@ -324,18 +268,16 @@ function LatencyPage() {
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <h2
-                    className="font-display text-2xl font-extrabold"
-                    style={{ color: "var(--text-on-amber)" }}
+                    className="font-display text-2xl font-extrabold latency-cta-title"
                   >
                     1.2ms at the core. No network tax.
                   </h2>
-                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                  <p className="text-sm latency-cta-sub">
                     Install VantaDB in one command.
                   </p>
                 </div>
                 <code
-                  className="font-mono text-lg font-bold"
-                  style={{ color: "var(--text-on-amber)" }}
+                  className="font-mono text-lg font-bold latency-cta-code"
                 >
                   pip install vantadb-py
                 </code>

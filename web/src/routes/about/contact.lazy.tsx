@@ -61,22 +61,12 @@ function ContactPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Contact Channels
-          </h2>
+          <h2 className="about-contact-section-title">Contact Channels</h2>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-3 about-contact-grid-top">
             {CONTACTS.map((c) => (
-              <div key={c.channel} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
+              <div key={c.channel} className="nb-cell about-contact-channel-card">
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
@@ -88,39 +78,13 @@ function ContactPage() {
                 >
                   {c.type === "email" ? "EMAIL" : "LINK"}
                 </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: "0 0 var(--space-3xs)",
-                  }}
-                >
+                <h3 className="about-contact-channel-name">
                   {c.channel}
                 </h3>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    marginBottom: "var(--space-2xs)",
-                    display: "block",
-                  }}
-                >
+                <span className="about-contact-channel-detail">
                   {c.detail}
                 </span>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
+                <p className="about-contact-channel-sub">
                   {c.sub}
                 </p>
               </div>
@@ -131,69 +95,24 @@ function ContactPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "var(--text-title)",
-              fontWeight: 700,
-              color: "var(--foreground)",
-              margin: "0 0 var(--space-md)",
-            }}
-          >
-            Security
-          </h2>
+          <h2 className="about-contact-section-title">Security</h2>
           <div className="nb-divider" />
 
-          <div className="nb-split-7-5" style={{ marginTop: "var(--space-xl)" }}>
-            <h2
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-display)",
-                fontWeight: 800,
-                letterSpacing: "var(--tracking-display)",
-                color: "var(--foreground)",
-                lineHeight: 1.1,
-                margin: 0,
-              }}
-            >
+          <div className="nb-split-7-5 about-contact-split-top">
+            <h2 className="about-contact-security-title">
               Responsible disclosure
             </h2>
             <div>
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "var(--text-body)",
-                  color: "var(--muted)",
-                  lineHeight: 1.75,
-                  margin: 0,
-                }}
-              >
+              <p className="about-contact-security-desc">
                 Found a security vulnerability? Email{" "}
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "var(--text-micro)",
-                    color: "var(--amber)",
-                    fontWeight: 700,
-                    display: "inline",
-                    marginBottom: 0,
-                  }}
-                >
+                <span className="about-contact-security-email">
                   security@vantadb.dev
                 </span>
                 . We practice responsible disclosure and will work with you to validate, fix, and
                 release a patch before public disclosure. We don't have a formal bug bounty program
                 yet, but we'll credit you in the release notes.
               </p>
-              <p
-                style={{
-                  fontFamily: "var(--font-sans)",
-                  fontSize: "var(--text-body)",
-                  color: "var(--muted)",
-                  lineHeight: 1.75,
-                  margin: "var(--space-sm) 0 0",
-                }}
-              >
+              <p className="about-contact-security-desc-p2">
                 Response time: &lt;48h for critical, &lt;72h for high severity. We follow a 90-day
                 disclosure timeline from first contact.
               </p>
@@ -204,37 +123,16 @@ function ContactPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--text-micro)",
-                color: "var(--text-on-amber)",
-                marginBottom: "var(--space-2xs)",
-                display: "block",
-              }}
-            >
+          <div className="nb-block-amber about-contact-cta-block">
+            <span className="about-contact-cta-label">
               GET STARTED
             </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-2xs) 0",
-                opacity: 0.85,
-              }}
-            >
+            <p className="about-contact-cta-desc">
               VantaDB is free and open source. Start building today.
             </p>
             <Link
               to="/docs"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
+              className="nb-btn nb-btn--ghost about-contact-cta-btn"
             >
               DOCS
             </Link>
@@ -247,23 +145,8 @@ function ContactPage() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--text-label)",
-          color: "var(--muted)",
-          marginBottom: 0,
-        }}
-      >
+    <div className="about-pending-container">
+      <span className="about-pending-text">
         Loading...
       </span>
     </div>
