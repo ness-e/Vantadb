@@ -1244,3 +1244,102 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Build Status:** `cargo check` pasa, 12 migration tests pasan, workspace compila con 0 errores
 - **Ids:** `REL-01`, `LEG-02`, `DB-01`, `DB-03`, `DB-04`, `DEVOPS-08`, `DEVOPS-09`, `DOC-16`, `BIZ-01`
 
+### 2026-07-04 — Fleet Fix Session (78 CODE bugs fixed across 9 commits)
+
+**Commits:** `a7d12e9` `4863b4c` `15a2ea8` `40237bd` `756710a` `d25f91e` `a55e74c` `c32c87f` `df1479a` `a94c261`
+
+#### Python SDK (9 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-004 | hardware_profile() muta capabilities dict | `15a2ea8` |
+| CODE-014 | LRU cache Python completamente muerto | `15a2ea8` |
+| CODE-016 | Python __aexit__ bloquea event loop | `15a2ea8` |
+| CODE-017 | hardware_profile bloquea event loop | `15a2ea8` |
+| CODE-038 | LRU Python no refresca orden en update | `15a2ea8` |
+| CODE-081 | put_batch API posicional frágil | `15a2ea8` |
+| CODE-082 | f64→f32 silent precision loss | `15a2ea8` |
+| CODE-083 | Sin .pyi type stubs | `15a2ea8` |
+| CODE-084 | connect() sin memory_limit | `15a2ea8` |
+
+#### Core Engine & Index (8 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-007 | Tombstone check bypass en HNSW insert | `d25f91e` |
+| CODE-008 | HNSW nunca elimina nodos de CPIndex | `d25f91e` |
+| CODE-010 | Compact layout tmp file huérfano | `d25f91e` |
+| CODE-024 | scan_nodes OOM | `d25f91e` |
+| CODE-029 | Read lock en todo search pipeline | `d25f91e` |
+| CODE-030 | NaN en cosine_similarity | `d25f91e` |
+| CODE-064 | serialize_to_bytes Vec gigante | `d25f91e` |
+| CODE-065 | estimate_memory_bytes O(n) en cada insert | `d25f91e` |
+
+#### Rust Code Health (4 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-031 | GC delete failure silencioso | `c32c87f` |
+| CODE-032 | TTL map unbounded growth | `c32c87f` |
+| CODE-034 | VANTA_BACKEND=fjall warning falso | `c32c87f` |
+| CODE-066 | WAL recover_state dead_code | `c32c87f` |
+
+#### Security & Dependencies (7 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-036 | TLS 1.3 only (relajado a 1.2) | `df1479a` |
+| CODE-056 | Duplicate reqwest 0.12+0.13 | `df1479a` |
+| CODE-057 | debug=0 en test profile | `df1479a` |
+| CODE-058 | Ignored advisories sin rationale | `df1479a` |
+| CODE-061 | SIGBUS handler no signal-safe | `df1479a` |
+| CODE-062 | Cursor reset sin zero-fill | `df1479a` |
+| CODE-063 | grow_to puede shrink | `df1479a` |
+
+#### TypeScript SDK (9 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-045 | OperationalMetrics 70% incompleto | `756710a` |
+| CODE-046 | _mapRecord identity lie | `756710a` |
+| CODE-047 | Tests con catch vacío | `756710a` |
+| CODE-086 | TS async sin async real | `756710a` |
+| CODE-087 | _mapRecord O(n) copy | `756710a` |
+| CODE-088 | Object reconstruction duplicada | `756710a` |
+| CODE-089 | storage_path sin efecto en WASM | `756710a` |
+| CODE-090 | insertNode BigInt overflow | `756710a` |
+| CODE-091 | hit.distance etiquetado score | `756710a` |
+
+#### WASM & Build (4 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-043 | Cargo_test.toml stale duplicate | `40237bd` |
+| CODE-059 | wasm-opt=false en release | `40237bd` |
+| CODE-060 | Demo WASM sin await | `40237bd` |
+| CODE-069 | .tanstack ignorado inconsistente | `40237bd` |
+
+#### CI & Infra (6 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-023 | 0 tests en CI web | `a55e74c` |
+| CODE-070 | Sin bundle analysis | `a55e74c` |
+| CODE-073 | Cero e2e tests | `a55e74c` |
+| CODE-075 | Sin coverage provider | `a55e74c` |
+| CODE-078 | Sin playwright install en CI | `a55e74c` |
+| CODE-080 | Dependabot sin npm ecosystem | `a55e74c` |
+
+#### Web Frontend (10 bugs)
+| ID | Tarea | Commit |
+|----|-------|--------|
+| CODE-048 | Skip link después de Nav | `a94c261` |
+| CODE-050 | Date sorting produce NaN | `a94c261` |
+| CODE-051 | motion chunk config muerto | `a94c261` |
+| CODE-053 | docs-api 130 líneas dead code | `a94c261` |
+| CODE-054 | QueryClient recreado en cada router | `a94c261` |
+| CODE-068 | 33+ imágenes commiteadas | `a94c261` |
+| CODE-071 | getAllPosts sin memo | `a94c261` |
+| CODE-072 | Array index como key | `a94c261` |
+| CODE-076 | GSAP ScrollTrigger sin cleanup | `a94c261` |
+| CODE-077 | useState para hover | `a94c261` |
+
+#### Documentation (2 tasks)
+| ID | Tarea | 
+|----|-------|
+| MKT-11 | llms.txt: SQL/IVF claims corregidos |
+| CODE-085 | README: get_memory→get, search_memory→search |
+

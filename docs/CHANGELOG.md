@@ -13,7 +13,7 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.2.1] — 2026-07-04 (Fleet Fix Session)
 
 ### Added
 
@@ -30,12 +30,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Deleted `archive/experimental-quarantine-2024-06/experimental-lisp/` — Crate abandonado (solo INSERT implementado), VM con borrow checker + GIL blocking insolubles. IQL cubre todas las necesidades de query.
 - Deleted `archive/experimental-quarantine-2024-06/experimental-governance/` — 12 bugs conocidos (5🔴). Design doc preservado en `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md`. Rediseño planificado para Phase 5 (`GOV-01`).
 
-### Fixed
+### Fixed (previous unreleased)
 
 - CI: Fix `cargo cyclonedx` syntax in sbom workflow (`--output-format` → `-f`, pin v0.5.9)
 - CI: Fix `chaos_integrity` test error variant (`VantaError::IqlError` → `VantaError::NotFound`) after error refactor
 - CI: Fix `concurrency_parity` test timeout by reducing reader iterations (500→100, 1000→200)
 - Core: Fix stale mmap handle after HNSW `compact_layout_bfs` by adding `VantaFile::replace_backing_file()`
+
+### Core Engine
+- **HNSW tombstone bypass (CODE-007):** `search_layer` with `vector_store: None` now excludes deleted nodes from nearest neighbor selection
+- **HNSW never removes from CPIndex (CODE-008):** `delete()` now calls `remove()` on DashMap, preventing unbounded growth
+- **InMemory compact orphaned tmp file (CODE-010):** `replace_backing_file()` now correctly handles the InMemory case
+- **scan_nodes OOM (CODE-024):** Paginated/streaming scan prevents OOM on medium datasets. 5 code paths updated
+- **Read lock held during search pipeline (CODE-029):** Lock scope narrowed so writes are not blocked on datasets >100K
+- **NaN in cosine_similarity (CODE-030):** `partial_cmp.unwrap_or(Equal)` replaced with explicit NaN handling
+- **GC delete failure silent (CODE-031):** Sweep now propagates `storage.delete()` failures instead of silently removing TTL entries
+- **TTL map unbounded growth (CODE-032):** Manual deletes of TTL-tagged nodes now clean up the TTL map
+- **VANTA_BACKEND=fjall false warning (CODE-034):** Valid backend value added to match arms
+- **TLS 1.3 only (CODE-036):** Relaxed to allow TLS 1.2 for legacy clients (curl, .NET, Java 8)
+- **LRU Python no refresh on update (CODE-038):** Updated items now refresh their LRU position
+- **Cargo_test.toml stale (CODE-043):** Removed stale duplicate with divergent features
+- **debug=0 in test profile (CODE-057):** Set to enable backtrace line numbers
+- **Ignored advisories no rationale (CODE-058):** Added resolution plan to each ignore in deny.toml
+- **wasm-opt=false in release (CODE-059):** Enabled wasm-opt for smaller bundle (2-3x reduction)
+- **WASM demo missing await (CODE-060):** `put()`/`search()` now properly awaited
+- **SIGBUS handler not signal-safe (CODE-061):** Replaced `warn!()` with signal-safe write
+- **Corrupt file cursor no zero-fill (CODE-062):** Holes now zero-filled on cursor reset
+- **grow_to can shrink (CODE-063):** Added validation to prevent DB truncation
+- **serialize_to_bytes allocates huge Vec (CODE-064):** Streaming serialization replaces single-allocation
+- **estimate_memory_bytes O(n) on insert (CODE-065):** Changed to cached counter
+- **WAL recover_state dead code (CODE-066):** `#[allow(dead_code)]` removed, function now operational
+- **LRU cache Python completely dead (CODE-014):** LRU now actually reads from cache instead of 100% miss
+- **XxHash 64-bit collision blocks both records (CODE-067):** Still open — collision resolution not yet implemented
+
+### Python SDK
+- **hardware_profile mutates capabilities dict (CODE-004):** `clone()` now deep-copies instead of shallow ref
+- **__aexit__ blocks event loop (CODE-016):** `close()` now runs via `asyncio.to_thread`
+- **hardware_profile blocks event loop (CODE-017):** Property now uses `asyncio.to_thread`
+- **put_batch positional fragile (CODE-081):** Changed to keyword arguments
+- **No .pyi type stubs (CODE-083):** Added type stubs for IDE autocompletion
+- **connect() no memory_limit (CODE-084):** Added `memory_limit` parameter
+- **f64→f32 silent precision loss (CODE-082):** Added warning on precision loss
+
+### TypeScript / WASM SDK
+- **OperationalMetrics 70% incomplete (CODE-045):** All 37 fields now mapped in types.ts
+- **_mapRecord identity lie (CODE-046):** Added runtime validation instead of `any→T`
+- **Tests with empty catch (CODE-047):** 4 tests now actually assert instead of silently passing
+- **VantaConfig.storage_path no effect in WASM (CODE-089):** Path now respected, InMemory only used when path is empty
+- **insertNode BigInt overflow >2^53 (CODE-090):** Fixed u64→BigInt conversion for numbers >2^53
+- **hit.distance labeled as "score" (CODE-091):** Semantic confusion fixed — field correctly indicates distance
+- **TS methods async without real async (CODE-086):** Removed unnecessary Promise overhead
+- **_mapRecord O(n) copy in putBatch/list (CODE-087):** Removed unnecessary copy
+- **Object reconstruction duplicated (CODE-088):** Refactored to single code path
+
+### Web / Frontend
+- **Skip link after Nav (CODE-048):** Moved before `<Nav />` for keyboard users
+- **Date sorting produces NaN (CODE-050):** Fixed `new Date("").getTime()` for missing frontmatter
+- **motion chunk config for uninstalled dep (CODE-051):** Removed dead config
+- **docs-api: 130 lines dead code (CODE-053):** Removed unreachable code before redirect
+- **QueryClient recreated on each getRouter (CODE-054):** Now persistent across renders
+- **33+ design images committed (CODE-068):** Moved to `.gitignore`, removed from source
+- **.tanstack ignored but routeTree.gen.ts committed (CODE-069):** `.gitignore` fixed
+- **getAllPosts no memo (CODE-071):** Added `useMemo` to prevent re-parse on every render
+- **Array index as key in 20+ lists (CODE-072):** Changed to stable IDs for correct reconciliation
+- **GSAP ScrollTrigger no cleanup (CODE-076):** Added cleanup on unmount
+- **useState for hover instead of CSS :hover (CODE-077):** Migrated to CSS-only hover states
+- **No bundle analysis (CODE-070):** Added Vite bundle visualizer + size budget
+- **Zero e2e tests (CODE-073):** Added 12 e2e tests with Playwright
+- **No playwright install in CI (CODE-078):** Added `playwright install` to web CI
+- **No coverage provider in vitest (CODE-075):** Added vitest coverage provider
+- **Dependabot no npm ecosystem (CODE-080):** Added npm to dependabot config
+
+### CI / Infrastructure
+- **0 tests in web CI (CODE-023):** Vitest + Playwright tests now run in CI
+- **Duplicate reqwest 0.12 + 0.13 (CODE-056):** Unified to single version
+
+### Documentation
+- **llms.txt false claims (MKT-11):** Removed SQL (deferred) and IVF (not implemented). Updated latency to real benchmark numbers
+- **README Python APIs don't exist (CODE-085):** Fixed `get_memory`→`get`, `search_memory`→`search`
 
 ## [v0.2.0] - 2026-07-02
 
