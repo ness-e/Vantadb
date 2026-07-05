@@ -168,6 +168,7 @@ impl StorageEngine {
         path: &str,
         config: &VantaConfig,
     ) -> Result<(Option<File>, Arc<dyn StorageBackend>, PathBuf)> {
+        super::ops::prevent_path_traversal(path)?;
         let base_path = PathBuf::from(path);
 
         // ── Pure in-memory: skip all file I/O ─────

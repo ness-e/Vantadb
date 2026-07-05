@@ -128,6 +128,23 @@ pub(crate) fn get_node_from_backend(
     Ok(Some(node))
 }
 
+/// Reject paths containing `..` components to prevent directory traversal.
+pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
+    use std::path::Component;
+    let p = std::path::Path::new(path);
+    for component in p.components() {
+        if component == Component::ParentDir {
+            return Err(VantaError::ValidationError {
+                field: "path".into(),
+                reason: format!(
+                    "Path '{path}' contains '..' traversal — rejected for security"
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Map a column family name string to its `BackendPartition` variant.
 pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> {
     match cf_name {

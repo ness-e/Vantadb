@@ -1656,6 +1656,7 @@ impl VantaEmbedded {
         namespace: &str,
     ) -> Result<VantaExportReport> {
         validate_namespace(namespace)?;
+        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
         let started = Instant::now();
         let records = self.records_for_namespace(namespace, &VantaMemoryMetadata::new())?;
         self.write_export_file(path.as_ref(), records, vec![namespace.to_string()], started)
@@ -1664,6 +1665,7 @@ impl VantaEmbedded {
     /// Export all records across all namespaces to a single JSONL file.
     #[tracing::instrument(skip(self, path), err)]
     pub fn export_all(&self, path: impl AsRef<Path>) -> Result<VantaExportReport> {
+        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
         let started = Instant::now();
         let namespaces = self.list_namespaces()?;
         let mut records = Vec::new();
@@ -1744,6 +1746,7 @@ impl VantaEmbedded {
     /// Skips empty lines and reports parse errors separately from import errors.
     #[tracing::instrument(skip(self, path), err)]
     pub fn import_file(&self, path: impl AsRef<Path>) -> Result<VantaImportReport> {
+        crate::storage::ops::prevent_path_traversal(&path.as_ref().to_string_lossy())?;
         if self.config.read_only {
             return Err(VantaError::ValidationError {
                 field: "read_only".into(),
