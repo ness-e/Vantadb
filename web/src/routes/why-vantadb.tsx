@@ -17,5 +17,24 @@ export const Route = createFileRoute("/why-vantadb")({
       { property: "og:url", content: "https://vantadb.dev/why-vantadb" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/why-vantadb" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "When should I use VantaDB vs Chroma?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "VantaDB is best when you need embedded vector search without infrastructure. Unlike Chroma, it runs in-process with zero servers.",
+              },
+            },
+          ],
+        }),
+      },
+    ],
   }),
 });

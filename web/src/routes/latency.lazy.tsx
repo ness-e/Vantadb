@@ -46,7 +46,6 @@ function LatencyPage() {
     <div>
       <NbSubpageHero
         num="07"
-        eyebrow="Latency Performance"
         title={
           <span>
             1.2ms p50 (Rust Core).
@@ -85,11 +84,17 @@ function LatencyPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">01 / 03 — Comparison</div>
-
             <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY — ~200ms
                 </div>
                 <ul
@@ -110,7 +115,15 @@ function LatencyPage() {
                 </ul>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   VANTADB {mode === "rust" ? "Rust Core" : "Python SDK"} — {vantaLatency}ms
                 </div>
                 <ul
@@ -140,12 +153,22 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">02 / 03 — Pipeline Impact</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Pipeline Impact
+            </h2>
             <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[-0.04em] mt-4 mb-12 leading-tight">
               Multi-query impact.
             </h2>
 
-            <div className="nb-frame mb-0" data-frame-label="QUERY VOLUME">
+            <div className="nb-frame mb-0">
               <div className="flex justify-between font-mono text-[0.65rem] text-steel uppercase tracking-[0.06em] mb-4">
                 <span>
                   Queries in pipeline:{" "}
@@ -165,7 +188,15 @@ function LatencyPage() {
 
             <div className="nb-grid nb-grid--cols-3">
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY
                 </div>
                 <div
@@ -179,7 +210,15 @@ function LatencyPage() {
                 </div>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   VANTADB {mode === "rust" ? "RUST CORE" : "PYTHON SDK"}
                 </div>
                 <div className="font-display text-[2.5rem] font-extrabold tracking-[-0.05em] leading-none text-amber">
@@ -205,9 +244,19 @@ function LatencyPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">03 / 03 — Where the Milliseconds Go</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Where the Milliseconds Go
+            </h2>
 
-            <div className="nb-frame mt-12" data-frame-label="BREAKDOWN">
+            <div className="nb-frame mt-12">
               <div
                 className="grid grid-cols-[120px_1fr_80px_80px] gap-4 px-4 py-3"
                 style={{
@@ -274,9 +323,6 @@ function LatencyPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

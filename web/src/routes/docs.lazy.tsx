@@ -184,7 +184,6 @@ function DocsPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="06"
-        eyebrow="Documentation"
         title={
           <span>
             Start in 60
@@ -215,9 +214,17 @@ function DocsPage() {
                   className="nb-card nb-bg-cross--faint"
                   style={{ marginBottom: "var(--space-xl)", padding: "var(--space-xl)" }}
                 >
-                  <span className="nb-label nb-label--amber">
+                  <h3
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "var(--text-title)",
+                      fontWeight: 700,
+                      color: "var(--foreground)",
+                      margin: "0 0 var(--space-md)",
+                    }}
+                  >
                     {s.num} — {s.title}
-                  </span>
+                  </h3>
                   <div className="nb-divider" />
                   <p
                     style={{
@@ -230,7 +237,7 @@ function DocsPage() {
                   >
                     {s.desc}
                   </p>
-                  <div className="nb-frame" data-frame-label={s.id} style={{ overflowX: "auto" }}>
+                  <div className="nb-frame" style={{ overflowX: "auto" }}>
                     <pre
                       style={{
                         margin: 0,
@@ -248,7 +255,15 @@ function DocsPage() {
               ))}
 
               <div className="nb-block-amber" style={{ textAlign: "center" }}>
-                <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--text-on-amber)",
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
+                >
                   NEED HELP?
                 </span>
                 <p

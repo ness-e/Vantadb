@@ -12,7 +12,6 @@ function SecurityPage() {
     <div>
       <NbSubpageHero
         num="13"
-        eyebrow="Security Posture"
         title={
           <span>
             Zero Trust.
@@ -26,11 +25,31 @@ function SecurityPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">CORE PRINCIPLES</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              CORE PRINCIPLES
+            </h2>
 
             <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
               <div className="nb-cell">
-                <div className="nb-label nb-label--amber">NO TELEMETRY</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  NO TELEMETRY
+                </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
                   We do not track your usage. The VantaDB core library contains zero analytics,
                   tracking pixels, or outbound HTTP requests. Your data never leaves your
@@ -38,14 +57,34 @@ function SecurityPage() {
                 </p>
               </div>
               <div className="nb-cell">
-                <div className="nb-label nb-label--amber">AES-256-GCM ENCRYPTION</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  AES-256-GCM ENCRYPTION
+                </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
                   Enterprise at-rest encryption is currently on the roadmap for Phase 5. This will
                   ensure that WAL and LSM-tree SSTables are fully encrypted on disk.
                 </p>
               </div>
               <div className="nb-cell">
-                <div className="nb-label nb-label--amber">MEMORY SAFETY</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  MEMORY SAFETY
+                </div>
                 <p className="text-sm text-muted leading-relaxed m-0 mt-4">
                   Written entirely in Rust, the engine is immune to buffer overflows, use-after-free
                   vulnerabilities, and memory leaks that plague traditional C/C++ vector databases.
@@ -60,9 +99,6 @@ function SecurityPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

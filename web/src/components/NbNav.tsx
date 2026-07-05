@@ -13,7 +13,7 @@ const navLinks = [
   { path: "/pricing", label: "Pricing" },
 ];
 
-export const Nav = memo(function Nav() {
+export const NbNav = memo(function NbNav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
@@ -33,8 +33,8 @@ export const Nav = memo(function Nav() {
         gsap.from(drawerBodyRef.current.children, {
           opacity: 0,
           x: -16,
-          duration: 0.25,
-          stagger: 0.04,
+          duration: 0.15,
+          stagger: 0.03,
           ease: "power2.out",
         });
       }
@@ -87,43 +87,39 @@ export const Nav = memo(function Nav() {
 
   return (
     <>
-      <nav className={`vanta-nav${scrolled ? " vanta-nav--scrolled" : ""}`} data-frame-label="NAV">
-        <Link to="/" className="vanta-logo">
+      <nav className={`nb-nav${scrolled ? " nb-nav--scrolled" : ""}`}>
+        <Link to="/" className="nb-nav-logo">
           <VantaDBLogo variant="full" size="sm" />
         </Link>
 
-        <div className="nb-telemetry nav-telemetry" aria-hidden="true">
-          <span>{activeLabel}</span>
-        </div>
-
-        <div className="nav-desktop">
+        <div className="nb-nav-desktop">
           {navLinks.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`nav-link${isActive(item.path) ? " active" : ""}`}
+              className={`nb-nav-link${isActive(item.path) ? " active" : ""}`}
             >
               {item.label}
             </Link>
           ))}
         </div>
 
-        <div className="nav-actions">
-          <Link to="/docs" className="nav-cta">
+        <div className="nb-nav-actions">
+          <Link to="/docs" className="nb-nav-cta">
             Docs
           </Link>
           <a
             href="https://github.com/ness-e/Vantadb"
             target="_blank"
             rel="noreferrer"
-            className="nav-cta"
+            className="nb-nav-cta"
           >
             GitHub
           </a>
         </div>
 
         <button
-          className={`nav-hamburger${drawerOpen ? " nav-hamburger--open" : ""}`}
+          className={`nb-nav-hamburger${drawerOpen ? " nb-nav-hamburger--open" : ""}`}
           onClick={() => setDrawerOpen((v) => !v)}
           aria-label="Menu"
           aria-expanded={drawerOpen}
@@ -153,18 +149,18 @@ export const Nav = memo(function Nav() {
         </button>
       </nav>
 
-      {drawerOpen && <div className="nav-overlay" onClick={closeDrawer} aria-hidden="true" />}
+      {drawerOpen && <div className="nb-nav-overlay" onClick={closeDrawer} aria-hidden="true" />}
 
       <div
-        className="nav-drawer"
+        className="nb-nav-drawer"
         aria-hidden={!drawerOpen}
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
       >
-        <div className="nav-drawer-header">
+        <div className="nb-nav-drawer-header">
           <VantaDBLogo variant="full" size="sm" />
-          <button className="nav-drawer-close" onClick={closeDrawer} aria-label="Close menu">
+          <button className="nb-nav-drawer-close" onClick={closeDrawer} aria-label="Close menu">
             <svg
               width="16"
               height="16"
@@ -180,16 +176,12 @@ export const Nav = memo(function Nav() {
           </button>
         </div>
 
-        <div className="nav-telemetry" aria-hidden="true">
-          <span>&gt; {activeLabel}</span>
-        </div>
-
-        <div className="nav-drawer-body" ref={drawerBodyRef}>
+        <div className="nb-nav-drawer-body" ref={drawerBodyRef}>
           {navLinks.concat({ path: "/docs", label: "Docs" }).map((item) => (
             <div key={item.path}>
               <Link
                 to={item.path}
-                className={`nav-drawer-link${isActive(item.path) ? " active" : ""}`}
+                className={`nb-nav-drawer-link${isActive(item.path) ? " active" : ""}`}
                 onClick={closeDrawer}
               >
                 {item.label}
@@ -198,12 +190,12 @@ export const Nav = memo(function Nav() {
           ))}
         </div>
 
-        <div className="nav-drawer-footer">
+        <div className="nb-nav-drawer-footer">
           <a
             href="https://github.com/ness-e/Vantadb"
             target="_blank"
             rel="noreferrer"
-            className="nav-drawer-cta"
+            className="nb-nav-drawer-cta"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />

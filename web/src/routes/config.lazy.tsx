@@ -55,7 +55,6 @@ function ConfigPage() {
     <div>
       <NbSubpageHero
         num="10"
-        eyebrow="Configuration"
         title={
           <span>
             Zero config.
@@ -69,11 +68,29 @@ function ConfigPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">01 / 02 — Setup Comparison</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Setup Comparison
+            </h2>
 
             <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY — Pages of config
                 </div>
                 <ul className="nb-list mt-4">
@@ -83,7 +100,17 @@ function ConfigPage() {
                 </ul>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">VANTADB — Zero lines</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  VANTADB — Zero lines
+                </div>
                 <ul className="nb-list mt-4">
                   {VANTA_CONFIG.map((item) => (
                     <li key={item}>{item}</li>
@@ -96,7 +123,17 @@ function ConfigPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">02 / 02 — Code: From 50 Lines to 1</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Code: From 50 Lines to 1
+            </h2>
 
             <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
               <div className="nb-cell" style={{ padding: 0, background: "var(--black)" }}>
@@ -143,9 +180,6 @@ function ConfigPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

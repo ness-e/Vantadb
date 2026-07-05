@@ -1,15 +1,11 @@
-export { NbLabel } from "./NbLabel";
 export { NbCard } from "./NbCard";
-export { NbFrame } from "./NbFrame";
 export { NbButton } from "./NbButton";
-export { NbPill } from "./NbPill";
 export { NbArrow } from "./NbArrow";
 export { NbMetric } from "./NbMetric";
 export { NbMarquee } from "./NbMarquee";
 export { NbBento, NbBentoCell } from "./NbBento";
 export { NbBlockAmber } from "./NbBlockAmber";
 export { NbIconBox } from "./NbIconBox";
-export { NbTelemetry } from "./NbTelemetry";
 export { NbLogLine } from "./NbLogLine";
 export { NbDitherImage } from "./NbDitherImage";
 export { NbNoise } from "./NbNoise";

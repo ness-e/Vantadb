@@ -18,14 +18,16 @@ function BlogPost() {
       <div className="nb-page">
         <section className="nb-section">
           <div className="nb-inner">
-            <div
-              className="nb-frame"
-              data-frame-label="404"
-              style={{ padding: "var(--space-3xl)", textAlign: "center" }}
-            >
+            <div className="nb-frame" style={{ padding: "var(--space-3xl)", textAlign: "center" }}>
               <span
-                className="nb-label nb-label--amber"
-                style={{ fontSize: "var(--text-display)", marginBottom: "var(--space-md)" }}
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-display)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
               >
                 Post not found
               </span>
@@ -44,13 +46,23 @@ function BlogPost() {
     <div className="nb-page">
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
+          <div style={{ marginBottom: "var(--space-md)" }}>
             <span>Blog</span>
             <span>{post.slug}</span>
           </div>
 
           <div style={{ marginBottom: "var(--space-xl)" }}>
-            <span className="nb-label nb-label--amber">{post.date}</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-label)",
+                color: "var(--amber)",
+                fontWeight: 700,
+                marginBottom: 0,
+              }}
+            >
+              {post.date}
+            </span>
             <h1
               style={{
                 fontFamily: "var(--font-display)",
@@ -74,14 +86,28 @@ function BlogPost() {
             >
               {post.author && (
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: 0, fontSize: "var(--text-label)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: 0,
+                  }}
                 >
                   By {post.author}
                 </span>
               )}
               {post.tags?.map((t) => (
-                <span key={t} className="nb-pill-status" style={{ fontSize: "var(--text-micro)" }}>
+                <span
+                  key={t}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--muted)",
+                    border: "1px solid var(--border)",
+                    padding: "2px 6px",
+                  }}
+                >
                   {t}
                 </span>
               ))}
@@ -156,7 +182,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

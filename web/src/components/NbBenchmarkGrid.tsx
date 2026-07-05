@@ -136,7 +136,7 @@ export function NbBenchmarkGrid() {
   return (
     <section className="nb-section" ref={sectionRef} aria-label="Benchmark comparison">
       <div className="nb-inner">
-        <div className="nb-frame" data-frame-label="BENCHMARKS">
+        <div>
           <div className="nb-section-header">
             <h2 className="benchmark-title">Embedded vs. Client/Server.</h2>
             <p className="benchmark-subtitle">
@@ -150,9 +150,9 @@ export function NbBenchmarkGrid() {
               <thead>
                 <tr>
                   <th>Metric</th>
-                  <th className="benchmark-col-vanta">&gt; VantaDB</th>
-                  <th className="benchmark-col-trad">&gt; Traditional</th>
-                  <th>&gt; Gap</th>
+                  <th className="benchmark-col-vanta">VantaDB</th>
+                  <th className="benchmark-col-trad">Traditional</th>
+                  <th>Gap</th>
                 </tr>
               </thead>
               <tbody>

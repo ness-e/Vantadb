@@ -42,7 +42,6 @@ function IdeToolingPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="03"
-        eyebrow="Solution — AI IDE Tooling"
         title={
           <span>
             Your codebase,
@@ -55,13 +54,17 @@ function IdeToolingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
-            <span>Home</span>
-            <span>Solutions</span>
-            <span>IDE Tooling</span>
-          </div>
-
-          <span className="nb-label nb-label--amber">01 / 02 — The Gap</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            The Gap
+          </h2>
           <div className="nb-divider" />
 
           <div
@@ -74,7 +77,15 @@ function IdeToolingPage() {
             }}
           >
             <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
+              >
                 Code search is still text-only
               </span>
               <ul className="nb-list">
@@ -105,8 +116,14 @@ function IdeToolingPage() {
               }}
             >
               <span
-                className="nb-label nb-label--amber"
-                style={{ marginBottom: "var(--space-md)" }}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                  marginBottom: "var(--space-md)",
+                  display: "block",
+                }}
               >
                 Semantic, embedded
               </span>
@@ -135,7 +152,17 @@ function IdeToolingPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 02 — Use Cases</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Use Cases
+          </h2>
           <div className="nb-divider" />
           <p
             style={{
@@ -154,8 +181,14 @@ function IdeToolingPage() {
             {USE_CASES.map((uc) => (
               <div key={uc.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: "var(--space-2xs)" }}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-micro)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-2xs)",
+                    display: "block",
+                  }}
                 >
                   {uc.num}
                 </span>
@@ -195,7 +228,14 @@ function IdeToolingPage() {
                 alignItems: "start",
               }}
             >
-              <span className="nb-label" style={{ marginBottom: 0 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: 0,
+                }}
+              >
                 HOW IT WORKS
               </span>
               <p
@@ -220,7 +260,15 @@ function IdeToolingPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--text-micro)",
+                color: "var(--text-on-amber)",
+                marginBottom: "var(--space-2xs)",
+                display: "block",
+              }}
+            >
               BUILD IDE TOOLS
             </span>
             <p
@@ -269,7 +317,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

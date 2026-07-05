@@ -75,7 +75,9 @@ aliases: []
 | `INT-08` | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
 | `INT-09` | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
 | `INT-10` | **LiteLLM adapter → PyPI** | 🟡 1d | 🟢 | ❌ |
+| `INT-11` | **Semantic Kernel adapter (crate + PyPI)** — Único missing del workspace. No existe ni siquiera como crate placeholder | 🟡 1d | 🟠 | ❌ |
 | `DEVOPS-05` | Pipeline CI unificado para publicar los 10 adapters a PyPI | 🟡 1-2d | 🔴 | ❌ |
+| `DEVOPS-12` | **Production PyPI signing pipeline** — OIDC trusted publishing configurado pero signed installers (Sigstore) y pipeline de release automatizado está "deferred". Completar para release formal | 🟡 1-2d | 🔴 | ❌ |
 | `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ❌ |
 
 ### 🧪 Testing Crítico
@@ -99,7 +101,9 @@ aliases: []
 | ~~`MKT-11`~~ | **Corregir `llms.txt`:** SQL (deferido), IVF (no implementado), latencia real | 🟢 1h | 🔴 | ✅ |
 | `MKT-12` | **Auditar claims de performance** contra benchmarks reales. Publicar metodología | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-091`~~ | **`hit.distance` etiquetado como `"score"` en JS** — Semantic confusion. consumer espera higher=better pero es distance | `lib.rs:488-490` | 🟢 2h | 🟡 | ✅ |
-| `DX-02` | **Reducir p50 hybrid search de 62ms a <20ms** | 🟡 2-3d | 🔴 | ❌ |
+| `DX-02` | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** | 🟡 2-3d | 🔴 | ❌ |
+| `DX-03` | **Python SDK performance profiling** — Hacer profiling sistemático del hot path PyO3: medir GIL contention, copias de datos (vectores f32), overhead de serialización. Identificar bottlenecks específicos | 🟡 1-2d | 🔴 | ❌ |
+| `DX-04` | **Zero-copy vectors en PyO3** — Implementar buffer protocol / `__array_interface__` para evitar copias f32→Python list en el hot path de vector search | 🟡 2-3d | 🟠 | ❌ |
 | `—` | Eliminar `OldSerializationError` deprecated del enum | 🟢 1h | 🟡 | ❌ |
 
 ### 🏗️ Index & Storage Quality
@@ -133,6 +137,9 @@ aliases: []
 | `DOC-16` | Tutorial series (3 creados) | 🟡 2-3d | 🟡 | ✅ |
 | `DOC-17` | Diagramas Mermaid (5) | 🟡 1-2d | 🟡 | ✅ |
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
+| `DOC-19` | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ❌ |
+| `DOC-20` | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
+| `DOC-21` | **Performance clarity doc: Rust core vs Python SDK** — Documentar el gap (441µs Rust vs 62ms Python SDK) con causa raíz (PyO3, GIL) y expectativas realistas | 🟡 1d | 🟡 | ❌ |
 | `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
 

@@ -9,7 +9,7 @@ interface NbDitherImageProps {
 export function NbDitherImage({ src, alt, className }: NbDitherImageProps) {
   return (
     <div className={cn("nb-dither", className)}>
-      <img src={src} alt={alt} />
+      <img src={src} alt={alt} loading="lazy" />
     </div>
   );
 }

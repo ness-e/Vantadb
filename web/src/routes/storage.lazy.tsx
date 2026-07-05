@@ -45,7 +45,6 @@ function StoragePage() {
     <div>
       <NbSubpageHero
         num="09"
-        eyebrow="Storage Architecture"
         title={
           <span>
             Single binary.
@@ -59,7 +58,17 @@ function StoragePage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">01 / 03 — Stack Consolidation</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Stack Consolidation
+            </h2>
 
             <div className="grid grid-cols-[1fr_60px_1fr] items-center mt-12 mb-12">
               <div className="border-2 border-[var(--border-visible)] flex flex-col">
@@ -134,7 +143,15 @@ function StoragePage() {
 
             <div className="nb-grid nb-grid--cols-2">
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY STACK
                 </div>
                 <ul
@@ -155,7 +172,17 @@ function StoragePage() {
                 </ul>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">VANTADB</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  VANTADB
+                </div>
                 <ul
                   className="flex flex-col gap-3 mt-4"
                   style={{ listStyle: "none", margin: 0, padding: 0 }}
@@ -174,7 +201,17 @@ function StoragePage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">02 / 03 — Storage Architecture</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Storage Architecture
+            </h2>
 
             <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
               {LAYERS.map((l) => (
@@ -194,7 +231,17 @@ function StoragePage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">03 / 03 — Engine States</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Engine States
+            </h2>
 
             <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
               {[
@@ -230,9 +277,6 @@ function StoragePage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

@@ -73,14 +73,12 @@ export function NbCoreEngine() {
     >
       <div className="nb-inner">
         <div className="nb-section-header nb-section-header--bordered">
-          <span className="nb-label nb-label--amber">&gt; core_engine</span>
           <h2 className="nb-core-title">Exploded Architecture.</h2>
         </div>
 
         <div className="nb-core-grid" role="list">
           {FEATURES.map((feat) => (
             <article key={feat.num} className="nb-core-cell" role="listitem">
-              <span className="nb-label nb-label--amber">{feat.num}</span>
               <h3 className="nb-core-feature-title">{feat.title}</h3>
               <p className="nb-core-feature-desc">{feat.desc}</p>
             </article>

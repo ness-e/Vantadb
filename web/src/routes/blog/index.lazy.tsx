@@ -14,7 +14,6 @@ function BlogIndex() {
     <div className="nb-page">
       <NbSubpageHero
         num="00"
-        eyebrow="Blog"
         title={
           <span>
             Deep dives.
@@ -27,16 +26,34 @@ function BlogIndex() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">Posts — {posts.length} articles</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Posts — {posts.length} articles
+          </h2>
           <div className="nb-divider" />
 
           {posts.length === 0 ? (
             <div
               className="nb-frame"
-              data-frame-label="EMPTY"
               style={{ marginTop: "var(--space-xl)", padding: "var(--space-3xl)" }}
             >
-              <span className="nb-label" style={{ textAlign: "center", marginBottom: 0 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-micro)",
+                  color: "var(--muted)",
+                  marginBottom: 0,
+                  display: "block",
+                  textAlign: "center",
+                }}
+              >
                 No posts yet. Check back soon.
               </span>
             </div>
@@ -60,7 +77,16 @@ function BlogIndex() {
                     background: "var(--background)",
                   }}
                 >
-                  <span className="nb-label" style={{ marginBottom: 0, paddingTop: "2px" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "var(--text-micro)",
+                      color: "var(--muted)",
+                      marginBottom: 0,
+                      paddingTop: "2px",
+                      display: "block",
+                    }}
+                  >
                     {post.date}
                   </span>
 
@@ -102,8 +128,14 @@ function BlogIndex() {
                     >
                       {post.author && (
                         <span
-                          className="nb-pill-status nb-pill-status--amber"
-                          style={{ fontSize: "var(--text-micro)" }}
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "var(--text-micro)",
+                            color: "var(--amber)",
+                            fontWeight: 700,
+                            border: "1px solid var(--amber)",
+                            padding: "2px 6px",
+                          }}
                         >
                           {post.author}
                         </span>
@@ -111,8 +143,13 @@ function BlogIndex() {
                       {post.tags?.map((t) => (
                         <span
                           key={t}
-                          className="nb-pill-status"
-                          style={{ fontSize: "var(--text-micro)" }}
+                          style={{
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "var(--text-micro)",
+                            color: "var(--muted)",
+                            border: "1px solid var(--border)",
+                            padding: "2px 6px",
+                          }}
                         >
                           {t}
                         </span>
@@ -146,7 +183,14 @@ export function PendingComponent() {
         color: "var(--muted)",
       }}
     >
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--text-label)",
+          color: "var(--muted)",
+          marginBottom: 0,
+        }}
+      >
         Loading...
       </span>
     </div>

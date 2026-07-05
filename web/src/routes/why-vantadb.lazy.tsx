@@ -60,14 +60,12 @@ function WhyVantaDBPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="01"
-        eyebrow="Manifesto"
         title="Why VantaDB"
         sub="21 reasons to ship embedded vector search."
       />
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">01 / 06 — Comparison</span>
           <div className="nb-divider" />
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {COMPARISONS.map((c) => (
@@ -79,8 +77,14 @@ function WhyVantaDBPage() {
                 }}
               >
                 <span
-                  className="nb-label nb-label--amber"
-                  style={{ marginBottom: "var(--space-sm)" }}
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-label)",
+                    fontWeight: 700,
+                    color: "var(--amber)",
+                    marginBottom: "var(--space-sm)",
+                    display: "block",
+                  }}
                 >
                   {c.category}
                 </span>
@@ -106,12 +110,19 @@ function WhyVantaDBPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 06 — Principles</span>
-          <div className="nb-divider" />
-          <div
-            className="nb-grid nb-grid--cols-3"
-            style={{ marginTop: "var(--space-xl)" }}
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
           >
+            Principles
+          </h2>
+          <div className="nb-divider" />
+          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
             {PRINCIPLES.map((p) => (
               <div
                 key={p.title}
@@ -162,7 +173,6 @@ function WhyVantaDBPage() {
               flexWrap: "wrap",
             }}
           >
-            <span className="nb-label nb-label--amber">Next Step</span>
             <Link
               to="/about/company"
               style={{
@@ -180,7 +190,7 @@ function WhyVantaDBPage() {
                 gap: "0.5rem",
               }}
             >
-              &gt; cd about/company
+              cd about/company
             </Link>
           </div>
         </div>

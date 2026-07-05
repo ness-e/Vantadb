@@ -17,5 +17,17 @@ export const Route = createFileRoute("/changelog")({
       { property: "og:url", content: "https://vantadb.dev/changelog" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/changelog" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Changelog",
+          description:
+            "Release notes for VantaDB. Track new features, performance improvements, bug fixes, and breaking changes across versions.",
+        }),
+      },
+    ],
   }),
 });

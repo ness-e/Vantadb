@@ -50,7 +50,6 @@ function CostPage() {
     <div>
       <NbSubpageHero
         num="08"
-        eyebrow="Infrastructure Cost"
         title={
           <span>
             Zero cost
@@ -64,11 +63,29 @@ function CostPage() {
       <main>
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">01 / 02 — Cost Comparison</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Cost Comparison
+            </h2>
 
             <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
               <div className="nb-cell">
-                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--steel)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
                   LEGACY — ~$200/mo
                 </div>
                 <ul
@@ -89,7 +106,17 @@ function CostPage() {
                 </ul>
               </div>
               <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
-                <div className="nb-label nb-label--amber">VANTADB — $0</div>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "var(--text-label)",
+                    color: "var(--amber)",
+                    fontWeight: 700,
+                    marginBottom: "var(--space-sm)",
+                  }}
+                >
+                  VANTADB — $0
+                </div>
                 <ul
                   className="flex flex-col gap-3 mt-4"
                   style={{ listStyle: "none", margin: 0, padding: 0 }}
@@ -113,9 +140,19 @@ function CostPage() {
 
         <section className="nb-section">
           <div className="nb-inner">
-            <div className="nb-label">02 / 02 — Monthly Cost by Provider</div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-title)",
+                fontWeight: 700,
+                color: "var(--foreground)",
+                margin: "0 0 var(--space-md)",
+              }}
+            >
+              Monthly Cost by Provider
+            </h2>
 
-            <div className="nb-frame mt-12" data-frame-label="COST TABLE">
+            <div className="nb-frame mt-12">
               <table className="nb-table" style={{ border: "none" }}>
                 <thead>
                   <tr>
@@ -196,9 +233,6 @@ function CostPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

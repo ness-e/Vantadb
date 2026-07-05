@@ -1,6 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../styles/pricing.css";
 
 export const Route = createLazyRoute("/pricing")({
   component: PricingPage,
@@ -194,7 +195,6 @@ function PricingPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="05"
-        eyebrow="Pricing"
         title={
           <span>
             Free to build.
@@ -207,91 +207,37 @@ function PricingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">01 / 03 — Plans</span>
+          <h2 className="pricing-plans">Plans</h2>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-2 pricing-grid">
             {tiers.slice(0, 2).map((tier) => (
               <div
                 key={tier.name}
-                className="nb-card"
-                style={{
-                  background: tier.featured ? "var(--surface-alt)" : "var(--background)",
-                  borderColor: tier.featured ? "var(--amber)" : "var(--border-visible)",
-                  boxShadow: tier.featured ? "var(--shadow-amber)" : "var(--shadow-md)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-md)",
-                  position: "relative",
-                }}
+                className={`nb-card pricing-card ${tier.featured ? "pricing-card--featured" : "pricing-card--default"}`}
               >
-                {tier.featured && (
-                  <span
-                    className="nb-pill-status nb-pill-status--amber"
-                    style={{
-                      position: "absolute",
-                      top: "var(--space-sm)",
-                      right: "var(--space-sm)",
-                    }}
-                  >
-                    EARLY ACCESS
-                  </span>
-                )}
                 <div>
-                  <div
-                    className="nb-label nb-label--amber"
-                    style={{
-                      fontSize: "var(--text-title)",
-                      letterSpacing: "var(--tracking-display)",
-                      fontFamily: "var(--font-display)",
-                      textTransform: "none",
-                      marginBottom: "var(--space-2xs)",
-                    }}
-                  >
-                    {tier.name}
-                  </div>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "var(--text-label)",
-                      color: "var(--muted)",
-                      margin: 0,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {tier.tagline}
-                  </p>
+                  <div className="pricing-tier-name">{tier.name}</div>
+                  <p className="pricing-tier-tagline">{tier.tagline}</p>
                 </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "var(--text-metric)",
-                      fontWeight: 700,
-                      letterSpacing: "var(--tracking-tight)",
-                      color: "var(--foreground)",
-                    }}
-                  >
-                    {tier.price}
-                  </span>
-                  <span
-                    className="nb-label"
-                    style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}
-                  >
-                    {tier.period}
-                  </span>
+                <div className="pricing-price-row">
+                  <span className="pricing-price-value">{tier.price}</span>
+                  <span className="pricing-period">{tier.period}</span>
                 </div>
-                <ul className="nb-list" style={{ flex: 1 }}>
+                <ul className="nb-list pricing-features-list">
                   {tier.features.map((f) => (
-                    <li key={f} style={{ fontSize: "var(--text-code)", color: "var(--muted)" }}>
+                    <li key={f} className="pricing-feature-item">
                       {f}
                     </li>
                   ))}
                 </ul>
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className={tier.featured ? "nb-btn" : "nb-btn nb-btn--ghost"}
-                  style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
+                  className={
+                    tier.featured
+                      ? "nb-btn pricing-card-cta"
+                      : "nb-btn nb-btn--ghost pricing-card-cta"
+                  }
                 >
                   {tier.cta}
                 </Link>
@@ -299,73 +245,27 @@ function PricingPage() {
             ))}
           </div>
 
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "1px" }}>
+          <div className="nb-grid nb-grid--cols-2 pricing-grid--tight">
             {tiers.slice(2).map((tier) => (
-              <div
-                key={tier.name}
-                className="nb-card"
-                style={{
-                  background: "var(--background)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-md)",
-                }}
-              >
+              <div key={tier.name} className="nb-card pricing-card pricing-card--default">
                 <div>
-                  <div
-                    className="nb-label"
-                    style={{
-                      fontSize: "var(--text-title)",
-                      letterSpacing: "var(--tracking-display)",
-                      fontFamily: "var(--font-display)",
-                      textTransform: "none",
-                      marginBottom: "var(--space-2xs)",
-                    }}
-                  >
-                    {tier.name}
-                  </div>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "var(--text-label)",
-                      color: "var(--muted)",
-                      margin: 0,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {tier.tagline}
-                  </p>
+                  <div className="pricing-tier-name">{tier.name}</div>
+                  <p className="pricing-tier-tagline">{tier.tagline}</p>
                 </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2xs)" }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-display)",
-                      fontSize: "var(--text-metric)",
-                      fontWeight: 700,
-                      letterSpacing: "var(--tracking-tight)",
-                      color: "var(--foreground)",
-                    }}
-                  >
-                    {tier.price}
-                  </span>
-                  <span
-                    className="nb-label"
-                    style={{ fontSize: "var(--text-micro)", marginBottom: 0 }}
-                  >
-                    {tier.period}
-                  </span>
+                <div className="pricing-price-row">
+                  <span className="pricing-price-value">{tier.price}</span>
+                  <span className="pricing-period">{tier.period}</span>
                 </div>
-                <ul className="nb-list" style={{ flex: 1 }}>
+                <ul className="nb-list pricing-features-list">
                   {tier.features.map((f) => (
-                    <li key={f} style={{ fontSize: "var(--text-code)", color: "var(--muted)" }}>
+                    <li key={f} className="pricing-feature-item">
                       {f}
                     </li>
                   ))}
                 </ul>
                 <Link
                   to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className="nb-btn nb-btn--ghost"
-                  style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
+                  className="nb-btn nb-btn--ghost pricing-card-cta"
                 >
                   {tier.cta}
                 </Link>
@@ -377,45 +277,38 @@ function PricingPage() {
 
       <section className="nb-section nb-bg-cross--faint">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">02 / 03 — Feature Breakdown</span>
           <div className="nb-divider" />
 
-          <div
-            className="nb-frame"
-            data-frame-label="COMPARISON"
-            style={{ marginTop: "var(--space-xl)", overflowX: "auto" }}
-          >
-            <table className="nb-table" style={{ minWidth: "750px" }}>
+          <div className="nb-frame pricing-table-wrapper">
+            <table className="nb-table pricing-table">
               <thead>
                 <tr>
-                  {comparisonColumns.map((col, idx) => (
-                    <th
-                      key={col}
-                      style={{
-                        color:
-                          idx === 2
-                            ? "var(--amber)"
-                            : idx === 0
-                              ? "var(--foreground)"
-                              : "var(--steel)",
-                      }}
-                    >
-                      {col}
-                    </th>
-                  ))}
+                  {comparisonColumns.map((col, idx) => {
+                    const thClass =
+                      idx === 2
+                        ? "pricing-th--featured"
+                        : idx === 0
+                          ? "pricing-th--first"
+                          : "pricing-th--default";
+                    return (
+                      <th key={col} className={thClass}>
+                        {col}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {comparisonRows.map((row, i) => (
                   <tr
                     key={row.feature}
-                    style={{ background: i % 2 === 0 ? "var(--background)" : "var(--surface)" }}
+                    className={i % 2 === 0 ? "pricing-tr--even" : "pricing-tr--odd"}
                   >
-                    <td style={{ fontWeight: 600, color: "var(--foreground)" }}>{row.feature}</td>
+                    <td className="pricing-td-feature">{row.feature}</td>
                     <td>{row.os}</td>
-                    <td style={{ color: "var(--amber)", fontWeight: 500 }}>{row.pro}</td>
+                    <td className="pricing-td--pro">{row.pro}</td>
                     <td>{row.biz}</td>
-                    <td style={{ color: "var(--muted)" }}>{row.ent}</td>
+                    <td className="pricing-td--ent">{row.ent}</td>
                   </tr>
                 ))}
               </tbody>
@@ -426,35 +319,13 @@ function PricingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <span className="nb-label nb-label--amber">03 / 03 — FAQ</span>
           <div className="nb-divider" />
 
-          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
+          <div className="nb-grid nb-grid--cols-2 pricing-faq-grid">
             {FAQ_ITEMS.map((item) => (
-              <div key={item.q} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "var(--text-title)",
-                    fontWeight: 700,
-                    letterSpacing: "var(--tracking-display)",
-                    color: "var(--foreground)",
-                    margin: "0 0 var(--space-sm)",
-                  }}
-                >
-                  {item.q}
-                </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "var(--text-code)",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
-                  {item.a}
-                </p>
+              <div key={item.q} className="nb-cell pricing-faq-item">
+                <h3 className="pricing-faq-question">{item.q}</h3>
+                <p className="pricing-faq-answer">{item.a}</p>
               </div>
             ))}
           </div>
@@ -463,44 +334,10 @@ function PricingPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span
-              className="nb-label"
-              style={{ color: "var(--text-on-amber)", marginBottom: "var(--space-xs)" }}
-            >
-              READY TO BUILD?
-            </span>
-            <p
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "var(--text-display)",
-                fontWeight: 700,
-                letterSpacing: "var(--tracking-display)",
-                margin: 0,
-              }}
-            >
-              Start with Self-Hosted.
-            </p>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "var(--text-body)",
-                color: "var(--text-on-amber)",
-                margin: "var(--space-sm) 0 var(--space-md)",
-                opacity: 0.85,
-              }}
-            >
-              Free forever. No signup required.
-            </p>
-            <Link
-              to="/docs"
-              className="nb-btn nb-btn--ghost"
-              style={{
-                borderColor: "var(--text-on-amber)",
-                color: "var(--text-on-amber)",
-                boxShadow: "var(--shadow-brutal)",
-              }}
-            >
+          <div className="nb-block-amber pricing-cta-block">
+            <p className="pricing-cta-heading">Start with Self-Hosted.</p>
+            <p className="pricing-cta-sub">Free forever. No signup required.</p>
+            <Link to="/docs" className="nb-btn nb-btn--ghost pricing-cta-btn">
               GET STARTED
             </Link>
           </div>

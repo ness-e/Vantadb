@@ -17,5 +17,17 @@ export const Route = createFileRoute("/integrations")({
       { property: "og:url", content: "https://vantadb.dev/integrations" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/integrations" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "VantaDB — Ecosystem & Integrations",
+          description:
+            "Integrate VantaDB vector store and persistent memory with native bindings for Python (PyO3), OpenAI, Ollama, CrewAI, Haystack, DSPy, LiteLLM, Mem0, Letta, and MCP (experimental).",
+        }),
+      },
+    ],
   }),
 });

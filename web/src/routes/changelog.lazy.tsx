@@ -207,7 +207,6 @@ function ChangelogPage() {
     <div>
       <NbSubpageHero
         num="12"
-        eyebrow="Changelog"
         title={
           <span>
             What changed.
@@ -350,9 +349,6 @@ function ChangelogPage() {
             <div className="nb-block-amber">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
-                    GET STARTED
-                  </div>
                   <h2
                     className="font-display text-2xl font-extrabold"
                     style={{ color: "var(--text-on-amber)" }}

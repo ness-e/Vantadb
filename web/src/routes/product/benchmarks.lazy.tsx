@@ -10,7 +10,6 @@ function BenchmarksPage() {
     <div className="nb-page">
       <NbSubpageHero
         num="01"
-        eyebrow="Benchmarks"
         title={
           <span>
             Performance
@@ -23,7 +22,17 @@ function BenchmarksPage() {
 
       <main className="nb-main">
         <section className="nb-section">
-          <span className="nb-eyebrow">Throughput vs Latency</span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-title)",
+              fontWeight: 700,
+              color: "var(--foreground)",
+              margin: "0 0 var(--space-md)",
+            }}
+          >
+            Throughput vs Latency
+          </h2>
 
           <div style={{ marginTop: "3rem" }}>
             <table
@@ -88,7 +97,7 @@ function BenchmarksPage() {
               border: "1px solid var(--amber)",
               background: "rgba(255, 85, 0, 0.04)",
               fontFamily: "var(--font-sans)",
-              fontSize: "0.82rem",
+              fontSize: "var(--text-code)",
               color: "var(--steel)",
               lineHeight: 1.7,
             }}

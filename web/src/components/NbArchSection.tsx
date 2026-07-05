@@ -59,7 +59,6 @@ export function NbArchSection() {
     >
       <div className="nb-inner">
         <div className="nb-section-header nb-section-header--bordered">
-          <span className="nb-label nb-label--amber">&gt; architecture</span>
           <h2 className="nb-arch-title">
             No network.
             <br />
@@ -76,12 +75,11 @@ export function NbArchSection() {
             </p>
           </div>
 
-          <div className="nb-frame" data-frame-label="PIPELINE">
+          <div>
             <div className="nb-arch-pipeline" role="list">
               {PIPELINE.map((stage, i) => (
                 <div key={stage.id} className="nb-arch-stage" role="listitem">
                   <div className={`nb-card ${stage.accent ? "nb-card--amber" : ""}`}>
-                    <span className="nb-label nb-arch-stage-label">{stage.label}</span>
                     <span className="nb-arch-stage-name">{stage.name}</span>
                   </div>
                   {i < PIPELINE.length - 1 && (

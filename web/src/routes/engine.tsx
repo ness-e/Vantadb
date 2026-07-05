@@ -17,5 +17,17 @@ export const Route = createFileRoute("/engine")({
       { property: "og:url", content: "https://vantadb.dev/engine" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/engine" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          name: "VantaDB Engine",
+          applicationCategory: "DeveloperApplication",
+          browserRequirements: "Requires JavaScript",
+        }),
+      },
+    ],
   }),
 });

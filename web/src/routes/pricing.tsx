@@ -17,5 +17,23 @@ export const Route = createFileRoute("/pricing")({
       { property: "og:url", content: "https://vantadb.dev/pricing" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/pricing" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: "VantaDB",
+          applicationCategory: "DatabaseApplication",
+          description: "VantaDB is open source (Apache 2.0) and free forever.",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+          },
+        }),
+      },
+    ],
   }),
 });

@@ -1,268 +1,186 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Pricing Section
-   Sin gradientes, sin sombras difusas, hairlines 1px
-   ═══════════════════════════════════════════════════════════ */
-
-.pricing-section-wrap {
-  padding: 4rem 0;
+.pricing-plans {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
 }
 
-/* ── Pricing cards — Swiss plano ── */
+.pricing-grid {
+  margin-top: var(--space-xl);
+}
+
+.pricing-grid--tight {
+  margin-top: 1px;
+}
+
 .pricing-card {
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 2.5rem 2rem;
   display: flex;
   flex-direction: column;
+  gap: var(--space-md);
   position: relative;
-  transition: border-color 150ms linear;
 }
 
-.pricing-card:hover {
-  border-color: var(--foreground);
-}
-
-/* Featured: acento naranja top-border 3px + fondo levemente cálido */
 .pricing-card--featured {
   background: var(--surface-alt);
-  border: 1px solid var(--amber);
-  border-top: 3px solid var(--amber);
-  z-index: 1;
+  border-color: var(--amber);
+  box-shadow: var(--shadow-amber);
 }
 
-/* Badge — rectangular Swiss, sin border-radius pill */
-.pricing-badge {
-  position: absolute;
-  top: -1px;
-  right: 1.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--background);
-  background: var(--amber);
-  padding: 0.25rem 0.75rem;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+.pricing-card--default {
+  background: var(--background);
+  border-color: var(--border-visible);
+  box-shadow: var(--shadow-md);
 }
 
-.pricing-name {
+.pricing-tier-name {
+  font-size: var(--text-title);
+  letter-spacing: var(--tracking-display);
   font-family: var(--font-display);
-  font-size: 1.25rem;
   font-weight: 700;
   color: var(--foreground);
-  letter-spacing: -0.04em;
-  margin-bottom: 0.3rem;
+  text-transform: none;
+  margin-bottom: var(--space-2xs);
 }
 
-.pricing-tagline {
-  font-size: 0.8rem;
-  color: var(--muted);
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
+.pricing-tier-tagline {
   font-family: var(--font-sans);
+  font-size: var(--text-label);
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.4;
 }
 
-.pricing-price-wrap {
-  margin-bottom: 2rem;
+.pricing-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
 }
 
-.pricing-price {
+.pricing-price-value {
   font-family: var(--font-display);
-  font-size: 2.5rem;
+  font-size: var(--text-metric);
   font-weight: 700;
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground);
-  letter-spacing: -0.05em;
-  display: inline-block;
 }
 
 .pricing-period {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--muted);
-  margin-left: 0.5rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  margin-bottom: 0;
 }
 
-/* ── Feature list ── */
-.pricing-features {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.pricing-features-list {
   flex: 1;
 }
 
 .pricing-feature-item {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--text-code);
   color: var(--muted);
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--subtle);
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
 }
 
-.pricing-feature-item:last-child {
-  border-bottom: none;
-}
-
-.pricing-feature-check {
-  color: var(--amber);
-  flex-shrink: 0;
-  font-weight: 700;
-}
-
-.pricing-cta-wrap {
-  margin-top: 2rem;
-}
-
-.pricing-cta {
-  display: block;
+.pricing-card-cta {
   width: 100%;
-  text-align: center;
-  padding: 0.85rem 1.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-decoration: none;
-  transition: all 150ms cubic-bezier(0.25, 1, 0.5, 1);
+  justify-content: center;
+  margin-top: auto;
 }
 
-/* Featured CTA — amber background */
-.pricing-cta--featured {
-  background: var(--amber);
-  color: var(--foreground);
-  border: 1px solid var(--amber);
-}
-
-.pricing-cta--featured:hover {
-  background: var(--foreground);
-  color: var(--surface);
-  border-color: var(--foreground);
-}
-
-/* Default CTA — outline */
-.pricing-cta--default {
-  background: transparent;
-  color: var(--foreground);
-  border: 1px solid var(--border);
-}
-
-.pricing-cta--default:hover {
-  background: var(--border);
-  color: var(--surface);
-}
-
-/* ── Comparison table ── */
-.pricing-compare-wrap {
+.pricing-table-wrapper {
+  margin-top: var(--space-xl);
   overflow-x: auto;
 }
 
 .pricing-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  margin-top: 2rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  min-width: 750px;
 }
 
-.pricing-table thead tr {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.pricing-table th {
-  padding: 0.75rem 1rem;
-  font-weight: 700;
-  color: var(--foreground);
-}
-
-.pricing-table th:first-child {
-  text-align: left;
-  color: var(--muted);
-}
-
-.pricing-table th:not(:first-child) {
-  text-align: left;
-}
-
-.pricing-table .th-free {
-  color: var(--foreground);
-  font-weight: 700;
-}
-.pricing-table .th-pro {
+.pricing-th--featured {
   color: var(--amber);
-  font-weight: 700;
-}
-.pricing-table .th-ent {
-  color: var(--foreground);
-  font-weight: 700;
 }
 
-.pricing-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--subtle);
+.pricing-th--first {
+  color: var(--foreground);
+}
+
+.pricing-th--default {
+  color: var(--steel);
+}
+
+.pricing-tr--even {
   background: var(--background);
 }
 
-.pricing-table tr:last-child td {
-  border-bottom: none;
+.pricing-tr--odd {
+  background: var(--surface);
 }
 
-.pricing-table td:first-child {
-  color: var(--foreground);
+.pricing-td-feature {
   font-weight: 600;
+  color: var(--foreground);
 }
 
-.pricing-table td:not(:first-child) {
-  text-align: left;
-}
-
-.pricing-table .td-free {
-  color: var(--muted);
-}
-.pricing-table .td-pro {
+.pricing-td--pro {
   color: var(--amber);
-  font-weight: 700;
+  font-weight: 500;
 }
-.pricing-table .td-ent {
+
+.pricing-td--ent {
   color: var(--muted);
 }
 
-/* ── FAQ ── */
-.pricing-faq-list {
-  margin-top: 2rem;
-  text-align: left;
+.pricing-faq-grid {
+  margin-top: var(--space-xl);
 }
 
 .pricing-faq-item {
-  border-bottom: 1px solid var(--border);
-  padding: 1.25rem 0;
+  padding: var(--space-xl);
 }
 
-.pricing-faq-q {
+.pricing-faq-question {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: var(--text-title);
   font-weight: 700;
+  letter-spacing: var(--tracking-display);
   color: var(--foreground);
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
+  margin: 0 0 var(--space-sm);
 }
 
-.pricing-faq-a {
-  font-size: 0.85rem;
-  color: var(--muted);
-  line-height: 1.7;
+.pricing-faq-answer {
   font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
 }
 
-.pricing-section-noborder {
-  border-bottom: none;
+.pricing-cta-block {
+  text-align: center;
+}
+
+.pricing-cta-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  margin: 0;
+}
+
+.pricing-cta-sub {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--text-on-amber);
+  margin: var(--space-sm) 0 var(--space-md);
+  opacity: 0.85;
+}
+
+.pricing-cta-btn {
+  border-color: var(--text-on-amber);
+  color: var(--text-on-amber);
+  box-shadow: var(--shadow-brutal);
+}
+
+@media (max-width: 768px) {
+  .pricing-table {
+    min-width: 100%;
+  }
 }
