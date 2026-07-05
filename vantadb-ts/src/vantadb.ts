@@ -16,6 +16,18 @@ import type {
 } from "./types.js";
 
 function _mapRecord(r: any): MemoryRecord {
+  if (!r || typeof r !== 'object') {
+    throw new Error("_mapRecord: expected an object, got " + typeof r);
+  }
+  if (typeof r.namespace !== 'string') {
+    throw new Error("_mapRecord: record missing required string field 'namespace'");
+  }
+  if (typeof r.key !== 'string') {
+    throw new Error("_mapRecord: record missing required string field 'key'");
+  }
+  if (typeof r.payload !== 'string') {
+    throw new Error("_mapRecord: record missing required string field 'payload'");
+  }
   return r;
 }
 
@@ -30,14 +42,25 @@ export class VantaDB {
   /// Connect to a VantaDB database.
   /// - path: filesystem path for persistent storage
   /// - If path is empty/":memory:" or omitted, opens in-memory engine
-  static async connect(path?: string): Promise<VantaDB> {
+  static connect(path?: string): VantaDB {
     const inner = path && path !== ":memory:"
       ? WasmVantaDB.open(path)
       : new WasmVantaDB(null);
     return new VantaDB(inner);
   }
 
+  /**
+   * Create a new VantaDB instance with the given config.
+   * @param config - Configuration options.
+   *   Note: In WASM mode, `storage_path` is accepted but ignored — the WASM backend
+   *   always uses an in-memory engine. For persistent storage, use `connect()`.
+   */
   static create(config?: VantaConfig): VantaDB {
+    if (config?.storage_path) {
+      console.warn(
+        "VantaDB.create(): storage_path is ignored in WASM mode — the WASM backend always uses an in-memory engine."
+      );
+    }
     const inner = new WasmVantaDB(config ?? null);
     return new VantaDB(inner);
   }
@@ -71,20 +94,20 @@ export class VantaDB {
     };
   }
 
-  async put(input: {
+  put(input: {
     namespace: string;
     key: string;
     payload: string;
     metadata?: Record<string, any>;
     vector?: number[];
     ttl_ms?: number;
-  }): Promise<MemoryRecord> {
+  }): MemoryRecord {
     this._assertOpen();
     const raw = this.inner.put(input);
     return _mapRecord(raw);
   }
 
-  async putBatch(
+  putBatch(
     inputs: Array<{
       namespace: string;
       key: string;
@@ -93,160 +116,168 @@ export class VantaDB {
       vector?: number[];
       ttl_ms?: number;
     }>
-  ): Promise<MemoryRecord[]> {
+  ): MemoryRecord[] {
     this._assertOpen();
     const records: any[] = this.inner.put_batch(inputs);
-    return records.map(_mapRecord);
+    for (let i = 0; i < records.length; i++) {
+      records[i] = _mapRecord(records[i]);
+    }
+    return records as MemoryRecord[];
   }
 
-  async get(namespace: string, key: string): Promise<MemoryRecord | null> {
+  get(namespace: string, key: string): MemoryRecord | null {
     this._assertOpen();
     const raw = this.inner.get(namespace, key);
     return raw != null ? _mapRecord(raw) : null;
   }
 
-  async delete(namespace: string, key: string): Promise<boolean> {
+  delete(namespace: string, key: string): boolean {
     this._assertOpen();
     return this.inner.delete(namespace, key);
   }
 
-  async listNamespaces(): Promise<string[]> {
+  listNamespaces(): string[] {
     this._assertOpen();
     return this.inner.list_namespaces();
   }
 
-  async list(
+  list(
     namespace: string,
     options: ListOptions = {}
-  ): Promise<MemoryListPage> {
+  ): MemoryListPage {
     this._assertOpen();
     const raw = this.inner.list(namespace, options);
+    const items = raw.records ?? [];
+    for (let i = 0; i < items.length; i++) {
+      items[i] = _mapRecord(items[i]);
+    }
     return {
-      records: (raw.records ?? []).map(_mapRecord),
+      records: items,
       next_cursor: raw.next_cursor,
     };
   }
 
-  async search(request: SearchRequest): Promise<SearchHit[]> {
-    this._assertOpen();
-    const raw: any[] = this.inner.search({
+  private _buildSearchRequest(request: SearchRequest, explain?: boolean): any {
+    return {
       namespace: request.namespace,
       query_vector: request.query_vector,
       filters: request.filters ?? {},
       text_query: request.text_query ?? null,
       top_k: request.top_k ?? 10,
       distance_metric: request.distance_metric ?? "Cosine",
-      explain: request.explain ?? false,
-    });
+      explain: explain ?? (request.explain ?? false),
+    };
+  }
+
+  search(request: SearchRequest): SearchHit[] {
+    this._assertOpen();
+    const raw: any[] = this.inner.search(this._buildSearchRequest(request));
     return raw.map((hit: any) => ({
       record: _mapRecord(hit.record),
-      score: hit.score,
+      distance: hit.score,
       explanation: hit.explanation ?? undefined,
     }));
   }
 
-  async searchVector(
+  searchVector(
     vector: number[],
     topK: number = 10
-  ): Promise<{ node_id: string; score: number }[]> {
+  ): { node_id: string; distance: number }[] {
     this._assertOpen();
     const raw: any[] = this.inner.search_vector(new Float32Array(vector), topK);
     return raw.map((hit: any) => ({
       node_id: hit.node_id,
-      score: hit.score,
+      distance: hit.score,
     }));
   }
 
-  async explainSearch(request: SearchRequest): Promise<any> {
+  explainSearch(request: SearchRequest): any {
     this._assertOpen();
-    return this.inner.explain_memory_search({
-      namespace: request.namespace,
-      query_vector: request.query_vector,
-      filters: request.filters ?? {},
-      text_query: request.text_query ?? null,
-      top_k: request.top_k ?? 10,
-      distance_metric: request.distance_metric ?? "Cosine",
-      explain: true,
-    });
+    return this.inner.explain_memory_search(this._buildSearchRequest(request, true));
   }
 
-  async exportNamespace(path: string, namespace: string): Promise<ExportReport> {
+  exportNamespace(path: string, namespace: string): ExportReport {
     this._assertOpen();
     return this.inner.export_namespace(path, namespace);
   }
 
-  async exportAll(path: string): Promise<ExportReport> {
+  exportAll(path: string): ExportReport {
     this._assertOpen();
     return this.inner.export_all(path);
   }
 
-  async importRecords(records: any[]): Promise<ImportReport> {
+  importRecords(records: any[]): ImportReport {
     this._assertOpen();
     return this.inner.import_records(records);
   }
 
-  async importFile(path: string): Promise<ImportReport> {
+  importFile(path: string): ImportReport {
     this._assertOpen();
     return this.inner.import_file(path);
   }
 
-  async rebuildIndex(): Promise<any> {
+  rebuildIndex(): any {
     this._assertOpen();
     return this.inner.rebuild_index();
   }
 
-  async compactLayout(): Promise<bigint> {
+  compactLayout(): bigint {
     this._assertOpen();
     return this.inner.compact_layout();
   }
 
-  async auditTextIndex(namespace?: string): Promise<any> {
+  auditTextIndex(namespace?: string): any {
     this._assertOpen();
     return this.inner.audit_text_index(namespace ?? null);
   }
 
-  async auditTextIndexDeep(namespace?: string): Promise<any> {
+  auditTextIndexDeep(namespace?: string): any {
     this._assertOpen();
     return this.inner.audit_text_index_deep(namespace ?? null);
   }
 
-  async repairTextIndex(): Promise<any> {
+  repairTextIndex(): any {
     this._assertOpen();
     return this.inner.repair_text_index();
   }
 
-  async flush(): Promise<void> {
+  flush(): void {
     this._assertOpen();
     this.inner.flush();
   }
 
-  async compactWal(): Promise<void> {
+  compactWal(): void {
     this._assertOpen();
     this.inner.compact_wal();
   }
 
-  async purgeExpired(): Promise<bigint> {
+  purgeExpired(): bigint {
     this._assertOpen();
     return this.inner.purge_expired();
   }
 
-  async operationalMetrics(): Promise<OperationalMetrics> {
+  operationalMetrics(): OperationalMetrics {
     this._assertOpen();
     return this.inner.operational_metrics();
   }
 
-  async query(query: string): Promise<QueryResult> {
+  query(query: string): QueryResult {
     this._assertOpen();
     return this.inner.query(query);
   }
 
-  async insertNode(
-    id: number,
+  insertNode(
+    id: number | bigint,
     content?: string,
     vector?: number[],
     fields: Record<string, any> = {}
-  ): Promise<void> {
+  ): void {
     this._assertOpen();
+    if (typeof id === 'number' && !Number.isSafeInteger(id)) {
+      throw new Error(
+        `insertNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`
+      );
+    }
     this.inner.insert_node(
       BigInt(id),
       content ?? null,
@@ -255,53 +286,53 @@ export class VantaDB {
     );
   }
 
-  async getNode(id: number): Promise<NodeRecord | null> {
+  getNode(id: number): NodeRecord | null {
     this._assertOpen();
     const raw = this.inner.get_node(BigInt(id));
     if (raw == null) return null;
     return raw;
   }
 
-  async deleteNode(id: number, reason: string = "deleted"): Promise<void> {
+  deleteNode(id: number, reason: string = "deleted"): void {
     this._assertOpen();
     this.inner.delete_node(BigInt(id), reason);
   }
 
-  async addEdge(
+  addEdge(
     source: number,
     target: number,
     label: string = "",
     weight?: number
-  ): Promise<void> {
+  ): void {
     this._assertOpen();
     this.inner.add_edge(BigInt(source), BigInt(target), label, weight ?? null);
   }
 
-  async graphBfs(roots: number[], maxDepth: number = 10): Promise<any> {
+  graphBfs(roots: number[], maxDepth: number = 10): any {
     this._assertOpen();
     return this.inner.graph_bfs(new BigUint64Array(roots.map(BigInt)), maxDepth);
   }
 
-  async graphDfs(roots: number[], maxDepth: number = 10): Promise<any> {
+  graphDfs(roots: number[], maxDepth: number = 10): any {
     this._assertOpen();
     return this.inner.graph_dfs(new BigUint64Array(roots.map(BigInt)), maxDepth);
   }
 
-  async graphTopologicalSort(roots: number[]): Promise<any> {
+  graphTopologicalSort(roots: number[]): any {
     this._assertOpen();
     return this.inner.graph_topological_sort(new BigUint64Array(roots.map(BigInt)));
   }
 
-  async graphIsDag(roots: number[]): Promise<boolean> {
+  graphIsDag(roots: number[]): boolean {
     this._assertOpen();
     return this.inner.graph_is_dag(new BigUint64Array(roots.map(BigInt)));
   }
 
-  async generateSnippet(
+  generateSnippet(
     payload: string,
     query: string,
     withHighlighting: boolean = false
-  ): Promise<string | undefined> {
+  ): string | undefined {
     this._assertOpen();
     return this.inner.generate_snippet(payload, query, withHighlighting) ?? undefined;
   }
