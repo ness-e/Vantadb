@@ -1,12 +1,12 @@
-@import "@fontsource-variable/space-grotesk";
-@import "@fontsource-variable/outfit";
-@import "@fontsource-variable/jetbrains-mono";
+@import "./nb-base.css";
+@import "./nb-components.css";
 
-@import "./tokens.css";
-@import "./swiss-grid.css";
+/* Legacy — will be replaced as components migrate to Nb* classes */
 @import "./layout.css";
+@import "./swiss-grid.css";
 @import "./buttons.css";
 @import "./utilities.css";
+@import "./animations.css";
 @import "./neubrutalism.css";
 
 @import "./nav.css";

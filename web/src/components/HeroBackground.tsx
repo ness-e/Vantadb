@@ -16,9 +16,7 @@ export function HeroBackground() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let animId: number;
 
     interface Particle {
@@ -93,14 +91,8 @@ export function HeroBackground() {
       }
 
       for (const p of particles) {
-        const glow = ctx!.createRadialGradient(
-          p.x, p.y, 0,
-          p.x, p.y, GLOW_RADIUS * (p.r / 3),
-        );
-        glow.addColorStop(
-          0,
-          `rgba(${AMBER.r},${AMBER.g},${AMBER.b},${p.a * 0.12})`,
-        );
+        const glow = ctx!.createRadialGradient(p.x, p.y, 0, p.x, p.y, GLOW_RADIUS * (p.r / 3));
+        glow.addColorStop(0, `rgba(${AMBER.r},${AMBER.g},${AMBER.b},${p.a * 0.12})`);
         glow.addColorStop(1, `rgba(${AMBER.r},${AMBER.g},${AMBER.b},0)`);
         ctx!.fillStyle = glow;
         ctx!.beginPath();
@@ -140,11 +132,5 @@ export function HeroBackground() {
     };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="hero-canvas-bg"
-      aria-hidden="true"
-    />
-  );
+  return <canvas ref={canvasRef} className="hero-canvas-bg" aria-hidden="true" />;
 }

@@ -160,7 +160,15 @@ function IntegrationsPage() {
           <span className="nb-label nb-label--amber">01 / 02 — Framework Connectors</span>
           <div className="nb-divider" />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-xl)", marginTop: "var(--space-xl)", alignItems: "start" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "var(--space-xl)",
+              marginTop: "var(--space-xl)",
+              alignItems: "start",
+            }}
+          >
             <div>
               <div className="nb-grid nb-grid--cols-2">
                 {INTEGRATIONS.map((int) => (
@@ -169,9 +177,11 @@ function IntegrationsPage() {
                     onClick={() => setSelectedId(int.id)}
                     className="nb-cell"
                     style={{
-                      background: selectedId === int.id ? "var(--surface-alt)" : "var(--background)",
+                      background:
+                        selectedId === int.id ? "var(--surface-alt)" : "var(--background)",
                       border: "none",
-                      borderLeft: selectedId === int.id ? "2px solid var(--amber)" : "2px solid transparent",
+                      borderLeft:
+                        selectedId === int.id ? "2px solid var(--amber)" : "2px solid transparent",
                       cursor: "pointer",
                       textAlign: "left",
                       width: "100%",
@@ -179,10 +189,21 @@ function IntegrationsPage() {
                       color: "inherit",
                     }}
                   >
-                    <span className="nb-label" style={{ color: selectedId === int.id ? "var(--amber)" : "var(--steel)" }}>
+                    <span
+                      className="nb-label"
+                      style={{ color: selectedId === int.id ? "var(--amber)" : "var(--steel)" }}
+                    >
                       {int.category}
                     </span>
-                    <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: selectedId === int.id ? "var(--foreground)" : "var(--muted)" }}>
+                    <div
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "var(--text-title)",
+                        fontWeight: 700,
+                        letterSpacing: "var(--tracking-display)",
+                        color: selectedId === int.id ? "var(--foreground)" : "var(--muted)",
+                      }}
+                    >
                       {int.label}
                     </div>
                   </button>
@@ -190,19 +211,47 @@ function IntegrationsPage() {
               </div>
 
               <div className="nb-card" style={{ marginTop: "var(--space-md)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2xs)", marginBottom: "var(--space-2xs)" }}>
-                  <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>&gt; {active.tag}</span>
-                  {active.experimental && <span className="nb-pill-status nb-pill-status--amber">EXPERIMENTAL</span>}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--space-2xs)",
+                    marginBottom: "var(--space-2xs)",
+                  }}
+                >
+                  <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
+                    &gt; {active.tag}
+                  </span>
+                  {active.experimental && (
+                    <span className="nb-pill-status nb-pill-status--amber">EXPERIMENTAL</span>
+                  )}
                 </div>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
                   {active.desc}
                 </p>
               </div>
             </div>
 
             <div className="nb-frame" data-frame-label={active.label} style={{ overflowX: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-sm)" }}>
-                <span className="nb-label" style={{ marginBottom: 0 }}>{active.tag}</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "var(--space-sm)",
+                }}
+              >
+                <span className="nb-label" style={{ marginBottom: 0 }}>
+                  {active.tag}
+                </span>
                 <button
                   onClick={handleCopy}
                   className="btn-ghost"
@@ -211,7 +260,17 @@ function IntegrationsPage() {
                   {copied ? "COPIED" : "COPY"}
                 </button>
               </div>
-              <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre", overflowX: "auto" }}>
+              <pre
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "var(--text-code)",
+                  lineHeight: 1.6,
+                  color: "var(--foreground)",
+                  whiteSpace: "pre",
+                  overflowX: "auto",
+                }}
+              >
                 <code>{active.code}</code>
               </pre>
             </div>
@@ -223,17 +282,39 @@ function IntegrationsPage() {
         <div className="nb-inner">
           <span className="nb-label nb-label--amber">02 / 02 — Ecosystem</span>
           <div className="nb-divider" />
-          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "var(--tracking-display)", margin: "var(--space-sm) 0 var(--space-xl)", lineHeight: 1.05 }}>
+          <p
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-display)",
+              fontWeight: 700,
+              letterSpacing: "var(--tracking-display)",
+              margin: "var(--space-sm) 0 var(--space-xl)",
+              lineHeight: 1.05,
+            }}
+          >
             Works with your stack.
           </p>
 
-          <div className="nb-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+          <div
+            className="nb-grid"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
+          >
             {ECOSYSTEM_GRID.map((item) => (
               <div key={item.name} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 700,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                  }}
+                >
                   {item.name}
                 </div>
-                <span className="nb-label" style={{ marginTop: "var(--space-3xs)" }}>{item.tag}</span>
+                <span className="nb-label" style={{ marginTop: "var(--space-3xs)" }}>
+                  {item.tag}
+                </span>
               </div>
             ))}
           </div>
@@ -243,11 +324,29 @@ function IntegrationsPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>BUILD YOUR INTEGRATION</span>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+              BUILD YOUR INTEGRATION
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--text-on-amber)",
+                margin: "var(--space-2xs) 0",
+                opacity: 0.85,
+              }}
+            >
               Check the docs to build your own connector.
             </p>
-            <a href="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+            <a
+              href="/docs"
+              className="btn-ghost"
+              style={{
+                borderColor: "var(--text-on-amber)",
+                color: "var(--text-on-amber)",
+                boxShadow: "var(--shadow-brutal)",
+              }}
+            >
               DOCS
             </a>
           </div>

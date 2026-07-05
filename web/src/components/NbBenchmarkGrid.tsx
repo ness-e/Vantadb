@@ -75,7 +75,7 @@ const METRICS = [
   },
 ];
 
-export function SwissBenchmarkGrid() {
+export function NbBenchmarkGrid() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(

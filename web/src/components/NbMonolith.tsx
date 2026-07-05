@@ -5,7 +5,7 @@ import "../styles/monolith.css";
 
 const CLI_COMMAND = "pip install vantadb-py";
 
-export const SwissMonolith = memo(function SwissMonolith() {
+export const NbMonolith = memo(function NbMonolith() {
   const containerRef = useRef<HTMLElement>(null);
   const feedbackRef = useRef<HTMLSpanElement>(null);
   const [copied, setCopied] = useState(false);
@@ -99,7 +99,7 @@ export const SwissMonolith = memo(function SwissMonolith() {
   );
 
   return (
-    <section ref={containerRef} className="monolith-section" aria-label="Get started">
+    <section ref={containerRef} className="nb-section nb-section--lg nb-section--dark" aria-label="Get started">
       <div className="nb-inner">
         <div className="monolith-block">
           <div className="monolith-command-wrap">

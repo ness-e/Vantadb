@@ -197,19 +197,50 @@ function DocsPage() {
 
       <section className="nb-section">
         <div className="nb-inner">
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "var(--space-xl)", alignItems: "start" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "240px 1fr",
+              gap: "var(--space-xl)",
+              alignItems: "start",
+            }}
+          >
             <DocsSidebar items={sidebarItems} />
 
             <div>
               {sections.map((s) => (
-                <div key={s.id} id={s.id} className="nb-card nb-bg-cross--faint" style={{ marginBottom: "var(--space-xl)", padding: "var(--space-xl)" }}>
-                  <span className="nb-label nb-label--amber">{s.num} — {s.title}</span>
+                <div
+                  key={s.id}
+                  id={s.id}
+                  className="nb-card nb-bg-cross--faint"
+                  style={{ marginBottom: "var(--space-xl)", padding: "var(--space-xl)" }}
+                >
+                  <span className="nb-label nb-label--amber">
+                    {s.num} — {s.title}
+                  </span>
                   <div className="nb-divider" />
-                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: "var(--space-sm) 0 var(--space-md)" }}>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "var(--text-code)",
+                      color: "var(--muted)",
+                      lineHeight: 1.6,
+                      margin: "var(--space-sm) 0 var(--space-md)",
+                    }}
+                  >
                     {s.desc}
                   </p>
                   <div className="nb-frame" data-frame-label={s.id} style={{ overflowX: "auto" }}>
-                    <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre" }}>
+                    <pre
+                      style={{
+                        margin: 0,
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "var(--text-code)",
+                        lineHeight: 1.6,
+                        color: "var(--foreground)",
+                        whiteSpace: "pre",
+                      }}
+                    >
                       <code>{s.code}</code>
                     </pre>
                   </div>
@@ -217,11 +248,29 @@ function DocsPage() {
               ))}
 
               <div className="nb-block-amber" style={{ textAlign: "center" }}>
-                <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>NEED HELP?</span>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+                <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                  NEED HELP?
+                </span>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-body)",
+                    color: "var(--text-on-amber)",
+                    margin: "var(--space-2xs) 0",
+                    opacity: 0.85,
+                  }}
+                >
                   Join our Discord or open a GitHub discussion.
                 </p>
-                <a href="https://github.com/ness-e/Vantadb/discussions" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+                <a
+                  href="https://github.com/ness-e/Vantadb/discussions"
+                  className="btn-ghost"
+                  style={{
+                    borderColor: "var(--text-on-amber)",
+                    color: "var(--text-on-amber)",
+                    boxShadow: "var(--shadow-brutal)",
+                  }}
+                >
                   DISCUSSIONS
                 </a>
               </div>

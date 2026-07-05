@@ -25,7 +25,7 @@ const CASES = [
   },
 ];
 
-export function SwissUseCases() {
+export function NbUseCases() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(

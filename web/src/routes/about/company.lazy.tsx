@@ -69,13 +69,31 @@ function CompanyPage() {
           <div className="nb-divider" />
 
           <div className="nb-split-7-5" style={{ marginTop: "var(--space-xl)" }}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", lineHeight: 1.1, margin: 0 }}>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-display)",
+                fontWeight: 800,
+                letterSpacing: "var(--tracking-display)",
+                color: "var(--foreground)",
+                lineHeight: 1.1,
+                margin: 0,
+              }}
+            >
               Make vector-native data infrastructure invisible.
             </h2>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--muted)", lineHeight: 1.75, margin: 0 }}>
-              Every AI agent, every RAG pipeline, every intelligent application deserves a
-              database that embeds in-process but understands vectors, text, and hybrid search —
-              without requiring a dedicated infrastructure team.
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--muted)",
+                lineHeight: 1.75,
+                margin: 0,
+              }}
+            >
+              Every AI agent, every RAG pipeline, every intelligent application deserves a database
+              that embeds in-process but understands vectors, text, and hybrid search — without
+              requiring a dedicated infrastructure team.
             </p>
           </div>
         </div>
@@ -89,11 +107,33 @@ function CompanyPage() {
           <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {VALUES.map((v) => (
               <div key={v.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
-                <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-2xs)" }}>{v.num}</span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-2xs)" }}>
+                <span
+                  className="nb-label nb-label--amber"
+                  style={{ marginBottom: "var(--space-2xs)" }}
+                >
+                  {v.num}
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 700,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: "0 0 var(--space-2xs)",
+                  }}
+                >
                   {v.title}
                 </h3>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
                   {v.desc}
                 </p>
               </div>
@@ -106,28 +146,81 @@ function CompanyPage() {
         <div className="nb-inner">
           <span className="nb-label nb-label--amber">03 / 03 — Why VantaDB</span>
           <div className="nb-divider" />
-          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "var(--tracking-display)", margin: "var(--space-sm) 0 var(--space-xl)", lineHeight: 1.05 }}>
+          <p
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-display)",
+              fontWeight: 800,
+              letterSpacing: "var(--tracking-display)",
+              margin: "var(--space-sm) 0 var(--space-xl)",
+              lineHeight: 1.05,
+            }}
+          >
             The AI stack shouldn't need a database team.
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "var(--border-visible)" }}>
-            <div className="nb-card" style={{ border: "none", boxShadow: "none", background: "var(--background)" }}>
-              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>The alternatives</span>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1px",
+              background: "var(--border-visible)",
+            }}
+          >
+            <div
+              className="nb-card"
+              style={{ border: "none", boxShadow: "none", background: "var(--background)" }}
+            >
+              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>
+                The alternatives
+              </span>
               <ul className="nb-list">
                 {COMPARISON_LEFT.map((item) => (
                   <li key={item} style={{ color: "var(--muted)" }}>
-                    <span style={{ color: "var(--danger)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>✗</span>
+                    <span
+                      style={{
+                        color: "var(--danger)",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        marginRight: "var(--space-2xs)",
+                      }}
+                    >
+                      ✗
+                    </span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-card" style={{ border: "2px solid var(--amber)", boxShadow: "var(--shadow-amber)", background: "var(--surface-alt)" }}>
-              <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-md)" }}>VantaDB</span>
+            <div
+              className="nb-card"
+              style={{
+                border: "2px solid var(--amber)",
+                boxShadow: "var(--shadow-amber)",
+                background: "var(--surface-alt)",
+              }}
+            >
+              <span
+                className="nb-label nb-label--amber"
+                style={{ marginBottom: "var(--space-md)" }}
+              >
+                VantaDB
+              </span>
               <ul className="nb-list">
                 {COMPARISON_RIGHT.map((item) => (
                   <li key={item} style={{ color: "var(--foreground)" }}>
-                    <span style={{ color: "var(--amber)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>✓</span>
+                    <span
+                      style={{
+                        color: "var(--amber)",
+                        fontFamily: "var(--font-mono)",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        marginRight: "var(--space-2xs)",
+                      }}
+                    >
+                      ✓
+                    </span>
                     {item}
                   </li>
                 ))}
@@ -140,11 +233,29 @@ function CompanyPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>READ OUR STORY</span>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+              READ OUR STORY
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--text-on-amber)",
+                margin: "var(--space-2xs) 0",
+                opacity: 0.85,
+              }}
+            >
               Learn more about our community.
             </p>
-            <Link to="/about/community" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+            <Link
+              to="/about/community"
+              className="btn-ghost"
+              style={{
+                borderColor: "var(--text-on-amber)",
+                color: "var(--text-on-amber)",
+                boxShadow: "var(--shadow-brutal)",
+              }}
+            >
               COMMUNITY
             </Link>
           </div>
@@ -156,8 +267,18 @@ function CompanyPage() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+        Loading...
+      </span>
     </div>
   );
 }

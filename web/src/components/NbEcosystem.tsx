@@ -25,7 +25,7 @@ const CATEGORIES = [
   },
 ];
 
-export function SwissEcosystem() {
+export function NbEcosystem() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useGSAP(

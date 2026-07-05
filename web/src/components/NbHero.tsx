@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { HeroBackground } from "./HeroBackground";
 
-export function SwissHero() {
+export function NbHero() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -60,9 +60,9 @@ export function SwissHero() {
         </div>
 
         <div className="hero-pills">
-          <span className="nb-pill-status nb-pill-status--amber">RUST-NATIVE</span>
-          <span className="nb-pill-status">IN-PROCESS</span>
-          <span className="nb-pill-status">ZERO-SERVERS</span>
+          <span className="nb-pill nb-pill--amber">RUST-NATIVE</span>
+          <span className="nb-pill">IN-PROCESS</span>
+          <span className="nb-pill">ZERO-SERVERS</span>
         </div>
 
         <h1 className="hero-title">
@@ -82,7 +82,7 @@ export function SwissHero() {
           </p>
           <p className="hero-desc-sub">
             <span className="hero-bracket">[</span>
-            zero servers &#xB7; zero ops &#xB7; sub-millisecond
+            zero servers &middot; zero ops &middot; sub-millisecond
             <span className="hero-bracket">]</span>
           </p>
         </div>
@@ -122,9 +122,8 @@ export function SwissHero() {
               </svg>
             )}
           </button>
-          <Link to="/docs" className="hero-link">
+          <Link to="/docs" className="nb-arrow">
             READ DOCS
-            <span className="hero-link-arrows">&gt;&gt;&gt;</span>
           </Link>
         </div>
       </div>

@@ -35,7 +35,7 @@ const STEPS = [
   },
 ];
 
-export function SwissQuickstart() {
+export function NbQuickstart() {
   const [activeStep, setActiveStep] = useState(0);
   const [hasEntered, setHasEntered] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);

@@ -52,7 +52,11 @@ export function SwissArchSection() {
   );
 
   return (
-    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Architecture pipeline">
+    <section
+      ref={sectionRef}
+      className="nb-section nb-section--lg"
+      aria-label="Architecture pipeline"
+    >
       <div className="nb-inner">
         <div className="nb-section-header nb-section-header--bordered">
           <span className="nb-label nb-label--amber">&gt; architecture</span>

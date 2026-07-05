@@ -114,14 +114,36 @@ function CommunityPage() {
                   background: "var(--background)",
                 }}
               >
-                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>{ch.tag}</span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
+                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>
+                  {ch.tag}
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 800,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: 0,
+                  }}
+                >
                   {ch.name}
                 </h3>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0, flex: 1 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                    flex: 1,
+                  }}
+                >
                   {ch.desc}
                 </p>
-                <span className="nb-arrow" style={{ marginTop: "auto" }}>{ch.cta}</span>
+                <span className="nb-arrow" style={{ marginTop: "auto" }}>
+                  {ch.cta}
+                </span>
               </a>
             ))}
           </div>
@@ -132,18 +154,46 @@ function CommunityPage() {
         <div className="nb-inner">
           <span className="nb-label nb-label--amber">02 / 02 — Contribute</span>
           <div className="nb-divider" />
-          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "var(--tracking-display)", margin: "var(--space-sm) 0 var(--space-xl)", lineHeight: 1.05 }}>
+          <p
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-display)",
+              fontWeight: 800,
+              letterSpacing: "var(--tracking-display)",
+              margin: "var(--space-sm) 0 var(--space-xl)",
+              lineHeight: 1.05,
+            }}
+          >
             Ways to get involved.
           </p>
 
           <div className="nb-grid nb-grid--cols-3">
             {WAYS.map((w) => (
               <div key={w.num} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
-                <span className="nb-label" style={{ marginBottom: "var(--space-2xs)" }}>{w.num}</span>
-                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-2xs)" }}>
+                <span className="nb-label" style={{ marginBottom: "var(--space-2xs)" }}>
+                  {w.num}
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-title)",
+                    fontWeight: 700,
+                    letterSpacing: "var(--tracking-display)",
+                    color: "var(--foreground)",
+                    margin: "0 0 var(--space-2xs)",
+                  }}
+                >
                   {w.title}
                 </h3>
-                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-sans)",
+                    fontSize: "var(--text-code)",
+                    color: "var(--muted)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                  }}
+                >
                   {w.desc}
                 </p>
               </div>
@@ -155,11 +205,29 @@ function CommunityPage() {
       <section className="nb-section">
         <div className="nb-inner">
           <div className="nb-block-amber" style={{ textAlign: "center" }}>
-            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>WANT TO CONTRIBUTE?</span>
-            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+              WANT TO CONTRIBUTE?
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-body)",
+                color: "var(--text-on-amber)",
+                margin: "var(--space-2xs) 0",
+                opacity: 0.85,
+              }}
+            >
               Check out our GitHub for open issues.
             </p>
-            <a href="https://github.com/ness-e/Vantadb" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+            <a
+              href="https://github.com/ness-e/Vantadb"
+              className="btn-ghost"
+              style={{
+                borderColor: "var(--text-on-amber)",
+                color: "var(--text-on-amber)",
+                boxShadow: "var(--shadow-brutal)",
+              }}
+            >
               GITHUB
             </a>
           </div>
@@ -171,8 +239,18 @@ function CommunityPage() {
 
 export function PendingComponent() {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
-      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "60vh",
+        color: "var(--muted)",
+      }}
+    >
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>
+        Loading...
+      </span>
     </div>
   );
 }
