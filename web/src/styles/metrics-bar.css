@@ -66,6 +66,49 @@
   margin-right: 0.25rem;
 }
 
+/* Split-flap digits */
+.nb-splitflap {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.nb-splitflap-cell {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  width: 1.1ch;
+  height: 1.1em;
+  background: #0a0a0a;
+  border: 1px solid var(--border-visible);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.nb-splitflap-top,
+.nb-splitflap-bot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50%;
+  font-size: inherit;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.nb-splitflap-top {
+  color: var(--amber);
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+  padding-top: 0.05em;
+}
+
+.nb-splitflap-bot {
+  color: var(--amber);
+  opacity: 0.6;
+  align-items: flex-end;
+  padding-bottom: 0.05em;
+}
+
 @media (max-width: 640px) {
   .nb-metrics-strip {
     grid-template-columns: repeat(2, 1fr);

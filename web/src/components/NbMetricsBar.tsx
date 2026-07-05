@@ -1,11 +1,12 @@
 import { memo } from "react";
 import "../styles/metrics-bar.css";
+import { NbSplitFlap } from "./nb/NbSplitFlap";
 
 const METRICS = [
-  { value: "1.2ms", label: "p50 QUERY LATENCY" },
-  { value: "2MB", label: "BINARY FOOTPRINT" },
-  { value: "0", label: "SERVERS REQUIRED" },
-  { value: "99.8%", label: "RECALL@10 (HNSW)" },
+  { value: "1.2", suffix: "ms", label: "p50 QUERY LATENCY" },
+  { value: "2", suffix: "MB", label: "BINARY FOOTPRINT" },
+  { value: "0", suffix: "", label: "SERVERS REQUIRED" },
+  { value: "99.8", suffix: "%", label: "RECALL@10 (HNSW)" },
 ];
 
 export const NbMetricsBar = memo(function NbMetricsBar() {
@@ -16,7 +17,9 @@ export const NbMetricsBar = memo(function NbMetricsBar() {
           <div className="nb-metrics-strip">
             {METRICS.map((m) => (
               <div key={m.label} className="nb-metrics-cell">
-                <span className="nb-metrics-value">&gt; {m.value}</span>
+                <span className="nb-metrics-value">
+                  &gt; <NbSplitFlap value={m.value} />{m.suffix}
+                </span>
                 <span className="nb-metrics-label">{m.label}</span>
               </div>
             ))}
