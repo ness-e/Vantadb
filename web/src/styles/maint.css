@@ -1,0 +1,57 @@
+.maint-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 var(--space-md);
+}
+.maint-mt-3rem {
+  margin-top: 3rem;
+}
+.maint-section-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+.maint-ul-reset {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.maint-steel-icon {
+  color: var(--steel);
+  min-width: 1rem;
+}
+.maint-cell-amber-border {
+  border-left: 2px solid var(--amber);
+}
+.maint-amber-icon {
+  color: var(--amber);
+  min-width: 1rem;
+}
+.maint-section-label-amber {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--amber);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+.maint-label-steel {
+  color: var(--steel);
+}
+.maint-cell-cross {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+.maint-text-on-amber {
+  color: var(--text-on-amber);
+}
+.maint-text-on-amber-dim {
+  color: var(--text-on-amber);
+  opacity: 0.8;
+}
