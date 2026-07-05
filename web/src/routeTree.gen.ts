@@ -79,7 +79,7 @@ const DocsApiRoute = DocsApiRouteImport.update({
   id: '/docs-api',
   path: '/docs-api',
   getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/docs-api.lazy').then((d) => d.Route))
+} as any)
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
   path: '/docs',

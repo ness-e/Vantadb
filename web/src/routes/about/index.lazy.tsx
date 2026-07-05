@@ -1,5 +1,4 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 import { PendingComponent } from "@/components/PendingComponent";
 
@@ -37,7 +36,6 @@ const NAV_SECTIONS = [
 ];
 
 function AboutIndex() {
-  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -119,6 +117,7 @@ function AboutIndex() {
               <Link
                 key={s.num}
                 to={s.href as "/"}
+                className="about-section-link"
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -127,12 +126,9 @@ function AboutIndex() {
                   textDecoration: "none",
                   borderLeft: "2px solid transparent",
                   transition: "all 150ms var(--ease-cut)",
-                  ...(hoveredSection === s.num
-                    ? { background: "var(--surface-raised)", borderLeftColor: "var(--amber)" }
-                    : { background: "var(--background)", borderLeftColor: "transparent" }),
+                  background: "var(--background)",
+                  borderLeftColor: "transparent",
                 }}
-                onMouseEnter={() => setHoveredSection(s.num)}
-                onMouseLeave={() => setHoveredSection(null)}
               >
                 <span
                   style={{
@@ -185,6 +181,13 @@ function AboutIndex() {
           </div>
         </section>
       </main>
+
+      <style>{`
+        .about-section-link:hover {
+          background: var(--surface-raised) !important;
+          border-left-color: var(--amber) !important;
+        }
+      `}</style>
     </div>
   );
 }

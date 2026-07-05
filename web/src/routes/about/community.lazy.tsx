@@ -1,5 +1,4 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/community")({
@@ -71,7 +70,6 @@ const WAYS = [
 ];
 
 function CommunityPage() {
-  const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -124,6 +122,7 @@ function CommunityPage() {
                 href={ch.href}
                 target={ch.href.startsWith("http") ? "_blank" : undefined}
                 rel="noopener noreferrer"
+                className="community-channel-link"
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -132,12 +131,9 @@ function CommunityPage() {
                   textDecoration: "none",
                   borderLeft: "2px solid transparent",
                   transition: "all 150ms var(--ease-cut)",
-                  ...(hoveredChannel === ch.name
-                    ? { background: "var(--surface-raised)", borderLeftColor: "var(--amber)" }
-                    : { background: "var(--background)", borderLeftColor: "transparent" }),
+                  background: "var(--background)",
+                  borderLeftColor: "transparent",
                 }}
-                onMouseEnter={() => setHoveredChannel(ch.name)}
-                onMouseLeave={() => setHoveredChannel(null)}
               >
                 <span
                   style={{
@@ -266,6 +262,10 @@ function CommunityPage() {
       </main>
 
       <style>{`
+        .community-channel-link:hover {
+          background: var(--surface-raised) !important;
+          border-left-color: var(--amber) !important;
+        }
         @media (max-width: 640px) {
           .channels-grid { grid-template-columns: 1fr !important; }
           .contribute-grid { grid-template-columns: 1fr !important; }

@@ -1,5 +1,4 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/contact")({
@@ -46,7 +45,6 @@ const CONTACTS = [
 ];
 
 function ContactPage() {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
     <div className="swiss-page">
       <SwissSubpageHero
@@ -93,19 +91,18 @@ function ContactPage() {
               marginTop: "3rem",
             }}
           >
-            {CONTACTS.map((c, idx) => (
+            {CONTACTS.map((c) => (
               <div
                 key={c.channel}
+                className="contact-card"
                 style={{
                   padding: "2.5rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.5rem",
                   transition: "background-color 150ms var(--ease-cut)",
-                  background: hoveredIdx === idx ? "var(--surface-raised)" : "var(--background)",
+                  background: "var(--background)",
                 }}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
               >
                 <span
                   style={{
@@ -209,6 +206,9 @@ function ContactPage() {
       </main>
 
       <style>{`
+        .contact-card:hover {
+          background: var(--surface-raised) !important;
+        }
         @media (max-width: 640px) {
           .contact-grid { grid-template-columns: 1fr !important; }
         }

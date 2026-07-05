@@ -64,8 +64,9 @@ export function getAllPosts(): BlogPost[] {
     });
   }
 
-  posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  return posts;
+  return posts
+    .filter((p) => p.date && !isNaN(new Date(p.date).getTime()))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export function getPostBySlug(slug: string): BlogPost | undefined {
