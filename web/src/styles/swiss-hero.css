@@ -134,14 +134,28 @@
   border-bottom: 2px solid var(--amber);
 }
 
+.swiss-hero-desc-group {
+  margin: 0 0 var(--space-xl) 0;
+}
+
 .swiss-hero-desc {
   font-family: var(--font-sans);
-  font-size: var(--text-body);
+  font-size: var(--text-lead);
   font-weight: var(--weight-regular);
   line-height: var(--leading-normal);
-  color: var(--muted);
+  color: var(--foreground);
   max-width: 520px;
-  margin: 0 0 var(--space-xl) 0;
+  margin: 0 0 var(--space-3xs) 0;
+}
+
+.swiss-hero-desc-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: 0;
 }
 
 .swiss-hero-actions {
