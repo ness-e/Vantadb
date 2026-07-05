@@ -13,5 +13,5 @@ export { NbTelemetry } from "./NbTelemetry";
 export { NbLogLine } from "./NbLogLine";
 export { NbDitherImage } from "./NbDitherImage";
 export { NbNoise } from "./NbNoise";
-export { NbCursor } from "./NbCursor";
 export { NbSplitFlap } from "./NbSplitFlap";
+export { NbCursor } from "./NbCursor";
