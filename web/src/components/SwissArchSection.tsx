@@ -1,77 +1,17 @@
-import { useRef, useState } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { useState } from "react";
 
 const LAYERS = [
-  {
-    id: "app",
-    name: "PYTHON APP",
-    type: "CLIENT LAYER",
-    color: "var(--foreground)",
-    size: "small",
-  },
-  { id: "pyo3", name: "PYO3 BRIDGE", type: "FFI BOUNDARY", color: "var(--amber)", size: "medium" },
-  {
-    id: "rust",
-    name: "RUST CORE",
-    type: "ENGINE LAYER",
-    color: "var(--foreground)",
-    size: "large",
-  },
-  {
-    id: "storage",
-    name: "HNSW + WAL",
-    type: "STORAGE LAYER",
-    color: "var(--steel)",
-    size: "large",
-  },
+  { id: "app", name: "PYTHON APP", type: "CLIENT LAYER", size: "small" },
+  { id: "pyo3", name: "PYO3 BRIDGE", type: "FFI BOUNDARY", size: "medium" },
+  { id: "rust", name: "RUST CORE", type: "ENGINE LAYER", size: "large" },
+  { id: "storage", name: "HNSW + WAL", type: "STORAGE LAYER", size: "large" },
 ];
 
 export function SwissArchSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const layersRef = useRef<HTMLDivElement>(null);
   const [hoveredLayer, setHoveredLayer] = useState<string | null>(null);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const layers = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer");
-        const labels = gsap.utils.toArray<HTMLElement>(".swiss-arch-layer-name");
-
-        gsap.from(layers, {
-          y: 40,
-          opacity: 0,
-          duration: 0.5,
-          stagger: 0.12,
-          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 75%",
-          },
-        });
-
-        gsap.from(labels, {
-          clipPath: "inset(0 100% 0 0)",
-          opacity: 0,
-          duration: 0.35,
-          stagger: 0.12,
-          ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 70%",
-          },
-        });
-      });
-    },
-    { scope: sectionRef },
-  );
-
   return (
-    <section
-      ref={sectionRef}
-      className="swiss-section swiss-arch-layers"
-      aria-label="Architecture layers"
-    >
+    <section className="swiss-section swiss-arch-layers" aria-label="Architecture layers">
       <div className="swiss-inner">
         <div className="swiss-grid swiss-arch-layers-grid">
           <div className="swiss-arch-layers-text">
@@ -90,12 +30,7 @@ export function SwissArchSection() {
             </p>
           </div>
 
-          <div
-            className="swiss-arch-layers-diagram"
-            ref={layersRef}
-            role="img"
-            aria-label="Architecture stack diagram"
-          >
+          <div className="swiss-arch-layers-diagram" role="img" aria-label="Architecture stack diagram">
             <div
               className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}
             >
