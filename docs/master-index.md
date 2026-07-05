@@ -2,7 +2,7 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-04
 review_interval_days: 90
 language: en
 aliases: [Index, Documentation Index, Master Index]
@@ -15,7 +15,7 @@ tags: [vantadb, documentation, index, master-index]
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
 - **Version**: 0.2.0
-- **Last Updated**: 2026-07-02
+- **Last Updated**: 2026-07-04
 - **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros
 
@@ -76,6 +76,7 @@ tags: [vantadb, documentation, index, master-index]
 | 2 | [[api/PYTHON_SDK.md\|PYTHON_SDK.md]] | Python bindings — `vantadb-py` | Done |
 | 3 | [[api/HTTP_API.md\|HTTP_API.md]] | REST / HTTP server specification — `GET /health`, `GET /metrics`, `POST /api/v2/query` | Done |
 | 4 | [[api/MCP.md\|MCP.md]] | MCP (Model Context Protocol) server specification | Done |
+| 5 | [[api/TS_SDK.md\|TS_SDK.md]] | TypeScript SDK — `vantadb-ts` | Pending |
 
 ---
 
@@ -115,6 +116,12 @@ tags: [vantadb, documentation, index, master-index]
 | 1 | [[architecture/adr/001_unified_config_readonly.md\|ADR-001: Unified Configuration]] | Unified config + read-only barrier architecture | Done |
 | 2 | [[architecture/adr/002_wal_crc32c_autohealing.md\|ADR-002: WAL Physical Resilience]] | WAL physical resilience, CRC32C validation, self-healing | Done |
 | 3 | [[architecture/adr/003_sync_async_decoupling.md\|ADR-003: Sync/Async Decoupling]] | Concurrent execution isolation architecture | Done |
+| 4 | [[architecture/adr/004_storage_backend.md\|ADR-004: Storage Backend]] | Fjall vs RocksDB storage backend selection | Done |
+| 5 | [[architecture/adr/005_hnsw_parameters.md\|ADR-005: HNSW Parameters]] | HNSW graph parameters M, M_max0, ef_construction, ef_search, ml | Done |
+| 6 | [[architecture/adr/006_rrf_constant.md\|ADR-006: RRF Constant]] | RRF constant k=60 for Reciprocal Rank Fusion | Done |
+| 7 | [[architecture/adr/007_pyo3_binding_architecture.md\|ADR-007: PyO3 Binding]] | PyO3 binding architecture for Python SDK | Done |
+| 8 | [[architecture/adr/008_wasm_support_strategy.md\|ADR-008: WASM Strategy]] | WASM support strategy and browser deployment | Done |
+| 9 | [[architecture/adr/009_community_governance_model.md\|ADR-009: Community Governance]] | Community governance model and contribution process | Done |
 
 ---
 
@@ -133,9 +140,9 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[articles/why_i_built_local_memory_engine_for_ai_agents.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | Published |
-| 2 | [[articles/sqlite_for_ai_agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | Published |
-| 3 | [[articles/how_hybrid_search_works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | Published |
+| 1 | [[articles/why_i_built_local_memory_engine_for_ai_agents.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | (content coming) |
+| 2 | [[articles/sqlite_for_ai_agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | (content coming) |
+| 3 | [[articles/how_hybrid_search_works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | (content coming) |
 
 ---
 

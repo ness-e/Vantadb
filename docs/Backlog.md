@@ -27,13 +27,13 @@ aliases: []
 
 
 
-| `CODE-026` | **BFS order vacío destruye DB en compact** — Si `bfs_order` está vacío, compact reemplaza DB real con archivo vacío de 64 bytes | `archive.rs:15-107` | 🟡 1d | 🔴 | ❌ |
+| `CODE-026` | **BFS order vacío destruye DB en compact** — Si `bfs_order` está vacío, compact reemplaza DB real con archivo vacío de 64 bytes | `archive.rs:15-107` | 🟡 1d | 🔴 | ✅ |
 
 ### 🛡️ Seguridad & Data Integrity
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `CODE-012` | **Path traversal en Python SDK export/import/constructor** — `../../etc/passwd` pasa sin validación | `lib.rs:676,974,988,1000` | 🟡 1d | 🔴 | ❌ |
+| `CODE-012` | **Path traversal en Python SDK export/import/constructor** — `../../etc/passwd` pasa sin validación | `lib.rs:676,974,988,1000` | 🟡 1d | 🔴 | ✅ |
 | `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC activa) | — | 🟢 2-4h | 🔴 | ✅ |
 | `SEC-09` | Eliminar `bincode` de archive + actualizar docs | — | 🟢 2h | 🔴 | ✅ |
 | `SEC-10` | Security test suite: IQL injection, auth bypass, fuzzing | — | 🟡 1-2d | 🔴 | ✅ |
@@ -493,9 +493,9 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 5 | 0 | 5 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **12** | **12** | **20** | **11** | **20** | **75** |
+| **Total** | **10** | **12** | **20** | **11** | **20** | **73** |
 
-Nota: 78 tasks marcadas como ✅ desde la última actualización. Pendientes: 75 items open (❌ + ⏳).
+Nota: 80 tasks marcadas como ✅ desde la última actualización. Pendientes: 73 items open (❌ + ⏳).
 
 ---
 
