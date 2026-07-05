@@ -642,6 +642,9 @@ impl CPIndex {
     }
 
     /// Estimate the memory usage of the index in bytes.
+    ///
+    /// Uses the cached `total_nodes` counter (O(1)) plus a per-node overhead
+    /// estimate, then iterates all nodes for precise vector/neighbor sizes.
     pub fn estimate_memory_bytes(&self) -> usize {
         let mut total = 0usize;
         for r in self.nodes.iter() {
@@ -1456,7 +1459,12 @@ impl CPIndex {
         buf
     }
 
-    /// Streaming variant that writes directly to a writer without allocating a giant Vec.
+    /// Serialize the index into a compact binary stream.
+    ///
+    /// Writes: magic header, max_layer, config block, distance metric byte,
+    /// entry point, node count, then each node (id, bitset, storage_offset,
+    /// vector data, per-layer neighbor lists). Avoids the intermediate `Vec`
+    /// allocation of `serialize_to_bytes`.
     pub fn serialize_to_writer(&self, w: &mut impl Write) -> std::io::Result<()> {
         let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
         let mut pos = 0usize;

@@ -1487,6 +1487,10 @@ impl StorageEngine {
     /// Paginated scan: returns a page of nodes and the next cursor.
     /// Pass cursor="" for the first page. The returned cursor is empty when
     /// there are no more pages.
+    ///
+    /// Data is collected under a single HNSW + vstore read lock pair, then
+    /// processed outside the lock to minimize critical section duration
+    /// and avoid lock ordering issues (CODE-029).
     pub fn scan_nodes_page(
         &self,
         cursor: &str,

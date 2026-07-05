@@ -707,6 +707,9 @@ pub async fn build_tls13_config(
         .pop()
         .expect("keys has exactly one element after guard");
 
+    // Include TLSv1.2 alongside TLSv1.3 for compatibility with legacy HTTP
+    // clients (e.g. older curl, Java 8, Python <3.7) that do not support
+    // TLSv1.3 exclusively.
     let mut config = rustls::ServerConfig::builder_with_protocol_versions(&[
         &rustls::version::TLS12,
         &rustls::version::TLS13,
