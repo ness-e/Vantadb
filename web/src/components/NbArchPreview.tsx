@@ -56,35 +56,29 @@ export function NbArchPreview() {
   return (
     <section className="nb-section" aria-label="Architecture">
       <div className="nb-inner">
-        <div className="nb-section-header">
-          <h2 className="nb-amber-title">Architecture</h2>
-        </div>
-        <hr className="nb-divider" />
+        <span className="nb-mono-label">[LAYERS]</span>
+        <h2 className="nb-section-headline">Full stack architecture.</h2>
 
         <div className="nb-arch-stack">
           {LAYERS.map((layer, i) => {
             const isSelected = selectedLayer === i;
             return (
-              <div key={layer.id} className="nb-arch-layer-wrap">
+              <div key={layer.id}>
                 <button
                   type="button"
-                  className={`nb-arch-layer${isSelected ? " nb-arch-layer--selected" : ""}`}
+                  className="nb-arch-row"
                   onClick={() => handleSelect(i)}
                   aria-expanded={isSelected}
                 >
-                  <span className="nb-arch-layer-label">{layer.label}</span>
-                  <span className="nb-arch-layer-items">{layer.items}</span>
-                  <span className="nb-arch-layer-arrow">{isSelected ? "▲" : "▼"}</span>
+                  <span className="nb-arch-row-label">{layer.label}</span>
+                  <span className="nb-arch-row-items">{layer.items}</span>
+                  <span className="nb-arch-row-arrow">{isSelected ? "\u2212" : "+"}</span>
                 </button>
-                <div
-                  className={`nb-arch-detail${isSelected ? " nb-arch-detail--open" : ""}`}
-                  role="region"
-                  aria-hidden={!isSelected}
-                >
-                  <div className="nb-arch-detail-inner">
-                    <p className="nb-arch-detail-text">{layer.detail}</p>
+                {isSelected && (
+                  <div className="nb-arch-detail" role="region">
+                    <p>{layer.detail}</p>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}

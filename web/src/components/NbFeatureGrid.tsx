@@ -1,77 +1,64 @@
 import "../styles/feature-grid.css";
 
 const FEATURES = [
-  {
-    id: "hybrid",
-    title: "Hybrid Search",
-    desc: "HNSW + BM25 fused scoring. One query, ranked results.",
-    cols: 5,
-    rows: 2,
-    featured: true,
-  },
-  {
-    id: "wal",
-    title: "Write-Ahead Log",
-    desc: "Crash-safe durability. Zero data loss.",
-    cols: 3,
-  },
-  {
-    id: "zeroops",
-    title: "Zero-Ops",
-    desc: "No servers. No daemons. No cloud bills.",
-    cols: 4,
-  },
-  {
-    id: "pyo3",
-    title: "PyO3 Native",
-    desc: "Rust core, Python bindings. Native speed.",
-    cols: 3,
-  },
-  {
-    id: "converged",
-    title: "Converged Engine",
-    desc: "SQL, vectors, and full-text search — one engine.",
-    cols: 6,
-  },
-  {
-    id: "embed",
-    title: "Embed Anywhere",
-    desc: "2MB binary. One file. Any platform.",
-    cols: 3,
-  },
+  { id: "hybrid", title: "Hybrid Search", desc: "HNSW + BM25 fused scoring. One query, ranked results.", cols: 5, rows: 2, featured: true },
+  { id: "wal", title: "Write-Ahead Log", desc: "Crash-safe durability. Zero data loss.", cols: 3 },
+  { id: "zeroops", title: "Zero-Ops", desc: "No servers. No daemons. No cloud bills.", cols: 4 },
+  { id: "pyo3", title: "PyO3 Native", desc: "Rust core, Python bindings. Native speed.", cols: 3 },
+  { id: "converged", title: "Converged Engine", desc: "SQL, vectors, and full-text search — one engine.", cols: 6 },
+  { id: "embed", title: "Embed Anywhere", desc: "2MB binary. One file. Any platform.", cols: 3 },
 ];
+
+function NbFgIcon({ id }: { id: string }) {
+  const svg = (() => {
+    switch (id) {
+      case "hybrid":
+        return <polygon points="12,2 22,22 2,22" fill="none" stroke="currentColor" strokeWidth="2" />;
+      case "wal":
+        return <rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" />;
+      case "zeroops":
+        return <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />;
+      case "pyo3":
+        return <path d="M12 2 L2 12 L12 22 L22 12 Z" fill="none" stroke="currentColor" strokeWidth="2" />;
+      case "embed":
+        return <path d="M4 12 L10 6 L10 18 Z M20 12 L14 6 L14 18 Z" fill="none" stroke="currentColor" strokeWidth="2" />;
+      default:
+        return <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />;
+    }
+  })();
+
+  return (
+    <div className="nb-icon-box" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        {svg}
+      </svg>
+    </div>
+  );
+}
 
 export function NbFeatureGrid() {
   return (
     <section className="nb-section" aria-label="Features">
       <div className="nb-inner">
-        <div className="nb-section-header nb-section-header--bordered">
-          <h2 className="nb-amber-title">Features</h2>
-        </div>
-
-        <div className="nb-feature-grid">
-          {FEATURES.map((feat) => (
-            <article
-              key={feat.id}
-              className={`nb-feature-cell${feat.featured ? " nb-feature-cell--featured" : ""}`}
-              style={{
-                gridColumn: `span ${feat.cols}`,
-                ...(feat.rows ? { gridRow: `span ${feat.rows}` } : {}),
-              }}
-            >
-              <h3
-                className={`nb-feature-title${feat.featured ? " nb-feature-title--featured" : ""}`}
-              >
-                {feat.title}
-              </h3>
-              <p className="nb-feature-desc">{feat.desc}</p>
-            </article>
-          ))}
-
-          <div className="nb-feature-banner">
-            <p className="nb-feature-banner-text">
-              Embed anywhere — 2MB binary. One file. Any platform.
+        <div className="nb-split-7-5">
+          <div>
+            <span className="nb-mono-label">[CAPABILITIES]</span>
+            <h2 className="nb-section-headline">Everything you need. Nothing you don't.</h2>
+            <p className="nb-section-sub">
+              HNSW vector search, BM25 full-text, SQL — fused in one embedded engine.
+              Sub-millisecond queries. Zero servers.
             </p>
+          </div>
+          <div>
+            {FEATURES.filter((f) => f.id !== "converged").map((feat) => (
+              <article key={feat.id} className="nb-fg-row">
+                <NbFgIcon id={feat.id} />
+                <div>
+                  <h3 className="nb-fg-title">{feat.title}</h3>
+                  <p className="nb-fg-desc">{feat.desc}</p>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </div>

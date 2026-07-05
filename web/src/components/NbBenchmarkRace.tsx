@@ -5,7 +5,7 @@ import "../styles/benchmark-race.css";
 const GROUPS = [
   {
     id: "hybrid",
-    title: "Hybrid Query — p50 Latency (\u00b5s)",
+    title: "Hybrid Query \u2014 p50 Latency (\u00b5s)",
     bars: [
       { label: "VantaDB", value: "1.2ms", pct: 15, amber: true },
       { label: "Chroma", value: "4.8ms", pct: 45, amber: false },
@@ -47,10 +47,10 @@ export function NbBenchmarkRace() {
   useEffect(() => {
     if (!visible) return;
     const ctx = gsap.context(() => {
-      const bars = gsap.utils.toArray<HTMLElement>(".bm-race-bar-inner");
-      if (!bars.length) return;
-      gsap.to(bars, {
-        width: (i) => bars[i].dataset.target ?? "0%",
+      const fills = gsap.utils.toArray<HTMLElement>(".nb-bm-bar-fill");
+      if (!fills.length) return;
+      gsap.to(fills, {
+        width: (i) => fills[i].dataset.target ?? "0%",
         duration: 0.25,
         stagger: 0.05,
         ease: "power2.out",
@@ -62,28 +62,50 @@ export function NbBenchmarkRace() {
   return (
     <section className="nb-section" ref={sectionRef} aria-label="Benchmarks">
       <div className="nb-inner">
-        <h2 className="nb-amber-title">Benchmarks</h2>
-        <div className="nb-divider" />
+        <span className="nb-mono-label">[PERFORMANCE]</span>
+        <h2 className="nb-section-headline">VantaDB vs the field.</h2>
 
-        {GROUPS.map((g) => (
-          <div key={g.id} className="bm-race-group">
-            <h3 className="bm-race-group-title">{g.title}</h3>
-            <div className="bm-race-bars">
-              {g.bars.map((b) => (
-                <div key={b.label} className="bm-race-row">
-                  <span className="bm-race-label">{b.label}</span>
-                  <div className="bm-race-bar-track">
-                    <div
-                      className={`bm-race-bar-inner nb-benchmark-inner ${b.amber ? "bm-race-bar--amber" : "bm-race-bar--steel"}`}
-                      data-target={`${b.pct}%`}
-                    />
-                  </div>
-                  <span className="bm-race-value">{b.value}</span>
+        <div className="nb-bm-compare">
+          <div className="nb-bm-panel">
+            <span className="nb-bm-panel-label">VANTA DB</span>
+            <div className="nb-bm-vantadb-stats">
+              <div className="nb-bm-stat">
+                <span className="nb-bm-stat-value">1.2ms</span>
+                <span className="nb-bm-stat-label">Hybrid query p50</span>
+              </div>
+              <div className="nb-bm-stat">
+                <span className="nb-bm-stat-value">0.998</span>
+                <span className="nb-bm-stat-label">Recall@10</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="nb-vert-divider" />
+
+          <div className="nb-bm-panel">
+            <span className="nb-bm-panel-label nb-bm-panel-label--right">VS MARKET</span>
+            <div className="nb-bm-bars">
+              {GROUPS.map((group) => (
+                <div key={group.id} className="nb-bm-group">
+                  <span className="nb-bm-group-title">{group.title}</span>
+                  {group.bars.map((bar) => (
+                    <div key={bar.label} className="nb-bm-bar-row">
+                      <span className="nb-bm-bar-label">{bar.label}</span>
+                      <div className="nb-bm-bar-track">
+                        <div
+                          className={`nb-bm-bar-fill ${bar.amber ? "nb-bm-bar-fill--amber" : "nb-bm-bar-fill--steel"}`}
+                          style={{ width: bar.amber ? `${bar.pct}%` : "0%" }}
+                          data-target={`${bar.pct}%`}
+                        />
+                      </div>
+                      <span className="nb-bm-bar-value">{bar.value}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

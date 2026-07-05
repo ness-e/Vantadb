@@ -7,5 +7,5 @@ test("homepage loads", async ({ page }) => {
 
 test("navigation links are present", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("nav")).toBeVisible();
+  await expect(page.locator("nav.nb-nav")).toBeVisible();
 });

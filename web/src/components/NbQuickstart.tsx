@@ -119,14 +119,14 @@ export function NbQuickstart() {
   }, [hasEntered, typeStep]);
 
   return (
-    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Quickstart guide">
+    <section ref={sectionRef} className="nb-section" aria-label="Quickstart guide">
       <div className="nb-inner nb-split-5-7">
         <div>
-          <div className="nb-section-header nb-section-header--bordered">
-            <h2 className="nb-crt-heading">Zero to running.</h2>
-          </div>
+          <span className="nb-mono-label">[QUICKSTART]</span>
+          <h2 className="nb-section-headline">Zero to running.</h2>
+          <p className="nb-section-sub">Four steps to your first semantic query.</p>
 
-          <nav className="nb-crt-steps" aria-label="Setup steps">
+          <div className="nb-qs-steps">
             {STEPS.map((step, i) => {
               const isActive = activeStep === i;
               return (
@@ -142,46 +142,34 @@ export function NbQuickstart() {
                       gsap.set(outputRef.current, { opacity: 1 });
                     }
                   }}
-                  className={`nb-crt-step ${isActive ? "nb-crt-step--active" : ""}`}
+                  className="nb-qs-step"
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Step ${step.num}: ${step.title}`}
                 >
-                  <span className="nb-crt-step-prefix" aria-hidden="true">
-                    &gt;
-                  </span>
-                  <div className="nb-crt-step-body">
-                    <span className="nb-crt-step-title">{step.title}</span>
-                    <p className="nb-crt-step-desc">{step.desc}</p>
+                  <span className="nb-step-marker">{step.num}</span>
+                  <div className="nb-step-content">
+                    <span className="nb-step-title">{step.title}</span>
+                    <p className="nb-step-desc">{step.desc}</p>
                   </div>
                 </button>
               );
             })}
-          </nav>
-
-          <div className="nb-crt-cta">
-            <Link to="/docs" className="nb-arrow" aria-label="Read documentation">
-              Read Documentation
-            </Link>
           </div>
         </div>
 
-        <div>
-          <div className="nb-crt-terminal" role="region" aria-label="Terminal preview">
-            <header className="nb-crt-terminal-bar">
-              <span className="nb-crt-terminal-label">[ QUICKSTART ]</span>
-            </header>
+        <div className="nb-qs-terminal" role="region" aria-label="Terminal preview">
+          <header className="nb-qs-term-header">
+            <span className="nb-mono-label">[QUICKSTART]</span>
+          </header>
 
-            <div className="nb-crt-terminal-body">
-              <pre className="nb-crt-code-pre">
-                <code ref={codeRef} className="nb-crt-code" aria-live="polite" />
-                <span className="nb-crt-cursor" aria-hidden="true">
-                  _
-                </span>
-              </pre>
+          <div className="nb-qs-term-body">
+            <pre className="nb-qs-code">
+              <code ref={codeRef} aria-live="polite" />
+              <span className="nb-qs-cursor" aria-hidden="true" />
+            </pre>
 
-              <div ref={outputRef} className="nb-crt-output" aria-live="polite">
-                <span className="nb-crt-output-text">{STEPS[activeStep]!.output}</span>
-              </div>
+            <div ref={outputRef} className="nb-qs-output" aria-live="polite">
+              {STEPS[activeStep]!.output}
             </div>
           </div>
         </div>

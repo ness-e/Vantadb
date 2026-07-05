@@ -28,40 +28,32 @@ export function NbFaqAccordion() {
   };
 
   return (
-    <section className="nb-section" aria-label="Frequently Asked Questions">
+    <section className="nb-section" aria-label="FAQ">
       <div className="nb-inner">
-        <h2 className="nb-amber-title">FAQ</h2>
-        <div className="nb-divider" />
+        <span className="nb-mono-label">[QUESTIONS]</span>
+        <h2 className="nb-section-headline">Frequently asked.</h2>
 
-        <div className="faq-accordion nb-faq-container">
-          {FAQ_ITEMS.map((item, index) => {
-            const isOpen = activeIndex === index;
+        <div className="nb-faq-list">
+          {FAQ_ITEMS.map((item, i) => {
+            const isOpen = activeIndex === i;
             return (
-              <div key={index} className="faq-item">
+              <div key={i} className="nb-faq-item">
                 <button
                   type="button"
-                  className="faq-question"
-                  onClick={() => toggle(index)}
+                  className="nb-faq-q"
+                  onClick={() => toggle(i)}
                   aria-expanded={isOpen}
                 >
                   <span>{item.q}</span>
-                  <span
-                    className="faq-chevron"
-                    aria-hidden="true"
-                    style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                  >
-                    ▾
+                  <span className={`nb-faq-toggle ${isOpen ? "nb-faq-toggle--open" : ""}`}>
+                    {isOpen ? "−" : "+"}
                   </span>
                 </button>
-                <div
-                  className="faq-answer-wrapper"
-                  style={{
-                    maxHeight: isOpen ? "var(--faq-answer-h, 300px)" : "0",
-                  }}
-                >
-                  <div className="faq-answer">{item.a}</div>
-                </div>
-                <div className="nb-divider" />
+                {isOpen && (
+                  <div className="nb-faq-a">
+                    <p>{item.a}</p>
+                  </div>
+                )}
               </div>
             );
           })}

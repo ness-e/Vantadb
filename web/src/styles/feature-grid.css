@@ -1,87 +1,29 @@
-.nb-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1px;
-  background: var(--border-visible);
-  grid-auto-flow: dense;
-}
-
-.nb-feature-cell {
-  background: var(--background);
-  padding: var(--space-lg);
+.nb-fg-row {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  position: relative;
-  border: 2px solid transparent;
-  transition:
-    background 150ms var(--ease-brutal),
-    border-color 150ms var(--ease-brutal);
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
 }
 
-.nb-feature-cell:hover {
-  background: var(--surface-alt);
-  border-color: var(--amber);
+.nb-fg-row:last-child {
+  border-bottom: none;
 }
 
-.nb-feature-cell--featured {
-  border-left: 2px solid var(--amber);
-}
-
-.nb-feature-title {
+.nb-fg-title {
   font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--foreground);
   margin: 0;
 }
 
-.nb-feature-title--featured {
-  color: var(--amber);
-  font-size: clamp(1.5rem, 2.8vw, 2rem);
-}
-
-.nb-feature-desc {
+.nb-fg-desc {
   font-family: var(--font-sans);
-  font-size: var(--text-code);
-  line-height: var(--leading-normal);
+  font-size: var(--text-body);
   color: var(--muted);
-  margin: 0;
-}
-
-.nb-feature-banner {
-  grid-column: 1 / -1;
-  background: var(--amber);
-  padding: var(--space-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.nb-feature-banner-text {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: var(--weight-bold);
-  color: var(--text-on-amber);
-  letter-spacing: var(--tracking-display);
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .nb-feature-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .nb-feature-cell {
-    padding: var(--space-md);
-  }
-
-  .nb-feature-banner {
-    padding: var(--space-md);
-  }
+  margin-top: var(--space-2xs);
+  margin-bottom: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
