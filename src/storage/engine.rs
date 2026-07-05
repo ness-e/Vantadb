@@ -713,7 +713,7 @@ impl StorageEngine {
         );
 
         drop(vstore);
-        self.save_vector_index();
+        self.save_vector_index()?;
 
         Ok(nodes_compacted)
     }
@@ -1328,7 +1328,7 @@ impl StorageEngine {
             self.backend.flush()?;
         }
 
-        self.save_vector_index();
+        self.save_vector_index()?;
 
         // Update memory breakdown after flush
         let hnsw = self.hnsw.load();
@@ -1369,7 +1369,7 @@ impl StorageEngine {
         Ok(())
     }
 
-    fn save_vector_index(&self) {
+    fn save_vector_index(&self) -> Result<()> {
         let index_path = self.data_dir.join("vector_index.bin");
         let current = self.hnsw.load();
 
@@ -1412,15 +1412,14 @@ impl StorageEngine {
                     self.hnsw.store(new_hnsw);
                 }
                 Err(e) => {
-                    warn!(err = %e, "Failed to sync MMap vector index via RCU");
+                    return Err(VantaError::IoError(e));
                 }
             }
         } else {
             // InMemory does not require remapping, only persistence
-            if let Err(e) = current.persist_to_file(&index_path) {
-                warn!(err = %e, "Failed to persist vector index to file");
-            }
+            current.persist_to_file(&index_path)?;
         }
+        Ok(())
     }
 
     /// Create a checkpoint (live snapshot) of the backend for backup purposes.

@@ -26,7 +26,7 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 
 
-| `CODE-009` | **`save_vector_index()` traga errores de persistencia** — Retorna `()`, no `Result`. `persist_to_file()` falla → solo warn log. Caller cree que salvó OK | `engine.rs:1374` | 🟡 1d | 🔴 | ❌ |
+
 | `CODE-026` | **BFS order vacío destruye DB en compact** — Si `bfs_order` está vacío, compact reemplaza DB real con archivo vacío de 64 bytes | `archive.rs:15-107` | 🟡 1d | 🔴 | ❌ |
 
 ### 🛡️ Seguridad & Data Integrity
@@ -447,7 +447,6 @@ Esfuerzo                │   Esfuerzo
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|-------------|---------|------------|
-| save_vector_index traga errores | 🟡 Media | 🔴 Persistencia falsa | **CODE-009** TIER 0 |
 | BFS order vacío destruye DB | 🟢 Baja | 🔴 Data-loss total | **CODE-026** TIER 0 |
 | XSS via blog raw HTML | 🟢 Baja | 🟡 Ejecución remota (blog posts estáticos + DOMPurify) | **CODE-021** TIER 0 ✅ |
 | Path traversal Python SDK | 🟡 Media | 🔴 File system access | **CODE-012** TIER 0 |
@@ -469,7 +468,7 @@ Esfuerzo                │   Esfuerzo
 
 | Categoría | TIER 0 ❌ | TIER 1 ❌ | TIER 2 ❌ | TIER 3 ❌ | PHASE 5 ❌ | Total |
 |-----------|----------|----------|----------|----------|-----------|-------|
-| 🩹 Data Loss & Crash Prev | 2 | 0 | 0 | 0 | 0 | 2 |
+| 🩹 Data Loss & Crash Prev | 1 | 0 | 0 | 0 | 0 | 1 |
 | 🛡️ Seguridad & Integrity | 1 | 0 | 0 | 3 | 0 | 4 |
 | ⚡ Migration Runner | 3 | 0 | 0 | 0 | 0 | 3 |
 | 💥 Crash/Deadlock Fixes | 2 | 0 | 0 | 0 | 0 | 2 |
@@ -497,7 +496,7 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 22 | 0 | 22 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **24** | **32** | **37** | **40** | **20** | **153** |
+| **Total** | **23** | **32** | **37** | **40** | **20** | **152** |
 
 Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se debe a subtareas ✅ completadas dentro de categorías que igual listamos para tracking.
 
@@ -506,8 +505,8 @@ Nota: La diferencia de 10 items respecto al total de 154 (vs 164 en tabla) se de
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 24 items):
-           ─ Data loss: CODE-009/026
+Jul 4-11   TIER 0 (🔴 23 items):
+           ─ Data loss: CODE-026
            ─ Security: CODE-012, SEC-08/09/10
            ─ Migration: DB-01/02
            ─ Crash: CODE-018/019
