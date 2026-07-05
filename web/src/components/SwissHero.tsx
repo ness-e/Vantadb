@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 
 export function SwissHero() {
@@ -67,10 +67,12 @@ export function SwissHero() {
           <span className="word-highlight">Database</span> for AI Agents
         </h1>
 
-        <p className="swiss-hero-desc">
-          One pip install. HNSW vector search, BM25 full-text, and hybrid search (RRF) in a single
-          Rust binary. Zero servers. Zero ops. Sub-millisecond.
-        </p>
+        <div className="swiss-hero-desc-group">
+          <p className="swiss-hero-desc">
+            HNSW vector search, BM25 full-text, and hybrid RRF in a single Rust binary.
+          </p>
+          <p className="swiss-hero-desc-sub">Zero servers. Zero ops. Sub-millisecond.</p>
+        </div>
 
         <div className="swiss-hero-actions">
           <button
