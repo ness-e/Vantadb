@@ -1,4 +1,4 @@
-import { createLazyRoute } from "@tanstack/react-router";
+import { createLazyRoute, Link } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/solutions/ai-agents")({
@@ -54,7 +54,7 @@ results = db.search_memory(query=embedding, top_k=5)`;
 
 function AiAgentsPage() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="01"
         eyebrow="Solution — AI Agent Memory"
@@ -68,285 +68,95 @@ function AiAgentsPage() {
         sub="Give your AI agent persistent memory — conversation history, tool call results, learned preferences, and ephemeral state — all in one embedded database that lives inside your agent process."
       />
 
-      <main className="swiss-main">
-        <nav
-          aria-label="Breadcrumb"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--muted)",
-            marginBottom: "0",
-            padding: "0 clamp(1.5rem, 5vw, 4rem)",
-            marginTop: "1rem",
-          }}
-        >
-          <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>
-            Home
-          </a>
-          <span style={{ margin: "0 0.5rem" }}>/</span>
-          <a href="/solutions" style={{ color: "var(--muted)", textDecoration: "none" }}>
-            Solutions
-          </a>
-          <span style={{ margin: "0 0.5rem" }}>/</span>
-          <span style={{ color: "var(--foreground)" }}>AI Agents</span>
-        </nav>
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 03 — The Problem</span>
-          <div
-            className="swiss-grid-12"
-            style={{ alignItems: "start", marginTop: "3rem", gap: "1px" }}
-          >
-            <div
-              className="col-span-6"
-              style={{
-                border: "1px solid var(--border)",
-                padding: "2.5rem",
-              }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--steel)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                Stateless agents
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1rem",
-                }}
-              >
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
+            <span>Home</span>
+            <span>Solutions</span>
+            <span>AI Agents</span>
+          </div>
+
+          <span className="nb-label nb-label--amber">01 / 03 — The Problem</span>
+          <div className="nb-divider" />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px", background: "var(--border-visible)", marginTop: "var(--space-xl)" }}>
+            <div className="nb-cell" style={{ padding: "var(--space-xl)" }}>
+              <span className="nb-label" style={{ marginBottom: "var(--space-md)" }}>Stateless agents</span>
+              <ul className="nb-list">
                 {PROBLEMS.map((p) => (
-                  <li
-                    key={p.text}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--muted)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#ff3b30",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      {p.icon}
-                    </span>
+                  <li key={p.text} style={{ color: "var(--muted)" }}>
+                    <span style={{ color: "var(--danger)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>{p.icon}</span>
                     {p.text}
                   </li>
                 ))}
               </ul>
             </div>
-
-            <div
-              className="col-span-6"
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: "2px solid var(--amber)",
-                padding: "2.5rem",
-                background: "var(--surface)",
-              }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--amber)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                Embedded memory
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1rem",
-                }}
-              >
+            <div className="nb-cell" style={{ padding: "var(--space-xl)", borderLeft: "2px solid var(--amber)", background: "var(--surface-alt)" }}>
+              <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-md)" }}>Embedded memory</span>
+              <ul className="nb-list">
                 {SOLUTIONS_LIST.map((s) => (
-                  <li
-                    key={s.text}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--foreground)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      {s.icon}
-                    </span>
+                  <li key={s.text} style={{ color: "var(--foreground)" }}>
+                    <span style={{ color: "var(--amber)", fontFamily: "var(--font-mono)", fontWeight: 700, flexShrink: 0, marginRight: "var(--space-2xs)" }}>{s.icon}</span>
                     {s.text}
                   </li>
                 ))}
               </ul>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">02 / 03 — Memory Primitives</span>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">02 / 03 — Memory Primitives</span>
+          <div className="nb-divider" />
+
+          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {PRIMITIVES.map((p) => (
-              <div
-                key={p.num}
-                style={{
-                  background: "var(--background)",
-                  padding: "2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.75rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {p.num}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+              <div key={p.num} className="nb-cell" style={{ padding: "var(--space-xl)" }}>
+                <span className="nb-label nb-label--amber" style={{ marginBottom: "var(--space-2xs)" }}>{p.num}</span>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-2xs)" }}>
                   {p.title}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
                   {p.desc}
                 </p>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">03 / 03 — Implementation</span>
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              background: "var(--block-dark-bg)",
-              marginTop: "3rem",
-            }}
-          >
-            <div
-              style={{
-                padding: "0.75rem 1.5rem",
-                borderBottom: "1px solid var(--block-dark-border)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--block-dark-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                agent_memory.py
-              </span>
-            </div>
-            <pre
-              style={{
-                margin: 0,
-                padding: "2rem 2rem",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.78rem",
-                lineHeight: 1.7,
-                color: "var(--block-dark-text)",
-                overflowX: "auto",
-                whiteSpace: "pre",
-              }}
-            >
+      <section className="nb-section">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">03 / 03 — Implementation</span>
+          <div className="nb-divider" />
+
+          <div className="nb-frame" data-frame-label="agent_memory.py" style={{ marginTop: "var(--space-xl)" }}>
+            <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre", overflowX: "auto" }}>
               <code>{MEMORY_CODE}</code>
             </pre>
           </div>
-        </section>
-      </main>
 
-      <style>{`
-        @media (max-width: 640px) {
-          [style*="grid-template-columns: repeat(2, 1fr)"] { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+          <div className="nb-block-amber" style={{ marginTop: "var(--space-xl)", textAlign: "center" }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>BUILD YOUR AGENT</span>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+              Get started with the docs.
+            </p>
+            <Link to="/docs" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+              DOCS
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <div>Loading...</div>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
     </div>
   );
 }

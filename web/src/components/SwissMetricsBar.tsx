@@ -1,4 +1,5 @@
 import { memo } from "react";
+import "../styles/metrics-bar.css";
 
 const METRICS = [
   { value: "1.2ms", label: "p50 QUERY LATENCY" },
@@ -9,18 +10,22 @@ const METRICS = [
 
 export const SwissMetricsBar = memo(function SwissMetricsBar() {
   return (
-    <section className="swiss-metrics-bar" aria-label="Key metrics">
-      <div className="swiss-inner">
-        <div className="swiss-metrics-bar-strip">
-          {METRICS.map((m, i) => (
-            <div key={m.label} className="swiss-metrics-bar-item">
-              <span className="swiss-metrics-bar-value">{m.value}</span>
-              <span className="swiss-metrics-bar-label">{m.label}</span>
-              {i < METRICS.length - 1 && (
-                <div className="swiss-metrics-bar-sep" aria-hidden="true" />
-              )}
-            </div>
-          ))}
+    <section className="nb-section nb-section--sm" aria-label="Key metrics">
+      <div className="nb-inner">
+        <div className="nb-frame nb-frame--metrics" data-frame-label="METRICS">
+          <div className="nb-metrics-strip">
+            {METRICS.map((m, i) => (
+              <div key={m.label} className="nb-metrics-cell">
+                <span className="nb-metrics-value">&gt; {m.value}</span>
+                <span className="nb-metrics-label">{m.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="nb-telemetry" aria-hidden="true">
+            <span>last_updated: live</span>
+            <span>source: telemetry/vantadb</span>
+            <span>status: operational</span>
+          </div>
         </div>
       </div>
     </section>

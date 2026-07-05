@@ -15,99 +15,104 @@ function BlogPost() {
 
   if (!post) {
     return (
-      <div className="page-wrapper">
-        <div className="page-header-extended reveal">
-          <span className="section-eyebrow">// Blog</span>
-          <h1 className="section-title">Post not found</h1>
-          <p className="section-sub">
-            <Link to="/blog" className="nav-cta">
-              ← Back to blog
-            </Link>
-          </p>
-        </div>
+      <div className="nb-page">
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-frame" data-frame-label="404" style={{ padding: "var(--space-3xl)", textAlign: "center" }}>
+              <span className="nb-label nb-label--amber" style={{ fontSize: "var(--text-display)", marginBottom: "var(--space-md)" }}>
+                Post not found
+              </span>
+              <br />
+              <Link to="/blog" className="nb-arrow">
+                Back to blog
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="page-wrapper">
-      <main className="main-content">
-        <article style={{ padding: "6rem 0" }}>
-          <div className="reveal" style={{ marginBottom: "3rem" }}>
-            <span className="section-eyebrow">// {post.date}</span>
-            <h1
-              className="section-title section-title--compact"
-              style={{ fontSize: "var(--text-hero)", lineHeight: 1.05 }}
-            >
+    <div className="nb-page">
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
+            <span>Blog</span>
+            <span>{post.slug}</span>
+          </div>
+
+          <div style={{ marginBottom: "var(--space-xl)" }}>
+            <span className="nb-label nb-label--amber">{post.date}</span>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-hero)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", lineHeight: 1.05, color: "var(--foreground)", margin: "var(--space-sm) 0" }}>
               {post.title}
             </h1>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.75rem",
-                alignItems: "center",
-                marginBottom: "1rem",
-              }}
-            >
+            <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center", marginBottom: "var(--space-md)" }}>
               {post.author && (
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.7rem",
-                    color: "var(--amber)",
-                  }}
-                >
+                <span className="nb-label nb-label--amber" style={{ marginBottom: 0, fontSize: "var(--text-label)" }}>
                   By {post.author}
                 </span>
               )}
               {post.tags?.map((t) => (
-                <span
-                  key={t}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.62rem",
-                    color: "var(--steel)",
-                    background: "var(--surface)",
-                    padding: "0.15rem 0.5rem",
-                  }}
-                >
+                <span key={t} className="nb-pill-status" style={{ fontSize: "var(--text-micro)" }}>
                   {t}
                 </span>
               ))}
             </div>
-            <p className="section-sub" style={{ maxWidth: 600 }}>
-              {post.description}
-            </p>
+            {post.description && (
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-lead)", color: "var(--muted)", lineHeight: 1.6, margin: 0, maxWidth: "65ch" }}>
+                {post.description}
+              </p>
+            )}
           </div>
 
+          <div className="nb-divider" />
+
           <div
-            className="reveal article-body"
+            className="article-body"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "var(--text-body)",
+              lineHeight: 1.8,
+              color: "var(--foreground)",
+              marginTop: "var(--space-xl)",
+              maxWidth: "75ch",
+            }}
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }}
           />
-        </article>
 
-        <nav className="bottom-nav">
-          <Link to="/blog" className="back-link nav-cta">
-            ← Back to blog
-          </Link>
-        </nav>
-      </main>
+          <div className="nb-divider" style={{ marginTop: "var(--space-xl)" }} />
+
+          <nav style={{ marginTop: "var(--space-lg)" }}>
+            <Link to="/blog" className="nb-arrow">
+              Back to blog
+            </Link>
+          </nav>
+        </div>
+      </section>
+
+      <style>{`
+        .article-body h2 { font-family: var(--font-display); font-size: var(--text-display); font-weight: 700; letter-spacing: var(--tracking-display); margin-top: var(--space-2xl); margin-bottom: var(--space-sm); }
+        .article-body h3 { font-family: var(--font-display); font-size: var(--text-title); font-weight: 700; letter-spacing: var(--tracking-display); margin-top: var(--space-xl); margin-bottom: var(--space-sm); }
+        .article-body p { margin-bottom: var(--space-sm); }
+        .article-body code { font-family: var(--font-mono); font-size: var(--text-code); background: var(--surface); padding: 2px 6px; border: 1px solid var(--border-visible); }
+        .article-body pre { background: var(--surface); border: 2px solid var(--border-visible); padding: var(--space-md); overflow-x: auto; margin: var(--space-md) 0; }
+        .article-body pre code { background: none; border: none; padding: 0; }
+        .article-body a { color: var(--amber); text-decoration: underline; text-underline-offset: 3px; }
+        .article-body blockquote { border-left: 3px solid var(--amber); margin: var(--space-md) 0; padding: var(--space-sm) var(--space-md); background: var(--surface); font-style: italic; }
+        .article-body ul, .article-body ol { padding-left: var(--space-lg); margin-bottom: var(--space-sm); }
+        .article-body li { margin-bottom: var(--space-2xs); }
+        .article-body img { border: 2px solid var(--border-visible); max-width: 100%; height: auto; margin: var(--space-md) 0; }
+        .article-body hr { border: none; border-top: 2px solid var(--border-visible); margin: var(--space-xl) 0; }
+      `}</style>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <div>Loading...</div>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
     </div>
   );
 }

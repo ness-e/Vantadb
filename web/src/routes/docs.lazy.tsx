@@ -181,7 +181,7 @@ const sidebarItems = sections.map(({ id, num, title }) => ({ id, num, title }));
 
 function DocsPage() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="06"
         eyebrow="Documentation"
@@ -195,42 +195,44 @@ function DocsPage() {
         sub="Comprehensive guides, SDK references, and configuration reference for VantaDB — the embedded database for AI agents."
       />
 
-      <main className="engine-main docs-layout">
-        <DocsSidebar items={sidebarItems} />
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "var(--space-xl)", alignItems: "start" }}>
+            <DocsSidebar items={sidebarItems} />
 
-        <div className="docs-content">
-          {sections.map((s) => (
-            <section
-              key={s.id}
-              id={s.id}
-              className="swiss-page-section swiss-page-section--bordered"
-            >
-              <div className="docs-section-header">
-                <span className="docs-section-num">[{s.num}]</span>
-                <h2 className="docs-section-title">{s.title}</h2>
-              </div>
-
-              <div className="docs-section-body">
-                <p className="docs-desc">{s.desc}</p>
-
-                <div className="docs-code-block">
-                  <div className="docs-code-header">
-                    <span className="docs-code-label">{s.id}</span>
+            <div>
+              {sections.map((s) => (
+                <div key={s.id} id={s.id} className="nb-card nb-bg-cross--faint" style={{ marginBottom: "var(--space-xl)", padding: "var(--space-xl)" }}>
+                  <span className="nb-label nb-label--amber">{s.num} — {s.title}</span>
+                  <div className="nb-divider" />
+                  <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: "var(--space-sm) 0 var(--space-md)" }}>
+                    {s.desc}
+                  </p>
+                  <div className="nb-frame" data-frame-label={s.id} style={{ overflowX: "auto" }}>
+                    <pre style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--text-code)", lineHeight: 1.6, color: "var(--foreground)", whiteSpace: "pre" }}>
+                      <code>{s.code}</code>
+                    </pre>
                   </div>
-                  <pre className="docs-code-pre">
-                    <code>{s.code}</code>
-                  </pre>
                 </div>
+              ))}
+
+              <div className="nb-block-amber" style={{ textAlign: "center" }}>
+                <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>NEED HELP?</span>
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+                  Join our Discord or open a GitHub discussion.
+                </p>
+                <a href="https://github.com/ness-e/Vantadb/discussions" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+                  DISCUSSIONS
+                </a>
               </div>
-            </section>
-          ))}
+            </div>
+          </div>
         </div>
-      </main>
+      </section>
 
       <style>{`
         @media (max-width: 768px) {
-          .docs-layout { flex-direction: column !important; }
-          .docs-sidebar { display: none !important; }
+          [style*="grid-template-columns: 240px 1fr"] { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

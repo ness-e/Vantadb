@@ -89,7 +89,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return;
         }
-        let mut map = self.access_map.lock().unwrap();
+        let mut map = self.access_map.lock().expect("governor lock poisoned");
         match map.get_mut(key) {
             Some(entry) => {
                 entry.hits += 1;
@@ -106,7 +106,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return QuantizationAction::None;
         }
-        let map = self.access_map.lock().unwrap();
+        let map = self.access_map.lock().expect("governor lock poisoned");
         let current_tick = self.tick.load(Ordering::Relaxed);
 
         match map.get(key) {
@@ -131,7 +131,7 @@ impl QuantizationGovernor {
 
     /// Reset tracking for a key (after a quantization action)
     pub fn reset(&self, key: &str) {
-        let mut map = self.access_map.lock().unwrap();
+        let mut map = self.access_map.lock().expect("governor lock poisoned");
         map.remove(key);
     }
 }

@@ -1,4 +1,4 @@
-import { createLazyRoute } from "@tanstack/react-router";
+import { createLazyRoute, Link } from "@tanstack/react-router";
 import { SwissSubpageHero } from "@/components/SwissSubpageHero";
 
 export const Route = createLazyRoute("/about/community")({
@@ -71,7 +71,7 @@ const WAYS = [
 
 function CommunityPage() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About — Community"
@@ -85,211 +85,94 @@ function CommunityPage() {
         sub="VantaDB is open source, and the community is at the center of everything we build. Join us on GitHub, Discord, and beyond."
       />
 
-      <main className="swiss-main">
-        <nav
-          aria-label="Breadcrumb"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.65rem",
-            color: "var(--muted)",
-            marginBottom: "0",
-            padding: "0 clamp(1.5rem, 5vw, 4rem)",
-            marginTop: "1rem",
-          }}
-        >
-          <a href="/" style={{ color: "var(--muted)", textDecoration: "none" }}>
-            Home
-          </a>
-          <span style={{ margin: "0 0.5rem" }}>/</span>
-          <span style={{ color: "var(--foreground)" }}>Community</span>
-        </nav>
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Where to Find Us</span>
-          <div
-            className="channels-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-telemetry" style={{ marginBottom: "var(--space-md)" }}>
+            <span>Home</span>
+            <span>Community</span>
+          </div>
+
+          <span className="nb-label nb-label--amber">01 / 02 — Where to Find Us</span>
+          <div className="nb-divider" />
+
+          <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "var(--space-xl)" }}>
             {CHANNELS.map((ch) => (
               <a
                 key={ch.name}
                 href={ch.href}
                 target={ch.href.startsWith("http") ? "_blank" : undefined}
                 rel="noopener noreferrer"
-                className="community-channel-link"
+                className="nb-cell"
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.75rem",
-                  padding: "2.5rem",
+                  gap: "var(--space-sm)",
+                  padding: "var(--space-xl)",
                   textDecoration: "none",
                   borderLeft: "2px solid transparent",
-                  transition: "all 150ms var(--ease-cut)",
+                  transition: "all 150ms var(--ease-brutal)",
                   background: "var(--background)",
-                  borderLeftColor: "transparent",
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.55rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {ch.tag}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.3rem",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>{ch.tag}</span>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
                   {ch.name}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0, flex: 1 }}>
                   {ch.desc}
                 </p>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.65rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {ch.cta} →
-                </span>
+                <span className="nb-arrow" style={{ marginTop: "auto" }}>{ch.cta}</span>
               </a>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Contribute</span>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.5rem, 3vw, 2rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              margin: "1.25rem 0 3rem",
-              lineHeight: 1.05,
-            }}
-          >
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">02 / 02 — Contribute</span>
+          <div className="nb-divider" />
+          <p style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-display)", fontWeight: 800, letterSpacing: "var(--tracking-display)", margin: "var(--space-sm) 0 var(--space-xl)", lineHeight: 1.05 }}>
             Ways to get involved.
-          </h2>
-          <div
-            className="contribute-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-            }}
-          >
+          </p>
+
+          <div className="nb-grid nb-grid--cols-3">
             {WAYS.map((w) => (
-              <div
-                key={w.num}
-                style={{
-                  background: "var(--background)",
-                  padding: "2rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {w.num}
-                </span>
-                <h3
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "0.9rem",
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+              <div key={w.num} className="nb-cell" style={{ padding: "var(--space-lg)" }}>
+                <span className="nb-label" style={{ marginBottom: "var(--space-2xs)" }}>{w.num}</span>
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: "0 0 var(--space-2xs)" }}>
                   {w.title}
                 </h3>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.78rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
                   {w.desc}
                 </p>
               </div>
             ))}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <style>{`
-        .community-channel-link:hover {
-          background: var(--surface-raised) !important;
-          border-left-color: var(--amber) !important;
-        }
-        @media (max-width: 640px) {
-          .channels-grid { grid-template-columns: 1fr !important; }
-          .contribute-grid { grid-template-columns: 1fr !important; }
-        }
-        @media (min-width: 641px) and (max-width: 768px) {
-          .contribute-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-block-amber" style={{ textAlign: "center" }}>
+            <span className="nb-label" style={{ color: "var(--text-on-amber)" }}>WANT TO CONTRIBUTE?</span>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-body)", color: "var(--text-on-amber)", margin: "var(--space-2xs) 0", opacity: 0.85 }}>
+              Check out our GitHub for open issues.
+            </p>
+            <a href="https://github.com/ness-e/Vantadb" className="btn-ghost" style={{ borderColor: "var(--text-on-amber)", color: "var(--text-on-amber)", boxShadow: "var(--shadow-brutal)" }}>
+              GITHUB
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <div>Loading...</div>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
     </div>
   );
 }

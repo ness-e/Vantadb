@@ -37,7 +37,7 @@ const NAV_SECTIONS = [
 
 function AboutIndex() {
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="06"
         eyebrow="About VantaDB"
@@ -51,143 +51,57 @@ function AboutIndex() {
         sub="We're building the data infrastructure for the AI era — embedded, open-source, and engineered for sub-millisecond performance."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-            }}
-          >
+      <section className="nb-section">
+        <div className="nb-inner">
+          <div className="nb-grid nb-grid--cols-4">
             {STATS.map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  background: "var(--background)",
-                  padding: "2rem 2.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "2.5rem",
-                    fontWeight: 800,
-                    letterSpacing: "-0.05em",
-                    color: "var(--foreground)",
-                    lineHeight: 1,
-                  }}
-                >
+              <div key={s.label} className="nb-cell" style={{ padding: "var(--space-lg) var(--space-xl)" }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-metric)", fontWeight: 800, letterSpacing: "var(--tracking-tight)", color: "var(--foreground)", lineHeight: 1, display: "block" }}>
                   {s.value}
                 </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {s.label}
-                </span>
+                <span className="nb-label" style={{ marginTop: "var(--space-3xs)", marginBottom: 0 }}>{s.label}</span>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">01 / 01 — Navigation</span>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-              marginTop: "3rem",
-            }}
-          >
+      <section className="nb-section nb-bg-cross--faint">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">01 / 01 — Navigation</span>
+          <div className="nb-divider" />
+
+          <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "var(--space-xl)" }}>
             {NAV_SECTIONS.map((s) => (
               <Link
                 key={s.num}
                 to={s.href as "/"}
-                className="about-section-link"
+                className="nb-cell"
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.75rem",
-                  padding: "2.5rem",
+                  gap: "var(--space-sm)",
+                  padding: "var(--space-xl)",
                   textDecoration: "none",
                   borderLeft: "2px solid transparent",
-                  transition: "all 150ms var(--ease-cut)",
+                  transition: "all 150ms var(--ease-brutal)",
                   background: "var(--background)",
                   borderLeftColor: "transparent",
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {s.num}
-                </span>
-                <h2
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "1.4rem",
-                    fontWeight: 800,
-                    letterSpacing: "-0.04em",
-                    color: "var(--foreground)",
-                    margin: 0,
-                  }}
-                >
+                <span className="nb-label nb-label--amber" style={{ marginBottom: 0 }}>{s.num}</span>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 800, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
                   {s.title}
                 </h2>
-                <p
-                  style={{
-                    fontFamily: "var(--font-sans)",
-                    fontSize: "0.8rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.6,
-                    margin: 0,
-                    flex: 1,
-                  }}
-                >
+                <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.6, margin: 0, flex: 1 }}>
                   {s.desc}
                 </p>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.65rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  {s.href} →
-                </span>
+                <span className="nb-arrow" style={{ marginTop: "auto" }}>{s.href}</span>
               </Link>
             ))}
           </div>
-        </section>
-      </main>
-
-      <style>{`
-        .about-section-link:hover {
-          background: var(--surface-raised) !important;
-          border-left-color: var(--amber) !important;
-        }
-      `}</style>
+        </div>
+      </section>
     </div>
   );
 }

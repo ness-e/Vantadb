@@ -10,15 +10,31 @@
   padding: 0 clamp(1.5rem, 5vw, 4rem);
   height: 56px;
   background: transparent;
-  border-bottom: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   transition:
-    border-color 150ms var(--ease-swiss),
-    background-color 150ms var(--ease-swiss);
+    border-color 150ms var(--ease-brutal),
+    background-color 150ms var(--ease-brutal);
+}
+
+.vanta-nav::before {
+  content: "[ " attr(data-frame-label) " ]";
+  position: absolute;
+  top: -0.55rem;
+  left: clamp(1.5rem, 5vw, 4rem);
+  background: var(--background);
+  padding: 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--steel);
+  z-index: 1;
 }
 
 .vanta-nav--scrolled {
   background: var(--surface-glass);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border-visible);
 }
 
 .vanta-logo {
@@ -29,8 +45,29 @@
   z-index: calc(var(--z-dropdown) + 1);
 }
 
-.nav-desktop,
-.nav-links {
+.nav-telemetry {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .nav-telemetry {
+    display: flex;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--text-micro);
+    color: var(--steel);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 200ms var(--ease-brutal);
+  }
+
+  .vanta-nav--scrolled .nav-telemetry {
+    opacity: 0.6;
+  }
+}
+
+.nav-desktop {
   display: flex;
   align-items: center;
   gap: 0;
@@ -48,13 +85,17 @@
   color: var(--steel);
   text-decoration: none;
   padding: 0.5rem 0.85rem;
-  transition: color 150ms var(--ease-swiss);
+  transition:
+    color 150ms var(--ease-brutal),
+    border-color 150ms var(--ease-brutal);
   white-space: nowrap;
   position: relative;
+  border: 2px solid transparent;
 }
 
 .nav-link:hover {
-  color: var(--foreground);
+  color: var(--amber);
+  border-color: var(--amber);
 }
 
 .nav-link.active {
@@ -67,7 +108,7 @@
   bottom: -2px;
   left: 0.85rem;
   right: 0.85rem;
-  height: 1px;
+  height: 2px;
   background: var(--amber);
 }
 
@@ -86,7 +127,7 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 8px 16px;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border-visible);
   color: var(--foreground);
   background: transparent;
   cursor: pointer;
@@ -95,7 +136,7 @@
   align-items: center;
   gap: 0.4rem;
   transition:
-    background 150ms var(--ease-swiss),
+    background 150ms var(--ease-brutal),
     color 150ms,
     border-color 150ms;
 }
@@ -106,19 +147,6 @@
   border-color: var(--foreground);
 }
 
-.nav-cta--amber {
-  background: var(--amber);
-  border-color: var(--amber);
-  color: var(--text-on-amber);
-}
-
-.nav-cta--amber:hover {
-  opacity: 0.85;
-  background: var(--amber);
-  border-color: var(--amber);
-  color: var(--text-on-amber);
-}
-
 .nav-hamburger {
   display: none;
   align-items: center;
@@ -126,11 +154,16 @@
   width: 36px;
   height: 36px;
   background: transparent;
-  border: none;
+  border: 2px solid var(--border-visible);
   cursor: pointer;
   padding: 6px;
   z-index: calc(var(--z-dropdown) + 1);
   color: var(--foreground);
+  transition: border-color 150ms var(--ease-brutal);
+}
+
+.nav-hamburger:hover {
+  border-color: var(--amber);
 }
 
 .nav-overlay {
@@ -149,12 +182,13 @@
   max-width: 85vw;
   z-index: var(--z-overlay);
   background: var(--block-dark-bg);
-  border-left: 1px solid var(--border);
+  border-left: 2px solid var(--border-visible);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   transform: translateX(100%);
-  transition: transform 200ms var(--ease-swiss);
+  transition: transform 200ms var(--ease-brutal);
+  box-shadow: var(--shadow-md);
 }
 
 .nav-drawer[aria-hidden="false"] {
@@ -166,7 +200,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md);
-  border-bottom: 1px solid var(--block-dark-border);
+  border-bottom: 2px solid var(--border-visible);
 }
 
 .nav-drawer-close {
@@ -176,9 +210,29 @@
   width: 36px;
   height: 36px;
   background: transparent;
-  border: 1px solid var(--block-dark-border);
+  border: 2px solid var(--border-visible);
   cursor: pointer;
   color: var(--steel);
+  transition: border-color 150ms var(--ease-brutal);
+}
+
+.nav-drawer-close:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.nav-drawer .nav-telemetry {
+  display: flex;
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 2px solid var(--border-visible);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  background: var(--surface);
+}
+
+.nav-drawer .nav-telemetry span {
+  color: var(--amber);
 }
 
 .nav-drawer-body {
@@ -198,18 +252,54 @@
   color: var(--steel);
   text-decoration: none;
   padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--block-dark-border);
-  transition: color 150ms var(--ease-swiss);
+  border-bottom: 2px solid var(--border-visible);
+  display: block;
+  transition:
+    color 150ms var(--ease-brutal),
+    padding-left 150ms var(--ease-brutal);
 }
 
-.nav-drawer-link:hover,
+.nav-drawer-link:hover {
+  color: var(--amber);
+  padding-left: 0.5rem;
+}
+
 .nav-drawer-link.active {
   color: var(--amber);
 }
 
 .nav-drawer-footer {
   padding: var(--space-md);
-  border-top: 1px solid var(--block-dark-border);
+  border-top: 2px solid var(--border-visible);
+}
+
+.nav-drawer-cta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 2px solid var(--border-visible);
+  color: var(--foreground);
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition:
+    background 150ms var(--ease-brutal),
+    color 150ms,
+    border-color 150ms;
+  width: 100%;
+  justify-content: center;
+}
+
+.nav-drawer-cta:hover {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
 }
 
 @media (max-width: 1024px) {
@@ -238,6 +328,10 @@
   .vanta-nav,
   .nav-link,
   .nav-cta,
+  .nav-hamburger,
+  .nav-drawer-close,
+  .nav-drawer-link,
+  .nav-drawer-cta,
   .nav-drawer {
     transition: none !important;
   }

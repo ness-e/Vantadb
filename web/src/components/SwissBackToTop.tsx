@@ -10,7 +10,7 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       if (!btnRef.current) return;
 
-      gsap.set(btnRef.current, { autoAlpha: 0, y: 20 });
+      gsap.set(btnRef.current, { autoAlpha: 0, y: 16 });
 
       stRef.current = ScrollTrigger.create({
         start: 500,
@@ -20,15 +20,15 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
             gsap.to(btnRef.current, {
               autoAlpha: 1,
               y: 0,
-              duration: 0.3,
+              duration: 0.25,
               ease: "power2.out",
               overwrite: true,
             });
           } else if (self.direction === 1) {
             gsap.to(btnRef.current, {
               autoAlpha: 0,
-              y: 20,
-              duration: 0.3,
+              y: 16,
+              duration: 0.25,
               ease: "power2.in",
               overwrite: true,
             });
@@ -37,8 +37,8 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
         onLeaveBack: () => {
           gsap.to(btnRef.current, {
             autoAlpha: 0,
-            y: 20,
-            duration: 0.3,
+            y: 16,
+            duration: 0.25,
             ease: "power2.in",
             overwrite: true,
           });
@@ -53,7 +53,11 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
   }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    gsap.to(window, {
+      scrollTo: { y: 0 },
+      duration: 0.5,
+      ease: "power2.out",
+    });
   };
 
   return (
@@ -64,12 +68,12 @@ export const SwissBackToTop = memo(function SwissBackToTop() {
       aria-label="Back to top"
     >
       <svg
-        width="24"
-        height="24"
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="square"
         strokeLinejoin="miter"
       >

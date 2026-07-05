@@ -1,78 +1,104 @@
-import { useState } from "react";
+import { useRef } from "react";
+import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import "../styles/architecture.css";
 
-const LAYERS = [
-  { id: "app", name: "PYTHON APP", type: "CLIENT LAYER", size: "small" },
-  { id: "pyo3", name: "PYO3 BRIDGE", type: "FFI BOUNDARY", size: "medium" },
-  { id: "rust", name: "RUST CORE", type: "ENGINE LAYER", size: "large" },
-  { id: "storage", name: "HNSW + WAL", type: "STORAGE LAYER", size: "large" },
+const PIPELINE = [
+  { id: "app", label: "APP LAYER", name: "Python Application" },
+  { id: "pyo3", label: "FFI BOUNDARY", name: "PyO3 Bridge", accent: true },
+  { id: "query", label: "QUERY ENGINE", name: "Router + Planner" },
+  { id: "index", label: "INDEX LAYER", name: "HNSW / BM25" },
+  { id: "wal", label: "DURABILITY", name: "Write-Ahead Log" },
+  { id: "storage", label: "STORAGE", name: "Memory-Mapped Files" },
 ];
 
 export function SwissArchSection() {
-  const [hoveredLayer, setHoveredLayer] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const lineRef = useRef<SVGPathElement>(null);
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const cards = gsap.utils.toArray<HTMLElement>(".nb-arch-stage .nb-card");
+        if (!cards.length) return;
+
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 60%",
+          },
+        });
+
+        cards.forEach((card, i) => {
+          tl.fromTo(
+            card,
+            { opacity: 0, x: -16 },
+            { opacity: 1, x: 0, duration: 0.35, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
+            "-=0.1",
+          );
+        });
+
+        if (lineRef.current) {
+          tl.fromTo(
+            lineRef.current,
+            { strokeDashoffset: 300 },
+            { strokeDashoffset: 0, duration: 0.8, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
+            "-=0.3",
+          );
+        }
+      });
+    },
+    { scope: sectionRef },
+  );
 
   return (
-    <section className="swiss-section swiss-arch-layers" aria-label="Architecture layers">
-      <div className="swiss-inner">
-        <div className="swiss-grid swiss-arch-layers-grid">
-          <div className="swiss-arch-layers-text">
-            <h2 className="swiss-arch-layers-title">
-              No network.
-              <br />
-              No latency.
-            </h2>
-            <p className="swiss-arch-layers-body">
+    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Architecture pipeline">
+      <div className="nb-inner">
+        <div className="nb-section-header nb-section-header--bordered">
+          <span className="nb-label nb-label--amber">&gt; architecture</span>
+          <h2 className="nb-arch-title">
+            No network.
+            <br />
+            No latency.
+          </h2>
+        </div>
+
+        <div className="nb-asymmetric">
+          <div>
+            <p className="nb-arch-body">
               Traditional vector databases require serialization, HTTP/gRPC transport, and context
-              switching.
-              <br />
-              <br />
-              VantaDB lives in the same memory space as your application. The PyO3 bridge provides
-              native zero-copy access to the Rust core.
+              switching. VantaDB lives in the same memory space as your application. The PyO3 bridge
+              provides native zero-copy access to the Rust core.
             </p>
           </div>
 
-          <div className="swiss-arch-layers-diagram" role="img" aria-label="Architecture stack diagram">
-            <div
-              className={`swiss-arch-layers-stack${hoveredLayer ? " swiss-arch-stack--hovered" : ""}`}
-            >
-              {LAYERS.map((layer, index) => (
-                <article
-                  key={layer.id}
-                  className={`swiss-arch-layer swiss-arch-layer--${layer.size} ${layer.id === "pyo3" ? "swiss-arch-layer--accent" : ""} ${hoveredLayer === layer.id ? "swiss-arch-layer--active" : ""}`}
-                  onMouseEnter={() => setHoveredLayer(layer.id)}
-                  onMouseLeave={() => setHoveredLayer(null)}
-                  aria-label={`${layer.type}: ${layer.name}`}
-                >
-                  <header className="swiss-arch-layer-badge">
-                    <span
-                      className={`swiss-arch-layer-badge-text ${layer.id === "pyo3" ? "swiss-arch-layer-badge-text--accent" : ""}`}
-                    >
-                      {layer.type}
-                    </span>
-                  </header>
-
-                  <span className="swiss-arch-layer-name">{layer.name}</span>
-
-                  {index < LAYERS.length - 1 && (
-                    <svg
-                      width="20"
-                      height="40"
-                      className="swiss-arch-layer-arrow"
-                      aria-hidden="true"
-                    >
-                      <line x1="10" y1="0" x2="10" y2="40" />
-                      <polygon points="5,35 15,35 10,40" />
-                    </svg>
-                  )}
-
-                  <div className="swiss-arch-layer-dim">
-                    <div className="swiss-arch-layer-dim-line"></div>
-                    <span className="swiss-arch-layer-dim-text">
-                      {layer.size === "large" ? "1.2ms" : layer.size === "medium" ? "0.0ms" : "2MB"}
-                    </span>
+          <div className="nb-frame nb-frame--pipeline" data-frame-label="PIPELINE">
+            <div className="nb-arch-pipeline" role="list">
+              {PIPELINE.map((stage, i) => (
+                <div key={stage.id} className="nb-arch-stage" role="listitem">
+                  <div className={`nb-card ${stage.accent ? "nb-card--amber" : ""}`}>
+                    <span className="nb-label nb-arch-stage-label">{stage.label}</span>
+                    <span className="nb-arch-stage-name">{stage.name}</span>
                   </div>
-                </article>
+                  {i < PIPELINE.length - 1 && (
+                    <div className="nb-arch-connector" aria-hidden="true">
+                      <span className="nb-arch-connector-arrow">&gt;&gt;&gt;</span>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
+            <svg className="nb-pipeline-line" width="100%" height="100%" aria-hidden="true">
+              <path
+                ref={lineRef}
+                d="M0 0 L0 100%"
+                stroke="var(--amber)"
+                strokeWidth="1"
+                fill="none"
+                strokeDasharray="300"
+                strokeDashoffset="300"
+              />
+            </svg>
           </div>
         </div>
       </div>

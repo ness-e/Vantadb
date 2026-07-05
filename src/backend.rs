@@ -49,7 +49,6 @@ pub enum BackendPartition {
 impl BackendPartition {
     /// Returns the RocksDB column family name for this partition.
     /// Used only by `RocksDbBackend` internally.
-    #[allow(dead_code)]
     pub(crate) fn cf_name(&self) -> &'static str {
         match self {
             BackendPartition::Default => "default",
@@ -70,7 +69,6 @@ impl BackendPartition {
 #[derive(Clone)]
 pub(crate) enum BackendWriteOp {
     /// Insert or update a key-value pair.
-    #[allow(dead_code)]
     Put {
         /// Target partition.
         partition: BackendPartition,

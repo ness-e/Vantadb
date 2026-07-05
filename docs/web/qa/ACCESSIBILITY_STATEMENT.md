@@ -2,7 +2,7 @@
 title: "Accessibility Statement — VantaDB Web"
 status: active
 tags: [vantadb, web, qa]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-04
 aliases: []
 ---
 
@@ -14,12 +14,12 @@ aliases: []
 
 ## Commitment
 
-VantaDB web se compromete a proporcionar una experiencia accesible para todos los usuarios, independientemente de sus capacidades. El diseño Swiss High-Contrast Minimal soporta naturalmente la accesibilidad mediante alto contraste, tipografía clara y navegación predecible.
+VantaDB web se compromete a proporcionar una experiencia accesible para todos los usuarios. El diseño Swiss + Neubrutalism (dark #111111 + white #ffffff + amber accent) soporta naturalmente la accesibilidad mediante alto contraste inherente, tipografía clara, y navegación predecible.
 
 ## Standards Compliance
 
 | Estándar | Nivel | Estado |
-|:---|:---|:---|
+|---|---|---|
 | WCAG 2.2 | AA | Target |
 | Contraste texto normal | ≥ 4.5:1 | Verificado |
 | Contraste texto grande (≥ 18px / ≥ 14px bold) | ≥ 3:1 | Verificado |
@@ -28,43 +28,43 @@ VantaDB web se compromete a proporcionar una experiencia accesible para todos lo
 ## Color & Contrast
 
 | Combinación | Ratio | Cumple AA |
-|:---|:---|:---|
-| `#000000` texto sobre `#f9f8f6` fondo | ~17:1 | ✅ |
-| `#ffffff` texto sobre `#0a0a0a` fondo | ~19:1 | ✅ |
-| `#ff5500` (amber) sobre `#f9f8f6` | ~5:1 | ✅ (texto ≥ 18px) |
-| `#808080` sobre `#0a0a0a` | ~4.9:1 | ✅ (texto ≥ 18px) |
-| `--muted` (`oklch(40%...)`) sobre `#f9f8f6` | ~6:1 | ✅ |
+|---|---|---|
+| `#ffffff` texto sobre `#111111` background | 18.5:1 | ✅ (AAA) |
+| `#ff5500` (amber) sobre `#111111` background | 7.1:1 | ✅ (AAA) |
+| `#888888` (steel) sobre `#111111` background | 4.1:1 | ✅ (AA) |
+| `#1a1a1a` (surface) sobre `#111111` background | — | Panel, not text |
+| `#ffffff` sobre `#ff5500` amber bg (CTA button) | 4.5:1 | ✅ (AA) |
+| `#111111` sobre `#ff5500` amber bg | 7.1:1 | ✅ (AA) |
 
-**Nota**: Safety Orange `#ff5500` se usa exclusivamente para señales activas y CTAs. No se usa para texto informativo largo.
+**Nota**: Amber `#ff5500` se usa exclusivamente para señales activas, CTAs e índices. No se usa para párrafos de texto.
 
 ## Motion & Reduced Motion
 
 - Todas las animaciones respetan `prefers-reduced-motion: reduce`
-- GSAP ScrollTrigger con `toggleActions: "play none none reverse"`
-- `prefers-reduced-motion`: elementos visibles inmediatamente, sin animación
-- Three.js wireframe: rotación OFF, estático visible (ver MOTION_CHOREOGRAPHY.md)
+- `prefers-reduced-motion`: elementos visibles inmediatamente, sin animación, sin scanline overlay
+- Animaciones solo en `transform` y `opacity`
+- Sin bounce, elastic, spring (ver MOTION_CHOREOGRAPHY.md)
 
 ## Keyboard Navigation
 
-- Nav: todos los links accesibles por teclado
+- Nav: todos los links accesibles por teclado (Tab, Shift+Tab)
 - Skip to content link (primera regla tab)
-- Dropdowns: hover + focus visibles
 - Sin trampas de teclado
-- Formulario de contacto: inputs navegables por Tab, submit con Enter
+- Sin dropdowns que requieran hover
 
 ## Focus Indicators
 
-- Todos los elementos interactivos tienen focus visible
-- Outline `2px solid var(--amber)` con offset `2px`
-- Nunca `outline: none` sin reemplazo
+- Todos los elementos interactivos tienen `focus-visible`
+- `outline: 2.5px solid var(--amber)` con `outline-offset: 2px`
+- Nunca `outline: none` sin reemplazo visible
 
 ## Touch Targets
 
 | Elemento | Mínimo |
-|:---|:---|
+|---|---|
 | Nav links | 44×44px |
 | Botones | 44×44px |
-| Cards | 44px altura mínima clickable |
+| Cards (clickable) | 44px altura mínima |
 
 ## Semantic HTML
 
@@ -72,12 +72,16 @@ VantaDB web se compromete a proporcionar una experiencia accesible para todos lo
 - `<nav>` para navegación principal
 - `<main>` para contenido principal
 - `<footer>` para pie de página
-- `aria-label` en iconos sin texto
+- `aria-label` en iconos sin texto acompañante
+- Imágenes decorativas: `aria-hidden="true"`
+- Landmarks: `role="banner"`, `role="navigation"`, `role="main"`, `role="contentinfo"`
 
 ## Testing
 
 - [ ] Contraste verificado con herramienta de color
 - [ ] Navegación por teclado completa sin mouse
-- [ ] `prefers-reduced-motion` verificado
-- [ ] Zoom 200% sin pérdida de contenido
+- [ ] `prefers-reduced-motion` verificado en browser
+- [ ] Zoom 200% sin pérdida de contenido ni horizontal scroll
 - [ ] Screen reader test (NVDA / VoiceOver)
+- [ ] Focus order lógico
+- [ ] Skip-to-content link funcional

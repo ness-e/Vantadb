@@ -1,28 +1,44 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Subpage Hero Stylesheet (extreme)
-   ═══════════════════════════════════════════════════════════ */
-
-.swiss-subpage-hero {
-  border-bottom: 1px solid var(--border);
+.nb-subpage-hero {
+  border-bottom: 2px solid var(--border-visible);
   padding: var(--space-4xl) 0 var(--space-lg);
   background: var(--background);
   position: relative;
 }
 
-.swiss-subpage-hero-grid {
+.nb-subpage-hero::before {
+  content: "[ " attr(data-label) " ]";
+  position: absolute;
+  top: 0;
+  left: clamp(1.5rem, 5vw, 4rem);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--steel);
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--border-visible);
+  border-top: none;
+}
+
+.nb-subpage-grid {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: var(--space-lg);
   align-items: flex-end;
+  max-width: var(--grid-max);
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 clamp(1.5rem, 5vw, 4rem);
 }
 
-.swiss-subpage-hero-meta {
+.nb-subpage-meta {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
 }
 
-.swiss-subpage-hero-num {
+.nb-subpage-num {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   font-weight: var(--weight-bold);
@@ -30,7 +46,7 @@
   letter-spacing: var(--tracking-wide);
 }
 
-.swiss-subpage-hero-eyebrow {
+.nb-subpage-eyebrow {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
   font-weight: var(--weight-bold);
@@ -39,7 +55,7 @@
   letter-spacing: var(--tracking-wide);
 }
 
-.swiss-subpage-hero-title {
+.nb-subpage-title {
   font-family: var(--font-display);
   font-size: var(--text-hero);
   font-weight: var(--weight-bold);
@@ -49,7 +65,7 @@
   margin: 0 0 var(--space-sm);
 }
 
-.swiss-subpage-hero-desc {
+.nb-subpage-desc {
   font-family: var(--font-sans);
   font-size: var(--text-lead);
   line-height: var(--leading-normal);
@@ -58,13 +74,12 @@
   max-width: 65ch;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .swiss-subpage-hero {
+  .nb-subpage-hero {
     padding: var(--space-3xl) 0 var(--space-lg);
   }
 
-  .swiss-subpage-hero-grid {
+  .nb-subpage-grid {
     grid-template-columns: 1fr;
     gap: var(--space-md);
     align-items: flex-start;

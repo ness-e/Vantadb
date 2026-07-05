@@ -1,36 +1,36 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { gsap, useGSAP, TextPlugin, ScrollTrigger } from "../lib/gsap";
+import "../styles/quickstart.css";
 
 const STEPS = [
   {
     num: "01",
     title: "Install",
     cmd: "pip install vantadb-py",
-    desc: "Single package. No native dependencies. Works on macOS, Linux, Windows.",
+    desc: "Single package. No native dependencies.",
     output: "Successfully installed vantadb-py-0.1.5",
   },
   {
     num: "02",
     title: "Initialize",
     cmd: 'import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./memory.db")',
-    desc: "One import. The database file is created automatically.",
+    desc: "One import. Database file created automatically.",
     output: "[VantaDB] Initialized successfully. Embedded engine ready.",
   },
   {
     num: "03",
     title: "Store",
     cmd: 'db.put(\n  namespace="agent/main",\n  key="user_42",\n  payload="Paris is the capital of France",\n  metadata={"source": "wiki"},\n  vector=[0.1, 0.2, 0.3]\n)',
-    desc: "Schema-free. Store text payloads with optional metadata and vectors.",
+    desc: "Schema-free. Store text payloads with metadata and vectors.",
     output: "[VantaDB] Inserted 1 record. Vector stored.",
   },
   {
     num: "04",
     title: "Query",
     cmd: 'results = db.search_memory(\n  namespace="agent/main",\n  query_vector=[0.1, 0.2, 0.3],\n  top_k=5\n)',
-    desc: "Semantic + keyword in one call. No orchestration layer.",
-    output:
-      "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
+    desc: "Semantic + keyword in one call.",
+    output: "{\n  'records': [{'record': {'key': 'user_42', 'payload': 'Paris is the capital of France'}, 'score': 0.92}]\n}",
   },
 ];
 
@@ -118,38 +118,50 @@ export function SwissQuickstart() {
   }, [hasEntered, typeStep]);
 
   return (
-    <section ref={sectionRef} className="swiss-section qs-section" aria-label="Quickstart guide">
-      <div className="swiss-grid qs-grid">
-        <div className="quickstart-left">
-          <h2 className="qs-heading">Zero to running.</h2>
+    <section ref={sectionRef} className="nb-section nb-section--lg" aria-label="Quickstart guide">
+      <div className="nb-inner nb-split-5-7">
+        <div>
+          <div className="nb-section-header nb-section-header--bordered">
+            <span className="nb-label nb-label--amber">&gt; quickstart</span>
+            <h2 className="nb-crt-heading">Zero to running.</h2>
+          </div>
 
-          <nav className="qs-steps" aria-label="Setup steps">
+          <nav className="nb-crt-steps" aria-label="Setup steps">
             {STEPS.map((step, i) => {
               const isActive = activeStep === i;
               return (
                 <button
                   key={step.num}
-                  onClick={() => setActiveStep(i)}
-                  className={`qs-step ${isActive ? "qs-step--active" : ""}`}
+                  onClick={() => {
+                    setActiveStep(i);
+                    if (codeRef.current) {
+                      gsap.killTweensOf(codeRef.current);
+                      gsap.set(codeRef.current, { text: step.cmd });
+                    }
+                    if (outputRef.current) {
+                      gsap.set(outputRef.current, { opacity: 1 });
+                    }
+                  }}
+                  className={`nb-crt-step ${isActive ? "nb-crt-step--active" : ""}`}
                   aria-current={isActive ? "step" : undefined}
                   aria-label={`Step ${step.num}: ${step.title}`}
                 >
-                  <span className="qs-step-num" aria-hidden="true">
-                    [{step.num}]
-                  </span>
-                  <div className="qs-step-body">
-                    <span className="qs-step-title">{step.title}</span>
-                    <p className="qs-step-desc">{step.desc}</p>
+                  <span className="nb-crt-step-prefix" aria-hidden="true">&gt;</span>
+                  <div className="nb-crt-step-body">
+                    <span className="nb-crt-step-title nb-label">
+                      [{step.num}] {step.title}
+                    </span>
+                    <p className="nb-crt-step-desc">{step.desc}</p>
                   </div>
                 </button>
               );
             })}
           </nav>
 
-          <div className="qs-docs">
+          <div className="nb-crt-cta">
             <Link
               to="/docs"
-              className="btn-ghost btn-ghost--hero qs-docs-link"
+              className="nb-arrow"
               aria-label="Read documentation"
             >
               Read Documentation
@@ -157,27 +169,20 @@ export function SwissQuickstart() {
           </div>
         </div>
 
-        <div className="quickstart-right">
-          <div className="qs-terminal" role="region" aria-label="Terminal preview">
-            <header className="qs-terminal-header">
-              <div className="qs-terminal-dots" aria-hidden="true">
-                <div className="qs-terminal-dot" />
-                <div className="qs-terminal-dot" />
-                <div className="qs-terminal-dot" />
-              </div>
-              <span className="qs-terminal-label">TERMINAL // PYTHON 3.9+</span>
+        <div>
+          <div className="nb-crt-terminal" role="region" aria-label="Terminal preview">
+            <header className="nb-crt-terminal-bar">
+              <span className="nb-crt-terminal-label">[ QUICKSTART ]</span>
             </header>
 
-            <div className="qs-terminal-body">
-              <pre className="qs-code-pre">
-                <code ref={codeRef} className="qs-code" aria-live="polite"></code>
-                <span className="qs-cursor" aria-hidden="true">
-                  _
-                </span>
+            <div className="nb-crt-terminal-body">
+              <pre className="nb-crt-code-pre">
+                <code ref={codeRef} className="nb-crt-code" aria-live="polite" />
+                <span className="nb-crt-cursor" aria-hidden="true">_</span>
               </pre>
 
-              <div ref={outputRef} className="qs-output" aria-live="polite">
-                <span className="qs-output-text">{STEPS[activeStep]!.output}</span>
+              <div ref={outputRef} className="nb-crt-output" aria-live="polite">
+                <span className="nb-crt-output-text">{STEPS[activeStep]!.output}</span>
               </div>
             </div>
           </div>

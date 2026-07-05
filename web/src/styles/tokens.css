@@ -18,7 +18,8 @@
 
   --amber: #ff5500;
   --amber-light: #ff7733;
-  --amber-dim: rgba(255, 85, 0, 0.1);
+  --amber-dim: rgba(255, 85, 0, 0.12);
+  --amber-glow: rgba(255, 85, 0, 0.3);
   --success: #00c853;
   --danger: #ff1744;
 
@@ -29,6 +30,7 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.2);
   --border-strong: #333333;
+  --border-visible: rgba(255, 255, 255, 0.15);
 
   --background: #111111;
   --foreground: #f5f5f5;
@@ -47,9 +49,14 @@
   --radius-xl: 0px;
   --radius-pill: 0px;
 
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-glow: none;
+  --shadow-sm: 4px 4px 0px 0px #000000;
+  --shadow-md: 6px 6px 0px 0px #000000;
+  --shadow-lg: 8px 8px 0px 0px #000000;
+  --shadow-amber: 4px 4px 0px 0px var(--amber);
+  --shadow-brutal: 8px 8px 0px 0px #111111;
+  --shadow-brutal-hover: 2px 2px 0px 0px #111111;
+  --shadow-glow: 0 0 20px rgba(255, 85, 0, 0.15);
+  --shadow-none: none;
 
   --text-micro: 0.6rem;
   --text-label: 0.72rem;
@@ -78,6 +85,7 @@
   --ease-swiss: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-brutal: cubic-bezier(0.05, 0.95, 0.3, 1);
 
   --block-dark-bg: #111111;
   --block-dark-text: #f5f5f5;
@@ -91,6 +99,7 @@
   --grid-cols: 12;
   --grid-gap: 0px;
   --grid-hairline: rgba(255, 255, 255, 0.06);
+  --grid-visible: rgba(255, 255, 255, 0.12);
   --grid-max: 1200px;
 
   --space-3xs: 0.25rem;
@@ -110,6 +119,7 @@
   --z-overlay: 300;
   --z-modal: 400;
   --z-toast: 500;
+  --z-noise: 9999;
 }
 
 @layer base {
@@ -148,5 +158,39 @@
   ::selection {
     background: var(--amber);
     color: var(--white);
+  }
+}
+
+@layer utilities {
+  .scanline {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-noise);
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.08) 2px,
+      rgba(0, 0, 0, 0.08) 4px
+    );
+  }
+
+  .noise-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-noise) - 1);
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .scanline,
+    .noise-overlay {
+      display: none;
+    }
   }
 }

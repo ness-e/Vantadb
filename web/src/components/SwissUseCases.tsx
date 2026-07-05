@@ -1,30 +1,27 @@
 import { useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
+import "../styles/use-cases.css";
 
 const CASES = [
   {
     id: "01",
     title: "AI Agent Memory",
     desc: "Persistent context windows for distributed agent swarms without network overhead. Local execution means zero API latency.",
-    size: "large",
   },
   {
     id: "02",
     title: "Local RAG Pipeline",
     desc: "Complete semantic search on secure enterprise hardware. Air-gapped environments fully supported out of the box.",
-    size: "small",
   },
   {
     id: "03",
     title: "IDE Code Intelligence",
     desc: "Embed cognitive memory into desktop applications and IDE plugins. Blazing fast code-search entirely in-process.",
-    size: "small",
   },
   {
     id: "04",
     title: "Offline Knowledge Base",
     desc: "Edge-deployed semantic search without internet. Perfect for field devices, kiosks, and disconnected environments.",
-    size: "wide",
   },
 ];
 
@@ -35,15 +32,18 @@ export function SwissUseCases() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const cards = gsap.utils.toArray<HTMLElement>(".usecase-card");
+        if (!cards.length) return;
+
         gsap.fromTo(
-          ".swiss-uc-card",
-          { clipPath: "inset(0 100% 0 0)", opacity: 0 },
+          cards,
+          { opacity: 0, y: 24 },
           {
-            clipPath: "inset(0)",
             opacity: 1,
+            y: 0,
             duration: 0.35,
             stagger: 0.08,
-            ease: "cubic-bezier(0.25, 1, 0.5, 1)",
+            ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top 70%",
@@ -58,27 +58,29 @@ export function SwissUseCases() {
   return (
     <section
       ref={sectionRef}
-      className="swiss-section swiss-uc-section swiss-uc-section--light"
+      className="nb-section"
       aria-label="Use cases"
     >
-      <div className="swiss-inner">
-        <header className="swiss-uc-header">
-          <span className="swiss-section-label">[USE CASES]</span>
-          <h2 className="swiss-uc-heading">Built for real AI workflows.</h2>
-        </header>
+      <div className="nb-inner">
+        <div className="nb-section-header">
+          <span className="nb-label nb-label--amber">[USE CASES]</span>
+          <h2 className="usecase-heading">
+            Built for real AI workflows.
+          </h2>
+        </div>
 
-        <div className="swiss-uc-bento">
+        <div className="usecase-grid">
           {CASES.map((uc) => (
             <article
               key={uc.id}
-              className={`swiss-uc-card swiss-uc-card--${uc.size}`}
+              className="usecase-card"
               aria-label={`Use case ${uc.id}: ${uc.title}`}
             >
-              <span className="swiss-uc-num" aria-hidden="true">
-                [{uc.id}]
+              <span className="usecase-prefix" aria-hidden="true">
+                &gt; [{uc.id}]
               </span>
-              <h3 className="swiss-uc-title">{uc.title}</h3>
-              <p className="swiss-uc-desc">{uc.desc}</p>
+              <h3 className="usecase-title">{uc.title}</h3>
+              <p className="usecase-desc">{uc.desc}</p>
             </article>
           ))}
         </div>

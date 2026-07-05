@@ -9,7 +9,7 @@ export const Route = createLazyRoute("/security")({
 
 function SecurityPage() {
   return (
-    <div className="swiss-page">
+    <div>
       <SwissSubpageHero
         num="13"
         eyebrow="Security Posture"
@@ -23,88 +23,67 @@ function SecurityPage() {
         sub="VantaDB is designed with a strict security boundary. No cloud pings, no telemetry, no data exfiltration."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">Core Principles</span>
+      <main>
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-label">CORE PRINCIPLES</div>
 
-          <div style={{ marginTop: "3rem", display: "grid", gap: "2rem" }}>
-            <div
-              style={{
-                padding: "2rem",
-                border: "1px solid var(--border)",
-                background: "var(--surface-raised)",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 1rem 0",
-                  color: "var(--amber)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "1rem",
-                }}
-              >
-                [01] No Telemetry
-              </h3>
-              <p style={{ color: "var(--steel)", lineHeight: "1.6", margin: 0 }}>
-                We do not track your usage. The VantaDB core library contains zero analytics,
-                tracking pixels, or outbound HTTP requests. Your data never leaves your environment.
-              </p>
+            <div className="nb-grid nb-grid--cols-3" style={{ marginTop: "3rem" }}>
+              <div className="nb-cell">
+                <div className="nb-label nb-label--amber">NO TELEMETRY</div>
+                <p className="text-sm text-muted leading-relaxed m-0 mt-4">
+                  We do not track your usage. The VantaDB core library contains zero analytics,
+                  tracking pixels, or outbound HTTP requests. Your data never leaves your
+                  environment.
+                </p>
+              </div>
+              <div className="nb-cell">
+                <div className="nb-label nb-label--amber">AES-256-GCM ENCRYPTION</div>
+                <p className="text-sm text-muted leading-relaxed m-0 mt-4">
+                  Enterprise at-rest encryption is currently on the roadmap for Phase 5. This will
+                  ensure that WAL and LSM-tree SSTables are fully encrypted on disk.
+                </p>
+              </div>
+              <div className="nb-cell">
+                <div className="nb-label nb-label--amber">MEMORY SAFETY</div>
+                <p className="text-sm text-muted leading-relaxed m-0 mt-4">
+                  Written entirely in Rust, the engine is immune to buffer overflows, use-after-free
+                  vulnerabilities, and memory leaks that plague traditional C/C++ vector databases.
+                </p>
+              </div>
             </div>
+          </div>
+        </section>
 
-            <div
-              style={{
-                padding: "2rem",
-                border: "1px solid var(--border)",
-                background: "var(--surface-raised)",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 1rem 0",
-                  color: "var(--amber)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "1rem",
-                }}
-              >
-                [02] AES-256-GCM Encryption (Roadmap)
-              </h3>
-              <p style={{ color: "var(--steel)", lineHeight: "1.6", margin: 0 }}>
-                Enterprise at-rest encryption is currently on the roadmap for Phase 5. This will
-                ensure that WAL and LSM-tree SSTables are fully encrypted on disk.
-              </p>
-            </div>
-
-            <div
-              style={{
-                padding: "2rem",
-                border: "1px solid var(--border)",
-                background: "var(--surface-raised)",
-              }}
-            >
-              <h3
-                style={{
-                  margin: "0 0 1rem 0",
-                  color: "var(--amber)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "1rem",
-                }}
-              >
-                [03] Memory Safety
-              </h3>
-              <p style={{ color: "var(--steel)", lineHeight: "1.6", margin: 0 }}>
-                Written entirely in Rust, the engine is immune to buffer overflows, use-after-free
-                vulnerabilities, and memory leaks that plague traditional C/C++ vector databases.
-              </p>
+        <section className="nb-section nb-bg-dot">
+          <div className="nb-inner">
+            <div className="nb-block-amber">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                    GET STARTED
+                  </div>
+                  <h2
+                    className="font-display text-2xl font-extrabold"
+                    style={{ color: "var(--text-on-amber)" }}
+                  >
+                    Built on Rust. Safe by default.
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                    Install VantaDB in one command.
+                  </p>
+                </div>
+                <code
+                  className="font-mono text-lg font-bold"
+                  style={{ color: "var(--text-on-amber)" }}
+                >
+                  pip install vantadb-py
+                </code>
+              </div>
             </div>
           </div>
         </section>
       </main>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .engine-main section { padding: 1.5rem !important; }
-        }
-      `}</style>
     </div>
   );
 }

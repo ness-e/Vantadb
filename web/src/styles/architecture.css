@@ -1,34 +1,95 @@
-/* ═══════════════════════════════════════════════════════════
-   VantaDB — Swiss Architecture Page Stylesheet
-   ═══════════════════════════════════════════════════════════ */
+.nb-arch-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--foreground);
+  margin: 0;
+}
 
-.arch-spec-table {
+.nb-arch-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-lead);
+  line-height: var(--leading-normal);
+  color: var(--muted);
+  margin: 0;
+  max-width: 480px;
+}
+
+.nb-frame--pipeline {
+  overflow: hidden;
+}
+
+.nb-pipeline-line {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  background: var(--background);
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
 }
 
-.spec-table-row {
-  border-bottom: 1px solid var(--border);
+.nb-arch-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.spec-table-row:last-child {
-  border-bottom: none;
+.nb-arch-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-.spec-table-cell {
-  padding: 1.25rem 1rem;
-  vertical-align: top;
+.nb-arch-stage .nb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-lg);
+  border-width: 2px;
+  transition:
+    border-color 150ms var(--ease-brutal),
+    box-shadow 150ms var(--ease-brutal);
 }
 
-.spec-table-desc {
-  padding: 1.25rem 1rem;
-  vertical-align: top;
+.nb-arch-stage .nb-card:hover {
+  border-color: var(--amber);
+  box-shadow: var(--shadow-amber);
 }
 
-@media (max-width: 768px) {
-  .arch-spec-table {
-    min-width: 600px;
-  }
+.nb-arch-stage .nb-card--amber {
+  box-shadow: var(--shadow-amber);
+}
+
+.nb-arch-stage-label {
+  margin-bottom: 0;
+}
+
+.nb-arch-stage-name {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.nb-arch-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xs) 0;
+}
+
+.nb-arch-connector-arrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
+  color: var(--amber);
+  letter-spacing: 0;
 }

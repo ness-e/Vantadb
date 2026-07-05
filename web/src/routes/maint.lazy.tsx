@@ -7,7 +7,22 @@ export const Route = createLazyRoute("/maint")({
   pendingComponent: PendingComponent,
 });
 
-// ── Data ─────────────────────────────────────────────────────────────────────
+const LEGACY_OPS_PROBLEMS = [
+  "Pinecone: monitor pod health, scale pods, watch quotas",
+  "Redis: replication lag, OOM handling, failover testing",
+  "S3: lifecycle policies, bucket versioning, access audits",
+  "Network: DNS changes, TLS certs, firewall rules",
+  "Alerting: 3+ dashboards, pager duty rotations",
+];
+
+const NO_OPS_LIST = [
+  "No daemon to monitor — runs in your process",
+  "No cluster scaling — uses your app's resources",
+  "No network config — local file access only",
+  "No dashboards — your app's observability is enough",
+  "Upgrades: `pip install --upgrade vantadb-py`",
+];
+
 const LEGACY_OPS = [
   { task: "Review 3 monitoring dashboards", time: "30m" },
   { task: "Check Pinecone pod utilization", time: "15m" },
@@ -24,25 +39,9 @@ const VANTA_OPS = [
   { task: "Done.", time: "" },
 ];
 
-const NO_OPS_LIST = [
-  "No daemon to monitor — runs in your process",
-  "No cluster scaling — uses your app's resources",
-  "No network config — local file access only",
-  "No dashboards — your app's observability is enough",
-  "Upgrades: `pip install --upgrade vantadb-py`",
-];
-
-const LEGACY_OPS_PROBLEMS = [
-  "Pinecone: monitor pod health, scale pods, watch quotas",
-  "Redis: replication lag, OOM handling, failover testing",
-  "S3: lifecycle policies, bucket versioning, access audits",
-  "Network: DNS changes, TLS certs, firewall rules",
-  "Alerting: 3+ dashboards, pager duty rotations",
-];
-
 function MaintPage() {
   return (
-    <div className="swiss-page">
+    <div>
       <SwissSubpageHero
         num="11"
         eyebrow="Operations & Maintenance"
@@ -56,370 +55,183 @@ function MaintPage() {
         sub="No daemons to monitor, no clusters to scale, no patches to schedule. VantaDB runs embedded in your process — the database is just another import."
       />
 
-      <main className="swiss-main">
-        {/* Section 1: Comparison */}
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Maintenance Comparison</span>
-          <div
-            className="swiss-grid-12"
-            style={{ alignItems: "start", marginTop: "3rem", gap: "1px" }}
-          >
-            <div
-              className="col-span-6"
-              style={{ border: "1px solid var(--border)", padding: "2.5rem" }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--steel)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                Legacy — 3 services to maintain
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.9rem",
-                }}
-              >
-                {LEGACY_OPS_PROBLEMS.map((item) => (
-                  <li
-                    key={item}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--muted)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--steel)",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✗
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div
-              className="col-span-6"
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: "2px solid var(--amber)",
-                padding: "2.5rem",
-                background: "var(--surface)",
-              }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--amber)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                VantaDB — nothing to maintain
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.9rem",
-                }}
-              >
-                {NO_OPS_LIST.map((item) => (
-                  <li
-                    key={item}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--foreground)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✓
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+      <main>
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-label">01 / 02 — Maintenance Comparison</div>
+
+            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+              <div className="nb-cell">
+                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                  LEGACY — 3 services to maintain
+                </div>
+                <ul
+                  className="flex flex-col gap-3 mt-4"
+                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                >
+                  {LEGACY_OPS_PROBLEMS.map((item) => (
+                    <li key={item} className="flex gap-3 text-sm text-muted leading-relaxed">
+                      <span
+                        className="font-mono font-bold flex-shrink-0"
+                        style={{ color: "var(--steel)", minWidth: "1rem" }}
+                      >
+                        ✗
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
+                <div className="nb-label nb-label--amber">VANTADB — nothing to maintain</div>
+                <ul
+                  className="flex flex-col gap-3 mt-4"
+                  style={{ listStyle: "none", margin: 0, padding: 0 }}
+                >
+                  {NO_OPS_LIST.map((item) => (
+                    <li key={item} className="flex gap-3 text-sm text-foreground leading-relaxed">
+                      <span
+                        className="font-mono font-bold flex-shrink-0"
+                        style={{ color: "var(--amber)", minWidth: "1rem" }}
+                      >
+                        ✓
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Section 2: Weekly Ops Timeline */}
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Weekly Ops Timeline</span>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.5rem, 3vw, 2rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              margin: "1.25rem 0 3rem",
-              lineHeight: 1.05,
-            }}
-          >
-            From 4 hours to 30 seconds.
-          </h2>
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-label">02 / 02 — Weekly Ops Timeline</div>
+            <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-extrabold tracking-[-0.04em] mt-4 mb-12 leading-tight">
+              From 4 hours to 30 seconds.
+            </h2>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1px",
-              background: "var(--border)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {/* Legacy */}
-            <div
-              style={{
-                background: "var(--background)",
-                padding: "2.5rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--steel)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginBottom: "1.5rem",
-                }}
-              >
-                Legacy Weekly Ops
-              </div>
-              {LEGACY_OPS.map((item, i) => (
-                <div
-                  key={item.task}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 60px",
-                    gap: "1rem",
-                    padding: "0.75rem 0",
-                    borderBottom: i < LEGACY_OPS.length - 1 ? "1px solid var(--border)" : "none",
-                    alignItems: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.6rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.8rem",
-                      color: "var(--muted)",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--steel)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✗
-                    </span>
-                    {item.task}
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--steel)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {item.time}
-                  </span>
+            <div className="nb-grid nb-grid--cols-2">
+              <div className="nb-cell">
+                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                  LEGACY WEEKLY OPS
                 </div>
-              ))}
-              <div
-                style={{
-                  marginTop: "2rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.4rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  color: "var(--steel)",
-                }}
-              >
-                ~4h / week
+                {LEGACY_OPS.map((item, i) => (
+                  <div
+                    key={item.task}
+                    className="grid grid-cols-[1fr_60px] gap-4 py-3 items-center"
+                    style={{
+                      borderBottom: i < LEGACY_OPS.length - 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div className="flex gap-2 text-sm text-muted leading-relaxed">
+                      <span
+                        className="font-mono font-bold flex-shrink-0"
+                        style={{ color: "var(--steel)" }}
+                      >
+                        ✗
+                      </span>
+                      {item.task}
+                    </div>
+                    <span
+                      className="font-mono text-[0.65rem] text-right"
+                      style={{ color: "var(--steel)" }}
+                    >
+                      {item.time}
+                    </span>
+                  </div>
+                ))}
+                <div
+                  className="font-display text-2xl font-extrabold tracking-[-0.04em] mt-6"
+                  style={{ color: "var(--steel)" }}
+                >
+                  ~4h / week
+                </div>
+              </div>
+              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
+                <div className="nb-label nb-label--amber">VANTADB WEEKLY OPS</div>
+                {VANTA_OPS.map((item, i) => (
+                  <div
+                    key={item.task}
+                    className="grid grid-cols-[1fr_60px] gap-4 py-3 items-center"
+                    style={{
+                      borderBottom: i < VANTA_OPS.length - 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div className="flex gap-2 text-sm text-foreground leading-relaxed">
+                      <span
+                        className="font-mono font-bold flex-shrink-0"
+                        style={{ color: "var(--amber)" }}
+                      >
+                        ✓
+                      </span>
+                      {item.task}
+                    </div>
+                    <span className="font-mono text-[0.65rem] text-amber text-right">
+                      {item.time}
+                    </span>
+                  </div>
+                ))}
+                <div className="font-display text-2xl font-extrabold tracking-[-0.04em] mt-6 text-amber">
+                  ~30s / week
+                </div>
               </div>
             </div>
 
-            {/* VantaDB */}
-            <div
-              style={{
-                background: "var(--surface-raised)",
-                padding: "2.5rem",
-                borderLeft: "2px solid var(--amber)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0",
-              }}
-            >
+            <div className="nb-grid nb-grid--cols-2 mt-0">
               <div
+                className="nb-cell"
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.6rem",
-                  color: "var(--amber)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginBottom: "1.5rem",
+                  gridColumn: "1 / -1",
+                  display: "grid",
+                  gridTemplateColumns: "140px 1fr",
+                  gap: "2rem",
+                  alignItems: "center",
                 }}
               >
-                VantaDB Weekly Ops
-              </div>
-              {VANTA_OPS.map((item, i) => (
-                <div
-                  key={item.task}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 60px",
-                    gap: "1rem",
-                    padding: "0.75rem 0",
-                    borderBottom: i < VANTA_OPS.length - 1 ? "1px solid var(--border)" : "none",
-                    alignItems: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.6rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.8rem",
-                      color: "var(--foreground)",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontFamily: "var(--font-mono)",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✓
-                    </span>
-                    {item.task}
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--amber)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {item.time}
-                  </span>
-                </div>
-              ))}
-              <div
-                style={{
-                  marginTop: "2rem",
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.4rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.04em",
-                  color: "var(--amber)",
-                }}
-              >
-                ~30s / week
+                <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
+                  KEY INSIGHT
+                </span>
+                <p className="text-sm text-muted leading-relaxed m-0">
+                  Because VantaDB runs as an embedded library — not a separate server — there's
+                  nothing to deploy, monitor, or scale independently. Your application's lifecycle{" "}
+                  <em>is</em> the database lifecycle. No pager duty. No 2 AM wakeups.
+                </p>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Closing note */}
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderTop: "none",
-              background: "var(--surface)",
-              padding: "1.5rem 2.5rem",
-              display: "grid",
-              gridTemplateColumns: "140px 1fr",
-              gap: "2rem",
-              alignItems: "center",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.6rem",
-                color: "var(--amber)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              KEY INSIGHT
-            </span>
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.82rem",
-                color: "var(--muted)",
-                lineHeight: 1.7,
-                margin: 0,
-              }}
-            >
-              Because VantaDB runs as an embedded library — not a separate server — there's nothing
-              to deploy, monitor, or scale independently. Your application's lifecycle <em>is</em>{" "}
-              the database lifecycle. No pager duty. No 2 AM wakeups.
-            </p>
+        <section className="nb-section nb-bg-dot">
+          <div className="nb-inner">
+            <div className="nb-block-amber">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                    GET STARTED
+                  </div>
+                  <h2
+                    className="font-display text-2xl font-extrabold"
+                    style={{ color: "var(--text-on-amber)" }}
+                  >
+                    Zero ops. Ship and sleep.
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                    Install VantaDB in one command.
+                  </p>
+                </div>
+                <code
+                  className="font-mono text-lg font-bold"
+                  style={{ color: "var(--text-on-amber)" }}
+                >
+                  pip install vantadb-py
+                </code>
+              </div>
+            </div>
           </div>
         </section>
       </main>
-
-      <style>{`
-        @media (max-width: 768px) {
-          [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-          [style*="grid-template-columns: 140px 1fr"] { grid-template-columns: 1fr !important; gap: 1rem !important; }
-        }
-      `}</style>
     </div>
   );
 }

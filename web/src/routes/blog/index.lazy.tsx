@@ -11,7 +11,7 @@ function BlogIndex() {
   const posts = useMemo(() => getAllPosts(), []);
 
   return (
-    <div className="swiss-page">
+    <div className="nb-page">
       <SwissSubpageHero
         num="00"
         eyebrow="Blog"
@@ -25,167 +25,74 @@ function BlogIndex() {
         sub="Engineering blog about embedded vector databases, AI agents, local RAG, and the future of AI data infrastructure."
       />
 
-      <main className="swiss-main">
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">Posts — {posts.length} articles</span>
+      <section className="nb-section">
+        <div className="nb-inner">
+          <span className="nb-label nb-label--amber">Posts — {posts.length} articles</span>
+          <div className="nb-divider" />
 
           {posts.length === 0 ? (
-            <div
-              style={{
-                border: "1px solid var(--border)",
-                padding: "4rem",
-                textAlign: "left",
-                marginTop: "3rem",
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.8rem",
-                  color: "var(--steel)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  margin: 0,
-                }}
-              >
+            <div className="nb-frame" data-frame-label="EMPTY" style={{ marginTop: "var(--space-xl)", padding: "var(--space-3xl)" }}>
+              <span className="nb-label" style={{ textAlign: "center", marginBottom: 0 }}>
                 No posts yet. Check back soon.
-              </p>
+              </span>
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: "1px",
-                background: "var(--border)",
-                border: "1px solid var(--border)",
-                marginTop: "3rem",
-              }}
-            >
+            <div className="nb-grid" style={{ marginTop: "var(--space-xl)" }}>
               {posts.map((post) => (
                 <Link
                   key={post.slug}
                   to="/blog/$slug"
                   params={{ slug: post.slug }}
-                  className="blog-post-link"
+                  className="nb-cell"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "160px 1fr auto",
-                    gap: "2rem",
+                    gridTemplateColumns: "140px 1fr auto",
+                    gap: "var(--space-lg)",
                     alignItems: "start",
-                    padding: "2rem 2.5rem",
+                    padding: "var(--space-lg) var(--space-xl)",
                     textDecoration: "none",
                     borderLeft: "2px solid transparent",
-                    transition: "all 150ms var(--ease-cut)",
+                    transition: "all 150ms var(--ease-brutal)",
                     background: "var(--background)",
-                    borderLeftColor: "transparent",
                   }}
                 >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--steel)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      paddingTop: "3px",
-                    }}
-                  >
+                  <span className="nb-label" style={{ marginBottom: 0, paddingTop: "2px" }}>
                     {post.date}
                   </span>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                    <h2
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1rem",
-                        fontWeight: 700,
-                        letterSpacing: "-0.02em",
-                        color: "var(--foreground)",
-                        margin: 0,
-                      }}
-                    >
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xs)" }}>
+                    <h2 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-title)", fontWeight: 700, letterSpacing: "var(--tracking-display)", color: "var(--foreground)", margin: 0 }}>
                       {post.title}
                     </h2>
                     {post.description && (
-                      <p
-                        style={{
-                          fontFamily: "var(--font-sans)",
-                          fontSize: "0.8rem",
-                          color: "var(--muted)",
-                          lineHeight: 1.5,
-                          margin: 0,
-                        }}
-                      >
+                      <p style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-code)", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
                         {post.description}
                       </p>
                     )}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "0.4rem",
-                        flexWrap: "wrap",
-                        marginTop: "0.25rem",
-                      }}
-                    >
+                    <div style={{ display: "flex", gap: "var(--space-2xs)", flexWrap: "wrap", marginTop: "var(--space-3xs)" }}>
                       {post.author && (
-                        <span
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.55rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.08em",
-                            color: "var(--amber)",
-                            border: "1px solid rgba(255, 85, 0, 0.3)",
-                            padding: "0.15rem 0.5rem",
-                          }}
-                        >
+                        <span className="nb-pill-status nb-pill-status--amber" style={{ fontSize: "var(--text-micro)" }}>
                           {post.author}
                         </span>
                       )}
                       {post.tags?.map((t) => (
-                        <span
-                          key={t}
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "0.55rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.08em",
-                            color: "var(--steel)",
-                            border: "1px solid var(--border)",
-                            padding: "0.15rem 0.5rem",
-                          }}
-                        >
+                        <span key={t} className="nb-pill-status" style={{ fontSize: "var(--text-micro)" }}>
                           {t}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.65rem",
-                      color: "var(--amber)",
-                      paddingTop: "3px",
-                    }}
-                  >
-                    →
-                  </span>
+                  <span className="nb-arrow" style={{ alignSelf: "center", marginTop: 0 }} />
                 </Link>
               ))}
             </div>
           )}
-        </section>
-      </main>
+        </div>
+      </section>
 
       <style>{`
-        .blog-post-link:hover {
-          background: var(--surface-raised) !important;
-          border-left-color: var(--amber) !important;
-        }
+        .nb-cell:hover { border-left-color: var(--amber) !important; }
       `}</style>
     </div>
   );
@@ -193,16 +100,8 @@ function BlogIndex() {
 
 export function PendingComponent() {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "60vh",
-        color: "var(--muted)",
-      }}
-    >
-      <div>Loading...</div>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh", color: "var(--muted)" }}>
+      <span className="nb-label" style={{ fontSize: "var(--text-label)", marginBottom: 0 }}>Loading...</span>
     </div>
   );
 }

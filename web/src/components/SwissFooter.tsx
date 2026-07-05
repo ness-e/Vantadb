@@ -4,98 +4,76 @@ import VantaDBLogo from "./VantaDBLogo";
 
 export const SwissFooter = memo(function SwissFooter() {
   return (
-    <footer className="swiss-footer">
-      <div className="footer-grid">
-        <div className="footer-col">
-          <VantaDBLogo variant="full" size="sm" />
-          <span className="footer-tagline">Embedded Cognitive Memory.</span>
+    <footer className="swiss-footer nb-section nb-section--dark" data-frame-label="FOOTER">
+      <div className="nb-inner">
+        <div className="footer-grid nb-frame">
+          <div className="footer-col footer-col--brand">
+            <VantaDBLogo variant="full" size="sm" />
+            <span className="footer-tagline">Embedded Cognitive Memory.</span>
+            <div className="footer-meta">
+              <span className="nb-pill-status">v0.1.0</span>
+              <span className="nb-pill-status">MIT</span>
+            </div>
+          </div>
+
+          <div className="footer-col">
+            <span className="nb-label">Product</span>
+            <Link to="/engine" className="footer-link">&gt; Core Engine</Link>
+            <Link to="/architecture" className="footer-link">&gt; Architecture</Link>
+            <Link to="/integrations" className="footer-link">&gt; Integrations</Link>
+            <Link to="/solutions/ai-agents" className="footer-link">&gt; AI Agents</Link>
+            <Link to="/solutions/local-rag" className="footer-link">&gt; Local RAG</Link>
+            <Link to="/pricing" className="footer-link">&gt; Pricing</Link>
+          </div>
+
+          <div className="footer-col">
+            <span className="nb-label">Resources</span>
+            <Link to="/docs" className="footer-link">&gt; Documentation</Link>
+            <Link to="/use-cases" className="footer-link">&gt; Use Cases</Link>
+            <Link to="/solutions/security" className="footer-link">&gt; Security</Link>
+            <Link to="/changelog" className="footer-link">&gt; Changelog</Link>
+            <Link to="/product/benchmarks" className="footer-link">&gt; Benchmarks</Link>
+            <Link to="/blog" className="footer-link">&gt; Blog</Link>
+          </div>
+
+          <div className="footer-col">
+            <span className="nb-label">Company</span>
+            <Link to="/about" className="footer-link">&gt; About</Link>
+            <Link to="/about/community" className="footer-link">&gt; Community</Link>
+            <Link to="/about/contact" className="footer-link">&gt; Contact</Link>
+          </div>
         </div>
 
-        <div className="footer-col">
-          <span className="footer-col-label">PRODUCT</span>
-          <Link to="/engine" className="footer-link">
-            Core Engine
-          </Link>
-          <Link to="/architecture" className="footer-link">
-            Architecture
-          </Link>
-          <Link to="/integrations" className="footer-link">
-            Integrations
-          </Link>
-          <Link to="/solutions/ai-agents" className="footer-link">
-            AI Agents
-          </Link>
-          <Link to="/solutions/local-rag" className="footer-link">
-            Local RAG
-          </Link>
-          <Link to="/pricing" className="footer-link">
-            Pricing
-          </Link>
-        </div>
-
-        <div className="footer-col">
-          <span className="footer-col-label">RESOURCES</span>
-          <Link to="/docs" className="footer-link">
-            Documentation
-          </Link>
-          <Link to="/use-cases" className="footer-link">
-            Use Cases
-          </Link>
-          <Link to="/solutions/security" className="footer-link">
-            Security
-          </Link>
-          <Link to="/changelog" className="footer-link">
-            Changelog
-          </Link>
-          <Link to="/product/benchmarks" className="footer-link">
-            Benchmarks
-          </Link>
-          <Link to="/blog" className="footer-link">
-            Blog
-          </Link>
-        </div>
-
-        <div className="footer-col">
-          <span className="footer-col-label">COMPANY</span>
-          <Link to="/about" className="footer-link">
-            About
-          </Link>
-          <Link to="/about/community" className="footer-link">
-            Community
-          </Link>
-          <Link to="/about/contact" className="footer-link">
-            Contact
-          </Link>
-        </div>
-      </div>
-
-      <div className="footer-bottom">
-        <span className="footer-copyright">© {new Date().getFullYear()} VantaDB.</span>
-        <div className="footer-social">
-          <a
-            href="https://github.com/ness-e/Vantadb"
-            target="_blank"
-            rel="noreferrer"
-            className="footer-link footer-link--sm"
-          >
-            GitHub
-          </a>
-          <a
-            href="https://twitter.com/vantadb"
-            target="_blank"
-            rel="noreferrer"
-            className="footer-link footer-link--sm"
-          >
-            Twitter
-          </a>
-          <a
-            href="https://discord.gg/vantadb"
-            target="_blank"
-            rel="noreferrer"
-            className="footer-link footer-link--sm"
-          >
-            Discord
-          </a>
+        <div className="footer-bottom">
+          <span className="footer-copyright">
+            &copy; {new Date().getFullYear()} VantaDB &mdash; MIT License
+          </span>
+          <div className="footer-social">
+            <a
+              href="https://github.com/ness-e/Vantadb"
+              target="_blank"
+              rel="noreferrer"
+              className="footer-link footer-link--sm"
+            >
+              &gt; GitHub
+            </a>
+            <a
+              href="https://twitter.com/vantadb"
+              target="_blank"
+              rel="noreferrer"
+              className="footer-link footer-link--sm"
+            >
+              &gt; Twitter
+            </a>
+            <a
+              href="https://discord.gg/vantadb"
+              target="_blank"
+              rel="noreferrer"
+              className="footer-link footer-link--sm"
+            >
+              &gt; Discord
+            </a>
+          </div>
         </div>
       </div>
     </footer>

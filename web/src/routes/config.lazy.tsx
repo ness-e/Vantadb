@@ -7,7 +7,6 @@ export const Route = createLazyRoute("/config")({
   pendingComponent: PendingComponent,
 });
 
-// ── Data ─────────────────────────────────────────────────────────────────────
 const LEGACY_CONFIG = [
   "Pinecone: API key, environment, pod type, index config",
   "Redis: host, port, password, TLS, cluster mode",
@@ -53,7 +52,7 @@ db = vantadb_py.VantaDB("./my_db.vdb")
 
 function ConfigPage() {
   return (
-    <div className="swiss-page">
+    <div>
       <SwissSubpageHero
         num="10"
         eyebrow="Configuration"
@@ -67,243 +66,103 @@ function ConfigPage() {
         sub="No YAML, no .env, no migration scripts. VantaDB is schema-free and self-configuring. Point it at a file path and start querying."
       />
 
-      <main className="swiss-main">
-        {/* Section 1: Comparison */}
-        <section className="swiss-page-section swiss-page-section--bordered">
-          <span className="swiss-eyebrow">01 / 02 — Setup Comparison</span>
-          <div
-            className="swiss-grid-12"
-            style={{ alignItems: "start", marginTop: "3rem", gap: "1px" }}
-          >
-            <div
-              className="col-span-6"
-              style={{ border: "1px solid var(--border)", padding: "2.5rem" }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--steel)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                Legacy — Pages of config
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.9rem",
-                }}
-              >
-                {LEGACY_CONFIG.map((item) => (
-                  <li
-                    key={item}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--muted)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--steel)",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✗
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div
-              className="col-span-6"
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: "2px solid var(--amber)",
-                padding: "2.5rem",
-                background: "var(--surface)",
-              }}
-            >
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "var(--amber)",
-                  marginBottom: "2rem",
-                  textTransform: "uppercase",
-                }}
-              >
-                VantaDB — Zero lines
-              </h2>
-              <ul
-                style={{
-                  listStyle: "none",
-                  margin: 0,
-                  padding: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.9rem",
-                }}
-              >
-                {VANTA_CONFIG.map((item) => (
-                  <li
-                    key={item}
-                    style={{
-                      display: "flex",
-                      gap: "0.75rem",
-                      fontFamily: "var(--font-sans)",
-                      fontSize: "0.82rem",
-                      color: "var(--foreground)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--amber)",
-                        fontWeight: 700,
-                        minWidth: "1rem",
-                        fontFamily: "var(--font-mono)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      ✓
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+      <main>
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-label">01 / 02 — Setup Comparison</div>
+
+            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+              <div className="nb-cell">
+                <div className="nb-label" style={{ color: "var(--steel)" }}>
+                  LEGACY — Pages of config
+                </div>
+                <ul className="nb-list mt-4">
+                  {LEGACY_CONFIG.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="nb-cell" style={{ borderLeft: "2px solid var(--amber)" }}>
+                <div className="nb-label nb-label--amber">VANTADB — Zero lines</div>
+                <ul className="nb-list mt-4">
+                  {VANTA_CONFIG.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Section 2: Code comparison */}
-        <section className="swiss-page-section">
-          <span className="swiss-eyebrow">02 / 02 — Code: From 50 Lines to 1</span>
-          <div
-            className="swiss-grid-12"
-            style={{ alignItems: "start", marginTop: "3rem", gap: "1px" }}
-          >
-            {/* Legacy code */}
-            <div
-              className="col-span-6"
-              style={{ border: "1px solid var(--border)", background: "var(--block-dark-bg)" }}
-            >
-              <div
-                style={{
-                  padding: "0.65rem 1.25rem",
-                  borderBottom: "1px solid var(--block-dark-border)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--steel)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
-                  legacy_setup.py
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.55rem",
-                    color: "var(--block-dark-muted)",
-                  }}
-                >
-                  50+ lines
-                </span>
-              </div>
-              <pre
-                style={{
-                  margin: 0,
-                  padding: "1.5rem",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.72rem",
-                  lineHeight: 1.65,
-                  color: "var(--block-dark-muted)",
-                  overflowX: "auto",
-                  whiteSpace: "pre",
-                }}
-              >
-                <code>{LEGACY_CODE}</code>
-              </pre>
-            </div>
+        <section className="nb-section">
+          <div className="nb-inner">
+            <div className="nb-label">02 / 02 — Code: From 50 Lines to 1</div>
 
-            {/* VantaDB code */}
-            <div
-              className="col-span-6"
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: "2px solid var(--amber)",
-                background: "var(--block-dark-bg)",
-              }}
-            >
-              <div
-                style={{
-                  padding: "0.65rem 1.25rem",
-                  borderBottom: "1px solid var(--block-dark-border)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.6rem",
-                    color: "var(--amber)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
+            <div className="nb-grid nb-grid--cols-2" style={{ marginTop: "3rem" }}>
+              <div className="nb-cell" style={{ padding: 0, background: "var(--black)" }}>
+                <div
+                  className="flex items-center justify-between px-5 py-3"
+                  style={{ borderBottom: "1px solid var(--border)" }}
                 >
-                  vantadb_setup.py
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.55rem",
-                    color: "var(--amber)",
-                  }}
-                >
-                  3 lines
-                </span>
+                  <span className="font-mono text-[0.6rem] text-steel uppercase tracking-[0.08em]">
+                    legacy_setup.py
+                  </span>
+                  <span className="font-mono text-[0.55rem] text-muted">50+ lines</span>
+                </div>
+                <pre className="m-0 p-6 font-mono text-[0.72rem] leading-relaxed text-muted overflow-x-auto whitespace-pre">
+                  <code>{LEGACY_CODE}</code>
+                </pre>
               </div>
-              <pre
+              <div
+                className="nb-cell"
                 style={{
-                  margin: 0,
-                  padding: "1.5rem",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.72rem",
-                  lineHeight: 1.65,
-                  color: "var(--block-dark-text)",
-                  overflowX: "auto",
-                  whiteSpace: "pre",
+                  padding: 0,
+                  background: "var(--black)",
+                  borderLeft: "2px solid var(--amber)",
                 }}
               >
-                <code>{VANTA_CODE}</code>
-              </pre>
+                <div
+                  className="flex items-center justify-between px-5 py-3"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                >
+                  <span className="font-mono text-[0.6rem] text-amber uppercase tracking-[0.08em]">
+                    vantadb_setup.py
+                  </span>
+                  <span className="font-mono text-[0.55rem] text-amber">3 lines</span>
+                </div>
+                <pre className="m-0 p-6 font-mono text-[0.72rem] leading-relaxed text-foreground overflow-x-auto whitespace-pre">
+                  <code>{VANTA_CODE}</code>
+                </pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="nb-section nb-bg-dot">
+          <div className="nb-inner">
+            <div className="nb-block-amber">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="nb-label" style={{ color: "var(--text-on-amber)" }}>
+                    GET STARTED
+                  </div>
+                  <h2
+                    className="font-display text-2xl font-extrabold"
+                    style={{ color: "var(--text-on-amber)" }}
+                  >
+                    Zero config. Ship faster.
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--text-on-amber)", opacity: 0.8 }}>
+                    Install VantaDB in one command.
+                  </p>
+                </div>
+                <code
+                  className="font-mono text-lg font-bold"
+                  style={{ color: "var(--text-on-amber)" }}
+                >
+                  pip install vantadb-py
+                </code>
+              </div>
             </div>
           </div>
         </section>
