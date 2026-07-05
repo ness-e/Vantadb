@@ -1,12 +1,4 @@
 [profile.default]
-# No global test-threads limit - let Linux/macOS use full parallelism
-
-[profile.ci-windows]
-# Windows-specific override: limit to 2 threads to avoid os error 1455 (page file)
-extends = "audit"
-test-threads = 2
-
-[profile.audit]
 # Only quick integrity tests run in CI. Heavy tests (storage, WAL, text index, certification)
 # are excluded here and run exclusively in heavy_certification.yml (weekly).
 # Binary IDs match the test file stem (e.g. tests/storage/wal_resilience.rs → wal_resilience).
@@ -66,6 +58,14 @@ and not binary(regression_certification) \
 and not binary(snapshot_certification) \
 and not binary(security_audit) \
 """
+# No global test-threads limit - let Linux/macOS use full parallelism
+
+[profile.ci-windows]
+# Windows-specific override: limit to 2 threads to avoid os error 1455 (page file)
+extends = "audit"
+test-threads = 2
+
+[profile.audit]
 fail-fast = false
 failure-output = "immediate-final"
 success-output = "never"
