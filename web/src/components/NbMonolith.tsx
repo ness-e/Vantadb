@@ -48,7 +48,7 @@ export const NbMonolith = memo(function NbMonolith() {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         gsap.fromTo(
-          ".monolith-command",
+          ".nb-cta-command",
           { clipPath: "inset(0 0 100% 0)", opacity: 0 },
           {
             clipPath: "inset(0)",
@@ -63,7 +63,7 @@ export const NbMonolith = memo(function NbMonolith() {
         );
 
         gsap.fromTo(
-          ".monolith-subtitle",
+          ".nb-cta-sub",
           { opacity: 0, y: 12 },
           {
             opacity: 1,
@@ -79,7 +79,7 @@ export const NbMonolith = memo(function NbMonolith() {
         );
 
         gsap.fromTo(
-          ".monolith-telemetry span",
+          ".nb-meta-tag",
           { opacity: 0 },
           {
             opacity: 1,
@@ -105,54 +105,54 @@ export const NbMonolith = memo(function NbMonolith() {
       aria-label="Get started"
     >
       <div className="nb-inner">
-        <div className="monolith-block">
-          <div className="monolith-command-wrap">
-            <span className="monolith-command-prefix" aria-hidden="true">
+        <div className="nb-cta-frame">
+          <h2 className="nb-cta-headline">SHIP IT.</h2>
+
+          <div
+            className="nb-cta-command"
+            onClick={handleCopy}
+            role="button"
+            tabIndex={0}
+            aria-label="Copy install command"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") handleCopy();
+            }}
+          >
+            <span className="nb-cta-prompt" aria-hidden="true">
               $
             </span>
-            <code
-              className="monolith-command"
-              onClick={handleCopy}
-              role="button"
-              tabIndex={0}
-              aria-label="Copy install command"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") handleCopy();
-              }}
-            >
-              {CLI_COMMAND}
-              <span className="monolith-cursor" aria-hidden="true" />
-            </code>
+            <code className="nb-cta-code">{CLI_COMMAND}</code>
+            <span className="nb-cta-cursor" aria-hidden="true">
+              _
+            </span>
             <button
-              className="monolith-copy-btn"
+              className="nb-cta-copy"
               onClick={handleCopy}
               aria-label="Copy to clipboard"
               type="button"
             >
               {copied ? "OK" : "[]"}
             </button>
-            <span
-              ref={feedbackRef}
-              className="monolith-copy-feedback nb-monolith-feedback"
-              aria-live="polite"
-            >
-              {copied ? "copied to clipboard" : ""}
-            </span>
           </div>
 
-          <p className="monolith-subtitle">Zero servers. One line. Infinite context.</p>
+          <p className="nb-cta-sub">Zero servers. One line. Infinite context.</p>
 
-          <div className="monolith-cta-row">
-            <Link to="/docs" className="monolith-cta" aria-label="Get started with VantaDB">
-              Get Started
-            </Link>
-          </div>
+          <Link to="/docs" className="nb-btn nb-btn--ghost nb-btn--ghost-light">
+            FULL DOCS
+          </Link>
+
+          <span ref={feedbackRef} className="nb-cta-feedback" aria-live="polite">
+            {copied ? "copied to clipboard" : ""}
+          </span>
         </div>
 
-        <div className="monolith-telemetry" aria-label="Package metadata">
-          <span>ONE BINARY</span>
-          <span>ZERO DEPS</span>
-          <span>MIT LICENSE</span>
+        <div
+          className="nb-meta-row"
+          style={{ marginTop: "var(--space-xl)", justifyContent: "center" }}
+        >
+          <span className="nb-meta-tag">ONE BINARY</span>
+          <span className="nb-meta-tag">ZERO DEPS</span>
+          <span className="nb-meta-tag">MIT LICENSE</span>
         </div>
       </div>
     </section>
