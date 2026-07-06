@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 
 const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
@@ -15,7 +15,7 @@ use crate::edge_index::EdgeIndex;
 use crate::error::{Result, VantaError};
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::scalar_index::ScalarIndex;
-use crate::wal::{WalReader, WalRecord};
+use crate::wal::WalRecord;
 use crate::wal_sharded::ShardedWal;
 
 // ─── Query Result ──────────────────────────────────────────
