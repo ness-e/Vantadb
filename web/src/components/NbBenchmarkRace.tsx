@@ -117,7 +117,7 @@ export function NbBenchmarkRace() {
                       </div>
                       <span className="nb-rd-bar-value">
                         {bar.value}
-                        {bar.unit}
+                        {group.unit}
                         {isVanta && <span className="nb-rd-bar-fast">FASTEST</span>}
                       </span>
                     </div>
