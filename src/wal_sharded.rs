@@ -95,6 +95,24 @@ impl ShardedWal {
         self.shards[idx].lock().append(record)
     }
 
+    /// Append multiple records across shards, batching per shard to reduce I/O.
+    pub fn batch_append(&self, records: &[WalRecord]) -> Result<()> {
+        if records.is_empty() || self.num_shards == 0 {
+            return Ok(());
+        }
+        let mut batches: Vec<Vec<WalRecord>> = (0..self.num_shards).map(|_| Vec::new()).collect();
+        for record in records {
+            let idx = self.next_shard.fetch_add(1, Ordering::Relaxed) % self.num_shards;
+            batches[idx].push(record.clone());
+        }
+        for (idx, batch) in batches.iter().enumerate() {
+            if !batch.is_empty() {
+                self.shards[idx].lock().batch_append(batch)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Replay all records across all shards, skipping those at or below
     /// `checkpoint_seq` per shard.
     pub fn recover(

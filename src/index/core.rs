@@ -11,7 +11,7 @@ use std::fs::{File, OpenOptions};
 use std::hash::BuildHasherDefault;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU128, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tracing::{info, warn};
 use twox_hash::XxHash64;
 
@@ -284,7 +284,7 @@ impl Default for HnswConfig {
         Self {
             m: 32,
             m_max0: 64,
-            ef_construction: 200,
+            ef_construction: 400,
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
@@ -349,7 +349,7 @@ pub struct CPIndex {
     /// Highest layer currently occupied by any node.
     pub max_layer: AtomicUsize,
     /// Entry point node ID (top-layer anchor for search).
-    pub entry_point: AtomicU128,
+    pub entry_point: parking_lot::Mutex<u128>,
     /// Storage backend (in-memory or mmap).
     pub backend: IndexBackend,
     /// HNSW construction and search configuration.
@@ -365,7 +365,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(0),
@@ -378,7 +378,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config,
             total_nodes: AtomicU64::new(0),
@@ -391,7 +391,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
+            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
             backend,
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(0),
@@ -417,7 +417,7 @@ impl CPIndex {
             }
             for layer in &node.neighbors {
                 total +=
-                    layer.len() * std::mem::size_of::<u64>() + std::mem::size_of::<NeighborVec>();
+                    layer.len() * std::mem::size_of::<u128>() + std::mem::size_of::<NeighborVec>();
             }
             total += std::mem::size_of::<HnswNode>();
         }
@@ -434,7 +434,7 @@ impl CPIndex {
     /// Thread-safe accessor for the current entry point.
     #[inline]
     pub fn get_entry_point(&self) -> Option<u128> {
-        let ep = self.entry_point.load(Ordering::Acquire);
+        let ep = *self.entry_point.lock();
         if ep == ENTRY_POINT_NONE {
             None
         } else {
@@ -446,7 +446,7 @@ impl CPIndex {
     /// is fully visible in DashMap before other threads follow this pointer.
     #[inline]
     pub fn set_entry_point(&self, id: u128) {
-        self.entry_point.store(id, Ordering::Release);
+        *self.entry_point.lock() = id;
     }
 
     #[inline(always)]
@@ -1406,7 +1406,6 @@ impl CPIndex {
         }
 
         #[inline]
-        #[inline]
         fn read_le_u128(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u128> {
             let bytes = take_bytes(data, pos, 16, field)?;
             Ok(u128::from_le_bytes(bytes.try_into().map_err(|e| {
@@ -1489,7 +1488,7 @@ impl CPIndex {
 
         let node_count = read_le_u64(data, &mut pos, "node_count")? as usize;
 
-        // Sanity: each node needs at least 37 bytes (id + bitset_len + offset + type + vec_len + layer_count).
+        // Sanity: each node needs at least 45 bytes (id + bitset_len + offset + type + vec_len + layer_count).
         // bitset payload is variable — 4 bytes len prefix is the minimum.
         const MIN_BYTES_PER_NODE: usize = 16 + 4 + 8 + 1 + 8 + 8;
         let remaining = data.len().saturating_sub(pos);
@@ -1675,7 +1674,7 @@ impl CPIndex {
         Ok(Self {
             nodes,
             max_layer: AtomicUsize::new(max_layer),
-            entry_point: AtomicU128::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
+            entry_point: parking_lot::Mutex::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
             config,
             total_nodes: AtomicU64::new(node_count),
@@ -2112,8 +2111,8 @@ mod tests {
 
         let header_size = crate::binary_header::VantaHeader::SIZE;
         // max_layer(8) + config v2 (m, m_max0, ef_construction, ef_search, ml = 5*8=40)
-        // + distance_metric(1) + ep_exists(1) + ep_id(8) = 58 bytes after header
-        let node_count_offset = header_size + 8 + 40 + 1 + 1 + 8;
+        // + distance_metric(1) + ep_exists(1) + ep_id(16) = 66 bytes after header
+        let node_count_offset = header_size + 8 + 40 + 1 + 1 + 16;
         if node_count_offset + 8 <= bytes.len() {
             bytes[node_count_offset..node_count_offset + 8]
                 .copy_from_slice(&u64::MAX.to_le_bytes());

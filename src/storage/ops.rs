@@ -80,7 +80,7 @@ pub(crate) fn insert_node_to_backend(
 /// Retrieve a fully reconstructed node from the KV backend and vector store.
 pub(crate) fn get_node_from_backend(
     backend: &dyn StorageBackend,
-    id: u64,
+    id: u128,
     hnsw: &CPIndex,
     vstore: &VantaFile,
 ) -> Result<Option<UnifiedNode>> {

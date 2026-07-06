@@ -9,6 +9,7 @@ use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{EvictionReason, FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 use crate::storage::ops::NodeMetadata;
+use crate::wal::WalRecord;
 
 impl StorageEngine {
     /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
@@ -147,12 +148,169 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Insert multiple nodes in a single batch operation.
+    ///
+    /// Reduces I/O and lock contention by batching WAL records, KV backend writes,
+    /// and acquiring the HNSW insert lock once for all nodes.
+    pub fn batch_insert(&self, nodes: &[UnifiedNode]) -> Result<()> {
+        if nodes.is_empty() {
+            return Ok(());
+        }
+
+        self.check_memory_pressure()?;
+        self.ensure_writable()?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("storage_insert_fail", |_| {
+            Err(crate::error::VantaError::IoError(std::io::Error::other(
+                "Simulated Storage insert catastrophic I/O failure",
+            )))
+        });
+
+        self.touch_activity();
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let mut wal_records: Vec<WalRecord> = Vec::with_capacity(nodes.len());
+        let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(nodes.len());
+        let mut hnsw_entries: Vec<(u128, FilterBitset, VectorRepresentations, u64)> =
+            Vec::with_capacity(nodes.len());
+
+        let mut vstore = self.vector_store.write();
+        {
+            let mut stats = self.cardinality_stats.write();
+            for node in nodes {
+                if let Ok(Some(existing_node)) = self.get(node.id) {
+                    for (field, value) in &existing_node.relational {
+                        let val_keys = value.to_cardinality_keys();
+                        if let Some(val_map) = stats.get_mut(field.as_str()) {
+                            for val_key in val_keys {
+                                if let Some(count) = val_map.get_mut(&val_key) {
+                                    if *count > 0 {
+                                        *count -= 1;
+                                    }
+                                }
+                            }
+                            val_map.retain(|_, &mut v| v > 0);
+                        }
+                    }
+                    if let Some(ref ei) = self.edge_index {
+                        for edge in &existing_node.edges {
+                            ei.remove_edge(node.id, edge.target);
+                        }
+                    }
+                    if let Some(ref si) = self.scalar_index {
+                        for (field, value) in &existing_node.relational {
+                            si.remove(field, value, node.id);
+                        }
+                    }
+                }
+
+                for (field, value) in &node.relational {
+                    let val_keys = value.to_cardinality_keys();
+                    let val_map = stats.entry(field.clone()).or_default();
+                    for val_key in val_keys {
+                        if val_map.len() < 100 || val_map.contains_key(&val_key) {
+                            *val_map.entry(val_key).or_default() += 1;
+                        }
+                    }
+                }
+
+                if let Some(ref ei) = self.edge_index {
+                    for edge in &node.edges {
+                        ei.insert(node.id, edge.target);
+                    }
+                }
+                if let Some(ref si) = self.scalar_index {
+                    for (field, value) in &node.relational {
+                        si.insert(field, value, node.id);
+                    }
+                }
+            }
+        }
+
+        for node in nodes {
+            let mut active_node = node.clone();
+            active_node.last_accessed = now_ms;
+            let storage_offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
+            hnsw_entries.push((
+                active_node.id,
+                active_node.bitset.clone(),
+                active_node.vector.clone(),
+                storage_offset,
+            ));
+            wal_records.push(WalRecord::Insert(active_node.clone()));
+
+            let key = active_node.id.to_le_bytes();
+            let metadata = NodeMetadata {
+                relational: active_node.relational.clone(),
+                edges: active_node.edges.clone(),
+            };
+            let metadata_val = postcard::to_allocvec(&metadata)
+                .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+            kv_ops.push(BackendWriteOp::Put {
+                partition: BackendPartition::Default,
+                key: key.to_vec(),
+                value: metadata_val,
+            });
+        }
+        drop(vstore);
+
+        if let Some(ref sharded) = self.wal {
+            sharded.batch_append(&wal_records)?;
+        }
+
+        self.backend.write_batch(kv_ops)?;
+
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in batch_insert".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            let hnsw = self.hnsw.load();
+            for (id, bitset, vector, offset) in &hnsw_entries {
+                hnsw.add(*id, bitset.clone(), vector.clone(), *offset);
+            }
+        }
+
+        {
+            let mut cache = self.volatile_cache.write();
+            for node in nodes {
+                if node.tier == crate::node::NodeTier::Hot {
+                    cache.insert(node.id, node.clone());
+                }
+            }
+            let caps = crate::hardware::HardwareCapabilities::global();
+            let cache_cap_bytes = caps.total_memory / 4;
+            let approx_node_size = 1536;
+            let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
+            if cache.len() > max_nodes {
+                self.emergency_maintenance_trigger
+                    .store(true, Ordering::Release);
+                if let Err(e) = self.evict_cold_nodes_with_reason(
+                    self.config.eviction_ratio,
+                    EvictionReason::Watermark,
+                ) {
+                    tracing::warn!("eviction failed: {e}");
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Retrieve a node by its numeric ID, checking the volatile cache first.
     #[tracing::instrument(skip(self), level = "debug", err)]
-    pub fn get(&self, id: u64) -> Result<Option<UnifiedNode>> {
+    pub fn get(&self, id: u128) -> Result<Option<UnifiedNode>> {
         self.touch_activity();
 
-        self.quantization_governor.record_access(id as u64);
+        self.quantization_governor.record_access(id);
 
         {
             let mut cache = self.volatile_cache.write();
@@ -225,7 +383,7 @@ impl StorageEngine {
 
     /// Retrieve multiple nodes by ID in a single batch operation.
     #[tracing::instrument(skip(self), level = "debug", err)]
-    pub fn get_many(&self, ids: &[u64]) -> Result<Vec<UnifiedNode>> {
+    pub fn get_many(&self, ids: &[u128]) -> Result<Vec<UnifiedNode>> {
         self.touch_activity();
 
         if ids.is_empty() {
@@ -234,7 +392,7 @@ impl StorageEngine {
 
         let mut results: Vec<UnifiedNode> = Vec::with_capacity(ids.len());
 
-        let ids_with_keys: Vec<(u64, Vec<u8>)> = ids
+        let ids_with_keys: Vec<(u128, Vec<u8>)> = ids
             .iter()
             .map(|id| (*id, id.to_le_bytes().to_vec()))
             .collect();
@@ -273,16 +431,16 @@ impl StorageEngine {
             .backend
             .get_many(BackendPartition::Default, &remaining_keys)?;
 
-        let mut backend_map: std::collections::HashMap<u64, Vec<u8>> =
+        let mut backend_map: std::collections::HashMap<u128, Vec<u8>> =
             std::collections::HashMap::with_capacity(backend_results.len());
         for (k, v) in backend_results {
-            let key_slice: [u8; 8] = k.as_slice().try_into().map_err(|_| {
+            let key_slice: [u8; 16] = k.as_slice().try_into().map_err(|_| {
                 crate::error::VantaError::BackendError(format!(
-                    "corrupt backend: key length {} != 8",
+                    "corrupt backend: key length {} != 16",
                     k.len()
                 ))
             })?;
-            backend_map.insert(u64::from_le_bytes(key_slice), v);
+            backend_map.insert(u128::from_le_bytes(key_slice), v);
         }
 
         let hnsw = self.hnsw.load();
@@ -348,7 +506,7 @@ impl StorageEngine {
 
     /// Mark a node as deleted: write tombstone, remove from cache and backend.
     #[tracing::instrument(skip(self), level = "debug", err)]
-    pub fn delete(&self, id: u64, _reason: &str) -> Result<()> {
+    pub fn delete(&self, id: u128, _reason: &str) -> Result<()> {
         self.check_memory_pressure()?;
         if let Ok(Some(node)) = self.get(id) {
             let mut stats = self.cardinality_stats.write();
@@ -403,7 +561,7 @@ impl StorageEngine {
     }
 
     /// Permanently remove all traces of a node from all backend partitions.
-    pub fn purge_permanent(&self, id: u64) -> Result<()> {
+    pub fn purge_permanent(&self, id: u128) -> Result<()> {
         self.ensure_writable()?;
         let key = id.to_le_bytes();
         self.backend.write_batch(vec![
@@ -423,7 +581,7 @@ impl StorageEngine {
     }
 
     /// Check whether a node has been marked as deleted in the tombstones partition.
-    pub fn is_deleted(&self, id: u64) -> Result<bool> {
+    pub fn is_deleted(&self, id: u128) -> Result<bool> {
         let key = id.to_le_bytes();
         match self.backend.get(BackendPartition::Tombstones, &key)? {
             Some(_) => Ok(true),
@@ -458,7 +616,7 @@ impl StorageEngine {
         cursor: &str,
         limit: usize,
     ) -> Result<(Vec<UnifiedNode>, String)> {
-        let cursor_id: u64 = cursor.parse().unwrap_or(0);
+        let cursor_id: u128 = cursor.parse().unwrap_or(0);
         let entries = self.backend.scan(BackendPartition::Default)?;
 
         let raw_nodes = {
@@ -470,12 +628,12 @@ impl StorageEngine {
                 if collected.len() >= limit {
                     break;
                 }
-                if key.len() != std::mem::size_of::<u64>() {
+                if key.len() != std::mem::size_of::<u128>() {
                     continue;
                 }
 
                 let id =
-                    u64::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 8]"));
+                    u128::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 16]"));
                 if id <= cursor_id {
                     continue;
                 }
@@ -521,7 +679,7 @@ impl StorageEngine {
         };
 
         let mut nodes = Vec::with_capacity(raw_nodes.len());
-        let mut last_id = 0u64;
+        let mut last_id = 0u128;
         for (id, metadata, header, f32_vec) in raw_nodes {
             last_id = id;
             let mut node = UnifiedNode::new(id);
