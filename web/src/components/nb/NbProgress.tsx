@@ -1,7 +1,7 @@
 interface NbProgressProps {
   value: number;
   label: string;
-  variant?: "amber" | "solid";
+  variant?: "amber" | "solid" | "multi";
 }
 
 export function NbProgress({ value, label, variant = "amber" }: NbProgressProps) {
