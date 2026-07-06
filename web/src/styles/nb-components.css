@@ -433,8 +433,6 @@
   animation-duration: 15s;
 }
 
-}
-
 .nb-log-line {
   font-family: var(--font-mono);
   font-size: var(--text-code);
