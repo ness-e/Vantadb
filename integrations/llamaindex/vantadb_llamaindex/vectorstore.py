@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional, Sequence
 
 import vantadb_py as vanta
@@ -57,6 +56,18 @@ class VantaDBVectorStore(BasePydanticVectorStore):
     def _node_to_key(self, node: BaseNode) -> str:
         return node.node_id
 
+    @staticmethod
+    def _hit_to_dict(hit: vanta.VantaSearchHit) -> dict:
+        return {
+            "key": hit.key,
+            "node_id": hit.id,
+            "payload": hit.payload,
+            "metadata": dict(hit.metadata),
+            "created_at_ms": hit.created_at_ms,
+            "updated_at_ms": hit.updated_at_ms,
+            "version": hit.version,
+        }
+
     def _record_to_node(self, record: dict) -> TextNode:
         metadata = dict(record.get("metadata", {}))
         node_id = record.get("key", "")
@@ -93,7 +104,15 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         return ids
 
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
-        self._client.delete_by_filter(self._namespace, "ref_doc_id", ref_doc_id)
+        page = self._client.list_memory(
+            self._namespace,
+            filters={"ref_doc_id": ref_doc_id},
+            limit=10000,
+        )
+        for rec in page.get("records", []):
+            key = rec.get("key")
+            if key:
+                self._client.delete_memory(self._namespace, key)
 
     def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
         query_embedding = query.query_embedding
@@ -127,13 +146,11 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         similarities: List[float] = []
         ids: List[str] = []
 
-        for result in results:
-            record = result.get("record", {})
-            score = result.get("score", 0.0)
-            node = self._record_to_node(record)
+        for hit in results:
+            node = self._record_to_node(self._hit_to_dict(hit))
             nodes.append(node)
-            similarities.append(1.0 - score / 2.0)
-            ids.append(record.get("key", ""))
+            similarities.append(1.0 - hit.score / 2.0)
+            ids.append(hit.key)
 
         return VectorStoreQueryResult(nodes=nodes, similarities=similarities, ids=ids)
 

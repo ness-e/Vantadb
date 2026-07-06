@@ -139,14 +139,14 @@ class VantaDBAutoGenMemory:
         
         results = []
         for hit in hits:
-            record = hit["record"]
+            metadata = hit.metadata
             results.append({
-                "id": record["key"],
-                "role": record["metadata"].get("role"),
-                "content": record["payload"],
-                "type": record["metadata"].get("type"),
-                "score": hit["score"],
-                "created_at": record["created_at_ms"]
+                "id": hit.key,
+                "role": metadata.get("role"),
+                "content": hit.payload,
+                "type": metadata.get("type"),
+                "score": hit.score,
+                "created_at": hit.created_at_ms
             })
         
         return results

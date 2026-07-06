@@ -17,8 +17,14 @@ def store():
     yield store
 
 
+def _node(text: str, id: str) -> TextNode:
+    node = TextNode(text=text, id_=id)
+    node.embedding = [0.1, 0.2, 0.3, 0.4]
+    return node
+
+
 def test_add_and_query(store):
-    nodes = [TextNode(text="hello world", id_="1")]
+    nodes = [_node("hello world", "1")]
     ids = store.add(nodes)
     assert ids == ["1"]
     
@@ -32,14 +38,18 @@ def test_add_and_query(store):
 
 
 def test_delete_by_ref_doc(store):
-    nodes = [TextNode(text="one", id_="n1"),
-             TextNode(text="two", id_="n2")]
-    store.add(nodes)
+    from llama_index.core.schema import NodeRelationship, RelatedNodeInfo
+    n1 = _node("one", "n1")
+    n1.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(node_id="doc_a")
+    n2 = _node("two", "n2")
+    n2.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(node_id="doc_b")
+    store.add([n1, n2])
     
-    store.delete("n1")
+    store.delete("doc_a")
     
     result = store.query(VectorStoreQuery(query_embedding=[0.1]*4, similarity_top_k=5))
     assert all(n.node_id != "n1" for n in result.nodes)
+    assert any(n.node_id == "n2" for n in result.nodes)
 
 
 def test_empty_store(store):
@@ -49,15 +59,15 @@ def test_empty_store(store):
 
 
 def test_get_nodes(store):
-    nodes = [TextNode(text="test", id_="get1")]
+    nodes = [_node("test", "get1")]
     store.add(nodes)
     found = store.get_nodes(node_ids=["get1"])
     assert len(found) == 1
 
 
 def test_clear(store):
-    nodes = [TextNode(text="a", id_="a1"),
-             TextNode(text="b", id_="b1")]
+    nodes = [_node("a", "a1"),
+             _node("b", "b1")]
     store.add(nodes)
     store.clear()
     result = store.query(VectorStoreQuery(query_embedding=[0.1]*4, similarity_top_k=5))

@@ -184,15 +184,14 @@ class VantaDBCheckpointStore:
         
         checkpoints = []
         for hit in hits:
-            record = hit["record"]
             try:
-                checkpoint = json.loads(record["payload"])
+                checkpoint = json.loads(hit.payload)
                 checkpoints.append({
-                    "id": record["key"],
-                    "config": json.loads(record["metadata"].get("config", "{}")),
+                    "id": hit.key,
+                    "config": json.loads(hit.metadata.get("config", "{}")),
                     "checkpoint": checkpoint,
-                    "score": hit["score"],
-                    "created_at": record["created_at_ms"]
+                    "score": hit.score,
+                    "created_at": hit.created_at_ms
                 })
             except json.JSONDecodeError:
                 continue

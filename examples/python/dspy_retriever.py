@@ -105,11 +105,10 @@ class VantaDBRetriever:
         
         documents = []
         for hit in hits:
-            record = hit["record"]
             documents.append({
-                "text": record["payload"],
-                "metadata": record["metadata"],
-                "score": hit["score"]
+                "text": hit.payload,
+                "metadata": dict(hit.metadata),
+                "score": hit.score
             })
         
         return documents
