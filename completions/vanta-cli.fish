@@ -110,13 +110,29 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -l key -d 'K
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand delete" -s h -l help -d 'Print help'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l target -d 'Path to the database directory to migrate' -r
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l format -d 'Specific format to migrate (vfile, index, wal, schema, all)' -r
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l dry-run -d 'Report what would be migrated without writing'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -l force -d 'Skip confirmation prompts'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s v -l verbose -d 'Enable verbose output'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -f -a "plan" -d 'Plan migrations that would be performed'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -f -a "run" -d 'Run migrations to bring formats up to date'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -f -a "check" -d 'Check storage integrity for all formats'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and not __fish_seen_subcommand_from plan run check help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from plan" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from plan" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from plan" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -l format -d 'Specific format to migrate (vfile, index, wal, schema, all)' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -l dry-run -d 'Preview changes without modifying files'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -l force -d 'Skip confirmation prompts'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from run" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from check" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from check" -s v -l verbose -d 'Enable verbose output'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from check" -s h -l help -d 'Print help'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from help" -f -a "plan" -d 'Plan migrations that would be performed'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from help" -f -a "run" -d 'Run migrations to bring formats up to date'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from help" -f -a "check" -d 'Check storage integrity for all formats'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand migrate; and __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand namespace; and not __fish_seen_subcommand_from list info help" -s h -l help -d 'Print help'
@@ -156,5 +172,8 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete migrate namespace server help" -f -a "namespace" -d 'Manage namespaces'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete migrate namespace server help" -f -a "server" -d 'Start the HTTP or MCP server wrapper'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete migrate namespace server help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from migrate" -f -a "plan" -d 'Plan migrations that would be performed'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from migrate" -f -a "run" -d 'Run migrations to bring formats up to date'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from migrate" -f -a "check" -d 'Check storage integrity for all formats'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from namespace" -f -a "list" -d 'List all namespaces'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and __fish_seen_subcommand_from namespace" -f -a "info" -d 'Show record count and details for a namespace'

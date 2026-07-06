@@ -118,11 +118,44 @@ _vanta-cli() {
             vanta__cli__subcmd__help,status)
                 cmd="vanta__cli__subcmd__help__subcmd__status"
                 ;;
+            vanta__cli__subcmd__help__subcmd__migrate,check)
+                cmd="vanta__cli__subcmd__help__subcmd__migrate__subcmd__check"
+                ;;
+            vanta__cli__subcmd__help__subcmd__migrate,plan)
+                cmd="vanta__cli__subcmd__help__subcmd__migrate__subcmd__plan"
+                ;;
+            vanta__cli__subcmd__help__subcmd__migrate,run)
+                cmd="vanta__cli__subcmd__help__subcmd__migrate__subcmd__run"
+                ;;
             vanta__cli__subcmd__help__subcmd__namespace,info)
                 cmd="vanta__cli__subcmd__help__subcmd__namespace__subcmd__info"
                 ;;
             vanta__cli__subcmd__help__subcmd__namespace,list)
                 cmd="vanta__cli__subcmd__help__subcmd__namespace__subcmd__list"
+                ;;
+            vanta__cli__subcmd__migrate,check)
+                cmd="vanta__cli__subcmd__migrate__subcmd__check"
+                ;;
+            vanta__cli__subcmd__migrate,help)
+                cmd="vanta__cli__subcmd__migrate__subcmd__help"
+                ;;
+            vanta__cli__subcmd__migrate,plan)
+                cmd="vanta__cli__subcmd__migrate__subcmd__plan"
+                ;;
+            vanta__cli__subcmd__migrate,run)
+                cmd="vanta__cli__subcmd__migrate__subcmd__run"
+                ;;
+            vanta__cli__subcmd__migrate__subcmd__help,check)
+                cmd="vanta__cli__subcmd__migrate__subcmd__help__subcmd__check"
+                ;;
+            vanta__cli__subcmd__migrate__subcmd__help,help)
+                cmd="vanta__cli__subcmd__migrate__subcmd__help__subcmd__help"
+                ;;
+            vanta__cli__subcmd__migrate__subcmd__help,plan)
+                cmd="vanta__cli__subcmd__migrate__subcmd__help__subcmd__plan"
+                ;;
+            vanta__cli__subcmd__migrate__subcmd__help,run)
+                cmd="vanta__cli__subcmd__migrate__subcmd__help__subcmd__run"
                 ;;
             vanta__cli__subcmd__namespace,help)
                 cmd="vanta__cli__subcmd__namespace__subcmd__help"
@@ -439,8 +472,50 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help__subcmd__migrate)
-            opts=""
+            opts="plan run check"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__migrate__subcmd__check)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__migrate__subcmd__plan)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__migrate__subcmd__run)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
@@ -649,16 +724,148 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__migrate)
-            opts="-d -v -h --target --format --dry-run --force --db --verbose --help"
+            opts="-d -v -h --db --verbose --help plan run check help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
-                --target)
+                --db)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__check)
+            opts="-d -v -h --db --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__help)
+            opts="plan run check help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__help__subcmd__check)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__help__subcmd__help)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__help__subcmd__plan)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__help__subcmd__run)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__plan)
+            opts="-d -v -h --db --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__migrate__subcmd__run)
+            opts="-d -v -h --format --dry-run --force --db --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
                 --format)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

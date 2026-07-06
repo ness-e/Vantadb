@@ -148,23 +148,8 @@ pub enum Commands {
     },
 
     /// Migrate a database to the latest storage schema version
-    Migrate {
-        /// Path to the database directory to migrate
-        #[arg(long, default_value = "./db")]
-        target: String,
-
-        /// Specific format to migrate (vfile, index, wal, schema, all)
-        #[arg(long, default_value = "all")]
-        format: String,
-
-        /// Report what would be migrated without writing
-        #[arg(long, default_value_t = false)]
-        dry_run: bool,
-
-        /// Skip confirmation prompts
-        #[arg(long, default_value_t = false)]
-        force: bool,
-    },
+    #[command(subcommand)]
+    Migrate(MigrateCommand),
 
     /// Manage namespaces
     #[command(subcommand)]
@@ -199,6 +184,35 @@ pub enum NamespaceCommand {
     Info {
         /// Namespace to inspect
         namespace: String,
+    },
+}
+
+/// Subcommands for database migration
+#[derive(Subcommand, Debug, Clone)]
+pub enum MigrateCommand {
+    /// Plan migrations that would be performed
+    Plan {
+        /// Path to the database directory
+        target: String,
+    },
+    /// Run migrations to bring formats up to date
+    Run {
+        /// Path to the database directory
+        target: String,
+        /// Specific format to migrate (vfile, index, wal, schema, all)
+        #[arg(long, default_value = "all")]
+        format: String,
+        /// Preview changes without modifying files
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+        /// Skip confirmation prompts
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
+    /// Check storage integrity for all formats
+    Check {
+        /// Path to the database directory
+        target: String,
     },
 }
 

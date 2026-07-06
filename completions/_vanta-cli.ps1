@@ -189,16 +189,65 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;migrate' {
-            [CompletionResult]::new('--target', '--target', [CompletionResultType]::ParameterName, 'Path to the database directory to migrate')
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('plan', 'plan', [CompletionResultType]::ParameterValue, 'Plan migrations that would be performed')
+            [CompletionResult]::new('run', 'run', [CompletionResultType]::ParameterValue, 'Run migrations to bring formats up to date')
+            [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Check storage integrity for all formats')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;migrate;plan' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;migrate;run' {
             [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Specific format to migrate (vfile, index, wal, schema, all)')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
-            [CompletionResult]::new('--dry-run', '--dry-run', [CompletionResultType]::ParameterName, 'Report what would be migrated without writing')
+            [CompletionResult]::new('--dry-run', '--dry-run', [CompletionResultType]::ParameterName, 'Preview changes without modifying files')
             [CompletionResult]::new('--force', '--force', [CompletionResultType]::ParameterName, 'Skip confirmation prompts')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;migrate;check' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
+        'vanta-cli;migrate;help' {
+            [CompletionResult]::new('plan', 'plan', [CompletionResultType]::ParameterValue, 'Plan migrations that would be performed')
+            [CompletionResult]::new('run', 'run', [CompletionResultType]::ParameterValue, 'Run migrations to bring formats up to date')
+            [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Check storage integrity for all formats')
+            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
+            break
+        }
+        'vanta-cli;migrate;help;plan' {
+            break
+        }
+        'vanta-cli;migrate;help;run' {
+            break
+        }
+        'vanta-cli;migrate;help;check' {
+            break
+        }
+        'vanta-cli;migrate;help;help' {
             break
         }
         'vanta-cli;namespace' {
@@ -320,6 +369,18 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;help;migrate' {
+            [CompletionResult]::new('plan', 'plan', [CompletionResultType]::ParameterValue, 'Plan migrations that would be performed')
+            [CompletionResult]::new('run', 'run', [CompletionResultType]::ParameterValue, 'Run migrations to bring formats up to date')
+            [CompletionResult]::new('check', 'check', [CompletionResultType]::ParameterValue, 'Check storage integrity for all formats')
+            break
+        }
+        'vanta-cli;help;migrate;plan' {
+            break
+        }
+        'vanta-cli;help;migrate;run' {
+            break
+        }
+        'vanta-cli;help;migrate;check' {
             break
         }
         'vanta-cli;help;namespace' {

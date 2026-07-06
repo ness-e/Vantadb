@@ -96,12 +96,20 @@ fn main() -> Result<()> {
             }
         },
 
-        Commands::Migrate {
-            target,
-            format,
-            dry_run,
-            force,
-        } => cli_handlers::cmd_migrate(&target, &format, dry_run, force, args.verbose)?,
+        Commands::Migrate(cmd) => match cmd {
+            vantadb::cli::MigrateCommand::Plan { target } => {
+                cli_handlers::cmd_migrate_plan(&target, args.verbose)?
+            }
+            vantadb::cli::MigrateCommand::Run {
+                target,
+                format,
+                dry_run,
+                force,
+            } => cli_handlers::cmd_migrate(&target, &format, dry_run, force, args.verbose)?,
+            vantadb::cli::MigrateCommand::Check { target } => {
+                cli_handlers::cmd_migrate_check(&target, args.verbose)?
+            }
+        },
 
         Commands::Status => cli_handlers::cmd_status(&args.db, args.verbose)?,
 
