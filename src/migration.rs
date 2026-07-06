@@ -4,7 +4,7 @@ use crate::binary_header::VantaHeader;
 use crate::error::Result;
 use crate::index::core::VECTOR_INDEX_VERSION;
 use crate::storage::vfile::VFILE_VERSION;
-use crate::wal::WAL_POSTCARD_VERSION;
+use crate::wal::{WalHeader, WAL_POSTCARD_VERSION};
 
 /// Physical format kinds that can be migrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,7 +42,7 @@ impl FormatKind {
 
     /// Parse a format kind from a string (case-insensitive).
     pub fn from_string(s: &str) -> Option<FormatKind> {
-        match s {
+        match s.to_lowercase().as_str() {
             "vfile" | "vantafile" => Some(FormatKind::VantaFile),
             "index" | "vectorindex" => Some(FormatKind::VectorIndex),
             "wal" => Some(FormatKind::Wal),
@@ -169,18 +169,9 @@ impl MigrationEngine {
     pub fn migrate_format(&self, kind: FormatKind) -> Result<()> {
         match kind {
             FormatKind::VantaFile => self.migrate_vfile_to_latest(),
-            FormatKind::VectorIndex => {
-                println!("  ✓ Vector index: up-to-date (v{VECTOR_INDEX_VERSION})");
-                Ok(())
-            }
-            FormatKind::Wal => {
-                println!("  ✓ WAL: current (v{WAL_POSTCARD_VERSION}) — no migration needed");
-                Ok(())
-            }
-            FormatKind::Schema => {
-                println!("  ✓ Schema: current (v1) — no migration needed");
-                Ok(())
-            }
+            FormatKind::VectorIndex => self.migrate_vector_index(),
+            FormatKind::Wal => self.migrate_wal(),
+            FormatKind::Schema => self.migrate_schema(),
         }
     }
 
@@ -228,6 +219,144 @@ impl MigrationEngine {
         Ok(())
     }
 
+    /// Migrate the WAL file header to the latest format version.
+    fn migrate_wal(&self) -> Result<()> {
+        let wal_path = self.db_path.join("wal.log");
+        if !wal_path.exists() {
+            println!("  - No WAL file found, skipping");
+            return Ok(());
+        }
+
+        let data = std::fs::read(&wal_path)?;
+        if data.len() < VantaHeader::SIZE {
+            println!("  - WAL file too small, skipping");
+            return Ok(());
+        }
+
+        let header = VantaHeader::deserialize(&data[..VantaHeader::SIZE])?;
+        if header.magic != *b"VWAL" {
+            println!("  - WAL file has invalid magic, skipping");
+            return Ok(());
+        }
+
+        if header.format_version >= WAL_POSTCARD_VERSION {
+            println!(
+                "  - WAL already at version {} (latest: {})",
+                header.format_version, WAL_POSTCARD_VERSION
+            );
+            return Ok(());
+        }
+
+        if self.dry_run {
+            println!(
+                "  [dry-run] WAL v{} → v{}: would rewrite header",
+                header.format_version, WAL_POSTCARD_VERSION
+            );
+            return Ok(());
+        }
+
+        let backup_path = wal_path.with_extension("wal.bak");
+        std::fs::copy(&wal_path, &backup_path)?;
+
+        let new_wal_header = WalHeader::new(WAL_POSTCARD_VERSION as u32);
+        let mut new_data = new_wal_header.serialize().to_vec();
+        let old_header_end = if data.len() >= WalHeader::SIZE {
+            WalHeader::SIZE
+        } else {
+            VantaHeader::SIZE
+        };
+        if data.len() > old_header_end {
+            new_data.extend_from_slice(&data[old_header_end..]);
+        }
+
+        std::fs::write(&wal_path, &new_data)?;
+
+        println!(
+            "  ✓ WAL migrated: v{} → v{}",
+            header.format_version, WAL_POSTCARD_VERSION
+        );
+        println!("  - Backup saved at: {}", backup_path.display());
+
+        Ok(())
+    }
+
+    /// Rebuild the HNSW vector index when its version differs from current.
+    fn migrate_vector_index(&self) -> Result<()> {
+        let index_path = self.db_path.join("index.bin");
+        let header = match self.read_header(&index_path, *b"VNDX")? {
+            Some(h) => h,
+            None => {
+                println!("  - No index file found, skipping");
+                return Ok(());
+            }
+        };
+
+        if header.format_version == VECTOR_INDEX_VERSION {
+            println!(
+                "  - Vector index already at version {} (latest: {})",
+                header.format_version, VECTOR_INDEX_VERSION
+            );
+            return Ok(());
+        }
+
+        if self.dry_run {
+            println!(
+                "  [dry-run] Vector index v{} → v{}: would rebuild index from VantaFile",
+                header.format_version, VECTOR_INDEX_VERSION
+            );
+            return Ok(());
+        }
+
+        let path_str = self.db_path.to_string_lossy();
+        let config = crate::config::VantaConfig {
+            read_only: false,
+            ..Default::default()
+        };
+
+        let engine = crate::storage::StorageEngine::open_with_config(
+            path_str.as_ref(),
+            Some(config),
+        )?;
+
+        let report = engine.rebuild_vector_index()?;
+        drop(engine);
+
+        println!(
+            "  ✓ Vector index rebuilt: v{} → v{} ({} nodes, {} vectors, {} ms)",
+            header.format_version,
+            VECTOR_INDEX_VERSION,
+            report.scanned_nodes,
+            report.indexed_vectors,
+            report.duration_ms,
+        );
+
+        Ok(())
+    }
+
+    /// Print schema version info (actual migration handled by CLI).
+    fn migrate_schema(&self) -> Result<()> {
+        let schema_path = self.db_path.join(".vanta.schema");
+        if !schema_path.exists() {
+            println!("  - No schema file found, skipping");
+            return Ok(());
+        }
+
+        match crate::schema::StorageHeader::read_from(&schema_path)? {
+            Some(header) => {
+                println!(
+                    "  ✓ Schema: v{} (latest: v{}) — no migration needed",
+                    header.version,
+                    crate::schema::CURRENT_SCHEMA_VERSION,
+                );
+            }
+            None => {
+                println!("  - Schema file is empty or invalid, skipping");
+            }
+        }
+
+        Ok(())
+    }
+
     /// Check storage integrity and return a list of issues found.
     pub fn check_integrity(&self) -> Result<Vec<String>> {
         let mut issues = Vec::new();
@@ -243,6 +372,24 @@ impl MigrationEngine {
             }
         }
 
+        if let Ok(Some(header)) = self.read_header(&self.db_path.join("wal.log"), *b"VWAL") {
+            if header.format_version != WAL_POSTCARD_VERSION {
+                issues.push(format!(
+                    "WAL at v{}, latest is v{}",
+                    header.format_version, WAL_POSTCARD_VERSION
+                ));
+            }
+        }
+
+        if let Ok(Some(header)) = self.read_header(&self.db_path.join("index.bin"), *b"VNDX") {
+            if header.format_version != VECTOR_INDEX_VERSION {
+                issues.push(format!(
+                    "Index at v{}, latest is v{}",
+                    header.format_version, VECTOR_INDEX_VERSION
+                ));
+            }
+        }
+
         Ok(issues)
     }
 }
@@ -251,6 +398,7 @@ impl MigrationEngine {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
+    use crate::binary_header::VantaHeader;
     use tempfile::TempDir;
 
     #[test]
@@ -302,6 +450,21 @@ mod tests {
     }
 
     #[test]
+    fn test_format_from_str_case_insensitive() {
+        assert_eq!(
+            FormatKind::from_string("VFILE"),
+            Some(FormatKind::VantaFile)
+        );
+        assert_eq!(
+            FormatKind::from_string("Index"),
+            Some(FormatKind::VectorIndex)
+        );
+        assert_eq!(FormatKind::from_string("WAL"), Some(FormatKind::Wal));
+        assert_eq!(FormatKind::from_string("Schema"), Some(FormatKind::Schema));
+        assert_eq!(FormatKind::from_string("ALL"), None);
+    }
+
+    #[test]
     fn test_plan_on_empty_dir() -> Result<()> {
         let dir = TempDir::new()?;
         let engine = MigrationEngine::new(dir.path());
@@ -348,6 +511,48 @@ mod tests {
     }
 
     #[test]
+    fn test_plan_includes_index() -> Result<()> {
+        let dir = TempDir::new()?;
+        let index_path = dir.path().join("index.bin");
+        let old_version = 1u16;
+        let header = VantaHeader::new(*b"VNDX", old_version, 0);
+        std::fs::write(&index_path, header.serialize())?;
+
+        let engine = MigrationEngine::new(dir.path());
+        let plans = engine.plan_all()?;
+        let index_plan = plans.iter().find(|p| p.format == FormatKind::VectorIndex);
+        assert!(
+            index_plan.is_some(),
+            "should have a VectorIndex migration plan"
+        );
+        let p = index_plan.unwrap();
+        assert_eq!(p.current_version, old_version);
+        assert_eq!(p.target_version, VECTOR_INDEX_VERSION);
+        Ok(())
+    }
+
+    #[test]
+    fn test_plan_includes_wal() -> Result<()> {
+        let dir = TempDir::new()?;
+        let wal_path = dir.path().join("wal.log");
+        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let base_bytes = old_base.serialize();
+        let crc = crc32c::crc32c(&base_bytes);
+        let mut data = base_bytes.to_vec();
+        data.extend_from_slice(&crc.to_le_bytes());
+        std::fs::write(&wal_path, &data)?;
+
+        let engine = MigrationEngine::new(dir.path());
+        let plans = engine.plan_all()?;
+        let wal_plan = plans.iter().find(|p| p.format == FormatKind::Wal);
+        assert!(wal_plan.is_some(), "should have a WAL migration plan");
+        let p = wal_plan.unwrap();
+        assert_eq!(p.current_version, 0);
+        assert_eq!(p.target_version, WAL_POSTCARD_VERSION);
+        Ok(())
+    }
+
+    #[test]
     fn test_migrate_vfile_nonexistent() -> Result<()> {
         let dir = TempDir::new()?;
         let engine = MigrationEngine::new(dir.path());
@@ -379,6 +584,86 @@ mod tests {
     }
 
     #[test]
+    fn test_migrate_wal_updates_header() -> Result<()> {
+        let dir = TempDir::new()?;
+        let wal_path = dir.path().join("wal.log");
+
+        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let base_bytes = old_base.serialize();
+        let crc = crc32c::crc32c(&base_bytes);
+        let mut data = base_bytes.to_vec();
+        data.extend_from_slice(&crc.to_le_bytes());
+        std::fs::write(&wal_path, &data)?;
+
+        let engine = MigrationEngine::new(dir.path());
+        engine.migrate_format(FormatKind::Wal)?;
+
+        let migrated = std::fs::read(&wal_path)?;
+        let migrated_wal = WalHeader::deserialize(&migrated[..WalHeader::SIZE])?;
+        assert_eq!(migrated_wal.base.format_version, WAL_POSTCARD_VERSION);
+        assert_eq!(migrated_wal.base.magic, *b"VWAL");
+
+        assert!(wal_path.with_extension("wal.bak").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_wal_skips_current() -> Result<()> {
+        let dir = TempDir::new()?;
+        let wal_path = dir.path().join("wal.log");
+
+        let header = WalHeader::new(WAL_POSTCARD_VERSION as u32);
+        std::fs::write(&wal_path, header.serialize())?;
+
+        let engine = MigrationEngine::new(dir.path());
+        engine.migrate_format(FormatKind::Wal)?;
+
+        assert!(!wal_path.with_extension("wal.bak").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_wal_dry_run() -> Result<()> {
+        let dir = TempDir::new()?;
+        let wal_path = dir.path().join("wal.log");
+
+        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let base_bytes = old_base.serialize();
+        let crc = crc32c::crc32c(&base_bytes);
+        let mut data = base_bytes.to_vec();
+        data.extend_from_slice(&crc.to_le_bytes());
+        std::fs::write(&wal_path, &data)?;
+
+        let mut engine = MigrationEngine::new(dir.path());
+        engine.set_dry_run(true);
+        engine.migrate_format(FormatKind::Wal)?;
+
+        let not_migrated = std::fs::read(&wal_path)?;
+        let not_migrated_header =
+            VantaHeader::deserialize(&not_migrated[..VantaHeader::SIZE])?;
+        assert_eq!(not_migrated_header.format_version, 0);
+        assert!(!wal_path.with_extension("wal.bak").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_index_dry_run_with_plan() -> Result<()> {
+        let dir = TempDir::new()?;
+        let index_path = dir.path().join("index.bin");
+        let header = VantaHeader::new(*b"VNDX", 1, 0);
+        std::fs::write(&index_path, header.serialize())?;
+
+        let mut engine = MigrationEngine::new(dir.path());
+        engine.set_dry_run(true);
+        engine.migrate_format(FormatKind::VectorIndex)?;
+
+        let same = std::fs::read(&index_path)?;
+        let same_header = VantaHeader::deserialize(&same)?;
+        assert_eq!(same_header.format_version, 1);
+        Ok(())
+    }
+
+    #[test]
     fn test_check_integrity_reports_old_version() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
@@ -402,6 +687,28 @@ mod tests {
         let engine = MigrationEngine::new(dir.path());
         let issues = engine.check_integrity()?;
         assert!(issues.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_check_integrity_reports_wal_and_index() -> Result<()> {
+        let dir = TempDir::new()?;
+
+        let wal_path = dir.path().join("wal.log");
+        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let base_bytes = old_base.serialize();
+        let crc = crc32c::crc32c(&base_bytes);
+        let mut data = base_bytes.to_vec();
+        data.extend_from_slice(&crc.to_le_bytes());
+        std::fs::write(&wal_path, &data)?;
+
+        let index_path = dir.path().join("index.bin");
+        let idx_header = VantaHeader::new(*b"VNDX", 1, 0);
+        std::fs::write(&index_path, idx_header.serialize())?;
+
+        let engine = MigrationEngine::new(dir.path());
+        let issues = engine.check_integrity()?;
+        assert_eq!(issues.len(), 2);
         Ok(())
     }
 }

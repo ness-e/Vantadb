@@ -25,7 +25,7 @@ fn main() {
         .expect("Failed to open StorageEngine");
 
     for i in 1..=count {
-        let node = UnifiedNode::new(i as u64);
+        let node = UnifiedNode::new(i as u128);
         if let Err(e) = engine.insert(&node) {
             eprintln!("CRASH_HELPER: FAILED_INSERT at {}: {}", i, e);
             let _ = std::io::stderr().flush();

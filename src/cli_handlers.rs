@@ -113,7 +113,6 @@ pub fn open_embedded(path: &str, read_only: bool) -> Result<VantaEmbedded> {
 
 /// Compute a deterministic node ID from namespace and key using xxHash3-128
 pub fn memory_node_id(namespace: &str, key: &str) -> u128 {
-    use std::hash::Hasher;
     let mut hasher = twox_hash::XxHash3_128::default();
     hasher.write(namespace.as_bytes());
     hasher.write(b"\0");
@@ -2124,6 +2123,106 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         sorted_ns.sort();
         for ns in sorted_ns {
             print_info(&format!("  {}", ns));
+        }
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Print the planned migrations without executing them
+pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
+    use crate::migration::MigrationEngine;
+
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_error(&format!("Database directory not found: {}", db_path));
+        return Err(crate::error::VantaError::CliError(format!(
+            "Database path does not exist: {}",
+            db_path
+        )));
+    }
+
+    let engine = MigrationEngine::new(db_path);
+    let plans = engine.plan_all()?;
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║           VantaDB Migration Plan                        ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
+    ));
+    let _ = term.write_line("");
+
+    if plans.is_empty() {
+        print_success("All formats are at their latest version");
+    } else {
+        for plan in &plans {
+            let _ = term.write_line(&format!(
+                "  [{}] v{} → v{}: {}",
+                plan.format.name(),
+                plan.current_version,
+                plan.target_version,
+                plan.action
+            ));
+        }
+        if verbose {
+            print_info(&format!("Total planned migrations: {}", plans.len()));
+        }
+    }
+
+    Ok(())
+}
+
+#[tracing::instrument]
+/// Check storage integrity and report any issues found
+pub fn cmd_migrate_check(db_path: &str, verbose: bool) -> Result<()> {
+    use crate::migration::MigrationEngine;
+
+    let path = std::path::Path::new(db_path);
+    if !path.exists() {
+        print_error(&format!("Database directory not found: {}", db_path));
+        return Err(crate::error::VantaError::CliError(format!(
+            "Database path does not exist: {}",
+            db_path
+        )));
+    }
+
+    let engine = MigrationEngine::new(db_path);
+    let issues = engine.check_integrity()?;
+
+    let term = Term::stdout();
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("║           VantaDB Integrity Check                       ║")
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
+    ));
+    let _ = term.write_line("");
+
+    if issues.is_empty() {
+        print_success("No integrity issues found");
+    } else {
+        for issue in &issues {
+            let _ = term.write_line(&format!("  ⚠ {}", issue));
+        }
+        if verbose {
+            print_info(&format!("Total issues found: {}", issues.len()));
         }
     }
 
