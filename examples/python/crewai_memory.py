@@ -117,13 +117,12 @@ class VantaDBMemory:
         
         results = []
         for hit in hits:
-            record = hit["record"]
             results.append({
-                "key": record["key"],
-                "content": record["payload"],
-                "metadata": record["metadata"],
-                "score": hit["score"],
-                "created_at": record["created_at_ms"]
+                "key": hit.key,
+                "content": hit.payload,
+                "metadata": dict(hit.metadata),
+                "score": hit.score,
+                "created_at": hit.created_at_ms
             })
         
         return results

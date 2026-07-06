@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vantadb-langchain"
-version = "0.2.0"
+version = "0.3.0"
 description = "LangChain adapter for VantaDB — embedded vector memory for AI agents"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "vantadb-py>=0.1",
+    "vantadb-py>=0.3",
     "langchain-core>=0.3",
 ]
 

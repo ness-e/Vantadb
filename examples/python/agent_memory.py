@@ -30,8 +30,7 @@ def main():
     
     print("\n🔍 Retrieved Context:")
     for hit in hits:
-        record = hit['record']
-        print(f"  [{record['key']}] score={hit['score']:.3f} | {record['payload']} (meta: {record['metadata']})")
+        print(f"  [{hit.key}] score={hit.score:.3f} | {hit.payload} (meta: {dict(hit.metadata)})")
 
     # Telemetry & safe shutdown
     metrics = db.operational_metrics()

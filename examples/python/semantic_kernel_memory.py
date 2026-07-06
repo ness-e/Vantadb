@@ -148,13 +148,12 @@ class VantaDBSemanticMemory:
         
         memories = []
         for hit in hits:
-            if hit["score"] >= min_relevance_score:
-                record = hit["record"]
+            if hit.score >= min_relevance_score:
                 memories.append({
-                    "key": record["key"],
-                    "text": record["payload"],
-                    "metadata": record["metadata"],
-                    "relevance": hit["score"]
+                    "key": hit.key,
+                    "text": hit.payload,
+                    "metadata": dict(hit.metadata),
+                    "relevance": hit.score
                 })
         
         return memories

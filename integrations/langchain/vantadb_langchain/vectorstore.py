@@ -38,6 +38,18 @@ class VantaDBVectorStore(VectorStore):
     def embeddings(self) -> Embeddings:
         return self.embedding
 
+    @staticmethod
+    def _hit_to_dict(hit: vanta.VantaSearchHit) -> dict:
+        return {
+            "key": hit.key,
+            "node_id": hit.id,
+            "payload": hit.payload,
+            "metadata": dict(hit.metadata),
+            "created_at_ms": hit.created_at_ms,
+            "updated_at_ms": hit.updated_at_ms,
+            "version": hit.version,
+        }
+
     def _to_document(self, record: dict) -> Document:
         metadata = dict(record.get("metadata", {}))
         metadata["_key"] = record.get("key", "")
@@ -104,11 +116,9 @@ class VantaDBVectorStore(VectorStore):
             )
 
         docs_with_scores: List[Tuple[Document, float]] = []
-        for result in results:
-            record = result.get("record", {})
-            score = result.get("score", 0.0)
-            doc = self._to_document(record)
-            docs_with_scores.append((doc, score))
+        for hit in results:
+            doc = self._to_document(self._hit_to_dict(hit))
+            docs_with_scores.append((doc, hit.score))
         return docs_with_scores
 
     def similarity_search_by_vector(
@@ -147,11 +157,9 @@ class VantaDBVectorStore(VectorStore):
             )
 
         docs_with_scores: List[Tuple[Document, float]] = []
-        for result in results:
-            record = result.get("record", {})
-            score = result.get("score", 0.0)
-            doc = self._to_document(record)
-            docs_with_scores.append((doc, score))
+        for hit in results:
+            doc = self._to_document(self._hit_to_dict(hit))
+            docs_with_scores.append((doc, hit.score))
         return docs_with_scores
 
     # ── Write methods ────────────────────────────────────────
@@ -212,7 +220,14 @@ class VantaDBVectorStore(VectorStore):
         return True
 
     def delete_by_filter(self, filter_key: str, filter_val: Any) -> int:
-        return self._db.delete_by_filter(self.namespace, filter_key, filter_val)
+        page = self._db.list_memory(self.namespace, filters={filter_key: filter_val}, limit=10000)
+        count = 0
+        for rec in page.get("records", []):
+            key = rec.get("key")
+            if key:
+                self._db.delete_memory(self.namespace, key)
+                count += 1
+        return count
 
     def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
         documents: List[Document] = []

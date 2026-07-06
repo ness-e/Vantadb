@@ -149,15 +149,14 @@ class VantaDBDocumentStore:
         
         documents = []
         for hit in hits:
-            record = hit["record"]
             doc = {
-                "id": record["key"],
-                "content": record["payload"],
-                "meta": record["metadata"],
-                "score": hit["score"]
+                "id": hit.key,
+                "content": hit.payload,
+                "meta": dict(hit.metadata),
+                "score": hit.score,
             }
             if return_embedding:
-                doc["embedding"] = record.get("vector")
+                doc["embedding"] = list(hit.vector) if hit.vector else None
             documents.append(doc)
         
         return documents
