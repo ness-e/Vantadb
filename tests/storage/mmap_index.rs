@@ -17,7 +17,7 @@ fn build_test_index(node_count: u64) -> CPIndex {
         let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
         let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
         index.add(
-            i,
+            i.into(),
             FilterBitset::new(),
             VectorRepresentations::Full(normalized),
             0,
@@ -90,7 +90,7 @@ fn mmap_vector_index_certification() {
             let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
             let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
             index.add(
-                i,
+                i.into(),
                 FilterBitset::new(),
                 VectorRepresentations::Full(normalized),
                 0,
@@ -132,13 +132,13 @@ fn mmap_vector_index_certification() {
 
         for (id, v) in &vectors {
             inmem_index.add(
-                *id,
+                (*id).into(),
                 FilterBitset::new(),
                 VectorRepresentations::Full(v.clone()),
                 0,
             );
             mmap_index.add(
-                *id,
+                (*id).into(),
                 FilterBitset::new(),
                 VectorRepresentations::Full(v.clone()),
                 0,

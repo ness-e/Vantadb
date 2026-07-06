@@ -272,7 +272,7 @@ mod tests {
         let original = vec![0.12, 0.88, 0.54, 0.31, -0.22, 0.95, -0.11, 0.47];
         let (packed, scale) = QuantizationGovernor::quantize_vector(&original);
 
-        let mut sq = crate::node::VectorRepresentations::SQ8(packed, scale);
+        let sq = crate::node::VectorRepresentations::SQ8(packed, scale);
         let roundtrip = sq.to_f32().unwrap();
         for (a, b) in original.iter().zip(roundtrip.iter()) {
             let err = (a - b).abs();

@@ -40,8 +40,8 @@ fn generate_vectors(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     vectors
 }
 
-fn brute_force_knn(query: &[f32], dataset: &[(u64, Vec<f32>)], k: usize) -> Vec<u64> {
-    let mut sims: Vec<(u64, f32)> = dataset
+fn brute_force_knn(query: &[f32], dataset: &[(u128, Vec<f32>)], k: usize) -> Vec<u128> {
+    let mut sims: Vec<(u128, f32)> = dataset
         .iter()
         .map(|(id, vec)| (*id, cosine_sim_f32(query, vec)))
         .collect();
@@ -53,13 +53,13 @@ fn brute_force_knn(query: &[f32], dataset: &[(u64, Vec<f32>)], k: usize) -> Vec<
 fn compute_recall(
     index: &CPIndex,
     queries: &[Vec<f32>],
-    dataset: &[(u64, Vec<f32>)],
+    dataset: &[(u128, Vec<f32>)],
     k: usize,
 ) -> f64 {
     let mut total_hits = 0;
     for query in queries {
         let truth = brute_force_knn(query, dataset, k);
-        let hnsw_ids: Vec<u64> = index
+        let hnsw_ids: Vec<u128> = index
             .search_nearest(query, None, None, &FilterBitset::all_set(), k, None)
             .into_iter()
             .map(|(id, _)| id)
@@ -103,10 +103,10 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
     };
 
     let raw_vectors = generate_vectors(N_VECTORS, DIMS, SEED);
-    let dataset: Vec<(u64, Vec<f32>)> = raw_vectors
+    let dataset: Vec<(u128, Vec<f32>)> = raw_vectors
         .into_iter()
         .enumerate()
-        .map(|(i, v)| (i as u64, v))
+        .map(|(i, v)| (i as u128, v))
         .collect();
     let queries = generate_vectors(N_QUERIES, DIMS, SEED + 1000);
 

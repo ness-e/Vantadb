@@ -290,13 +290,13 @@ fn security_audit_input_validation() {
         let engine = InMemoryEngine::new();
 
         // u64::MAX — maximum possible value, no negative semantics
-        let node = UnifiedNode::new(u64::MAX);
+        let node = UnifiedNode::new(u64::MAX.into());
         let id = engine.insert(node).expect("Insert with MAX ID");
-        assert_eq!(id, u64::MAX);
+        assert_eq!(id, u64::MAX.into());
 
         // Verify retrieval
-        let retrieved = engine.get(u64::MAX).expect("Get MAX ID node");
-        assert_eq!(retrieved.id, u64::MAX);
+        let retrieved = engine.get(u64::MAX.into()).expect("Get MAX ID node");
+        assert_eq!(retrieved.id, u64::MAX.into());
 
         // Edge of valid range — use non-zero explicit ID to avoid auto-assign
         let node_one = UnifiedNode::new(1);
@@ -429,7 +429,7 @@ fn security_audit_resource_exhaustion() {
             // Start at i=1 to avoid InMemoryEngine auto-assign (node.id == 0 → next_id)
             for i in 1..=5_000u64 {
                 let node =
-                    UnifiedNode::with_vector(i, vec![i as f32, (i + 1) as f32, (i + 2) as f32]);
+                    UnifiedNode::with_vector(i.into(), vec![i as f32, (i + 1) as f32, (i + 2) as f32]);
                 engine.insert(node).expect("Insert should not panic");
             }
 

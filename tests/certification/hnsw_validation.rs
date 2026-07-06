@@ -56,7 +56,7 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig, block_msg: &str)
     let index = CPIndex::new_with_config(config);
     for (id, vec) in dataset {
         index.add(
-            *id,
+            (*id).into(),
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
@@ -78,12 +78,12 @@ fn compute_recall(
     let mut total_recall = 0.0;
     for query in queries {
         let truth = brute_force_knn(query, dataset, k);
-        let hnsw_ids: Vec<u64> = index
+        let hnsw_ids: Vec<u128> = index
             .search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None)
             .into_iter()
             .map(|(id, _)| id)
             .collect();
-        let hits = truth.iter().filter(|id| hnsw_ids.contains(id)).count();
+        let hits = truth.iter().filter(|id| hnsw_ids.contains(&(**id as u128))).count();
         total_recall += hits as f64 / k as f64;
         pb.inc(1);
     }
@@ -205,11 +205,11 @@ fn hnsw_hard_validation_certification() {
         for query in &queries {
             let first =
                 index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None);
-            let first_ids: Vec<u64> = first.iter().map(|(id, _)| *id).collect();
+            let first_ids: Vec<u128> = first.iter().map(|(id, _)| *id).collect();
             for _ in 1..5 {
                 let repeat =
                     index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None);
-                let repeat_ids: Vec<u64> = repeat.iter().map(|(id, _)| *id).collect();
+                let repeat_ids: Vec<u128> = repeat.iter().map(|(id, _)| *id).collect();
                 assert_eq!(first_ids, repeat_ids);
             }
         }
@@ -347,7 +347,7 @@ fn hnsw_hard_validation_certification() {
         for q in &queries {
             let truth = brute_force_knn(q, &dataset, 1);
             let res = index.search_nearest(q, None, None, &vantadb::node::ALL_BITSET, 1, None);
-            if !res.is_empty() && res[0].0 == truth[0] {
+            if !res.is_empty() && res[0].0 == truth[0].into() {
                 hits += 1;
             }
         }
@@ -396,7 +396,7 @@ fn hnsw_hard_validation_certification() {
                 r.value()
                     .neighbors
                     .iter()
-                    .map(|l: &smallvec::SmallVec<[u64; 32]>| l.len())
+                    .map(|l: &smallvec::SmallVec<[u128; 32]>| l.len())
                     .sum::<usize>()
             })
             .sum();
@@ -407,7 +407,7 @@ fn hnsw_hard_validation_certification() {
                 r.value()
                     .neighbors
                     .iter()
-                    .map(|l: &smallvec::SmallVec<[u64; 32]>| l.len())
+                    .map(|l: &smallvec::SmallVec<[u128; 32]>| l.len())
                     .sum::<usize>()
             })
             .sum();

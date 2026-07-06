@@ -95,7 +95,7 @@ fn compute_recall(
             let hnsw: Vec<u64> = index
                 .search_nearest(q, None, None, &vantadb::node::ALL_BITSET, k, None)
                 .into_iter()
-                .map(|(id, _)| id)
+                .map(|(id, _)| id as u64)
                 .collect();
             let hits = truth.iter().filter(|id| hnsw.contains(id)).count();
             pb.inc(1);
@@ -111,7 +111,7 @@ fn build_index(dataset: &[(u64, Vec<f32>)], config: HnswConfig) -> CPIndex {
     let pb = TerminalReporter::create_progress(dataset.len() as u64, "Building HNSW");
     for (id, vec) in dataset {
         idx.add(
-            *id,
+            (*id).into(),
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,

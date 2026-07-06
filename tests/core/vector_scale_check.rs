@@ -25,7 +25,7 @@ async fn vector_scale_performance_certification() {
                 let mut vec = vec![0.0; 128];
                 vec[i % 128] = 1.0;
 
-                let mut node = UnifiedNode::new(i as u64);
+                let mut node = UnifiedNode::new(i as u128);
                 node.tier = NodeTier::Hot;
                 node.vector = vantadb::node::VectorRepresentations::Full(vec);
                 node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);

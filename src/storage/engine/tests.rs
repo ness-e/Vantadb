@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::module_inception)]
 mod tests {
     use super::super::*;
     use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};

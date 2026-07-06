@@ -46,7 +46,7 @@ fn dir_size_bytes(path: &Path) -> u64 {
 }
 
 fn make_node(id: u64) -> UnifiedNode {
-    let mut node = UnifiedNode::new(id);
+    let mut node = UnifiedNode::new(id.into());
     node.vector = VectorRepresentations::Full(vec![id as f32, 1.0, 2.0, 3.0]);
     node.flags.set(NodeFlags::HAS_VECTOR);
     node.set_field("category", vantadb::FieldValue::String("telemetry".into()));
@@ -121,7 +121,7 @@ fn memory_telemetry_contract() {
         let reopened = open_fjall(db_path);
         for id in 1_001..=1_100u64 {
             assert!(
-                reopened.get(id).unwrap().is_some(),
+                reopened.get(id.into()).unwrap().is_some(),
                 "Recovered node {} must be visible after WAL replay",
                 id
             );

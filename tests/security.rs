@@ -565,7 +565,7 @@ mod fuzzing_tests {
         ];
 
         for (i, v) in vectors.iter().enumerate() {
-            let node = UnifiedNode::with_vector(i as u64 + 1000, v.clone());
+            let node = UnifiedNode::with_vector((i as u64 + 1000).into(), v.clone());
             let result = engine.insert(node);
             // Should not panic — may succeed or fail
             assert!(

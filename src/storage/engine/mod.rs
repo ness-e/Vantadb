@@ -81,22 +81,17 @@ impl MemoryStats {
 }
 
 /// Why eviction was triggered.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EvictionReason {
     /// High watermark exceeded.
     Watermark,
     /// OOM condition detected.
     Oom,
     /// Periodic maintenance cycle.
+    #[default]
     Periodic,
     /// Manual trigger from the CLI or API.
     Manual,
-}
-
-impl Default for EvictionReason {
-    fn default() -> Self {
-        Self::Periodic
-    }
 }
 
 /// Report returned by eviction operations.
@@ -223,11 +218,13 @@ impl StorageEngine {
     }
 
     /// Create a fresh index with the same config as an existing one.
+    #[allow(dead_code)]
     fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
         crate::storage::archive::fresh_index_like(existing, index_path)
     }
 
     /// Rebuild HNSW index by scanning all nodes in the VantaFile.
+    #[allow(dead_code)]
     fn rebuild_hnsw_from_vstore(
         hnsw: &mut CPIndex,
         vstore: &VantaFile,

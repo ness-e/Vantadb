@@ -47,7 +47,7 @@ fn high_density_benchmark(c: &mut Criterion) {
     );
     rt.block_on(async {
         for i in 1..=target_nodes {
-            let mut node = UnifiedNode::new(i as u64);
+            let mut node = UnifiedNode::new(i as u128);
             node.relational.insert(
                 "content".to_string(),
                 FieldValue::String(format!("Node {}", i)),
@@ -100,7 +100,7 @@ fn high_density_benchmark(c: &mut Criterion) {
             || {
                 let mut dummy_nodes = Vec::with_capacity(50_000);
                 for i in 0..50_000 {
-                    let mut node = UnifiedNode::new((target_nodes + 1 + i) as u64);
+                    let mut node = UnifiedNode::new((target_nodes + 1 + i) as u128);
                     node.relational.insert(
                         "content".to_string(),
                         FieldValue::String(format!("Spam node {}", i)),

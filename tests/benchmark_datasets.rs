@@ -21,7 +21,7 @@ fn test_glove100_hnsw_basic() {
 
     // Insert and verify
     for (i, v) in vectors.iter().enumerate() {
-        let mut node = UnifiedNode::with_vector(i as u64, v.clone());
+        let mut node = UnifiedNode::with_vector((i as u64).into(), v.clone());
         node.tier = NodeTier::Hot;
         engine.insert(&node).unwrap();
     }

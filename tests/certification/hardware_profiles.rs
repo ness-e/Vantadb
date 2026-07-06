@@ -101,7 +101,7 @@ async fn hardware_certification_full() {
             warmup_count
         ));
         for i in 0..warmup_count {
-            let mut node = vantadb::node::UnifiedNode::new(i as u64);
+            let mut node = vantadb::node::UnifiedNode::new((i as u64).into());
             node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
             node.tier = vantadb::node::NodeTier::Cold;
             storage.insert(&node).unwrap();
@@ -123,7 +123,7 @@ async fn hardware_certification_full() {
             additional_count
         ));
         for i in warmup_count..(warmup_count + additional_count) {
-            let mut node = vantadb::node::UnifiedNode::new(i as u64);
+            let mut node = vantadb::node::UnifiedNode::new((i as u64).into());
             node.vector = vantadb::node::VectorRepresentations::Full(vec![1.0; 128]);
             node.tier = vantadb::node::NodeTier::Cold;
             storage.insert(&node).unwrap();

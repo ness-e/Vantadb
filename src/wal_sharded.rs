@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 /// A write-ahead log operation for a key-value pair.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub(crate) enum WalOp {
     /// Insert or update a record.
     Put {
@@ -83,6 +84,7 @@ impl ShardedWal {
     }
 
     /// Write a record to the shard determined by the key.
+    #[allow(dead_code)]
     pub fn write(&self, key: &str, record: &WalRecord) -> Result<()> {
         let idx = self.shard_index(key);
         self.shards[idx].lock().append(record)
@@ -152,6 +154,7 @@ impl ShardedWal {
     }
 
     /// Flush (sync) only the shard determined by the key.
+    #[allow(dead_code)]
     pub fn flush_shard(&self, key: &str) -> Result<()> {
         let idx = self.shard_index(key);
         self.shards[idx].lock().sync()
@@ -172,16 +175,19 @@ impl ShardedWal {
     }
 
     /// Return a reference to the shard list.
+    #[allow(dead_code)]
     pub fn shards(&self) -> &[Arc<Mutex<WalWriter>>] {
         &self.shards
     }
 
     /// Return the number of configured shards.
+    #[allow(dead_code)]
     pub fn num_shards(&self) -> usize {
         self.num_shards
     }
 
     /// Return the number of shard entries.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.shards.len()
     }

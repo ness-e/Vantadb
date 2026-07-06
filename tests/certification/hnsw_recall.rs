@@ -81,7 +81,7 @@ fn recall_certification_runner() {
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
         for (id, vec) in &dataset {
             index.add(
-                *id,
+                (*id).into(),
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
                 0,
@@ -99,10 +99,10 @@ fn recall_certification_runner() {
             let hnsw_results =
                 index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
             latencies_us.push(t_start.elapsed().as_micros() as u64);
-            let hnsw_neighbor_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
+            let hnsw_neighbor_ids: Vec<u128> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
                 .iter()
-                .filter(|&id| hnsw_neighbor_ids.contains(id))
+                .filter(|&id| hnsw_neighbor_ids.contains(&(*id as u128)))
                 .count();
             total_recall += intersection as f64 / top_k as f64;
             pb_query.inc(1);

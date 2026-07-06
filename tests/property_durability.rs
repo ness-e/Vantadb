@@ -15,7 +15,7 @@ use vantadb::storage::StorageEngine;
 /// Estrategia para generar nodos de prueba
 fn node_strategy() -> impl Strategy<Value = UnifiedNode> {
     (0u64..10000u64, 0u32..100u32).prop_map(|(id, cluster)| UnifiedNode {
-        id,
+        id: id.into(),
         bitset: FilterBitset::new(),
         semantic_cluster: cluster,
         tier: NodeTier::Cold,
@@ -41,7 +41,7 @@ proptest! {
 
         // Proptest puede generar IDs duplicados; el storage los deduplica (last-write-wins).
         // La cantidad esperada es la de IDs únicos, no el len() del vector crudo.
-        let unique_ids: std::collections::HashSet<u64> = nodes.iter().map(|n| n.id).collect();
+        let unique_ids: std::collections::HashSet<u128> = nodes.iter().map(|n| n.id).collect();
         let expected_count = unique_ids.len();
 
         let temp_dir = TempDir::new().unwrap();
@@ -105,7 +105,7 @@ proptest! {
         prop_assume!(!nodes.is_empty());
 
         // Deduplicar por ID: el storage hace last-write-wins para IDs repetidos.
-        let unique_ids: std::collections::HashSet<u64> = nodes.iter().map(|n| n.id).collect();
+        let unique_ids: std::collections::HashSet<u128> = nodes.iter().map(|n| n.id).collect();
         let expected_count = unique_ids.len() as u64;
 
         let temp_dir = TempDir::new().unwrap();

@@ -89,7 +89,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
 
     for i in 0..20 {
         let v = i as f32 * 0.05;
-        let mut node = UnifiedNode::with_vector(i as u64, vec![v, v, v]);
+        let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("tag", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
     }
@@ -98,7 +98,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
 
     for i in 0..20 {
         let node = engine
-            .get(i as u64)
+            .get(i as u128)
             .unwrap()
             .expect("node must exist after compact");
         let expected = format!("n-{}", i);
@@ -279,7 +279,7 @@ fn concurrent_rebuild_rcu_no_crash() {
 
     for i in 0..10 {
         let v = i as f32 * 0.1;
-        let mut node = UnifiedNode::with_vector(i as u64, vec![v, v, v]);
+        let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("label", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
     }
@@ -289,7 +289,7 @@ fn concurrent_rebuild_rcu_no_crash() {
     let writer = thread::spawn(move || {
         for i in 10..15 {
             let v = i as f32 * 0.1;
-            let mut node = UnifiedNode::with_vector(i as u64, vec![v, v, v]);
+            let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
             node.set_field("label", FieldValue::String(format!("n-{}", i)));
             engine_write.insert(&node).unwrap();
         }
@@ -420,7 +420,7 @@ fn thread_local_state_isolation() {
             bar.wait();
             for i in 0..5 {
                 let nid = tid * 100 + i;
-                let mut node = UnifiedNode::with_vector(nid as u64, vec![0.1, 0.2]);
+                let mut node = UnifiedNode::with_vector(nid as u128, vec![0.1, 0.2]);
                 node.set_field("thread", FieldValue::String(format!("t-{}", tid)));
                 eng.insert(&node).unwrap();
             }
@@ -435,7 +435,7 @@ fn thread_local_state_isolation() {
     for tid in 0..2 {
         for i in 0..5 {
             let nid = tid * 100 + i;
-            let node = engine.get(nid as u64).unwrap().expect("node must exist");
+            let node = engine.get(nid as u128).unwrap().expect("node must exist");
             let expected = format!("t-{}", tid);
             assert_eq!(
                 node.get_field("thread").and_then(|v| v.as_str()),
