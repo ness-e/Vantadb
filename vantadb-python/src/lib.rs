@@ -13,6 +13,7 @@ use pyo3::types::{
     PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
     PyTupleMethods,
 };
+use pyo3::buffer::PyBuffer;
 use pyo3::Py;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -245,6 +246,41 @@ fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec
         ))
     })?;
     Ok(result)
+}
+
+/// Extract a 2D batch of vectors from a Python object using the buffer protocol
+/// (NumPy ndarray). Returns `(nrows, ndims, flat_data)` in row-major order.
+///
+/// Supports both f32 and f64 buffers with downcasting for the latter.
+fn extract_2d_buffer(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<(usize, usize, Vec<f32>)> {
+    if let Ok(buf) = PyBuffer::<f32>::get(obj) {
+        let shape: &[usize] = buf.shape();
+        if shape.len() != 2 {
+            return Err(PyValueError::new_err(
+                "vectors must be a 2D array (shape [N, D])",
+            ));
+        }
+        let nrows = shape[0];
+        let ndims = shape[1];
+        let flat = buf.to_vec(py)?;
+        return Ok((nrows, ndims, flat));
+    }
+    if let Ok(buf) = PyBuffer::<f64>::get(obj) {
+        let shape: &[usize] = buf.shape();
+        if shape.len() != 2 {
+            return Err(PyValueError::new_err(
+                "vectors must be a 2D array (shape [N, D])",
+            ));
+        }
+        let nrows = shape[0];
+        let ndims = shape[1];
+        let flat_f64 = buf.to_vec(py)?;
+        let flat: Vec<f32> = flat_f64.into_iter().map(|x| x as f32).collect();
+        return Ok((nrows, ndims, flat));
+    }
+    Err(PyTypeError::new_err(
+        "Expected a 2D NumPy array (buffer protocol)",
+    ))
 }
 
 fn set_python_value(
@@ -837,7 +873,7 @@ impl VantaDB {
     fn insert(
         &self,
         py: Python,
-        id: u64,
+        id: u128,
         content: &str,
         vector: &Bound<'_, PyAny>,
         fields: Option<&Bound<'_, PyDict>>,
@@ -913,6 +949,98 @@ impl VantaDB {
                 }
                 None => None,
             };
+            inputs.push(input);
+        }
+
+        let engine = self.engine.clone();
+        let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+
+        records
+            .into_iter()
+            .map(|record| memory_record_to_pydict_owned(py, record))
+            .collect()
+    }
+
+    /// Insert or update multiple namespace-scoped records using a 2D NumPy array
+    /// for zero-copy, per-row-avoidant vector input.
+    ///
+    /// Accepts `vectors` as a 2D PyBuffer (e.g. a NumPy float32 array of shape
+    /// ``[N, D]``). ``keys`` is required; other fields are optional parallel Vecs.
+    /// All Vecs must have length N matching ``vectors.shape[0]``.
+    ///
+    /// Returns a list of record dicts in the same order as inputs.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (vectors, keys, payloads = None, metadatas = None, namespaces = None, ttls = None))]
+    fn put_batch_raw(
+        &self,
+        py: Python,
+        vectors: &Bound<'_, PyAny>,
+        keys: Vec<String>,
+        payloads: Option<Vec<String>>,
+        metadatas: Option<Vec<Option<Py<PyAny>>>>,
+        namespaces: Option<Vec<String>>,
+        ttls: Option<Vec<Option<u64>>>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let (nrows, ndims, flat_vecs) = extract_2d_buffer(py, vectors)?;
+
+        if nrows != keys.len() {
+            return Err(PyValueError::new_err(format!(
+                "vectors.shape[0] ({}) must equal keys.len() ({})",
+                nrows, keys.len()
+            )));
+        }
+
+        let check_len = |name: &str, len: usize| -> PyResult<()> {
+            if len != nrows {
+                return Err(PyValueError::new_err(format!(
+                    "{}.len() ({}) must equal keys.len() ({})",
+                    name, len, nrows
+                )));
+            }
+            Ok(())
+        };
+        if let Some(ref p) = payloads {
+            check_len("payloads", p.len())?;
+        }
+        if let Some(ref m) = metadatas {
+            check_len("metadatas", m.len())?;
+        }
+        if let Some(ref n) = namespaces {
+            check_len("namespaces", n.len())?;
+        }
+        if let Some(ref t) = ttls {
+            check_len("ttls", t.len())?;
+        }
+
+        let mut inputs = Vec::with_capacity(nrows);
+        for i in 0..nrows {
+            let namespace = match &namespaces {
+                Some(ns) => ns[i].clone(),
+                None => "default".to_string(),
+            };
+            let key = keys[i].clone();
+            let payload = match &payloads {
+                Some(p) => p[i].clone(),
+                None => String::new(),
+            };
+
+            let mut input = VantaMemoryInput::new(namespace, key, payload);
+
+            if let Some(all_meta) = &metadatas {
+                if let Some(meta_obj) = &all_meta[i] {
+                    let any_bound = meta_obj.bind(py);
+                    let dict: &Bound<'_, PyDict> = any_bound.cast::<PyDict>()?;
+                    input.metadata = py_dict_to_metadata(Some(dict))?;
+                }
+            }
+
+            if let Some(ttl_list) = &ttls {
+                input.ttl_ms = ttl_list[i];
+            }
+
+            let start = i * ndims;
+            input.vector = Some(flat_vecs[start..start + ndims].to_vec());
+
             inputs.push(input);
         }
 
@@ -1023,7 +1151,7 @@ impl VantaDB {
         top_k: usize,
         distance_metric: Option<&str>,
         explain: bool,
-    ) -> PyResult<Vec<Py<PyAny>>> {
+    ) -> PyResult<Vec<VantaPySearchHit>> {
         let metric = match distance_metric {
             Some("euclidean") => DistanceMetric::Euclidean,
             Some(other) => {
@@ -1050,7 +1178,10 @@ impl VantaDB {
         let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
 
         hits.into_iter()
-            .map(|hit| memory_hit_to_pydict_owned(py, hit))
+            .map(|hit| Ok(VantaPySearchHit {
+                inner: hit.record,
+                score: hit.score,
+            }))
             .collect()
     }
 
@@ -1132,7 +1263,7 @@ impl VantaDB {
     /// Retrieve a node by ID. Returns a dict or None.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
-    fn get(&self, py: Python, id: u64) -> PyResult<Option<Py<PyAny>>> {
+    fn get(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
         let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
         match node {
@@ -1148,7 +1279,7 @@ impl VantaDB {
     fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || engine.delete_node(id, &reason_str).map_err(map_vanta_error))
+        py.detach(move || engine.delete_node(id.into(), &reason_str).map_err(map_vanta_error))
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -1172,7 +1303,7 @@ impl VantaDB {
                 .search_vector(&v, top_k)
                 .map(|hits| {
                     hits.into_iter()
-                        .map(|hit| (hit.node_id, hit.distance))
+                        .map(|hit| (hit.node_id as u64, hit.distance))
                         .collect()
                 })
                 .map_err(map_vanta_error)
@@ -1206,7 +1337,7 @@ impl VantaDB {
                         .search_vector(&vector, top_k)
                         .map(|hits| {
                             hits.into_iter()
-                                .map(|hit| (hit.node_id, hit.distance))
+                                .map(|hit| (hit.node_id as u64, hit.distance))
                                 .collect()
                         })
                         .map_err(map_vanta_error)
@@ -1317,7 +1448,7 @@ impl VantaDB {
         let label_str = label.to_string();
         py.detach(move || {
             engine
-                .add_edge(source_id as u64, target_id as u64, &label_str, weight)
+                .add_edge(source_id, target_id, &label_str, weight)
                 .map_err(map_vanta_error)
         })
     }
@@ -1345,7 +1476,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
     #[pyo3(signature = (roots, max_depth=999999))]
-    fn graph_bfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
+    fn graph_bfs(&self, py: Python, roots: Vec<u128>, max_depth: usize) -> PyResult<Vec<u128>> {
         let engine = self.engine.clone();
         py.detach(move || engine.graph_bfs(&roots, max_depth).map_err(map_vanta_error))
     }
@@ -1355,7 +1486,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
     #[pyo3(signature = (roots, max_depth=999999))]
-    fn graph_dfs(&self, py: Python, roots: Vec<u64>, max_depth: usize) -> PyResult<Vec<u64>> {
+    fn graph_dfs(&self, py: Python, roots: Vec<u128>, max_depth: usize) -> PyResult<Vec<u128>> {
         let engine = self.engine.clone();
         py.detach(move || engine.graph_dfs(&roots, max_depth).map_err(map_vanta_error))
     }
@@ -1364,7 +1495,7 @@ impl VantaDB {
     /// Returns an error if a cycle is detected.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during topological sort.
-    fn graph_topological_sort(&self, py: Python, roots: Vec<u64>) -> PyResult<Vec<u64>> {
+    fn graph_topological_sort(&self, py: Python, roots: Vec<u128>) -> PyResult<Vec<u128>> {
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1376,7 +1507,7 @@ impl VantaDB {
     /// Checks if the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG).
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
-    fn graph_is_dag(&self, py: Python, roots: Vec<u64>) -> PyResult<bool> {
+    fn graph_is_dag(&self, py: Python, roots: Vec<u128>) -> PyResult<bool> {
         let engine = self.engine.clone();
         py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
     }
@@ -1584,6 +1715,113 @@ impl VantaVectorIter {
     }
 }
 
+/// A Python-accessible search hit returned by `search_memory`.
+///
+/// Wraps a `VantaMemoryRecord` plus the relevance score as typed getters,
+/// avoiding per-hit PyDict allocation in the hot path.
+#[pyclass(name = "VantaSearchHit")]
+struct VantaPySearchHit {
+    inner: VantaMemoryRecord,
+    score: f32,
+}
+
+#[pymethods]
+impl VantaPySearchHit {
+    #[getter]
+    fn namespace(&self) -> &str {
+        &self.inner.namespace
+    }
+
+    #[getter]
+    fn key(&self) -> &str {
+        &self.inner.key
+    }
+
+    #[getter]
+    fn payload(&self) -> &str {
+        &self.inner.payload
+    }
+
+    #[getter]
+    fn metadata(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.metadata {
+            set_python_value(py, &dict, k, v)?;
+        }
+        Ok(dict.unbind())
+    }
+
+    #[getter]
+    fn vector(&self) -> Option<VantaVector> {
+        self.inner.vector.clone().map(VantaVector::new)
+    }
+
+    #[getter]
+    fn score(&self) -> f32 {
+        self.score
+    }
+
+    #[getter]
+    fn id(&self) -> u128 {
+        self.inner.node_id
+    }
+
+    #[getter]
+    fn created_at_ms(&self) -> u64 {
+        self.inner.created_at_ms
+    }
+
+    #[getter]
+    fn updated_at_ms(&self) -> u64 {
+        self.inner.updated_at_ms
+    }
+
+    #[getter]
+    fn version(&self) -> u64 {
+        self.inner.version
+    }
+
+    #[getter]
+    fn node_id(&self) -> u128 {
+        self.inner.node_id
+    }
+
+    #[getter]
+    fn expires_at_ms(&self) -> Option<u64> {
+        self.inner.expires_at_ms
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VantaSearchHit(namespace={}, key={}, score={:.4}, dim={})",
+            self.inner.namespace,
+            self.inner.key,
+            self.score,
+            self.inner.vector.as_ref().map(|v| v.len()).unwrap_or(0),
+        )
+    }
+
+    fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        match &self.inner.vector {
+            Some(v) => {
+                let dict = PyDict::new(py);
+                let shape = PyTuple::new(py, &[v.len()])?;
+                dict.set_item("shape", shape)?;
+                dict.set_item("typestr", "<f4")?;
+                let data_tup = PyTuple::new(py, &[0usize, 0usize])?;
+                data_tup.set_item(0, v.as_ptr() as usize)?;
+                data_tup.set_item(1, true)?;
+                dict.set_item("data", data_tup)?;
+                dict.set_item("version", 3)?;
+                Ok(dict.unbind().into())
+            }
+            None => Err(PyRuntimeError::new_err(
+                "VantaSearchHit has no vector",
+            )),
+        }
+    }
+}
+
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
@@ -1591,6 +1829,7 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaDB>()?;
     m.add_class::<VantaVector>()?;
     m.add_class::<VantaVectorIter>()?;
+    m.add_class::<VantaPySearchHit>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
