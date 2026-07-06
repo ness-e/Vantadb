@@ -26,21 +26,21 @@ pub fn compute_crc32c(data: &[u8]) -> u32 {
 // ─── WAL Record ────────────────────────────────────────────
 
 /// WAL record types (postcard-serialized)
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum WalRecord {
     /// Insert a new node.
     Insert(UnifiedNode),
     /// Update an existing node.
     Update {
         /// Node ID to update.
-        id: u64,
+        id: u128,
         /// New node data.
         node: UnifiedNode,
     },
     /// Delete a node by ID.
     Delete {
         /// Node ID to delete.
-        id: u64,
+        id: u128,
     },
     /// Checkpoint with optional index checksum for integrity validation
     /// `index_checksum` is computed over serialized index state; None for backward compat
@@ -341,7 +341,7 @@ impl WalWriter {
         })
     }
 
-    /// Append a record to the WAL
+    /// Append a single record to the WAL
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
@@ -361,6 +361,42 @@ impl WalWriter {
 
         self.bytes_written += 4 + payload.len() as u64 + 4;
         self.record_count += 1;
+
+        if self.sync_mode == crate::config::SyncMode::Always {
+            self.sync()?;
+        }
+        Ok(())
+    }
+
+    /// Append multiple records in a single write call to reduce I/O overhead.
+    pub fn batch_append(&mut self, records: &[WalRecord]) -> Result<()> {
+        if records.is_empty() {
+            return Ok(());
+        }
+
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("wal_append_fail", |_| {
+            Err(VantaError::IoError(std::io::Error::other(
+                "Simulated WAL append catastrophic I/O failure",
+            )))
+        });
+
+        let estimated = records.len() * 128;
+        let mut buf = Vec::with_capacity(estimated);
+
+        for record in records {
+            let payload = postcard::to_allocvec(record)
+                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+            let len = payload.len() as u32;
+            let crc = crc32c(&payload);
+            buf.extend_from_slice(&len.to_le_bytes());
+            buf.extend_from_slice(&payload);
+            buf.extend_from_slice(&crc.to_le_bytes());
+        }
+
+        self.writer.write_all(&buf)?;
+        self.bytes_written += buf.len() as u64;
+        self.record_count += records.len() as u64;
 
         if self.sync_mode == crate::config::SyncMode::Always {
             self.sync()?;

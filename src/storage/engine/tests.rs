@@ -26,7 +26,7 @@ mod tests {
             .expect("Failed to open read-only in-memory engine")
     }
 
-    fn sample_node(id: u64) -> UnifiedNode {
+    fn sample_node(id: u128) -> UnifiedNode {
         let mut node = UnifiedNode::new(id);
         node.vector = crate::node::VectorRepresentations::Full(vec![0.1, 0.2, 0.3]);
         node
@@ -310,7 +310,7 @@ mod tests {
         engine.insert(&sample_node(2)).expect("insert 2");
         let nodes = engine.scan_nodes().expect("scan");
         assert_eq!(nodes.len(), 2);
-        let ids: Vec<u64> = nodes.iter().map(|n| n.id).collect();
+        let ids: Vec<u128> = nodes.iter().map(|n| n.id).collect();
         assert!(ids.contains(&1));
         assert!(ids.contains(&2));
     }
