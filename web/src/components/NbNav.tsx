@@ -24,6 +24,8 @@ const navGroups = [
     label: "Resources",
     items: [
       { path: "/why-vantadb", label: "Why VantaDB" },
+      { path: "/cost", label: "Cost Comparison" },
+      { path: "/maint", label: "Zero Maintenance" },
       { path: "/product/benchmarks", label: "Benchmarks" },
       { path: "/playground", label: "Playground" },
       { path: "/changelog", label: "Changelog" },
