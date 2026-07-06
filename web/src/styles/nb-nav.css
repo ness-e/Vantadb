@@ -345,17 +345,6 @@
   border-bottom: 2px solid var(--border-strong);
 }
 
-.nc-drawer-prompt {
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  color: var(--amber);
-  padding: 0.2rem 0.5rem;
-  border: 2px solid var(--amber);
-}
-
 .nc-drawer-close {
   display: flex;
   align-items: center;

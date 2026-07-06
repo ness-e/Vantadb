@@ -1,7 +1,6 @@
 //! Maintenance operations: refresh, consolidate, evict, rebuild, compact, flush, WAL.
 
 use std::fs::OpenOptions;
-use std::io::Write;
 use std::sync::Arc;
 use web_time::Instant;
 
