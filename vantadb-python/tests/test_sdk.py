@@ -141,7 +141,6 @@ class TestVectorSearch:
         # Results are (node_id, distance) tuples
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results), f"each result should be a 2-tuple, got {results[:3]}"
 
-    @pytest.mark.skip(reason="search_batch not yet exposed in Python SDK")
     def test_search_batch(self):
         """Batch search should yield equivalent results to individual searches in parallel."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
@@ -209,7 +208,7 @@ class TestPersistentMemoryApi:
             top_k=3,
         )
         assert len(hits) == 1, f"expected 1 hit, got {len(hits)}"
-        assert hits[0]["record"]["key"] == "task-1", f"expected key 'task-1', got {hits[0]['record']['key']}"
+        assert hits[0].key == "task-1", f"expected key 'task-1', got {hits[0].key}"
 
         text_hits = db.search_memory(
             "agent/main",
@@ -218,7 +217,7 @@ class TestPersistentMemoryApi:
             top_k=3,
         )
         assert len(text_hits) == 1, f"text search expected 1 hit, got {len(text_hits)}"
-        assert text_hits[0]["record"]["key"] == "task-1", f"expected key 'task-1', got {text_hits[0]['record']['key']}"
+        assert text_hits[0].key == "task-1", f"expected key 'task-1', got {text_hits[0].key}"
 
         hybrid_hits = db.search_memory(
             "agent/main",
@@ -227,7 +226,7 @@ class TestPersistentMemoryApi:
             top_k=3,
         )
         assert len(hybrid_hits) == 1, f"hybrid search expected 1 hit, got {len(hybrid_hits)}"
-        assert hybrid_hits[0]["record"]["key"] == "task-1", f"expected key 'task-1', got {hybrid_hits[0]['record']['key']}"
+        assert hybrid_hits[0].key == "task-1", f"expected key 'task-1', got {hybrid_hits[0].key}"
 
         db.put("agent/main", "phrase-exact", "alpha beta gamma")
         db.put("agent/main", "phrase-separated", "alpha spacer beta")
@@ -237,7 +236,7 @@ class TestPersistentMemoryApi:
             text_query='"alpha beta"',
             top_k=3,
         )
-        assert [hit["record"]["key"] for hit in phrase_hits] == ["phrase-exact"], f"expected ['phrase-exact'], got {[hit['record']['key'] for hit in phrase_hits]}"
+        assert [hit.key for hit in phrase_hits] == ["phrase-exact"], f"expected ['phrase-exact'], got {[hit.key for hit in phrase_hits]}"
 
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
@@ -448,7 +447,7 @@ class TestNumPyIntegration:
         db.put("ns", "k1", "hello", vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
         hits = db.search_memory("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=3)
         assert len(hits) == 1, f"expected 1 hit, got {len(hits)}"
-        assert hits[0]["record"]["key"] == "k1", f"expected 'k1', got {hits[0]['record']['key']}"
+        assert hits[0].key == "k1", f"expected 'k1', got {hits[0].key}"
 
     def test_numpy_f64_auto_downcast(self):
         """f64 numpy arrays should auto-downcast to f32."""
@@ -608,6 +607,107 @@ class TestTTL:
         assert db.get_memory("ns", "keep")["payload"] == "alive", "non-expired records should survive purge"
         # gone is gone
         assert db.get_memory("ns", "gone") is None, "expired records should be removed after purge"
+
+
+class TestPutBatchRaw:
+    """PERF-15: put_batch_raw with 2D numpy array."""
+
+    def test_put_batch_raw(self):
+        """put_batch_raw with 2D numpy array should insert all vectors."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vectors = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ], dtype=np.float32)
+        keys = ["a", "b", "c"]
+        payloads = ["alpha", "beta", "gamma"]
+        namespaces = ["ns", "ns", "ns"]
+
+        records = db.put_batch_raw(vectors, keys, payloads=payloads, namespaces=namespaces)
+        assert len(records) == 3, f"expected 3 records, got {len(records)}"
+        assert records[0]["key"] == "a", f"expected key 'a', got {records[0]['key']}"
+        assert records[1]["payload"] == "beta", f"expected 'beta', got {records[1]['payload']}"
+        assert records[2]["namespace"] == "ns", f"expected namespace 'ns', got {records[2]['namespace']}"
+
+        fetched = db.get_memory("ns", "c")
+        assert fetched is not None, "put_batch_raw record should be retrievable"
+        assert fetched["payload"] == "gamma", f"expected 'gamma', got {fetched['payload']}"
+
+    def test_put_batch_raw_f64(self):
+        """put_batch_raw should accept f64 numpy arrays with downcast."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vectors = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ], dtype=np.float64)
+        records = db.put_batch_raw(vectors, ["x", "y"], payloads=["p1", "p2"], namespaces=["ns", "ns"])
+        assert len(records) == 2, f"expected 2 records, got {len(records)}"
+
+    def test_put_batch_raw_metadata(self):
+        """put_batch_raw should accept per-row metadata dicts."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vectors = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+        metadatas = [{"tag": "first"}, {"tag": "second"}]
+        records = db.put_batch_raw(vectors, ["a", "b"], metadatas=metadatas, namespaces=["ns", "ns"])
+        assert len(records) == 2
+        assert records[0]["metadata"]["tag"] == "first"
+        assert records[1]["metadata"]["tag"] == "second"
+
+    def test_put_batch_raw_shape_mismatch(self):
+        """put_batch_raw should reject shape/key length mismatch."""
+        import numpy as np
+        import pytest
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        vectors = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        with pytest.raises(Exception):
+            db.put_batch_raw(vectors, ["only_one_key"])
+
+
+class TestVantaSearchHit:
+    """PERF-16: VantaSearchHit typed result objects."""
+
+    def test_search_returns_hits(self):
+        """search_memory should return VantaSearchHit objects with getters."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+
+        db.put("ns", "hit-1", "first hit",
+               metadata={"type": "test", "count": 1},
+               vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+        db.put("ns", "hit-2", "second hit",
+               vector=np.array([0.0, 1.0, 0.0], dtype=np.float32))
+
+        hits = db.search_memory("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=3)
+        assert len(hits) >= 1, f"expected at least 1 hit, got {len(hits)}"
+
+        hit = hits[0]
+        assert isinstance(hit, vanta.VantaSearchHit), f"expected VantaSearchHit, got {type(hit)}"
+        assert hit.key == "hit-1", f"expected key 'hit-1', got {hit.key}"
+        assert hit.payload == "first hit", f"expected 'first hit', got {hit.payload}"
+        assert hit.namespace == "ns", f"expected namespace 'ns', got {hit.namespace}"
+        assert isinstance(hit.score, float), f"expected float score, got {type(hit.score)}"
+        assert hit.score >= 0.0, f"expected score >= 0, got {hit.score}"
+        assert hit.id is not None, "id should not be None"
+        assert hit.vector is not None, "vector should not be None"
+        assert len(hit.vector) == 3, f"expected vector dim 3, got {len(hit.vector)}"
+        assert hit.metadata is not None, "metadata should not be None"
+        assert hit.metadata.get("type") == "test", f"expected metadata.type 'test', got {hit.metadata.get('type')}"
+
+    def test_search_hit_repr(self):
+        """VantaSearchHit repr should include key and score."""
+        import numpy as np
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("ns", "repr-test", "payload",
+               vector=np.array([1.0, 0.0, 0.0], dtype=np.float32))
+        hits = db.search_memory("ns", np.array([1.0, 0.0, 0.0], dtype=np.float32), top_k=1)
+        assert len(hits) == 1
+        r = repr(hits[0])
+        assert "VantaSearchHit(" in r, f"repr should contain 'VantaSearchHit(', got {r}"
+        assert "repr-test" in r, f"repr should contain 'repr-test', got {r}"
 
 
 if __name__ == "__main__":
