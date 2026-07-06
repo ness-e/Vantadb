@@ -1,84 +1,60 @@
-import { useSingleOpen } from "../hooks/useSingleOpen";
+import { useState, useCallback } from "react";
 import { NbSection, NbSectionHeader } from "../components/nb";
 import "../styles/arch-preview.css";
 
 const LAYERS = [
-  {
-    id: "clients",
-    label: "Clients",
-    items: "Python SDK (PyO3) | Rust SDK | C API",
-    detail:
-      "Three binding surfaces covering every integration path. Python via PyO3 for data scientists, native Rust crate for systems programmers, and C ABI for language interop.",
-  },
-  {
-    id: "query-engine",
-    label: "Query Engine",
-    items: "SQL Parser | Vector Index (HNSW) | BM25 FTS",
-    detail:
-      "Triple-index architecture. HNSW for approximate nearest neighbor, BM25 for full-text relevance, and an intelligent router that fuses both scores into a single ranked result.",
-  },
-  {
-    id: "optimizer",
-    label: "Optimizer",
-    items: "Cost-based Query Optimizer",
-    detail:
-      "Cost-based query planning across vector, text, and SQL predicates. Automatically chooses index scan vs sequential scan based on selectivity estimates.",
-  },
-  {
-    id: "storage",
-    label: "Storage",
-    items: "Write-Ahead Log (WAL) | In-Memory Store",
-    detail:
-      "Dual-mode architecture. In-memory store for sub-microsecond reads, WAL for crash-safe durability. Configurable buffer pool and page size.",
-  },
-  {
-    id: "persistence",
-    label: "Persistence",
-    items: "SQLite VFS + DuckDB + Custom Backends",
-    detail:
-      "Pluggable backend layer. Default SQLite VFS for single-file simplicity, DuckDB for analytical workloads, or custom backends for specialized storage.",
-  },
-  {
-    id: "io-layer",
-    label: "IO Layer",
-    items: "Disk I/O | Memory-mapped | Network (optional)",
-    detail:
-      "Async I/O with io_uring (Linux) and overlapped I/O (Windows). Memory-mapped regions for zero-copy reads. Optional networked mode for remote storage.",
-  },
+  { id: "sdk", label: "SDK LAYER", items: "PyO3 · Rust · C API", detail: "Three binding surfaces covering every integration path. Python via PyO3 for data scientists, native Rust for systems, C ABI for interop." },
+  { id: "query", label: "QUERY ENGINE", items: "SQL · HNSW · BM25", detail: "Triple-index architecture. HNSW for ANN, BM25 for FTS, intelligent router fusing scores into ranked results." },
+  { id: "opt", label: "OPTIMIZER", items: "Cost-based planner", detail: "Cost-based planning across vector, text, SQL predicates. Auto-selects index vs sequential scan." },
+  { id: "wal", label: "WAL", items: "Write-Ahead Log", detail: "Crash-safe durability. Every write is logged before commit. Automatic recovery on restart." },
+  { id: "store", label: "STORE", items: "In-Memory · SQLite VFS", detail: "Dual-mode: in-memory for sub-µs reads, SQLite VFS for single-file persistence. Configurable buffer pool." },
+  { id: "io", label: "IO LAYER", items: "io_uring · mmap", detail: "Async I/O with io_uring (Linux), overlapped I/O (Win). Memory-mapped regions for zero-copy reads." },
 ];
 
 export function NbArchPreview() {
-  const [openLayer, toggleLayer] = useSingleOpen();
+  const [selected, setSelected] = useState<number | null>(null);
+  const toggle = useCallback((i: number) => setSelected((p) => (p === i ? null : i)), []);
 
   return (
     <NbSection ariaLabel="Architecture">
-      <NbSectionHeader monoLabel="[ARCHITECTURE]" headline="Architecture." />
-      <div className="nb-arch-stack">
+      <NbSectionHeader
+        monoLabel="[STACK]"
+        headline="Six layers. One process."
+        sub="From SDK to disk — compiled to native, running in your address space."
+      />
+
+      {/* 3D Layer Stack */}
+      <div className="nb-stack-3d" role="img" aria-label="3D architecture layer stack">
         {LAYERS.map((layer, i) => {
-          const isSelected = openLayer === i;
+          const depth = LAYERS.length - 1 - i;
+          const zOffset = depth * 12;
+          const isSel = selected === i;
+
           return (
-            <div key={layer.id} className={`nb-arch-row-wrap${isSelected ? " is-expanded" : ""}`}>
-              <button
-                type="button"
-                className="nb-arch-row"
-                onClick={() => toggleLayer(i)}
-                aria-expanded={isSelected}
-              >
-                <span className="nb-arch-row-num">{String(i + 1).padStart(2, "0")}</span>
-                <span className="nb-arch-row-label">{layer.label}</span>
-                <span className="nb-arch-row-items">{layer.items}</span>
-                <span className="nb-arch-row-toggle" aria-hidden="true">
-                  {isSelected ? "\u2212" : "+"}
-                </span>
-              </button>
-              {isSelected && (
-                <div className="nb-arch-detail" role="region">
-                  <p>{layer.detail}</p>
-                </div>
-              )}
-            </div>
+            <button
+              key={layer.id}
+              type="button"
+              className={`nb-stack-layer ${isSel ? "nb-stack-layer--sel" : ""} ${selected !== null && !isSel ? "nb-stack-layer--dim" : ""}`}
+              style={{ zIndex: depth + 1, "--layer-z": `${zOffset}px` } as React.CSSProperties}
+              onClick={() => toggle(i)}
+              aria-pressed={isSel}
+            >
+              <span className="nb-stack-layer-num">{String(i + 1).padStart(2, "0")}</span>
+              <div className="nb-stack-layer-content">
+                <span className="nb-stack-layer-label">{layer.label}</span>
+                <span className="nb-stack-layer-items">{layer.items}</span>
+              </div>
+              <span className="nb-stack-layer-arrow">{">"}</span>
+            </button>
           );
         })}
+      </div>
+
+      {/* Detail panel */}
+      <div className={`nb-stack-detail ${selected !== null ? "nb-stack-detail--show" : ""}`} aria-hidden={selected === null}>
+        {selected !== null && (
+          <p className="nb-stack-detail-text">{LAYERS[selected].detail}</p>
+        )}
       </div>
     </NbSection>
   );

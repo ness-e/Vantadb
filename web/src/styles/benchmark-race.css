@@ -1,162 +1,220 @@
-/* ── Intro ── */
-.nb-bm-intro {
-  margin-bottom: var(--space-xl);
-}
-
-/* ── Body 5fr / 2px divider / 7fr ── */
-.nb-bm-body {
+/* ── Racing Dashboard ──────────────────────────── */
+.nb-rd-dash {
   display: grid;
-  grid-template-columns: 5fr 2px 7fr;
+  grid-template-columns: 240px 1fr;
   gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+  align-items: start;
 }
 
-/* ── Left panel ── */
-.nb-bm-lead {
+/* ── Podium ── */
+.nb-rd-podium {
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  box-shadow: var(--shadow-md);
 }
 
-.nb-bm-flag {
+.nb-rd-podium-title {
   font-family: var(--font-mono);
   font-size: var(--text-label);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   color: var(--amber);
   text-transform: uppercase;
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--amber);
 }
 
-.nb-bm-stats {
+.nb-rd-podium-steps {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
 }
 
-.nb-bm-stats .nb-card {
-  padding: var(--space-lg);
+.nb-rd-podium-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border: 2px solid var(--border-strong);
+  background: var(--background);
+  transition: border-color 80ms var(--ease-brutal);
 }
 
-.nb-bm-stat-val {
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 700;
-  color: var(--amber);
-  line-height: 0.9;
-  display: block;
+.nb-rd-podium-step:hover {
+  border-color: var(--step-color, var(--amber));
 }
 
-.nb-bm-stat-lbl {
+.nb-rd-podium-icon {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--steel);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
-  margin-top: var(--space-2xs);
-  display: block;
+  font-weight: var(--weight-bold);
+  color: var(--step-color, var(--amber));
+  width: 3ch;
 }
 
-/* ── Right panel ── */
-.nb-bm-charts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.nb-bm-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.nb-bm-group-title {
+.nb-rd-podium-name {
   font-family: var(--font-mono);
-  font-size: var(--text-code);
-  color: var(--steel);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
+  color: var(--foreground);
 }
 
-.nb-bm-bars {
+/* ── Charts ── */
+.nb-rd-charts {
   display: flex;
   flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.nb-rd-group-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--steel);
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.nb-rd-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.nb-rd-bar-row {
+  display: grid;
+  grid-template-columns: 14ch 1fr 10ch;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: var(--space-2xs) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.nb-rd-bar-row:last-child {
+  border-bottom: none;
+}
+
+.nb-rd-bar-head {
+  display: flex;
+  align-items: center;
   gap: var(--space-2xs);
 }
 
-.nb-bm-bar-row {
-  display: grid;
-  grid-template-columns: 12ch 1fr 6ch;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.nb-bm-bar-label {
+.nb-rd-bar-label {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--foreground);
-  text-align: right;
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
+  color: var(--foreground);
 }
 
-.nb-bm-bar-track {
-  height: 1.5rem;
-  background: var(--surface);
+.nb-rd-rank {
+  font-family: var(--font-mono);
+  font-size: 0.45rem;
+  color: var(--steel);
+  border: 1px solid var(--border);
+  padding: 0 3px;
+  line-height: 1.2;
+}
+
+.nb-rd-bar-track {
+  height: 18px;
+  background: var(--surface-alt);
   border: 2px solid var(--border-strong);
   position: relative;
 }
 
-.nb-bm-bar-fill {
+.nb-rd-bar-fill {
   height: 100%;
-  width: 0%;
+  transition: width 0.12s var(--ease-brutal);
 }
 
-.nb-bm-bar-fill--amber {
+.nb-rd-bar-fill--amber {
   background: var(--amber);
-  box-shadow: 3px 0 0 var(--amber);
 }
 
-.nb-bm-bar-fill--steel {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--steel) 0px,
-    var(--steel) 6px,
-    transparent 6px,
-    transparent 10px
-  );
+.nb-rd-bar-fill--steel {
+  background: var(--steel);
+  opacity: 0.5;
 }
 
-.nb-bm-bar-value {
+.nb-rd-bar-value {
   font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  color: var(--steel);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-code);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
 }
 
-@media (max-width: 900px) {
-  .nb-bm-body {
+.nb-rd-bar-fast {
+  font-family: var(--font-mono);
+  font-size: 0.45rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 0 4px;
+  line-height: 1.3;
+}
+
+.nb-rd-src {
+  display: inline-block;
+  margin-top: var(--space-lg);
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .nb-rd-dash {
     grid-template-columns: 1fr;
-    gap: var(--space-lg);
   }
-  .nb-bm-body > .nb-vert-divider {
-    display: none;
+
+  .nb-rd-podium {
+    display: grid;
+    grid-template-columns: 1fr;
   }
-  .nb-bm-stats {
+
+  .nb-rd-podium-steps {
     flex-direction: row;
   }
-  .nb-bm-stat-val {
-    font-size: var(--text-title);
+
+  .nb-rd-bar-row {
+    grid-template-columns: 10ch 1fr 8ch;
   }
 }
 
 @media (max-width: 640px) {
-  .nb-bm-stats {
+  .nb-rd-podium-steps {
     flex-direction: column;
   }
-  .nb-bm-bar-row {
-    grid-template-columns: 10ch 1fr 5ch;
+
+  .nb-rd-bar-row {
+    grid-template-columns: 8ch 1fr 7ch;
+    gap: var(--space-2xs);
+  }
+
+  .nb-rd-bar-label {
+    font-size: 0.45rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-rd-bar-fill {
+    transition: none;
+  }
+
+  .nb-rd-podium-step {
+    transition: none;
   }
 }

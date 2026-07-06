@@ -6,23 +6,31 @@ import { NbSection, NbSectionHeader } from "./nb";
 const GROUPS = [
   {
     id: "hybrid",
-    title: "Hybrid Query \u2014 p50 Latency (\u00b5s)",
+    title: "Hybrid Query — p50 Latency (µs)",
+    unit: "ms",
     bars: [
-      { label: "VantaDB", value: "1.2ms", pct: 15, amber: true },
-      { label: "Chroma", value: "4.8ms", pct: 45, amber: false },
-      { label: "Pinecone", value: "7.3ms", pct: 65, amber: false },
-      { label: "Qdrant", value: "3.1ms", pct: 30, amber: false },
+      { label: "VantaDB", value: "1.2", pct: 15, rank: 1 },
+      { label: "Qdrant", value: "3.1", pct: 30, rank: 2 },
+      { label: "Chroma", value: "4.8", pct: 45, rank: 3 },
+      { label: "Pinecone", value: "7.3", pct: 65, rank: 4 },
     ],
   },
   {
     id: "recall",
     title: "Recall@10 (higher is better)",
+    unit: "",
     bars: [
-      { label: "VantaDB", value: "0.998", pct: 98, amber: true },
-      { label: "Chroma", value: "0.945", pct: 90, amber: false },
-      { label: "SQLite + vec0", value: "0.890", pct: 82, amber: false },
+      { label: "VantaDB", value: "0.998", pct: 98, rank: 1 },
+      { label: "Chroma", value: "0.945", pct: 90, rank: 2 },
+      { label: "SQLite+vec0", value: "0.890", pct: 82, rank: 3 },
     ],
   },
+];
+
+const PODIUM = [
+  { label: "VantaDB", icon: "1st", color: "var(--amber)" },
+  { label: "Qdrant", icon: "2nd", color: "var(--steel)" },
+  { label: "Chroma", icon: "3rd", color: "var(--muted)" },
 ];
 
 export function NbBenchmarkRace() {
@@ -33,12 +41,7 @@ export function NbBenchmarkRace() {
     const el = sectionRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
       { threshold: 0.2 },
     );
     observer.observe(el);
@@ -48,13 +51,13 @@ export function NbBenchmarkRace() {
   useEffect(() => {
     if (!visible) return;
     const ctx = gsap.context(() => {
-      const fills = gsap.utils.toArray<HTMLElement>(".nb-bm-bar-fill");
+      const fills = gsap.utils.toArray<HTMLElement>(".nb-rd-bar-fill");
       if (!fills.length) return;
       gsap.to(fills, {
         width: (i) => fills[i].dataset.target ?? "0%",
-        duration: 0.35,
-        stagger: 0.06,
-        ease: "steps(12)",
+        duration: 0.4,
+        stagger: 0.05,
+        ease: "steps(10)",
       });
     }, sectionRef);
     return () => ctx.revert();
@@ -62,57 +65,62 @@ export function NbBenchmarkRace() {
 
   return (
     <NbSection ref={sectionRef} ariaLabel="Benchmarks">
-      <div className="nb-bm-intro">
-        <NbSectionHeader monoLabel="[BENCHMARKS]" headline="VantaDB vs the field." />
-      </div>
+      <NbSectionHeader monoLabel="[RACE DATA]" headline="VantaDB vs the field." sub="Real benchmarks. Reproducible. No marketing numbers." />
 
-      <div className="nb-bm-body">
-        <div className="nb-bm-lead">
-          <span className="nb-bm-flag">VANTA DB</span>
-          <div className="nb-bm-stats">
-            <div className="nb-card nb-card--offset-amber">
-              <span className="nb-bm-stat-val">1.2ms</span>
-              <span className="nb-bm-stat-lbl">Hybrid query p50</span>
-            </div>
-            <div className="nb-card nb-card--offset-amber">
-              <span className="nb-bm-stat-val">0.998</span>
-              <span className="nb-bm-stat-lbl">Recall@10</span>
-            </div>
+      <div className="nb-rd-dash">
+        {/* ── Podium ── */}
+        <div className="nb-rd-podium">
+          <span className="nb-rd-podium-title">OVERALL STANDINGS</span>
+          <div className="nb-rd-podium-steps">
+            {PODIUM.map((p, i) => (
+              <div key={p.label} className="nb-rd-podium-step" style={{ "--step-color": p.color } as React.CSSProperties}>
+                <span className="nb-rd-podium-icon">{p.icon}</span>
+                <span className="nb-rd-podium-name">{p.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="nb-vert-divider" />
-
-        <div className="nb-bm-charts">
+        {/* ── Charts ── */}
+        <div className="nb-rd-charts">
           {GROUPS.map((group) => (
-            <div key={group.id} className="nb-bm-group">
-              <span className="nb-bm-group-title">{group.title}</span>
-              <div className="nb-bm-bars">
-                {group.bars.map((bar) => (
-                  <div key={bar.label} className="nb-bm-bar-row">
-                    <span className="nb-bm-bar-label">{bar.label}</span>
-                    <div className="nb-bm-bar-track">
-                      <div
-                        className={`nb-bm-bar-fill ${bar.amber ? "nb-bm-bar-fill--amber" : "nb-bm-bar-fill--steel"}`}
-                        style={{ width: bar.amber ? `${bar.pct}%` : "0%" }}
-                        data-target={`${bar.pct}%`}
-                      />
+            <div key={group.id} className="nb-rd-group">
+              <span className="nb-rd-group-title">{group.title}</span>
+              <div className="nb-rd-bars">
+                {group.bars.map((bar) => {
+                  const isVanta = bar.label === "VantaDB";
+                  return (
+                    <div key={bar.label} className="nb-rd-bar-row">
+                      <div className="nb-rd-bar-head">
+                        <span className="nb-rd-bar-label">{bar.label}</span>
+                        <span className="nb-rd-rank">#{bar.rank}</span>
+                      </div>
+                      <div className="nb-rd-bar-track">
+                        <div
+                          className={`nb-rd-bar-fill ${isVanta ? "nb-rd-bar-fill--amber" : "nb-rd-bar-fill--steel"}`}
+                          style={{ width: isVanta ? `${bar.pct}%` : "0%" }}
+                          data-target={`${bar.pct}%`}
+                        />
+                      </div>
+                      <span className="nb-rd-bar-value">
+                        {bar.value}{bar.unit}
+                        {isVanta && <span className="nb-rd-bar-fast">FASTEST</span>}
+                      </span>
                     </div>
-                    <span className="nb-bm-bar-value">{bar.value}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
-          <a
-            href="https://github.com/ness-e/Vantadb/tree/main/benches"
-            className="nb-mono-label nb-mono-label--steel"
-            style={{ marginTop: "var(--space-sm)", display: "inline-block" }}
-          >
-            [ View benchmark reproduction script ]
-          </a>
         </div>
       </div>
+
+      <a
+        href="https://github.com/ness-e/Vantadb/tree/main/benches"
+        className="nb-mono-label nb-mono-label--steel nb-rd-src"
+      >
+        [ View benchmark reproduction script ]
+      </a>
     </NbSection>
   );
 }

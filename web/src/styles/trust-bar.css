@@ -1,34 +1,108 @@
-.nb-trust-label {
-  display: block;
-  text-align: center;
-  margin-bottom: var(--space-md);
+/* ── Ticker Tape Trust Bar ────────────────────── */
+.nb-ticker-wrap {
+  overflow: hidden;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  margin-bottom: var(--space-lg);
 }
 
-.nb-trust-grid {
+.nb-ticker-track {
   display: flex;
-  gap: var(--space-sm);
-  justify-content: center;
+  gap: 0;
+  width: max-content;
+  animation: nb-ticker-scroll 30s linear infinite;
+}
+
+.nb-ticker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-lg);
+  border-right: 2px solid var(--border-strong);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.nb-ticker-item-value {
+  font-size: var(--text-code);
+  font-weight: var(--weight-bold);
+  color: var(--amber);
+  letter-spacing: var(--tracking-tight);
+}
+
+.nb-ticker-item-label {
+  font-size: var(--text-micro);
+  letter-spacing: var(--tracking-wide);
+  color: var(--steel);
+}
+
+@keyframes nb-ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+
+/* Integrations row */
+.nb-ticker-integrations {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-xs) 0;
+}
+
+.nb-ticker-intro {
+  flex-shrink: 0;
+  letter-spacing: var(--tracking-wide);
+}
+
+.nb-ticker-labels {
+  display: flex;
+  gap: var(--space-2xs);
   flex-wrap: wrap;
 }
 
-.nb-trust-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 12ch;
-  height: 3em;
-  border: 2px solid var(--border-strong);
+.nb-ticker-label {
   font-family: var(--font-mono);
-  font-size: var(--text-micro);
+  font-size: 0.6rem;
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
+  padding: 0.35rem 0.7rem;
+  border: 2px solid var(--border-strong);
   color: var(--steel);
-  transition: all 80ms var(--ease-brutal);
+  transition: color 80ms var(--ease-brutal), border-color 80ms var(--ease-brutal), background 80ms var(--ease-brutal);
 }
 
-.nb-trust-item:hover {
-  border-color: var(--amber);
-  color: var(--amber);
-  box-shadow: 4px 4px 0px 0px var(--amber);
+.nb-ticker-label:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+  background: var(--surface-alt);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .nb-ticker-item {
+    padding: var(--space-2xs) var(--space-sm);
+  }
+
+  .nb-ticker-item-value {
+    font-size: var(--text-micro);
+  }
+
+  .nb-ticker-item-label {
+    font-size: 0.45rem;
+  }
+
+  .nb-ticker-integrations {
+    flex-direction: column;
+    gap: var(--space-sm);
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-ticker-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }

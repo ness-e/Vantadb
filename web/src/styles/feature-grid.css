@@ -1,32 +1,81 @@
-.nb-fg-row {
+/* ── Bento grid ──────────────────────────────── */
+.nb-fg-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+/* ── Feature card ────────────────────────────── */
+.nb-fg-card {
   display: flex;
-  gap: var(--space-md);
+  flex-direction: column;
+  gap: var(--space-2xs);
   padding: var(--space-md);
-  margin: 0 calc(-1 * var(--space-md));
-  align-items: flex-start;
-  border: 2px solid transparent;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: 3px 3px 0 var(--border);
   transition:
     border-color 80ms var(--ease-brutal),
     box-shadow 80ms var(--ease-brutal);
 }
 
-.nb-fg-row:hover {
-  border-color: var(--border-visible);
-  box-shadow: var(--shadow-sm);
+.nb-fg-card:hover {
+  border-color: var(--amber);
+  box-shadow: 5px 5px 0 var(--amber);
+  translate: -1px -1px;
 }
 
+.nb-fg-card--featured {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 6%, var(--surface));
+  box-shadow: 4px 4px 0 var(--amber);
+}
+
+/* ── Icon ────────────────────────────────────── */
+.nb-fg-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--border-strong);
+  color: var(--amber);
+  background: var(--background);
+}
+
+/* ── Title ───────────────────────────────────── */
 .nb-fg-title {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--foreground);
-  margin: 0;
-}
-
-.nb-fg-desc {
   font-family: var(--font-sans);
   font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* ── Description ─────────────────────────────── */
+.nb-fg-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
   color: var(--muted);
-  margin-top: var(--space-2xs);
-  margin-bottom: 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 768px) {
+  .nb-fg-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .nb-fg-card[style*="span"] {
+    grid-column: span 1 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .nb-fg-grid {
+    grid-template-columns: 1fr;
+  }
 }
