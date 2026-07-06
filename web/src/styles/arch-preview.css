@@ -8,6 +8,7 @@
 
 .nb-arch-row-wrap {
   border-bottom: 2px solid var(--border-strong);
+  position: relative;
 }
 
 .nb-arch-row-wrap:last-child {
@@ -17,6 +18,32 @@
 .nb-arch-row-wrap.is-expanded {
   background: var(--surface-alt);
   box-shadow: inset var(--shadow-sm);
+}
+
+/* SVG-style connector arrow between layers */
+.nb-arch-row-wrap::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 3rem;
+  width: 13rem;
+  height: 0;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--border-strong);
+  translate: 0 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nb-arch-row-wrap:last-child::after {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .nb-arch-row-wrap::after {
+    left: 2.5rem;
+    width: 100%;
+  }
 }
 
 .nb-arch-row {
@@ -36,6 +63,12 @@
 
 .nb-arch-row:hover {
   background: var(--surface);
+}
+
+.nb-arch-row:active {
+  background: var(--surface);
+  filter: invert(1);
+  mix-blend-mode: difference;
 }
 
 .nb-arch-row-wrap.is-expanded .nb-arch-row {

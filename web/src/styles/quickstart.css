@@ -59,25 +59,30 @@
   flex-direction: column;
   gap: var(--space-md);
   overflow: hidden;
+  box-shadow: 4px 4px 0 var(--border);
   transition:
     border-color 80ms var(--ease-brutal),
     box-shadow 80ms var(--ease-brutal),
-    background 80ms var(--ease-brutal);
+    background 80ms var(--ease-brutal),
+    translate 80ms var(--ease-brutal);
 }
 
 .qs-card:hover {
   border-color: var(--amber);
   background: var(--surface-alt);
+  box-shadow: 6px 6px 0 var(--amber);
 }
 
 .qs-card:active {
-  translate: 2px 2px;
+  translate: 4px 4px;
+  box-shadow: 0 0 0 var(--amber);
 }
 
 .qs-card--active {
   border-color: var(--amber);
-  box-shadow: var(--shadow-amber-lg);
+  box-shadow: 6px 6px 0 var(--amber);
   background: var(--surface);
+  translate: -2px -2px;
 }
 
 .qs-card--active:hover {
@@ -166,13 +171,46 @@
   align-items: baseline;
   background: var(--terminal-bg);
   border: 2px solid var(--border-strong);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-lg) var(--space-md) var(--space-sm);
   position: relative;
   z-index: 1;
 }
 
+.qs-card-cmd::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.25rem;
+  background: #141414;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.5rem;
+}
+
+.qs-card-cmd::after {
+  content: "\25CF\2009\25CF\2009\25CF";
+  position: absolute;
+  top: 0;
+  left: 0.5rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.5rem;
+  letter-spacing: 0.125rem;
+  color: var(--steel);
+  pointer-events: none;
+}
+
 .qs-card--active .qs-card-cmd {
   border-color: var(--amber);
+}
+
+.qs-card .qs-card-prompt {
+  margin-top: 0.25rem;
 }
 
 .qs-card-prompt {

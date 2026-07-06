@@ -52,9 +52,9 @@ export function NbBenchmarkRace() {
       if (!fills.length) return;
       gsap.to(fills, {
         width: (i) => fills[i].dataset.target ?? "0%",
-        duration: 0.25,
-        stagger: 0.05,
-        ease: "power2.out",
+        duration: 0.35,
+        stagger: 0.06,
+        ease: "steps(12)",
       });
     }, sectionRef);
     return () => ctx.revert();
@@ -104,6 +104,13 @@ export function NbBenchmarkRace() {
               </div>
             </div>
           ))}
+          <a
+            href="https://github.com/ness-e/Vantadb/tree/main/benches"
+            className="nb-mono-label nb-mono-label--steel"
+            style={{ marginTop: "var(--space-sm)", display: "inline-block" }}
+          >
+            [ View benchmark reproduction script ]
+          </a>
         </div>
       </div>
     </NbSection>
