@@ -13,7 +13,7 @@ pub struct GcWorker<'a> {
     /// Reference to the storage engine.
     storage: &'a StorageEngine,
     /// Maps expiration timestamp (seconds) to node IDs.
-    index_ttl: BTreeMap<u64, Vec<u64>>,
+    index_ttl: BTreeMap<u64, Vec<u128>>,
 }
 
 impl<'a> GcWorker<'a> {
@@ -26,7 +26,7 @@ impl<'a> GcWorker<'a> {
     }
 
     /// Registers a node to be automatically expired and cleared at `expiry_secs`
-    pub fn register_ttl(&mut self, id: u64, expiry_secs: u64) {
+    pub fn register_ttl(&mut self, id: u128, expiry_secs: u64) {
         self.index_ttl.entry(expiry_secs).or_default().push(id);
     }
 
@@ -81,7 +81,7 @@ impl<'a> GcWorker<'a> {
     /// Call this after a manual (non-TTL) delete so the GC does not accumulate
     /// stale entries for already-deleted nodes, preventing unbounded TTL map
     /// growth. Entries whose ID sets become empty are removed entirely.
-    pub fn purge_ttl_for_deleted(&mut self, active_ids: &HashSet<u64>) {
+    pub fn purge_ttl_for_deleted(&mut self, active_ids: &HashSet<u128>) {
         self.index_ttl.retain(|_, ids| {
             ids.retain(|id| active_ids.contains(id));
             !ids.is_empty()
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn test_register_ttl_inserts_entry() {
         let (storage, _dir) = setup_storage();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         worker.register_ttl(42, 1_000_000);
         assert_eq!(worker.index_ttl.len(), 1);
         assert_eq!(worker.index_ttl.get(&1_000_000).unwrap(), &vec![42]);
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_register_ttl_multiple_ids_same_expiry() {
         let (storage, _dir) = setup_storage();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         worker.register_ttl(1, 100);
         worker.register_ttl(2, 100);
         assert_eq!(worker.index_ttl.get(&100).unwrap().len(), 2);
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn test_register_ttl_different_expiries() {
         let (storage, _dir) = setup_storage();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         worker.register_ttl(1, 100);
         worker.register_ttl(2, 200);
         assert_eq!(worker.index_ttl.len(), 2);
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_sweep_no_expired_nodes() {
         let (storage, _dir) = setup_storage();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         let far_future = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn test_sweep_empty_worker_returns_zero() {
         let (storage, _dir) = setup_storage();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         let count = worker.sweep().unwrap();
         assert_eq!(count, 0);
     }
@@ -164,7 +164,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let node = UnifiedNode::new(99);
         storage.insert(&node).unwrap();
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         let past = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -183,14 +183,14 @@ mod tests {
             let node = UnifiedNode::new(i);
             storage.insert(&node).unwrap();
         }
-        let mut worker = GcWorker::new(Box::leak(Box::new(storage)));
+        let mut worker = GcWorker::new(&storage);
         for i in 0..5 {
             let past = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
                 - (5 - i);
-            worker.register_ttl(i, past);
+            worker.register_ttl(i as u128, past);
         }
         let count = worker.sweep().unwrap();
         assert_eq!(count, 5);

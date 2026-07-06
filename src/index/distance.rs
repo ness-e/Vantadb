@@ -255,3 +255,65 @@ pub(crate) fn f32_slice_similarity(
         DistanceMetric::Euclidean => -euclidean_distance_squared_f32(query_vec, candidate),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_euclidean_similarity_is_higher_for_closer() {
+        let q = vec![0.0, 0.0];
+        let close = vec![1.0, 0.0];
+        let far = vec![10.0, 10.0];
+        let score_close = calculate_similarity(&q, None, None, None, &VectorRepresentations::Full(close), DistanceMetric::Euclidean);
+        let score_far = calculate_similarity(&q, None, None, None, &VectorRepresentations::Full(far), DistanceMetric::Euclidean);
+        assert!(score_close > score_far, "Euclidean similarity must be higher for closer vectors: {} <= {}", score_close, score_far);
+        assert!(score_close <= 0.0, "Euclidean similarity must be <= 0 for non-zero distance: {}", score_close);
+    }
+
+    #[test]
+    fn test_cosine_similarity_is_higher_for_closer() {
+        let q = vec![1.0, 0.0, 0.0];
+        let close = vec![0.9, 0.1, 0.0];
+        let far = vec![-1.0, 0.0, 0.0];
+        let score_close = calculate_similarity(&q, None, None, None, &VectorRepresentations::Full(close), DistanceMetric::Cosine);
+        let score_far = calculate_similarity(&q, None, None, None, &VectorRepresentations::Full(far), DistanceMetric::Cosine);
+        assert!(score_close > score_far, "Cosine similarity must be higher for closer vectors: {} <= {}", score_close, score_far);
+    }
+
+    #[test]
+    fn test_euclidean_identical_vectors_score_zero() {
+        let v = vec![3.0, 4.0, 5.0];
+        let score = calculate_similarity(&v, None, None, None, &VectorRepresentations::Full(v.clone()), DistanceMetric::Euclidean);
+        assert!((score - 0.0).abs() < 1e-6, "Euclidean score for identical vectors should be 0, got {}", score);
+    }
+
+    #[test]
+    fn test_search_nearest_euclidean_returns_closest_first() {
+        use crate::index::CPIndex;
+        use crate::index::HnswConfig;
+        use crate::node::FilterBitset;
+        let config = HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 50,
+            ef_search: 50,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Euclidean,
+        };
+        let index = CPIndex::new_with_config(config);
+        index.add(1, FilterBitset::all_set(), VectorRepresentations::Full(vec![0.0, 0.0]), 0);
+        index.add(2, FilterBitset::all_set(), VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        index.add(3, FilterBitset::all_set(), VectorRepresentations::Full(vec![10.0, 10.0]), 0);
+        let query = vec![0.0, 0.0];
+        let results = index.search_nearest(&query, None, None, &FilterBitset::all_set(), 3, None);
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].0, 1, "Closest (id=1, distance 1) should be first, got id={}", results[0].0);
+        assert_eq!(results[2].0, 3, "Farthest (id=3, distance ~14.14) should be last, got id={}", results[2].0);
+        for &(_, score) in &results {
+            assert!(!score.is_nan(), "Score should not be NaN");
+        }
+        assert!(results[0].1 > results[1].1, "Scores must be descending (higher=better): {} <= {}", results[0].1, results[1].1);
+        assert!(results[1].1 > results[2].1, "Scores must be descending (higher=better): {} <= {}", results[1].1, results[2].1);
+    }
+}

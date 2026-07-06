@@ -5,11 +5,11 @@ use thiserror::Error;
 pub enum VantaError {
     /// A node with the given ID was not found.
     #[error("Node not found: {0}")]
-    NodeNotFound(u64),
+    NodeNotFound(u128),
 
     /// A node with the given ID already exists.
     #[error("Duplicate node ID: {0}")]
-    DuplicateNode(u64),
+    DuplicateNode(u128),
 
     /// Vector dimensions do not match the expected value.
     #[error("Vector dimension mismatch: expected {expected}, got {got}")]
@@ -68,7 +68,7 @@ pub enum VantaError {
 
     /// Two nodes have colliding IDs.
     #[error("Node ID collision: {0}")]
-    NodeIdCollision(u64),
+    NodeIdCollision(u128),
 
     /// A cycle was detected in a graph operation.
     #[error("Cycle detected in graph operation")]
@@ -158,13 +158,6 @@ pub enum VantaError {
     #[error("Generic error: {0}")]
     Generic(String),
 
-    /// Deprecated serialization error variant.
-    #[error("Serialization error: {0}")]
-    #[deprecated(
-        note = "Use the non-deprecated SerializationError variant or a more specific variant"
-    )]
-    OldSerializationError(String),
-
     /// Error from the storage backend.
     #[error("Backend error: {0}")]
     BackendError(String),
@@ -196,13 +189,13 @@ mod tests {
 
     #[test]
     fn display_node_not_found() {
-        let e = VantaError::NodeNotFound(42);
+        let e = VantaError::NodeNotFound(42u128);
         assert_eq!(e.to_string(), "Node not found: 42");
     }
 
     #[test]
     fn display_duplicate_node() {
-        let e = VantaError::DuplicateNode(99);
+        let e = VantaError::DuplicateNode(99u128);
         assert_eq!(e.to_string(), "Duplicate node ID: 99");
     }
 
@@ -255,7 +248,7 @@ mod tests {
 
     #[test]
     fn display_node_id_collision() {
-        let e = VantaError::NodeIdCollision(42);
+        let e = VantaError::NodeIdCollision(42u128);
         assert_eq!(e.to_string(), "Node ID collision: 42");
     }
 
@@ -320,7 +313,7 @@ mod tests {
 
     #[test]
     fn debug_format() {
-        let e = VantaError::NodeNotFound(7);
+        let e = VantaError::NodeNotFound(7u128);
         let debug = format!("{:?}", e);
         assert!(
             debug.contains("NodeNotFound"),
