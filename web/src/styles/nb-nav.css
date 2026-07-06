@@ -31,8 +31,7 @@
   text-decoration: none;
   flex-shrink: 0;
   z-index: calc(var(--z-dropdown) + 1);
-  transition:
-    opacity 80ms var(--ease-brutal);
+  transition: opacity 80ms var(--ease-brutal);
 }
 
 .nc-nav-logo:hover {
