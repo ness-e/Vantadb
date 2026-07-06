@@ -23,36 +23,20 @@
   border-bottom: 3px solid var(--amber);
 }
 
-/* ── Logo / Prompt ── */
+/* ── Logo ── */
 
-.nc-nav-prompt {
+.nc-nav-logo {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
   text-decoration: none;
   flex-shrink: 0;
   z-index: calc(var(--z-dropdown) + 1);
-  padding: 0.25rem 0.5rem;
-  background: var(--amber);
-  color: var(--text-on-amber);
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   transition:
-    box-shadow 80ms var(--ease-brutal),
-    transform 80ms var(--ease-brutal);
+    opacity 80ms var(--ease-brutal);
 }
 
-.nc-nav-prompt:hover {
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
-  transform: translate(-2px, -2px);
-}
-
-.nc-nav-prompt-char {
-  font-size: 0.7rem;
-  line-height: 1;
+.nc-nav-logo:hover {
+  opacity: 0.8;
 }
 
 /* ── Desktop links ── */
@@ -126,6 +110,109 @@
 
 .nc-nav-toggle-on {
   font-size: 0.5rem;
+  line-height: 1;
+  color: var(--text-on-amber);
+}
+
+/* ── Nav group with dropdown ── */
+
+.nc-nav-group {
+  position: relative;
+}
+
+.nc-nav-group-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--foreground);
+  opacity: 0.7;
+  text-decoration: none;
+  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    opacity 80ms var(--ease-brutal),
+    color 80ms var(--ease-brutal),
+    border-color 80ms var(--ease-brutal),
+    background 80ms var(--ease-brutal);
+}
+
+.nc-nav-group-btn:hover,
+.nc-nav-group:focus-within .nc-nav-group-btn {
+  opacity: 1;
+  border-color: var(--border-strong);
+}
+
+.nc-nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background: var(--background);
+  border: 2px solid var(--border-strong);
+  box-shadow: 6px 6px 0 var(--amber);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 80ms var(--ease-brutal),
+    visibility 0ms 80ms;
+  z-index: calc(var(--z-dropdown) + 2);
+}
+
+.nc-nav-group:hover .nc-nav-dropdown,
+.nc-nav-group:focus-within .nc-nav-dropdown {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 80ms var(--ease-brutal),
+    visibility 0ms;
+}
+
+.nc-nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  transition:
+    color 80ms var(--ease-brutal),
+    background 80ms var(--ease-brutal),
+    border-color 80ms var(--ease-brutal);
+}
+
+.nc-nav-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.nc-nav-dropdown-item:hover {
+  color: var(--foreground);
+  background: var(--surface);
+  border-left: 3px solid var(--amber);
+}
+
+.nc-nav-dropdown-item.active {
+  color: var(--text-on-amber);
+  background: var(--amber);
+}
+
+.nc-dd-toggle {
+  font-size: 0.45rem;
   line-height: 1;
   color: var(--text-on-amber);
 }
@@ -346,6 +433,19 @@
   flex: 1;
 }
 
+.nc-drawer-link-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  min-width: 2.5ch;
+  opacity: 0.5;
+}
+
+.nc-drawer-link.active .nc-drawer-link-num {
+  color: var(--text-on-amber);
+  opacity: 1;
+}
+
 .nc-drawer-active-mark {
   font-size: 0.5rem;
   line-height: 1;
@@ -417,8 +517,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-nav,
-  .nc-nav-prompt,
+  .nc-nav-logo,
   .nc-nav-link,
+  .nc-nav-group-btn,
+  .nc-nav-dropdown,
+  .nc-nav-dropdown-item,
   .nc-nav-gh-btn,
   .nc-nav-toggle,
   .nc-drawer-close,
@@ -427,6 +530,17 @@
   .nc-nav-drawer,
   .nc-toggle-bar {
     transition: none !important;
+  }
+
+  .nc-nav-dropdown {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .nc-nav-group:hover .nc-nav-dropdown,
+  .nc-nav-group:focus-within .nc-nav-dropdown {
+    opacity: 1;
+    visibility: visible;
   }
 
   .nc-nav-toggle--open .nc-toggle-bar:nth-child(1) {
@@ -452,11 +566,6 @@
 
   .nc-nav-drawer[aria-hidden="true"] {
     display: none;
-  }
-
-  .nc-nav-prompt:hover {
-    box-shadow: none;
-    transform: none;
   }
 
   .nc-nav-link.active:hover {
