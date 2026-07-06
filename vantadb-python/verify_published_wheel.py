@@ -51,7 +51,7 @@ def _check_functional(db_path: str) -> None:
 
     hits = db.search_memory("verify/main", [0.1, 0.2, 0.3], top_k=1)
     assert hits, "vector search returned no hits"
-    assert hits[0]["record"]["key"] == "first", "nearest neighbour mismatch"
+    assert hits[0].key == "first", "nearest neighbour mismatch"
 
     caps = db.capabilities()
     assert caps["persistence"] is True, "persistence capability not advertised"

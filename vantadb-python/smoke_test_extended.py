@@ -39,7 +39,7 @@ def run_test():
     print("5. Searching memory vectors")
     hits = db.search_memory("smoke/main", [0.1, 0.2, 0.3], top_k=1)
     print(f"   Search Result: {hits}")
-    assert hits[0]["record"]["key"] == "first"
+    assert hits[0].key == "first"
 
     print("6. Inspecting capabilities")
     caps = db.capabilities()
