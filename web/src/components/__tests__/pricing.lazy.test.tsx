@@ -19,9 +19,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/components/NbSubpageHero", () => ({
-  NbSubpageHero: ({ num, title, sub }: { num: string; title: React.ReactNode; sub?: string }) => (
+  NbSubpageHero: ({ pattern, title, sub }: { pattern?: string; title: React.ReactNode; sub?: string }) => (
     <div data-testid="nb-hero">
-      <span data-testid="hero-num">{num}</span>
+      <span data-testid="hero-num">{pattern ?? "p01"}</span>
       <div data-testid="hero-title">{title}</div>
       {sub && <p data-testid="hero-sub">{sub}</p>}
     </div>
@@ -38,7 +38,7 @@ describe("PricingPage", () => {
 
   it("renders the hero section", () => {
     expect(screen.getByTestId("nb-hero")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-num")).toHaveTextContent("05");
+    expect(screen.getByTestId("hero-num")).toHaveTextContent("p11");
   });
 
   it("renders all four pricing tiers", () => {

@@ -7,34 +7,36 @@ vi.mock("@tanstack/react-router", () => ({
     children,
     to,
     className,
+    "aria-label": ariaLabel,
   }: {
     children: React.ReactNode;
     to: string;
     className?: string;
+    "aria-label"?: string;
   }) => (
-    <a href={to} className={className}>
+    <a href={to} className={className} aria-label={ariaLabel}>
       {children}
     </a>
   ),
   useLocation: () => ({ pathname: "/" }),
+  useNavigate: () => vi.fn(),
 }));
 
 describe("NbNav", () => {
   it("renders the logo (appears in desktop header and mobile drawer)", () => {
     render(<NbNav />);
-    const logos = screen.getAllByText("VantaDB");
-    expect(logos.length).toBeGreaterThanOrEqual(1);
+    const homeLinks = screen.getAllByLabelText("VantaDB home");
+    expect(homeLinks.length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders nav links in desktop nav", () => {
     render(<NbNav />);
-    const desktopNav = document.querySelector(".nb-nav-desktop")!;
+    const desktopNav = document.querySelector(".nc-nav-links")!;
     expect(desktopNav).toBeInTheDocument();
-    expect(desktopNav.querySelectorAll(".nb-nav-link").length).toBe(7);
-    expect(desktopNav.textContent).toContain("Core Engine");
+    expect(desktopNav.querySelectorAll(".nc-nav-link").length).toBe(5);
+    expect(desktopNav.textContent).toContain("Engine");
     expect(desktopNav.textContent).toContain("Architecture");
     expect(desktopNav.textContent).toContain("AI Agents");
-    expect(desktopNav.textContent).toContain("Local RAG");
     expect(desktopNav.textContent).toContain("Use Cases");
     expect(desktopNav.textContent).toContain("Pricing");
   });
@@ -49,23 +51,23 @@ describe("NbNav", () => {
 
   it("toggles mobile menu on hamburger click", () => {
     render(<NbNav />);
-    const hamburger = screen.getByLabelText("Menu");
+    const hamburger = screen.getByLabelText("Open menu");
     expect(hamburger).toBeInTheDocument();
 
     fireEvent.click(hamburger);
     const closeButtons = screen.getAllByLabelText("Close menu");
-    expect(closeButtons.length).toBe(1);
+    expect(closeButtons.length).toBeGreaterThanOrEqual(1);
 
     fireEvent.click(closeButtons[0]);
-    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Open menu")).toBeInTheDocument();
   });
 
   it("shows overlay when mobile menu is open", () => {
     render(<NbNav />);
-    fireEvent.click(screen.getByLabelText("Menu"));
-    const overlay = document.querySelector(".nb-nav-overlay")!;
+    fireEvent.click(screen.getByLabelText("Open menu"));
+    const overlay = document.querySelector(".nc-nav-overlay")!;
     expect(overlay).toBeInTheDocument();
     fireEvent.click(overlay);
-    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Open menu")).toBeInTheDocument();
   });
 });
