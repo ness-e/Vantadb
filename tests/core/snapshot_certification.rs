@@ -17,10 +17,12 @@ use std::fs;
 use tempfile::tempdir;
 
 use vantadb::index::{CPIndex, HnswConfig, VectorRepresentations};
-use vantadb::node::{DistanceMetric, FilterBitset};
+use vantadb::node::{DiskNodeHeader, DistanceMetric, FieldValue, FilterBitset, NodeFlags, UnifiedNode};
 use vantadb::sdk::*;
+use vantadb::storage::{BackendKind, StorageEngine};
 use vantadb::wal::{WalReader, WalRecord, WalWriter};
 use vantadb::VantaEmbedded;
+use zerocopy::FromBytes;
 
 // ═══════════════════════════════════════════════════════════════════
 // HELPERS
@@ -45,7 +47,7 @@ fn generate_vectors_seeded(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>
     vectors
 }
 
-fn brute_force_search(query: &[f32], all_vectors: &[(u64, Vec<f32>)], top_k: usize) -> Vec<u64> {
+fn brute_force_search(query: &[f32], all_vectors: &[(u128, Vec<f32>)], top_k: usize) -> Vec<u128> {
     let mut distances = Vec::with_capacity(all_vectors.len());
     let query_vector = VectorRepresentations::Full(query.to_vec());
     for (id, vec) in all_vectors {
@@ -89,10 +91,10 @@ fn hnsw_recall_snapshot_baseline() {
 
         let raw_vectors = generate_vectors_seeded(node_count, dims, seed);
         let query_vectors = generate_vectors_seeded(query_count, dims, seed + 1000);
-        let dataset: Vec<(u64, Vec<f32>)> = raw_vectors
+        let dataset: Vec<(u128, Vec<f32>)> = raw_vectors
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as u64, v))
+            .map(|(i, v)| (i as u128, v))
             .collect();
 
         // Use deterministic config with high recall guarantee
@@ -121,7 +123,7 @@ fn hnsw_recall_snapshot_baseline() {
             let true_neighbors = brute_force_search(query, &dataset, top_k);
             let hnsw_results =
                 index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
-            let hnsw_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
+            let hnsw_ids: Vec<u128> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
                 .iter()
                 .filter(|&id| hnsw_ids.contains(id))
@@ -136,7 +138,7 @@ fn hnsw_recall_snapshot_baseline() {
             let true_neighbors = brute_force_search(query, &dataset, top_k);
             let hnsw_results =
                 index.search_nearest(query, None, None, &vantadb::node::ALL_BITSET, top_k, None);
-            let hnsw_ids: Vec<u64> = hnsw_results.into_iter().map(|(id, _)| id).collect();
+            let hnsw_ids: Vec<u128> = hnsw_results.into_iter().map(|(id, _)| id).collect();
             let intersection = true_neighbors
                 .iter()
                 .filter(|&id| hnsw_ids.contains(id))
@@ -183,10 +185,10 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
         let seed = 42u64;
 
         let vecs = generate_vectors_seeded(n, dims, seed);
-        let dataset: Vec<(u64, Vec<f32>)> = vecs
+        let dataset: Vec<(u128, Vec<f32>)> = vecs
             .into_iter()
             .enumerate()
-            .map(|(i, v)| (i as u64, v))
+            .map(|(i, v)| (i as u128, v))
             .collect();
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
 
@@ -204,7 +206,7 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
             let mut total = 0.0;
             for query in &queries {
                 let truth = brute_force_search(query, &dataset, k);
-                let hnsw_ids: Vec<u64> = index
+                let hnsw_ids: Vec<u128> = index
                     .search_nearest(query, None, None, &vantadb::node::ALL_BITSET, k, None)
                     .into_iter()
                     .map(|(id, _)| id)
@@ -677,7 +679,7 @@ fn wal_replay_recovers_from_known_wal() {
                         WalRecord::Insert(n) => n.id,
                         WalRecord::Update { id, .. } => *id,
                         WalRecord::Delete { id } => *id,
-                        WalRecord::Checkpoint { node_count, .. } => *node_count,
+                        WalRecord::Checkpoint { node_count, .. } => *node_count as u128,
                     };
                     recovered.push((rec, id));
                     Ok(())
@@ -761,4 +763,370 @@ fn wal_postcard_serialization_deterministic() {
             TerminalReporter::success("Checkpoint index checksum validation certified.");
         },
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 4: VANTAFILE SNAPSHOT TESTS
+// ═══════════════════════════════════════════════════════════════════
+
+/// Helper: open a StorageEngine with Fjall backend in the given temporary directory.
+fn open_vf_engine(path: &std::path::Path) -> StorageEngine {
+    let config = vantadb::config::VantaConfig {
+        backend_kind: BackendKind::Fjall,
+        ..Default::default()
+    };
+    StorageEngine::open_with_config(path.to_str().unwrap(), Some(config))
+        .expect("open StorageEngine")
+}
+
+/// Path to the VantaFile inside a storage engine's data directory.
+fn vf_path(dir: &std::path::Path) -> std::path::PathBuf {
+    dir.join("data").join("vector_store.vanta")
+}
+
+/// Deterministic 4-dimensional vector from a seed integer.
+fn tiny_vec(seed: u64) -> Vec<f32> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    (0..4).map(|_| rng.random_range(-1.0..1.0)).collect()
+}
+
+#[test]
+fn vantafile_serialization_determinism() {
+    TerminalReporter::suite_banner("VANTAFILE SERIALIZATION DETERMINISM", 1);
+    let mut harness = VantaHarness::new("VANTAFILE DETERMINISM");
+
+    harness.execute("VantaFile bytes are deterministic for identical input", || {
+        let dir1 = tempdir().expect("tempdir1");
+        let dir2 = tempdir().expect("tempdir2");
+
+        let nodes: Vec<UnifiedNode> = (0..8)
+            .map(|i| UnifiedNode::with_vector(i as u128, tiny_vec(i)))
+            .collect();
+
+        // Write to dir1
+        {
+            let engine = open_vf_engine(dir1.path());
+            for node in &nodes {
+                engine.insert(node).expect("insert");
+            }
+            engine.flush().expect("flush");
+        }
+
+        // Write to dir2
+        {
+            let engine = open_vf_engine(dir2.path());
+            for node in &nodes {
+                engine.insert(node).expect("insert");
+            }
+            engine.flush().expect("flush");
+        }
+
+        let bytes1 = std::fs::read(vf_path(dir1.path())).expect("read vfile1");
+        let bytes2 = std::fs::read(vf_path(dir2.path())).expect("read vfile2");
+
+        assert_eq!(
+            bytes1.len(),
+            bytes2.len(),
+            "VantaFile sizes must match for identical inputs"
+        );
+
+        // Skip the first 16 bytes (VantaHeader: magic + version + timestamp).
+        // The write-cursor at bytes 16..24 and all subsequent node data
+        // must be byte-identical.
+        assert_eq!(
+            bytes1[16..],
+            bytes2[16..],
+            "VantaFile data after header must be deterministic"
+        );
+
+        // Verify both engines can read back the same data
+        {
+            let engine = open_vf_engine(dir1.path());
+            for i in 0..8 {
+                let got = engine
+                    .get(i as u128)
+                    .expect("get")
+                    .unwrap_or_else(|| panic!("node {i} must be readable"));
+                assert_eq!(got.vector.to_f32().unwrap(), tiny_vec(i as u64));
+            }
+        }
+
+        TerminalReporter::success("VantaFile serialization is deterministic.");
+    });
+}
+
+#[test]
+fn vantafile_mixed_representations_roundtrip() {
+    TerminalReporter::suite_banner("VANTAFILE MIXED REPRESENTATIONS ROUNDTRIP", 1);
+    let mut harness = VantaHarness::new("VANTAFILE MIXED REPS");
+
+    harness.execute("Full(f32) and SQ8 and None-vector nodes survive round-trip", || {
+        let dir = tempdir().expect("tempdir");
+        let engine = open_vf_engine(dir.path());
+
+        // Node 0: Full(f32) vector — persisted in VantaFile
+        let full_data = vec![0.25, 0.50, 0.75, 1.00];
+        let mut node_full = UnifiedNode::with_vector(100, full_data.clone());
+        node_full
+            .relational
+            .insert("type".into(), FieldValue::String("full".into()));
+        engine.insert(&node_full).expect("insert full");
+
+        // Node 1: SQ8(i8[], scale) vector — NOT persisted in VantaFile (vec_len=0)
+        let mut node_sq8 = UnifiedNode::new(200);
+        node_sq8.vector =
+            VectorRepresentations::SQ8(Box::new([10i8, -20i8, 30i8, -40i8]), 2.0);
+        node_sq8
+            .relational
+            .insert("type".into(), FieldValue::String("sq8".into()));
+        engine.insert(&node_sq8).expect("insert sq8");
+
+        // Node 2: None vector — no vector data stored
+        let mut node_none = UnifiedNode::new(300);
+        node_none
+            .relational
+            .insert("type".into(), FieldValue::String("none".into()));
+        engine.insert(&node_none).expect("insert none");
+
+        // Read back Full node
+        let got_full = engine.get(100).expect("get full").expect("found full");
+        assert_eq!(
+            got_full.vector.to_f32().unwrap(),
+            full_data,
+            "Full vector data must be preserved"
+        );
+        assert_eq!(
+            got_full
+                .get_field("type")
+                .and_then(|v| v.as_str()),
+            Some("full")
+        );
+
+        // Read back SQ8 node — metadata survives even though
+        // VantaFile stores vec_len=0 for non-Full vectors.
+        let got_sq8 = engine.get(200).expect("get sq8").expect("found sq8");
+        assert_eq!(
+            got_sq8.get_field("type").and_then(|v| v.as_str()),
+            Some("sq8"),
+            "SQ8 node metadata must survive round-trip"
+        );
+
+        // Read back None-vector node
+        let got_none = engine.get(300).expect("get none").expect("found none");
+        assert_eq!(
+            got_none.get_field("type").and_then(|v| v.as_str()),
+            Some("none"),
+            "None-vector node metadata must survive round-trip"
+        );
+
+        // Verify all 3 nodes survive close/reopen
+        drop(engine);
+        let engine = open_vf_engine(dir.path());
+        assert!(engine.get(100).expect("reopen full").is_some());
+        assert!(engine.get(200).expect("reopen sq8").is_some());
+        assert!(engine.get(300).expect("reopen none").is_some());
+
+        TerminalReporter::success("Mixed representation round-trip certified.");
+    });
+}
+
+#[test]
+fn vantafile_multi_write_rebuild() {
+    TerminalReporter::suite_banner("VANTAFILE MULTI-WRITE REBUILD", 1);
+    let mut harness = VantaHarness::new("VANTAFILE MULTI-WRITE");
+
+    harness.execute("150 vectors written survive close/reopen and full scan", || {
+        let dir = tempdir().expect("tempdir");
+
+        let count = 150u64;
+        let dims = 16;
+
+        // Phase 1: write
+        {
+            let engine = open_vf_engine(dir.path());
+            for i in 0..count {
+                let vec: Vec<f32> = (0..dims)
+                    .map(|d| ((i * dims as u64 + d as u64) as f32) / 1000.0)
+                    .collect();
+                engine
+                    .insert(&UnifiedNode::with_vector(i as u128, vec))
+                    .expect("insert");
+            }
+            engine.flush().expect("flush");
+        }
+
+        // Phase 2: verify all readable via scan
+        {
+            let engine = open_vf_engine(dir.path());
+            let nodes = engine.scan_nodes().expect("scan");
+            assert_eq!(
+                nodes.len() as u64,
+                count,
+                "All {count} vectors must be recovered"
+            );
+            for i in 0..count {
+                let got = engine
+                    .get(i as u128)
+                    .expect("get")
+                    .unwrap_or_else(|| panic!("node {i} must exist"));
+                let expected: Vec<f32> = (0..dims)
+                    .map(|d| ((i * dims as u64 + d as u64) as f32) / 1000.0)
+                    .collect();
+                assert_eq!(
+                    got.vector.to_f32().unwrap(),
+                    expected,
+                    "Vector {i} must survive rebuild"
+                );
+            }
+        }
+
+        TerminalReporter::success("All 150 vectors survive close/reopen.");
+    });
+}
+
+#[test]
+fn vantafile_tombstone_persistence() {
+    TerminalReporter::suite_banner("VANTAFILE TOMBSTONE PERSISTENCE", 1);
+    let mut harness = VantaHarness::new("VANTAFILE TOMBSTONE");
+
+    harness.execute("Tombstoned nodes are skipped and tombstone flag survives reopen", || {
+        let dir = tempdir().expect("tempdir");
+
+        // Phase 1: insert 3 nodes, delete middle one
+        {
+            let engine = open_vf_engine(dir.path());
+            for i in 0..3 {
+                engine
+                    .insert(&UnifiedNode::with_vector(i as u128, vec![i as f32; 4]))
+                    .expect("insert");
+            }
+            // All 3 visible
+            assert!(engine.get(0).expect("get 0").is_some());
+            assert!(engine.get(1).expect("get 1").is_some());
+            assert!(engine.get(2).expect("get 2").is_some());
+
+            engine.delete(1, "snapshot test").expect("delete");
+
+            // After delete: node 1 gone, 0 and 2 remain
+            assert!(engine.get(0).expect("get 0 after").is_some());
+            assert!(engine.get(1).expect("get 1 after").is_none());
+            assert!(engine.get(2).expect("get 2 after").is_some());
+
+            // Verify raw VantaFile has tombstone flag set for node 1
+            let bytes = std::fs::read(vf_path(dir.path())).expect("read vfile");
+            // Node layout: header(64) + pad-aligned vector per node
+            // Node 0: offset=64, vec_len=4f32=16B → cursor = (64+64+16+63)&!63 = 192
+            // Node 1: offset=192, flags at offset 192+56=248
+            let flags_offset = 64 + 128; // = 192 (node1 header start)
+            let hdr = DiskNodeHeader::read_from_bytes(&bytes[flags_offset..flags_offset + 64])
+                .expect("parse node1 header");
+            assert_ne!(
+                hdr.flags & NodeFlags::TOMBSTONE,
+                0,
+                "Node 1 DiskNodeHeader must have TOMBSTONE flag"
+            );
+            // Node 0 flags must NOT be tombstone
+            let hdr0 = DiskNodeHeader::read_from_bytes(&bytes[64..128])
+                .expect("parse node0 header");
+            assert_eq!(
+                hdr0.flags & NodeFlags::TOMBSTONE,
+                0,
+                "Node 0 must NOT have TOMBSTONE flag"
+            );
+        }
+
+        // Phase 2: reopen — tombstone persisted in VantaFile
+        {
+            let engine = open_vf_engine(dir.path());
+            assert!(engine.get(0).expect("get 0 reopen").is_some());
+            assert!(
+                engine.get(1).expect("get 1 reopen").is_none(),
+                "Tombstoned node 1 must not reappear after reopen"
+            );
+            assert!(engine.get(2).expect("get 2 reopen").is_some());
+        }
+
+        TerminalReporter::success("Tombstone persistence certified.");
+    });
+}
+
+#[test]
+fn vantafile_export_golden_file() {
+    TerminalReporter::suite_banner("VANTAFILE EXPORT GOLDEN FILE", 1);
+    let mut harness = VantaHarness::new("VANTAFILE EXPORT");
+
+    harness.execute("JSONL export has deterministic structure and round-trips", || {
+        let dir = tempdir().expect("tempdir");
+        let export_path = dir.path().join("golden.jsonl");
+
+        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let mut input = VantaMemoryInput::new("ns/golden", "golden-key", "golden payload");
+        input
+            .metadata
+            .insert("score".to_string(), VantaValue::Float(99.5));
+        input
+            .metadata
+            .insert("active".to_string(), VantaValue::Bool(true));
+        input.vector = Some(vec![0.1, 0.2, 0.3, 0.4]);
+        db.put(input).expect("put");
+        db.flush().expect("flush");
+
+        db.export_all(&export_path).expect("export");
+
+        // Read and parse JSONL
+        let content = fs::read_to_string(&export_path).expect("read export");
+        let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+        assert_eq!(lines.len(), 1, "Expected exactly one export line");
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(lines[0]).expect("parse JSONL line");
+
+        // Validate golden structure
+        assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+        assert_eq!(parsed["namespace"].as_str(), Some("ns/golden"));
+        assert_eq!(parsed["key"].as_str(), Some("golden-key"));
+        assert_eq!(parsed["payload"].as_str(), Some("golden payload"));
+        assert!(parsed["created_at_ms"].as_u64().unwrap_or(0) > 0);
+        assert!(parsed["updated_at_ms"].as_u64().unwrap_or(0) > 0);
+        assert_eq!(parsed["version"].as_u64(), Some(0));
+        assert!(parsed["expires_at_ms"].is_null());
+        assert_eq!(
+            parsed["vector"].as_array().map(|v| v.len()),
+            Some(4),
+            "Vector must have 4 elements"
+        );
+        assert!(
+            (parsed["vector"][0].as_f64().unwrap() - 0.1).abs() < 1e-6,
+            "Vector[0] must be 0.1"
+        );
+
+        // metadata sub-object
+        let meta = &parsed["metadata"];
+        assert_eq!(meta["score"].as_f64(), Some(99.5));
+        assert_eq!(meta["active"].as_bool(), Some(true));
+
+        // Round-trip: import into fresh DB
+        let restore_dir = tempdir().expect("restore dir");
+        let restored = VantaEmbedded::open(restore_dir.path()).expect("open restored");
+        let import = restored.import_file(&export_path).expect("import");
+        assert_eq!(import.inserted, 1);
+        assert_eq!(import.errors, 0);
+
+        let record = restored
+            .get("ns/golden", "golden-key")
+            .expect("get")
+            .expect("record");
+        assert_eq!(record.payload, "golden payload");
+        assert_eq!(
+            record.metadata.get("score"),
+            Some(&VantaValue::Float(99.5))
+        );
+        assert_eq!(
+            record.metadata.get("active"),
+            Some(&VantaValue::Bool(true))
+        );
+        assert_eq!(record.vector, Some(vec![0.1, 0.2, 0.3, 0.4]));
+
+        TerminalReporter::success("VantaFile export golden file structure certified.");
+    });
 }
