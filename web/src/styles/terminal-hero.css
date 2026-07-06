@@ -65,13 +65,15 @@
 .nb-terminal-hero-glitch::before {
   color: var(--amber);
   z-index: -1;
-  animation: nb-hero-glitch-offset 3s infinite linear alternate-reverse;
+  clip-path: inset(0 0 60% 0);
+  animation: nb-hero-glitch-offset 3s infinite steps(2) alternate-reverse;
 }
 
 .nb-terminal-hero-glitch::after {
   color: var(--steel);
   z-index: -2;
-  animation: nb-hero-glitch-offset-2 2.8s infinite linear alternate-reverse;
+  clip-path: inset(60% 0 0 0);
+  animation: nb-hero-glitch-offset-2 2.8s infinite steps(2) alternate-reverse;
 }
 
 @keyframes nb-hero-glitch-offset {
