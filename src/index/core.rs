@@ -501,10 +501,11 @@ impl CPIndex {
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
     ) -> BinaryHeap<NodeSimMin> {
-        let mut visited: std::collections::HashSet<u128, _> = std::collections::HashSet::with_capacity_and_hasher(
-            ef * 2,
-            BuildHasherDefault::<XxHash64>::default(),
-        );
+        let mut visited: std::collections::HashSet<u128, _> =
+            std::collections::HashSet::with_capacity_and_hasher(
+                ef * 2,
+                BuildHasherDefault::<XxHash64>::default(),
+            );
         let mut candidates = BinaryHeap::new(); // Max-heap: candidates to visit
         let mut results = BinaryHeap::new(); // Min-heap: best `ef` bounds
 

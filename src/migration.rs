@@ -313,10 +313,8 @@ impl MigrationEngine {
             ..Default::default()
         };
 
-        let engine = crate::storage::StorageEngine::open_with_config(
-            path_str.as_ref(),
-            Some(config),
-        )?;
+        let engine =
+            crate::storage::StorageEngine::open_with_config(path_str.as_ref(), Some(config))?;
 
         let report = engine.rebuild_vector_index()?;
         drop(engine);
@@ -639,8 +637,7 @@ mod tests {
         engine.migrate_format(FormatKind::Wal)?;
 
         let not_migrated = std::fs::read(&wal_path)?;
-        let not_migrated_header =
-            VantaHeader::deserialize(&not_migrated[..VantaHeader::SIZE])?;
+        let not_migrated_header = VantaHeader::deserialize(&not_migrated[..VantaHeader::SIZE])?;
         assert_eq!(not_migrated_header.format_version, 0);
         assert!(!wal_path.with_extension("wal.bak").exists());
         Ok(())
