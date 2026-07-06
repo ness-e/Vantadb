@@ -19,7 +19,15 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("@/components/NbSubpageHero", () => ({
-  NbSubpageHero: ({ pattern, title, sub }: { pattern?: string; title: React.ReactNode; sub?: string }) => (
+  NbSubpageHero: ({
+    pattern,
+    title,
+    sub,
+  }: {
+    pattern?: string;
+    title: React.ReactNode;
+    sub?: string;
+  }) => (
     <div data-testid="nb-hero">
       <span data-testid="hero-num">{pattern ?? "p01"}</span>
       <div data-testid="hero-title">{title}</div>
