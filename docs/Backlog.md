@@ -57,7 +57,7 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `CODE-092` | **Euclidean distance inverted ordering** — Cosine devuelve `1.0 - similarity` (0.0=identical), Euclidean devuelve raw `squared_distance`. `sort_by` espera misma semántica en ambos, causando ordenación invertida para Euclidean. Recall@10 55.7% vs ChromaDB 90%. Fix: normalizar a distancia real (`sqrt`) o aplicar `-`/`abs` | `src/index/distance.rs` | 🟢 1h | 🔴 | ❌ |
+| ~~`CODE-092`~~ | **Euclidean distance inverted ordering** — ✅ Ya estaba fixeado: todos los llamados a `euclidean_distance_squared_f32` se niegan con `-` y `search_nearest` aplica `sqrt` al score final (`-(-score).max(0.0).sqrt()`). Ordenamiento correcto (higher=better) | `src/index/distance.rs` | 🟢 1h | 🔴 | ✅ |
 
 ### 🐛 Python SDK Data Bugs
 
@@ -191,7 +191,6 @@ aliases: []
 | `DOC-01` | Unit tests (91 nuevos) | — | 🟡 2-3d | 🟡 | ✅ |
 | `DOC-02` | Refactor `insert_hnsw()` (177L→3 funciones) | — | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-014`~~ | **LRU cache Python completamente muerto** — Cachea pero nunca lee. 100% overhead | `lib.rs:615-641` | 🟡 1d | 🟡 | ✅ |
-| `CODE-067` | **Hash 64-bit XxHash: colisión bloquea ambos records** — Migración u64→u128 en progreso (pre-existing type mismatches en 17 sitios). `XxHash64` + `u64` aún vigente en 14 locations. CHANGELOG confirma "still open" | `serialization.rs:39-45`, `index/core.rs:16,348`, `duplicate_prevention.rs:8` | 🟡 2-3d | 🟡 | ❌ |
 | ~~`CODE-089`~~ | **`VantaConfig.storage_path` sin efecto en WASM** — Siempre InMemory, path ignorado. Usuarios engañados | `types.rs:142-147` | 🟢 4h | 🟡 | ✅ |
 | ~~`CODE-090`~~ | **`insertNode(id: number)` hace `BigInt(id)` — overflow > 2^53** | `vantadb.ts:210-217` | 🟢 2h | 🟡 | ✅ |
 
