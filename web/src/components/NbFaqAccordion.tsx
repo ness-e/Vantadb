@@ -67,7 +67,12 @@ export function NbFaqAccordion() {
                 >
                   {/* Timestamp */}
                   <span className="faq-entry-ts">
-                    {new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    {new Date().toLocaleTimeString("en-US", {
+                      hour12: false,
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
                   </span>
 
                   {/* Severity badge */}
@@ -79,9 +84,17 @@ export function NbFaqAccordion() {
                   <span className="faq-entry-q">{item.q}</span>
 
                   {/* Toggle icon */}
-                  <span className={`faq-entry-icon ${isOpen ? "faq-entry-icon--open" : ""}`} aria-hidden="true">
+                  <span
+                    className={`faq-entry-icon ${isOpen ? "faq-entry-icon--open" : ""}`}
+                    aria-hidden="true"
+                  >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M6 1v10M1 6h10" stroke={isOpen ? "var(--amber)" : "var(--steel)"} strokeWidth="2" strokeLinecap="square" />
+                      <path
+                        d="M6 1v10M1 6h10"
+                        stroke={isOpen ? "var(--amber)" : "var(--steel)"}
+                        strokeWidth="2"
+                        strokeLinecap="square"
+                      />
                     </svg>
                   </span>
                 </button>
@@ -104,7 +117,9 @@ export function NbFaqAccordion() {
         <div className="faq-console-footer">
           <span className="faq-console-footer-prompt">&gt;&gt;&gt;</span>
           <span className="faq-console-footer-text">Need more help? </span>
-          <a href="/docs" className="faq-console-footer-link">Read the docs →</a>
+          <a href="/docs" className="faq-console-footer-link">
+            Read the docs →
+          </a>
         </div>
       </div>
     </NbSection>

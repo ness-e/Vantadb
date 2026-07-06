@@ -25,7 +25,11 @@
   color: var(--foreground);
   transform: rotateX(2deg) translateZ(var(--layer-z, 0px));
   transform-style: preserve-3d;
-  transition: transform 0.25s var(--ease-swiss), border-color 120ms var(--ease-brutal), box-shadow 120ms var(--ease-brutal), background 120ms var(--ease-brutal);
+  transition:
+    transform 0.25s var(--ease-swiss),
+    border-color 120ms var(--ease-brutal),
+    box-shadow 120ms var(--ease-brutal),
+    background 120ms var(--ease-brutal);
   box-shadow: var(--shadow-sm);
   margin-bottom: -1px;
 }
@@ -109,7 +113,10 @@
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height 0.3s var(--ease-swiss), opacity 0.25s var(--ease-brutal), padding 0.3s var(--ease-swiss);
+  transition:
+    max-height 0.3s var(--ease-swiss),
+    opacity 0.25s var(--ease-brutal),
+    padding 0.3s var(--ease-swiss);
 }
 
 .nb-stack-detail--show {

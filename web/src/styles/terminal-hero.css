@@ -54,7 +54,9 @@
   padding: 0.3rem 0.6rem;
   border: 2px solid var(--border-strong);
   color: var(--steel);
-  transition: color 80ms var(--ease-brutal), border-color 80ms var(--ease-brutal);
+  transition:
+    color 80ms var(--ease-brutal),
+    border-color 80ms var(--ease-brutal);
 }
 
 .nb-osc-pill:hover {
@@ -121,7 +123,10 @@
   background: var(--amber);
   color: var(--text-on-amber);
   box-shadow: var(--shadow-md);
-  transition: box-shadow 80ms var(--ease-brutal), transform 80ms var(--ease-brutal), background 80ms linear;
+  transition:
+    box-shadow 80ms var(--ease-brutal),
+    transform 80ms var(--ease-brutal),
+    background 80ms linear;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -163,8 +168,13 @@
 }
 
 @keyframes nb-osc-pulse {
-  0%, 100% { background: var(--success); }
-  50% { background: transparent; }
+  0%,
+  100% {
+    background: var(--success);
+  }
+  50% {
+    background: transparent;
+  }
 }
 
 .nb-osc-status-label {
@@ -241,10 +251,20 @@
 }
 
 @keyframes nb-osc-packet-scroll {
-  0% { transform: translateX(0); opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { transform: translateX(360px); opacity: 0; }
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(360px);
+    opacity: 0;
+  }
 }
 
 /* Scope legend */

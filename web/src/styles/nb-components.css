@@ -1257,10 +1257,22 @@
   flex-shrink: 0;
 }
 
-.nb-toast-icon--info { background: var(--amber); color: var(--text-on-amber); }
-.nb-toast-icon--success { background: var(--success); color: var(--black); }
-.nb-toast-icon--error { background: var(--danger); color: var(--white); }
-.nb-toast-icon--warning { background: var(--amber); color: var(--text-on-amber); }
+.nb-toast-icon--info {
+  background: var(--amber);
+  color: var(--text-on-amber);
+}
+.nb-toast-icon--success {
+  background: var(--success);
+  color: var(--black);
+}
+.nb-toast-icon--error {
+  background: var(--danger);
+  color: var(--white);
+}
+.nb-toast-icon--warning {
+  background: var(--amber);
+  color: var(--text-on-amber);
+}
 
 .nb-toast-msg {
   font-family: var(--font-mono);
@@ -1269,8 +1281,14 @@
 }
 
 @keyframes nb-toast-in {
-  from { transform: translateX(100%); opacity: 0; }
-  to   { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .nb-toast--enter {
@@ -1392,7 +1410,9 @@
     color 80ms steps(2);
 }
 
-.nb-tabs-btn:last-child { border-right: none; }
+.nb-tabs-btn:last-child {
+  border-right: none;
+}
 
 .nb-tabs-btn:hover:not(.nb-tabs-btn--active) {
   background: var(--surface-alt);
@@ -1504,12 +1524,34 @@
   line-height: 1;
 }
 
-.nb-badge--amber { background: var(--amber); color: var(--text-on-amber); border-color: var(--amber); }
-.nb-badge--dark { background: var(--black); color: var(--foreground); }
-.nb-badge--cyan { background: var(--success); color: var(--black); border-color: var(--success); }
-.nb-badge--pink { background: var(--danger); color: var(--foreground); border-color: var(--danger); }
-.nb-badge--outline { background: transparent; color: var(--steel); }
-.nb-badge--ghost { background: transparent; border-color: var(--border-visible); color: var(--muted); }
+.nb-badge--amber {
+  background: var(--amber);
+  color: var(--text-on-amber);
+  border-color: var(--amber);
+}
+.nb-badge--dark {
+  background: var(--black);
+  color: var(--foreground);
+}
+.nb-badge--cyan {
+  background: var(--success);
+  color: var(--black);
+  border-color: var(--success);
+}
+.nb-badge--pink {
+  background: var(--danger);
+  color: var(--foreground);
+  border-color: var(--danger);
+}
+.nb-badge--outline {
+  background: transparent;
+  color: var(--steel);
+}
+.nb-badge--ghost {
+  background: transparent;
+  border-color: var(--border-visible);
+  color: var(--muted);
+}
 
 /* ════════════════════════════════════════════
    AVATAR — individual + stack
@@ -1534,8 +1576,16 @@
   margin-left: -0.75rem;
 }
 
-.nb-avatar--sm { width: 2rem; height: 2rem; font-size: var(--text-micro); }
-.nb-avatar--lg { width: 3.5rem; height: 3.5rem; font-size: var(--text-body); }
+.nb-avatar--sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--text-micro);
+}
+.nb-avatar--lg {
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: var(--text-body);
+}
 
 /* ════════════════════════════════════════════
    ALERT — 3 semantic variants
@@ -1560,14 +1610,29 @@
   flex-shrink: 0;
 }
 
-.nb-alert--warning { background: var(--amber-dim); }
-.nb-alert--warning .nb-alert-icon { background: var(--amber); color: var(--text-on-amber); }
+.nb-alert--warning {
+  background: var(--amber-dim);
+}
+.nb-alert--warning .nb-alert-icon {
+  background: var(--amber);
+  color: var(--text-on-amber);
+}
 
-.nb-alert--success { background: rgba(0, 200, 83, 0.08); }
-.nb-alert--success .nb-alert-icon { background: var(--success); color: var(--black); }
+.nb-alert--success {
+  background: rgba(0, 200, 83, 0.08);
+}
+.nb-alert--success .nb-alert-icon {
+  background: var(--success);
+  color: var(--black);
+}
 
-.nb-alert--error { background: rgba(255, 23, 68, 0.08); }
-.nb-alert--error .nb-alert-icon { background: var(--danger); color: var(--foreground); }
+.nb-alert--error {
+  background: rgba(255, 23, 68, 0.08);
+}
+.nb-alert--error .nb-alert-icon {
+  background: var(--danger);
+  color: var(--foreground);
+}
 
 .nb-alert-heading {
   font-family: var(--font-sans);

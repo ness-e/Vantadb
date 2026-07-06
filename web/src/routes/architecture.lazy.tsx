@@ -323,9 +323,7 @@ function ArchitecturePage() {
           <NbBlockAmber as="div">
             <div className="arch-cta-wrap">
               <div>
-                <h2 className="arch-cta-title">
-                  Compiles to native. Runs in your process.
-                </h2>
+                <h2 className="arch-cta-title">Compiles to native. Runs in your process.</h2>
                 <p className="arch-cta-sub">Install VantaDB in one command.</p>
               </div>
               <code className="arch-cta-code">pip install vantadb-py</code>

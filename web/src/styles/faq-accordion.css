@@ -24,9 +24,15 @@
   background: var(--border-strong);
 }
 
-.faq-console-bar-dot:first-child { background: #ff5f56; }
-.faq-console-bar-dot:nth-child(2) { background: #ffbd2e; }
-.faq-console-bar-dot:nth-child(3) { background: #27c93f; }
+.faq-console-bar-dot:first-child {
+  background: #ff5f56;
+}
+.faq-console-bar-dot:nth-child(2) {
+  background: #ffbd2e;
+}
+.faq-console-bar-dot:nth-child(3) {
+  background: #27c93f;
+}
 
 .faq-console-bar-label {
   font-family: var(--font-mono);

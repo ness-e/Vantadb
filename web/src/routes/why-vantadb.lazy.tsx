@@ -20,7 +20,11 @@ const COMPARISONS = [
     others: "Requires servers, network calls",
   },
   { category: "Latency", vantadb: "<1ms p50 local", others: "3–50ms network round-trip" },
-  { category: "Embedding", vantadb: "Any provider (OpenAI, Ollama, LiteLLM)", others: "Vendor-locked models" },
+  {
+    category: "Embedding",
+    vantadb: "Any provider (OpenAI, Ollama, LiteLLM)",
+    others: "Vendor-locked models",
+  },
   { category: "Storage", vantadb: "Single binary file, 2 MB", others: "Database cluster required" },
   {
     category: "Search",

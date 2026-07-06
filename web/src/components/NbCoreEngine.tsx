@@ -7,42 +7,60 @@ const BLOCKS = [
     label: "PYO3 BRIDGE",
     desc: "Zero-copy FFI",
     pins: ["GND", "VCC", "DATA", "CLK"],
-    x: 10, y: 10, w: 140, h: 80,
+    x: 10,
+    y: 10,
+    w: 140,
+    h: 80,
   },
   {
     id: "hnsw",
     label: "HNSW INDEX",
     desc: "ANNS, 128d",
     pins: ["ADDR", "DATA", "WE", "OE"],
-    x: 210, y: 10, w: 140, h: 80,
+    x: 210,
+    y: 10,
+    w: 140,
+    h: 80,
   },
   {
     id: "bm25",
     label: "BM25 FTS",
     desc: "Full-text, k1=1.2",
     pins: ["ADDR", "DATA", "WE", "INT"],
-    x: 410, y: 10, w: 140, h: 80,
+    x: 410,
+    y: 10,
+    w: 140,
+    h: 80,
   },
   {
     id: "query",
     label: "QUERY ENGINE",
     desc: "SQL + RRF fusion",
     pins: ["REQ", "RSP", "BUSY", "IRQ"],
-    x: 110, y: 150, w: 160, h: 90,
+    x: 110,
+    y: 150,
+    w: 160,
+    h: 90,
   },
   {
     id: "wal",
     label: "WAL",
     desc: "Crash-safe logging",
     pins: ["TX", "RX", "FLUSH", "SYNC"],
-    x: 330, y: 150, w: 140, h: 80,
+    x: 330,
+    y: 150,
+    w: 140,
+    h: 80,
   },
   {
     id: "storage",
     label: "STORAGE",
     desc: "MMAP + page cache",
     pins: ["A0", "A1", "D0-D7", "CS"],
-    x: 220, y: 290, w: 160, h: 80,
+    x: 220,
+    y: 290,
+    w: 160,
+    h: 80,
   },
 ];
 
@@ -71,7 +89,12 @@ export function NbCoreEngine() {
 
       <div className="nb-schematic">
         {/* ── PCB traces (SVG) ── */}
-        <svg className="nb-schematic-svg" viewBox="0 0 580 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <svg
+          className="nb-schematic-svg"
+          viewBox="0 0 580 420"
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true"
+        >
           {/* Grid dots */}
           <defs>
             <pattern id="pcb-dot" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -115,7 +138,9 @@ export function NbCoreEngine() {
             <div className="nb-schematic-chip-desc">{block.desc}</div>
             <div className="nb-schematic-chip-pins">
               {block.pins.map((pin) => (
-                <span key={pin} className="nb-schematic-pin">{pin}</span>
+                <span key={pin} className="nb-schematic-pin">
+                  {pin}
+                </span>
               ))}
             </div>
           </div>
@@ -125,10 +150,26 @@ export function NbCoreEngine() {
       {/* ── Feature cards ── */}
       <div className="nb-schematic-features">
         {[
-          { num: "01", title: "Rust Core", desc: "Memory safety without GC. Deterministic multi-threaded performance." },
-          { num: "02", title: "HNSW Index", desc: "Hierarchical Navigable Small World for sub-ms vector search." },
-          { num: "03", title: "BM25 Engine", desc: "Full-text with unicode tokenizer. Combine with vectors via RRF." },
-          { num: "04", title: "WAL Durability", desc: "Write-Ahead Log with automatic crash recovery. Zero data loss." },
+          {
+            num: "01",
+            title: "Rust Core",
+            desc: "Memory safety without GC. Deterministic multi-threaded performance.",
+          },
+          {
+            num: "02",
+            title: "HNSW Index",
+            desc: "Hierarchical Navigable Small World for sub-ms vector search.",
+          },
+          {
+            num: "03",
+            title: "BM25 Engine",
+            desc: "Full-text with unicode tokenizer. Combine with vectors via RRF.",
+          },
+          {
+            num: "04",
+            title: "WAL Durability",
+            desc: "Write-Ahead Log with automatic crash recovery. Zero data loss.",
+          },
         ].map((f) => (
           <article key={f.num} className="nb-schematic-feat">
             <span className="nb-num-marker">{f.num}</span>

@@ -35,11 +35,7 @@ interface NbPricingFeatureProps {
 }
 
 export function NbPricingFeature({ children, available = true }: NbPricingFeatureProps) {
-  return (
-    <li className={available ? "" : "nb-pricing-feature--na"}>
-      {children}
-    </li>
-  );
+  return <li className={available ? "" : "nb-pricing-feature--na"}>{children}</li>;
 }
 
 export function NbPricingFeatures({ children }: { children: ReactNode }) {

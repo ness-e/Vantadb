@@ -99,7 +99,9 @@
 }
 
 @keyframes nbBootLogIn {
-  to { opacity: 1; }
+  to {
+    opacity: 1;
+  }
 }
 
 .nb-boot-msg--ready {

@@ -68,8 +68,7 @@ button:focus-visible {
   position: relative;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    var(--background);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px), var(--background);
   background-size: 4rem 4rem;
   background-position: 0 0;
   z-index: 20;

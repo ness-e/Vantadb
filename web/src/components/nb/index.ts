@@ -24,5 +24,11 @@ export { NbProgress } from "./NbProgress";
 export { NbBadge } from "./NbBadge";
 export { NbAvatar, NbAvatarStack } from "./NbAvatar";
 export { NbAlert } from "./NbAlert";
-export { NbPricingCard, NbPricingPrice, NbPricingPeriod, NbPricingFeatures, NbPricingFeature } from "./NbPricingCard";
+export {
+  NbPricingCard,
+  NbPricingPrice,
+  NbPricingPeriod,
+  NbPricingFeatures,
+  NbPricingFeature,
+} from "./NbPricingCard";
 export { NbCounter } from "./NbCounter";

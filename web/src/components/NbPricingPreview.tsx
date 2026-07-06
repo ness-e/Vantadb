@@ -3,7 +3,10 @@ import "../styles/pricing-preview.css";
 
 const TIERS = [
   {
-    id: "free", name: "FREE", tag: "MIT License", price: "$0",
+    id: "free",
+    name: "FREE",
+    tag: "MIT License",
+    price: "$0",
     specs: [
       { code: "NODES", val: "1", note: "Single-node" },
       { code: "VECTORS", val: "10M", note: "Max vectors" },
@@ -14,7 +17,10 @@ const TIERS = [
     ctaHref: "/docs/quickstart",
   },
   {
-    id: "enterprise", name: "ENTERPRISE", tag: "Custom SLA", price: "Custom",
+    id: "enterprise",
+    name: "ENTERPRISE",
+    tag: "Custom SLA",
+    price: "Custom",
     specs: [
       { code: "DEPLOY", val: "ON-PREM", note: "On-prem deploy" },
       { code: "AUTH", val: "SSO", note: "SSO / SAML" },

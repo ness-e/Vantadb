@@ -5,9 +5,5 @@ interface NbBadgeProps {
 }
 
 export function NbBadge({ children, variant = "amber", className = "" }: NbBadgeProps) {
-  return (
-    <span className={`nb-badge nb-badge--${variant} ${className}`}>
-      {children}
-    </span>
-  );
+  return <span className={`nb-badge nb-badge--${variant} ${className}`}>{children}</span>;
 }
