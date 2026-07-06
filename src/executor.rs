@@ -25,10 +25,10 @@ pub enum ExecutionResult {
         /// Human-readable status message.
         message: String,
         /// Optional primary node ID involved.
-        node_id: Option<u64>,
+        node_id: Option<u128>,
     },
     /// Signal that a context requires rehydration (low confidence score).
-    StaleContext(u64),
+    StaleContext(u128),
 }
 
 /// Search path mode for query execution.
@@ -316,7 +316,7 @@ impl<'a> Executor<'a> {
                 let msg_id = web_time::SystemTime::now()
                     .duration_since(web_time::UNIX_EPOCH)
                     .unwrap_or_default()
-                    .as_micros() as u64;
+                    .as_micros() as u128;
                 let mut node = UnifiedNode::new(msg_id);
                 node.set_field(
                     "type",

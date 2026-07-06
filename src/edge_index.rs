@@ -6,7 +6,7 @@ use dashmap::DashSet;
 /// Tracks every directed edge `(source → target)` using `u64` node IDs so that
 /// cascade delete (PERF-07) can find incoming edges when a node is removed.
 pub(crate) struct EdgeIndex {
-    edges: DashSet<(u64, u64)>,
+    edges: DashSet<(u128, u128)>,
 }
 
 impl EdgeIndex {
@@ -18,17 +18,17 @@ impl EdgeIndex {
     }
 
     /// Insert a directed edge from `from` to `to`.
-    pub fn insert(&self, from: u64, to: u64) {
+    pub fn insert(&self, from: u128, to: u128) {
         self.edges.insert((from, to));
     }
 
     /// Remove all outgoing edges from a given node.
-    pub fn remove_outgoing(&self, from: u64) {
+    pub fn remove_outgoing(&self, from: u128) {
         self.edges.retain(|(f, _)| *f != from);
     }
 
     /// Remove a specific directed edge.
-    pub fn remove_edge(&self, from: u64, to: u64) {
+    pub fn remove_edge(&self, from: u128, to: u128) {
         self.edges.remove(&(from, to));
     }
 
@@ -36,17 +36,17 @@ impl EdgeIndex {
     ///
     /// This is the single call needed during cascade delete — it clears every
     /// edge pair that references `node_id` on either side.
-    pub fn remove_all_for_node(&self, node_id: u64) {
+    pub fn remove_all_for_node(&self, node_id: u128) {
         self.edges.retain(|(f, t)| *f != node_id && *t != node_id);
     }
 
     /// Check whether a directed edge exists.
-    pub fn has_edge(&self, from: u64, to: u64) -> bool {
+    pub fn has_edge(&self, from: u128, to: u128) -> bool {
         self.edges.contains(&(from, to))
     }
 
     /// Return all target nodes reachable from a given source.
-    pub fn outgoing(&self, from: u64) -> Vec<u64> {
+    pub fn outgoing(&self, from: u128) -> Vec<u128> {
         self.edges
             .iter()
             .filter(|e| e.0 == from)
@@ -55,7 +55,7 @@ impl EdgeIndex {
     }
 
     /// Return all source nodes that point to a given target.
-    pub fn incoming(&self, to: u64) -> Vec<u64> {
+    pub fn incoming(&self, to: u128) -> Vec<u128> {
         self.edges
             .iter()
             .filter(|e| e.1 == to)
@@ -74,7 +74,7 @@ impl EdgeIndex {
         for item in self.edges.iter() {
             let (from, to) = *item.key();
             if from == to {
-                let msg = format!("Self-loop edge detected: node {} references itself", from);
+                let msg = format!("Self-loop edge detected: node {} references itself", from as u128);
                 return Err(crate::error::VantaError::ValidationError {
                     field: "edge".into(),
                     reason: msg,
@@ -115,7 +115,7 @@ mod tests {
         out.sort();
         assert_eq!(out, vec![2, 3]);
 
-        assert_eq!(idx.outgoing(99), Vec::<u64>::new());
+        assert_eq!(idx.outgoing(99), Vec::<u128>::new());
     }
 
     #[test]

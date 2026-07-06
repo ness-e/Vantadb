@@ -144,6 +144,7 @@ http = "1"
 futures = "0.3"
 console = "0.16"
 indicatif = "0.18"
+serial_test = "3.2"
 
 [[bench]]
 name = "hybrid_queries"

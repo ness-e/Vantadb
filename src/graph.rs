@@ -23,10 +23,10 @@ impl<'a> GraphTraverser<'a> {
     /// up to a maximum depth, returning the discovered distinct Node IDs.
     ///
     /// Uses level-at-a-time batching (`get_many`) to avoid N+1 storage lookups.
-    pub fn bfs_traverse(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
+    pub fn bfs_traverse(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
         let mut visited = HashSet::new();
         let mut results = Vec::new();
-        let mut current_level: Vec<u64> = roots.to_vec();
+        let mut current_level: Vec<u128> = roots.to_vec();
 
         for depth in 0..=max_depth {
             if current_level.is_empty() {
@@ -72,7 +72,7 @@ impl<'a> GraphTraverser<'a> {
     /// Uses a two-phase approach: first discovers all reachable nodes via batched
     /// level-at-a-time lookups (`get_many`), then traverses from the cached edges
     /// to eliminate N+1 storage reads.
-    pub fn dfs_traverse(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
+    pub fn dfs_traverse(&self, roots: &[u128], max_depth: usize) -> Result<Vec<u128>> {
         let edges = self.discover_edges(roots, max_depth)?;
 
         let mut visited = HashSet::new();
@@ -91,7 +91,7 @@ impl<'a> GraphTraverser<'a> {
     /// Uses a two-phase approach: first discovers all reachable nodes via batched
     /// level-at-a-time lookups (`get_many`), then runs the topo-sort from the
     /// cached edges to eliminate N+1 storage reads.
-    pub fn topological_sort(&self, roots: &[u64]) -> Result<Vec<u64>> {
+    pub fn topological_sort(&self, roots: &[u128]) -> Result<Vec<u128>> {
         let max_depth = usize::MAX;
         let edges = self.discover_edges(roots, max_depth)?;
 
@@ -108,7 +108,7 @@ impl<'a> GraphTraverser<'a> {
 
     /// Checks if the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG)
     /// (i.e. contains no cycles).
-    pub fn is_dag(&self, roots: &[u64]) -> Result<bool> {
+    pub fn is_dag(&self, roots: &[u128]) -> Result<bool> {
         match self.topological_sort(roots) {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -125,11 +125,11 @@ impl<'a> GraphTraverser<'a> {
     /// edge cache, avoiding N+1 individual `get()` calls.
     fn discover_edges(
         &self,
-        roots: &[u64],
+        roots: &[u128],
         max_depth: usize,
-    ) -> Result<HashMap<u64, Vec<crate::node::Edge>>> {
-        let mut edges: HashMap<u64, Vec<crate::node::Edge>> = HashMap::new();
-        let mut current_level: Vec<u64> = roots.to_vec();
+    ) -> Result<HashMap<u128, Vec<crate::node::Edge>>> {
+        let mut edges: HashMap<u128, Vec<crate::node::Edge>> = HashMap::new();
+        let mut current_level: Vec<u128> = roots.to_vec();
 
         for depth in 0..=max_depth {
             if current_level.is_empty() {
@@ -172,10 +172,10 @@ impl<'a> GraphTraverser<'a> {
 }
 
 fn dfs_from_cache(
-    node_id: u64,
-    visited: &mut HashSet<u64>,
-    results: &mut Vec<u64>,
-    edges: &HashMap<u64, Vec<crate::node::Edge>>,
+    node_id: u128,
+    visited: &mut HashSet<u128>,
+    results: &mut Vec<u128>,
+    edges: &HashMap<u128, Vec<crate::node::Edge>>,
 ) {
     if !visited.insert(node_id) {
         return;
@@ -191,10 +191,10 @@ fn dfs_from_cache(
 }
 
 fn topo_from_cache(
-    node_id: u64,
-    state: &mut HashMap<u64, u8>,
-    order: &mut Vec<u64>,
-    edges: &HashMap<u64, Vec<crate::node::Edge>>,
+    node_id: u128,
+    state: &mut HashMap<u128, u8>,
+    order: &mut Vec<u128>,
+    edges: &HashMap<u128, Vec<crate::node::Edge>>,
 ) -> Result<bool> {
     match state.get(&node_id) {
         Some(1) => return Err(crate::error::VantaError::CycleDetected),
@@ -237,7 +237,7 @@ mod tests {
         (storage, dir)
     }
 
-    fn insert_node(storage: &StorageEngine, id: u64, edges: Vec<(u64, f32)>) {
+    fn insert_node(storage: &StorageEngine, id: u128, edges: Vec<(u128, f32)>) {
         let mut node = UnifiedNode::new(id);
         node.edges = edges
             .into_iter()
@@ -250,7 +250,7 @@ mod tests {
         storage.insert(&node).unwrap();
     }
 
-    fn build_chain(storage: &StorageEngine, count: u64) {
+    fn build_chain(storage: &StorageEngine, count: u128) {
         for i in 0..count {
             let edges = if i < count - 1 {
                 vec![(i + 1, 1.0)]

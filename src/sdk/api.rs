@@ -45,7 +45,7 @@ impl VantaEmbedded {
 
     /// Retrieve a node by its numeric id. Returns `None` if the id does not exist.
     #[tracing::instrument(skip(self), err)]
-    pub fn get_node(&self, id: u64) -> Result<Option<VantaNodeRecord>> {
+    pub fn get_node(&self, id: u128) -> Result<Option<VantaNodeRecord>> {
         self.engine_handle()?
             .get(id)
             .map(|node| node.map(Into::into))
@@ -53,7 +53,7 @@ impl VantaEmbedded {
 
     /// Delete a node by its numeric id. The `reason` string is recorded for auditing.
     #[tracing::instrument(skip(self), err)]
-    pub fn delete_node(&self, id: u64, reason: &str) -> Result<()> {
+    pub fn delete_node(&self, id: u128, reason: &str) -> Result<()> {
         self.engine_handle()?.delete(id, reason)
     }
 
@@ -348,7 +348,7 @@ impl VantaEmbedded {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         let now = now_ms();
-        let mut to_delete: Vec<(String, String, u64)> = Vec::new();
+        let mut to_delete: Vec<(String, String, u128)> = Vec::new();
 
         for node in engine.scan_nodes()? {
             if !node.is_alive() {
@@ -396,8 +396,8 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self), err)]
     pub fn add_edge(
         &self,
-        source_id: u64,
-        target_id: u64,
+        source_id: u128,
+        target_id: u128,
         label: &str,
         weight: Option<f32>,
     ) -> Result<()> {

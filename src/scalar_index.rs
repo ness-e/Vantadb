@@ -9,7 +9,7 @@ use std::collections::HashMap;
 /// a full table scan into an O(1) lookup (PERF-08).
 pub(crate) struct ScalarIndex {
     /// Per-field maps of value to node ID list.
-    indexes: DashMap<String, HashMap<FieldValue, Vec<u64>>>,
+    indexes: DashMap<String, HashMap<FieldValue, Vec<u128>>>,
 }
 
 impl ScalarIndex {
@@ -21,13 +21,13 @@ impl ScalarIndex {
     }
 
     /// Insert a node ID for a given field/value pair.
-    pub fn insert(&self, field: &str, value: &FieldValue, node_id: u64) {
+    pub fn insert(&self, field: &str, value: &FieldValue, node_id: u128) {
         let mut entry = self.indexes.entry(field.to_string()).or_default();
         entry.entry(value.clone()).or_default().push(node_id);
     }
 
     /// Remove a node ID from a given field/value pair.
-    pub fn remove(&self, field: &str, value: &FieldValue, node_id: u64) {
+    pub fn remove(&self, field: &str, value: &FieldValue, node_id: u128) {
         if let Some(mut entry) = self.indexes.get_mut(field) {
             if let Some(values) = entry.get_mut(value) {
                 values.retain(|&id| id != node_id);
@@ -36,7 +36,7 @@ impl ScalarIndex {
     }
 
     /// Look up node IDs by field and value.
-    pub fn lookup(&self, field: &str, value: &FieldValue) -> Vec<u64> {
+    pub fn lookup(&self, field: &str, value: &FieldValue) -> Vec<u128> {
         self.indexes
             .get(field)
             .and_then(|entry| entry.get(value).cloned())
@@ -44,7 +44,7 @@ impl ScalarIndex {
     }
 
     /// Remove a node from all index entries.
-    pub fn remove_node(&self, node_id: u64) {
+    pub fn remove_node(&self, node_id: u128) {
         for mut entry in self.indexes.iter_mut() {
             entry.retain(|_, ids| {
                 ids.retain(|&id| id != node_id);

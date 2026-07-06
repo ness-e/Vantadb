@@ -152,7 +152,7 @@ pub struct StorageEngine {
     /// neighbor update races. Searches acquire hnsw.read() freely.
     pub(crate) insert_lock: parking_lot::Mutex<()>,
     /// Volatile LRU cache for hot (frequently accessed) nodes.
-    pub volatile_cache: RwLock<std::collections::HashMap<u64, UnifiedNode>>,
+    pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
     /// Flag signalling emergency maintenance (e.g. cache pressure).

@@ -27,7 +27,7 @@ pub enum Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsertStatement {
     /// Node ID (0 = auto-assign).
-    pub node_id: u64,
+    pub node_id: u128,
     /// Entity type string.
     pub node_type: String,
     /// Relational field values.
@@ -40,7 +40,7 @@ pub struct InsertStatement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateStatement {
     /// Node ID to update.
-    pub node_id: u64,
+    pub node_id: u128,
     /// Relational field values to set.
     pub fields: BTreeMap<String, FieldValue>,
     /// Optional new embedding vector.
@@ -51,16 +51,16 @@ pub struct UpdateStatement {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeleteStatement {
     /// Node ID to delete.
-    pub node_id: u64,
+    pub node_id: u128,
 }
 
 /// Relate statement: creates a directed edge between two nodes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RelateStatement {
     /// Source node ID.
-    pub source_id: u64,
+    pub source_id: u128,
     /// Target node ID.
-    pub target_id: u64,
+    pub target_id: u128,
     /// Edge label.
     pub label: String,
     /// Optional edge weight.
@@ -75,7 +75,7 @@ pub struct InsertMessageStatement {
     /// Message content.
     pub content: String,
     /// Thread ID this message belongs to.
-    pub thread_id: u64,
+    pub thread_id: u128,
 }
 
 /// A parsed query with optional traversal, filters, ranking, and projection.

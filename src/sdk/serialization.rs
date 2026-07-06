@@ -10,7 +10,6 @@ use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
-use std::hash::Hasher;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -1619,7 +1618,7 @@ impl VantaEmbedded {
 
         let mut records = Vec::new();
         let mut seen = BTreeSet::new();
-        let unique_ids: Vec<u64> = candidate_ids
+        let unique_ids: Vec<u128> = candidate_ids
             .into_iter()
             .filter(|id| seen.insert(*id))
             .collect();

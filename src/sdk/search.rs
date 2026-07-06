@@ -170,8 +170,8 @@ impl VantaEmbedded {
         } else {
             namespace_stats.total_doc_len as f32 / doc_count
         };
-        let mut scores: BTreeMap<u64, f32> = BTreeMap::new();
-        let mut candidate_positions: BTreeMap<u64, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
+        let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
+        let mut candidate_positions: BTreeMap<u128, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
         let mut doc_stats_cache: BTreeMap<String, crate::text_index::TextDocStats> =
             BTreeMap::new();
         let mut candidates_scored = 0u64;
@@ -243,8 +243,8 @@ impl VantaEmbedded {
         }
 
         let mut hits = Vec::new();
-        let node_ids: Vec<u64> = scores.keys().copied().collect();
-        let node_map: std::collections::HashMap<u64, UnifiedNode> = engine
+        let node_ids: Vec<u128> = scores.keys().copied().collect();
+        let node_map: std::collections::HashMap<u128, UnifiedNode> = engine
             .get_many(&node_ids)?
             .into_iter()
             .map(|n| (n.id, n))
@@ -315,8 +315,8 @@ impl VantaEmbedded {
 
         let mut hits = Vec::with_capacity(top_k);
         {
-            let candidate_ids: Vec<u64> = candidates.iter().map(|(id, _)| *id).collect();
-            let node_map: std::collections::HashMap<u64, UnifiedNode> = engine
+            let candidate_ids: Vec<u128> = candidates.iter().map(|(id, _)| *id).collect();
+            let node_map: std::collections::HashMap<u128, UnifiedNode> = engine
                 .get_many(&candidate_ids)?
                 .into_iter()
                 .map(|n| (n.id, n))
@@ -896,7 +896,7 @@ impl VantaEmbedded {
         namespace: &str,
         token: &str,
         key: &str,
-    ) -> Result<Option<(u64, u32)>> {
+    ) -> Result<Option<(u128, u32)>> {
         let engine = self.engine_handle()?;
         let Some(bytes) = engine.get_from_partition(
             BackendPartition::TextIndex,
