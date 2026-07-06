@@ -20,9 +20,20 @@ const navGroups = [
       { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
     ],
   },
+  {
+    label: "Resources",
+    items: [
+      { path: "/why-vantadb", label: "Why VantaDB" },
+      { path: "/product/benchmarks", label: "Benchmarks" },
+      { path: "/playground", label: "Playground" },
+      { path: "/changelog", label: "Changelog" },
+      { path: "/blog", label: "Blog" },
+    ],
+  },
 ];
 
 const flatLinks = [
+  { path: "/security", label: "Security" },
   { path: "/use-cases", label: "Use Cases" },
   { path: "/pricing", label: "Pricing" },
 ];
@@ -202,6 +213,7 @@ export const NbNav = memo(function NbNav() {
             const all: { path: string; label: string }[] = [];
             for (const g of navGroups) for (const i of g.items) all.push(i);
             for (const i of flatLinks) all.push(i);
+            all.push({ path: "/docs", label: "Docs" });
             return all.map((item, idx) => (
               <Link
                 key={item.path}
@@ -217,17 +229,6 @@ export const NbNav = memo(function NbNav() {
               </Link>
             ));
           })()}
-          <Link
-            to="/docs"
-            className={`nb-nav-drawer-link${isActive("/docs") ? " active" : ""}`}
-            onClick={closeDrawer}
-          >
-            <span className="nb-nav-drawer-link-num">
-              {String(7).padStart(2, "0")}
-            </span>
-            <span className="nb-nav-drawer-link-label">Docs</span>
-            <span className="nb-nav-drawer-link-arrow">&gt;</span>
-          </Link>
         </div>
 
         <div className="nb-nav-drawer-footer">
