@@ -601,7 +601,7 @@
 
 .nb-mono-label {
   font-family: var(--font-mono);
-  font-size: var(--text-micro);
+  font-size: var(--text-label);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);

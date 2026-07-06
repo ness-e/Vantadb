@@ -27,34 +27,34 @@ function NbFgIcon({ id }: { id: string }) {
     switch (id) {
       case "hybrid":
         return (
-          <polygon points="12,2 22,22 2,22" fill="none" stroke="currentColor" strokeWidth="2" />
+          <>
+            <circle cx="9" cy="12" r="7" stroke="currentColor" strokeWidth="2" />
+            <circle cx="15" cy="12" r="7" stroke="currentColor" strokeWidth="2" />
+          </>
         );
       case "wal":
         return (
-          <rect
-            x="4"
-            y="4"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
+          <>
+            <rect x="4" y="5" width="16" height="4" rx="1" fill="currentColor" opacity="0.3" />
+            <rect x="4" y="10" width="16" height="4" rx="1" fill="currentColor" opacity="0.6" />
+            <rect x="4" y="15" width="16" height="4" rx="1" fill="currentColor" />
+          </>
         );
       case "zeroops":
-        return <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />;
+        return (
+          <path d="M12 3v5m0 0a7 7 0 1 1-7 7m7-7a7 7 0 0 1 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        );
       case "pyo3":
         return (
-          <path d="M12 2 L2 12 L12 22 L22 12 Z" fill="none" stroke="currentColor" strokeWidth="2" />
+          <>
+            <path d="M6 9l-4 3 4 3" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M18 9l4 3-4 3" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="14" y1="6" x2="10" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </>
         );
       case "embed":
         return (
-          <path
-            d="M4 12 L10 6 L10 18 Z M20 12 L14 6 L14 18 Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
+          <path d="M4 12h6m0 0l-3-3m3 3l-3 3m13-3h-6m0 0l3-3m-3 3l3 3" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
         );
       default:
         return <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />;

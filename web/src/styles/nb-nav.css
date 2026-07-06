@@ -42,11 +42,12 @@
 
 .nb-nav-link {
   font-family: var(--font-mono);
-  font-size: var(--text-micro);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  color: var(--muted);
+  color: var(--foreground);
+  opacity: 0.65;
   text-decoration: none;
   padding: 0.5rem 0.75rem;
   white-space: nowrap;
@@ -63,6 +64,7 @@
 
 .nb-nav-link:hover {
   color: var(--foreground);
+  opacity: 1;
   border-color: var(--border-strong);
   background: var(--surface);
 }
@@ -305,7 +307,7 @@
   transform: translate(-2px, -2px);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 960px) {
   .nb-nav-desktop {
     display: none;
   }
@@ -319,7 +321,7 @@
   }
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 961px) {
   .nb-nav-hamburger {
     display: none;
   }

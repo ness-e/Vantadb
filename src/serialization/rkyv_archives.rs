@@ -6,7 +6,7 @@
 /// Zero-copy HNSW graph archive format using `repr(C)` structs
 /// that can be memory-mapped and accessed directly.
 ///
-/// Layout (version 8):
+/// Layout (version 9):
 ///   [ArchivedHnswHeader]             — 40 bytes, align 8
 ///   [padding]                        — 8 bytes for 16-byte alignment
 ///   [ArchivedHnswNode; node_count]   — 48 bytes each, align 16
@@ -18,7 +18,7 @@ use crate::index::{CPIndex, HnswConfig, HnswNode};
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 const HNSW_MAGIC: [u8; 8] = *b"VNTHNSW\0";
-const HNSW_VERSION: u64 = 8;
+const HNSW_VERSION: u64 = 9;
 
 /// File header, always at offset 0.
 #[repr(C)]
@@ -36,7 +36,7 @@ pub struct ArchivedHnswHeader {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct ArchivedHnswNode {
-    pub id: u64,
+    pub id: u128,
     pub bitset: u128,
     pub storage_offset: u64,
     pub inv_cached_norm: f32,
@@ -190,7 +190,7 @@ impl CPIndex {
                 neighbor_data.extend_from_slice(layer);
             }
             let archived = ArchivedHnswNode {
-                id: node.id,
+                id: node.id as u128,
                 bitset: node.bitset.to_u128(),
                 storage_offset: node.storage_offset,
                 inv_cached_norm: node.inv_cached_norm,
@@ -245,14 +245,14 @@ impl CPIndex {
             }
 
             let node = HnswNode {
-                id: archived.id,
+                id: archived.id as u64,
                 bitset: FilterBitset::from_u128(archived.bitset),
                 vec_data: VectorRepresentations::None,
                 neighbors,
                 storage_offset: archived.storage_offset,
                 inv_cached_norm: archived.inv_cached_norm,
             };
-            index.nodes.insert(archived.id, node);
+            index.nodes.insert(archived.id as u64, node);
         }
 
         Ok(index)

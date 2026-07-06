@@ -4,7 +4,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-06
 aliases: []
 ---
 
@@ -12,7 +12,7 @@ aliases: []
 
 > **Purpose:** Single source of truth for all project tasks, active and postponed.
 > **Completed features:** `docs/CHANGELOG.md`
-> **Total items:** 153 (62 original + 91 code review + 0 governance redesign)
+> **Total items:** 170 (62 original + 108 code review + 0 governance redesign)
 
 ---
 
@@ -52,6 +52,12 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 
 
+
+### 🐛 Correctness Bugs (Post-Benchmark)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `CODE-092` | **Euclidean distance inverted ordering** — Cosine devuelve `1.0 - similarity` (0.0=identical), Euclidean devuelve raw `squared_distance`. `sort_by` espera misma semántica en ambos, causando ordenación invertida para Euclidean. Recall@10 55.7% vs ChromaDB 90%. Fix: normalizar a distancia real (`sqrt`) o aplicar `-`/`abs` | `src/index/distance.rs` | 🟢 1h | 🔴 | ❌ |
 
 ### 🐛 Python SDK Data Bugs
 
@@ -99,7 +105,6 @@ aliases: []
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
 | ~~`MKT-11`~~ | **Corregir `llms.txt`:** SQL (deferido), IVF (no implementado), latencia real | 🟢 1h | 🔴 | ✅ |
-| `MKT-12` | **Auditar claims de performance** contra benchmarks reales. Publicar metodología | 🟡 1-2d | 🔴 | ✅ |
 | ~~`CODE-091`~~ | **`hit.distance` etiquetado como `"score"` en JS** — Semantic confusion. consumer espera higher=better pero es distance | `lib.rs:488-490` | 🟢 2h | 🟡 | ✅ |
 | ~~`DX-02`~~ | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** — VantaVector zero-copy + owned hot paths implementados | 🟡 2-3d | 🔴 | ✅ |
 | ~~`DX-03`~~ | **Python SDK performance profiling** — Bottlenecks documentados: PyDict set_item, metadata clones, vector copy | 🟡 1-2d | 🔴 | ✅ |
@@ -116,6 +121,19 @@ aliases: []
 | ~~`CODE-024`~~ | **`scan_nodes()` carga TODAS las KV pairs a RAM** — OOM en datasets medianos. Llamado desde 5 code paths distintos | `engine.rs:1431` | 🟡 2-3d | 🔴 | ✅ |
 | ~~`CODE-029`~~ | **Read lock held durante todo search pipeline** — Bloquea writes en datasets >100K. Mismo patrón en scan_bitset, traverse, filter_field, hybrid_search | `engine.rs:196-343` | 🟡 2-3d | 🔴 | ✅ |
 | ~~`CODE-030`~~ | **NaN en cosine_similarity → sort indefinido** — `partial_cmp.unwrap_or(Equal)` silencia el problema | `engine.rs:213,329` | 🟢 2h | 🟡 | ✅ |
+
+### ⚡ Optimizaciones Post-Benchmark (Jul 6)
+
+> Hallazgos de 4 investigaciones paralelas post-benchmark competitivo. Impacto cuantificado contra LanceDB/ChromaDB.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `PERF-15` | **`put_batch_raw()` con PyBuffer 2D** — Zero-copy batch ingestion desde NumPy arrays. Target: 10× ingestion QPS (17767 vs 127 LanceDB gap) | `vantadb-python/src/lib.rs` | 🟡 2-3d | 🔴 | ❌ |
+| `PERF-16` | **`#[pyclass]` para search hits** — Evita 5 PyDict allocations por resultado. ~30-50% reducción query latency (target: 2.27ms ChromaDB parity) | `vantadb-python/src/lib.rs`, `types.rs` | 🟡 2-3d | 🔴 | ❌ |
+| `PERF-17` | **ef_construction 200→400** — Mayor recall con costo moderado en index time. ChromaDB usa default 200, VantaDB necesita superar 90% recall@10 | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
+| `PERF-18` | **M/max0 16→24/32** — Mejor conectividad del grafo HNSW. Complementa PERF-17 para recall >90% | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
+| `PERF-19` | **WAL batch append** — Single write por batch en vez de por vector. Reduce I/O y contention en escritura concurrente | `src/storage/wal.rs`, `src/wal_sharded.rs` | 🟡 1-2d | 🟠 | ❌ |
+| `PERF-20` | **Storage batch insert** — Operaciones batch en engine layer. Complementa PERF-15/19 para throughput completo | `src/storage/engine/ops.rs` | 🟡 1-2d | 🟠 | ❌ |
 
 ### 🌐 Presencia Web y Landing Page
 
@@ -139,7 +157,6 @@ aliases: []
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
 | `DOC-19` | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ❌ |
 | `DOC-20` | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
-| `DOC-21` | **Performance clarity doc: Rust core vs Python SDK** — Documentar el gap (441µs Rust vs 62ms Python SDK) con causa raíz (PyO3, GIL) y expectativas realistas | 🟡 1d | 🟡 | ✅ |
 | `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
 
@@ -147,7 +164,6 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `MCP-03` | Benchmarks WASM vs EdgeVec/minimemory/altor-vec/lattice-db | 🟡 2-3d | 🔴 | ✅ |
 | `MCP-05` | Integration test suite MCP (9→25+) | 🟡 1-2d | 🟡 | ✅ |
 | `WASM-03` | Demo AI Agent in browser (Transformers.js + OPFS) | 🟡 2-3d | 🟡 | ✅ |
 | `WASM-04` | WASM bundle size optimization (<500KB gzip) | 🟡 1-2d | 🟡 | ✅ |
@@ -175,7 +191,7 @@ aliases: []
 | `DOC-01` | Unit tests (91 nuevos) | — | 🟡 2-3d | 🟡 | ✅ |
 | `DOC-02` | Refactor `insert_hnsw()` (177L→3 funciones) | — | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-014`~~ | **LRU cache Python completamente muerto** — Cachea pero nunca lee. 100% overhead | `lib.rs:615-641` | 🟡 1d | 🟡 | ✅ |
-| ~~`CODE-067`~~ | **Hash 64-bit XxHash: colisión bloquea ambos records** — Migración u64→u128 en progreso (pre-existing type mismatches en 17 sitios) | `serialization.rs:39-45` | 🟡 1-2d | 🟡 | ✅ |
+| `CODE-067` | **Hash 64-bit XxHash: colisión bloquea ambos records** — Migración u64→u128 en progreso (pre-existing type mismatches en 17 sitios). `XxHash64` + `u64` aún vigente en 14 locations. CHANGELOG confirma "still open" | `serialization.rs:39-45`, `index/core.rs:16,348`, `duplicate_prevention.rs:8` | 🟡 2-3d | 🟡 | ❌ |
 | ~~`CODE-089`~~ | **`VantaConfig.storage_path` sin efecto en WASM** — Siempre InMemory, path ignorado. Usuarios engañados | `types.rs:142-147` | 🟢 4h | 🟡 | ✅ |
 | ~~`CODE-090`~~ | **`insertNode(id: number)` hace `BigInt(id)` — overflow > 2^53** | `vantadb.ts:210-217` | 🟢 2h | 🟡 | ✅ |
 
@@ -219,6 +235,21 @@ aliases: []
 | `MKT-07` | Pricing page | 🟡 1-2d | 🔴 | ✅ |
 | `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 1d | 🟢 | ✅ |
 | `WEB-17` | TanStack Router vs React Router (✅ mantener) | 🟡 2-3d | 🟡 | ✅ |
+
+### ⚙️ Performance Media (Post-Benchmark)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `PERF-21` | **AVX-512 f32x16 SIMD dispatch** — Runtime dispatch para dot product y euclidean distance. `avx512f` ya detectado en `hardware/mod.rs:166`, no cableado | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟡 | ❌ |
+| `PERF-22` | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-23` | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-24` | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
+| `PERF-25` | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-26` | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-27` | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-28` | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `PERF-29` | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
+| `PERF-30` | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ❌ |
 
 ### 🗄️ Database Evolution
 
@@ -318,16 +349,25 @@ aliases: []
 | ~~`CODE-061`~~ | **Signal handler SIGBUS llama `warn!()`** — No signal-safe. UB potencial | `vfile.rs:141-167` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-058`~~ | **Ignored advisories en deny.toml sin rationale** — Sin plan de resolución | `deny.toml:3-4` | 🟢 1h | 🟢 | ✅ |
 
+### ⚡ Performance Baja Prioridad (Post-Benchmark)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `PERF-31` | **Output batch via NumPy arrays** — Retornar resultados de search como `np.ndarray` en vez de listas Python | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟢 | ❌ |
+| `PERF-32` | **Async ingestion pipeline** — Producer-consumer con channel asíncrono para ingestion sin bloqueo | `src/ingestion.rs` | 🟡 2-3d | 🟢 | ❌ |
+| `PERF-33` | **Prefetching para graph traversal** — Prefetch listas de vecinos HNSW durante búsqueda. Reduce cache misses | `src/index/core.rs` | 🟡 1-2d | 🟢 | ❌ |
+| `PERF-34` | **Extended norm caching** — Precomputar y cachear normas para distancia euclidea. Reduce cómputos repetidos | `src/index/stats.rs`, `src/index/distance.rs` | 🟡 1-2d | 🟢 | ❌ |
+| `PERF-35` | **Async transcript file I/O** — Migrar `std::fs` → `tokio::fs` para operaciones de transcripción | `src/transcript.rs` | 🟡 1-2d | 🟢 | ❌ |
+| `PERF-36` | **Config hot-reload** — Watch archivo de configuración para cambios en caliente. Sin restart | `src/config.rs` | 🟡 2-3d | 🟢 | ❌ |
+| `PERF-37` | **FilterBitset overhead reduction** — Optimizar operaciones de bitset para filtros rápidos | `src/bitset.rs` | 🟡 1-2d | 🟢 | ❌ |
+| `PERF-38` | **Runtime multiversion dispatch** — Detectar CPU features en runtime y seleccionar kernel óptimo. Consolidar PERF-21 + dispatcher genérico | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟢 | ❌ |
+
 ### 🧹 Code Health General
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | ~~`CODE-034`~~ | **`VANTA_BACKEND=fjall` triggers warning falso** — Valor válido no en match | `config.rs:271-281` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-038`~~ | **LRU Python no refresca orden en update** — Item updated se evicta prematuro | `lib.rs:60-71` | 🟢 2h | 🟢 | ✅ |
-| ~~`CODE-039`~~ | **Empty list `[]` siempre `ListString`** — Ambiguo semánticamente | `lib.rs:87-89` | 🟢 1h | 🟢 | ✅ |
-| ~~`CODE-040`~~ | **List type inference del primer elemento** — `[42,"hello"]` error confuso | `lib.rs:91-151` | 🟢 2h | 🟢 | ✅ |
-| ~~`CODE-041`~~ | **`operational_metrics()` sin `allow_threads()`** — GIL retenido innecesario | `lib.rs:1076-1080` | 🟢 1h | 🟢 | ✅ |
-| ~~`CODE-042`~~ | **`BUFFER_CACHE` thread-local declarado, NUNCA usado** | `lib.rs:24-26` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-050`~~ | **Date sorting produce NaN** — `new Date("").getTime()` cuando falta frontmatter | `blog.ts:67` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-051`~~ | **`motion` chunk config para dep no instalado** — Dead config | `vite.config.ts:18` | 🟢 1h | 🟢 | ✅ |
 
@@ -474,21 +514,24 @@ Esfuerzo                │   Esfuerzo
 |-----------|----------|----------|----------|----------|-----------|-------|
 | 🩹 Data Loss & Crash Prev | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🛡️ Seguridad & Integrity | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Migration Runner | 0 | 0 | 0 | 0 | 0 | 0 |
+| ⚡ Migration Runner | 2 | 0 | 0 | 0 | 0 | 2 |
 | 💥 Crash/Deadlock Fixes | 0 | 0 | 0 | 0 | 0 | 0 |
+| 🐛 Correctness Bugs (Post-Benchmark) | 1 | 0 | 0 | 0 | 0 | 1 |
 | 🐛 Python SDK Data Bugs | 0 | 0 | 0 | 0 | 0 | 0 |
-| 📦 Integraciones & Release | 12 | 0 | 0 | 0 | 0 | 12 |
+| 📦 Integraciones & Release | 13 | 0 | 0 | 0 | 0 | 13 |
 | 🧪 Testing | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🎯 Marketing vs Realidad | 0 | 3 | 0 | 0 | 0 | 3 |
+| 🎯 Marketing vs Realidad | 0 | 1 | 0 | 0 | 0 | 1 |
 | 🏗️ Index & Storage Quality | 0 | 0 | 0 | 0 | 0 | 0 |
+| ⚡ Optimizaciones Post-Benchmark | 0 | 6 | 0 | 0 | 0 | 6 |
 | 🌐 Web & Landing Page | 0 | 2 | 0 | 0 | 0 | 2 |
-| 📚 Documentación | 0 | 1 | 0 | 0 | 0 | 1 |
-| 🧪 WASM & MCP | 0 | 1 | 0 | 0 | 0 | 1 |
+| 📚 Documentación | 0 | 3 | 0 | 0 | 0 | 3 |
+| 🧪 WASM & MCP | 0 | 0 | 0 | 0 | 0 | 0 |
 | 📦 Distribución | 0 | 4 | 0 | 0 | 0 | 4 |
 | 🧹 Code Health Core | 0 | 1 | 0 | 0 | 0 | 1 |
 | 🧪 CI/CD Web Quality | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🚀 Launch Campaign | 0 | 0 | 10 | 0 | 0 | 10 |
+| 🚀 Launch Campaign | 0 | 0 | 9 | 0 | 0 | 9 |
 | 🌐 Conversión & SEO | 0 | 0 | 1 | 0 | 0 | 1 |
+| ⚙️ Performance Media (Post-Benchmark) | 0 | 0 | 10 | 0 | 0 | 10 |
 | 🗄️ Database Evolution | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🐛 GC & Background Tasks | 0 | 0 | 1 | 0 | 0 | 1 |
 | 👥 Comunidad | 0 | 0 | 5 | 0 | 0 | 5 |
@@ -497,50 +540,55 @@ Esfuerzo                │   Esfuerzo
 | 📦 Distribución Avanzada | 0 | 0 | 0 | 2 | 0 | 2 |
 | 🧪 Testing Post-Launch | 0 | 0 | 0 | 4 | 0 | 4 |
 | 🛡️ Seguridad Post-Launch | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🧹 Code Health General | 0 | 0 | 0 | 5 | 0 | 5 |
-| 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 10 | 10 |
-| ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 10 | 10 |
-| **Total** | **10** | **12** | **20** | **11** | **20** | **73** |
+| ⚡ Performance Baja Prioridad (Post-Benchmark) | 0 | 0 | 0 | 8 | 0 | 8 |
+| 🧹 Code Health General | 0 | 0 | 0 | 1 | 0 | 1 |
+| 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
+| ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
+| **Total** | **16** | **17** | **29** | **15** | **21** | **98** |
 
-Nota: 80 tasks marcadas como ✅ desde la última actualización. Pendientes: 73 items open (❌ + ⏳).
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 revertido a ❌ (aún usa XxHash64+u64). Pendientes: 98 items ❌ + 3 ⏳ = 101 open.
 
 ---
 
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 12 items remaining):
-             ─ Data loss: ✅ ~~CODE-026~~
-             ─ Security: ✅ ~~CODE-012~~, SEC-08/09/10
-             ─ Migration: DB-01 ⏳, DB-02 ✅
-              ─ Crash: ✅ ~~CODE-018/019~~
-              ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
-            ─ Integrations: INT-01→10, DEVOPS-05, REL-02 ❌
-Jul 11-18  TIER 1 (🟠 12 items remaining):
-             ─ Marketing: ✅ ~~MKT-11/~~ MKT-12, DX-02, ✅ ~~CODE-091~~
-             ─ Index: ✅ ~~CODE-007/008/010/024/029/030~~
-             ─ Web: MKT-13/14 ❌, ✅ ~~CODE-023/070/073/078/080~~
-            ─ Docs: MCP per-IDE ❌, ✅ ~~CODE-085~~
-            ─ WASM: MCP-03 ❌, ✅ ~~CODE-059/060~~
-            ─ Distribución: DEVOPS-02/06/10 ❌
-            ─ Code health: ✅ ~~CODE-014/089/090~~ CODE-067 ❌
-Jul 18-25  TIER 2 (🟡 20 items remaining):
-            ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
-            ─ GC: ✅ ~~CODE-031/032/064/065/066~~ CODE-037 ❌
-            ─ Comunidad: COM-01, TSK-106/107/108 ❌
-            ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~ 3 ❌
-            ─ Accesibilidad: ✅ ~~CODE-048~~
-            ─ SEO/Conversion: MKT-17 ❌
-Ago-Sep    TIER 3 (🔵 11 items remaining):
-            ─ Testing: CODE-033/035/044/074 ❌, ✅ ~~CODE-043/057/075~~
-            ─ Seguridad: ✅ ~~CODE-036/058/061~~
-            ─ Code health: CODE-039/040/041/042/055 ❌, ✅ ~~18 others~~
-            ─ Distribución: DEVOPS-06, crates.io ❌
-            ─ Post-launch: SEC-04→07, TEST-04/05/07/08 ✅
-Oct+       PHASE 5 (⬜ 20 items):
-             ─ Enterprise: encryption, RBAC, audit, SOC2, HIPAA
-             ─ Governance: GOV-01 redesign (admission, conflict, consistency)
-             ─ Cloud: WAL shipping, billing, dashboard, pitch deck
+Jul 4-11   TIER 0 (🔴 16 items remaining):
+              ─ Data loss: ✅ ~~CODE-026~~
+              ─ Security: ✅ ~~CODE-012~~, SEC-08/09/10
+              ─ Migration: DB-01 ⏳, DB-02 ✅, snapshot tests ❌
+               ─ Crash: ✅ ~~CODE-018/019~~
+              ─ Correctness: CODE-092 (Euclidean bug) ❌
+               ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
+             ─ Integrations: INT-01→11, DEVOPS-05/12, REL-02 ❌
+Jul 11-18  TIER 1 (🟠 17 items remaining):
+              ─ Marketing: ~~MKT-11, CODE-091, DX-02/03/04~~ ✅, `—` ❌
+              ─ Index: ✅ ~~CODE-007/008/010/024/029/030~~
+              ─ Web: MKT-13/14 ❌, ✅ ~~CODE-023/070/073/078/080~~
+             ─ Docs: DOC-19/20, MCP-IDE ❌
+             ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
+             ─ Distribución: DEVOPS-02/06/10, TSK-121 ❌
+             ─ Code health: CODE-067 ❌ (revertido, still open)
+             ─ ⚡ Post-Benchmark: PERF-15/16 🔴, PERF-17→20 🟠 ❌
+Jul 18-25  TIER 2 (🟡 29 items remaining):
+             ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
+             ─ GC: ✅ ~~CODE-031/032/064/065/066~~ CODE-037 ❌
+             ─ Comunidad: COM-01, TSK-106/107/108 ❌
+             ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~ 3 ❌
+             ─ Accesibilidad: ✅ ~~CODE-048~~
+             ─ SEO/Conversion: MKT-17 ❌
+             ─ ⚙️ Perf Media: PERF-21→30 🟡 ❌
+Ago-Sep    TIER 3 (🔵 15 items remaining):
+             ─ Testing: CODE-033/035/044/074 ❌, ✅ ~~CODE-043/057/075~~
+             ─ Seguridad: ✅ ~~CODE-036/058/061~~
+             ─ Code health: CODE-055 ❌, ✅ ~~18 others, CODE-039/040/041/042 moved → progreso~~
+             ─ Distribución: DEVOPS-06, crates.io ❌
+             ─ Post-launch: SEC-04→07, TEST-04/05/07/08 ✅
+             ─ ⚡ Perf Baja: PERF-31→38 🟢 ❌
+Oct+       PHASE 5 (⬜ 21 items):
+              ─ Enterprise: encryption, RBAC, audit, SOC2, HIPAA, PITR, WASM OPFS, multi-tenant
+              ─ Governance: GOV-01 redesign (admission, conflict, consistency)
+              ─ Cloud: WAL shipping, billing, dashboard, pitch deck, enterprise pilot
 ```
 
 ---
@@ -571,3 +619,7 @@ Oct+       PHASE 5 (⬜ 20 items):
 - [[docs/strategy/ACTION_PLAN.md]] — Detailed execution plan
 - [[docs/strategy/ROADMAP.md]] — Phase definitions
 - [[CHANGELOG.md]] — Release history
+- [[docs/research/INVESTIGATION_EUCLIDEAN.md]] — Euclidean distance optimization findings (AVX-512, SIMD, algorithms)
+- [[docs/research/INVESTIGATION_FFI.md]] — FFI/PyO3 optimization findings (batch, zero-copy, GIL)
+- [[docs/research/INVESTIGATION_HNSW_RECALL.md]] — HNSW recall optimization findings (ef_construction, M, heuristics)
+- [[docs/research/INVESTIGATION_INGESTION.md]] — Ingestion optimization findings (batch WAL, storage, async pipeline)

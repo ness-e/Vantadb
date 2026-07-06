@@ -1,13 +1,18 @@
 .nb-fg-row {
   display: flex;
   gap: var(--space-md);
-  padding: var(--space-md) 0;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-md);
+  margin: 0 calc(-1 * var(--space-md));
   align-items: flex-start;
+  border: 2px solid transparent;
+  transition:
+    border-color 80ms var(--ease-brutal),
+    box-shadow 80ms var(--ease-brutal);
 }
 
-.nb-fg-row:last-child {
-  border-bottom: none;
+.nb-fg-row:hover {
+  border-color: var(--border-visible);
+  box-shadow: var(--shadow-sm);
 }
 
 .nb-fg-title {

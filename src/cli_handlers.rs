@@ -111,14 +111,14 @@ pub fn open_embedded(path: &str, read_only: bool) -> Result<VantaEmbedded> {
     VantaEmbedded::open_with_config(config)
 }
 
-/// Compute a deterministic node ID from namespace and key using xxHash64
-pub fn memory_node_id(namespace: &str, key: &str) -> u64 {
+/// Compute a deterministic node ID from namespace and key using xxHash3-128
+pub fn memory_node_id(namespace: &str, key: &str) -> u128 {
     use std::hash::Hasher;
-    let mut hasher = twox_hash::XxHash64::default();
+    let mut hasher = twox_hash::XxHash3_128::default();
     hasher.write(namespace.as_bytes());
     hasher.write(b"\0");
     hasher.write(key.as_bytes());
-    hasher.finish()
+    hasher.finish_128()
 }
 
 #[tracing::instrument]
