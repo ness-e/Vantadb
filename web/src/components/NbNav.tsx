@@ -4,6 +4,42 @@ import { useState, useEffect, useCallback, memo, useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 import { NbButton } from "./nb";
 
+const navGroups = [
+  {
+    label: "Platform",
+    items: [
+      { path: "/engine", label: "Core Engine" },
+      { path: "/architecture", label: "Architecture" },
+    ],
+  },
+  {
+    label: "Solutions",
+    items: [
+      { path: "/solutions/ai-agents", label: "AI Agents" },
+      { path: "/solutions/local-rag", label: "Local RAG" },
+      { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { path: "/why-vantadb", label: "Why VantaDB" },
+      { path: "/cost", label: "Cost Comparison" },
+      { path: "/maint", label: "Zero Maintenance" },
+      { path: "/product/benchmarks", label: "Benchmarks" },
+      { path: "/playground", label: "Playground" },
+      { path: "/changelog", label: "Changelog" },
+      { path: "/blog", label: "Blog" },
+    ],
+  },
+];
+
+const flatLinks = [
+  { path: "/security", label: "Security" },
+  { path: "/use-cases", label: "Use Cases" },
+  { path: "/pricing", label: "Pricing" },
+];
+
 export const NbNav = memo(function NbNav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -75,14 +111,6 @@ export const NbNav = memo(function NbNav() {
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
-  const links = [
-    { path: "/engine", label: "Engine" },
-    { path: "/architecture", label: "Architecture" },
-    { path: "/solutions/ai-agents", label: "AI Agents" },
-    { path: "/use-cases", label: "Use Cases" },
-    { path: "/pricing", label: "Pricing" },
-  ];
-
   return (
     <>
       <nav
@@ -90,31 +118,53 @@ export const NbNav = memo(function NbNav() {
         role="navigation"
         aria-label="Main navigation"
       >
-        <Link to="/" className="nc-nav-prompt" aria-label="VantaDB home">
-          <span className="nc-nav-prompt-char">▶</span>
-          <span className="nc-nav-prompt-text">VD</span>
+        <Link to="/" className="nc-nav-logo" aria-label="VantaDB home">
+          <VantaDBLogo variant="full" size="sm" />
         </Link>
 
         <div className="nc-nav-links">
-          {links.map((item, i) => (
+          {navGroups.map((group) => (
+            <div key={group.label} className="nc-nav-group">
+              <button
+                type="button"
+                className="nc-nav-group-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                {group.label}
+                <svg width="8" height="6" viewBox="0 0 8 6" fill="none" aria-hidden="true">
+                  <path d="M1 1l3 4 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div className="nc-nav-dropdown" role="menu">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nc-nav-dropdown-item${isActive(item.path) ? " active" : ""}`}
+                    role="menuitem"
+                  >
+                    {isActive(item.path) && <span className="nc-dd-toggle" aria-hidden="true">■</span>}
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+          {flatLinks.map((item, i) => (
             <span key={item.path} className="nc-nav-link-wrap">
-              {i > 0 && (
-                <span className="nc-nav-sep" aria-hidden="true">
-                  │
-                </span>
-              )}
+              {i === 0 && <span className="nc-nav-sep" aria-hidden="true">│</span>}
               <Link
                 to={item.path}
                 className={`nc-nav-link${isActive(item.path) ? " active" : ""}`}
                 aria-current={isActive(item.path) ? "page" : undefined}
               >
                 {isActive(item.path) && (
-                  <span className="nc-nav-toggle-on" aria-hidden="true">
-                    ■
-                  </span>
+                  <span className="nc-nav-toggle-on" aria-hidden="true">■</span>
                 )}
                 <span className="nc-nav-link-label">{item.label}</span>
               </Link>
+              {i < flatLinks.length - 1 && <span className="nc-nav-sep" aria-hidden="true">│</span>}
             </span>
           ))}
         </div>
@@ -155,7 +205,7 @@ export const NbNav = memo(function NbNav() {
         aria-label="Navigation menu"
       >
         <div className="nc-drawer-header">
-          <span className="nc-drawer-prompt">▶ VD</span>
+          <VantaDBLogo variant="full" size="sm" />
           <button className="nc-drawer-close" onClick={closeDrawer} aria-label="Close menu">
             <svg
               width="16"
@@ -173,26 +223,27 @@ export const NbNav = memo(function NbNav() {
         </div>
 
         <div className="nc-drawer-body" ref={drawerBodyRef}>
-          {links.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`nc-drawer-link${isActive(item.path) ? " active" : ""}`}
-              onClick={closeDrawer}
-            >
-              <span className="nc-drawer-prompt-char">$</span>
-              <span className="nc-drawer-link-label">{item.label}</span>
-              {isActive(item.path) && (
-                <span className="nc-drawer-active-mark" aria-hidden="true">
-                  ■
+          {(() => {
+            const all: { path: string; label: string }[] = [];
+            for (const g of navGroups) for (const i of g.items) all.push(i);
+            for (const i of flatLinks) all.push(i);
+            all.push({ path: "/docs", label: "Docs" });
+            return all.map((item, idx) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nc-drawer-link${isActive(item.path) ? " active" : ""}`}
+                onClick={closeDrawer}
+              >
+                <span className="nc-drawer-prompt-char">$</span>
+                <span className="nc-drawer-link-num">
+                  {String(idx + 1).padStart(2, "0")}
                 </span>
-              )}
-            </Link>
-          ))}
-          <Link to="/docs" className="nc-drawer-link" onClick={closeDrawer}>
-            <span className="nc-drawer-prompt-char">$</span>
-            <span className="nc-drawer-link-label">Docs</span>
-          </Link>
+                <span className="nc-drawer-link-label">{item.label}</span>
+                {isActive(item.path) && <span className="nc-drawer-active-mark" aria-hidden="true">■</span>}
+              </Link>
+            ));
+          })()}
         </div>
 
         <div className="nc-drawer-footer">
