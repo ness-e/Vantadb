@@ -5,6 +5,26 @@ from __future__ import annotations
 from typing import Any
 
 
+class VantaVector:
+    def __len__(self) -> int: ...
+    def __getitem__(self, idx: int) -> float: ...
+    def __repr__(self) -> str: ...
+
+class VantaSearchHit:
+    namespace: str
+    key: str
+    payload: str
+    metadata: dict
+    vector: VantaVector | None
+    score: float
+    id: int
+    created_at_ms: int
+    updated_at_ms: int
+    version: int
+    node_id: int
+    expires_at_ms: int | None
+    def __repr__(self) -> str: ...
+
 class VantaDB:
     def __init__(
         self,
@@ -28,6 +48,15 @@ class VantaDB:
     def put_batch(
         self, entries: list[tuple[str, str, str, dict | None, Any | None, int | None]]
     ) -> list[dict]: ...
+    def put_batch_raw(
+        self,
+        vectors: Any,
+        keys: list[str],
+        payloads: list[str] | None = None,
+        metadatas: list[dict | None] | None = None,
+        namespaces: list[str] | None = None,
+        ttls: list[int | None] | None = None,
+    ) -> list[dict]: ...
     def get_memory(self, namespace: str, key: str) -> dict | None: ...
     def delete_memory(self, namespace: str, key: str) -> bool: ...
     def search_memory(
@@ -39,7 +68,7 @@ class VantaDB:
         top_k: int = 10,
         distance_metric: str | None = None,
         explain: bool = False,
-    ) -> list[dict]: ...
+    ) -> list[VantaSearchHit]: ...
     def list_memory(
         self,
         namespace: str,
