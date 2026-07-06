@@ -14,11 +14,16 @@ import { NbPricingPreview } from "@/components/NbPricingPreview";
 import { NbMonolith } from "@/components/NbMonolith";
 import "../styles/terminal-hero.css";
 import "../styles/trust-bar.css";
+import "../styles/core-engine.css";
+import "../styles/quickstart.css";
 import "../styles/feature-grid.css";
 import "../styles/arch-preview.css";
 import "../styles/benchmark-race.css";
+import "../styles/use-cases.css";
+import "../styles/ecosystem.css";
 import "../styles/faq-accordion.css";
 import "../styles/pricing-preview.css";
+import "../styles/monolith.css";
 
 export const Route = createLazyRoute("/")({
   component: IndexPage,

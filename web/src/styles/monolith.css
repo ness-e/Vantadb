@@ -1,180 +1,170 @@
-.nb-cta-frame {
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  padding: var(--space-3xl);
-  text-align: center;
+/* ── Boot Screen CTA ───────────────────────────── */
+.nb-boot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-lg);
-  position: relative;
+  gap: var(--space-xl);
+  padding: var(--space-3xl) 0;
+  text-align: center;
 }
 
-.nb-cta-headline {
+/* ASCII logo */
+.nb-boot-ascii {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  line-height: 1.4;
+  color: var(--amber);
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+}
+
+/* Title */
+.nb-boot-title {
   font-family: var(--font-display);
   font-size: var(--text-hero);
-  font-weight: 900;
-  letter-spacing: var(--tracking-mega);
-  line-height: 0.9;
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  line-height: 1;
+  margin: 0;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* Install command */
+.nb-boot-install {
+  max-width: 420px;
+}
+
+/* Subtitle */
+.nb-boot-sub {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--muted);
   margin: 0;
 }
 
-.nb-cta-command-wrap {
+/* Progress bar */
+.nb-boot-progress-wrap {
   width: 100%;
-  max-width: 640px;
-  margin: var(--space-md) 0;
-}
-
-.nb-cta-command {
+  max-width: 520px;
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  border: 2px solid var(--amber);
-  padding: var(--space-md) var(--space-md);
-  background: rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  user-select: all;
-  box-shadow: var(--shadow-amber-lg);
-  transition:
-    box-shadow 80ms var(--ease-brutal),
-    transform 80ms var(--ease-brutal);
+  flex-direction: column;
+  gap: var(--space-2xs);
 }
 
-.nb-cta-command:hover {
-  box-shadow: var(--shadow-amber);
-  transform: translate(2px, 2px);
-}
-
-.nb-cta-command:active {
-  box-shadow: none;
-  transform: translate(4px, 4px);
-}
-
-.nb-cta-prompt {
+.nb-boot-progress-label {
   font-family: var(--font-mono);
-  font-size: var(--text-lead);
-  color: var(--steel);
-  flex-shrink: 0;
-}
-
-.nb-cta-code {
-  font-family: var(--font-mono);
-  font-size: var(--text-lead);
-  font-weight: 700;
-  color: var(--amber);
-  white-space: nowrap;
-}
-
-.nb-cta-cursor {
-  display: inline-block;
-  width: 0.6em;
-  height: 1.3em;
-  background: var(--amber);
-  animation: nb-cursor-blink 1s step-end infinite;
-  flex-shrink: 0;
-}
-
-.nb-cta-divider {
-  width: 2px;
-  height: 1.8em;
-  background: rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
-}
-
-.nb-cta-copy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--space-md);
-  height: 2.4rem;
-  border: 2px solid var(--amber);
-  background: transparent;
-  color: var(--amber);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  font-weight: 700;
+  font-size: 0.5rem;
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  transition:
-    background 80ms var(--ease-brutal),
-    color 80ms var(--ease-brutal),
-    box-shadow 80ms var(--ease-brutal),
-    transform 80ms var(--ease-brutal);
-  flex-shrink: 0;
-  box-shadow: none;
-}
-
-.nb-cta-copy:hover {
-  background: var(--amber);
-  color: var(--text-on-amber);
-  box-shadow: var(--shadow-amber);
-  transform: translate(-2px, -2px);
-}
-
-.nb-cta-copy:active {
-  box-shadow: none;
-  transform: translate(1px, 1px);
-}
-
-.nb-cta-sub {
-  font-family: var(--font-display);
-  font-size: var(--text-lead);
   color: var(--steel);
-  margin: 0;
-}
-
-.nb-cta-actions {
   display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-  margin-top: var(--space-2xs);
+  justify-content: space-between;
 }
 
-.nb-cta-arrow {
+.nb-boot-progress-track {
+  height: 6px;
+  background: var(--border-strong);
+  border: none;
+  overflow: hidden;
+}
+
+.nb-boot-progress-fill {
+  height: 100%;
+  background: var(--amber);
+  transition: width 0.15s steps(5);
+  will-change: width;
+}
+
+.nb-boot-progress-msgs {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 5.5em;
+  padding: var(--space-2xs);
+  background: #080808;
+  border: 1px solid var(--border);
   font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.1em;
+  font-size: var(--text-micro);
+  line-height: 1.8;
+  color: var(--steel);
+  text-align: left;
+}
+
+.nb-boot-msg {
+  opacity: 0;
+  animation: nbBootLogIn 0.05s ease-out forwards;
+}
+
+@keyframes nbBootLogIn {
+  to { opacity: 1; }
+}
+
+.nb-boot-msg--ready {
+  color: var(--success);
+}
+
+/* Actions */
+.nb-boot-actions {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.nb-boot-arrow {
   display: inline-block;
   transition: transform 80ms var(--ease-brutal);
 }
 
-.nb-cta-actions .nb-btn:hover .nb-cta-arrow {
-  transform: translateX(4px);
+a:hover .nb-boot-arrow {
+  transform: translateX(3px);
 }
 
-.nb-cta-feedback {
+/* Meta row */
+.nb-meta-row--centered {
+  justify-content: center;
+}
+
+.nb-meta-tag {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--steel);
-  opacity: 0;
-  transition: opacity 150ms linear;
-  position: absolute;
-  bottom: var(--space-md);
+  padding: var(--space-3xs) var(--space-sm);
+  border: 2px solid var(--border-visible);
+  background: var(--surface);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .nb-boot-ascii {
+    font-size: 0.4rem;
+  }
+
+  .nb-boot-title {
+    font-size: var(--text-metric);
+  }
+
+  .nb-boot {
+    padding: var(--space-2xl) 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nb-cta-cursor {
+  .nb-boot-progress-fill {
+    transition: none;
+  }
+
+  .nb-boot-msg {
     animation: none;
     opacity: 1;
   }
-}
 
-@media (max-width: 640px) {
-  .nb-cta-frame {
-    padding: var(--space-2xl);
-  }
-
-  .nb-cta-command {
-    flex-wrap: wrap;
-    justify-content: center;
-    padding: var(--space-sm);
-  }
-
-  .nb-cta-divider {
-    display: none;
-  }
-
-  .nb-cta-copy {
-    width: 100%;
+  .nb-boot-arrow {
+    transition: none;
   }
 }

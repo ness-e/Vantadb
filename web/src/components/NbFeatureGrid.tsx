@@ -6,20 +6,19 @@ const FEATURES = [
     id: "hybrid",
     title: "Hybrid Search",
     desc: "HNSW + BM25 fused scoring. One query, ranked results.",
-    cols: 5,
-    rows: 2,
+    w: 3,
     featured: true,
   },
-  { id: "wal", title: "Write-Ahead Log", desc: "Crash-safe durability. Zero data loss.", cols: 3 },
-  { id: "zeroops", title: "Zero-Ops", desc: "No servers. No daemons. No cloud bills.", cols: 4 },
-  { id: "pyo3", title: "PyO3 Native", desc: "Rust core, Python bindings. Native speed.", cols: 3 },
+  { id: "wal", title: "Write-Ahead Log", desc: "Crash-safe durability. Zero data loss.", w: 2 },
+  { id: "zeroops", title: "Zero-Ops", desc: "No servers. No daemons. No cloud bills.", w: 2 },
+  { id: "pyo3", title: "PyO3 Native", desc: "Rust core, Python bindings. Native speed.", w: 2 },
   {
     id: "converged",
     title: "Converged Engine",
     desc: "SQL, vectors, and full-text search — one engine.",
-    cols: 6,
+    w: 3,
   },
-  { id: "embed", title: "Embed Anywhere", desc: "2MB binary. One file. Any platform.", cols: 3 },
+  { id: "embed", title: "Embed Anywhere", desc: "2MB binary. One file. Any platform.", w: 2 },
 ];
 
 function NbFgIcon({ id }: { id: string }) {
@@ -52,6 +51,14 @@ function NbFgIcon({ id }: { id: string }) {
             <line x1="14" y1="6" x2="10" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </>
         );
+      case "converged":
+        return (
+          <>
+            <rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+            <rect x="13" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+            <rect x="4" y="13" width="16" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+          </>
+        );
       case "embed":
         return (
           <path d="M4 12h6m0 0l-3-3m3 3l-3 3m13-3h-6m0 0l3-3m-3 3l3 3" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -62,7 +69,7 @@ function NbFgIcon({ id }: { id: string }) {
   })();
 
   return (
-    <div className="nb-icon-box" aria-hidden="true">
+    <div className="nb-fg-icon" aria-hidden="true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         {svg}
       </svg>
@@ -73,25 +80,24 @@ function NbFgIcon({ id }: { id: string }) {
 export function NbFeatureGrid() {
   return (
     <NbSection ariaLabel="Features">
-      <div className="nb-split-7-5">
-        <div>
-          <NbSectionHeader
-            monoLabel="[CAPABILITIES]"
-            headline="HNSW + BM25 + SQL — one engine, one binary."
-            sub="HNSW vector search, BM25 full-text, SQL — fused in one embedded engine. Sub-millisecond queries. Zero servers."
-          />
-        </div>
-        <div>
-          {FEATURES.filter((f) => f.id !== "converged").map((feat) => (
-            <article key={feat.id} className="nb-fg-row">
-              <NbFgIcon id={feat.id} />
-              <div>
-                <h3 className="nb-fg-title">{feat.title}</h3>
-                <p className="nb-fg-desc">{feat.desc}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+      <NbSectionHeader
+        monoLabel="[CAPABILITIES]"
+        headline="HNSW + BM25 + SQL — one engine."
+        sub=""
+      />
+
+      <div className="nb-fg-grid">
+        {FEATURES.map((feat) => (
+          <article
+            key={feat.id}
+            className={`nb-fg-card${feat.featured ? " nb-fg-card--featured" : ""}`}
+            style={{ gridColumn: `span ${feat.w}` }}
+          >
+            <NbFgIcon id={feat.id} />
+            <h3 className="nb-fg-title">{feat.title}</h3>
+            <p className="nb-fg-desc">{feat.desc}</p>
+          </article>
+        ))}
       </div>
     </NbSection>
   );

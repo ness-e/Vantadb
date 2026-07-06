@@ -1,84 +1,243 @@
-.architecture-spec-label {
-  border: 2px solid var(--border-visible);
-  padding: var(--space-md);
+/* ── Architecture Flow Pipeline ──────────────── */
+.arch-flow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 0;
+  align-items: center;
 }
 
-.architecture-spec-value {
-  border: 2px solid var(--border-visible);
-  padding: var(--space-md);
+.arch-flow-card {
+  position: relative;
+  border: 3px solid var(--border-strong);
+  background: var(--surface);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  box-shadow: 5px 5px 0 var(--border);
 }
 
-.architecture-spec-desc {
-  border: 2px solid var(--border-visible);
-  padding: var(--space-md);
-  line-height: 1.6;
+.arch-flow-card--top {
+  grid-row: 1;
 }
 
-.architecture-profiler-header {
+.arch-flow-card--top:first-child {
+  grid-column: 1;
+}
+
+.arch-flow-card--top:last-child {
+  grid-column: 3;
+}
+
+.arch-flow-card--btm:first-child {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.arch-flow-card--btm:last-child {
+  grid-column: 3;
+  grid-row: 3;
+}
+
+.arch-flow-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.arch-flow-badge {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--amber);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.1em;
+}
+
+.arch-flow-tag {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.arch-flow-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: var(--weight-bold);
+  margin: var(--space-2xs) 0 0 0;
+  line-height: 1.3;
+}
+
+.arch-flow-desc {
+  margin: var(--space-2xs) 0 0 0;
+  line-height: 1.5;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.arch-flow-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--foreground);
+  border: 2px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  margin-top: var(--space-sm);
+  align-self: flex-start;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.arch-flow-metric::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+
+/* ── Flow arrows ─────────────────────────────── */
+.arch-flow-arrow-r {
+  grid-row: 1;
+  grid-column: 2;
+  width: 2.5rem;
+  height: 2px;
+  background: var(--amber);
+  position: relative;
+  justify-self: center;
+}
+
+.arch-flow-arrow-r::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -5px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid var(--amber);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.arch-flow-arrow-btm {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  width: 2px;
+  height: 2.5rem;
+  background: var(--amber);
+  position: relative;
+  justify-self: center;
+  margin: var(--space-sm) 0;
+}
+
+.arch-flow-arrow-btm::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: -5px;
+  width: 0;
+  height: 0;
+  border-top: 10px solid var(--amber);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* ── Performance Profiler ────────────────────── */
+.arch-profiler {
+  border: 3px solid var(--border-strong);
+  background: var(--surface);
+  padding: var(--space-xl);
+  box-shadow: 5px 5px 0 var(--border);
+}
+
+.arch-profiler-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: var(--space-lg);
 }
 
-.architecture-profiler-title {
+.arch-profiler-title {
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--steel);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: var(--weight-bold);
 }
 
-.architecture-profiler-hint {
+.arch-profiler-hint {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--muted);
 }
 
-.architecture-profiler-bar {
+.arch-profiler-bar {
   display: flex;
   width: 100%;
-  height: 2rem;
-  gap: 1px;
+  height: 2.5rem;
+  gap: 2px;
   margin-bottom: var(--space-xl);
-  background: var(--border);
 }
 
-.architecture-profiler-segment {
+.arch-profiler-segment {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   cursor: pointer;
-  transition: background-color 150ms var(--ease-cut);
+  border: 2px solid transparent;
+  transition:
+    background-color 120ms var(--ease-brutal),
+    border-color 120ms var(--ease-brutal),
+    box-shadow 120ms var(--ease-brutal),
+    translate 120ms var(--ease-brutal);
+  position: relative;
 }
 
-.architecture-profiler-segment--hovered {
-  background: var(--amber);
+.arch-profiler-segment:hover {
+  border-color: var(--amber);
+  translate: -2px -2px;
+  box-shadow: 3px 3px 0 var(--amber);
+  z-index: 2;
 }
 
-.architecture-profiler-pct {
+.arch-profiler-segment:active {
+  translate: 1px 1px;
+  box-shadow: 0 0 0 var(--amber);
+}
+
+.arch-profiler-pct {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  transition: opacity 120ms var(--ease-brutal);
 }
 
-.architecture-profiler-pct--visible {
+.arch-profiler-pct--visible {
   opacity: 1;
 }
 
-.architecture-profiler-pct--hidden {
+.arch-profiler-pct--hidden {
   opacity: 0;
 }
 
-.architecture-profiler-detail {
-  padding-top: var(--space-lg);
-  min-height: 5.5rem;
-  border-top: 1px solid var(--border);
+.arch-profiler-segment:hover .arch-profiler-pct--hidden {
+  opacity: 1;
 }
 
-.architecture-hovered-title {
+.arch-profiler-detail {
+  padding-top: var(--space-lg);
+  min-height: 5.5rem;
+  border-top: 2px solid var(--border);
+}
+
+.arch-profiler-detail-label {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
@@ -89,72 +248,78 @@
   font-variant-numeric: tabular-nums;
 }
 
-.architecture-hovered-desc {
-  line-height: 1.6;
-  margin: 0;
-}
-
-.architecture-default-title {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
+.arch-profiler-detail-label--muted {
   color: var(--steel);
-  letter-spacing: 0.08em;
-  margin-bottom: var(--space-2xs);
 }
 
-.architecture-default-desc {
+.arch-profiler-detail-desc {
   line-height: 1.6;
   margin: 0;
 }
 
-.architecture-layer-cell {
+/* ── Spec Grid ───────────────────────────────── */
+.arch-specs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+}
+
+.arch-spec-card {
+  border: 3px solid var(--border-strong);
+  background: var(--surface);
+  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+  box-shadow: 4px 4px 0 var(--border);
+  transition:
+    border-color 80ms var(--ease-brutal),
+    box-shadow 80ms var(--ease-brutal),
+    translate 80ms var(--ease-brutal);
 }
 
-.architecture-layer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.arch-spec-card:hover {
+  border-color: var(--amber);
+  box-shadow: 6px 6px 0 var(--amber);
+  translate: -1px -1px;
 }
 
-.architecture-layer-tag {
+.arch-spec-card:active {
+  translate: 3px 3px;
+  box-shadow: 0 0 0 var(--amber);
+}
+
+.arch-spec-label {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: var(--steel);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: var(--weight-bold);
 }
 
-.architecture-layer-num {
+.arch-spec-val {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.arch-spec-val--amber {
   color: var(--amber);
-  font-weight: 700;
 }
 
-.architecture-layer-title {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  margin-top: var(--space-xs);
-  margin-bottom: 0;
-}
-
-.architecture-layer-body {
-  line-height: 1.6;
+.arch-spec-desc {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
   margin: 0;
 }
 
-.architecture-table {
-  border: none;
-}
-
-.architecture-cta-wrap {
+/* ── CTA ─────────────────────────────────────── */
+.arch-cta-wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -162,7 +327,7 @@
   flex-wrap: wrap;
 }
 
-.architecture-cta-title {
+.arch-cta-title {
   font-family: var(--font-display);
   font-size: 1.5rem;
   line-height: 2rem;
@@ -171,16 +336,82 @@
   margin: 0;
 }
 
-.architecture-cta-sub {
+.arch-cta-sub {
   color: var(--text-on-amber);
   opacity: 0.8;
   margin: 0;
 }
 
-.architecture-cta-code {
+.arch-cta-code {
   font-family: var(--font-mono);
   font-size: 1.125rem;
   line-height: 1.75rem;
   font-weight: 700;
   color: var(--text-on-amber);
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 820px) {
+  .arch-flow {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .arch-flow-card--top,
+  .arch-flow-card--btm {
+    grid-column: 1;
+  }
+
+  .arch-flow-card--top:first-child { grid-row: 1; }
+  .arch-flow-card--top:last-child  { grid-row: 3; }
+  .arch-flow-card--btm:first-child { grid-row: 5; }
+  .arch-flow-card--btm:last-child  { grid-row: 7; }
+
+  .arch-flow-arrow-r {
+    grid-row: 2;
+    grid-column: 1;
+    width: 2px;
+    height: 1.5rem;
+    justify-self: center;
+  }
+
+  .arch-flow-arrow-r::after {
+    right: -4px;
+    top: auto;
+    bottom: -3px;
+    left: -5px;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid var(--amber);
+    border-bottom: none;
+  }
+
+  .arch-flow-arrow-btm {
+    grid-column: 1;
+  }
+
+  .arch-flow-arrow-btm:nth-of-type(1) { grid-row: 4; }
+
+  .arch-specs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .arch-specs {
+    grid-template-columns: 1fr;
+  }
+
+  .arch-flow-card {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .arch-profiler {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .arch-cta-code {
+    font-size: 0.9rem;
+    line-height: 1.4rem;
+  }
 }
