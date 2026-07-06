@@ -133,7 +133,13 @@ export const NbNav = memo(function NbNav() {
               >
                 {group.label}
                 <svg width="8" height="6" viewBox="0 0 8 6" fill="none" aria-hidden="true">
-                  <path d="M1 1l3 4 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M1 1l3 4 3-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
               <div className="nc-nav-dropdown" role="menu">
@@ -144,7 +150,11 @@ export const NbNav = memo(function NbNav() {
                     className={`nc-nav-dropdown-item${isActive(item.path) ? " active" : ""}`}
                     role="menuitem"
                   >
-                    {isActive(item.path) && <span className="nc-dd-toggle" aria-hidden="true">■</span>}
+                    {isActive(item.path) && (
+                      <span className="nc-dd-toggle" aria-hidden="true">
+                        ■
+                      </span>
+                    )}
                     {item.label}
                   </Link>
                 ))}
@@ -153,18 +163,28 @@ export const NbNav = memo(function NbNav() {
           ))}
           {flatLinks.map((item, i) => (
             <span key={item.path} className="nc-nav-link-wrap">
-              {i === 0 && <span className="nc-nav-sep" aria-hidden="true">│</span>}
+              {i === 0 && (
+                <span className="nc-nav-sep" aria-hidden="true">
+                  │
+                </span>
+              )}
               <Link
                 to={item.path}
                 className={`nc-nav-link${isActive(item.path) ? " active" : ""}`}
                 aria-current={isActive(item.path) ? "page" : undefined}
               >
                 {isActive(item.path) && (
-                  <span className="nc-nav-toggle-on" aria-hidden="true">■</span>
+                  <span className="nc-nav-toggle-on" aria-hidden="true">
+                    ■
+                  </span>
                 )}
                 <span className="nc-nav-link-label">{item.label}</span>
               </Link>
-              {i < flatLinks.length - 1 && <span className="nc-nav-sep" aria-hidden="true">│</span>}
+              {i < flatLinks.length - 1 && (
+                <span className="nc-nav-sep" aria-hidden="true">
+                  │
+                </span>
+              )}
             </span>
           ))}
         </div>
@@ -236,11 +256,13 @@ export const NbNav = memo(function NbNav() {
                 onClick={closeDrawer}
               >
                 <span className="nc-drawer-prompt-char">$</span>
-                <span className="nc-drawer-link-num">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
+                <span className="nc-drawer-link-num">{String(idx + 1).padStart(2, "0")}</span>
                 <span className="nc-drawer-link-label">{item.label}</span>
-                {isActive(item.path) && <span className="nc-drawer-active-mark" aria-hidden="true">■</span>}
+                {isActive(item.path) && (
+                  <span className="nc-drawer-active-mark" aria-hidden="true">
+                    ■
+                  </span>
+                )}
               </Link>
             ));
           })()}
