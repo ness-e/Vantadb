@@ -575,7 +575,7 @@ impl StorageEngine {
     }
 
     /// Recover archived nodes from TombstoneStorage that belonged to the given summary node.
-    pub fn recover_archived_nodes(&self, summary_id: u64) -> Result<Vec<UnifiedNode>> {
+    pub fn recover_archived_nodes(&self, summary_id: u128) -> Result<Vec<UnifiedNode>> {
         self.ensure_writable()?;
         let entries = self.backend.scan(BackendPartition::TombstoneStorage)?;
 

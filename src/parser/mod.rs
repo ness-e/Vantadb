@@ -77,7 +77,7 @@ fn string_literal(input: &str) -> IResult<&str, String> {
     )))
 }
 
-fn parse_u64_id(i: &str) -> IResult<&str, u64> {
+fn parse_u128_id(i: &str) -> IResult<&str, u128> {
     map_res(digit1, str::parse)(i)
 }
 
@@ -215,7 +215,7 @@ fn parse_vector_lit(i: &str) -> IResult<&str, Vec<f32>> {
 fn parse_insert(i: &str) -> IResult<&str, InsertStatement> {
     let (i, _) = ws(tag("INSERT"))(i)?;
     let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u64_id)(i)?;
+    let (i, node_id) = ws(parse_u128_id)(i)?;
     let (i, _) = ws(tag("TYPE"))(i)?;
     let (i, node_type) = ws(ident)(i)?;
 
@@ -249,7 +249,7 @@ fn parse_update_field_expr(i: &str) -> IResult<&str, (String, FieldValue)> {
 fn parse_update(i: &str) -> IResult<&str, UpdateStatement> {
     let (i, _) = ws(tag("UPDATE"))(i)?;
     let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u64_id)(i)?;
+    let (i, node_id) = ws(parse_u128_id)(i)?;
     let (i, _) = ws(tag("SET"))(i)?;
 
     let (i, vector_only) = opt(tuple((ws(tag("VECTOR")), ws(parse_vector_lit))))(i)?;
@@ -281,19 +281,19 @@ fn parse_update(i: &str) -> IResult<&str, UpdateStatement> {
 fn parse_delete(i: &str) -> IResult<&str, DeleteStatement> {
     let (i, _) = ws(tag("DELETE"))(i)?;
     let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u64_id)(i)?;
+    let (i, node_id) = ws(parse_u128_id)(i)?;
     Ok((i, DeleteStatement { node_id }))
 }
 
 fn parse_relate(i: &str) -> IResult<&str, RelateStatement> {
     let (i, _) = ws(tag("RELATE"))(i)?;
     let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, source_id) = ws(parse_u64_id)(i)?;
+    let (i, source_id) = ws(parse_u128_id)(i)?;
     let (i, _) = ws(tag("--\""))(i)?;
     let (i, label) = ws(take_while1(|c| c != '"'))(i)?;
     let (i, _) = ws(tag("\"-->"))(i)?;
     let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, target_id) = ws(parse_u64_id)(i)?;
+    let (i, target_id) = ws(parse_u128_id)(i)?;
 
     let (i, weight) = opt(tuple((ws(tag("WEIGHT")), ws(float))))(i)?;
 
@@ -322,7 +322,7 @@ fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
 
     let (i, _) = ws(tag("TO"))(i)?;
     let (i, _) = ws(tag("THREAD#"))(i)?;
-    let (i, thread_id) = ws(parse_u64_id)(i)?;
+    let (i, thread_id) = ws(parse_u128_id)(i)?;
 
     Ok((
         i,

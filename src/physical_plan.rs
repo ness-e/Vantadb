@@ -41,7 +41,7 @@ impl PhysicalOperator for PhysicalScan<'_> {
 
         let parts: Vec<&str> = self.entity.split('#').collect();
         if parts.len() == 2 {
-            if let Ok(id) = parts[1].parse::<u64>() {
+            if let Ok(id) = parts[1].parse::<u128>() {
                 self.prefetched = self.storage.get_many(&[id])?;
                 return Ok(());
             }
@@ -51,11 +51,11 @@ impl PhysicalOperator for PhysicalScan<'_> {
             .storage
             .backend
             .scan(crate::backend::BackendPartition::Default)?;
-        let ids: Vec<u64> = records
+        let ids: Vec<u128> = records
             .iter()
             .filter_map(|(key_bytes, _)| {
-                let arr: [u8; 8] = key_bytes.as_slice().try_into().ok()?;
-                Some(u64::from_le_bytes(arr))
+                let arr: [u8; 16] = key_bytes.as_slice().try_into().ok()?;
+                Some(u128::from_le_bytes(arr))
             })
             .collect();
         self.prefetched = self.storage.get_many(&ids)?;
@@ -200,7 +200,7 @@ pub struct PhysicalVectorSearch<'a> {
     /// Minimum similarity score threshold.
     min_score: f32,
     /// Result node IDs from HNSW search.
-    results: Vec<u64>,
+    results: Vec<u128>,
     /// Pre-fetched nodes.
     prefetched: Vec<UnifiedNode>,
     /// Current position in the prefetched list.

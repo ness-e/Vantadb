@@ -18,13 +18,13 @@ const BFS_QUEUE_CAPACITY: usize = 1024;
 pub(crate) fn compact_layout(
     vstore: &mut VantaFile,
     hnsw: &CPIndex,
-    bfs_order: &[u64],
+    bfs_order: &[u128],
     header_size: u64,
-) -> Result<(HashMap<u64, u64>, u64)> {
+) -> Result<(HashMap<u128, u64>, u64)> {
     // In-memory VantaFile has no disk backing to compact — return a trivial
     // offset map that preserves existing offsets (CODE-010).
     if vstore.file.is_none() {
-        let offset_map: HashMap<u64, u64> = bfs_order
+        let offset_map: HashMap<u128, u64> = bfs_order
             .iter()
             .filter_map(|&id| hnsw.nodes.get(&id).map(|n| (id, n.storage_offset)))
             .collect();
@@ -75,7 +75,7 @@ pub(crate) fn compact_layout(
             .map_err(VantaError::IoError)?
     };
 
-    let mut new_offset_map: HashMap<u64, u64> = HashMap::with_capacity(bfs_order.len());
+    let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
     for &node_id in bfs_order {
@@ -125,11 +125,11 @@ pub(crate) fn compact_layout(
 }
 
 /// BFS traversal of the HNSW graph starting from the entry point, returning node IDs in visit order.
-pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
+pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     let total_nodes = hnsw.nodes.len();
-    let mut bfs_order: Vec<u64> = Vec::with_capacity(total_nodes);
-    let mut visited: HashSet<u64> = HashSet::with_capacity(total_nodes);
-    let mut queue: VecDeque<u64> = VecDeque::with_capacity(total_nodes.min(BFS_QUEUE_CAPACITY));
+    let mut bfs_order: Vec<u128> = Vec::with_capacity(total_nodes);
+    let mut visited: HashSet<u128> = HashSet::with_capacity(total_nodes);
+    let mut queue: VecDeque<u128> = VecDeque::with_capacity(total_nodes.min(BFS_QUEUE_CAPACITY));
     queue.push_back(entry_point_id);
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
@@ -153,7 +153,7 @@ pub(crate) fn traverse_graph(hnsw: &CPIndex, entry_point_id: u64) -> Vec<u64> {
 }
 
 /// Update each node's storage offset in the HNSW index after compaction.
-pub(crate) fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u64, u64>) {
+pub(crate) fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u128, u64>) {
     for (&node_id, &new_offset) in new_offsets {
         if let Some(mut node_ref) = hnsw.nodes.get_mut(&node_id) {
             node_ref.storage_offset = new_offset;

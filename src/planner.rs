@@ -357,7 +357,7 @@ mod tests {
 
     // ── RRF fusion ───────────────────────────────────────────────────────
 
-    fn make_hit(ns: &str, key: &str, score: f32, node_id: u64) -> VantaMemorySearchHit {
+    fn make_hit(ns: &str, key: &str, score: f32, node_id: u128) -> VantaMemorySearchHit {
         use crate::sdk::{VantaMemoryMetadata, VantaMemoryRecord};
         VantaMemorySearchHit {
             record: VantaMemoryRecord {

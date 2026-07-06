@@ -71,7 +71,7 @@ pub struct EngineStats {
 /// Fase 2: Replace HashMap with RocksDB-backed MemTable.
 pub struct InMemoryEngine {
     /// RwLock-guarded in-memory node map.
-    nodes: RwLock<HashMap<u64, UnifiedNode>>,
+    nodes: RwLock<HashMap<u128, UnifiedNode>>,
     /// Optional sharded WAL for durability with reduced mutex contention.
     wal: Option<ShardedWal>,
     /// Monotonic ID generator.
@@ -98,23 +98,22 @@ impl InMemoryEngine {
     pub fn with_wal(wal_path: impl AsRef<Path>) -> Result<Self> {
         let path = wal_path.as_ref().to_path_buf();
         let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
-        let mut max_id: u64 = 0;
+        let mut max_id: u128 = 0;
 
         // Use 4 shards for reduced mutex contention on WAL writes
         let sharded = ShardedWal::new(&path, 4, crate::config::SyncMode::Periodic)?;
         sharded.recover(0, |record| {
             match record {
                 WalRecord::Insert(node) => {
-                    max_id = max_id.max(node.id as u64);
-                    nodes_map.insert(node.id as u64, node);
+                    max_id = max_id.max(node.id);
+                    nodes_map.insert(node.id, node);
                 }
                 WalRecord::Update { id, node } => {
-                    let id_u64 = id as u64;
-                    max_id = max_id.max(id_u64);
-                    nodes_map.insert(id_u64, node);
+                    max_id = max_id.max(id);
+                    nodes_map.insert(id, node);
                 }
                 WalRecord::Delete { id } => {
-                    nodes_map.remove(&(id as u64));
+                    nodes_map.remove(&id);
                 }
                 WalRecord::Checkpoint { .. } => {}
             }
@@ -136,7 +135,7 @@ impl InMemoryEngine {
         Ok(Self {
             nodes: RwLock::new(nodes_map),
             wal: Some(sharded),
-            next_id: AtomicU64::new(max_id + 1),
+            next_id: AtomicU64::new((max_id + 1) as u64),
             edge_index,
             scalar_index,
         })
@@ -156,9 +155,9 @@ impl InMemoryEngine {
     }
 
     /// Insert a node. Auto-assigns ID if node.id == 0.
-    pub fn insert(&self, mut node: UnifiedNode) -> Result<u64> {
+    pub fn insert(&self, mut node: UnifiedNode) -> Result<u128> {
         if node.id == 0 {
-            node.id = self.next_id();
+            node.id = self.next_id() as u128;
         }
         let id = node.id;
 
@@ -184,17 +183,17 @@ impl InMemoryEngine {
     }
 
     /// Get a node by ID (cloned)
-    pub fn get(&self, id: u64) -> Option<UnifiedNode> {
+    pub fn get(&self, id: u128) -> Option<UnifiedNode> {
         self.nodes.read().get(&id).cloned()
     }
 
     /// Check if node exists
-    pub fn contains(&self, id: u64) -> bool {
+    pub fn contains(&self, id: u128) -> bool {
         self.nodes.read().contains_key(&id)
     }
 
     /// Update existing node
-    pub fn update(&self, id: u64, node: UnifiedNode) -> Result<()> {
+    pub fn update(&self, id: u128, node: UnifiedNode) -> Result<()> {
         let old_node = {
             let nodes = self.nodes.read();
             nodes.get(&id).cloned()
@@ -230,7 +229,7 @@ impl InMemoryEngine {
     }
 
     /// Delete a node, cascading to remove all referencing edges (PERF-07).
-    pub fn delete(&self, id: u64) -> Result<()> {
+    pub fn delete(&self, id: u128) -> Result<()> {
         self.append_to_wal(&WalRecord::Delete { id })?;
         let mut nodes = self.nodes.write();
         if nodes.remove(&id).is_none() {
@@ -247,7 +246,7 @@ impl InMemoryEngine {
     }
 
     /// Scan nodes matching a bitset mask (all bits in mask must be set)
-    pub fn scan_bitset(&self, mask: &FilterBitset) -> Vec<u64> {
+    pub fn scan_bitset(&self, mask: &FilterBitset) -> Vec<u128> {
         self.nodes
             .read()
             .values()
@@ -268,7 +267,7 @@ impl InMemoryEngine {
         let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
 
-        let mut scored: Vec<(u64, f32)> = nodes
+        let mut scored: Vec<(u128, f32)> = nodes
             .values()
             .filter(|n| {
                 n.is_alive()
@@ -307,11 +306,11 @@ impl InMemoryEngine {
     /// Returns (node_id, depth) pairs within [min_depth, max_depth].
     pub fn traverse(
         &self,
-        start: u64,
+        start: u128,
         label: &str,
         min_depth: u32,
         max_depth: u32,
-    ) -> Result<Vec<(u64, u32)>> {
+    ) -> Result<Vec<(u128, u32)>> {
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
             return Err(VantaError::NodeNotFound(start));
@@ -349,12 +348,9 @@ impl InMemoryEngine {
     }
 
     /// Filter nodes by relational field equality (O(1) via scalar index — PERF-08).
-    pub fn filter_field(&self, field: &str, value: &FieldValue) -> Vec<u64> {
+    pub fn filter_field(&self, field: &str, value: &FieldValue) -> Vec<u128> {
         self.scalar_index
             .lookup(field, value)
-            .into_iter()
-            .map(|id| id as u64)
-            .collect()
     }
 
     /// Hybrid search: vector similarity + bitset filter + field predicates.
@@ -370,7 +366,7 @@ impl InMemoryEngine {
         let query_vec = VectorRepresentations::Full(query_vector.to_vec());
         let nodes = self.nodes.read();
 
-        let mut scored: Vec<(u64, f32)> = nodes
+        let mut scored: Vec<(u128, f32)> = nodes
             .values()
             .filter(|n| {
                 if !n.is_alive() || n.vector.is_none() {
@@ -459,11 +455,11 @@ mod tests {
     use super::*;
     use crate::node::{FieldValue, FilterBitset, UnifiedNode};
 
-    fn create_node(id: u64) -> UnifiedNode {
+    fn create_node(id: u128) -> UnifiedNode {
         UnifiedNode::new(id)
     }
 
-    fn create_vector_node(id: u64, vec: Vec<f32>) -> UnifiedNode {
+    fn create_vector_node(id: u128, vec: Vec<f32>) -> UnifiedNode {
         let mut node = UnifiedNode::new(id);
         node.vector = VectorRepresentations::Full(vec);
         node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
@@ -723,7 +719,7 @@ mod tests {
         engine.insert(create_node(4)).unwrap();
 
         let results = engine.traverse(1, "knows", 1, 3).unwrap();
-        let ids: Vec<u64> = results.iter().map(|(id, _)| *id).collect();
+        let ids: Vec<u128> = results.iter().map(|(id, _)| *id).collect();
         assert!(ids.contains(&2));
         assert!(ids.contains(&3));
     }
@@ -779,7 +775,7 @@ mod tests {
         engine.insert(create_node(3)).unwrap();
 
         let results = engine.traverse(1, "e", 1, 3).unwrap();
-        let pairs: Vec<(u64, u32)> = results.into_iter().collect();
+        let pairs: Vec<(u128, u32)> = results.into_iter().collect();
         assert!(pairs.contains(&(2, 1)));
         assert!(pairs.contains(&(3, 2)));
     }

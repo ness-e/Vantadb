@@ -635,35 +635,34 @@ pub trait AccessTracker {
 /// Fixed-size header for zero-copy memory mapping.
 /// Aligned to 64 bytes for optimal SIMD access and cache line boundary.
 /// Uses raw u32 for flags/tier to avoid enums in #[repr(C)].
+///
+/// Fields ordered to eliminate internal padding: both u128 fields first,
+/// then u64, group of u32, u16, u8, then final pad to exactly 64 bytes.
 #[repr(C, align(64))]
 #[derive(Clone, Copy, Debug, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub struct DiskNodeHeader {
     /// Globally unique identifier (Offset 0)
     pub id: u128,
-    /// Offset 16
-    pub confidence_score: f32,
-    /// Offset 20
-    pub importance: f32,
-    /// 128-bit fast filter (Offset 24)
+    /// 128-bit fast filter (Offset 16)
     pub bitset: u128,
-    /// Offset to vector data in the MMap file (Offset 40)
+    /// Offset to vector data in the MMap file (Offset 32)
     pub vector_offset: u64,
-    /// Number of elements in the vector (Offset 48)
-    pub vector_len: u32,
-    /// Number of outgoing edges (Offset 52)
-    pub edge_count: u16,
-    /// Explicit padding to align relational_len (Offset 54)
-    pub _pad1: [u8; 2],
-    /// Length of the relational metadata block (Offset 56)
+    /// Confidence score (Offset 40)
+    pub confidence_score: f32,
+    /// Importance score (Offset 44)
+    pub importance: f32,
+    /// Length of the relational metadata block (Offset 48)
     pub relational_len: u32,
-    /// Storage tier: Hot (0) or Cold (1) (Offset 60)
-    pub tier: u8,
-    /// Explicit gap padding for u32 field 'flags' alignment (Offset 61)
-    pub _pad2: [u8; 3],
-    /// Status flags (Offset 64)
+    /// Number of elements in the vector (Offset 52)
+    pub vector_len: u32,
+    /// Status flags (Offset 56)
     pub flags: u32,
-    /// Explicit padding to reach exactly 128 bytes (Offset 68)
-    pub _padding: [u8; 56],
+    /// Number of outgoing edges (Offset 60)
+    pub edge_count: u16,
+    /// Storage tier: Hot (0) or Cold (1) (Offset 62)
+    pub tier: u8,
+    /// Explicit padding to reach exactly 64 bytes (Offset 63)
+    pub _pad: [u8; 1],
 }
 
 impl DiskNodeHeader {
@@ -671,18 +670,16 @@ impl DiskNodeHeader {
     pub fn new(id: u128) -> Self {
         Self {
             id,
-            confidence_score: 0.5,
-            importance: 0.1,
             bitset: 0,
             vector_offset: 0,
-            vector_len: 0,
-            edge_count: 0,
-            _pad1: [0; 2],
+            confidence_score: 0.5,
+            importance: 0.1,
             relational_len: 0,
-            tier: 0,
-            _pad2: [0; 3],
+            vector_len: 0,
             flags: 0,
-            _padding: [0; 56],
+            edge_count: 0,
+            tier: 0,
+            _pad: [0; 1],
         }
     }
 }

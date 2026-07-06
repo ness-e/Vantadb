@@ -65,8 +65,8 @@ pub enum QuantizationAction {
 
 /// Thread-safe quantization governor
 pub struct QuantizationGovernor {
-    /// Access tracking per node key (u64 node ID — matches HNSW)
-    access_map: Mutex<HashMap<u64, AccessEntry>>,
+    /// Access tracking per node key (u128 node ID — matches HNSW)
+    access_map: Mutex<HashMap<u128, AccessEntry>>,
     /// Global tick counter (incremented periodically)
     tick: AtomicU64,
     /// Configuration
@@ -84,7 +84,7 @@ impl QuantizationGovernor {
     }
 
     /// Record access to a node.
-    pub fn record_access(&self, node_id: u64) {
+    pub fn record_access(&self, node_id: u128) {
         if !self.config.enabled {
             return;
         }
@@ -102,7 +102,7 @@ impl QuantizationGovernor {
     }
 
     /// Evaluate what action should be taken for a node, given its current format.
-    pub fn evaluate(&self, node_id: u64, is_quantized: bool) -> QuantizationAction {
+    pub fn evaluate(&self, node_id: u128, is_quantized: bool) -> QuantizationAction {
         if !self.config.enabled {
             return QuantizationAction::None;
         }
@@ -141,7 +141,7 @@ impl QuantizationGovernor {
     }
 
     /// Reset tracking for a node (after a quantization action).
-    pub fn reset(&self, node_id: u64) {
+    pub fn reset(&self, node_id: u128) {
         let mut map = self.access_map.lock().expect("governor lock poisoned");
         map.remove(&node_id);
     }
@@ -150,8 +150,8 @@ impl QuantizationGovernor {
     /// Returns a vec of `(node_id, action)` pairs.
     pub fn collect_actions(
         &self,
-        current_format_fn: impl Fn(u64) -> Option<bool>,
-    ) -> Vec<(u64, QuantizationAction)> {
+        current_format_fn: impl Fn(u128) -> Option<bool>,
+    ) -> Vec<(u128, QuantizationAction)> {
         if !self.config.enabled {
             return Vec::new();
         }

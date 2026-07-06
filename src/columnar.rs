@@ -31,7 +31,7 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
         }
     }
 
-    let id_array = UInt64Array::from(ids);
+    let id_array = UInt64Array::from(ids.iter().map(|&id| id as u64).collect::<Vec<_>>());
     let coords_array = Float32Array::from(vec_coords);
 
     let schema = Arc::new(Schema::new(vec![
