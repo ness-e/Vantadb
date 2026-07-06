@@ -32,7 +32,7 @@ export const Route = createLazyRoute("/")({
 
 function IndexPage() {
   return (
-    <main className="nb-page-content">
+    <main className="nb-page-content" aria-label="Landing page content">
       <NbTerminalHero />
       <NbTrustBar />
       <NbMetricsBar />

@@ -110,3 +110,10 @@
   border-left: 2px solid var(--amber);
   padding-left: 1rem;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .term-cursor {
+    animation: none;
+    opacity: 1;
+  }
+}

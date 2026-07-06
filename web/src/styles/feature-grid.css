@@ -79,3 +79,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-fg-card {
+    transition: none;
+  }
+
+  .nb-fg-card:hover {
+    translate: none;
+  }
+}

@@ -274,3 +274,10 @@
     flex-direction: column;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-perf-cert-bar-fill,
+  .nb-perf-vs-bar-fill {
+    transition: none;
+  }
+}

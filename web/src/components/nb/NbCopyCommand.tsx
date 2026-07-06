@@ -5,16 +5,18 @@ interface NbCopyCommandProps {
   command: string;
   variant?: "default" | "hero";
   showCopy?: boolean;
+  className?: string;
 }
 
 export function NbCopyCommand({
   command,
   variant = "default",
   showCopy = true,
+  className,
 }: NbCopyCommandProps) {
   const [copied, handleCopy] = useClipboard(command);
 
-  const blockClass = cn("nb-cmd-block", variant === "hero" && "nb-cta-command");
+  const blockClass = cn("nb-cmd-block", className, variant === "hero" && "nb-cta-command");
 
   return (
     <>
