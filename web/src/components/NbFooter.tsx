@@ -18,11 +18,17 @@ export const NbFooter = memo(function NbFooter() {
 
           <div className="footer-col">
             <h3 className="nb-footer-heading">Product</h3>
+            <Link to="/why-vantadb" className="footer-link">
+              Why VantaDB
+            </Link>
             <Link to="/engine" className="footer-link">
               Core Engine
             </Link>
             <Link to="/architecture" className="footer-link">
               Architecture
+            </Link>
+            <Link to="/storage" className="footer-link">
+              Storage
             </Link>
             <Link to="/integrations" className="footer-link">
               Integrations
@@ -46,14 +52,20 @@ export const NbFooter = memo(function NbFooter() {
             <Link to="/use-cases" className="footer-link">
               Use Cases
             </Link>
-            <Link to="/solutions/security" className="footer-link">
+            <Link to="/security" className="footer-link">
               Security
             </Link>
-            <Link to="/changelog" className="footer-link">
-              Changelog
+            <Link to="/config" className="footer-link">
+              Config Reference
+            </Link>
+            <Link to="/latency" className="footer-link">
+              Latency
             </Link>
             <Link to="/product/benchmarks" className="footer-link">
               Benchmarks
+            </Link>
+            <Link to="/changelog" className="footer-link">
+              Changelog
             </Link>
             <Link to="/blog" className="footer-link">
               Blog
@@ -64,6 +76,12 @@ export const NbFooter = memo(function NbFooter() {
             <h3 className="nb-footer-heading">Company</h3>
             <Link to="/about" className="footer-link">
               About
+            </Link>
+            <Link to="/about/team" className="footer-link">
+              Team
+            </Link>
+            <Link to="/about/company" className="footer-link">
+              Company
             </Link>
             <Link to="/about/community" className="footer-link">
               Community
