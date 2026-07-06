@@ -57,7 +57,7 @@ impl ClientEngine {
 
     /// Exposes node insertion directly to python scripts skipping HTTP serialization
     pub fn insert_node(&self, id: u64, vec_data: Option<Vec<f32>>) -> PyResult<()> {
-        let mut node = UnifiedNode::new(id);
+        let mut node = UnifiedNode::new(id.into());
         if let Some(v) = vec_data {
             node.vector = VectorRepresentations::Full(v);
             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);

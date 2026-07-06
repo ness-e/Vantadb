@@ -40,7 +40,7 @@ fn main() {
     println!("Inserting {} nodes sequentially...", initial_count);
     let start_insert = Instant::now();
     for (id, vec) in vectors.into_iter().enumerate() {
-        let mut node = UnifiedNode::new(id as u64);
+        let mut node = UnifiedNode::new(id as u128);
         node.vector = VectorRepresentations::Full(vec);
         storage.insert(&node).unwrap();
     }
@@ -191,7 +191,7 @@ fn run_mixed_bench(
             while !stop_signal.load(Ordering::Relaxed) {
                 // Generate random vector
                 let vec: Vec<f32> = (0..dim).map(|_| rng.random::<f32>()).collect();
-                let mut node = UnifiedNode::new(current_id);
+                let mut node = UnifiedNode::new(current_id.into());
                 node.vector = VectorRepresentations::Full(vec);
 
                 if storage.insert(&node).is_ok() {

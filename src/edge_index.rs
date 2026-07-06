@@ -9,6 +9,7 @@ pub(crate) struct EdgeIndex {
     edges: DashSet<(u128, u128)>,
 }
 
+#[allow(dead_code)]
 impl EdgeIndex {
     /// Create a new empty edge index.
     pub fn new() -> Self {
@@ -76,7 +77,7 @@ impl EdgeIndex {
             if from == to {
                 let msg = format!(
                     "Self-loop edge detected: node {} references itself",
-                    from as u128
+                    from
                 );
                 return Err(crate::error::VantaError::ValidationError {
                     field: "edge".into(),

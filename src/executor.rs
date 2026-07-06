@@ -316,7 +316,7 @@ impl<'a> Executor<'a> {
                 let msg_id = web_time::SystemTime::now()
                     .duration_since(web_time::UNIX_EPOCH)
                     .unwrap_or_default()
-                    .as_micros() as u128;
+                    .as_micros();
                 let mut node = UnifiedNode::new(msg_id);
                 node.set_field(
                     "type",

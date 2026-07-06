@@ -194,7 +194,7 @@ fn core_engine_certification() {
         let engine = InMemoryEngine::new();
         let start = Instant::now();
         for i in 1..=10_000u64 {
-            let node = UnifiedNode::new(i);
+            let node = UnifiedNode::new(i.into());
             engine.insert(node).unwrap();
         }
         let elapsed = start.elapsed();

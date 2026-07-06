@@ -36,11 +36,11 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
                     index.add(
-                        id as u64,
-                        FilterBitset::all_set(),
-                        VectorRepresentations::Full(vec),
-                        0,
-                    );
+                id as u128,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec),
+                0,
+            );
                 }
                 total_duration += start.elapsed();
             }
@@ -62,7 +62,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
         for (id, vec) in vectors.iter().enumerate() {
             index.add(
-                id as u64,
+                 id as u128,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
                 0,

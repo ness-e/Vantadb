@@ -111,7 +111,7 @@ fn test_crash_injection_and_cold_recovery_loop() {
 
         // Verificamos que todos los registros reportados por stdout estén legibles
         for &node_id in &written_nodes {
-            let node = engine.get(node_id).unwrap_or_else(|e| {
+            let node = engine.get(node_id.into()).unwrap_or_else(|e| {
                 panic!("Iteration {}: Error getting node {}: {}", i, node_id, e)
             });
             assert!(
@@ -121,7 +121,7 @@ fn test_crash_injection_and_cold_recovery_loop() {
                 node_id
             );
             let n = node.unwrap();
-            assert_eq!(n.id, node_id, "Iteration {}: Node ID mismatch", i);
+            assert_eq!(n.id, node_id.into(), "Iteration {}: Node ID mismatch", i);
         }
 
         // Además, verifiquemos que la estructura HNSW interna sea estructuralmente válida
@@ -225,7 +225,7 @@ fn test_crash_during_active_writes_with_tight_loop() {
 
         // At minimum, the one confirmed write must survive
         for &node_id in &written_nodes {
-            let node = engine.get(node_id).unwrap_or_else(|e| {
+            let node = engine.get(node_id.into()).unwrap_or_else(|e| {
                 panic!("Iteration {}: Error getting node {}: {}", i, node_id, e)
             });
             assert!(
@@ -235,7 +235,7 @@ fn test_crash_during_active_writes_with_tight_loop() {
                 node_id
             );
             let n = node.unwrap();
-            assert_eq!(n.id, node_id, "Iteration {}: Node ID mismatch", i);
+            assert_eq!(n.id, node_id.into(), "Iteration {}: Node ID mismatch", i);
         }
 
         // HNSW index must be structurally valid despite ungraceful shutdown

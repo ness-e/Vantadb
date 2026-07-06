@@ -31,7 +31,7 @@ proptest! {
     /// Test 3: Roundtrip con IDs generados aleatoriamente
     #[test]
     fn test_unified_node_roundtrip_with_random_id(id: u64) {
-        let node = UnifiedNode::new(id);
+        let node = UnifiedNode::new(id.into());
         let serialized = postcard::to_allocvec(&node).unwrap();
         let deserialized: UnifiedNode = postcard::from_bytes(&serialized).unwrap();
         prop_assert_eq!(node.id, deserialized.id);
@@ -44,10 +44,10 @@ proptest! {
         let mut seen = HashSet::new();
         for id in ids {
             if seen.contains(&id) {
-                let result = engine.insert(UnifiedNode::new(id));
+                let result = engine.insert(UnifiedNode::new(id.into()));
                 prop_assert!(result.is_err(), "Duplicate insert of id {} should fail", id);
             } else {
-                let result = engine.insert(UnifiedNode::new(id));
+                let result = engine.insert(UnifiedNode::new(id.into()));
                 prop_assert!(result.is_ok(), "First insert of id {} should succeed", id);
                 seen.insert(id);
             }
@@ -59,9 +59,9 @@ proptest! {
     fn test_vector_roundtrip(vec in proptest::collection::vec(-1.0f32..1.0, 1..=64)) {
         let engine = InMemoryEngine::new();
         let id = 42u64;
-        let node = UnifiedNode::with_vector(id, vec.clone());
+        let node = UnifiedNode::with_vector(id.into(), vec.clone());
         let _ = engine.insert(node).unwrap();
-        let retrieved = engine.get(id).unwrap();
+        let retrieved = engine.get(id.into()).unwrap();
         prop_assert_eq!(retrieved.vector.to_f32(), Some(vec));
     }
 
@@ -73,10 +73,10 @@ proptest! {
     ) {
         let engine = InMemoryEngine::new();
         let id = 99u64;
-        let mut node = UnifiedNode::new(id);
+        let mut node = UnifiedNode::new(id.into());
         node.set_field(&key, FieldValue::String(value.clone()));
         let _ = engine.insert(node).unwrap();
-        let retrieved = engine.get(id).unwrap();
+        let retrieved = engine.get(id.into()).unwrap();
         let expected = Some(&FieldValue::String(value));
         prop_assert_eq!(retrieved.get_field(&key), expected);
     }
@@ -85,13 +85,13 @@ proptest! {
     #[test]
     fn test_delete_idempotency(id: u64) {
         let engine = InMemoryEngine::new();
-        prop_assert!(engine.insert(UnifiedNode::new(id)).is_ok());
-        prop_assert!(engine.delete(id).is_ok());
+        prop_assert!(engine.insert(UnifiedNode::new(id.into())).is_ok());
+        prop_assert!(engine.delete(id.into()).is_ok());
 
-        let result = engine.delete(id);
+        let result = engine.delete(id.into());
         prop_assert!(result.is_err(), "Second delete should return an error");
         match result {
-            Err(VantaError::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, id),
+            Err(VantaError::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, id.into()),
             _ => panic!("Expected NodeNotFound, got {:?}", result),
         }
     }

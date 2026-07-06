@@ -51,9 +51,9 @@ fn antilocality_layout_certification() {
             StorageEngine::open_with_config(db_path, Some(config)).expect("Failed to open engine");
 
         TerminalReporter::sub_step("Inserting 200 nodes with random vectors...");
-        for id in 1..=200 {
+        for id in 1..=200u64 {
             let vec = generate_deterministic_vector(id, 16);
-            let node = UnifiedNode::with_vector(id, vec);
+            let node = UnifiedNode::with_vector(id.into(), vec);
             engine.insert(&node).unwrap();
         }
 
@@ -73,7 +73,7 @@ fn antilocality_layout_certification() {
 
         TerminalReporter::sub_step("Checking BFS offset monotonicity...");
         let entry_point_id = hnsw.get_entry_point().expect("Missing entry point");
-        let mut bfs_order: Vec<u64> = Vec::new();
+        let mut bfs_order: Vec<u128> = Vec::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
 
@@ -95,7 +95,7 @@ fn antilocality_layout_certification() {
 
         // Agregar nodos aislados (si los hay)
         for entry in hnsw.nodes.iter() {
-            let node_id: u64 = *entry.key();
+            let node_id: u128 = *entry.key();
             if visited.insert(node_id) {
                 bfs_order.push(node_id);
             }
@@ -131,16 +131,16 @@ fn antilocality_layout_certification() {
         let engine =
             StorageEngine::open_with_config(db_path, Some(config)).expect("Failed to open engine");
 
-        for id in 1..=200 {
+        for id in 1..=200u64 {
             let vec = generate_deterministic_vector(id * 7, 16);
-            let node = UnifiedNode::with_vector(id, vec);
+            let node = UnifiedNode::with_vector(id.into(), vec);
             engine.insert(&node).unwrap();
         }
         engine.flush().unwrap();
 
         // Generar consultas deterministas para verificar equivalencia de resultados
         let mut queries = Vec::new();
-        for q_id in 0..10 {
+        for q_id in 0..10u64 {
             queries.push(generate_deterministic_vector(q_id * 100, 16));
         }
 
@@ -188,7 +188,7 @@ fn antilocality_layout_certification() {
         );
 
         // Validar que todos los nodos siguen existiendo
-        for id in 1..=200 {
+        for id in 1..=200u128 {
             let node = engine
                 .get(id)
                 .unwrap()

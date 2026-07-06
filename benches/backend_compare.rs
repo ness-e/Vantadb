@@ -37,7 +37,7 @@ fn setup_engine(backend: BackendKind) -> (StorageEngine, TempDir) {
 fn insert_batch(engine: &StorageEngine, count: usize) -> std::time::Duration {
     let start = Instant::now();
     for i in 0..count {
-        let node = UnifiedNode::new(i as u64);
+        let node = UnifiedNode::new(i as u128);
         engine.insert(&node).expect("insert");
     }
     start.elapsed()
@@ -53,11 +53,11 @@ fn bench_backend_insert(c: &mut Criterion) {
             let (engine, _dir) = setup_engine(*backend);
             // Pre-insert some records so the engine is "warm"
             for i in 0..100u64 {
-                engine.insert(&UnifiedNode::new(i)).unwrap();
+                engine.insert(&UnifiedNode::new(i.into())).unwrap();
             }
             let mut counter = 100u64;
             b.iter(|| {
-                let node = UnifiedNode::new(counter);
+                let node = UnifiedNode::new(counter.into());
                 engine.insert(&node).unwrap();
                 counter += 1;
                 black_box(counter);
@@ -76,7 +76,7 @@ fn bench_backend_get(c: &mut Criterion) {
         group.bench_function(format!("{}_random_get", label), |b| {
             let (engine, _dir) = setup_engine(*backend);
             for i in 0..NUM_RECORDS as u64 {
-                engine.insert(&UnifiedNode::new(i)).unwrap();
+                engine.insert(&UnifiedNode::new(i.into())).unwrap();
             }
             let mut rng = StdRng::seed_from_u64(42);
             let query_ids: Vec<u64> = (0..QUERY_SAMPLE)
@@ -86,7 +86,7 @@ fn bench_backend_get(c: &mut Criterion) {
             b.iter(|| {
                 let id = query_ids[idx % query_ids.len()];
                 idx += 1;
-                let _ = black_box(engine.get(id).expect("get"));
+                let _ = black_box(engine.get(id.into()).expect("get"));
             });
         });
     }
@@ -130,14 +130,14 @@ fn bench_get_latency_distribution() {
     for backend in &[BackendKind::Fjall, BackendKind::RocksDb] {
         let (engine, _dir) = setup_engine(*backend);
         for i in 0..NUM_RECORDS as u64 {
-            engine.insert(&UnifiedNode::new(i)).unwrap();
+            engine.insert(&UnifiedNode::new(i.into())).unwrap();
         }
         let mut rng = StdRng::seed_from_u64(42);
         let mut latencies: Vec<f64> = (0..QUERY_SAMPLE)
             .map(|_| {
                 let id = rng.random_range(0..NUM_RECORDS as u64);
                 let t = Instant::now();
-                let _ = engine.get(id).expect("get");
+                let _ = engine.get(id.into()).expect("get");
                 t.elapsed().as_nanos() as f64 / 1000.0
             })
             .collect();

@@ -118,7 +118,7 @@ fn build_in_memory_index(
 
     for (id, vec) in scale_base.iter().enumerate() {
         idx.add(
-            id as u64,
+            (id as u64).into(),
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
@@ -142,7 +142,7 @@ fn build_mmap_index(
 
     for (id, vec) in scale_base.iter().enumerate() {
         idx.add(
-            id as u64,
+            (id as u64).into(),
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.clone()),
             0,
