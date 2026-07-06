@@ -162,7 +162,7 @@ pub struct StorageEngine {
     /// Vector store file for persistent node vector data.
     pub vector_store: RwLock<VantaFile>,
     /// Sharded write-ahead log for crash durability with reduced mutex contention.
-    pub wal: Option<std::sync::Arc<crate::wal_sharded::ShardedWal>>,
+    pub(crate) wal: Option<std::sync::Arc<crate::wal_sharded::ShardedWal>>,
     /// Memory governor for adaptive eviction
     pub(crate) memory_governor: Option<std::sync::Arc<crate::memory_governor::MemoryGovernor>>,
     /// Quantization governor for auto-transition f32 ↔ SQ8 (PERF-09)

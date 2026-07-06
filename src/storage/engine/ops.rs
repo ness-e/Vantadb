@@ -7,7 +7,7 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{EvictionReason, FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
+use crate::storage::engine::{EvictionReason, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 
