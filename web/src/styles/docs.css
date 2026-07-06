@@ -51,6 +51,27 @@
   box-shadow: var(--shadow-amber-lg);
 }
 
+.docs-limits-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-sm) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.docs-limits-list li {
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--danger);
+}
+
+.docs-limits-list li strong {
+  color: var(--foreground);
+}
+
 @media (max-width: 768px) {
   .docs-layout {
     grid-template-columns: 1fr !important;

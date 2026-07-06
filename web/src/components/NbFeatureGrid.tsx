@@ -77,7 +77,7 @@ export function NbFeatureGrid() {
         <div>
           <NbSectionHeader
             monoLabel="[CAPABILITIES]"
-            headline="Everything you need. Nothing you don't."
+            headline="HNSW + BM25 + SQL — one engine, one binary."
             sub="HNSW vector search, BM25 full-text, SQL — fused in one embedded engine. Sub-millisecond queries. Zero servers."
           />
         </div>

@@ -16,7 +16,7 @@ export const NbMetricsBar = memo(function NbMetricsBar() {
       <div className="nb-metrics-lead">
         <NbSectionHeader
           monoLabel="[PERFORMANCE DATA]"
-          headline="Built for speed."
+          headline="2MB binary. 1.2ms p50. Zero servers."
           sub="Every number speaks for itself — no fluff, no marketing."
         />
         <div className="nb-metrics-grid">

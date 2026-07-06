@@ -50,7 +50,7 @@ export function NbUseCases() {
 
   return (
     <NbSection ref={sectionRef} variant="lg" ariaLabel="Use cases">
-      <NbSectionHeader monoLabel="Use Cases" headline="Built for real AI workflows." />
+      <NbSectionHeader monoLabel="Use Cases" headline="Agent memory, local RAG, IDE intelligence." />
       <div className="nb-uc-grid">
         {CASES.map((uc, i) => (
           <article key={uc.id} className={`nb-uc-card${i === 0 ? " nb-uc-card--featured" : ""}`}>

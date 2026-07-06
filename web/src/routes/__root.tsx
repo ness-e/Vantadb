@@ -13,6 +13,7 @@ import { NbNav } from "../components/NbNav";
 import "../styles/nb-nav.css";
 import { NbFooter } from "../components/NbFooter";
 import { NbBackToTop } from "../components/NbBackToTop";
+import { NbToastContainer } from "../components/nb";
 import { PendingComponent } from "../components/PendingComponent";
 import { ScrollProgress } from "../components/ScrollProgress";
 
@@ -197,6 +198,7 @@ function RootComponent() {
         </Suspense>
         <NbFooter />
         <NbBackToTop />
+        <NbToastContainer />
       </div>
     </QueryClientProvider>
   );

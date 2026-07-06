@@ -16,3 +16,8 @@ export { NbSectionHeader } from "./NbSectionHeader";
 export { NbAccordion } from "./NbAccordion";
 export { NbAccordionItem } from "./NbAccordionItem";
 export { NbCopyCommand } from "./NbCopyCommand";
+export { toast, NbToastContainer } from "./NbToast";
+export { NbModal } from "./NbModal";
+export { NbTabs } from "./NbTabs";
+export { NbToggle } from "./NbToggle";
+export { NbProgress } from "./NbProgress";
