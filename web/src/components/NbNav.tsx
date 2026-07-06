@@ -4,12 +4,25 @@ import { useState, useEffect, useCallback, memo, useRef } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 import { NbButton } from "./nb";
 
-const navLinks = [
-  { path: "/engine", label: "Core Engine" },
-  { path: "/architecture", label: "Architecture" },
-  { path: "/solutions/ai-agents", label: "AI Agents" },
-  { path: "/solutions/local-rag", label: "Local RAG" },
-  { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
+const navGroups = [
+  {
+    label: "Platform",
+    items: [
+      { path: "/engine", label: "Core Engine" },
+      { path: "/architecture", label: "Architecture" },
+    ],
+  },
+  {
+    label: "Solutions",
+    items: [
+      { path: "/solutions/ai-agents", label: "AI Agents" },
+      { path: "/solutions/local-rag", label: "Local RAG" },
+      { path: "/solutions/ai-ide-tooling", label: "IDE Tooling" },
+    ],
+  },
+];
+
+const flatLinks = [
   { path: "/use-cases", label: "Use Cases" },
   { path: "/pricing", label: "Pricing" },
 ];
@@ -93,7 +106,33 @@ export const NbNav = memo(function NbNav() {
         </Link>
 
         <div className="nb-nav-desktop">
-          {navLinks.map((item) => (
+          {navGroups.map((group) => (
+            <div key={group.label} className="nb-nav-group">
+              <button
+                type="button"
+                className="nb-nav-group-btn"
+                aria-haspopup="true"
+              >
+                {group.label}
+                <svg width="8" height="6" viewBox="0 0 8 6" fill="none" aria-hidden="true">
+                  <path d="M1 1l3 4 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div className="nb-nav-dropdown" role="menu">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nb-nav-dropdown-item${isActive(item.path) ? " active" : ""}`}
+                    role="menuitem"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+          {flatLinks.map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -159,27 +198,32 @@ export const NbNav = memo(function NbNav() {
         </div>
 
         <div className="nb-nav-drawer-body" ref={drawerBodyRef}>
-          {navLinks.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`nb-nav-drawer-link${isActive(item.path) ? " active" : ""}`}
-              onClick={closeDrawer}
-            >
-              <span className="nb-nav-drawer-link-num">
-                {String(navLinks.indexOf(item) + 1).padStart(2, "0")}
-              </span>
-              <span className="nb-nav-drawer-link-label">{item.label}</span>
-              <span className="nb-nav-drawer-link-arrow">&gt;</span>
-            </Link>
-          ))}
+          {(() => {
+            const all: { path: string; label: string }[] = [];
+            for (const g of navGroups) for (const i of g.items) all.push(i);
+            for (const i of flatLinks) all.push(i);
+            return all.map((item, idx) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nb-nav-drawer-link${isActive(item.path) ? " active" : ""}`}
+                onClick={closeDrawer}
+              >
+                <span className="nb-nav-drawer-link-num">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <span className="nb-nav-drawer-link-label">{item.label}</span>
+                <span className="nb-nav-drawer-link-arrow">&gt;</span>
+              </Link>
+            ));
+          })()}
           <Link
             to="/docs"
             className={`nb-nav-drawer-link${isActive("/docs") ? " active" : ""}`}
             onClick={closeDrawer}
           >
             <span className="nb-nav-drawer-link-num">
-              {String(navLinks.length + 1).padStart(2, "0")}
+              {String(7).padStart(2, "0")}
             </span>
             <span className="nb-nav-drawer-link-label">Docs</span>
             <span className="nb-nav-drawer-link-arrow">&gt;</span>
