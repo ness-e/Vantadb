@@ -16,7 +16,9 @@ export function NbModal({ open, onClose, title, children }: NbModalProps) {
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   useEffect(() => {
@@ -34,7 +36,9 @@ export function NbModal({ open, onClose, title, children }: NbModalProps) {
     <div
       ref={overlayRef}
       className="nb-modal-overlay nb-modal-overlay--open"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
     >
       <div className="nb-modal" role="dialog" aria-modal="true" aria-label={title}>
         <div className="nb-modal-head">
@@ -43,9 +47,7 @@ export function NbModal({ open, onClose, title, children }: NbModalProps) {
             ✕
           </button>
         </div>
-        <div className="nb-modal-body">
-          {children}
-        </div>
+        <div className="nb-modal-body">{children}</div>
       </div>
     </div>
   );

@@ -6,22 +6,26 @@ import "../styles/quickstart.css";
 
 const STEPS = [
   {
-    num: "01", title: "Install",
+    num: "01",
+    title: "Install",
     cmd: "pip install vantadb-py",
     output: "Successfully installed vantadb-py-0.1.5",
   },
   {
-    num: "02", title: "Initialize",
+    num: "02",
+    title: "Initialize",
     cmd: 'db = VantaDB("./memory.db")',
     output: "[VantaDB] Initialized.",
   },
   {
-    num: "03", title: "Store",
+    num: "03",
+    title: "Store",
     cmd: 'db.put(namespace="agent/main", key="user_42", vector=[...])',
     output: "[VantaDB] Inserted 1 record.",
   },
   {
-    num: "04", title: "Query",
+    num: "04",
+    title: "Query",
     cmd: "results = db.search_memory(query=[...], top_k=5)",
     output: "Found 5 records. Score: 0.92",
   },
@@ -38,7 +42,10 @@ function highlight(cmd: string): string {
     if (cmd[i] === '"' || cmd[i] === "'") {
       const q = cmd[i];
       let j = i + 1;
-      while (j < cmd.length && cmd[j] !== q) { if (cmd[j] === "\\") j++; j++; }
+      while (j < cmd.length && cmd[j] !== q) {
+        if (cmd[j] === "\\") j++;
+        j++;
+      }
       if (j < cmd.length) j++;
       html += `<span class="qs-tok-str">${esc(cmd.slice(i, j))}</span>`;
       i = j;
@@ -46,7 +53,22 @@ function highlight(cmd: string): string {
       let j = i;
       while (j < cmd.length && /\w/.test(cmd[j])) j++;
       const w = cmd.slice(i, j);
-      const kws = new Set(["import", "from", "def", "return", "if", "not", "and", "or", "True", "False", "None", "as", "for", "in"]);
+      const kws = new Set([
+        "import",
+        "from",
+        "def",
+        "return",
+        "if",
+        "not",
+        "and",
+        "or",
+        "True",
+        "False",
+        "None",
+        "as",
+        "for",
+        "in",
+      ]);
       if (kws.has(w)) html += `<span class="qs-tok-kw">${esc(w)}</span>`;
       else html += esc(w);
       i = j;
@@ -74,30 +96,39 @@ export function NbQuickstart() {
   const beamRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top 75%",
-        onEnter: () => setHasEntered(true),
-        once: true,
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top 75%",
+          onEnter: () => setHasEntered(true),
+          once: true,
+        });
       });
-    });
-  }, { scope: sectionRef });
+    },
+    { scope: sectionRef },
+  );
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
     STEPS.forEach((_, i) => {
       const el = codeRefs.current[i];
-      if (el) { el.innerHTML = HIGHLIGHTED[i]; el.dataset.qsHl = "1"; }
+      if (el) {
+        el.innerHTML = HIGHLIGHTED[i];
+        el.dataset.qsHl = "1";
+      }
     });
   }, []);
 
   const typeStep = useCallback((stepIndex: number, onComplete: () => void) => {
     const step = STEPS[stepIndex];
-    if (!step) { onComplete(); return; }
+    if (!step) {
+      onComplete();
+      return;
+    }
     setActiveStep(stepIndex);
 
     const el = codeRefs.current[stepIndex];
@@ -107,8 +138,14 @@ export function NbQuickstart() {
       delete el.dataset.qsHl;
       const dur = Math.max(0.25, step.cmd.length * 0.03);
       gsap.to(el, {
-        duration: dur, text: step.cmd, ease: "none",
-        onComplete: () => { el.innerHTML = HIGHLIGHTED[stepIndex]; el.dataset.qsHl = "1"; onComplete(); },
+        duration: dur,
+        text: step.cmd,
+        ease: "none",
+        onComplete: () => {
+          el.innerHTML = HIGHLIGHTED[stepIndex];
+          el.dataset.qsHl = "1";
+          onComplete();
+        },
       });
     } else onComplete();
   }, []);
@@ -117,7 +154,11 @@ export function NbQuickstart() {
     setAllComplete(false);
     setActiveStep(i);
     const el = codeRefs.current[i];
-    if (el) { gsap.killTweensOf(el); el.innerHTML = HIGHLIGHTED[i]; el.dataset.qsHl = "1"; }
+    if (el) {
+      gsap.killTweensOf(el);
+      el.innerHTML = HIGHLIGHTED[i];
+      el.dataset.qsHl = "1";
+    }
   }, []);
 
   useEffect(() => {
@@ -129,13 +170,22 @@ export function NbQuickstart() {
       let i = 0;
       const playNext = () => {
         if (cancelled) return;
-        if (i >= STEPS.length) { setActiveStep(-1); setAllComplete(true); return; }
-        typeStep(i, () => { i++; setTimeout(playNext, 1000); });
+        if (i >= STEPS.length) {
+          setActiveStep(-1);
+          setAllComplete(true);
+          return;
+        }
+        typeStep(i, () => {
+          i++;
+          setTimeout(playNext, 1000);
+        });
       };
       playNext();
     };
     runLoop();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [hasEntered, typeStep]);
 
   return (
@@ -182,14 +232,18 @@ export function NbQuickstart() {
                 <span className="qs-matrix-term-dot" />
                 <span className="qs-matrix-term-label">{step.title.toUpperCase()}</span>
                 {isActive && <span className="qs-matrix-term-badge">RUN</span>}
-                {allComplete && <span className="qs-matrix-term-badge qs-matrix-term-badge--done">OK</span>}
+                {allComplete && (
+                  <span className="qs-matrix-term-badge qs-matrix-term-badge--done">OK</span>
+                )}
               </div>
 
               {/* Command */}
               <div className="qs-matrix-cmd">
                 <span className="qs-matrix-prompt">$</span>
                 <code
-                  ref={(el) => { codeRefs.current[i] = el; }}
+                  ref={(el) => {
+                    codeRefs.current[i] = el;
+                  }}
                   className="qs-matrix-code"
                   aria-live="polite"
                 />
@@ -207,7 +261,9 @@ export function NbQuickstart() {
       </div>
 
       <div className="qs-cta-row">
-        <Link to="/docs" className="nb-arrow">READ DOCUMENTATION</Link>
+        <Link to="/docs" className="nb-arrow">
+          READ DOCUMENTATION
+        </Link>
       </div>
     </NbSection>
   );

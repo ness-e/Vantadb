@@ -387,7 +387,7 @@ function EnginePage() {
                   Hierarchical Navigable Small World graphs for approximate nearest neighbor search
                   across vectors.
                 </p>
-                  <div className="nb-card-frame-stats">
+                <div className="nb-card-frame-stats">
                   <div>
                     <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
                       M=16

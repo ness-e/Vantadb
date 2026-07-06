@@ -16,7 +16,8 @@ export const NbDataTrust = memo(function NbDataTrust() {
       <div className="nb-inner">
         <div className="nb-data-trust-layout">
           <h2 className="nb-data-trust-headline">
-            VantaDB<br />
+            VantaDB
+            <br />
             <span className="nb-data-trust-headline-accent">by the numbers</span>
           </h2>
           <div className="nb-data-trust-grid">
@@ -33,10 +34,14 @@ export const NbDataTrust = memo(function NbDataTrust() {
         </div>
         <div className="nb-data-trust-brand-strip">
           {INTEGRATIONS.map((name) => (
-            <span key={name} className="nb-data-trust-brand">{name}</span>
+            <span key={name} className="nb-data-trust-brand">
+              {name}
+            </span>
           ))}
         </div>
-        <p className="nb-data-trust-footnote">* Core Rust benchmarks. Python SDK performance may vary.</p>
+        <p className="nb-data-trust-footnote">
+          * Core Rust benchmarks. Python SDK performance may vary.
+        </p>
       </div>
     </section>
   );

@@ -16,9 +16,7 @@ export const NbFooter = memo(function NbFooter() {
         <div className="sc-col">
           <div className="sc-col-brand">
             <VantaDBLogo variant="full" size="sm" />
-            <span className="sc-tagline">
-              Embedded Cognitive Memory for AI Agents
-            </span>
+            <span className="sc-tagline">Embedded Cognitive Memory for AI Agents</span>
             <span className="sc-badge">MIT LICENSE</span>
             <span className="sc-badge sc-badge--amber">v0.1.0</span>
           </div>
@@ -26,41 +24,83 @@ export const NbFooter = memo(function NbFooter() {
 
         <div className="sc-col">
           <h3 className="sc-col-heading">Product</h3>
-          <Link to="/engine" className="sc-link">Core Engine</Link>
-          <Link to="/architecture" className="sc-link">Architecture</Link>
-          <Link to="/storage" className="sc-link">Storage</Link>
-          <Link to="/integrations" className="sc-link">Integrations</Link>
-          <Link to="/solutions/ai-agents" className="sc-link">AI Agents</Link>
-          <Link to="/solutions/local-rag" className="sc-link">Local RAG</Link>
-          <Link to="/pricing" className="sc-link">Pricing</Link>
+          <Link to="/engine" className="sc-link">
+            Core Engine
+          </Link>
+          <Link to="/architecture" className="sc-link">
+            Architecture
+          </Link>
+          <Link to="/storage" className="sc-link">
+            Storage
+          </Link>
+          <Link to="/integrations" className="sc-link">
+            Integrations
+          </Link>
+          <Link to="/solutions/ai-agents" className="sc-link">
+            AI Agents
+          </Link>
+          <Link to="/solutions/local-rag" className="sc-link">
+            Local RAG
+          </Link>
+          <Link to="/pricing" className="sc-link">
+            Pricing
+          </Link>
         </div>
 
         <div className="sc-col">
           <h3 className="sc-col-heading">Resources</h3>
-          <Link to="/docs" className="sc-link">Documentation</Link>
-          <Link to="/use-cases" className="sc-link">Use Cases</Link>
-          <Link to="/security" className="sc-link">Security</Link>
-          <Link to="/cost" className="sc-link">Cost Comparison</Link>
-          <Link to="/maint" className="sc-link">Zero Maintenance</Link>
-          <Link to="/product/benchmarks" className="sc-link">Benchmarks</Link>
-          <Link to="/changelog" className="sc-link">Changelog</Link>
-          <Link to="/blog" className="sc-link">Blog</Link>
+          <Link to="/docs" className="sc-link">
+            Documentation
+          </Link>
+          <Link to="/use-cases" className="sc-link">
+            Use Cases
+          </Link>
+          <Link to="/security" className="sc-link">
+            Security
+          </Link>
+          <Link to="/cost" className="sc-link">
+            Cost Comparison
+          </Link>
+          <Link to="/maint" className="sc-link">
+            Zero Maintenance
+          </Link>
+          <Link to="/product/benchmarks" className="sc-link">
+            Benchmarks
+          </Link>
+          <Link to="/changelog" className="sc-link">
+            Changelog
+          </Link>
+          <Link to="/blog" className="sc-link">
+            Blog
+          </Link>
         </div>
 
         <div className="sc-col">
           <h3 className="sc-col-heading">Company</h3>
-          <Link to="/about" className="sc-link">About</Link>
-          <Link to="/about/team" className="sc-link">Team</Link>
-          <Link to="/about/company" className="sc-link">Company</Link>
-          <Link to="/about/community" className="sc-link">Community</Link>
-          <Link to="/about/contact" className="sc-link">Contact</Link>
+          <Link to="/about" className="sc-link">
+            About
+          </Link>
+          <Link to="/about/team" className="sc-link">
+            Team
+          </Link>
+          <Link to="/about/company" className="sc-link">
+            Company
+          </Link>
+          <Link to="/about/community" className="sc-link">
+            Community
+          </Link>
+          <Link to="/about/contact" className="sc-link">
+            Contact
+          </Link>
         </div>
       </div>
 
       <div className="sc-bottom">
         <div className="sc-bottom-left">
           <span className="sc-copyright">&copy; {new Date().getFullYear()} VANTADB</span>
-          <span className="sc-status">SYSTEM v0.1.0 &middot; BUILT WITH RUST &middot; MIT LICENSE</span>
+          <span className="sc-status">
+            SYSTEM v0.1.0 &middot; BUILT WITH RUST &middot; MIT LICENSE
+          </span>
         </div>
         <div className="sc-social">
           <a

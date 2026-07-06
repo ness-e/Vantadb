@@ -13,7 +13,10 @@ export function NbCounter({ target, suffix = "", label }: NbCounterProps) {
 
   return (
     <div ref={ref}>
-      <div className="nb-counter">{Math.round(value).toLocaleString()}{suffix}</div>
+      <div className="nb-counter">
+        {Math.round(value).toLocaleString()}
+        {suffix}
+      </div>
       {label && <div className="nb-counter-label">{label}</div>}
     </div>
   );

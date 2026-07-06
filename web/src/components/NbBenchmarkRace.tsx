@@ -41,7 +41,12 @@ export function NbBenchmarkRace() {
     const el = sectionRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
       { threshold: 0.2 },
     );
     observer.observe(el);
@@ -65,7 +70,11 @@ export function NbBenchmarkRace() {
 
   return (
     <NbSection ref={sectionRef} ariaLabel="Benchmarks">
-      <NbSectionHeader monoLabel="[RACE DATA]" headline="VantaDB vs the field." sub="Real benchmarks. Reproducible. No marketing numbers." />
+      <NbSectionHeader
+        monoLabel="[RACE DATA]"
+        headline="VantaDB vs the field."
+        sub="Real benchmarks. Reproducible. No marketing numbers."
+      />
 
       <div className="nb-rd-dash">
         {/* ── Podium ── */}
@@ -73,7 +82,11 @@ export function NbBenchmarkRace() {
           <span className="nb-rd-podium-title">OVERALL STANDINGS</span>
           <div className="nb-rd-podium-steps">
             {PODIUM.map((p, i) => (
-              <div key={p.label} className="nb-rd-podium-step" style={{ "--step-color": p.color } as React.CSSProperties}>
+              <div
+                key={p.label}
+                className="nb-rd-podium-step"
+                style={{ "--step-color": p.color } as React.CSSProperties}
+              >
                 <span className="nb-rd-podium-icon">{p.icon}</span>
                 <span className="nb-rd-podium-name">{p.label}</span>
               </div>
@@ -103,7 +116,8 @@ export function NbBenchmarkRace() {
                         />
                       </div>
                       <span className="nb-rd-bar-value">
-                        {bar.value}{bar.unit}
+                        {bar.value}
+                        {bar.unit}
                         {isVanta && <span className="nb-rd-bar-fast">FASTEST</span>}
                       </span>
                     </div>

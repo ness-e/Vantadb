@@ -362,10 +362,18 @@
     grid-column: 1;
   }
 
-  .arch-flow-card--top:first-child { grid-row: 1; }
-  .arch-flow-card--top:last-child  { grid-row: 3; }
-  .arch-flow-card--btm:first-child { grid-row: 5; }
-  .arch-flow-card--btm:last-child  { grid-row: 7; }
+  .arch-flow-card--top:first-child {
+    grid-row: 1;
+  }
+  .arch-flow-card--top:last-child {
+    grid-row: 3;
+  }
+  .arch-flow-card--btm:first-child {
+    grid-row: 5;
+  }
+  .arch-flow-card--btm:last-child {
+    grid-row: 7;
+  }
 
   .arch-flow-arrow-r {
     grid-row: 2;
@@ -390,7 +398,9 @@
     grid-column: 1;
   }
 
-  .arch-flow-arrow-btm:nth-of-type(1) { grid-row: 4; }
+  .arch-flow-arrow-btm:nth-of-type(1) {
+    grid-row: 4;
+  }
 
   .arch-specs {
     grid-template-columns: repeat(2, 1fr);

@@ -24,16 +24,35 @@ export const NbMonolith = memo(function NbMonolith() {
   const [bootDone, setBootDone] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      const tl = gsap.timeline({ scrollTrigger: { trigger: containerRef.current, start: "top 75%" } });
-      tl.fromTo(".nb-boot-title", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "var(--ease-swiss)" });
-      tl.fromTo(".nb-boot-install", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.35 }, "-=0.15");
-      tl.fromTo(".nb-boot-sub", { opacity: 0 }, { opacity: 1, duration: 0.25 }, "-=0.1");
-      tl.fromTo(".nb-boot-actions", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25 }, "-=0.05");
-    });
-  }, { scope: containerRef });
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: containerRef.current, start: "top 75%" },
+        });
+        tl.fromTo(
+          ".nb-boot-title",
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.4, ease: "var(--ease-swiss)" },
+        );
+        tl.fromTo(
+          ".nb-boot-install",
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.35 },
+          "-=0.15",
+        );
+        tl.fromTo(".nb-boot-sub", { opacity: 0 }, { opacity: 1, duration: 0.25 }, "-=0.1");
+        tl.fromTo(
+          ".nb-boot-actions",
+          { opacity: 0, y: 8 },
+          { opacity: 1, y: 0, duration: 0.25 },
+          "-=0.05",
+        );
+      });
+    },
+    { scope: containerRef },
+  );
 
   // Boot sequence timer
   useEffect(() => {
@@ -43,10 +62,13 @@ export const NbMonolith = memo(function NbMonolith() {
       setProgress(100);
       return;
     }
-    const t = setTimeout(() => {
-      setBootIndex((p) => p + 1);
-      setProgress((bootIndex + 1) / BOOT_MESSAGES.length * 100);
-    }, 150 + Math.random() * 200);
+    const t = setTimeout(
+      () => {
+        setBootIndex((p) => p + 1);
+        setProgress(((bootIndex + 1) / BOOT_MESSAGES.length) * 100);
+      },
+      150 + Math.random() * 200,
+    );
     return () => clearTimeout(t);
   }, [bootIndex, bootDone]);
 
@@ -55,7 +77,7 @@ export const NbMonolith = memo(function NbMonolith() {
       <div className="nb-boot">
         {/* ASCII Logo */}
         <pre className="nb-boot-ascii" aria-hidden="true">
-{`╔══════════════════════════════════╗
+          {`╔══════════════════════════════════╗
 ║          V A N T A D B           ║
 ║  Embedded Memory Engine v0.1.5   ║
 ╚══════════════════════════════════╝`}
@@ -63,7 +85,12 @@ export const NbMonolith = memo(function NbMonolith() {
 
         <h2 className="nb-boot-title">Deploy in one line.</h2>
 
-        <NbCopyCommand command={CLI_COMMAND} variant="hero" showCopy={true} className="nb-boot-install" />
+        <NbCopyCommand
+          command={CLI_COMMAND}
+          variant="hero"
+          showCopy={true}
+          className="nb-boot-install"
+        />
 
         <p className="nb-boot-sub">Zero servers. One line. Infinite context.</p>
 
@@ -82,10 +109,14 @@ export const NbMonolith = memo(function NbMonolith() {
           </div>
           <div className="nb-boot-progress-msgs">
             {BOOT_MESSAGES.slice(0, bootIndex).map((msg, i) => (
-              <span key={i} className="nb-boot-msg">{msg}</span>
+              <span key={i} className="nb-boot-msg">
+                {msg}
+              </span>
             ))}
             {bootDone && (
-              <span className="nb-boot-msg nb-boot-msg--ready">[READY] awaiting your command...</span>
+              <span className="nb-boot-msg nb-boot-msg--ready">
+                [READY] awaiting your command...
+              </span>
             )}
           </div>
         </div>

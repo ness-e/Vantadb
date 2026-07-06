@@ -244,11 +244,27 @@ function DocsPage() {
               <h3 className="docs-section-title">When NOT to use VantaDB</h3>
               <div className="nb-divider" />
               <ul className="docs-limits-list">
-                <li><strong>Multi-node HA / distributed clustering</strong> — VantaDB is an embedded engine, not a distributed database. No built-in replication, sharding, or consensus.</li>
-                <li><strong>Vectors larger than available RAM</strong> — HNSW index lives in memory. If your dataset exceeds physical RAM, consider a client-server vector database.</li>
-                <li><strong>High-availability writes across processes</strong> — Single-writer semantics. Concurrent writes from multiple processes are not supported.</li>
-                <li><strong>Cloud-managed / DBaaS</strong> — No hosted offering yet. Bring your own infrastructure.</li>
-                <li><strong>Real-time streaming / CDC</strong> — WAL is for crash recovery, not for stream processing or change data capture.</li>
+                <li>
+                  <strong>Multi-node HA / distributed clustering</strong> — VantaDB is an embedded
+                  engine, not a distributed database. No built-in replication, sharding, or
+                  consensus.
+                </li>
+                <li>
+                  <strong>Vectors larger than available RAM</strong> — HNSW index lives in memory.
+                  If your dataset exceeds physical RAM, consider a client-server vector database.
+                </li>
+                <li>
+                  <strong>High-availability writes across processes</strong> — Single-writer
+                  semantics. Concurrent writes from multiple processes are not supported.
+                </li>
+                <li>
+                  <strong>Cloud-managed / DBaaS</strong> — No hosted offering yet. Bring your own
+                  infrastructure.
+                </li>
+                <li>
+                  <strong>Real-time streaming / CDC</strong> — WAL is for crash recovery, not for
+                  stream processing or change data capture.
+                </li>
               </ul>
             </div>
 

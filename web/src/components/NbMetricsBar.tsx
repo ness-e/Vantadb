@@ -50,7 +50,9 @@ export const NbMetricsBar = memo(function NbMetricsBar() {
       <div className="nb-perf-doc">
         <div className="nb-perf-doc-header">
           <span className="nb-perf-doc-id">CERT-2026-001</span>
-          <span className="nb-perf-doc-title">VantaDB Core Engine — Certified Benchmark Report</span>
+          <span className="nb-perf-doc-title">
+            VantaDB Core Engine — Certified Benchmark Report
+          </span>
           <span className="nb-perf-doc-seal">CERTIFIED</span>
         </div>
 
@@ -81,13 +83,13 @@ export const NbMetricsBar = memo(function NbMetricsBar() {
           {COMPETITION.map((c) => {
             const isVanta = c.engine === "VantaDB";
             return (
-              <div key={c.engine} className={`nb-perf-vs-row${isVanta ? " nb-perf-vs-row--win" : ""}`}>
+              <div
+                key={c.engine}
+                className={`nb-perf-vs-row${isVanta ? " nb-perf-vs-row--win" : ""}`}
+              >
                 <span className="nb-perf-vs-name">{c.engine}</span>
                 <div className="nb-perf-vs-bar-track">
-                  <div
-                    className="nb-perf-vs-bar-fill"
-                    style={{ width: `${c.bar}%` }}
-                  />
+                  <div className="nb-perf-vs-bar-fill" style={{ width: `${c.bar}%` }} />
                 </div>
                 <span className="nb-perf-vs-num">{c.insert.toLocaleString()}</span>
               </div>
@@ -107,8 +109,8 @@ export const NbMetricsBar = memo(function NbMetricsBar() {
 
         {/* ── Footer ── */}
         <p className="nb-perf-footnote">
-          * Core Rust benchmarks on AMD Ryzen 12-Core @ 3.5GHz, AVX2. SIFT1M dataset.
-          Python SDK performance may vary due to PyO3 FFI overhead.
+          * Core Rust benchmarks on AMD Ryzen 12-Core @ 3.5GHz, AVX2. SIFT1M dataset. Python SDK
+          performance may vary due to PyO3 FFI overhead.
         </p>
       </div>
     </NbSection>

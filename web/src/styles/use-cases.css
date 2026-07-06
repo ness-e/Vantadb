@@ -13,7 +13,10 @@
   border: 2px solid var(--border-strong);
   background: var(--surface);
   padding: var(--space-lg);
-  transition: transform 120ms var(--ease-brutal), box-shadow 120ms var(--ease-brutal), border-color 120ms var(--ease-brutal);
+  transition:
+    transform 120ms var(--ease-brutal),
+    box-shadow 120ms var(--ease-brutal),
+    border-color 120ms var(--ease-brutal);
   box-shadow: var(--shadow-sm);
 }
 
@@ -95,8 +98,13 @@
 }
 
 @keyframes nb-sc-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
 }
 
 .nb-sc-body {

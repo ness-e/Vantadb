@@ -37,8 +37,12 @@
 }
 
 @keyframes nb-ticker-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-33.333%); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.333%);
+  }
 }
 
 /* Integrations row */
@@ -69,7 +73,10 @@
   padding: 0.35rem 0.7rem;
   border: 2px solid var(--border-strong);
   color: var(--steel);
-  transition: color 80ms var(--ease-brutal), border-color 80ms var(--ease-brutal), background 80ms var(--ease-brutal);
+  transition:
+    color 80ms var(--ease-brutal),
+    border-color 80ms var(--ease-brutal),
+    background 80ms var(--ease-brutal);
 }
 
 .nb-ticker-label:hover {

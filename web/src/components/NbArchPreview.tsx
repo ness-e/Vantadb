@@ -3,12 +3,48 @@ import { NbSection, NbSectionHeader } from "../components/nb";
 import "../styles/arch-preview.css";
 
 const LAYERS = [
-  { id: "sdk", label: "SDK LAYER", items: "PyO3 · Rust · C API", detail: "Three binding surfaces covering every integration path. Python via PyO3 for data scientists, native Rust for systems, C ABI for interop." },
-  { id: "query", label: "QUERY ENGINE", items: "SQL · HNSW · BM25", detail: "Triple-index architecture. HNSW for ANN, BM25 for FTS, intelligent router fusing scores into ranked results." },
-  { id: "opt", label: "OPTIMIZER", items: "Cost-based planner", detail: "Cost-based planning across vector, text, SQL predicates. Auto-selects index vs sequential scan." },
-  { id: "wal", label: "WAL", items: "Write-Ahead Log", detail: "Crash-safe durability. Every write is logged before commit. Automatic recovery on restart." },
-  { id: "store", label: "STORE", items: "In-Memory · SQLite VFS", detail: "Dual-mode: in-memory for sub-µs reads, SQLite VFS for single-file persistence. Configurable buffer pool." },
-  { id: "io", label: "IO LAYER", items: "io_uring · mmap", detail: "Async I/O with io_uring (Linux), overlapped I/O (Win). Memory-mapped regions for zero-copy reads." },
+  {
+    id: "sdk",
+    label: "SDK LAYER",
+    items: "PyO3 · Rust · C API",
+    detail:
+      "Three binding surfaces covering every integration path. Python via PyO3 for data scientists, native Rust for systems, C ABI for interop.",
+  },
+  {
+    id: "query",
+    label: "QUERY ENGINE",
+    items: "SQL · HNSW · BM25",
+    detail:
+      "Triple-index architecture. HNSW for ANN, BM25 for FTS, intelligent router fusing scores into ranked results.",
+  },
+  {
+    id: "opt",
+    label: "OPTIMIZER",
+    items: "Cost-based planner",
+    detail:
+      "Cost-based planning across vector, text, SQL predicates. Auto-selects index vs sequential scan.",
+  },
+  {
+    id: "wal",
+    label: "WAL",
+    items: "Write-Ahead Log",
+    detail:
+      "Crash-safe durability. Every write is logged before commit. Automatic recovery on restart.",
+  },
+  {
+    id: "store",
+    label: "STORE",
+    items: "In-Memory · SQLite VFS",
+    detail:
+      "Dual-mode: in-memory for sub-µs reads, SQLite VFS for single-file persistence. Configurable buffer pool.",
+  },
+  {
+    id: "io",
+    label: "IO LAYER",
+    items: "io_uring · mmap",
+    detail:
+      "Async I/O with io_uring (Linux), overlapped I/O (Win). Memory-mapped regions for zero-copy reads.",
+  },
 ];
 
 export function NbArchPreview() {
@@ -51,10 +87,11 @@ export function NbArchPreview() {
       </div>
 
       {/* Detail panel */}
-      <div className={`nb-stack-detail ${selected !== null ? "nb-stack-detail--show" : ""}`} aria-hidden={selected === null}>
-        {selected !== null && (
-          <p className="nb-stack-detail-text">{LAYERS[selected].detail}</p>
-        )}
+      <div
+        className={`nb-stack-detail ${selected !== null ? "nb-stack-detail--show" : ""}`}
+        aria-hidden={selected === null}
+      >
+        {selected !== null && <p className="nb-stack-detail-text">{LAYERS[selected].detail}</p>}
       </div>
     </NbSection>
   );

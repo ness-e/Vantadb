@@ -55,7 +55,9 @@
   padding: var(--space-xs) var(--space-sm);
   border: 2px solid var(--border-visible);
   background: var(--background);
-  transition: border-color 80ms var(--ease-brutal), box-shadow 80ms var(--ease-brutal);
+  transition:
+    border-color 80ms var(--ease-brutal),
+    box-shadow 80ms var(--ease-brutal);
   box-shadow: 2px 2px 0 var(--border);
 }
 

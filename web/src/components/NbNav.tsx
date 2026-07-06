@@ -98,14 +98,20 @@ export const NbNav = memo(function NbNav() {
         <div className="nc-nav-links">
           {links.map((item, i) => (
             <span key={item.path} className="nc-nav-link-wrap">
-              {i > 0 && <span className="nc-nav-sep" aria-hidden="true">│</span>}
+              {i > 0 && (
+                <span className="nc-nav-sep" aria-hidden="true">
+                  │
+                </span>
+              )}
               <Link
                 to={item.path}
                 className={`nc-nav-link${isActive(item.path) ? " active" : ""}`}
                 aria-current={isActive(item.path) ? "page" : undefined}
               >
                 {isActive(item.path) && (
-                  <span className="nc-nav-toggle-on" aria-hidden="true">■</span>
+                  <span className="nc-nav-toggle-on" aria-hidden="true">
+                    ■
+                  </span>
                 )}
                 <span className="nc-nav-link-label">{item.label}</span>
               </Link>
@@ -176,14 +182,14 @@ export const NbNav = memo(function NbNav() {
             >
               <span className="nc-drawer-prompt-char">$</span>
               <span className="nc-drawer-link-label">{item.label}</span>
-              {isActive(item.path) && <span className="nc-drawer-active-mark" aria-hidden="true">■</span>}
+              {isActive(item.path) && (
+                <span className="nc-drawer-active-mark" aria-hidden="true">
+                  ■
+                </span>
+              )}
             </Link>
           ))}
-          <Link
-            to="/docs"
-            className="nc-drawer-link"
-            onClick={closeDrawer}
-          >
+          <Link to="/docs" className="nc-drawer-link" onClick={closeDrawer}>
             <span className="nc-drawer-prompt-char">$</span>
             <span className="nc-drawer-link-label">Docs</span>
           </Link>

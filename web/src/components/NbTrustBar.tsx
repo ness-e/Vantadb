@@ -33,9 +33,13 @@ export const NbTrustBar = memo(function NbTrustBar() {
       <div className="nb-ticker-integrations">
         <span className="nb-mono-label nb-ticker-intro">TRUSTED BY ENGINEERS</span>
         <div className="nb-ticker-labels">
-          {["RUST", "PYTHON", "DOCKER", "GITHUB", "VSCODE", "LANGCHAIN", "LLAMAINDEX"].map((name) => (
-            <span key={name} className="nb-ticker-label">{name}</span>
-          ))}
+          {["RUST", "PYTHON", "DOCKER", "GITHUB", "VSCODE", "LANGCHAIN", "LLAMAINDEX"].map(
+            (name) => (
+              <span key={name} className="nb-ticker-label">
+                {name}
+              </span>
+            ),
+          )}
         </div>
       </div>
     </NbSection>
