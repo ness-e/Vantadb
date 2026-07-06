@@ -8,7 +8,7 @@ export const NbFooter = memo(function NbFooter() {
     <NbSection variant="dark" ariaLabel="Site footer" as="footer" className="sc-footer">
       <div className="sc-header-bar">
         <span className="sc-header-hash">#</span>
-        <span className="sc-header-label">SYSTEM COLPON</span>
+        <span className="sc-header-label">SYSTEM COLOPHON</span>
         <span className="sc-header-hash sc-header-hash--end">#</span>
       </div>
 

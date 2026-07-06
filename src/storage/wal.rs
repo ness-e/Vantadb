@@ -5,7 +5,7 @@ use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
 use crate::storage::vfile::VantaFile;
-use crate::wal::{WalReader, WalRecord, WalWriter};
+use crate::wal::{WalReader, WalRecord};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::info;
