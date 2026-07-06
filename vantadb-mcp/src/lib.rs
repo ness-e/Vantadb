@@ -1128,7 +1128,7 @@ pub fn handle_tools_call(
                 .as_u64()
                 .ok_or_else(|| McpError::invalid_params("Missing 'node_id'").to_json())?;
 
-            if let Ok(Some(node)) = storage.get(node_id) {
+            if let Ok(Some(node)) = storage.get(node_id.into()) {
                 let mut neighbors = Vec::new();
                 for edge in &node.edges {
                     if let Ok(Some(target_node)) = storage.get(edge.target) {

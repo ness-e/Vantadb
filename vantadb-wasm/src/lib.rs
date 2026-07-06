@@ -600,7 +600,7 @@ impl VantaDB {
             from_js(fields)?
         };
         let input = VantaNodeInput {
-            id,
+            id: id.into(),
             content,
             vector,
             fields,
@@ -610,14 +610,14 @@ impl VantaDB {
 
     /// Retrieve a graph node by its numeric ID.
     pub fn get_node(&self, id: u64) -> Result<JsValue, JsValue> {
-        let node: Option<VantaNodeRecord> = self.inner.get_node(id).map_err(to_js_err)?;
+        let node: Option<VantaNodeRecord> = self.inner.get_node(id.into()).map_err(to_js_err)?;
         let js: Option<JsNodeRecord> = node.map(Into::into);
         to_js(&js)
     }
 
     /// Delete a graph node by ID with an associated reason string.
     pub fn delete_node(&self, id: u64, reason: &str) -> Result<(), JsValue> {
-        self.inner.delete_node(id, reason).map_err(to_js_err)
+        self.inner.delete_node(id.into(), reason).map_err(to_js_err)
     }
 
     /// Add a directed edge between two graph nodes with an optional weight.
@@ -629,24 +629,27 @@ impl VantaDB {
         weight: Option<f32>,
     ) -> Result<(), JsValue> {
         self.inner
-            .add_edge(source_id, target_id, label, weight)
+            .add_edge(source_id.into(), target_id.into(), label, weight)
             .map_err(to_js_err)
     }
 
     /// Perform a breadth-first traversal from the given root node IDs.
     pub fn graph_bfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
+        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
         let result = self.inner.graph_bfs(&roots, max_depth).map_err(to_js_err)?;
         to_js(&result)
     }
 
     /// Perform a depth-first traversal from the given root node IDs.
     pub fn graph_dfs(&self, roots: Vec<u64>, max_depth: usize) -> Result<JsValue, JsValue> {
+        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
         let result = self.inner.graph_dfs(&roots, max_depth).map_err(to_js_err)?;
         to_js(&result)
     }
 
     /// Compute a topological sort order starting from the given root node IDs.
     pub fn graph_topological_sort(&self, roots: Vec<u64>) -> Result<JsValue, JsValue> {
+        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
         let result = self
             .inner
             .graph_topological_sort(&roots)
@@ -656,6 +659,7 @@ impl VantaDB {
 
     /// Return whether the subgraph reachable from the given roots forms a DAG.
     pub fn graph_is_dag(&self, roots: Vec<u64>) -> Result<bool, JsValue> {
+        let roots: Vec<u128> = roots.into_iter().map(|r| r.into()).collect();
         self.inner.graph_is_dag(&roots).map_err(to_js_err)
     }
 
