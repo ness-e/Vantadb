@@ -61,6 +61,12 @@ export const NbFooter = memo(function NbFooter() {
             <Link to="/latency" className="footer-link">
               Latency
             </Link>
+            <Link to="/cost" className="footer-link">
+              Cost Comparison
+            </Link>
+            <Link to="/maint" className="footer-link">
+              Zero Maintenance
+            </Link>
             <Link to="/product/benchmarks" className="footer-link">
               Benchmarks
             </Link>
