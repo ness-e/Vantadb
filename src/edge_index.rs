@@ -74,7 +74,10 @@ impl EdgeIndex {
         for item in self.edges.iter() {
             let (from, to) = *item.key();
             if from == to {
-                let msg = format!("Self-loop edge detected: node {} references itself", from as u128);
+                let msg = format!(
+                    "Self-loop edge detected: node {} references itself",
+                    from as u128
+                );
                 return Err(crate::error::VantaError::ValidationError {
                     field: "edge".into(),
                     reason: msg,

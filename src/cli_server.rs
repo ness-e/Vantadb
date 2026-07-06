@@ -167,7 +167,8 @@ impl AuthRateLimiter {
 
     fn sweep_expired(&self, failures: &mut HashMap<String, (u32, Instant)>) {
         let now = Instant::now();
-        failures.retain(|_, &mut (_, first)| now.duration_since(first).as_secs() <= self.window_secs);
+        failures
+            .retain(|_, &mut (_, first)| now.duration_since(first).as_secs() <= self.window_secs);
     }
 
     /// Returns `true` if the given IP has exceeded the allowed failure rate.

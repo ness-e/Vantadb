@@ -4,6 +4,7 @@
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
 
+use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{
     PyFileExistsError, PyFileNotFoundError, PyIndexError, PyKeyError, PyOSError, PyPermissionError,
     PyRuntimeError, PyStopIteration, PyTimeoutError, PyTypeError, PyValueError,
@@ -13,7 +14,6 @@ use pyo3::types::{
     PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
     PyTupleMethods,
 };
-use pyo3::buffer::PyBuffer;
 use pyo3::Py;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -986,7 +986,8 @@ impl VantaDB {
         if nrows != keys.len() {
             return Err(PyValueError::new_err(format!(
                 "vectors.shape[0] ({}) must equal keys.len() ({})",
-                nrows, keys.len()
+                nrows,
+                keys.len()
             )));
         }
 
@@ -1178,10 +1179,12 @@ impl VantaDB {
         let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
 
         hits.into_iter()
-            .map(|hit| Ok(VantaPySearchHit {
-                inner: hit.record,
-                score: hit.score,
-            }))
+            .map(|hit| {
+                Ok(VantaPySearchHit {
+                    inner: hit.record,
+                    score: hit.score,
+                })
+            })
             .collect()
     }
 
@@ -1279,7 +1282,11 @@ impl VantaDB {
     fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || engine.delete_node(id.into(), &reason_str).map_err(map_vanta_error))
+        py.detach(move || {
+            engine
+                .delete_node(id.into(), &reason_str)
+                .map_err(map_vanta_error)
+        })
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -1815,9 +1822,7 @@ impl VantaPySearchHit {
                 dict.set_item("version", 3)?;
                 Ok(dict.unbind().into())
             }
-            None => Err(PyRuntimeError::new_err(
-                "VantaSearchHit has no vector",
-            )),
+            None => Err(PyRuntimeError::new_err("VantaSearchHit has no vector")),
         }
     }
 }

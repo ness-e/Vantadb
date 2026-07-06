@@ -349,8 +349,7 @@ impl InMemoryEngine {
 
     /// Filter nodes by relational field equality (O(1) via scalar index — PERF-08).
     pub fn filter_field(&self, field: &str, value: &FieldValue) -> Vec<u128> {
-        self.scalar_index
-            .lookup(field, value)
+        self.scalar_index.lookup(field, value)
     }
 
     /// Hybrid search: vector similarity + bitset filter + field predicates.

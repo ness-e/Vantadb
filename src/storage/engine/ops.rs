@@ -632,8 +632,9 @@ impl StorageEngine {
                     continue;
                 }
 
-                let id =
-                    u128::from_le_bytes(key.as_slice().try_into().expect("key slice fits [u8; 16]"));
+                let id = u128::from_le_bytes(
+                    key.as_slice().try_into().expect("key slice fits [u8; 16]"),
+                );
                 if id <= cursor_id {
                     continue;
                 }

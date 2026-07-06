@@ -1480,7 +1480,10 @@ mod tests {
         let after = TEXT_POSTINGS_WRITTEN_TOTAL.load(Ordering::Relaxed);
         // Under parallel execution other tests can increment the counter,
         // so we can only assert it never regressed.
-        assert!(after >= before, "counter regressed from {before} to {after}");
+        assert!(
+            after >= before,
+            "counter regressed from {before} to {after}"
+        );
     }
 
     #[test]
@@ -1639,7 +1642,10 @@ mod tests {
         let after = operational_metrics_snapshot();
         assert!(after.records_imported >= before.records_imported + 50);
         // import_errors uses fetch_add — never regresses
-        assert!(after.import_errors >= before.import_errors, "import_errors regressed");
+        assert!(
+            after.import_errors >= before.import_errors,
+            "import_errors regressed"
+        );
     }
 
     // ── Derived scans ──────────────────────────────────────────
