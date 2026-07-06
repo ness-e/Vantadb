@@ -68,8 +68,8 @@
   --text-code: 0.88rem;
   --text-lead: 1.2rem;
   --text-title: clamp(1.3rem, 2.2vw, 1.7rem);
-  --text-display: clamp(2.2rem, 4vw, 3.5rem);
-  --text-hero: clamp(3.5rem, 7vw, 6.5rem);
+  --text-display: clamp(3rem, 8vw, 6rem);
+  --text-hero: clamp(4rem, 10vw, 8rem);
   --text-metric: clamp(2.5rem, 5vw, 4rem);
 
   --weight-regular: 400;
