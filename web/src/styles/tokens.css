@@ -55,6 +55,12 @@
   --shadow-amber: 4px 4px 0px 0px var(--amber-light);
   --shadow-amber-lg: 8px 8px 0px 0px var(--amber);
   --shadow-none: none;
+  --shadow-3px: 3px 3px 0px 0px var(--amber);
+  --shadow-6px: 6px 6px 0px 0px var(--amber);
+  --shadow-10px: 10px 10px 0px 0px var(--amber);
+  --shadow-black-sm: 3px 3px 0 0 var(--border-strong);
+  --shadow-black-md: 6px 6px 0 0 var(--border-strong);
+  --shadow-black-lg: 10px 10px 0 0 var(--border-strong);
 
   --text-micro: 0.6rem;
   --text-label: 0.72rem;
