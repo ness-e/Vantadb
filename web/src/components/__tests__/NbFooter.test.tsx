@@ -11,12 +11,12 @@ vi.mock("@tanstack/react-router", () => ({
 describe("NbFooter", () => {
   it("renders the logo", () => {
     render(<NbFooter />);
-    expect(screen.getByText("VantaDB")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "VantaDB" })).toBeInTheDocument();
   });
 
   it("renders tagline", () => {
     render(<NbFooter />);
-    expect(screen.getByText("Embedded Cognitive Memory.")).toBeInTheDocument();
+    expect(screen.getByText("Embedded Cognitive Memory for AI Agents")).toBeInTheDocument();
   });
 
   it("renders PRODUCT section links", () => {

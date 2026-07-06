@@ -7,7 +7,8 @@ describe("VantaDBLogo", () => {
     render(<VantaDBLogo />);
     const logo = screen.getByRole("img", { name: "VantaDB" });
     expect(logo).toBeInTheDocument();
-    expect(screen.getByText("VantaDB")).toBeInTheDocument();
+    const mark = document.querySelector(".vdb-mark");
+    expect(mark).toBeInTheDocument();
   });
 
   it("renders mark variant", () => {
