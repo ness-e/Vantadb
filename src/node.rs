@@ -363,7 +363,7 @@ impl VectorRepresentations {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Edge {
     /// Target node ID.
-    pub target: u64,
+    pub target: u128,
     /// Edge label string.
     pub label: String,
     /// Edge weight (defaults to 1.0).
@@ -387,7 +387,7 @@ pub struct EvictionWeights {
 
 impl Edge {
     /// Create an edge with default weight (1.0).
-    pub fn new(target: u64, label: impl Into<String>) -> Self {
+    pub fn new(target: u128, label: impl Into<String>) -> Self {
         Self {
             target,
             label: label.into(),
@@ -396,7 +396,7 @@ impl Edge {
     }
 
     /// Create an edge with a custom weight.
-    pub fn with_weight(target: u64, label: impl Into<String>, weight: f32) -> Self {
+    pub fn with_weight(target: u128, label: impl Into<String>, weight: f32) -> Self {
         Self {
             target,
             label: label.into(),
@@ -639,36 +639,36 @@ pub trait AccessTracker {
 #[derive(Clone, Copy, Debug, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub struct DiskNodeHeader {
     /// Globally unique identifier (Offset 0)
-    pub id: u64,
-    /// Offset 8
+    pub id: u128,
+    /// Offset 16
     pub confidence_score: f32,
-    /// Offset 12
+    /// Offset 20
     pub importance: f32,
-    /// 128-bit fast filter (Offset 16)
+    /// 128-bit fast filter (Offset 24)
     pub bitset: u128,
-    /// Offset to vector data in the MMap file (Offset 32)
+    /// Offset to vector data in the MMap file (Offset 40)
     pub vector_offset: u64,
-    /// Number of elements in the vector (Offset 40)
+    /// Number of elements in the vector (Offset 48)
     pub vector_len: u32,
-    /// Number of outgoing edges (Offset 44)
+    /// Number of outgoing edges (Offset 52)
     pub edge_count: u16,
-    /// Explicit padding to align relational_len (Offset 46)
+    /// Explicit padding to align relational_len (Offset 54)
     pub _pad1: [u8; 2],
-    /// Length of the relational metadata block (Offset 48)
+    /// Length of the relational metadata block (Offset 56)
     pub relational_len: u32,
-    /// Storage tier: Hot (0) or Cold (1) (Offset 52)
+    /// Storage tier: Hot (0) or Cold (1) (Offset 60)
     pub tier: u8,
-    /// Explicit gap padding for u32 field 'flags' alignment (Offset 53)
+    /// Explicit gap padding for u32 field 'flags' alignment (Offset 61)
     pub _pad2: [u8; 3],
-    /// Status flags (Offset 56)
+    /// Status flags (Offset 64)
     pub flags: u32,
-    /// Explicit padding to reach exactly 64 bytes (Offset 60)
-    pub _padding: [u8; 4],
+    /// Explicit padding to reach exactly 128 bytes (Offset 68)
+    pub _padding: [u8; 56],
 }
 
 impl DiskNodeHeader {
     /// Create a new header with default values for the given node ID.
-    pub fn new(id: u64) -> Self {
+    pub fn new(id: u128) -> Self {
         Self {
             id,
             confidence_score: 0.5,
@@ -682,7 +682,7 @@ impl DiskNodeHeader {
             tier: 0,
             _pad2: [0; 3],
             flags: 0,
-            _padding: [0; 4],
+            _padding: [0; 56],
         }
     }
 }
@@ -694,7 +694,7 @@ impl DiskNodeHeader {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct UnifiedNode {
     /// Globally unique identifier
-    pub id: u64,
+    pub id: u128,
     /// Dynamic bitset for fast multi-tenant category filtering
     pub bitset: FilterBitset,
     /// Semantic cluster for super-node routing
@@ -746,7 +746,7 @@ impl AccessTracker for UnifiedNode {
 
 impl UnifiedNode {
     /// New empty node with given ID
-    pub fn new(id: u64) -> Self {
+    pub fn new(id: u128) -> Self {
         Self {
             id,
             bitset: FilterBitset::new(),
@@ -769,7 +769,7 @@ impl UnifiedNode {
     }
 
     /// New node with vector data
-    pub fn with_vector(id: u64, vector: Vec<f32>) -> Self {
+    pub fn with_vector(id: u128, vector: Vec<f32>) -> Self {
         let mut node = Self::new(id);
         node.vector = VectorRepresentations::Full(vector);
         node.flags.set(NodeFlags::HAS_VECTOR);
@@ -777,13 +777,13 @@ impl UnifiedNode {
     }
 
     /// Add a labeled edge
-    pub fn add_edge(&mut self, target: u64, label: impl Into<String>) {
+    pub fn add_edge(&mut self, target: u128, label: impl Into<String>) {
         self.edges.push(Edge::new(target, label));
         self.flags.set(NodeFlags::HAS_EDGES);
     }
 
     /// Add weighted edge
-    pub fn add_weighted_edge(&mut self, target: u64, label: impl Into<String>, weight: f32) {
+    pub fn add_weighted_edge(&mut self, target: u128, label: impl Into<String>, weight: f32) {
         self.edges.push(Edge::with_weight(target, label, weight));
         self.flags.set(NodeFlags::HAS_EDGES);
     }

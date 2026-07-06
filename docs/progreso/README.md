@@ -8,7 +8,7 @@ aliases: []
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-03
+> **Last updated:** 2026-07-06
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -1342,4 +1342,41 @@ These tasks reached 100% completion and were moved here from the active backlog.
 |----|-------|
 | MKT-11 | llms.txt: SQL/IVF claims corregidos |
 | CODE-085 | README: get_memory→get, search_memory→search |
+
+### 2026-07-06 — Wave 1-4 Completion: Quick Wins, Performance, Benchmarks & Cleanup (10 tareas movidas a progreso)
+
+**Tareas completadas y movidas del backlog a progreso:**
+
+| ID | Tarea | Verificación |
+|----|-------|-------------|
+| CODE-039 | Empty list `[]` → `ListString` (comportamiento aceptado) | ✅ Código verificado: `lib.rs:102-103` retorna `ListString` para empty list |
+| CODE-040 | List type inference con mensajes de error claros | ✅ Código verificado: `lib.rs:147-151` rechaza NaN/Inf con `PyTypeError` |
+| CODE-041 | `operational_metrics()` con GIL release | ✅ Código verificado: `lib.rs:1128` usa `py.detach()` (pyo3 0.29) |
+| CODE-042 | `BUFFER_CACHE` thread-local eliminado | ✅ Verificado: 0 resultados grep para `BUFFER_CACHE` |
+| MKT-12 | Performance claims audit vs benchmarks reales | ✅ Metodología publicada en `docs/operations/BENCHMARKS.md` |
+| DOC-21 | Performance clarity doc: Rust core vs Python SDK | ✅ Archivo existe: `docs/operations/PERFORMANCE_GUIDE.md` (488L) |
+| MCP-03 | WASM benchmarks + feature matrix | ✅ Feature matrix 404KB gz, benchmarks en `docs/operations/BENCHMARKS.md` |
+
+**CODE-067 REVERTIDO a ❌** — migración u64→u128 NO completada. `XxHash64` + `u64` aún en 14 ubicaciones (core.rs, duplicate_prevention.rs, serialization.rs, wal_sharded.rs).
+
+### 2026-07-06 — Post-Benchmark Deep Investigations (4 paralelas, 25 tareas agregadas al backlog)
+
+**Objetivo:** Investigar a fondo los gaps contra LanceDB/ChromaDB revelados en benchmarks competitivos. 4 sub-agentes en paralelo.
+
+#### Hallazgos clave por área:
+
+| Área | Hallazgos | IDs asignados |
+|------|-----------|---------------|
+| 🐛 Distancia Euclidea | **Bug crítico:** `squared_distance` raw vs `1.0 - similarity` causa ordenación invertida. Recall@10 55.7% vs ChromaDB 90%. Fix estimado: 1 hora | CODE-092 🔴 |
+| ⚡ AVX-512/SIMD | f32x16 dispatch, SQ8 path, norm caching, runtime multiversion — avx512f ya detectado, no cableado | PERF-21/22/29/34/38 🟡 |
+| ⚡ FFI/PyO3 | `put_batch_raw` PyBuffer 2D, `#[pyclass]` hits, lazy serialization, GIL scope tuning | PERF-15/16/24/25/26/31/35 🔴🟡🟢 |
+| ⚡ HNSW Recall | ef_construction 200→400, M/max0 16→24, ep_enter freeze, tombstone mitigation | PERF-17/18/23/27/28 🟠🟡 |
+| ⚡ Ingestion | WAL batch append, storage batch insert, async pipeline, config tuning | PERF-19/20/30/32/33/36/37 🟠🟡🟢 |
+
+**Impacto cuantificado:**
+- CODE-092 fix solo: recall euclidean 55.7% → ~90% (paridad ChromaDB)
+- PERF-15 + PERF-19 + PERF-20: ingestion QPS 127 → ~1500+ (10×)
+- PERF-16: query latency 4.06ms → ~2.5ms (cerca de 2.27ms ChromaDB)
+
+**Backlog:** +25 items agregados. Pendientes: 98 items open.
 

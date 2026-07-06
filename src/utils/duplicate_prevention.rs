@@ -20,7 +20,7 @@ const K_SALTS: [u64; 3] = [0x5A5A5A5A5A5A5A5A, 0x3C3C3C3C3C3C3C3C, 0x1E1E1E1E1E1
 /// use vantadb::utils::duplicate_prevention::DuplicatePreventionFilter;
 ///
 /// let filter = DuplicatePreventionFilter::new(100_000);
-/// let record_id = 12345u64;
+/// let record_id = 12345u128;
 ///
 /// if !filter.is_duplicate(record_id) {
 ///     filter.mark_processed(record_id);
@@ -48,7 +48,7 @@ impl DuplicatePreventionFilter {
         }
     }
 
-    fn calculate_hashes_u64(&self, key: u64) -> [usize; 3] {
+    fn calculate_hashes(&self, key: u128) -> [usize; 3] {
         let mut idxs = [0; 3];
         for (i, &salt) in K_SALTS.iter().enumerate() {
             let mut hasher = XxHash64::with_seed(0);
@@ -92,16 +92,16 @@ impl DuplicatePreventionFilter {
     }
 
     /// Mark a record ID as processed to prevent future duplicates.
-    pub fn mark_processed(&self, record_id: u64) {
-        let idxs = self.calculate_hashes_u64(record_id);
+    pub fn mark_processed(&self, record_id: u128) {
+        let idxs = self.calculate_hashes(record_id);
         self.set_bits(&idxs);
     }
 
     /// Check if a record ID has already been processed.
     ///
     /// Returns `true` if the record is likely a duplicate (false positives possible).
-    pub fn is_duplicate(&self, record_id: u64) -> bool {
-        let idxs = self.calculate_hashes_u64(record_id);
+    pub fn is_duplicate(&self, record_id: u128) -> bool {
+        let idxs = self.calculate_hashes(record_id);
         self.check_bits(&idxs)
     }
 
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn test_duplicate_detection() {
         let filter = DuplicatePreventionFilter::new(1000);
-        let record_id = 42u64;
+        let record_id = 42u128;
 
         assert!(!filter.is_duplicate(record_id));
         filter.mark_processed(record_id);
@@ -152,8 +152,8 @@ mod tests {
     #[test]
     fn test_default_capacity() {
         let filter = DuplicatePreventionFilter::default();
-        assert!(!filter.is_duplicate(123u64));
-        filter.mark_processed(123u64);
-        assert!(filter.is_duplicate(123u64));
+        assert!(!filter.is_duplicate(123u128));
+        filter.mark_processed(123u128);
+        assert!(filter.is_duplicate(123u128));
     }
 }

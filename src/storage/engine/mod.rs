@@ -204,7 +204,7 @@ impl StorageEngine {
         vstore: &mut VantaFile,
         hnsw: &CPIndex,
         backend: &dyn StorageBackend,
-        node_id: u64,
+        node_id: u128,
         node: &UnifiedNode,
     ) -> Result<()> {
         use crate::backend::BackendPartition;

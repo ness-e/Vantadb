@@ -97,7 +97,7 @@ impl Default for TextIndexSpec {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextPosting {
     /// Node ID referenced by this posting.
-    pub node_id: u64,
+    pub node_id: u128,
     /// Term frequency within the document.
     pub tf: u32,
     /// Positions of the token in the document.
@@ -108,7 +108,7 @@ pub(crate) struct TextPosting {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TextDocStats {
     /// Node ID.
-    pub node_id: u64,
+    pub node_id: u128,
     /// Total document length in tokens.
     pub doc_len: u32,
 }
@@ -548,7 +548,7 @@ fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Resul
 }
 
 /// Encode a posting entry into bytes.
-pub(crate) fn posting_value(node_id: u64, tf: u32, positions: &[u32]) -> Result<Vec<u8>> {
+pub(crate) fn posting_value(node_id: u128, tf: u32, positions: &[u32]) -> Result<Vec<u8>> {
     serialize(&TextPosting {
         node_id,
         tf,
@@ -562,7 +562,7 @@ pub(crate) fn decode_posting(bytes: &[u8]) -> Result<TextPosting> {
 }
 
 /// Encode doc stats into bytes.
-pub(crate) fn doc_stats_value(node_id: u64, doc_len: u32) -> Result<Vec<u8>> {
+pub(crate) fn doc_stats_value(node_id: u128, doc_len: u32) -> Result<Vec<u8>> {
     serialize(&TextDocStats { node_id, doc_len })
 }
 
@@ -599,7 +599,7 @@ pub(crate) fn posting_put_ops(
     namespace: &str,
     key: &str,
     payload: &str,
-    node_id: u64,
+    node_id: u128,
 ) -> Result<Vec<BackendWriteOp>> {
     let terms = record_terms(payload);
     let token_positions = terms.token_positions;
@@ -636,7 +636,7 @@ pub(crate) fn doc_stats_put_op(
     namespace: &str,
     key: &str,
     payload: &str,
-    node_id: u64,
+    node_id: u128,
 ) -> Result<BackendWriteOp> {
     Ok(BackendWriteOp::Put {
         partition: BackendPartition::TextIndex,

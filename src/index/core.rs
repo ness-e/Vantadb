@@ -11,7 +11,7 @@ use std::fs::{File, OpenOptions};
 use std::hash::BuildHasherDefault;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU128, AtomicUsize, Ordering};
 use tracing::{info, warn};
 use twox_hash::XxHash64;
 
@@ -21,9 +21,9 @@ use twox_hash::XxHash64;
 /// elements live entirely on the stack (zero heap allocation). Layer 0 lists
 /// that exceed 32 (up to `m_max0 = 64`) spill to the heap transparently,
 /// equivalent to the previous `Vec<u64>` behavior.
-pub type NeighborVec = SmallVec<[u64; 32]>;
+pub type NeighborVec = SmallVec<[u128; 32]>;
 
-const ENTRY_POINT_NONE: u64 = u64::MAX;
+const ENTRY_POINT_NONE: u128 = u128::MAX;
 pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 
 use super::distance::*;
@@ -164,12 +164,12 @@ fn should_prefetch() -> bool {
     }
 }
 
-pub(crate) const VECTOR_INDEX_VERSION: u16 = 5; // DB-04: dynamic FilterBitset replaces fixed u128
+pub(crate) const VECTOR_INDEX_VERSION: u16 = 6; // DB-05: migrate node_id from u64 to u128
 
 /// A node in the HNSW graph with its vector data and neighbor lists.
 pub struct HnswNode {
     /// Unique node identifier.
-    pub id: u64,
+    pub id: u128,
     /// Filter bitset for attribute-based filtering.
     pub bitset: FilterBitset,
     /// Stored vector representation (full, quantized, or mmap).
@@ -294,7 +294,7 @@ impl Default for HnswConfig {
 
 // Custom wrapper to store (similarity, node_id) in BinaryHeap (Max-Heap)
 #[derive(Clone, PartialEq, Debug)]
-struct NodeSim(f32, u64);
+struct NodeSim(f32, u128);
 
 impl Eq for NodeSim {}
 
@@ -319,7 +319,7 @@ impl Ord for NodeSim {
 
 // Wrapper for Min-Heap (used to track closest in result set)
 #[derive(Clone, PartialEq, Debug)]
-struct NodeSimMin(f32, u64);
+struct NodeSimMin(f32, u128);
 
 impl Eq for NodeSimMin {}
 
@@ -345,11 +345,11 @@ impl Ord for NodeSimMin {
 /// Thread-safe HNSW graph index for approximate nearest neighbor search.
 pub struct CPIndex {
     /// All nodes in the graph, keyed by node ID.
-    pub nodes: DashMap<u64, HnswNode, BuildHasherDefault<XxHash64>>,
+    pub nodes: DashMap<u128, HnswNode, BuildHasherDefault<XxHash64>>,
     /// Highest layer currently occupied by any node.
     pub max_layer: AtomicUsize,
     /// Entry point node ID (top-layer anchor for search).
-    pub entry_point: AtomicU64,
+    pub entry_point: AtomicU128,
     /// Storage backend (in-memory or mmap).
     pub backend: IndexBackend,
     /// HNSW construction and search configuration.
@@ -365,7 +365,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(0),
@@ -378,7 +378,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend: IndexBackend::InMemory,
             config,
             total_nodes: AtomicU64::new(0),
@@ -391,7 +391,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: AtomicU64::new(ENTRY_POINT_NONE),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend,
             config: HnswConfig::default(),
             total_nodes: AtomicU64::new(0),
@@ -433,7 +433,7 @@ impl CPIndex {
 
     /// Thread-safe accessor for the current entry point.
     #[inline]
-    pub fn get_entry_point(&self) -> Option<u64> {
+    pub fn get_entry_point(&self) -> Option<u128> {
         let ep = self.entry_point.load(Ordering::Acquire);
         if ep == ENTRY_POINT_NONE {
             None
@@ -445,7 +445,7 @@ impl CPIndex {
     /// Thread-safe setter. Uses Release ordering to ensure the node
     /// is fully visible in DashMap before other threads follow this pointer.
     #[inline]
-    pub fn set_entry_point(&self, id: u64) {
+    pub fn set_entry_point(&self, id: u128) {
         self.entry_point.store(id, Ordering::Release);
     }
 
@@ -494,14 +494,14 @@ impl CPIndex {
         query_vec: &[f32],
         query_norm: Option<f32>,
         query_inv_norm: Option<f32>,
-        entry_points: &[u64],
+        entry_points: &[u128],
         ef: usize,
         layer: usize,
         query_mask: &FilterBitset,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
     ) -> BinaryHeap<NodeSimMin> {
-        let mut visited = std::collections::HashSet::with_capacity_and_hasher(
+        let mut visited: std::collections::HashSet<u128, _> = std::collections::HashSet::with_capacity_and_hasher(
             ef * 2,
             BuildHasherDefault::<XxHash64>::default(),
         );
@@ -733,13 +733,13 @@ impl CPIndex {
         // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
 
         struct SelectedInfo {
-            id: u64,
+            id: u128,
             vec: Option<Vec<f32>>,
             inv_norm: f32,
         }
 
         let mut selected: Vec<SelectedInfo> = Vec::with_capacity(m);
-        let mut discarded: Vec<u64> = Vec::new();
+        let mut discarded: Vec<u128> = Vec::new();
 
         for ns in sorted.into_iter() {
             if selected.len() >= m {
@@ -835,7 +835,7 @@ impl CPIndex {
 
     fn validate_node(
         &self,
-        id: u64,
+        id: u128,
         bitset: FilterBitset,
         vec_data: &VectorRepresentations,
         storage_offset: u64,
@@ -871,7 +871,7 @@ impl CPIndex {
     #[tracing::instrument(skip(self, vec_data), level = "debug")]
     pub fn add(
         &self,
-        id: u64,
+        id: u128,
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
@@ -903,7 +903,7 @@ impl CPIndex {
 
     fn insert_hnsw(
         &self,
-        id: u64,
+        id: u128,
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
@@ -1037,9 +1037,9 @@ impl CPIndex {
     #[inline]
     fn shrink_neighbors(
         &self,
-        neighbor_id: u64,
+        neighbor_id: u128,
         m_max: usize,
-        current_neighbors: &[u64],
+        current_neighbors: &[u128],
         layer: usize,
     ) {
         let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
@@ -1081,7 +1081,7 @@ impl CPIndex {
         }
     }
 
-    fn update_metadata(&self, level: usize, id: u64) {
+    fn update_metadata(&self, level: usize, id: u128) {
         let current_max = self.max_layer.load(Ordering::Acquire);
         if level > current_max {
             self.max_layer.fetch_max(level, Ordering::Release);
@@ -1099,7 +1099,7 @@ impl CPIndex {
         query_mask: &FilterBitset,
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
-    ) -> Vec<(u64, f32)> {
+    ) -> Vec<(u128, f32)> {
         let ep = match self.get_entry_point() {
             Some(id) => id,
             None => return Vec::new(),
@@ -1174,7 +1174,7 @@ impl CPIndex {
 
     /// BFS traversal order for on-disk layout: entry point first, then graph neighbors
     /// (upper layers before lower) to improve mmap locality on large indexes.
-    pub(crate) fn serialization_order(&self) -> Vec<u64> {
+    pub(crate) fn serialization_order(&self) -> Vec<u128> {
         use std::collections::{HashSet, VecDeque};
 
         let mut order = Vec::with_capacity(self.nodes.len());
@@ -1199,7 +1199,7 @@ impl CPIndex {
             }
         }
 
-        let mut orphans: Vec<u64> = self
+        let mut orphans: Vec<u128> = self
             .nodes
             .iter()
             .map(|r| *r.key())
@@ -1259,12 +1259,12 @@ impl CPIndex {
             Some(ep) => {
                 w.write_all(&[1])?;
                 w.write_all(&ep.to_le_bytes())?;
-                pos += 9;
+                pos += 17;
             }
             None => {
                 w.write_all(&[0])?;
-                w.write_all(&0u64.to_le_bytes())?;
-                pos += 9;
+                w.write_all(&0u128.to_le_bytes())?;
+                pos += 17;
             }
         }
 
@@ -1406,6 +1406,18 @@ impl CPIndex {
         }
 
         #[inline]
+        #[inline]
+        fn read_le_u128(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u128> {
+            let bytes = take_bytes(data, pos, 16, field)?;
+            Ok(u128::from_le_bytes(bytes.try_into().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("failed to parse {field} as u128: {e}"),
+                )
+            })?))
+        }
+
+        #[inline]
         fn read_le_u64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u64> {
             let bytes = take_bytes(data, pos, 8, field)?;
             Ok(u64::from_le_bytes(bytes.try_into().map_err(|e| {
@@ -1472,14 +1484,14 @@ impl CPIndex {
         }
 
         let ep_exists = take_bytes(data, &mut pos, 1, "ep_exists")?[0];
-        let ep_id = read_le_u64(data, &mut pos, "ep_id")?;
+        let ep_id = read_le_u128(data, &mut pos, "ep_id")?;
         let entry_point = if ep_exists == 1 { Some(ep_id) } else { None };
 
         let node_count = read_le_u64(data, &mut pos, "node_count")? as usize;
 
         // Sanity: each node needs at least 37 bytes (id + bitset_len + offset + type + vec_len + layer_count).
         // bitset payload is variable — 4 bytes len prefix is the minimum.
-        const MIN_BYTES_PER_NODE: usize = 8 + 4 + 8 + 1 + 8 + 8;
+        const MIN_BYTES_PER_NODE: usize = 16 + 4 + 8 + 1 + 8 + 8;
         let remaining = data.len().saturating_sub(pos);
         if node_count > remaining / MIN_BYTES_PER_NODE {
             return Err(Error::new(
@@ -1493,7 +1505,7 @@ impl CPIndex {
         let nodes = DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
 
         for _ in 0..node_count {
-            let id = read_le_u64(data, &mut pos, "node id")?;
+            let id = read_le_u128(data, &mut pos, "node id")?;
 
             let (bitset, consumed) = FilterBitset::from_bytes(&data[pos..])?;
             pos += consumed;
@@ -1598,17 +1610,17 @@ impl CPIndex {
                 let neighbor_count = read_le_u64(data, &mut pos, "neighbor_count")? as usize;
 
                 let byte_len = neighbor_count
-                    .checked_mul(8)
+                    .checked_mul(16)
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "neighbor_count overflow"))?;
                 let nbr_bytes = take_bytes(data, &mut pos, byte_len, "neighbor ids")?;
                 let mut layer_neighbors = NeighborVec::with_capacity(neighbor_count);
                 for i in 0..neighbor_count {
-                    let start = i * 8;
-                    layer_neighbors.push(u64::from_le_bytes(
-                        nbr_bytes[start..start + 8].try_into().map_err(|e| {
+                    let start = i * 16;
+                    layer_neighbors.push(u128::from_le_bytes(
+                        nbr_bytes[start..start + 16].try_into().map_err(|e| {
                             std::io::Error::new(
                                 std::io::ErrorKind::InvalidData,
-                                format!("neighbor id at byte {start} expected 8 bytes: {e}"),
+                                format!("neighbor id at byte {start} expected 16 bytes: {e}"),
                             )
                         })?,
                     ));
@@ -1663,7 +1675,7 @@ impl CPIndex {
         Ok(Self {
             nodes,
             max_layer: AtomicUsize::new(max_layer),
-            entry_point: AtomicU64::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
+            entry_point: AtomicU128::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
             config,
             total_nodes: AtomicU64::new(node_count),
@@ -1846,7 +1858,7 @@ mod tests {
             distance_metric: DistanceMetric::Cosine,
         });
 
-        for i in 0..64u64 {
+        for i in 0..64u128 {
             let raw = [
                 (i as f32 * 0.01).sin(),
                 (i as f32 * 0.02).cos(),
@@ -1907,7 +1919,7 @@ mod tests {
                     if stop.load(Ordering::Relaxed) {
                         break;
                     }
-                    let id = start_id + i;
+                    let id = (start_id + i) as u128;
                     let raw_vec: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
                     let vec: Vec<f32> = if norm > 0.0 {
@@ -1983,7 +1995,7 @@ mod tests {
                 let mut rng = rand::rng();
                 let start_id = t * 500 + 1; // Evitar ID 0 que a veces es entry point
                 for i in 0..500 {
-                    let id = start_id + i;
+                    let id = (start_id + i) as u128;
                     let raw_vec: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&raw_vec);
                     let vec: Vec<f32> = if norm > 0.0 {
@@ -2044,7 +2056,7 @@ mod tests {
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
         });
-        for i in 0..16u64 {
+        for i in 0..16u128 {
             let raw = [
                 (i as f32 * 0.01).sin(),
                 (i as f32 * 0.02).cos(),

@@ -134,7 +134,7 @@ pub struct VantaMemoryRecord {
     /// Monotonic version counter.
     pub version: u64,
     /// Deterministic node id derived from namespace and key.
-    pub node_id: u64,
+    pub node_id: u128,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
     /// Absolute Unix-ms timestamp after which the record is considered
@@ -587,7 +587,7 @@ pub struct VantaMemoryExportLine {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaEdgeRecord {
     /// Target node id this edge points to.
-    pub target: u64,
+    pub target: u128,
     /// Edge label describing the relationship.
     pub label: String,
     /// Edge weight for weighted graph algorithms.
@@ -598,7 +598,7 @@ pub struct VantaEdgeRecord {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaNodeInput {
     /// Numeric node identifier.
-    pub id: u64,
+    pub id: u128,
     /// Optional text content stored in the `content` field.
     pub content: Option<String>,
     /// Optional embedding vector.
@@ -610,7 +610,7 @@ pub struct VantaNodeInput {
 impl VantaNodeInput {
     /// Create a new node input with the given id.
     /// Content, vector, and fields default to empty/None.
-    pub fn new(id: u64) -> Self {
+    pub fn new(id: u128) -> Self {
         Self {
             id,
             content: None,
@@ -624,7 +624,7 @@ impl VantaNodeInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaNodeRecord {
     /// Numeric node identifier.
-    pub id: u64,
+    pub id: u128,
     /// Relational fields key-value pairs.
     pub fields: VantaFields,
     /// Optional embedding vector.
@@ -653,7 +653,7 @@ pub struct VantaNodeRecord {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VantaSearchHit {
     /// Numeric node identifier of the matched node.
-    pub node_id: u64,
+    pub node_id: u128,
     /// Distance from the query vector (lower is more similar for cosine/euclidean).
     pub distance: f32,
 }
@@ -670,12 +670,12 @@ pub enum VantaQueryResult {
         /// Human-readable result message.
         message: String,
         /// Node id returned by the write, if applicable.
-        node_id: Option<u64>,
+        node_id: Option<u128>,
     },
     /// Query detected stale context for the given node.
     StaleContext {
         /// Node id with stale context.
-        node_id: u64,
+        node_id: u128,
     },
 }
 

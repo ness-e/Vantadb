@@ -15,7 +15,7 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::Arc;
 use tracing;
-use twox_hash::XxHash64;
+use twox_hash::XxHash3_128;
 use web_time::Instant;
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -46,12 +46,12 @@ pub(crate) fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-pub(crate) fn memory_node_id(namespace: &str, key: &str) -> u64 {
-    let mut hasher = XxHash64::default();
+pub(crate) fn memory_node_id(namespace: &str, key: &str) -> u128 {
+    let mut hasher = XxHash3_128::default();
     hasher.write(namespace.as_bytes());
     hasher.write(&[0]);
     hasher.write(key.as_bytes());
-    hasher.finish()
+    hasher.finish_128()
 }
 
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
@@ -195,17 +195,17 @@ pub(crate) fn payload_index_key(
     Ok(index_key)
 }
 
-pub(crate) fn node_id_bytes(node_id: u64) -> Vec<u8> {
+pub(crate) fn node_id_bytes(node_id: u128) -> Vec<u8> {
     node_id.to_le_bytes().to_vec()
 }
 
-pub(crate) fn decode_node_id(bytes: &[u8]) -> Option<u64> {
-    if bytes.len() != std::mem::size_of::<u64>() {
+pub(crate) fn decode_node_id(bytes: &[u8]) -> Option<u128> {
+    if bytes.len() != std::mem::size_of::<u128>() {
         return None;
     }
-    let mut id = [0u8; 8];
+    let mut id = [0u8; 16];
     id.copy_from_slice(bytes);
-    Some(u64::from_le_bytes(id))
+    Some(u128::from_le_bytes(id))
 }
 
 pub(crate) fn get_string_field(fields: &VantaFields, key: &str) -> Option<String> {
@@ -1565,7 +1565,7 @@ impl VantaEmbedded {
         &self,
         engine: &StorageEngine,
         namespace: &str,
-    ) -> Result<(Vec<u64>, bool)> {
+    ) -> Result<(Vec<u128>, bool)> {
         let prefix = namespace_index_prefix(namespace);
         let entries = engine.scan_partition_prefix(BackendPartition::NamespaceIndex, &prefix)?;
         let mut ids = Vec::new();
@@ -1587,7 +1587,7 @@ impl VantaEmbedded {
         namespace: &str,
         field: &str,
         value: &VantaValue,
-    ) -> Result<(Vec<u64>, bool)> {
+    ) -> Result<(Vec<u128>, bool)> {
         let prefix = payload_index_prefix(namespace, field, value)?;
         let entries = engine.scan_partition_prefix(BackendPartition::PayloadIndex, &prefix)?;
         let mut ids = Vec::new();
