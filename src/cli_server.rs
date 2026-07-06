@@ -55,7 +55,7 @@ pub struct QueryResponse {
     pub data: String,
     /// Single node ID returned by write or stale-context results.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub node_id: Option<u64>,
+    pub node_id: Option<u128>,
     /// Collection of nodes returned by read results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nodes: Option<Vec<NodeDTO>>,
@@ -65,7 +65,7 @@ pub struct QueryResponse {
 #[derive(Serialize, Deserialize)]
 pub struct NodeDTO {
     /// Unique node identifier.
-    pub id: u64,
+    pub id: u128,
     /// Semantic cluster the node belongs to.
     pub semantic_cluster: u32,
     /// Relational key-value payload.
@@ -143,6 +143,8 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .with_state(state)
 }
 
+const MAX_AUTH_FAILURE_ENTRIES: usize = 10_000;
+
 /// Per-IP rate limiter for authentication failures.
 pub struct AuthRateLimiter {
     /// Per-IP map of (failure count, first-failure instant).
@@ -163,9 +165,17 @@ impl AuthRateLimiter {
         }
     }
 
+    fn sweep_expired(&self, failures: &mut HashMap<String, (u32, Instant)>) {
+        let now = Instant::now();
+        failures.retain(|_, &mut (_, first)| now.duration_since(first).as_secs() <= self.window_secs);
+    }
+
     /// Returns `true` if the given IP has exceeded the allowed failure rate.
     pub fn is_rate_limited(&self, ip: &str) -> bool {
         let mut failures = self.failures.lock();
+        if failures.len() > MAX_AUTH_FAILURE_ENTRIES {
+            self.sweep_expired(&mut failures);
+        }
         let now = Instant::now();
         if let Some((count, first)) = failures.get(ip) {
             if now.duration_since(*first).as_secs() > self.window_secs {
@@ -181,6 +191,9 @@ impl AuthRateLimiter {
     /// Record an authentication failure for the given IP.
     pub fn record_failure(&self, ip: &str) {
         let mut failures = self.failures.lock();
+        if failures.len() > MAX_AUTH_FAILURE_ENTRIES {
+            self.sweep_expired(&mut failures);
+        }
         let now = Instant::now();
         let entry = failures.entry(ip.to_string()).or_insert((0, now));
         if now.duration_since(entry.1).as_secs() > self.window_secs {
