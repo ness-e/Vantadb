@@ -8,7 +8,7 @@ aliases: []
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-06
+> **Last updated:** 2026-07-11
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -27,7 +27,7 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | API/Servidor | 9 | 9 | ✅ |
 | Observability | 6 | 6 | ✅ |
 | **Documentation** | 🟢 Consolidated (Wikilinks, Glossary, Unicode normalized) | 95% | ✅ |
-| **Testing** | 🟢 Complete (Compiles clean, 440/440 tests passing) | 90% | ✅ |
+| **Testing** | 🟢 Complete (Compiles clean, 444/444 tests passing) | 90% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 7 | 7 | ✅ |
 | Project Management | 6 | 6 | ✅ |
@@ -1357,7 +1357,26 @@ These tasks reached 100% completion and were moved here from the active backlog.
 | DOC-21 | Performance clarity doc: Rust core vs Python SDK | ✅ Archivo existe: `docs/operations/PERFORMANCE_GUIDE.md` (488L) |
 | MCP-03 | WASM benchmarks + feature matrix | ✅ Feature matrix 404KB gz, benchmarks en `docs/operations/BENCHMARKS.md` |
 
-**CODE-067 REVERTIDO a ❌** — migración u64→u128 NO completada. `XxHash64` + `u64` aún en 14 ubicaciones (core.rs, duplicate_prevention.rs, serialization.rs, wal_sharded.rs).
+**CODE-067 COMPLETADO** — migración u64→u128 finalizada. Todos los node_ids en `u128` con `XxHash3_128`. 444 tests pasando.
+
+### 2026-07-11 — Wave 1-5: Migración u64→u128 (CODE-067)
+
+Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3_128) para eliminar colisiones de hash.
+
+**Archivos modificados:** ~30 archivos en todo el codebase
+
+**Cambios clave:**
+- `DiskNodeHeader.id`: `u64` → `u128` (layout binario, VECTOR_INDEX_VERSION incrementado)
+- `UnifiedNode.id`, `HnswNode.id`: `u64` → `u128`
+- `memory_node_id()` en `serialization.rs` y `cli_handlers.rs`: usa `XxHash3_128::finish_128()` → `u128`
+- SDK types (`VantaMemoryRecord`, `VantaEdgeRecord`, `VantaNodeInput`, `VantaNodeRecord`, `VantaSearchHit`, `VantaQueryResult`): `u64` → `u128`
+- `TextPosting`, `TextDocStats`: `node_id` a `u128`
+- `DuplicatePrevention`: interfaz pública a `u128` (hash interno bloom filter sigue en `XxHash64` — decisión deliberada)
+- `rkyv_archives.rs`: versión de formato 8→9, `ArchivedHnswNode.id` a `u128`
+- `gc.rs`, `parser/mod.rs`, `physical_plan.rs`, `planner.rs`, `sdk/graph.rs`, `sdk/search.rs`, `executor.rs`, `error.rs`, `crash_helper.rs`: tipos actualizados
+- `wal_sharded.rs`: sin cambios (hash de ruteo, no de identidad)
+
+**Verificación:** `cargo check` ✅, `cargo test --lib` → **444 tests, 0 failures** ✅
 
 ### 2026-07-06 — Post-Benchmark Deep Investigations (4 paralelas, 25 tareas agregadas al backlog)
 
