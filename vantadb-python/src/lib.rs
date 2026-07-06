@@ -409,6 +409,7 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
     Ok(dict.unbind().into())
 }
 
+#[allow(dead_code)]
 fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("namespace", &record.namespace)?;
@@ -531,6 +532,7 @@ fn search_explanation_to_pydict(py: Python, exp: &VantaSearchExplanation) -> PyR
     Ok(dict.unbind().into())
 }
 
+#[allow(dead_code)]
 fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("score", hit.score)?;
@@ -544,6 +546,7 @@ fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<P
 
 /// Owned variant — consumes the hit and moves the vector out without cloning.
 /// Used in the search hot path to avoid Vec<f32> clone + Python list conversion.
+#[allow(dead_code)]
 fn memory_hit_to_pydict_owned(py: Python, hit: VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("score", hit.score)?;
@@ -1644,7 +1647,7 @@ impl VantaVector {
     fn __getitem__(&self, idx: isize) -> PyResult<f32> {
         let len = self.data.len() as isize;
         let idx = if idx < 0 { len + idx } else { idx };
-        if idx < 0 || idx >= len as isize {
+        if idx < 0 || idx >= len {
             return Err(PyIndexError::new_err("vector index out of range"));
         }
         Ok(self.data[idx as usize])
@@ -1674,11 +1677,11 @@ impl VantaVector {
     /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
     fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
-        let shape = PyTuple::new(py, &[self.data.len()])?;
+        let shape = PyTuple::new(py, [self.data.len()])?;
         dict.set_item("shape", shape)?;
         dict.set_item("typestr", "<f4")?;
         let ptr = self.data.as_ptr() as usize;
-        let data_tup = PyTuple::new(py, &[0usize, 0usize])?;
+        let data_tup = PyTuple::new(py, [0usize, 0usize])?;
         data_tup.set_item(0, ptr)?;
         data_tup.set_item(1, true)?;
         let data: Py<PyAny> = data_tup.unbind().into();
@@ -1812,10 +1815,10 @@ impl VantaPySearchHit {
         match &self.inner.vector {
             Some(v) => {
                 let dict = PyDict::new(py);
-                let shape = PyTuple::new(py, &[v.len()])?;
+                let shape = PyTuple::new(py, [v.len()])?;
                 dict.set_item("shape", shape)?;
                 dict.set_item("typestr", "<f4")?;
-                let data_tup = PyTuple::new(py, &[0usize, 0usize])?;
+                let data_tup = PyTuple::new(py, [0usize, 0usize])?;
                 data_tup.set_item(0, v.as_ptr() as usize)?;
                 data_tup.set_item(1, true)?;
                 dict.set_item("data", data_tup)?;
