@@ -19,6 +19,21 @@
   transform: translate(3px, 3px);
 }
 
+.nb-card--binary:hover {
+  border-color: var(--amber);
+  box-shadow: var(--shadow-amber);
+  transform: translate(-2px, -2px);
+  filter: invert(1);
+  mix-blend-mode: difference;
+}
+
+.nb-card--binary:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+  filter: invert(0);
+  mix-blend-mode: normal;
+}
+
 .nb-card--amber {
   border-color: var(--amber);
 }
@@ -635,6 +650,21 @@
 .nb-card-frame:active {
   box-shadow: none;
   transform: translate(3px, 3px);
+}
+
+.nb-card-frame--binary:hover {
+  border-color: var(--amber);
+  box-shadow: var(--shadow-amber);
+  transform: translate(-2px, -2px);
+  filter: invert(1);
+  mix-blend-mode: difference;
+}
+
+.nb-card-frame--binary:active {
+  box-shadow: none;
+  transform: translate(3px, 3px);
+  filter: invert(0);
+  mix-blend-mode: normal;
 }
 
 .nb-card-frame--featured {

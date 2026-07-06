@@ -61,6 +61,13 @@
   box-shadow: var(--shadow-amber);
 }
 
+.nb-engine-part:active {
+  filter: invert(1);
+  mix-blend-mode: difference;
+  border-color: var(--amber);
+  box-shadow: var(--shadow-amber);
+}
+
 .nb-engine-part .nb-num-marker {
   display: inline-flex;
 }
