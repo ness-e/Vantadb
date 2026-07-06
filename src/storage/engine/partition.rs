@@ -1,0 +1,60 @@
+//! Backend partition delegation methods.
+
+use crate::backend::{BackendPartition, BackendWriteOp};
+use crate::error::Result;
+use crate::storage::engine::StorageEngine;
+
+impl StorageEngine {
+    /// Write a value to a specific backend partition.
+    pub fn put_to_partition(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<()> {
+        self.ensure_writable()?;
+        self.backend.put(partition, key, value)
+    }
+
+    /// Execute a batch of write operations atomically against the backend.
+    pub(crate) fn write_backend_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
+        self.ensure_writable()?;
+        self.backend.write_batch(ops)
+    }
+
+    /// Scan all key-value pairs in the given backend partition.
+    pub(crate) fn scan_partition(
+        &self,
+        partition: BackendPartition,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.scan(partition)
+    }
+
+    /// Scan key-value pairs matching the given prefix in the given backend partition.
+    pub(crate) fn scan_partition_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.scan_prefix(partition, prefix)
+    }
+
+    /// Retrieve a single value from the given backend partition.
+    pub(crate) fn get_from_partition(
+        &self,
+        partition: BackendPartition,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>> {
+        self.backend.get(partition, key)
+    }
+
+    /// Retrieve multiple raw values from a partition in a single batch.
+    #[allow(dead_code)]
+    pub(crate) fn get_many_from_partition(
+        &self,
+        partition: BackendPartition,
+        keys: &[&[u8]],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.backend.get_many(partition, keys)
+    }
+}

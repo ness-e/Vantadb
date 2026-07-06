@@ -191,6 +191,11 @@ pub struct VantaConfig {
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
     /// RBAC configuration mapping API tokens to roles.
     pub rbac_config: RbacConfig,
+    /// Number of WAL shards for reduced mutex contention (default: 4).
+    /// Each shard has its own append lock; workloads hash node IDs across shards.
+    /// Set to 0 to disable WAL, or 1 for single-file (legacy) behaviour.
+    /// Configured via `VANTADB_WAL_SHARDS`.
+    pub wal_shards: usize,
 }
 
 /// Parse an environment variable with a fallback default.
@@ -373,6 +378,7 @@ impl Default for VantaConfig {
             },
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
+            wal_shards: parse_env_or("VANTADB_WAL_SHARDS", 4usize),
             rbac_config: RbacConfig::default(),
         }
     }
@@ -522,6 +528,12 @@ impl VantaConfig {
     /// Sets the prefetch mode for mmap vector pages during HNSW search.
     pub fn with_prefetch_mode(mut self, mode: PrefetchMode) -> Self {
         self.prefetch_mode = mode;
+        self
+    }
+
+    /// Sets the number of WAL shards for reduced mutex contention.
+    pub fn with_wal_shards(mut self, shards: usize) -> Self {
+        self.wal_shards = shards;
         self
     }
 }

@@ -1,0 +1,289 @@
+    Checking vantadb v0.2.0 (C:\Users\Eros\VantaDB Proyect\VantaDB)
+memory allocation of 524288 bytes failed
+stack backtrace:
+tests\certification\..\common\mod.rs:268:24: error[E0786]: found invalid metadata files for crate `chrono`
+memory allocation of 606224 bytes failed
+stack backtrace:
+tests\derived_indexes.rs:36:23: error: only metadata stub found for `rlib` dependency `std`
+       please provide path to the corresponding .rmeta file with full metadata
+tests\edge_cases.rs:8:5: error[E0786]: found invalid metadata files for crate `vantadb`
+memory allocation of 196656 bytes failed
+stack backtrace:
+   0:     0x7ffb30f143e2 - <unknown>
+memory allocation of 147472 bytes failed
+   1:     0x7ffb30f296a1 - <unknown>
+   2:     0x7ffb30edba54 - <unknown>
+   3:     0x7ffb30ef9bef - <unknown>
+   4:     0x7ffb30ef9cac - <unknown>
+stack backtrace:
+   5:     0x7ffb30ef48cf - <unknown>
+   6:     0x7ffb30ef9c7b - <unknown>
+   7:     0x7ffb30ed6078 - <unknown>
+   8:     0x7ffb35149f17 - <unknown>
+   9:     0x7ffb35149f5c - <unknown>
+  10:     0x7ffb34cfb673 - <unknown>
+  11:     0x7ffb325073a2 - <unknown>
+  12:     0x7ffb321dfd48 - <unknown>
+  13:     0x7ffb321e007e - <unknown>
+  14:     0x7ffb321958a5 - <unknown>
+  15:     0x7ffb31d28a78 - <unknown>
+  16:     0x7ffb31d34983 - <unknown>
+  17:     0x7ffb31deac7a - <unknown>
+  18:     0x7ffb31fe193d - <unknown>
+  19:     0x7ffb3095ac1b - <unknown>
+  20:     0x7ffb31d52276 - <unknown>
+  21:     0x7ffb30a32f17 - <unknown>
+  22:     0x7ffb312af553 - <unknown>
+  23:     0x7ffb30957a0b - <unknown>
+  24:     0x7ffb31d3b23c - <unknown>
+  25:     0x7ffb30a2216e - <unknown>
+  26:     0x7ffb312d4b7d - <unknown>
+  27:     0x7ffb312feb60 - <unknown>
+  28:     0x7ffb31d289cb - <unknown>
+  29:     0x7ffb31db7bf0 - <unknown>
+  30:     0x7ffb31dea839 - <unknown>
+  31:     0x7ffb312f865c - <unknown>
+  32:     0x7ffb3095780b - <unknown>
+  33:     0x7ffb3096966e - <unknown>
+  34:     0x7ffb30a209e9 - <unknown>
+  35:     0x7ffb31267d00 - <unknown>
+  36:     0x7ffb30f5f452 - <unknown>
+  37:     0x7ffb3095be5a - <unknown>
+  38:     0x7ffb309630ef - <unknown>
+  39:     0x7ffb30a3c30c - <unknown>
+  40:     0x7ffb2e47c26f - <unknown>
+  41:     0x7ffb2e4748df - <unknown>
+  42:     0x7ffb2e482bc9 - <unknown>
+  43:     0x7ffb30eec448 - <unknown>
+  44:     0x7ffc4197e957 - BaseThreadInitThunk
+tests\durability_recovery.rs:28:1: error: only metadata stub found for `rlib` dependency `getopts`
+       please provide path to the corresponding .rmeta file with full metadata
+tests\durability_recovery.rs:87:1: error[E0463]: can't find crate for `test`: can't find crate
+tests\durability_recovery.rs:113:1: error[E0463]: can't find crate for `test`: can't find crate
+tests\durability_recovery.rs:185:1: error[E0463]: can't find crate for `test`: can't find crate
+  45:     0x7ffc42067c1c - RtlUserThreadStart
+tests\durability_recovery.rs:229:1: error[E0463]: can't find crate for `test`: can't find crate
+tests\durability_recovery.rs:277:1: error[E0463]: can't find crate for `test`: can't find crate
+error[E0463]: can't find crate for `test`
+tests\common\mod.rs:36:21: error[E0786]: found invalid metadata files for crate `serde`
+   0:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::win64::trace
+   0:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::win64::trace
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::trace_unsynchronized
+   1:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::trace_unsynchronized
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2:     0x7ffb30f143e2 - std::sys::backtrace::_print_fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:74
+   3:     0x7ffb30f143e2 - std::sys::backtrace::impl$0::print::impl$0::fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:44
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2:     0x7ffb30f143e2 - std::sys::backtrace::_print_fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:74
+   3:     0x7ffb30f143e2 - std::sys::backtrace::impl$0::print::impl$0::fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:44
+   0:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::win64::trace
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1:     0x7ffb30f143e2 - std::backtrace_rs::backtrace::trace_unsynchronized
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2:     0x7ffb30f143e2 - std::sys::backtrace::_print_fmt
+   4:     0x7ffb30f296a1 - core::fmt::write
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\core\src\fmt\mod.rs:0
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:74
+   3:     0x7ffb30f143e2 - std::sys::backtrace::impl$0::print::impl$0::fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:44
+   4:     0x7ffb30f296a1 - core::fmt::write
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\core\src\fmt\mod.rs:0
+   4:     0x7ffb30f296a1 - core::fmt::write
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\core\src\fmt\mod.rs:0
+   5:     0x7ffb30edba54 - std::io::default_write_fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:639
+   6:     0x7ffb30edba54 - std::io::Write::write_fmt<std::sys::stdio::windows::Stderr>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:1994
+   5:     0x7ffb30edba54 - std::io::default_write_fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:639
+   6:     0x7ffb30edba54 - std::io::Write::write_fmt<std::sys::stdio::windows::Stderr>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:1994
+   5:     0x7ffb30edba54 - std::io::default_write_fmt
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:639
+   6:     0x7ffb30edba54 - std::io::Write::write_fmt<std::sys::stdio::windows::Stderr>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\io\mod.rs:1994
+   7:     0x7ffb30ef9bef - std::sys::backtrace::BacktraceLock::print
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:47
+   8:     0x7ffb30ef9bef - std::alloc::default_alloc_error_hook
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:397
+   7:     0x7ffb30ef9bef - std::sys::backtrace::BacktraceLock::print
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:47
+   8:     0x7ffb30ef9bef - std::alloc::default_alloc_error_hook
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:397
+   9:     0x7ffb30ef9cac - std::alloc::rust_oom::closure$0
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:428
+   9:     0x7ffb30ef9cac - std::alloc::rust_oom::closure$0
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:428
+   7:     0x7ffb30ef9bef - std::sys::backtrace::BacktraceLock::print
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:47
+   8:     0x7ffb30ef9bef - std::alloc::default_alloc_error_hook
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:397
+   9:     0x7ffb30ef9cac - std::alloc::rust_oom::closure$0
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:428
+  10:     0x7ffb30ef48cf - std::sys::backtrace::__rust_end_short_backtrace<std::alloc::rust_oom::closure_env$0,never$>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:182
+  11:     0x7ffb30ef9c7b - std::alloc::rust_oom
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:424
+  10:     0x7ffb30ef48cf - std::sys::backtrace::__rust_end_short_backtrace<std::alloc::rust_oom::closure_env$0,never$>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:182
+  11:     0x7ffb30ef9c7b - std::alloc::rust_oom
+  12:     0x7ffb30ed6078 - std::alloc::_::__rust_alloc_error_handler
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:423
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:424
+  12:     0x7ffb30ed6078 - std::alloc::_::__rust_alloc_error_handler
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:423
+  10:     0x7ffb30ef48cf - std::sys::backtrace::__rust_end_short_backtrace<std::alloc::rust_oom::closure_env$0,never$>
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\backtrace.rs:182
+  11:     0x7ffb30ef9c7b - std::alloc::rust_oom
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:424
+  12:     0x7ffb30ed6078 - std::alloc::_::__rust_alloc_error_handler
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\alloc.rs:423
+  13:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error::rt_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:544
+  14:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:550
+  13:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error::rt_error
+  13:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error::rt_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:544
+  14:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:550
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:544
+  14:     0x7ffb35149f17 - alloc::alloc::handle_alloc_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\alloc.rs:550
+  15:     0x7ffb31d1762f - RINvMs6_NtCsXhP1XNDhmx_9hashbrown3rawINtB6_8RawTableTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdTINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj18_ENtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph5graph12DepNodeIndexEEE14reserve_rehashNCINvNtCs
+  15:     0x7ffb35149f5c - alloc::raw_vec::handle_error
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\alloc\src\raw_vec\mod.rs:861
+  16:     0x7ffb31d35778 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj18_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  16:     0x7ffb31fe2d15 - rustc_trait_selection[a6770d5330b2a5da]::traits::specialize::specialization_graph_provider
+  17:     0x7ffb31deac7a - rustc_query_impl[8fd5b0f5c34238e]::plumbing::query_key_hash_verify_all
+  18:     0x7ffb31fe193d - rustc_trait_selection[a6770d5330b2a5da]::traits::specialize::specialization_graph_provider
+tests\storage\wal_resilience.rs:13:5: error[E0463]: can't find crate for `vantadb`: can't find crate
+  17:     0x7ffb3095ac1b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  19:     0x7ffb3095ac1b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  18:     0x7ffb31d52276 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj8_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+  20:     0x7ffb31d52276 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj8_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+error: could not compile `vantadb` (test "derived_indexes") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+  21:     0x7ffb30a32f17 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  19:     0x7ffb30a32f17 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  20:     0x7ffb3254cd23 - <rustc_middle[a59449566375ede2]::ty::trait_def::TraitDef>::ancestors
+  15:     0x7ffb35146f0e - <hashbrown[464cccc52c68902]::raw::Fallibility>::alloc_err
+  21:     0x7ffb31c7f537 - rustc_ty_utils[efa6e74162484902]::instance::resolve_instance_raw
+  22:     0x7ffb312af553 - <rustc_hir_analysis[5b0caf071dd43103]::autoderef::Autoderef>::new
+  16:     0x7ffb32484dfd - RINvMs6_NtCsno2OgPpCmI_9hashbrown3rawINtB6_8RawTablejE14reserve_rehashNCINvNtNtCshuZPPBDOE2K_8indexmap3map4core8get_hashINtNtCsiLGbxUhmf5l_13rustc_type_ir11fast_reject14SimplifiedTypeNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdEINtNtCs9AfwiE7sh8x_5alloc3vec
+  23:     0x7ffb30957a0b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  22:     0x7ffb31d29117 - RINvMs6_NtCsg1V9peYwXvD_9hashbrown3rawINtB6_8RawTableTNtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph8dep_node7DepNodeTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdNtNtCsiLGbxUhmf5l_13rustc_type_ir5solve14SizedTraitKindEEE14reserve_rehashNCINvNtB8_3map11m
+  24:     0x7ffb31d3b23c - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj1_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+  25:     0x7ffb30a2216e - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  23:     0x7ffb31d77ef8 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches12DefaultCacheINtNtCsedndjjZtLTa_12rustc_middle2ty20PseudoCanonicalInputTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefId
+  24:     0x7ffb31dedf19 - rustc_query_impl[8fd5b0f5c34238e]::plumbing::query_key_hash_verify_all
+  26:     0x7ffb312d4b7d - rustc_hir_analysis[5b0caf071dd43103]::hir_ty_lowering::generics::check_generic_arg_count_for_call
+  17:     0x7ffb3256c30a - rustc_middle[a59449566375ede2]::ty::trait_def::trait_impls_of_provider
+  27:     0x7ffb312feb60 - rustc_hir_analysis[5b0caf071dd43103]::check::check::check_abi
+  25:     0x7ffb324ed1bd - <rustc_middle[a59449566375ede2]::ty::instance::Instance>::try_resolve
+  18:     0x7ffb30958021 - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  28:     0x7ffb31d289cb - RINvMs6_NtCsg1V9peYwXvD_9hashbrown3rawINtB6_8RawTableTNtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph8dep_node7DepNodeTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdNtNtCsiLGbxUhmf5l_13rustc_type_ir5solve14SizedTraitKindEEE14reserve_rehashNCINvNtB8_3map11m
+  19:     0x7ffb31d52276 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj8_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+  26:     0x7ffb314cc4b6 - <rustc_mir_transform[d883caacc1240d81]::check_call_recursion::CheckCallRecursion as rustc_mir_transform[d883caacc1240d81]::pass_manager::MirLint>::run_lint
+  29:     0x7ffb31db7bf0 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtCs1EdUzFNlO8e_21rustc_data_structures9vec_cache8VecCacheNtNtCs5iYTimXG8FR_10rustc_span6def_id10LocalDefIdINtNtNtCsedndjjZtLTa_
+  20:     0x7ffb30a235f7 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  30:     0x7ffb31dea839 - rustc_query_impl[8fd5b0f5c34238e]::plumbing::query_key_hash_verify_all
+  27:     0x7ffb314129ac - rustc_mir_transform[d883caacc1240d81]::mir_built
+  21:     0x7ffb30d17039 - <rustc_middle[a59449566375ede2]::ty::context::TyCtxt>::all_impls
+  31:     0x7ffb312f865c - rustc_hir_analysis[5b0caf071dd43103]::check::check::check_abi
+  28:     0x7ffb31d2a43b - RINvMs6_NtCsg1V9peYwXvD_9hashbrown3rawINtB6_8RawTableTNtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph8dep_node7DepNodeTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdNtNtCsiLGbxUhmf5l_13rustc_type_ir5solve14SizedTraitKindEEE14reserve_rehashNCINvNtB8_3map11m
+  32:     0x7ffb3095780b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  22:     0x7ffb31fe0c7e - rustc_trait_selection[a6770d5330b2a5da]::traits::specialize::specialization_graph_provider
+  23:     0x7ffb3095ac1b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  29:     0x7ffb31dbf034 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtCs1EdUzFNlO8e_21rustc_data_structures9vec_cache8VecCacheNtNtCs5iYTimXG8FR_10rustc_span6def_id10LocalDefIdINtNtNtCsedndjjZtLTa_
+  33:     0x7ffb3096966e - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj1_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  24:     0x7ffb31d52276 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj8_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+  30:     0x7ffb30a3d428 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  34:     0x7ffb30a209e9 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  25:     0x7ffb30a32f17 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  31:     0x7ffb315fd385 - rustc_mir_build[ea3546c9c09bd44c]::check_unsafety::check_unsafety
+  35:     0x7ffb31267d00 - rustc_hir_analysis[5b0caf071dd43103]::check_crate
+  26:     0x7ffb312af553 - <rustc_hir_analysis[5b0caf071dd43103]::autoderef::Autoderef>::new
+  32:     0x7ffb31d281ba - RINvMs6_NtCsg1V9peYwXvD_9hashbrown3rawINtB6_8RawTableTNtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph8dep_node7DepNodeTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdNtNtCsiLGbxUhmf5l_13rustc_type_ir5solve14SizedTraitKindEEE14reserve_rehashNCINvNtB8_3map11m
+  27:     0x7ffb30957a0b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  28:     0x7ffb31d3b23c - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches10DefIdCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj1_EEKb0_KB3q_KB3q_ENtNtB1f_8plumbing9QueryCtxtK
+  33:     0x7ffb309d341d - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtCs1EdUzFNlO8e_21rustc_data_structures9vec_cache8VecCacheNtNtCs5iYTimXG8FR_10rustc_span6def_id10LocalDefIdINtNtNtCsedndjjZtLTa_
+  29:     0x7ffb30a2216e - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  36:     0x7ffb30f5f452 - rustc_interface[5a766bad804168c2]::passes::analysis
+  30:     0x7ffb312d4b7d - rustc_hir_analysis[5b0caf071dd43103]::hir_ty_lowering::generics::check_generic_arg_count_for_call
+  37:     0x7ffb3095be5a - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  31:     0x7ffb312feb60 - rustc_hir_analysis[5b0caf071dd43103]::check::check::check_abi
+  34:     0x7ffb30a21fd6 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  38:     0x7ffb309630ef - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj0_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  35:     0x7ffb30f56bab - <tracing_subscriber[34857fa6e8276837]::registry::sharded::Registry as core[3905d979fb729c25]::default::Default>::default
+  39:     0x7ffb30a3c30c - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  36:     0x7ffb30f5f58b - rustc_interface[5a766bad804168c2]::passes::analysis
+  40:     0x7ffb2e47c26f - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  32:     0x7ffb31d289cb - RINvMs6_NtCsg1V9peYwXvD_9hashbrown3rawINtB6_8RawTableTNtNtNtCsfin8TsRpNAf_18rustc_query_system9dep_graph8dep_node7DepNodeTNtNtCs5iYTimXG8FR_10rustc_span6def_id5DefIdNtNtCsiLGbxUhmf5l_13rustc_type_ir5solve14SizedTraitKindEEE14reserve_rehashNCINvNtB8_3map11m
+  37:     0x7ffb3095be5a - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  41:     0x7ffb2e4748df - RINvNtNtCs2SKMtlA5baC_3std3sys9backtrace28___rust_begin_short_backtraceNCNCINvNtCs7LwS3WNFTna_15rustc_interface4util26run_in_thread_with_globalsNCINvB1e_31run_in_thread_pool_with_globalsNCINvNtB1g_9interface12run_compileruNCNvCsdSH84QsoCJ4_17rustc_driver_i
+  42:     0x7ffb2e482bc9 - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  38:     0x7ffb309630ef - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj0_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  43:     0x7ffb30eec448 - std::sys::thread::windows::impl$0::new::thread_start
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\thread\windows.rs:58
+  33:     0x7ffb31db7bf0 - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtCs1EdUzFNlO8e_21rustc_data_structures9vec_cache8VecCacheNtNtCs5iYTimXG8FR_10rustc_span6def_id10LocalDefIdINtNtNtCsedndjjZtLTa_
+  39:     0x7ffb30a3c30c - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  40:     0x7ffb2e47c26f - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  34:     0x7ffb31dea839 - rustc_query_impl[8fd5b0f5c34238e]::plumbing::query_key_hash_verify_all
+  41:     0x7ffb2e4748df - RINvNtNtCs2SKMtlA5baC_3std3sys9backtrace28___rust_begin_short_backtraceNCNCINvNtCs7LwS3WNFTna_15rustc_interface4util26run_in_thread_with_globalsNCINvB1e_31run_in_thread_pool_with_globalsNCINvNtB1g_9interface12run_compileruNCNvCsdSH84QsoCJ4_17rustc_driver_i
+  44:     0x7ffc4197e957 - BaseThreadInitThunk
+  42:     0x7ffb2e482bc9 - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  43:     0x7ffb30eec448 - std::sys::thread::windows::impl$0::new::thread_start
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\thread\windows.rs:58
+  35:     0x7ffb312f865c - rustc_hir_analysis[5b0caf071dd43103]::check::check::check_abi
+  36:     0x7ffb3095780b - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  45:     0x7ffc42067c1c - RtlUserThreadStart
+  44:     0x7ffc4197e957 - BaseThreadInitThunk
+  37:     0x7ffb3096966e - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj1_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  38:     0x7ffb30a209e9 - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  45:     0x7ffc42067c1c - RtlUserThreadStart
+  39:     0x7ffb31267d00 - rustc_hir_analysis[5b0caf071dd43103]::check_crate
+  40:     0x7ffb30f5f452 - rustc_interface[5a766bad804168c2]::passes::analysis
+  41:     0x7ffb3095be5a - <rustc_lint[98874a15d888c01f]::builtin::SpecialModuleName as rustc_lint[98874a15d888c01f]::passes::EarlyLintPass>::check_crate
+  42:     0x7ffb309630ef - RINvNtNtCsfin8TsRpNAf_18rustc_query_system5query8plumbing17try_execute_queryINtCsLQOlhJ6oH2_16rustc_query_impl13DynamicConfigINtNtB4_6caches11SingleCacheINtNtNtCsedndjjZtLTa_12rustc_middle5query5erase6ErasedAhj0_EEKb0_KB3r_KB3r_ENtNtB1f_8plumbing9QueryCtxt
+  43:     0x7ffb30a3c30c - rustc_query_impl[8fd5b0f5c34238e]::profiling_support::alloc_self_profile_query_strings
+  44:     0x7ffb2e47c26f - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  45:     0x7ffb2e4748df - RINvNtNtCs2SKMtlA5baC_3std3sys9backtrace28___rust_begin_short_backtraceNCNCINvNtCs7LwS3WNFTna_15rustc_interface4util26run_in_thread_with_globalsNCINvB1e_31run_in_thread_pool_with_globalsNCINvNtB1g_9interface12run_compileruNCNvCsdSH84QsoCJ4_17rustc_driver_i
+tests\fuzz_proptest.rs:10:5: error[E0463]: can't find crate for `vantadb`: can't find crate
+  46:     0x7ffb2e482bc9 - std[2194e99ba9242378]::sys::backtrace::__rust_begin_short_backtrace::<std[2194e99ba9242378]::thread::lifecycle::spawn_unchecked<ctrlc[864879ef4cff5a46]::set_handler_inner<rustc_driver_impl[a1b1c6148a1ee804]::install_ctrlc_handler::{closure#0}>::{closure#0}, ()>::{closure#1}::{closure#0}::{closure#0}, ()>
+  47:     0x7ffb30eec448 - std::sys::thread::windows::impl$0::new::thread_start
+                               at /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library\std\src\sys\thread\windows.rs:58
+  48:     0x7ffc4197e957 - BaseThreadInitThunk
+  49:     0x7ffc42067c1c - RtlUserThreadStart
+error: could not compile `vantadb` (test "edge_cases") due to 1 previous error
+error: could not compile `vantadb` (test "concurrency_parity") due to 1 previous error
+error: could not compile `vantadb` (test "security_audit")
+
+Caused by:
+  process didn't exit successfully: `C:\Users\Eros\.rustup\toolchains\1.94.1-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name security_audit --edition=2021 tests\security\security_audit.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,diagnostic-short --emit=dep-info,metadata -C opt-level=1 -C embed-bitcode=no -C debug-assertions=on --test --cfg "feature=\"advanced-tokenizer\"" --cfg "feature=\"arrow\"" --cfg "feature=\"cli\"" --cfg "feature=\"default\"" --cfg "feature=\"fjall\"" --cfg "feature=\"fs2\"" --cfg "feature=\"memmap2\"" --cfg "feature=\"prometheus\"" --cfg "feature=\"rayon\"" --cfg "feature=\"rocksdb\"" --cfg "feature=\"sysinfo\"" --check-cfg cfg(docsrs,test) --check-cfg "cfg(feature, values(\"advanced-tokenizer\", \"arrow\", \"cli\", \"custom-allocator\", \"default\", \"failpoints\", \"fjall\", \"fs2\", \"jemalloc\", \"memmap2\", \"mimalloc\", \"opentelemetry\", \"prometheus\", \"pyo3\", \"python_sdk\", \"rayon\", \"remote-inference\", \"reqwest\", \"rocksdb\", \"server\", \"sysinfo\", \"tls\", \"wasm\"))" -C metadata=1b2bb98b89e45719 -C extra-filename=-6f734f4bbafbb90e --out-dir "C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" -C linker=link.exe -C "incremental=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\incremental" -L "dependency=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" --extern "arc_swap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarc_swap-9f4b518f3268828b.rmeta" --extern "arrow=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarrow-d9874ee72a0f0245.rmeta" --extern "chrono=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libchrono-87224d4d8291d5d7.rmeta" --extern "clap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap-863b38c50e00c9f9.rmeta" --extern "clap_complete=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap_complete-557338230d10375d.rmeta" --extern "console=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libconsole-465589cebdb59297.rmeta" --extern "crc32c=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcrc32c-ed18b70ef8c69cb0.rmeta" --extern "criterion=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcriterion-4257ace6ce94718e.rmeta" --extern "dashmap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libdashmap-ba5b70e666ce7a0e.rmeta" --extern "fjall=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfjall-4c487bfa074f6f7e.rmeta" --extern "fs2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfs2-323ea20f2d9857bb.rmeta" --extern "futures=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfutures-4c2144a4f4217077.rmeta" --extern "http=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libhttp-f4adba485a41965a.rmeta" --extern "indicatif=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libindicatif-76f0748adc24b3d3.rmeta" --extern "memmap2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libmemmap2-8afc59a0d383762a.rmeta" --extern "nom=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libnom-0a0eb6f88b4e5cfc.rmeta" --extern "parking_lot=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libparking_lot-a6c7943d073bd25d.rmeta" --extern "postcard=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libpostcard-3cc708673bb86180.rmeta" --extern "prometheus=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libprometheus-867f64c409c2246b.rmeta" --extern "proptest=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libproptest-d0a174ef9d5342d9.rmeta" --extern "rand=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librand-e685e9b8169ce915.rmeta" --extern "rayon=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librayon-09bfa3b3b7f4d710.rmeta" --extern "rocksdb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librocksdb-6151faa942eedcc5.rmeta" --extern "serde=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde-a078ef1724fe3e67.rmeta" --extern "serde_json=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde_json-be70140af8225f95.rmeta" --extern "smallvec=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsmallvec-3e7f63cd7039a339.rmeta" --extern "subtle=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsubtle-6108606c04031723.rmeta" --extern "sysinfo=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsysinfo-670febaaaeb82ea4.rmeta" --extern "tantivy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtantivy-e8b15c70fd650425.rmeta" --extern "tempfile=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtempfile-1253a9b9414370a4.rmeta" --extern "thiserror=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libthiserror-9d6a6ac71b71ac25.rmeta" --extern "tokio=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtokio-089e48abb97dca1e.rmeta" --extern "tracing=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing-0d1f560287cfea75.rmeta" --extern "tracing_subscriber=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing_subscriber-ee9aa7dd71820813.rmeta" --extern "twox_hash=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtwox_hash-1e7753291503e455.rmeta" --extern "vantadb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libvantadb-b0e10dbcf4be50f9.rmeta" --extern "web_time=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libweb_time-4ccf99bee72e68e2.rmeta" --extern "wide=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwide-56f2bbaf086ee419.rmeta" --extern "windows_sys=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwindows_sys-8ef7e6bee2da79fa.rmeta" --extern "zerocopy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libzerocopy-c71acaf9367c11fc.rmeta" -C target-cpu=native -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\alloca-803e52d9c48e98c9\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\librocksdb-sys-c887a22b62d9ed74\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\lz4-sys-64cfeced83689bb2\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\zstd-sys-04e380ce1ef2cbed\out" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L native=C:\Users\Eros\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows_x86_64_msvc-0.52.6\lib -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64"` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+tests\certification\..\common\mod.rs:354:48: error[E0282]: type annotations needed: cannot infer type
+error: could not compile `vantadb` (test "fuzz_proptest") due to 1 previous error
+tests\certification\..\common\mod.rs:500:36: error[E0282]: type annotations needed: cannot infer type
+error: could not compile `vantadb` (test "benchmark_datasets")
+
+Caused by:
+  process didn't exit successfully: `C:\Users\Eros\.rustup\toolchains\1.94.1-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name benchmark_datasets --edition=2021 tests\benchmark_datasets.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,diagnostic-short --emit=dep-info,metadata -C opt-level=1 -C embed-bitcode=no -C debug-assertions=on --test --cfg "feature=\"advanced-tokenizer\"" --cfg "feature=\"arrow\"" --cfg "feature=\"cli\"" --cfg "feature=\"default\"" --cfg "feature=\"fjall\"" --cfg "feature=\"fs2\"" --cfg "feature=\"memmap2\"" --cfg "feature=\"prometheus\"" --cfg "feature=\"rayon\"" --cfg "feature=\"rocksdb\"" --cfg "feature=\"sysinfo\"" --check-cfg cfg(docsrs,test) --check-cfg "cfg(feature, values(\"advanced-tokenizer\", \"arrow\", \"cli\", \"custom-allocator\", \"default\", \"failpoints\", \"fjall\", \"fs2\", \"jemalloc\", \"memmap2\", \"mimalloc\", \"opentelemetry\", \"prometheus\", \"pyo3\", \"python_sdk\", \"rayon\", \"remote-inference\", \"reqwest\", \"rocksdb\", \"server\", \"sysinfo\", \"tls\", \"wasm\"))" -C metadata=5781c22ca6381919 -C extra-filename=-d43d04fc89fa3d77 --out-dir "C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" -C linker=link.exe -C "incremental=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\incremental" -L "dependency=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" --extern "arc_swap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarc_swap-9f4b518f3268828b.rmeta" --extern "arrow=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarrow-d9874ee72a0f0245.rmeta" --extern "chrono=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libchrono-87224d4d8291d5d7.rmeta" --extern "clap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap-863b38c50e00c9f9.rmeta" --extern "clap_complete=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap_complete-557338230d10375d.rmeta" --extern "console=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libconsole-465589cebdb59297.rmeta" --extern "crc32c=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcrc32c-ed18b70ef8c69cb0.rmeta" --extern "criterion=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcriterion-4257ace6ce94718e.rmeta" --extern "dashmap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libdashmap-ba5b70e666ce7a0e.rmeta" --extern "fjall=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfjall-4c487bfa074f6f7e.rmeta" --extern "fs2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfs2-323ea20f2d9857bb.rmeta" --extern "futures=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfutures-4c2144a4f4217077.rmeta" --extern "http=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libhttp-f4adba485a41965a.rmeta" --extern "indicatif=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libindicatif-76f0748adc24b3d3.rmeta" --extern "memmap2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libmemmap2-8afc59a0d383762a.rmeta" --extern "nom=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libnom-0a0eb6f88b4e5cfc.rmeta" --extern "parking_lot=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libparking_lot-a6c7943d073bd25d.rmeta" --extern "postcard=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libpostcard-3cc708673bb86180.rmeta" --extern "prometheus=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libprometheus-867f64c409c2246b.rmeta" --extern "proptest=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libproptest-d0a174ef9d5342d9.rmeta" --extern "rand=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librand-e685e9b8169ce915.rmeta" --extern "rayon=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librayon-09bfa3b3b7f4d710.rmeta" --extern "rocksdb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librocksdb-6151faa942eedcc5.rmeta" --extern "serde=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde-a078ef1724fe3e67.rmeta" --extern "serde_json=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde_json-be70140af8225f95.rmeta" --extern "smallvec=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsmallvec-3e7f63cd7039a339.rmeta" --extern "subtle=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsubtle-6108606c04031723.rmeta" --extern "sysinfo=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsysinfo-670febaaaeb82ea4.rmeta" --extern "tantivy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtantivy-e8b15c70fd650425.rmeta" --extern "tempfile=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtempfile-1253a9b9414370a4.rmeta" --extern "thiserror=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libthiserror-9d6a6ac71b71ac25.rmeta" --extern "tokio=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtokio-089e48abb97dca1e.rmeta" --extern "tracing=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing-0d1f560287cfea75.rmeta" --extern "tracing_subscriber=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing_subscriber-ee9aa7dd71820813.rmeta" --extern "twox_hash=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtwox_hash-1e7753291503e455.rmeta" --extern "vantadb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libvantadb-b0e10dbcf4be50f9.rmeta" --extern "web_time=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libweb_time-4ccf99bee72e68e2.rmeta" --extern "wide=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwide-56f2bbaf086ee419.rmeta" --extern "windows_sys=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwindows_sys-8ef7e6bee2da79fa.rmeta" --extern "zerocopy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libzerocopy-c71acaf9367c11fc.rmeta" -C target-cpu=native -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\alloca-803e52d9c48e98c9\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\librocksdb-sys-c887a22b62d9ed74\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\lz4-sys-64cfeced83689bb2\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\zstd-sys-04e380ce1ef2cbed\out" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L native=C:\Users\Eros\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows_x86_64_msvc-0.52.6\lib -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64"` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+error: could not compile `vantadb` (test "stress_protocol")
+
+Caused by:
+  process didn't exit successfully: `C:\Users\Eros\.rustup\toolchains\1.94.1-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name stress_protocol --edition=2021 tests\certification\stress_protocol.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,diagnostic-short --emit=dep-info,metadata -C opt-level=1 -C embed-bitcode=no -C debug-assertions=on --test --cfg "feature=\"advanced-tokenizer\"" --cfg "feature=\"arrow\"" --cfg "feature=\"cli\"" --cfg "feature=\"default\"" --cfg "feature=\"fjall\"" --cfg "feature=\"fs2\"" --cfg "feature=\"memmap2\"" --cfg "feature=\"prometheus\"" --cfg "feature=\"rayon\"" --cfg "feature=\"rocksdb\"" --cfg "feature=\"sysinfo\"" --check-cfg cfg(docsrs,test) --check-cfg "cfg(feature, values(\"advanced-tokenizer\", \"arrow\", \"cli\", \"custom-allocator\", \"default\", \"failpoints\", \"fjall\", \"fs2\", \"jemalloc\", \"memmap2\", \"mimalloc\", \"opentelemetry\", \"prometheus\", \"pyo3\", \"python_sdk\", \"rayon\", \"remote-inference\", \"reqwest\", \"rocksdb\", \"server\", \"sysinfo\", \"tls\", \"wasm\"))" -C metadata=5085a1f8abcfc930 -C extra-filename=-4d9011873f0e48ea --out-dir "C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" -C linker=link.exe -C "incremental=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\incremental" -L "dependency=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" --extern "arc_swap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarc_swap-9f4b518f3268828b.rmeta" --extern "arrow=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarrow-d9874ee72a0f0245.rmeta" --extern "chrono=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libchrono-87224d4d8291d5d7.rmeta" --extern "clap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap-863b38c50e00c9f9.rmeta" --extern "clap_complete=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap_complete-557338230d10375d.rmeta" --extern "console=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libconsole-465589cebdb59297.rmeta" --extern "crc32c=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcrc32c-ed18b70ef8c69cb0.rmeta" --extern "criterion=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcriterion-4257ace6ce94718e.rmeta" --extern "dashmap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libdashmap-ba5b70e666ce7a0e.rmeta" --extern "fjall=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfjall-4c487bfa074f6f7e.rmeta" --extern "fs2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfs2-323ea20f2d9857bb.rmeta" --extern "futures=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfutures-4c2144a4f4217077.rmeta" --extern "http=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libhttp-f4adba485a41965a.rmeta" --extern "indicatif=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libindicatif-76f0748adc24b3d3.rmeta" --extern "memmap2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libmemmap2-8afc59a0d383762a.rmeta" --extern "nom=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libnom-0a0eb6f88b4e5cfc.rmeta" --extern "parking_lot=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libparking_lot-a6c7943d073bd25d.rmeta" --extern "postcard=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libpostcard-3cc708673bb86180.rmeta" --extern "prometheus=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libprometheus-867f64c409c2246b.rmeta" --extern "proptest=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libproptest-d0a174ef9d5342d9.rmeta" --extern "rand=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librand-e685e9b8169ce915.rmeta" --extern "rayon=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librayon-09bfa3b3b7f4d710.rmeta" --extern "rocksdb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librocksdb-6151faa942eedcc5.rmeta" --extern "serde=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde-a078ef1724fe3e67.rmeta" --extern "serde_json=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde_json-be70140af8225f95.rmeta" --extern "smallvec=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsmallvec-3e7f63cd7039a339.rmeta" --extern "subtle=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsubtle-6108606c04031723.rmeta" --extern "sysinfo=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsysinfo-670febaaaeb82ea4.rmeta" --extern "tantivy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtantivy-e8b15c70fd650425.rmeta" --extern "tempfile=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtempfile-1253a9b9414370a4.rmeta" --extern "thiserror=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libthiserror-9d6a6ac71b71ac25.rmeta" --extern "tokio=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtokio-089e48abb97dca1e.rmeta" --extern "tracing=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing-0d1f560287cfea75.rmeta" --extern "tracing_subscriber=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing_subscriber-ee9aa7dd71820813.rmeta" --extern "twox_hash=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtwox_hash-1e7753291503e455.rmeta" --extern "vantadb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libvantadb-b0e10dbcf4be50f9.rmeta" --extern "web_time=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libweb_time-4ccf99bee72e68e2.rmeta" --extern "wide=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwide-56f2bbaf086ee419.rmeta" --extern "windows_sys=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwindows_sys-8ef7e6bee2da79fa.rmeta" --extern "zerocopy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libzerocopy-c71acaf9367c11fc.rmeta" -C target-cpu=native -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\alloca-803e52d9c48e98c9\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\librocksdb-sys-c887a22b62d9ed74\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\lz4-sys-64cfeced83689bb2\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\zstd-sys-04e380ce1ef2cbed\out" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L native=C:\Users\Eros\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows_x86_64_msvc-0.52.6\lib -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64"` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+tests\certification\hnsw_recall.rs:84:17: error[E0308]: mismatched types: expected `u128`, found `u64`
+tests\certification\hnsw_recall.rs:102:90: error[E0277]: a value of type `Vec<u64>` cannot be built from an iterator over elements of type `u128`: value of type `Vec<u64>` cannot be built from `std::iter::Iterator<Item=u128>`
+error: could not compile `vantadb` (test "schema_evolution")
+
+Caused by:
+  process didn't exit successfully: `C:\Users\Eros\.rustup\toolchains\1.94.1-x86_64-pc-windows-msvc\bin\rustc.exe --crate-name schema_evolution --edition=2021 tests\schema_evolution.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,diagnostic-short --emit=dep-info,metadata -C opt-level=1 -C embed-bitcode=no -C debug-assertions=on --test --cfg "feature=\"advanced-tokenizer\"" --cfg "feature=\"arrow\"" --cfg "feature=\"cli\"" --cfg "feature=\"default\"" --cfg "feature=\"fjall\"" --cfg "feature=\"fs2\"" --cfg "feature=\"memmap2\"" --cfg "feature=\"prometheus\"" --cfg "feature=\"rayon\"" --cfg "feature=\"rocksdb\"" --cfg "feature=\"sysinfo\"" --check-cfg cfg(docsrs,test) --check-cfg "cfg(feature, values(\"advanced-tokenizer\", \"arrow\", \"cli\", \"custom-allocator\", \"default\", \"failpoints\", \"fjall\", \"fs2\", \"jemalloc\", \"memmap2\", \"mimalloc\", \"opentelemetry\", \"prometheus\", \"pyo3\", \"python_sdk\", \"rayon\", \"remote-inference\", \"reqwest\", \"rocksdb\", \"server\", \"sysinfo\", \"tls\", \"wasm\"))" -C metadata=eebd4cea6ae5f50d -C extra-filename=-47e761b4f1c4e866 --out-dir "C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" -C linker=link.exe -C "incremental=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\incremental" -L "dependency=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps" --extern "arc_swap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarc_swap-9f4b518f3268828b.rmeta" --extern "arrow=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libarrow-d9874ee72a0f0245.rmeta" --extern "chrono=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libchrono-87224d4d8291d5d7.rmeta" --extern "clap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap-863b38c50e00c9f9.rmeta" --extern "clap_complete=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libclap_complete-557338230d10375d.rmeta" --extern "console=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libconsole-465589cebdb59297.rmeta" --extern "crc32c=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcrc32c-ed18b70ef8c69cb0.rmeta" --extern "criterion=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libcriterion-4257ace6ce94718e.rmeta" --extern "dashmap=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libdashmap-ba5b70e666ce7a0e.rmeta" --extern "fjall=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfjall-4c487bfa074f6f7e.rmeta" --extern "fs2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfs2-323ea20f2d9857bb.rmeta" --extern "futures=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libfutures-4c2144a4f4217077.rmeta" --extern "http=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libhttp-f4adba485a41965a.rmeta" --extern "indicatif=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libindicatif-76f0748adc24b3d3.rmeta" --extern "memmap2=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libmemmap2-8afc59a0d383762a.rmeta" --extern "nom=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libnom-0a0eb6f88b4e5cfc.rmeta" --extern "parking_lot=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libparking_lot-a6c7943d073bd25d.rmeta" --extern "postcard=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libpostcard-3cc708673bb86180.rmeta" --extern "prometheus=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libprometheus-867f64c409c2246b.rmeta" --extern "proptest=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libproptest-d0a174ef9d5342d9.rmeta" --extern "rand=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librand-e685e9b8169ce915.rmeta" --extern "rayon=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librayon-09bfa3b3b7f4d710.rmeta" --extern "rocksdb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\librocksdb-6151faa942eedcc5.rmeta" --extern "serde=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde-a078ef1724fe3e67.rmeta" --extern "serde_json=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libserde_json-be70140af8225f95.rmeta" --extern "smallvec=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsmallvec-3e7f63cd7039a339.rmeta" --extern "subtle=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsubtle-6108606c04031723.rmeta" --extern "sysinfo=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libsysinfo-670febaaaeb82ea4.rmeta" --extern "tantivy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtantivy-e8b15c70fd650425.rmeta" --extern "tempfile=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtempfile-1253a9b9414370a4.rmeta" --extern "thiserror=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libthiserror-9d6a6ac71b71ac25.rmeta" --extern "tokio=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtokio-089e48abb97dca1e.rmeta" --extern "tracing=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing-0d1f560287cfea75.rmeta" --extern "tracing_subscriber=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtracing_subscriber-ee9aa7dd71820813.rmeta" --extern "twox_hash=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libtwox_hash-1e7753291503e455.rmeta" --extern "vantadb=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libvantadb-b0e10dbcf4be50f9.rmeta" --extern "web_time=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libweb_time-4ccf99bee72e68e2.rmeta" --extern "wide=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwide-56f2bbaf086ee419.rmeta" --extern "windows_sys=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libwindows_sys-8ef7e6bee2da79fa.rmeta" --extern "zerocopy=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\deps\libzerocopy-c71acaf9367c11fc.rmeta" -C target-cpu=native -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\alloca-803e52d9c48e98c9\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\librocksdb-sys-c887a22b62d9ed74\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\lz4-sys-64cfeced83689bb2\out" -L "native=C:\Users\Eros\VantaDB Proyect\VantaDB\target\debug\build\zstd-sys-04e380ce1ef2cbed\out" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64" -L native=C:\Users\Eros\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows_x86_64_msvc-0.52.6\lib -L "native=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\atlmfc\lib\x64"` (exit code: 0xc0000409, STATUS_STACK_BUFFER_OVERRUN)
+error: could not compile `vantadb` (test "hnsw_recall_certification") due to 5 previous errors
+error: could not compile `vantadb` (test "durability_recovery") due to 7 previous errors
+error: could not compile `vantadb` (test "wal_resilience") due to 1 previous error

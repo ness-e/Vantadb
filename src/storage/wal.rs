@@ -13,12 +13,19 @@ use tracing::info;
 const FLAG_TOMBSTONE: u32 = 0x8;
 
 /// Open or skip WAL initialization based on the read-only configuration flag.
-pub(crate) fn init_wal(data_dir: &Path, config: &VantaConfig) -> Result<Option<WalWriter>> {
+pub(crate) fn init_wal(
+    data_dir: &Path,
+    config: &VantaConfig,
+) -> Result<Option<crate::wal_sharded::ShardedWal>> {
     if config.read_only {
         return Ok(None);
     }
     let wal_path = data_dir.join("vanta.wal");
-    Ok(Some(WalWriter::open(&wal_path, config.sync_mode)?))
+    Ok(Some(crate::wal_sharded::ShardedWal::new(
+        &wal_path,
+        4,
+        config.sync_mode,
+    )?))
 }
 
 #[allow(dead_code)]

@@ -830,6 +830,26 @@ static PLANNER_HYBRID_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_TEXT_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static PLANNER_VECTOR_ONLY_QUERIES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
+// ── PERF-10: Eviction counters ───────────────────────────────
+
+/// Total number of nodes evicted from hot cache to cold storage.
+static EVICTIONS_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Total nodes scanned across all eviction cycles.
+static EVICTION_SCANNED_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Total eviction cycles run.
+static EVICTION_CYCLES_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Total bytes freed by eviction.
+static EVICTION_BYTES_TOTAL: AtomicU64 = AtomicU64::new(0);
+
+// ── PERF-09: Quantization counters ───────────────────────────
+
+/// Total nodes quantized from f32 → SQ8.
+pub(crate) static QUANTIZED_NODES_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Total nodes promoted from SQ8 → f32.
+pub(crate) static PROMOTED_NODES_TOTAL: AtomicU64 = AtomicU64::new(0);
+/// Current number of SQ8-quantized nodes.
+pub(crate) static CURRENT_QUANTIZED_NODES: AtomicU64 = AtomicU64::new(0);
+
 /// Per-subsystem memory breakdown snapshot.
 ///
 /// These values are **observational**, not accounting-grade. RSS and virtual
@@ -917,6 +937,20 @@ pub struct OperationalMetricsSnapshot {
     pub derived_prefix_scans: u64,
     /// Total fallbacks to full scan when derived index was absent.
     pub derived_full_scan_fallbacks: u64,
+    /// Total nodes evicted from hot cache to cold tier.
+    pub evictions_total: u64,
+    /// Total nodes scanned across all eviction cycles.
+    pub eviction_scanned_total: u64,
+    /// Total eviction cycles executed.
+    pub eviction_cycles_total: u64,
+    /// Total bytes freed by eviction.
+    pub eviction_bytes_total: u64,
+    /// Total nodes quantized from f32 → SQ8.
+    pub quantized_nodes_total: u64,
+    /// Total nodes promoted from SQ8 → f32.
+    pub promoted_nodes_total: u64,
+    /// Current number of SQ8-quantized nodes.
+    pub current_quantized_nodes: u64,
     /// Per-subsystem memory breakdown at snapshot time.
     pub memory: MemoryBreakdownSnapshot,
 }
@@ -1033,6 +1067,30 @@ pub fn record_derived_prefix_scan() {
 /// Record a fallback full scan when derived index is absent.
 pub fn record_derived_full_scan_fallback() {
     DERIVED_FULL_SCAN_FALLBACKS_TOTAL.fetch_add(1, Ordering::Relaxed);
+}
+
+// ── PERF-10: Eviction recording ──────────────────────────────
+
+/// Record an eviction cycle result: nodes evicted, scanned, bytes freed.
+pub fn record_eviction(evicted: u64, scanned: u64, bytes_freed: u64) {
+    EVICTIONS_TOTAL.fetch_add(evicted, Ordering::Relaxed);
+    EVICTION_SCANNED_TOTAL.fetch_add(scanned, Ordering::Relaxed);
+    EVICTION_CYCLES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    EVICTION_BYTES_TOTAL.fetch_add(bytes_freed, Ordering::Relaxed);
+}
+
+// ── PERF-09: Quantization recording ──────────────────────────
+
+/// Record a quantization event (f32 → SQ8).
+pub fn record_quantization() {
+    QUANTIZED_NODES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    CURRENT_QUANTIZED_NODES.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Record a promotion event (SQ8 → f32).
+pub fn record_promotion() {
+    PROMOTED_NODES_TOTAL.fetch_add(1, Ordering::Relaxed);
+    CURRENT_QUANTIZED_NODES.fetch_sub(1, Ordering::Relaxed);
 }
 
 fn get_native_memory() -> Option<(u64, u64)> {
@@ -1271,6 +1329,13 @@ pub fn operational_metrics_snapshot() -> OperationalMetricsSnapshot {
         import_errors: IMPORT_ERRORS_TOTAL.load(Ordering::Relaxed),
         derived_prefix_scans: DERIVED_PREFIX_SCANS_TOTAL.load(Ordering::Relaxed),
         derived_full_scan_fallbacks: DERIVED_FULL_SCAN_FALLBACKS_TOTAL.load(Ordering::Relaxed),
+        evictions_total: EVICTIONS_TOTAL.load(Ordering::Relaxed),
+        eviction_scanned_total: EVICTION_SCANNED_TOTAL.load(Ordering::Relaxed),
+        eviction_cycles_total: EVICTION_CYCLES_TOTAL.load(Ordering::Relaxed),
+        eviction_bytes_total: EVICTION_BYTES_TOTAL.load(Ordering::Relaxed),
+        quantized_nodes_total: QUANTIZED_NODES_TOTAL.load(Ordering::Relaxed),
+        promoted_nodes_total: PROMOTED_NODES_TOTAL.load(Ordering::Relaxed),
+        current_quantized_nodes: CURRENT_QUANTIZED_NODES.load(Ordering::Relaxed),
         memory: memory_breakdown_snapshot(),
     }
 }
@@ -1325,6 +1390,13 @@ mod tests {
         PLANNER_HYBRID_QUERIES_TOTAL.store(0, Ordering::Relaxed);
         PLANNER_TEXT_ONLY_QUERIES_TOTAL.store(0, Ordering::Relaxed);
         PLANNER_VECTOR_ONLY_QUERIES_TOTAL.store(0, Ordering::Relaxed);
+        EVICTIONS_TOTAL.store(0, Ordering::Relaxed);
+        EVICTION_SCANNED_TOTAL.store(0, Ordering::Relaxed);
+        EVICTION_CYCLES_TOTAL.store(0, Ordering::Relaxed);
+        EVICTION_BYTES_TOTAL.store(0, Ordering::Relaxed);
+        QUANTIZED_NODES_TOTAL.store(0, Ordering::Relaxed);
+        PROMOTED_NODES_TOTAL.store(0, Ordering::Relaxed);
+        CURRENT_QUANTIZED_NODES.store(0, Ordering::Relaxed);
     }
 
     // ── Snapshot defaults ──────────────────────────────────────

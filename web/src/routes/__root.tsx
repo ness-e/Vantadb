@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           url: "https://vantadb.dev",
           applicationCategory: "DatabaseApplication",
           operatingSystem: "Linux, macOS, Windows",
-          softwareVersion: "0.1.5",
+          softwareVersion: "0.2.0",
           description:
             "Open-source embedded memory engine unifying vector search (HNSW), lexical search (BM25), and hybrid search (RRF) in a single Rust binary.",
           featureList: "HNSW vector search, BM25 full-text, hybrid RRF, WAL durability",

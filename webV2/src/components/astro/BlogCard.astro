@@ -1,0 +1,32 @@
+---
+export interface Props {
+  title: string;
+  description: string;
+  pubDate: Date;
+  tags?: string[];
+  slug: string;
+}
+
+const { title, description, pubDate, tags, slug } = Astro.props;
+---
+
+<a href={`/blog/${slug}`} class="blog-card block p-6" style="border: 1px solid var(--border); background: var(--surface); transition: border-color 0.15s var(--ease-brutal); text-decoration: none; display: block;">
+  <div class="flex flex-wrap items-center gap-3 mb-3">
+    <time class="text-xs" style="font-family: var(--font-mono); color: var(--steel);">
+      {pubDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+    </time>
+    {tags?.slice(0, 2).map((tag) => (
+      <span class="text-xs px-2 py-0.5" style="font-family: var(--font-mono); color: var(--amber); background: var(--amber-dim);">
+        {tag}
+      </span>
+    ))}
+  </div>
+  <h3 class="font-display font-semibold mb-2" style="font-size: var(--text-title);">{title}</h3>
+  <p class="text-sm" style="color: var(--muted);">{description}</p>
+</a>
+
+<style>
+  .blog-card:hover {
+    border-color: var(--amber) !important;
+  }
+</style>

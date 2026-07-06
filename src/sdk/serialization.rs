@@ -1619,16 +1619,15 @@ impl VantaEmbedded {
 
         let mut records = Vec::new();
         let mut seen = BTreeSet::new();
+        let unique_ids: Vec<u64> = candidate_ids
+            .into_iter()
+            .filter(|id| seen.insert(*id))
+            .collect();
 
-        for node_id in candidate_ids {
-            if !seen.insert(node_id) {
-                continue;
-            }
-            if let Some(node) = engine.get(node_id)? {
-                if let Some(record) = memory_record_from_node(node) {
-                    if record.namespace == namespace && matches_memory_filters(&record, filters) {
-                        records.push(record);
-                    }
+        for node in engine.get_many(&unique_ids)? {
+            if let Some(record) = memory_record_from_node(node) {
+                if record.namespace == namespace && matches_memory_filters(&record, filters) {
+                    records.push(record);
                 }
             }
         }

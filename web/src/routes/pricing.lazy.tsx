@@ -26,7 +26,7 @@ const tiers = [
       "WAL-backed durability, 3 storage backends",
       "Apache 2.0 license — unrestricted use",
       "Community support (Discord + GitHub)",
-      "LangChain + LlamaIndex integrations",
+      "CrewAI + DSPy + Haystack + Mem0 adapters",
       "MCP Server (Model Context Protocol)",
     ],
     cta: "Get Started",

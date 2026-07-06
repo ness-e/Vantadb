@@ -286,6 +286,102 @@ release-plz release                 # bump + changelog + tag + publish
 ```
 <!-- DEVTOOLS_END -->
 
+<!-- WEB_START -->
+## Web Frontend (Vite + React + TanStack Router)
+
+Stack: **Vite 8 + React 19 + TanStack Router v1 + GSAP 3.15 + Tailwind CSS v4**
+
+### Estructura
+
+```
+web/
+  src/
+    routes/        ← 27 rutas TanStack (lazy-loaded)
+    components/    ← nb/ (18 design system components) + compuestos (NbTrustBar, NbArchSection...)
+    styles/        ← 46 CSS → 31 tras cleanup. nb-base.css (base + grid) + nb-components.css (componentes + utilitarias)
+    lib/           ← gsap.ts (plugins registrados), utils.ts (cn)
+    hooks/         ← useScrollReveal (IntersectionObserver + "is-visible")
+```
+
+### Stack decisions
+
+| Decisión | Por qué |
+|----------|---------|
+| **Vite 8** | Última major, esbuild nativo, HMR instantáneo |
+| **React 19** | Server Components no usados (SPA), pero aprovecha use() y mejoras de rendering |
+| **TanStack Router v1** | Type-safe first class, lazy routes, search params |
+| **GSAP 3.15** | ScrollTrigger + TextPlugin + DrawSVG registrados. Plugins gratuitos desde 2024 |
+| **Tailwind v4** | CSS-first config (tokens.css importa tailwindcss). NO tailwind.config.js |
+| **@tanstack/react-query** | Para fetching si se agrega API |
+| **split-type** | Text reveal animations (hero, section headers) |
+| **@observablehq/plot** | Benchmarks (lazy-load, ~45KB gzip) |
+| **simple-icons** | Logos de tecnologías (tree-shakeable) |
+
+### Design System (nb/)
+
+18 componentes en `src/components/nb/`. Calidad promedio auditada: 7.9/10.
+
+| Componente | Propósito |
+|------------|-----------|
+| NbSectionHeader | Hero + section titles con `nb-section-header` + `--bordered`/`--center` |
+| NbCardFrame | Tarjetas con border + offset shadow (engine, architecture) |
+| NbDitherImage | Imagen con filtro SVG dithering (about/team) |
+| NbCursor | Cursor parpadeante terminal |
+| NbSplitFlap | Efecto split-flap display |
+| NbMarquee | Marquee horizontal infinito |
+| NbFeatureGrid | Grid asimétrico (7fr-5fr) con iconos |
+| NbPricingCard | Card de pricing con lista de features |
+| NbFaqAccordion | Acordeón FAQ |
+| NbTerminalBlock | Bloque de terminal con sintaxis |
+| NbBenchmarkGrid | Grid de benchmarks |
+| NbArchSection | Sección de arquitectura con spec table |
+| NbDataTrust | Trust bar animado |
+| NbEcosystem | Grid de ecosistema |
+
+### Sistema de animación
+
+- GSAP registrado en `src/lib/gsap.ts` (ScrollTrigger, TextPlugin, DrawSVGPlugin, useGSAP)
+- ScrollTrigger para animaciones basadas en scroll (pin, scrub, reveal)
+- TextPlugin para typewriter/heor text reveals
+- DrawSVGPlugin para SVG draw animations
+- `useScrollReveal` hook para reveal básico vía IntersectionObserver (clase `is-visible`)
+- Animaciones existentes en varias rutas (engine, latency, hero)
+
+### CSS Architecture
+
+- **nb-base.css**: Reset, layout helpers (`.nb-section`, `.nb-grid`, `.nb-inner`), tipografía base (`.nb-title`, `.nb-sub`)
+- **nb-components.css**: Componentes concretos (`.nb-card`, `.nb-btn`, `.nb-frame`, `.nb-bento`, `.nb-table`, `.nb-cmd-block`, `.nb-marquee`, `.nb-trust-*`, `.nb-metric-*`, `.nb-card-frame`, `.nb-num-marker`)
+- **tokens.css**: Variables CSS + Tailwind v4 theme
+- **index.css**: Entry point que `@import`a todos los CSS base
+- Archivos de ruta: cada ruta lazy importa su propio CSS
+
+### Patrones a seguir
+
+- **Variantes de clase**: `nb-card--amber`, `nb-card--strong` (modificador BEM)
+- **Estados**: Preferir data attributes (`[data-state="active"]`) sobre clases de estado
+- **CSS Modules**: No usar. Preferir CSS plano con naming BEM + `cn()` para composición
+- **Media queries**: Breakpoints: 960px (tablet), 768px (small tablet), 640px (mobile)
+- **prefers-reduced-motion**: Siempre incluir en animaciones nuevas
+- **Tailwind**: Solo para prototyping rápido. Preferir variables CSS + clases nb/ para producción
+
+### Performance Budget
+
+| Recurso | Límite actual | Target |
+|---------|--------------|--------|
+| Bundle JS (gzip) | ~150KB | <120KB |
+| CSS (gzip) | ~25KB | <20KB |
+| Fonts (gzip, 3 variables) | ~500KB | ~500KB (no cambiar) |
+| GSAP (gzip) | ~100KB | ~100KB (necesario para animaciones existentes) |
+
+### Contenido
+
+- **NO** usar "ONNX", "Sled", "LangChain", "LlamaIndex" — ya no existen en el código real
+- Stack real: **Rust 1.94**+ | **Python 3.11**+ | Fjall + RocksDB + InMemory backends
+- Integraciones reales: CrewAI + DSPy + Haystack + Mem0 + OpenAI + Ollama + LiteLLM
+- Versión: **0.2.0** (no 0.1.5)
+- Embedding providers: OpenAI, Ollama, LiteLLM (no "any ONNX model")
+<!-- WEB_END -->
+
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**

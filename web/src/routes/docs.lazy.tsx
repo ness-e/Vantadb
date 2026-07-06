@@ -28,7 +28,7 @@ $ python
 >>> results = db.search_memory(query=[0.12, 0.45, 0.78, 0.33], top_k=5)
 >>> results[0].score
 0.9421`,
-    desc: "Install VantaDB and run your first hybrid query in under 60 seconds. Ships as a single native binary with zero system dependencies \u2014 Python 3.10+ or Rust 1.75+ required.",
+    desc: "Install VantaDB and run your first hybrid query in under 60 seconds. Ships as a single native binary with zero system dependencies \u2014 Python 3.11+ or Rust 1.94+ required.",
   },
   {
     id: "python-sdk",
@@ -137,7 +137,7 @@ max_collections = 256`,
     id: "migration-guide",
     num: "06",
     title: "Migration Guide",
-    code: `# VantaDB v0.1.5 \u2014 Feature Overview
+    code: `# VantaDB v0.2.0 \u2014 Feature Overview
 
 ## Available
 - Python SDK (pip install vantadb-py, import vantadb_py)
@@ -145,15 +145,18 @@ max_collections = 256`,
 - CLI (vanta-cli \u2014 put, get, delete, search, list, server, export, import)
 - HNSW vector search + BM25 full-text + hybrid RRF
 - WAL-backed durability with WAL compaction
-- 3 storage backends (Memory, Sled, RocksDB)
+- 3 storage backends (Fjall, RocksDB, InMemory)
 - Batch operations (put_batch)
 - Graph methods (BFS, DFS, topological sort, DAG check)
 - MCP Server (experimental)
-- SQ8 quantization for memory reduction
+- SQ8 + TurboQuant + RaBitQ quantization (4×–32× memory reduction)
+- Predictive kernel prefetching (madvise / PrefetchVirtualMemory)
+- TTL auto-eviction with background compaction
+- Batch operations via Rayon parallelism
 
 ## Rebuild index
 $ vanta-cli rebuild-index --db-path ./my_db.vdb`,
-    desc: "Overview of features available in VantaDB v0.1.5. The Python SDK, Rust SDK, and CLI (vanta-cli) are all ready for local, self-hosted use.",
+    desc: "Overview of features available in VantaDB v0.2.0. The Python SDK, Rust SDK, and CLI (vanta-cli) are all ready for local, self-hosted use.",
   },
   {
     id: "api-reference",

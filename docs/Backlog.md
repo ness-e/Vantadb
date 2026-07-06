@@ -99,11 +99,11 @@ aliases: []
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
 | ~~`MKT-11`~~ | **Corregir `llms.txt`:** SQL (deferido), IVF (no implementado), latencia real | 🟢 1h | 🔴 | ✅ |
-| `MKT-12` | **Auditar claims de performance** contra benchmarks reales. Publicar metodología | 🟡 1-2d | 🔴 | ❌ |
+| `MKT-12` | **Auditar claims de performance** contra benchmarks reales. Publicar metodología | 🟡 1-2d | 🔴 | ✅ |
 | ~~`CODE-091`~~ | **`hit.distance` etiquetado como `"score"` en JS** — Semantic confusion. consumer espera higher=better pero es distance | `lib.rs:488-490` | 🟢 2h | 🟡 | ✅ |
-| `DX-02` | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** | 🟡 2-3d | 🔴 | ❌ |
-| `DX-03` | **Python SDK performance profiling** — Hacer profiling sistemático del hot path PyO3: medir GIL contention, copias de datos (vectores f32), overhead de serialización. Identificar bottlenecks específicos | 🟡 1-2d | 🔴 | ❌ |
-| `DX-04` | **Zero-copy vectors en PyO3** — Implementar buffer protocol / `__array_interface__` para evitar copias f32→Python list en el hot path de vector search | 🟡 2-3d | 🟠 | ❌ |
+| ~~`DX-02`~~ | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** — VantaVector zero-copy + owned hot paths implementados | 🟡 2-3d | 🔴 | ✅ |
+| ~~`DX-03`~~ | **Python SDK performance profiling** — Bottlenecks documentados: PyDict set_item, metadata clones, vector copy | 🟡 1-2d | 🔴 | ✅ |
+| ~~`DX-04`~~ | **Zero-copy vectors en PyO3** — `VantaVector` con `__array_interface__` buffer protocol implementado | 🟡 2-3d | 🟠 | ✅ |
 | `—` | Eliminar `OldSerializationError` deprecated del enum | 🟢 1h | 🟡 | ❌ |
 
 ### 🏗️ Index & Storage Quality
@@ -139,7 +139,7 @@ aliases: []
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
 | `DOC-19` | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ❌ |
 | `DOC-20` | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
-| `DOC-21` | **Performance clarity doc: Rust core vs Python SDK** — Documentar el gap (441µs Rust vs 62ms Python SDK) con causa raíz (PyO3, GIL) y expectativas realistas | 🟡 1d | 🟡 | ❌ |
+| `DOC-21` | **Performance clarity doc: Rust core vs Python SDK** — Documentar el gap (441µs Rust vs 62ms Python SDK) con causa raíz (PyO3, GIL) y expectativas realistas | 🟡 1d | 🟡 | ✅ |
 | `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
 
@@ -147,7 +147,7 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `MCP-03` | Benchmarks WASM vs EdgeVec/minimemory/altor-vec/lattice-db | 🟡 2-3d | 🔴 | ❌ |
+| `MCP-03` | Benchmarks WASM vs EdgeVec/minimemory/altor-vec/lattice-db | 🟡 2-3d | 🔴 | ✅ |
 | `MCP-05` | Integration test suite MCP (9→25+) | 🟡 1-2d | 🟡 | ✅ |
 | `WASM-03` | Demo AI Agent in browser (Transformers.js + OPFS) | 🟡 2-3d | 🟡 | ✅ |
 | `WASM-04` | WASM bundle size optimization (<500KB gzip) | 🟡 1-2d | 🟡 | ✅ |
@@ -175,7 +175,7 @@ aliases: []
 | `DOC-01` | Unit tests (91 nuevos) | — | 🟡 2-3d | 🟡 | ✅ |
 | `DOC-02` | Refactor `insert_hnsw()` (177L→3 funciones) | — | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-014`~~ | **LRU cache Python completamente muerto** — Cachea pero nunca lee. 100% overhead | `lib.rs:615-641` | 🟡 1d | 🟡 | ✅ |
-| `CODE-067` | **Hash 64-bit XxHash: colisión bloquea ambos records** — Con 2^32 keys, ~0.5 colisiones esperadas | `serialization.rs:39-45` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`CODE-067`~~ | **Hash 64-bit XxHash: colisión bloquea ambos records** — Migración u64→u128 en progreso (pre-existing type mismatches en 17 sitios) | `serialization.rs:39-45` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`CODE-089`~~ | **`VantaConfig.storage_path` sin efecto en WASM** — Siempre InMemory, path ignorado. Usuarios engañados | `types.rs:142-147` | 🟢 4h | 🟡 | ✅ |
 | ~~`CODE-090`~~ | **`insertNode(id: number)` hace `BigInt(id)` — overflow > 2^53** | `vantadb.ts:210-217` | 🟢 2h | 🟡 | ✅ |
 
@@ -324,10 +324,10 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | ~~`CODE-034`~~ | **`VANTA_BACKEND=fjall` triggers warning falso** — Valor válido no en match | `config.rs:271-281` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-038`~~ | **LRU Python no refresca orden en update** — Item updated se evicta prematuro | `lib.rs:60-71` | 🟢 2h | 🟢 | ✅ |
-| `CODE-039` | **Empty list `[]` siempre `ListString`** — Ambiguo semánticamente | `lib.rs:87-89` | 🟢 1h | 🟢 | ❌ |
-| `CODE-040` | **List type inference del primer elemento** — `[42,"hello"]` error confuso | `lib.rs:91-151` | 🟢 2h | 🟢 | ❌ |
-| `CODE-041` | **`operational_metrics()` sin `allow_threads()`** — GIL retenido innecesario | `lib.rs:1045-1048` | 🟢 1h | 🟢 | ❌ |
-| `CODE-042` | **`BUFFER_CACHE` thread-local declarado, NUNCA usado** | `lib.rs:24-26` | 🟢 1h | 🟢 | ❌ |
+| ~~`CODE-039`~~ | **Empty list `[]` siempre `ListString`** — Ambiguo semánticamente | `lib.rs:87-89` | 🟢 1h | 🟢 | ✅ |
+| ~~`CODE-040`~~ | **List type inference del primer elemento** — `[42,"hello"]` error confuso | `lib.rs:91-151` | 🟢 2h | 🟢 | ✅ |
+| ~~`CODE-041`~~ | **`operational_metrics()` sin `allow_threads()`** — GIL retenido innecesario | `lib.rs:1076-1080` | 🟢 1h | 🟢 | ✅ |
+| ~~`CODE-042`~~ | **`BUFFER_CACHE` thread-local declarado, NUNCA usado** | `lib.rs:24-26` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-050`~~ | **Date sorting produce NaN** — `new Date("").getTime()` cuando falta frontmatter | `blog.ts:67` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-051`~~ | **`motion` chunk config para dep no instalado** — Dead config | `vite.config.ts:18` | 🟢 1h | 🟢 | ✅ |
 

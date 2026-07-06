@@ -112,9 +112,23 @@ pub enum VantaError {
         duration_ms: u64,
     },
 
-    /// Generic execution error.
-    #[error("Execution error: {0}")]
-    Execution(String),
+    /// Execution attempted an unsupported operation.
+    #[error("Unsupported operation: {operation} — {detail}")]
+    UnsupportedOperation {
+        /// The unsupported operation name.
+        operation: String,
+        /// Explanation of why it is unsupported.
+        detail: String,
+    },
+
+    /// Execution conflict (e.g. concurrent modification).
+    #[error("Execution conflict on {resource}: {detail}")]
+    ExecutionConflict {
+        /// The resource involved in the conflict.
+        resource: String,
+        /// Details about the conflict.
+        detail: String,
+    },
 
     /// Error during IQL processing.
     #[error("IQL error: {0}")]

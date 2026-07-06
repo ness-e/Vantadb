@@ -11,9 +11,12 @@ use parking_lot::{Mutex, RwLock};
 
 const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
+use crate::edge_index::EdgeIndex;
 use crate::error::{Result, VantaError};
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
-use crate::wal::{WalReader, WalRecord, WalWriter};
+use crate::scalar_index::ScalarIndex;
+use crate::wal::{WalReader, WalRecord};
+use crate::wal_sharded::ShardedWal;
 
 // ─── Query Result ──────────────────────────────────────────
 
@@ -69,10 +72,14 @@ pub struct EngineStats {
 pub struct InMemoryEngine {
     /// RwLock-guarded in-memory node map.
     nodes: RwLock<HashMap<u64, UnifiedNode>>,
-    /// Optional WAL writer for durability.
-    wal: Mutex<Option<WalWriter>>,
+    /// Optional sharded WAL for durability with reduced mutex contention.
+    wal: Option<ShardedWal>,
     /// Monotonic ID generator.
     next_id: AtomicU64,
+    /// Global edge index for referential integrity (PERF-07).
+    edge_index: EdgeIndex,
+    /// Secondary scalar indexes for O(1) field lookups (PERF-08).
+    scalar_index: ScalarIndex,
 }
 
 impl InMemoryEngine {
@@ -80,8 +87,10 @@ impl InMemoryEngine {
     pub fn new() -> Self {
         Self {
             nodes: RwLock::new(HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY)),
-            wal: Mutex::new(None),
+            wal: None,
             next_id: AtomicU64::new(1),
+            edge_index: EdgeIndex::new(),
+            scalar_index: ScalarIndex::new(),
         }
     }
 
@@ -91,34 +100,45 @@ impl InMemoryEngine {
         let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
         let mut max_id: u64 = 0;
 
-        // Replay existing WAL
-        if path.exists() {
-            let mut reader = WalReader::open(&path)?;
-            reader.replay_all(|record| {
-                match record {
-                    WalRecord::Insert(node) => {
-                        max_id = max_id.max(node.id);
-                        nodes_map.insert(node.id, node);
-                    }
-                    WalRecord::Update { id, node } => {
-                        max_id = max_id.max(id);
-                        nodes_map.insert(id, node);
-                    }
-                    WalRecord::Delete { id } => {
-                        nodes_map.remove(&id);
-                    }
-                    WalRecord::Checkpoint { .. } => {}
+        // Use 4 shards for reduced mutex contention on WAL writes
+        let sharded = ShardedWal::new(&path, 4, crate::config::SyncMode::Periodic)?;
+        sharded.recover(0, |record| {
+            match record {
+                WalRecord::Insert(node) => {
+                    max_id = max_id.max(node.id as u64);
+                    nodes_map.insert(node.id as u64, node);
                 }
-                Ok(())
-            })?;
-        }
+                WalRecord::Update { id, node } => {
+                    let id_u64 = id as u64;
+                    max_id = max_id.max(id_u64);
+                    nodes_map.insert(id_u64, node);
+                }
+                WalRecord::Delete { id } => {
+                    nodes_map.remove(&(id as u64));
+                }
+                WalRecord::Checkpoint { .. } => {}
+            }
+            Ok(())
+        })?;
 
-        let writer = WalWriter::open(&path, crate::config::SyncMode::Periodic)?;
+        // Rebuild indexes from recovered nodes
+        let edge_index = EdgeIndex::new();
+        let scalar_index = ScalarIndex::new();
+        for (&nid, node) in &nodes_map {
+            for edge in &node.edges {
+                edge_index.insert(nid, edge.target);
+            }
+            for (field, value) in &node.relational {
+                scalar_index.insert(field, value, nid);
+            }
+        }
 
         Ok(Self {
             nodes: RwLock::new(nodes_map),
-            wal: Mutex::new(Some(writer)),
+            wal: Some(sharded),
             next_id: AtomicU64::new(max_id + 1),
+            edge_index,
+            scalar_index,
         })
     }
 
@@ -129,8 +149,8 @@ impl InMemoryEngine {
 
     /// Append a record to the WAL if present (no-op without WAL).
     fn append_to_wal(&self, record: &WalRecord) -> Result<()> {
-        if let Some(ref mut wal) = *self.wal.lock() {
-            wal.append(record)?;
+        if let Some(ref sharded) = self.wal {
+            sharded.append(record)?;
         }
         Ok(())
     }
@@ -149,6 +169,16 @@ impl InMemoryEngine {
         if nodes.contains_key(&id) {
             return Err(VantaError::DuplicateNode(id));
         }
+
+        // PERF-07: index edges before inserting
+        for edge in &node.edges {
+            self.edge_index.insert(id, edge.target);
+        }
+        // PERF-08: index relational fields before inserting
+        for (field, value) in &node.relational {
+            self.scalar_index.insert(field, value, id);
+        }
+
         nodes.insert(id, node);
         Ok(id)
     }
@@ -165,6 +195,11 @@ impl InMemoryEngine {
 
     /// Update existing node
     pub fn update(&self, id: u64, node: UnifiedNode) -> Result<()> {
+        let old_node = {
+            let nodes = self.nodes.read();
+            nodes.get(&id).cloned()
+        };
+
         self.append_to_wal(&WalRecord::Update {
             id,
             node: node.clone(),
@@ -173,17 +208,41 @@ impl InMemoryEngine {
         if !nodes.contains_key(&id) {
             return Err(VantaError::NodeNotFound(id));
         }
+
+        // PERF-07/08: remove old edges/fields, add new ones
+        if let Some(old) = old_node {
+            for edge in &old.edges {
+                self.edge_index.remove_edge(id, edge.target);
+            }
+            for (field, value) in &old.relational {
+                self.scalar_index.remove(field, value, id);
+            }
+        }
+        for edge in &node.edges {
+            self.edge_index.insert(id, edge.target);
+        }
+        for (field, value) in &node.relational {
+            self.scalar_index.insert(field, value, id);
+        }
+
         nodes.insert(id, node);
         Ok(())
     }
 
-    /// Delete a node
+    /// Delete a node, cascading to remove all referencing edges (PERF-07).
     pub fn delete(&self, id: u64) -> Result<()> {
         self.append_to_wal(&WalRecord::Delete { id })?;
         let mut nodes = self.nodes.write();
         if nodes.remove(&id).is_none() {
             return Err(VantaError::NodeNotFound(id));
         }
+        drop(nodes);
+
+        // PERF-07: cascade — remove all edges referencing this node
+        self.edge_index.remove_all_for_node(id);
+        // PERF-08: remove node from scalar index
+        self.scalar_index.remove_node(id);
+
         Ok(())
     }
 
@@ -289,13 +348,12 @@ impl InMemoryEngine {
         Ok(results)
     }
 
-    /// Filter nodes by relational field equality
+    /// Filter nodes by relational field equality (O(1) via scalar index — PERF-08).
     pub fn filter_field(&self, field: &str, value: &FieldValue) -> Vec<u64> {
-        self.nodes
-            .read()
-            .values()
-            .filter(|n| n.is_alive() && n.get_field(field) == Some(value))
-            .map(|n| n.id)
+        self.scalar_index
+            .lookup(field, value)
+            .into_iter()
+            .map(|id| id as u64)
             .collect()
     }
 
@@ -358,8 +416,8 @@ impl InMemoryEngine {
 
     /// Flush WAL to disk
     pub fn flush_wal(&self) -> Result<()> {
-        if let Some(ref mut wal) = *self.wal.lock() {
-            wal.sync()?;
+        if let Some(ref sharded) = self.wal {
+            sharded.flush_all()?;
         }
         Ok(())
     }

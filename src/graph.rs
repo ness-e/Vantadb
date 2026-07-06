@@ -68,86 +68,42 @@ impl<'a> GraphTraverser<'a> {
 
     /// Evaluates a Depth-First-Search starting from a designated set of root IDs,
     /// up to a maximum depth, returning the discovered distinct Node IDs.
+    ///
+    /// Uses a two-phase approach: first discovers all reachable nodes via batched
+    /// level-at-a-time lookups (`get_many`), then traverses from the cached edges
+    /// to eliminate N+1 storage reads.
     pub fn dfs_traverse(&self, roots: &[u64], max_depth: usize) -> Result<Vec<u64>> {
+        let edges = self.discover_edges(roots, max_depth)?;
+
         let mut visited = HashSet::new();
         let mut results = Vec::new();
 
         for &root in roots {
-            self.dfs_visit(root, 0, max_depth, &mut visited, &mut results)?;
+            dfs_from_cache(root, &mut visited, &mut results, &edges);
         }
 
         Ok(results)
     }
 
-    fn dfs_visit(
-        &self,
-        node_id: u64,
-        depth: usize,
-        max_depth: usize,
-        visited: &mut HashSet<u64>,
-        results: &mut Vec<u64>,
-    ) -> Result<()> {
-        if !visited.insert(node_id) {
-            return Ok(());
-        }
-
-        results.push(node_id);
-
-        if depth < max_depth {
-            if let Ok(Some(node)) = self.storage.get(node_id) {
-                for edge in &node.edges {
-                    self.dfs_visit(edge.target, depth + 1, max_depth, visited, results)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Performs a topological sort on the subgraph reachable from the given roots.
     /// Returns an error if a cycle is detected (not a DAG).
+    ///
+    /// Uses a two-phase approach: first discovers all reachable nodes via batched
+    /// level-at-a-time lookups (`get_many`), then runs the topo-sort from the
+    /// cached edges to eliminate N+1 storage reads.
     pub fn topological_sort(&self, roots: &[u64]) -> Result<Vec<u64>> {
-        let mut state = HashMap::new(); // Node ID -> Color (1 for Gray, 2 for Black)
+        let max_depth = usize::MAX;
+        let edges = self.discover_edges(roots, max_depth)?;
+
+        let mut state = HashMap::new();
         let mut order = Vec::new();
 
         for &root in roots {
-            self.topo_visit(root, &mut state, &mut order)?;
+            topo_from_cache(root, &mut state, &mut order, &edges)?;
         }
 
-        // El orden topológico es el reverso del orden de finalización DFS
         order.reverse();
         Ok(order)
-    }
-
-    fn topo_visit(
-        &self,
-        node_id: u64,
-        state: &mut HashMap<u64, u8>,
-        order: &mut Vec<u64>,
-    ) -> Result<()> {
-        match state.get(&node_id) {
-            Some(1) => {
-                return Err(crate::error::VantaError::CycleDetected);
-            }
-            Some(2) => return Ok(()),
-            _ => {}
-        }
-
-        // Marcar como Gris (visitando)
-        state.insert(node_id, 1);
-
-        // Visitar sucesores
-        if let Ok(Some(node)) = self.storage.get(node_id) {
-            for edge in &node.edges {
-                self.topo_visit(edge.target, state, order)?;
-            }
-        }
-
-        // Marcar como Negro (finalizado)
-        state.insert(node_id, 2);
-        order.push(node_id);
-
-        Ok(())
     }
 
     /// Checks if the subgraph reachable from the given roots is a Directed Acyclic Graph (DAG)
@@ -164,6 +120,100 @@ impl<'a> GraphTraverser<'a> {
             }
         }
     }
+
+    /// BFS-style batched discovery: uses `get_many` at each level to build an
+    /// edge cache, avoiding N+1 individual `get()` calls.
+    fn discover_edges(
+        &self,
+        roots: &[u64],
+        max_depth: usize,
+    ) -> Result<HashMap<u64, Vec<crate::node::Edge>>> {
+        let mut edges: HashMap<u64, Vec<crate::node::Edge>> = HashMap::new();
+        let mut current_level: Vec<u64> = roots.to_vec();
+
+        for depth in 0..=max_depth {
+            if current_level.is_empty() {
+                break;
+            }
+
+            let mut unvisited = Vec::new();
+            for &id in &current_level {
+                if !edges.contains_key(&id) {
+                    unvisited.push(id);
+                }
+            }
+
+            if unvisited.is_empty() {
+                break;
+            }
+
+            if depth == max_depth {
+                break;
+            }
+
+            let nodes = self.storage.get_many(&unvisited)?;
+            let mut next_level = Vec::new();
+            for node in &nodes {
+                edges.entry(node.id).or_insert_with(|| node.edges.clone());
+                for edge in &node.edges {
+                    if !edges.contains_key(&edge.target) {
+                        next_level.push(edge.target);
+                    }
+                }
+            }
+
+            next_level.sort();
+            next_level.dedup();
+            current_level = next_level;
+        }
+
+        Ok(edges)
+    }
+}
+
+fn dfs_from_cache(
+    node_id: u64,
+    visited: &mut HashSet<u64>,
+    results: &mut Vec<u64>,
+    edges: &HashMap<u64, Vec<crate::node::Edge>>,
+) {
+    if !visited.insert(node_id) {
+        return;
+    }
+
+    results.push(node_id);
+
+    if let Some(node_edges) = edges.get(&node_id) {
+        for edge in node_edges {
+            dfs_from_cache(edge.target, visited, results, edges);
+        }
+    }
+}
+
+fn topo_from_cache(
+    node_id: u64,
+    state: &mut HashMap<u64, u8>,
+    order: &mut Vec<u64>,
+    edges: &HashMap<u64, Vec<crate::node::Edge>>,
+) -> Result<bool> {
+    match state.get(&node_id) {
+        Some(1) => return Err(crate::error::VantaError::CycleDetected),
+        Some(2) => return Ok(true),
+        _ => {}
+    }
+
+    state.insert(node_id, 1);
+
+    if let Some(node_edges) = edges.get(&node_id) {
+        for edge in node_edges {
+            topo_from_cache(edge.target, state, order, edges)?;
+        }
+    }
+
+    state.insert(node_id, 2);
+    order.push(node_id);
+
+    Ok(true)
 }
 
 #[cfg(test)]

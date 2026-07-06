@@ -1,0 +1,36 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="404 — Not Found">
+  <section class="min-h-screen flex items-center justify-center">
+    <div class="text-center px-6">
+      <p class="text-xs mb-6" style="font-family: var(--font-mono); color: var(--danger); text-transform: uppercase; letter-spacing: 0.14em;">
+        [ ERROR 404 ]
+      </p>
+      <h1 class="font-display font-bold leading-[0.95] tracking-tight" style="font-size: var(--text-hero);">
+        Page not<br />
+        <span style="color: var(--amber);">found</span>
+      </h1>
+      <p class="mt-6 text-sm" style="font-family: var(--font-mono); color: var(--muted);">
+        $ The requested resource does not exist
+      </p>
+      <div class="mt-10">
+        <a
+          href="/"
+          class="inline-block px-6 py-3 text-sm font-semibold"
+          style={{
+            fontFamily: "var(--font-mono)",
+            background: "var(--amber)",
+            color: "var(--white)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            textDecoration: "none",
+          }}
+        >
+          &larr; Back to Home
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
