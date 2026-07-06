@@ -226,6 +226,16 @@ function ArchitecturePage() {
                 </thead>
                 <tbody>
                   <SpecRow
+                    label="Quantization Methods"
+                    val="SQ8 · TurboQuant · RaBitQ"
+                    desc="8-bit scalar, 3-bit turbo, or 1-bit RaBitQ — 4× to 32× memory reduction over full f32 vectors."
+                  />
+                  <SpecRow
+                    label="Graph Traversal"
+                    val="BFS · DFS · Topo · DAG"
+                    desc="Built-in BFS/DFS traversal, topological sort, and DAG cycle detection over directed adjacency edges."
+                  />
+                  <SpecRow
                     label="Key Size Limit"
                     val="1 KB"
                     desc="Identifiers must be compact to ensure lightning-fast pointer indexing in standard LSM memory bounds."
@@ -259,6 +269,21 @@ function ArchitecturePage() {
                     label="Engine States"
                     val="Init \u2192 Ready \u2192 Flush \u2192 Closed"
                     desc="Exposes state transitions cleanly through FFI to allow hot rebuilding without data losses."
+                  />
+                  <SpecRow
+                    label="Memory Prefetching"
+                    val="madvise / PrefetchVirtualMemory"
+                    desc="Predictive kernel prefetching on Unix (madvise) and Windows (PrefetchVirtualMemory) for cold vector pages."
+                  />
+                  <SpecRow
+                    label="Data Expiry"
+                    val="TTL auto-eviction"
+                    desc="Time-to-live based automatic record expiry with background compaction."
+                  />
+                  <SpecRow
+                    label="Batch Operations"
+                    val="Rayon parallelism"
+                    desc="Batch put/get/delete operations parallelized across all available CPU cores."
                   />
                 </tbody>
               </table>

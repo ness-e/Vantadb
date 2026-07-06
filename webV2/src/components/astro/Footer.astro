@@ -1,0 +1,62 @@
+---
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="border-t" style="border-color: var(--border);">
+  <div class="mx-auto px-6 py-16" style="max-width: 1280px;">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-10">
+      <div class="col-span-2 md:col-span-1">
+        <span class="font-display text-lg font-bold tracking-tight">Vanta<span style="color: var(--amber);">DB</span></span>
+        <p class="mt-3 text-sm" style="color: var(--muted);">
+          The database that thinks with you.
+        </p>
+      </div>
+
+      <div>
+        <p class="text-xs mb-4" style="font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em;">Product</p>
+        <ul class="space-y-2">
+          <li><a href="/#features" class="text-sm footer-link">Features</a></li>
+          <li><a href="/#showcase" class="text-sm footer-link">Showcase</a></li>
+          <li><a href="/#integrations" class="text-sm footer-link">Integrations</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="text-xs mb-4" style="font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em;">Resources</p>
+        <ul class="space-y-2">
+          <li><a href="/blog" class="text-sm footer-link">Blog</a></li>
+          <li><a href="https://docs.vantadb.com" class="text-sm footer-link">Documentation</a></li>
+          <li><a href="https://github.com/vantadb/vantadb" class="text-sm footer-link">GitHub</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="text-xs mb-4" style="font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em;">Legal</p>
+        <ul class="space-y-2">
+          <li><a href="/privacy" class="text-sm footer-link">Privacy</a></li>
+          <li><a href="/terms" class="text-sm footer-link">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-16 pt-6 border-t flex flex-col sm:flex-row justify-between items-center gap-4" style="border-color: var(--border);">
+      <p class="text-xs" style="font-family: var(--font-mono); color: var(--steel);">
+        &copy; {currentYear} VantaDB. All rights reserved.
+      </p>
+      <p class="text-xs" style="font-family: var(--font-mono); color: var(--steel);">
+        <span style="color: var(--amber);">></span> One binary. Three query engines. Zero ops.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer-link {
+    color: var(--muted);
+    transition: color 0.15s var(--ease-brutal);
+    text-decoration: none;
+  }
+  .footer-link:hover {
+    color: var(--foreground);
+  }
+</style>

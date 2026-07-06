@@ -42,13 +42,7 @@ impl PhysicalOperator for PhysicalScan<'_> {
         let parts: Vec<&str> = self.entity.split('#').collect();
         if parts.len() == 2 {
             if let Ok(id) = parts[1].parse::<u64>() {
-                let raw = self
-                    .storage
-                    .backend
-                    .get(crate::backend::BackendPartition::Default, &id.to_le_bytes())?;
-                if raw.is_some() {
-                    self.prefetched = self.storage.get_many(&[id])?;
-                }
+                self.prefetched = self.storage.get_many(&[id])?;
                 return Ok(());
             }
         }

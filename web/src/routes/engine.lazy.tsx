@@ -387,7 +387,7 @@ function EnginePage() {
                   Hierarchical Navigable Small World graphs for approximate nearest neighbor search
                   across vectors.
                 </p>
-                <div className="nb-card-frame-stats">
+                  <div className="nb-card-frame-stats">
                   <div>
                     <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
                       M=16
@@ -395,8 +395,8 @@ function EnginePage() {
                     <div className="nb-card-frame-stat-label">CONNECTIONS</div>
                   </div>
                   <div>
-                    <div className="nb-card-frame-stat-value">Cosine</div>
-                    <div className="nb-card-frame-stat-label">METRIC</div>
+                    <div className="nb-card-frame-stat-value">SQ8/Turbo/RaBitQ</div>
+                    <div className="nb-card-frame-stat-label">QUANTIZATION</div>
                   </div>
                 </div>
               </div>
@@ -408,7 +408,7 @@ function EnginePage() {
           <NbSectionHeader
             monoLabel="[GRAPH QUERY]"
             headline="Knowledge topology."
-            sub="Hover nodes to explore in-memory relations. VantaDB stores directed adjacency lists alongside vectors for graph-based agent memory applications."
+            sub="Hover nodes to explore in-memory relations. VantaDB stores directed adjacency lists alongside vectors — supporting BFS, DFS, topological sort, and DAG cycle detection for graph-based agent memory."
           />
 
           <div className="nb-grid nb-grid--cols-2">

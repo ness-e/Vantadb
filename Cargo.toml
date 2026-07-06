@@ -165,6 +165,14 @@ harness = false
 name = "bench_concurrent"
 harness = false
 
+[[bench]]
+name = "backend_compare"
+harness = false
+
+[[bench]]
+name = "hnsw_recall_ef"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"

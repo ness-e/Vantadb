@@ -1,8 +1,10 @@
-#![allow(dead_code)]
 use crate::error::Result;
 use dashmap::DashSet;
 
 /// An in-memory adjacency index for directed edges using a concurrent hash set.
+///
+/// Tracks every directed edge `(source → target)` using `u64` node IDs so that
+/// cascade delete (PERF-07) can find incoming edges when a node is removed.
 pub(crate) struct EdgeIndex {
     edges: DashSet<(u64, u64)>,
 }
@@ -21,13 +23,21 @@ impl EdgeIndex {
     }
 
     /// Remove all outgoing edges from a given node.
-    pub fn remove_from(&self, from: u64) {
+    pub fn remove_outgoing(&self, from: u64) {
         self.edges.retain(|(f, _)| *f != from);
     }
 
     /// Remove a specific directed edge.
     pub fn remove_edge(&self, from: u64, to: u64) {
         self.edges.remove(&(from, to));
+    }
+
+    /// Remove all edges (both incoming and outgoing) for a given node.
+    ///
+    /// This is the single call needed during cascade delete — it clears every
+    /// edge pair that references `node_id` on either side.
+    pub fn remove_all_for_node(&self, node_id: u64) {
+        self.edges.retain(|(f, t)| *f != node_id && *t != node_id);
     }
 
     /// Check whether a directed edge exists.
@@ -58,8 +68,19 @@ impl EdgeIndex {
         self.edges.len()
     }
 
-    /// Verify referential integrity (currently a no-op placeholder).
+    /// Verify referential integrity — checks for self-loops.
+    /// Full cross-node verification requires access to the node store.
     pub fn verify_referential_integrity(&self) -> Result<()> {
+        for item in self.edges.iter() {
+            let (from, to) = *item.key();
+            if from == to {
+                let msg = format!("Self-loop edge detected: node {} references itself", from);
+                return Err(crate::error::VantaError::ValidationError {
+                    field: "edge".into(),
+                    reason: msg,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -119,16 +140,32 @@ mod tests {
     }
 
     #[test]
-    fn test_edge_index_remove_from() {
+    fn test_edge_index_remove_outgoing() {
         let idx = EdgeIndex::new();
         idx.insert(1, 2);
         idx.insert(1, 3);
         idx.insert(2, 3);
-        idx.remove_from(1);
+        idx.remove_outgoing(1);
 
         assert!(!idx.has_edge(1, 2));
         assert_eq!(idx.len(), 1);
         assert!(idx.has_edge(2, 3));
+    }
+
+    #[test]
+    fn test_edge_index_remove_all_for_node() {
+        let idx = EdgeIndex::new();
+        idx.insert(1, 2);
+        idx.insert(2, 1);
+        idx.insert(1, 3);
+        idx.insert(3, 4);
+        idx.remove_all_for_node(1);
+
+        assert!(!idx.has_edge(1, 2));
+        assert!(!idx.has_edge(2, 1));
+        assert!(!idx.has_edge(1, 3));
+        assert!(idx.has_edge(3, 4));
+        assert_eq!(idx.len(), 1);
     }
 
     #[test]

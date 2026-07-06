@@ -69,9 +69,7 @@ impl VantaEmbedded {
         let node_id = memory_node_id(&input.namespace, &input.key);
         let existing = match engine.get(node_id)? {
             Some(node) => match memory_record_from_node(node) {
-                Some(record)
-                    if record.namespace == input.namespace && record.key == input.key =>
-                {
+                Some(record) if record.namespace == input.namespace && record.key == input.key => {
                     Some(record)
                 }
                 _ => {

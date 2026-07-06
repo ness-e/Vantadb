@@ -5,8 +5,8 @@
 #![warn(missing_docs)]
 
 use pyo3::exceptions::{
-    PyFileExistsError, PyFileNotFoundError, PyKeyError, PyOSError, PyPermissionError,
-    PyRuntimeError, PyTimeoutError, PyTypeError, PyValueError,
+    PyFileExistsError, PyFileNotFoundError, PyIndexError, PyKeyError, PyOSError, PyPermissionError,
+    PyRuntimeError, PyStopIteration, PyTimeoutError, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -162,7 +162,12 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
             }
             return Ok(VantaValue::ListString(vec));
         }
-        let first_type = first.get_type().name().ok().map(|n| n.to_string()).unwrap_or("unknown".into());
+        let first_type = first
+            .get_type()
+            .name()
+            .ok()
+            .map(|n| n.to_string())
+            .unwrap_or("unknown".into());
         return Err(PyTypeError::new_err(format!(
             "Unsupported list element type '{first_type}' (inferred from first element). \
              All list elements must be the same type: bool, int, float, str, or datetime."
@@ -379,7 +384,39 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
     dict.set_item("node_id", record.node_id)?;
 
     match &record.vector {
-        Some(vector) => dict.set_item("vector", vector.clone())?,
+        Some(vector) => dict.set_item("vector", VantaVector::new(vector.clone()))?,
+        None => dict.set_item("vector", py.None())?,
+    }
+
+    match record.expires_at_ms {
+        Some(ts) => dict.set_item("expires_at_ms", ts)?,
+        None => dict.set_item("expires_at_ms", py.None())?,
+    }
+
+    let metadata = PyDict::new(py);
+    for (key, value) in &record.metadata {
+        set_python_value(py, &metadata, key, value)?;
+    }
+    dict.set_item("metadata", metadata)?;
+
+    Ok(dict.unbind().into())
+}
+
+/// Owned variant — moves the vector out instead of cloning.
+/// Used in the search hot path where we own the data.
+fn memory_record_to_pydict_owned(py: Python, record: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("namespace", &record.namespace)?;
+    dict.set_item("key", &record.key)?;
+    dict.set_item("payload", &record.payload)?;
+    dict.set_item("created_at_ms", record.created_at_ms)?;
+    dict.set_item("updated_at_ms", record.updated_at_ms)?;
+    dict.set_item("version", record.version)?;
+    dict.set_item("node_id", record.node_id)?;
+
+    // Move vector out of the owned record — no clone, no Python float list
+    match record.vector {
+        Some(vector) => dict.set_item("vector", VantaVector::new(vector))?,
         None => dict.set_item("vector", py.None())?,
     }
 
@@ -464,6 +501,19 @@ fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<P
     dict.set_item("record", memory_record_to_pydict(py, &hit.record)?)?;
     match &hit.explanation {
         Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, exp)?)?,
+        None => dict.set_item("explanation", py.None())?,
+    }
+    Ok(dict.unbind().into())
+}
+
+/// Owned variant — consumes the hit and moves the vector out without cloning.
+/// Used in the search hot path to avoid Vec<f32> clone + Python list conversion.
+fn memory_hit_to_pydict_owned(py: Python, hit: VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("score", hit.score)?;
+    dict.set_item("record", memory_record_to_pydict_owned(py, hit.record)?)?;
+    match hit.explanation {
+        Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, &exp)?)?,
         None => dict.set_item("explanation", py.None())?,
     }
     Ok(dict.unbind().into())
@@ -870,8 +920,8 @@ impl VantaDB {
         let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
 
         records
-            .iter()
-            .map(|record| memory_record_to_pydict(py, record))
+            .into_iter()
+            .map(|record| memory_record_to_pydict_owned(py, record))
             .collect()
     }
 
@@ -901,7 +951,7 @@ impl VantaDB {
 
         let engine = self.engine.clone();
         let record = py.detach(move || engine.put(input).map_err(map_vanta_error))?;
-        memory_record_to_pydict(py, &record)
+        memory_record_to_pydict_owned(py, record)
     }
 
     /// Retrieve a namespace-scoped persistent memory record.
@@ -911,7 +961,7 @@ impl VantaDB {
         let k = key.to_string();
         let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
         match record {
-            Some(record) => Ok(Some(memory_record_to_pydict(py, &record)?)),
+            Some(record) => Ok(Some(memory_record_to_pydict_owned(py, record)?)),
             None => Ok(None),
         }
     }
@@ -951,11 +1001,11 @@ impl VantaDB {
         })?;
 
         let dict = PyDict::new(py);
-        let records = PyList::empty(py);
-        for record in &page.records {
-            records.append(memory_record_to_pydict(py, record)?)?;
+        let py_records = PyList::empty(py);
+        for record in page.records {
+            py_records.append(memory_record_to_pydict_owned(py, record)?)?;
         }
-        dict.set_item("records", records)?;
+        dict.set_item("records", py_records)?;
         dict.set_item("next_cursor", page.next_cursor)?;
         Ok(dict.unbind().into())
     }
@@ -999,8 +1049,8 @@ impl VantaDB {
         let engine = self.engine.clone();
         let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
 
-        hits.iter()
-            .map(|hit| memory_hit_to_pydict(py, hit))
+        hits.into_iter()
+            .map(|hit| memory_hit_to_pydict_owned(py, hit))
             .collect()
     }
 
@@ -1258,8 +1308,8 @@ impl VantaDB {
     fn add_edge(
         &self,
         py: Python,
-        source_id: u64,
-        target_id: u64,
+        source_id: u128,
+        target_id: u128,
         label: &str,
         weight: Option<f32>,
     ) -> PyResult<()> {
@@ -1267,7 +1317,7 @@ impl VantaDB {
         let label_str = label.to_string();
         py.detach(move || {
             engine
-                .add_edge(source_id, target_id, &label_str, weight)
+                .add_edge(source_id as u64, target_id as u64, &label_str, weight)
                 .map_err(map_vanta_error)
         })
     }
@@ -1434,11 +1484,113 @@ fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
     Ok(VantaDB { engine })
 }
 
+/// A zero-copy vector wrapper that exposes f32 data to NumPy via
+/// `__array_interface__` without copying, while remaining sequence-iterable
+/// for pure-Python consumers.
+#[pyclass(name = "VantaVector")]
+struct VantaVector {
+    data: Vec<f32>,
+}
+
+#[pymethods]
+impl VantaVector {
+    #[new]
+    fn new(data: Vec<f32>) -> Self {
+        VantaVector { data }
+    }
+
+    fn __len__(&self) -> usize {
+        self.data.len()
+    }
+
+    fn __getitem__(&self, idx: isize) -> PyResult<f32> {
+        let len = self.data.len() as isize;
+        let idx = if idx < 0 { len + idx } else { idx };
+        if idx < 0 || idx >= len as isize {
+            return Err(PyIndexError::new_err("vector index out of range"));
+        }
+        Ok(self.data[idx as usize])
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> VantaVectorIter {
+        VantaVectorIter {
+            data: slf.data.clone(),
+            index: 0,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        if self.data.len() <= 6 {
+            format!("VantaVector({:?})", self.data)
+        } else {
+            format!(
+                "VantaVector([{:.4}, ..., {:.4}], dim={})",
+                self.data[0],
+                self.data[self.data.len() - 1],
+                self.data.len()
+            )
+        }
+    }
+
+    /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
+    /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
+    fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        let shape = PyTuple::new(py, &[self.data.len()])?;
+        dict.set_item("shape", shape)?;
+        dict.set_item("typestr", "<f4")?;
+        let ptr = self.data.as_ptr() as usize;
+        let data_tup = PyTuple::new(py, &[0usize, 0usize])?;
+        data_tup.set_item(0, ptr)?;
+        data_tup.set_item(1, true)?;
+        let data: Py<PyAny> = data_tup.unbind().into();
+        dict.set_item("data", data)?;
+        dict.set_item("version", 3)?;
+        Ok(dict.unbind().into())
+    }
+
+    /// Support ``__getstate__`` / ``__setstate__`` for pickle compatibility.
+    fn __getstate__(&self) -> Vec<f32> {
+        self.data.clone()
+    }
+
+    fn __setstate__(&mut self, state: Vec<f32>) {
+        self.data = state;
+    }
+}
+
+/// Iterator for ``VantaVector`` that lets Python iterate over the elements
+/// without first converting the whole vector to a list.
+#[pyclass(name = "VantaVectorIter")]
+struct VantaVectorIter {
+    data: Vec<f32>,
+    index: usize,
+}
+
+#[pymethods]
+impl VantaVectorIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<f32>> {
+        if self.index < self.data.len() {
+            let val = self.data[self.index];
+            self.index += 1;
+            Ok(Some(val))
+        } else {
+            Err(PyStopIteration::new_err("end of iteration"))
+        }
+    }
+}
+
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
 fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<VantaDB>()?;
+    m.add_class::<VantaVector>()?;
+    m.add_class::<VantaVectorIter>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())

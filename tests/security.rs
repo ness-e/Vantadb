@@ -8,8 +8,8 @@
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::{
-    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest,
-    VantaValue,
+    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaError, VantaMemoryInput,
+    VantaMemorySearchRequest, VantaValue,
 };
 
 // ── IQL Injection Tests ────────────────────────────────────
@@ -41,8 +41,10 @@ mod iql_injection_tests {
             assert!(result.is_err(), "SQL injection pattern should fail: {iql}");
             let err = result.unwrap_err();
             assert!(
-                err.to_string().to_lowercase().contains("parse")
-                    || err.to_string().contains("Execution"),
+                matches!(
+                    err,
+                    VantaError::IqlParseError { .. } | VantaError::IqlError(_)
+                ),
                 "Unexpected error for {iql}: {err}"
             );
         }

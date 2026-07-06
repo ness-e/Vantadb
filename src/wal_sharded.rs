@@ -1,8 +1,8 @@
-#![allow(dead_code)]
-use crate::error::Result;
-use crate::wal::WalWriter;
+use crate::error::{Result, VantaError};
+use crate::wal::{WalReader, WalRecord, WalWriter};
 use parking_lot::Mutex;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// A write-ahead log operation for a key-value pair.
@@ -28,10 +28,11 @@ pub(crate) enum WalOp {
 
 /// A sharded write-ahead log that distributes writes across multiple WAL files.
 pub(crate) struct ShardedWal {
-    shards: Vec<Arc<Mutex<Option<WalWriter>>>>,
+    shards: Vec<Arc<Mutex<WalWriter>>>,
     num_shards: usize,
     base_path: PathBuf,
     sync_mode: crate::config::SyncMode,
+    next_shard: AtomicUsize,
 }
 
 impl ShardedWal {
@@ -58,7 +59,7 @@ impl ShardedWal {
                 base_path.to_path_buf()
             };
             let writer = WalWriter::open(&shard_path, sync_mode)?;
-            shards.push(Arc::new(Mutex::new(Some(writer))));
+            shards.push(Arc::new(Mutex::new(writer)));
         }
 
         Ok(Self {
@@ -66,6 +67,7 @@ impl ShardedWal {
             num_shards,
             base_path: base_path.to_path_buf(),
             sync_mode,
+            next_shard: AtomicUsize::new(0),
         })
     }
 
@@ -81,11 +83,44 @@ impl ShardedWal {
     }
 
     /// Write a record to the shard determined by the key.
-    pub fn write(&self, key: &str, record: &crate::wal::WalRecord) -> Result<()> {
+    pub fn write(&self, key: &str, record: &WalRecord) -> Result<()> {
         let idx = self.shard_index(key);
-        let mut guard = self.shards[idx].lock();
-        if let Some(ref mut writer) = *guard {
-            writer.append(record)?;
+        self.shards[idx].lock().append(record)
+    }
+
+    /// Append a record using round-robin shard distribution.
+    /// Used when no specific key is available for shard routing.
+    pub fn append(&self, record: &WalRecord) -> Result<()> {
+        let idx = self.next_shard.fetch_add(1, Ordering::Relaxed) % self.num_shards;
+        self.shards[idx].lock().append(record)
+    }
+
+    /// Replay all records across all shards, skipping those at or below
+    /// `checkpoint_seq` per shard.
+    pub fn recover(
+        &self,
+        checkpoint_seq: u64,
+        mut f: impl FnMut(WalRecord) -> Result<()>,
+    ) -> Result<()> {
+        for (i, shard) in self.shards.iter().enumerate() {
+            let path = {
+                let guard = shard.lock();
+                guard.path().to_path_buf()
+            };
+            if !path.exists() {
+                continue;
+            }
+            let mut reader = WalReader::open(&path).map_err(|e| {
+                VantaError::WalError(format!("Failed to open shard {} for recovery: {}", i, e))
+            })?;
+            let mut current_seq = 0u64;
+            while let Some(record) = reader.next_record()? {
+                current_seq += 1;
+                if current_seq <= checkpoint_seq {
+                    continue;
+                }
+                f(record)?;
+            }
         }
         Ok(())
     }
@@ -93,10 +128,7 @@ impl ShardedWal {
     /// Flush (sync) all shards to disk.
     pub fn flush_all(&self) -> Result<()> {
         for shard in &self.shards {
-            let mut guard = shard.lock();
-            if let Some(ref mut writer) = *guard {
-                writer.sync()?;
-            }
+            shard.lock().sync()?;
         }
         Ok(())
     }
@@ -104,15 +136,25 @@ impl ShardedWal {
     /// Flush (sync) only the shard determined by the key.
     pub fn flush_shard(&self, key: &str) -> Result<()> {
         let idx = self.shard_index(key);
-        let mut guard = self.shards[idx].lock();
-        if let Some(ref mut writer) = *guard {
-            writer.sync()?;
+        self.shards[idx].lock().sync()
+    }
+
+    /// Rotate all shards (flush, archive, and start fresh WAL files).
+    pub fn rotate_all(&self) -> Result<()> {
+        for shard in &self.shards {
+            let replacement = {
+                let mut guard = shard.lock();
+                let path = guard.path().to_path_buf();
+                guard.sync()?;
+                WalWriter::open(&path, self.sync_mode)?
+            };
+            *shard.lock() = replacement;
         }
         Ok(())
     }
 
     /// Return a reference to the shard list.
-    pub fn shards(&self) -> &[Arc<Mutex<Option<WalWriter>>>] {
+    pub fn shards(&self) -> &[Arc<Mutex<WalWriter>>] {
         &self.shards
     }
 
@@ -124,5 +166,19 @@ impl ShardedWal {
     /// Return the number of shard entries.
     pub fn len(&self) -> usize {
         self.shards.len()
+    }
+
+    /// Return the total number of records across all shards.
+    pub fn total_record_count(&self) -> u64 {
+        self.shards.iter().map(|s| s.lock().record_count()).sum()
+    }
+}
+
+impl std::fmt::Debug for ShardedWal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShardedWal")
+            .field("num_shards", &self.num_shards)
+            .field("base_path", &self.base_path)
+            .finish()
     }
 }

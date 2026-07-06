@@ -1,9 +1,12 @@
-#![allow(dead_code)]
 use crate::node::FieldValue;
 use dashmap::DashMap;
 use std::collections::HashMap;
 
 /// Concurrent scalar index mapping field values to node IDs.
+///
+/// `field → value → [node_id]` hash map that turns
+/// [`filter_field`](crate::storage::engine::StorageEngine::filter_field) from
+/// a full table scan into an O(1) lookup (PERF-08).
 pub(crate) struct ScalarIndex {
     /// Per-field maps of value to node ID list.
     indexes: DashMap<String, HashMap<FieldValue, Vec<u64>>>,
