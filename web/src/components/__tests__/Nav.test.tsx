@@ -33,10 +33,9 @@ describe("NbNav", () => {
     render(<NbNav />);
     const desktopNav = document.querySelector(".nc-nav-links")!;
     expect(desktopNav).toBeInTheDocument();
-    expect(desktopNav.querySelectorAll(".nc-nav-link").length).toBe(5);
-    expect(desktopNav.textContent).toContain("Engine");
-    expect(desktopNav.textContent).toContain("Architecture");
-    expect(desktopNav.textContent).toContain("AI Agents");
+    expect(desktopNav.querySelectorAll(".nc-nav-link").length).toBe(3);
+    expect(desktopNav.querySelectorAll(".nc-nav-group-btn").length).toBe(3);
+    expect(desktopNav.textContent).toContain("Security");
     expect(desktopNav.textContent).toContain("Use Cases");
     expect(desktopNav.textContent).toContain("Pricing");
   });

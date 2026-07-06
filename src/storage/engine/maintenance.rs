@@ -2,7 +2,6 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use web_time::Instant;
 
@@ -12,7 +11,7 @@ use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
     engine_mmap_resident_bytes, EvictionReason, EvictionReport, IndexRebuildReport,
-    QuantizationMaintenanceReport, StorageEngine, MIB, STORAGE_ALIGNMENT,
+    QuantizationMaintenanceReport, StorageEngine, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::storage::vfile::MmapMut;
