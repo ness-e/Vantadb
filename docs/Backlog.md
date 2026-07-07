@@ -4,7 +4,7 @@ type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
 links: "[[master-index]]"
-last_reviewed: 2026-07-06
+last_reviewed: 2026-07-07
 aliases: []
 ---
 
@@ -42,9 +42,9 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DB-01` | **Migration runner operativo (`vanta-cli migrate`):** Sincronizar migration.rs con vfile.rs (rango v1-v2), usar `VECTOR_INDEX_VERSION`, añadir `WAL_POSTCARD_VERSION` | `migration.rs`, `vfile.rs`, `wal.rs` | 🔴 2-3d | 🔴 | ⏳ |
+| ~~`DB-01`~~ | **Migration runner operativo (`vanta-cli migrate`):** Sincronizar migration.rs con vfile.rs (rango v1-v2), usar `VECTOR_INDEX_VERSION`, añadir `WAL_POSTCARD_VERSION` | `migration.rs`, `vfile.rs`, `wal.rs` | 🔴 2-3d | 🔴 | ✅ |
 | `DB-02` | Documentar estrategia de versionado de formatos físicos | `docs/architecture/STORAGE_VERSIONING.md` | 🟡 1d | 🔴 | ✅ |
-| `—` | Snapshot tests: WAL integrity, VantaFile, HNSW, export/import (reemplazar TEST-05) | — | 🟡 1-2d | 🔴 | ❌ |
+| ~~`—`~~ | **Snapshot tests: WAL integrity, VantaFile, HNSW, export/import** — `tests/core/snapshot_certification.rs` (1140L) | — | 🟡 1-2d | 🔴 | ✅ |
 
 ### 💥 Crash / Deadlock / OOM Fixes
 
@@ -254,7 +254,7 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `DB-01` | Migration runner completo (ver TIER 0) | 🔴 3-5d | 🔴 | ⏳ |
+| ~~`DB-01`~~ | **Migration runner completo** (ver TIER 0) | 🔴 3-5d | 🔴 | ✅ |
 | `DB-03` | ACID transactions research + prototipo | 🟡 3-5d | 🟡 | ✅ |
 | `DB-04` | Expandir bitset 128→256 o dinámico (✅ dinámico) | 🟢 1-2d | 🟢 | ✅ |
 
@@ -328,10 +328,9 @@ aliases: []
 | `TEST-05` | Snapshot testing (7 tests) | 🟡 1-2d | 🟡 | ✅ |
 | `TEST-07` | Fix test-threads: Windows 2, Linux/macOS paralelismo | 🟢 2h | 🟢 | ✅ |
 | `TEST-08` | Fix `chaos_integrity` required-features | 🟠 1h | 🟠 | ✅ |
-| `CODE-033` | **Tests GC usan `Box::leak`** — Leaks file handles. Windows TempDir cleanup falla | `gc.rs:88-159` | 🟡 1d | 🟢 | ❌ |
-| `CODE-035` | **Test config asume CPU 8-core** — `assert_eq!(..., 16)` falla en 4/16/32 cores | `config.rs:602` | 🟢 1h | 🟢 | ❌ |
+| ~~`CODE-033`~~ | **Tests GC usan `Box::leak`** — Leaks file handles. Windows TempDir cleanup falla | `gc.rs:88-159` | 🟡 1d | 🟢 | ✅ || ~~`CODE-035`~~ | **Test config asume CPU 8-core** — `assert_eq!(..., 16)` falla en 4/16/32 cores | `config.rs:602` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-043`~~ | **`Cargo_test.toml` stale duplicate** — Features diferentes al real. Time bomb | `Cargo_test.toml` | 🟢 1h | 🟢 | ✅ |
-| `CODE-044` | **`test_search_batch` skipeado pero API ya existe** — Test muerto | `tests/test_sdk.py:144` | 🟢 1h | 🟢 | ❌ |
+| ~~`CODE-044`~~ | **`test_search_batch` skipeado pero API ya existe** — Test muerto | `tests/test_sdk.py:144` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-057`~~ | **`debug = 0` en profile.test** — Backtraces sin line numbers. Debug imposible | `Cargo.toml:508-510` | 🟢 1h | 🟡 | ✅ |
 | `CODE-074` | **Cero visual regression tests** — Sin Percy/Chromatic/Playwright screenshots | — | 🟡 2-3d | 🟡 | ❌ |
 | ~~`CODE-075`~~ | **Sin coverage provider en vitest** — No hay métricas de cobertura | `vitest.config.ts` | 🟢 1h | 🟢 | ✅ |
@@ -372,7 +371,7 @@ aliases: []
 
 | ~~`CODE-053`~~ | **docs-api: 130 líneas dead code, nunca renderizado** — Redirect antes del lazy | `docs-api.*` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-054`~~ | **`QueryClient` recreado en cada `getRouter()`** — Cache loss frágil | `router.tsx:5-16` | 🟢 1h | 🟢 | ✅ |
-| `CODE-055` | **Sin `rust-version.workspace` en miembros** — MSRV no enforced | Todos los member `Cargo.toml` | 🟢 1h | 🟢 | ❌ |
+| ~~`CODE-055`~~ | **Sin `rust-version.workspace` en miembros** — MSRV no enforced | Todos los member `Cargo.toml` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-056`~~ | **Duplicate `reqwest` 0.12 + 0.13** — Compila ambos | Múltiples `Cargo.toml` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-062`~~ | **Cursor reset en archivo corrupto sin zero-fill** — Garbage data holes | `vfile.rs:446-453` | 🟢 2h | 🟢 | ✅ |
 | ~~`CODE-063`~~ | **`grow_to` puede shrink sin validación** — Potencial DB truncation | `vfile.rs:550` | 🟢 1h | 🟢 | ✅ |
@@ -446,9 +445,9 @@ Esfuerzo                │   Esfuerzo
     🟢  TSK-106         │   🟡  DEVOPS-10 (signing)
     🟢  TSK-108         │   🟡  MCP-03 (WASM bench)
     🟢  DEVOPS-06       │   🟡  CODE-037 (rate limiter)
-    🟢  CODE-067        │   🟡  CODE-055 (MSRV enforcement)
-    🟢  CODE-039/040    │   🟡  CODE-074 (visual regression)
-    🟢  CODE-033/035    │
+    🟢  ~~CODE-067~~ ✅  │   🟡  ~~CODE-055~~ ✅ (MSRV enforcement)
+    🟢  ~~CODE-039/040~~✅│   🟡  CODE-074 (visual regression)
+    🟢  ~~CODE-033/035~~✅│
                         │
                     Bajo Impacto
 ```
@@ -470,7 +469,7 @@ Esfuerzo                │   Esfuerzo
 
 | ID | Tarea | Tiempo | Riesgo |
 |----|-------|--------|--------|
-| `DB-01` | Migration runner completo | 2-3d | ⚠️ Crítico para release |
+| ~~`DB-01`~~ | ~~Migration runner completo~~ | ~~2-3d~~ | ~~⚠️ Crítico para release~~ ✅ |
 | ~~`CODE-001`~~ | ~~WAL replay escriba backend metadata~~ | ~~2-3d~~ | ~~⚠️ Data-loss real~~ ✅ |
 | ~~`CODE-002`~~ | ~~WAL append después de validación~~ | ~~2-3d~~ | ~~⚠️ Phantom records~~ ✅ |
 | ~~`CODE-007`~~ | ~~Tombstone check en HNSW insert~~ | ~~2-3d~~ | ~~🟡 Degradación calidad~~ ✅ |
@@ -494,7 +493,7 @@ Esfuerzo                │   Esfuerzo
 | ~~scan_nodes OOM~~ | 🟡 Media | 🟡 Server crash | **CODE-024** TIER 1 ✅ |
 | ~~Read lock en search bloquea writes~~ | 🟡 Media | 🟡 Write starvation | **CODE-029** TIER 1 ✅ |
 | ~~Python 100% RuntimeError~~ | 🟢 Baja | 🟡 Sin diagnóstico | **CODE-011** TIER 0 ✅ |
-| Migration runner roto | 🟡 Media | 🔴 Data loss | DB-01 TIER 0 |
+| ~~Migration runner roto~~ | ~~🟡 Media~~ | ~~🔴 Data loss~~ | ~~DB-01 TIER 0~~ ✅ |
 | ~~WASM expect() panic on NaN/Inf~~ | 🟢 Baja | 🔴 WASM instance crash | **CODE-018** TIER 0 ✅ |
 | ~~TS close() llama free() no close()~~ | 🟢 Baja | 🔴 WAL flush skip | **CODE-019** TIER 0 ✅ |
 | ~~WASM delete_file() sin await~~ | 🟢 Baja | 🟡 Errores silenciosos | **CODE-005** TIER 0 ✅ |
@@ -513,7 +512,7 @@ Esfuerzo                │   Esfuerzo
 |-----------|----------|----------|----------|----------|-----------|-------|
 | 🩹 Data Loss & Crash Prev | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🛡️ Seguridad & Integrity | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Migration Runner | 2 | 0 | 0 | 0 | 0 | 2 |
+| ⚡ Migration Runner | 0 | 0 | 0 | 0 | 0 | 0 |
 | 💥 Crash/Deadlock Fixes | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🐛 Correctness Bugs (Post-Benchmark) | 1 | 0 | 0 | 0 | 0 | 1 |
 | 🐛 Python SDK Data Bugs | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -537,27 +536,27 @@ Esfuerzo                │   Esfuerzo
 | 🎨 SDK Mejoras | 0 | 0 | 3 | 0 | 0 | 3 |
 | 🔧 Accesibilidad Web | 0 | 0 | 0 | 0 | 0 | 0 |
 | 📦 Distribución Avanzada | 0 | 0 | 0 | 2 | 0 | 2 |
-| 🧪 Testing Post-Launch | 0 | 0 | 0 | 4 | 0 | 4 |
+| 🧪 Testing Post-Launch | 0 | 0 | 0 | 1 | 0 | 1 |
 | 🛡️ Seguridad Post-Launch | 0 | 0 | 0 | 0 | 0 | 0 |
 | ⚡ Performance Baja Prioridad (Post-Benchmark) | 0 | 0 | 0 | 8 | 0 | 8 |
-| 🧹 Code Health General | 0 | 0 | 0 | 1 | 0 | 1 |
+| 🧹 Code Health General | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
-| **Total** | **16** | **17** | **29** | **15** | **21** | **98** |
+| **Total** | **14** | **17** | **29** | **11** | **21** | **92** |
 
-Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 revertido a ❌ (aún usa XxHash64+u64). Pendientes: 98 items ❌ + 3 ⏳ = 101 open.
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 92 items ❌ + 1 ⏳ (BIZ-01) = 93 open.
 
 ---
 
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 16 items remaining):
+Jul 4-11   TIER 0 (🔴 14 items remaining):
               ─ Data loss: ✅ ~~CODE-026~~
               ─ Security: ✅ ~~CODE-012~~, SEC-08/09/10
-              ─ Migration: DB-01 ⏳, DB-02 ✅, snapshot tests ❌
+              ─ Migration: ✅ ~~DB-01~~, DB-02 ✅, ✅ ~~snapshot tests~~
                ─ Crash: ✅ ~~CODE-018/019~~
-              ─ Correctness: CODE-092 (Euclidean bug) ❌
+              ─ Correctness: ✅ ~~CODE-092 (Euclidean bug)~~
                ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
              ─ Integrations: INT-01→11, DEVOPS-05/12, REL-02 ❌
 Jul 11-18  TIER 1 (🟠 17 items remaining):
@@ -567,7 +566,7 @@ Jul 11-18  TIER 1 (🟠 17 items remaining):
              ─ Docs: DOC-19/20, MCP-IDE ❌
              ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
              ─ Distribución: DEVOPS-02/06/10, TSK-121 ❌
-             ─ Code health: CODE-067 ❌ (revertido, still open)
+              ─ Code health: ✅ ~~CODE-067~~
              ─ ⚡ Post-Benchmark: PERF-15/16 🔴, PERF-17→20 🟠 ❌
 Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
@@ -577,10 +576,10 @@ Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ Accesibilidad: ✅ ~~CODE-048~~
              ─ SEO/Conversion: MKT-17 ❌
              ─ ⚙️ Perf Media: PERF-21→30 🟡 ❌
-Ago-Sep    TIER 3 (🔵 15 items remaining):
-             ─ Testing: CODE-033/035/044/074 ❌, ✅ ~~CODE-043/057/075~~
+Ago-Sep    TIER 3 (🔵 12 items remaining):
+              ─ Testing: CODE-074 ❌, ✅ ~~CODE-033/035/043/044/057/075~~
              ─ Seguridad: ✅ ~~CODE-036/058/061~~
-             ─ Code health: CODE-055 ❌, ✅ ~~18 others, CODE-039/040/041/042 moved → progreso~~
+              ─ Code health: ✅ ~~CODE-055~~, ✅ ~~18 others, CODE-039/040/041/042 moved → progreso~~
              ─ Distribución: DEVOPS-06, crates.io ❌
              ─ Post-launch: SEC-04→07, TEST-04/05/07/08 ✅
              ─ ⚡ Perf Baja: PERF-31→38 🟢 ❌
