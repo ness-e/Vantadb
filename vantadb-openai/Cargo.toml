@@ -2,6 +2,7 @@
 name = "vantadb-openai"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "OpenAI embedding API wrapper + VantaDB storage — generate embeddings via OpenAI and store/search them in VantaDB"
 publish = false

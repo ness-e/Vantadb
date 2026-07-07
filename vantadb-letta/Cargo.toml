@@ -2,6 +2,7 @@
 name = "vantadb-letta"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "Letta/MemGPT vector store adapter for VantaDB — use VantaDB as a drop-in VectorStore for Letta AI agents"
 publish = false

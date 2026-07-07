@@ -2,6 +2,7 @@
 name = "vantadb-mem0"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "Mem0 vector store backend for VantaDB — use VantaDB as a drop-in memory store for Mem0 AI agents"
 publish = false
