@@ -96,17 +96,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/rust-setup
-      - name: Install nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: nextest
       - name: Run failpoint tests
         env:
           RUST_BACKTRACE: 1
-        run: |
-          cargo nextest run --test chaos_integrity --features failpoints --test-threads=1
-          cargo nextest run --test wal_resilience --test-threads=1
-          cargo nextest run --test crash_injection --test-threads=1
+        run: >
+          cargo test --features failpoints
+          --test chaos_integrity
+          --test wal_resilience
+          --test crash_injection
+          --
+          --test-threads=1
 
   storage-persistence:
     name: "Certification: storage_persistence"

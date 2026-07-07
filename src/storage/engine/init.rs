@@ -354,6 +354,12 @@ impl StorageEngine {
             let wal_replay_started = Instant::now();
             let num_shards = config.wal_shards.max(1);
 
+            // Compute per-shard skip from global checkpoint based on round-robin distribution.
+            // Records are distributed evenly across shards, so each shard must skip
+            // checkpoint/num_shards records, plus one extra for the first (checkpoint%num_shards) shards.
+            let per_shard_skip = checkpoint_seq / num_shards as u64;
+            let extra = checkpoint_seq % num_shards as u64;
+
             for shard_idx in 0..num_shards {
                 let shard_path = if num_shards > 1 {
                     let dir = wal_path.parent().unwrap_or(Path::new("."));
@@ -376,10 +382,15 @@ impl StorageEngine {
                     Ok(r) => r,
                     Err(_) => continue,
                 };
+                let shard_skip = if (shard_idx as u64) < extra {
+                    per_shard_skip + 1
+                } else {
+                    per_shard_skip
+                };
                 let mut current_seq = 0u64;
                 while let Some(record) = wal_reader.next_record()? {
                     current_seq += 1;
-                    if current_seq <= checkpoint_seq {
+                    if current_seq <= shard_skip {
                         continue;
                     }
                     wal_records_replayed += 1;
