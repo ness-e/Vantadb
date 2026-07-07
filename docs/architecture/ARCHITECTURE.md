@@ -3,13 +3,13 @@ title: VantaDB Internal Architecture
 type: architecture
 status: active
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-07
 aliases: []
 ---
 
 # VantaDB Internal Architecture
 
-This document reflects the current repo truth for `v0.1.x`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+This document reflects the current repo truth for `v0.2.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
 ---
 
@@ -131,10 +131,12 @@ The `StorageBackend` trait abstracts the KV layer:
 
 ```rust
 pub trait StorageBackend: Send + Sync {
-    fn put(&self, key: &[u8], value: &[u8]) -> Result<()>;
-    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
-    fn delete(&self, key: &[u8]) -> Result<()>;
+    fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()>;
+    fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>>;
+    fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()>;
     fn flush(&self) -> Result<()>;
+    fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()>;
+    fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
 }
 ```
 
@@ -254,13 +256,17 @@ Client: db.search(vector, text, top_k=10)
 
 | Component | Source File | Responsibility |
 |-----------|------------|----------------|
-| **VantaEmbedded** | `src/sdk.rs` | Public API boundary |
-| **StorageEngine** | `src/storage.rs` | Storage orchestration |
-| **WalWriter** | `src/wal.rs` | Write-ahead log |
-| **HnswIndex** | `src/index.rs` | Vector ANN index |
+| **VantaEmbedded** | `src/sdk/api.rs` | Public API boundary |
+| **StorageEngine** | `src/storage/engine/ops.rs` | Storage orchestration |
+| **WalWriter** | `src/storage/wal.rs` | Write-ahead log |
+| **WalSharded** | `src/wal_sharded.rs` | Sharded WAL writer |
+| **HnswIndex** | `src/index/core.rs` | Vector ANN index |
+| **VantaFile** | `src/vfile.rs` | Memory-mapped vector storage |
 | **Bm25Index** | `src/text_index.rs` | Lexical search index |
 | **FjallBackend** | `src/backends/fjall_backend.rs` | LSM-tree backend |
 | **UnifiedNode** | `src/node.rs` | Unified data model |
+| **FilterBitset** | `src/bitset.rs` | Dynamic bitset for filtering |
+| **Metrics** | `src/metrics/mod.rs` | Operational metrics + snapshots |
 
 ---
 
@@ -307,8 +313,8 @@ The `UnifiedNode` in `src/node.rs` is the canonical internal representation:
 
 ```rust
 pub struct UnifiedNode {
-    pub id: u64,
-    pub bitset: u128,
+    pub id: u128,
+    pub bitset: FilterBitset,
     pub semantic_cluster: u32,
     pub flags: NodeFlags,
     pub vector: VectorRepresentations,
@@ -356,7 +362,7 @@ The current release should not be read as a universal multimodel platform, an en
 
 The internal core data model is `UnifiedNode` in `src/node.rs`. Each node can hold:
 
-- a unique `u64` identifier
+- a unique `u128` identifier (XxHash3_128 over namespace + key)
 - a vector payload
 - typed relational fields
 - local graph edges
@@ -373,7 +379,7 @@ The product-level memory model is separate and lives in `src/sdk.rs`:
 - `VantaMemoryListOptions`
 - `VantaMemorySearchRequest`
 
-Memory identity is deterministic over `namespace + "\0" + key`. `UnifiedNode` remains internal storage representation, not the public product API.
+Memory identity is deterministic over `XxHash3_128(namespace + "\0" + key)`. `UnifiedNode` remains internal storage representation, not the public product API.
 
 ## 3. Storage and Durability
 
