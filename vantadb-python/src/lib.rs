@@ -29,6 +29,9 @@ use vantadb::sdk::{
 };
 use vantadb::DistanceMetric;
 
+mod types;
+use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord};
+
 thread_local! {
     static LRU_CACHE: RefCell<LruCache> = RefCell::new(LruCache::new(64));
 }
@@ -252,6 +255,7 @@ fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec
 /// (NumPy ndarray). Returns `(nrows, ndims, flat_data)` in row-major order.
 ///
 /// Supports both f32 and f64 buffers with downcasting for the latter.
+#[allow(dead_code)]
 fn extract_2d_buffer(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<(usize, usize, Vec<f32>)> {
     if let Ok(buf) = PyBuffer::<f32>::get(obj) {
         let shape: &[usize] = buf.shape();
@@ -283,7 +287,7 @@ fn extract_2d_buffer(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<(usize, usi
     ))
 }
 
-fn set_python_value(
+pub(crate) fn set_python_value(
     py: Python<'_>,
     dict: &Bound<'_, PyDict>,
     key: &str,
@@ -907,7 +911,7 @@ impl VantaDB {
     /// Returns a list of record dicts in the same order as inputs.
     /// Up to ~5x faster than sequential `put()` calls for large batches.
     #[pyo3(signature = (entries))]
-    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
+    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let mut inputs = Vec::with_capacity(entries.len().unwrap_or(0));
         for entry in entries.try_iter()? {
             let entry = entry?.cast::<PyTuple>()?.clone();
@@ -958,10 +962,10 @@ impl VantaDB {
         let engine = self.engine.clone();
         let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
 
-        records
+        Ok(records
             .into_iter()
-            .map(|record| memory_record_to_pydict_owned(py, record))
-            .collect()
+            .map(VantaPyMemoryRecord::new)
+            .collect())
     }
 
     /// Insert or update multiple namespace-scoped records using a 2D NumPy array
@@ -983,79 +987,158 @@ impl VantaDB {
         metadatas: Option<Vec<Option<Py<PyAny>>>>,
         namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
-    ) -> PyResult<Vec<Py<PyAny>>> {
-        let (nrows, ndims, flat_vecs) = extract_2d_buffer(py, vectors)?;
+    ) -> PyResult<Vec<VantaPyMemoryRecord>> {
+        /// Build VantaMemoryInput vector from per-row parameters and a vector getter.
+        fn build_inputs(
+            nrows: usize,
+            _ndims: usize,
+            keys: &[String],
+            payloads: &Option<Vec<String>>,
+            metadatas: &Option<Vec<Option<Py<PyAny>>>>,
+            namespaces: &Option<Vec<String>>,
+            ttls: &Option<Vec<Option<u64>>>,
+            py: Python,
+            get_vector: &dyn Fn(usize) -> Vec<f32>,
+        ) -> PyResult<Vec<VantaMemoryInput>> {
+            let mut inputs = Vec::with_capacity(nrows);
+            for i in 0..nrows {
+                let namespace = match namespaces {
+                    Some(ns) => ns[i].clone(),
+                    None => "default".to_string(),
+                };
+                let key = keys[i].clone();
+                let payload = match payloads {
+                    Some(p) => p[i].clone(),
+                    None => String::new(),
+                };
 
-        if nrows != keys.len() {
-            return Err(PyValueError::new_err(format!(
-                "vectors.shape[0] ({}) must equal keys.len() ({})",
-                nrows,
-                keys.len()
-            )));
+                let mut input = VantaMemoryInput::new(namespace, key, payload);
+
+                if let Some(all_meta) = metadatas {
+                    if let Some(meta_obj) = &all_meta[i] {
+                        let any_bound = meta_obj.bind(py);
+                        let dict: &Bound<'_, PyDict> = any_bound.cast::<PyDict>()?;
+                        input.metadata = py_dict_to_metadata(Some(dict))?;
+                    }
+                }
+
+                if let Some(ttl_list) = ttls {
+                    input.ttl_ms = ttl_list[i];
+                }
+
+                input.vector = Some(get_vector(i));
+                inputs.push(input);
+            }
+            Ok(inputs)
         }
 
-        let check_len = |name: &str, len: usize| -> PyResult<()> {
-            if len != nrows {
+        // PERF-15: zero-copy f32 buffer path — avoids intermediate Vec<f32> allocation
+        if let Ok(buf) = PyBuffer::<f32>::get(vectors) {
+            let shape: &[usize] = buf.shape();
+            if shape.len() != 2 {
+                return Err(PyValueError::new_err(
+                    "vectors must be a 2D array (shape [N, D])",
+                ));
+            }
+            let nrows = shape[0];
+            let ndims = shape[1];
+
+            if nrows != keys.len() {
                 return Err(PyValueError::new_err(format!(
-                    "{}.len() ({}) must equal keys.len() ({})",
-                    name, len, nrows
+                    "vectors.shape[0] ({}) must equal keys.len() ({})",
+                    nrows, keys.len()
                 )));
             }
-            Ok(())
-        };
-        if let Some(ref p) = payloads {
-            check_len("payloads", p.len())?;
-        }
-        if let Some(ref m) = metadatas {
-            check_len("metadatas", m.len())?;
-        }
-        if let Some(ref n) = namespaces {
-            check_len("namespaces", n.len())?;
-        }
-        if let Some(ref t) = ttls {
-            check_len("ttls", t.len())?;
-        }
+            check_lens(&payloads, &metadatas, &namespaces, &ttls, nrows)?;
 
-        let mut inputs = Vec::with_capacity(nrows);
-        for i in 0..nrows {
-            let namespace = match &namespaces {
-                Some(ns) => ns[i].clone(),
-                None => "default".to_string(),
-            };
-            let key = keys[i].clone();
-            let payload = match &payloads {
-                Some(p) => p[i].clone(),
-                None => String::new(),
-            };
-
-            let mut input = VantaMemoryInput::new(namespace, key, payload);
-
-            if let Some(all_meta) = &metadatas {
-                if let Some(meta_obj) = &all_meta[i] {
-                    let any_bound = meta_obj.bind(py);
-                    let dict: &Bound<'_, PyDict> = any_bound.cast::<PyDict>()?;
-                    input.metadata = py_dict_to_metadata(Some(dict))?;
+            if buf.is_c_contiguous() {
+                if let Some(slice) = buf.as_slice(py) {
+                    let view = FlatBufferView::new(slice, nrows, ndims);
+                    let inputs = build_inputs(
+                        nrows,
+                        ndims,
+                        &keys,
+                        &payloads,
+                        &metadatas,
+                        &namespaces,
+                        &ttls,
+                        py,
+                        &|i| view.row_to_vec(i),
+                    )?;
+                    let engine = self.engine.clone();
+                    let records =
+                        py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+                    return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
                 }
             }
 
-            if let Some(ttl_list) = &ttls {
-                input.ttl_ms = ttl_list[i];
-            }
-
-            let start = i * ndims;
-            input.vector = Some(flat_vecs[start..start + ndims].to_vec());
-
-            inputs.push(input);
+            // Fallback: f32 buffer not contiguous or as_slice failed
+            let flat = buf.to_vec(py)?;
+            let inputs = build_inputs(
+                nrows,
+                ndims,
+                &keys,
+                &payloads,
+                &metadatas,
+                &namespaces,
+                &ttls,
+                py,
+                &|i| {
+                    let start = i * ndims;
+                    flat[start..start + ndims].to_vec()
+                },
+            )?;
+            let engine = self.engine.clone();
+            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+            return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
         }
 
-        let engine = self.engine.clone();
-        let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+        // Fallback: f64 buffer — downcast to f32
+        if let Ok(buf) = PyBuffer::<f64>::get(vectors) {
+            let shape: &[usize] = buf.shape();
+            if shape.len() != 2 {
+                return Err(PyValueError::new_err(
+                    "vectors must be a 2D array (shape [N, D])",
+                ));
+            }
+            let nrows = shape[0];
+            let ndims = shape[1];
 
-        records
-            .into_iter()
-            .map(|record| memory_record_to_pydict_owned(py, record))
-            .collect()
+            if nrows != keys.len() {
+                return Err(PyValueError::new_err(format!(
+                    "vectors.shape[0] ({}) must equal keys.len() ({})",
+                    nrows, keys.len()
+                )));
+            }
+            check_lens(&payloads, &metadatas, &namespaces, &ttls, nrows)?;
+
+            let flat_f64 = buf.to_vec(py)?;
+            let flat: Vec<f32> = flat_f64.into_iter().map(|x| x as f32).collect();
+            let inputs = build_inputs(
+                nrows,
+                ndims,
+                &keys,
+                &payloads,
+                &metadatas,
+                &namespaces,
+                &ttls,
+                py,
+                &|i| {
+                    let start = i * ndims;
+                    flat[start..start + ndims].to_vec()
+                },
+            )?;
+            let engine = self.engine.clone();
+            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+            return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
+        }
+
+        Err(PyTypeError::new_err(
+            "Expected a 2D NumPy array (buffer protocol)",
+        ))
     }
+
+    /// Put or update a namespace-scoped persistent memory record.
 
     /// Put or update a namespace-scoped persistent memory record.
     #[allow(clippy::too_many_arguments)]
@@ -1115,7 +1198,7 @@ impl VantaDB {
         filters: Option<&Bound<'_, PyDict>>,
         limit: usize,
         cursor: Option<usize>,
-    ) -> PyResult<Py<PyAny>> {
+    ) -> PyResult<VantaPyListResult> {
         let namespace = namespace.to_string();
         let filters_meta = py_dict_to_metadata(filters)?;
         let engine = self.engine.clone();
@@ -1132,14 +1215,13 @@ impl VantaDB {
                 .map_err(map_vanta_error)
         })?;
 
-        let dict = PyDict::new(py);
-        let py_records = PyList::empty(py);
-        for record in page.records {
-            py_records.append(memory_record_to_pydict_owned(py, record)?)?;
-        }
-        dict.set_item("records", py_records)?;
-        dict.set_item("next_cursor", page.next_cursor)?;
-        Ok(dict.unbind().into())
+        let records: Vec<VantaPyMemoryRecord> = page
+            .records
+            .into_iter()
+            .map(VantaPyMemoryRecord::new)
+            .collect();
+
+        Ok(VantaPyListResult::new(records, page.next_cursor))
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
@@ -1600,6 +1682,39 @@ impl VantaDB {
     }
 }
 
+/// Validate that optional parallel Vecs all match nrows length.
+fn check_lens(
+    payloads: &Option<Vec<String>>,
+    metadatas: &Option<Vec<Option<Py<PyAny>>>>,
+    namespaces: &Option<Vec<String>>,
+    ttls: &Option<Vec<Option<u64>>>,
+    nrows: usize,
+) -> PyResult<()> {
+    let check = |name: &str, len: usize| -> PyResult<()> {
+        if len != nrows {
+            Err(PyValueError::new_err(format!(
+                "{}.len() ({}) must equal keys.len() ({})",
+                name, len, nrows
+            )))
+        } else {
+            Ok(())
+        }
+    };
+    if let Some(ref p) = payloads {
+        check("payloads", p.len())?;
+    }
+    if let Some(ref m) = metadatas {
+        check("metadatas", m.len())?;
+    }
+    if let Some(ref n) = namespaces {
+        check("namespaces", n.len())?;
+    }
+    if let Some(ref t) = ttls {
+        check("ttls", t.len())?;
+    }
+    Ok(())
+}
+
 /// Connect to a VantaDB database.
 ///
 /// Args:
@@ -1629,7 +1744,7 @@ fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
 /// `__array_interface__` without copying, while remaining sequence-iterable
 /// for pure-Python consumers.
 #[pyclass(name = "VantaVector")]
-struct VantaVector {
+pub(crate) struct VantaVector {
     data: Vec<f32>,
 }
 
@@ -1838,6 +1953,8 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaVector>()?;
     m.add_class::<VantaVectorIter>()?;
     m.add_class::<VantaPySearchHit>()?;
+    m.add_class::<VantaPyMemoryRecord>()?;
+    m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())

@@ -2,14 +2,16 @@
 //!
 //! Extracted from the monolithic `core.rs` for better maintainability (PERF-05).
 
+use crate::hardware::{HardwareCapabilities, InstructionSet};
 use crate::node::{DistanceMetric, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
 use super::MAX_VEC_F32_LEN;
 
 /// Precomputed dot product + squared norm of `b`. Returns `(dot, norm_b_sq)`.
+/// f32x8 kernel (AVX2 / NEON / scalar fallback).
 #[inline(always)]
-fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
+fn f32_dot_and_norm_b_sq_f32x8(a: &[f32], b: &[f32]) -> (f32, f32) {
     if a.len() != b.len() || a.is_empty() {
         return (0.0, 0.0);
     }
@@ -40,9 +42,9 @@ fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
 }
 
 /// Pure dot product — no norm computation. ~2x faster than `f32_dot_and_norm_b_sq`
-/// when norms are already cached.
+/// when norms are already cached. f32x8 kernel (AVX2 / NEON / scalar fallback).
 #[inline(always)]
-fn f32_dot_product(a: &[f32], b: &[f32]) -> f32 {
+fn f32_dot_product_f32x8(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
     }
@@ -115,9 +117,9 @@ pub fn cosine_sim_f32(a: &[f32], b: &[f32]) -> f32 {
     cosine_sim_with_query_norm(a, norm_a, b)
 }
 
-/// Compute squared Euclidean distance between two f32 vectors.
+/// f32x8 kernel for squared Euclidean distance (AVX2 / NEON / scalar fallback).
 #[inline(always)]
-pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
+fn euclidean_distance_sq_f32x8(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
     }
@@ -145,9 +147,140 @@ pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
     sum
 }
 
+// ---------------------------------------------------------------------------
+// PERF-21: f32x16 kernels (AVX-512)
+// ---------------------------------------------------------------------------
+
+/// Squared Euclidean distance using f32x16 (AVX-512).
+#[inline(always)]
+fn euclidean_distance_sq_f32x16(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    use wide::f32x16;
+    let mut sum_v = f32x16::ZERO;
+    let chunks_a = a.chunks_exact(16);
+    let chunks_b = b.chunks_exact(16);
+    let rem_a = chunks_a.remainder();
+    let rem_b = chunks_b.remainder();
+    for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
+        let va = f32x16::from(
+            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        let vb = f32x16::from(
+            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        let diff = va - vb;
+        sum_v += diff * diff;
+    }
+    let mut sum = sum_v.reduce_add();
+    for i in 0..rem_a.len() {
+        let diff = rem_a[i] - rem_b[i];
+        sum += diff * diff;
+    }
+    sum
+}
+
+/// Dot product using f32x16 (AVX-512).
+#[inline(always)]
+fn f32_dot_product_f32x16(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    use wide::f32x16;
+    let mut dot_v = f32x16::ZERO;
+    let chunks_a = a.chunks_exact(16);
+    let chunks_b = b.chunks_exact(16);
+    let rem_a = chunks_a.remainder();
+    let rem_b = chunks_b.remainder();
+    for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
+        let va = f32x16::from(
+            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        let vb = f32x16::from(
+            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        dot_v += va * vb;
+    }
+    let mut dot = dot_v.reduce_add();
+    for i in 0..rem_a.len() {
+        dot += rem_a[i] * rem_b[i];
+    }
+    dot
+}
+
+/// Combined dot + norm of `b` using f32x16 (AVX-512).
+#[inline(always)]
+fn f32_dot_and_norm_b_sq_f32x16(a: &[f32], b: &[f32]) -> (f32, f32) {
+    if a.len() != b.len() || a.is_empty() {
+        return (0.0, 0.0);
+    }
+    use wide::f32x16;
+    let mut dot_v = f32x16::ZERO;
+    let mut norm_b_v = f32x16::ZERO;
+    let chunks_a = a.chunks_exact(16);
+    let chunks_b = b.chunks_exact(16);
+    let rem_a = chunks_a.remainder();
+    let rem_b = chunks_b.remainder();
+    for (a_chunk, b_chunk) in chunks_a.zip(chunks_b) {
+        let va = f32x16::from(
+            *<&[f32; 16]>::try_from(a_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        let vb = f32x16::from(
+            *<&[f32; 16]>::try_from(b_chunk).expect("chunks_exact(16) yields 16-element chunks"),
+        );
+        dot_v += va * vb;
+        norm_b_v += vb * vb;
+    }
+    let mut dot = dot_v.reduce_add();
+    let mut norm_b = norm_b_v.reduce_add();
+    for i in 0..rem_a.len() {
+        dot += rem_a[i] * rem_b[i];
+        norm_b += rem_b[i] * rem_b[i];
+    }
+    (dot, norm_b)
+}
+
+// ---------------------------------------------------------------------------
+// PERF-21: Runtime dispatch wrappers
+// ---------------------------------------------------------------------------
+
+/// Compute squared Euclidean distance between two f32 vectors.
+/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+#[inline(always)]
+pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
+    match HardwareCapabilities::global().instructions {
+        InstructionSet::Avx512 => euclidean_distance_sq_f32x16(a, b),
+        _ => euclidean_distance_sq_f32x8(a, b),
+    }
+}
+
+/// Pure dot product — no norm computation.
+/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+#[inline(always)]
+fn f32_dot_product(a: &[f32], b: &[f32]) -> f32 {
+    match HardwareCapabilities::global().instructions {
+        InstructionSet::Avx512 => f32_dot_product_f32x16(a, b),
+        _ => f32_dot_product_f32x8(a, b),
+    }
+}
+
+/// Precomputed dot product + squared norm of `b`. Returns `(dot, norm_b_sq)`.
+/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+#[inline(always)]
+fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
+    match HardwareCapabilities::global().instructions {
+        InstructionSet::Avx512 => f32_dot_and_norm_b_sq_f32x16(a, b),
+        _ => f32_dot_and_norm_b_sq_f32x8(a, b),
+    }
+}
+
 /// Compute similarity against a raw query when SQ8 is the only available
 /// representation for the stored node. Decodes on the fly.
-fn sq8_similarity_fallback(
+///
+/// PERF-22: SIMD-ized with f32x8 (avoids 3-way scalar loop overhead per element).
+#[inline(always)]
+fn sq8_similarity(
     raw_query: &[f32],
     sq8_data: &[i8],
     sq8_scale: f32,
@@ -157,26 +290,75 @@ fn sq8_similarity_fallback(
     let inv_scale = sq8_scale / 127.0;
     match metric {
         DistanceMetric::Cosine => {
-            let mut dot = 0.0_f32;
-            let mut norm_q = 0.0_f32;
-            for (&q, &s) in raw_query.iter().zip(sq8_data.iter()) {
-                let decoded = (s as f32) * inv_scale;
-                dot += q * decoded;
-                norm_q += q * q;
+            use wide::f32x8;
+            let mut dot_v = f32x8::ZERO;
+            let mut norm_q_v = f32x8::ZERO;
+            let mut norm_sq_v = f32x8::ZERO;
+            let chunks_q = raw_query.chunks_exact(8);
+            let chunks_s = sq8_data.chunks_exact(8);
+            let rem_q = chunks_q.remainder();
+            let rem_s = chunks_s.remainder();
+            for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
+                let vq = f32x8::from(
+                    *<&[f32; 8]>::try_from(q_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+                );
+                let decoded = [
+                    (s_chunk[0] as f32) * inv_scale,
+                    (s_chunk[1] as f32) * inv_scale,
+                    (s_chunk[2] as f32) * inv_scale,
+                    (s_chunk[3] as f32) * inv_scale,
+                    (s_chunk[4] as f32) * inv_scale,
+                    (s_chunk[5] as f32) * inv_scale,
+                    (s_chunk[6] as f32) * inv_scale,
+                    (s_chunk[7] as f32) * inv_scale,
+                ];
+                let vs = f32x8::from(decoded);
+                dot_v += vq * vs;
+                norm_q_v += vq * vq;
+                norm_sq_v += vs * vs;
             }
-            let norm_sq = sq8_data.iter().fold(0.0_f32, |acc, &s| {
-                let d = (s as f32) * inv_scale;
-                acc + d * d
-            });
+            let mut dot = dot_v.reduce_add();
+            let mut norm_q = norm_q_v.reduce_add();
+            let mut norm_sq = norm_sq_v.reduce_add();
+            for i in 0..rem_q.len() {
+                let decoded = (rem_s[i] as f32) * inv_scale;
+                dot += rem_q[i] * decoded;
+                norm_q += rem_q[i] * rem_q[i];
+                norm_sq += decoded * decoded;
+            }
             if norm_q <= f32::EPSILON || norm_sq <= f32::EPSILON {
                 return 0.0;
             }
             dot / (norm_q.sqrt() * norm_sq.sqrt())
         }
         DistanceMetric::Euclidean => {
-            let mut sum_sq = 0.0_f32;
-            for (&q, &s) in raw_query.iter().zip(sq8_data.iter()) {
-                let diff = q - (s as f32) * inv_scale;
+            use wide::f32x8;
+            let mut sum_sq_v = f32x8::ZERO;
+            let chunks_q = raw_query.chunks_exact(8);
+            let chunks_s = sq8_data.chunks_exact(8);
+            let rem_q = chunks_q.remainder();
+            let rem_s = chunks_s.remainder();
+            for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
+                let vq = f32x8::from(
+                    *<&[f32; 8]>::try_from(q_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+                );
+                let decoded = [
+                    (s_chunk[0] as f32) * inv_scale,
+                    (s_chunk[1] as f32) * inv_scale,
+                    (s_chunk[2] as f32) * inv_scale,
+                    (s_chunk[3] as f32) * inv_scale,
+                    (s_chunk[4] as f32) * inv_scale,
+                    (s_chunk[5] as f32) * inv_scale,
+                    (s_chunk[6] as f32) * inv_scale,
+                    (s_chunk[7] as f32) * inv_scale,
+                ];
+                let vs = f32x8::from(decoded);
+                let diff = vq - vs;
+                sum_sq_v += diff * diff;
+            }
+            let mut sum_sq = sum_sq_v.reduce_add();
+            for i in 0..rem_q.len() {
+                let diff = rem_q[i] - (rem_s[i] as f32) * inv_scale;
                 sum_sq += diff * diff;
             }
             -sum_sq
@@ -209,7 +391,7 @@ pub fn calculate_similarity(
             }
         }
         VectorRepresentations::SQ8(data, scale) => {
-            sq8_similarity_fallback(raw_query, data, *scale, metric, query_norm)
+            sq8_similarity(raw_query, data, *scale, metric, query_norm)
         }
         VectorRepresentations::Full(f) => match metric {
             DistanceMetric::Cosine => match query_norm {

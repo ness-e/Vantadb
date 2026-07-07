@@ -352,7 +352,7 @@ impl WalWriter {
             file.seek(SeekFrom::Start(bytes_written))?;
         }
 
-        let buffer_size = buffer_size.max(KIB).min(32 * 1024 * KIB);
+        let buffer_size = buffer_size.clamp(KIB, 32 * 1024 * KIB);
 
         Ok(Self {
             writer: BufWriter::with_capacity(buffer_size, file),

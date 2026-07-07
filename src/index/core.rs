@@ -766,19 +766,21 @@ impl CPIndex {
             let cand_id = ns.1;
             let sim_q_cand = ns.0;
 
-            let (cand_slice, cand_inv_norm) = match self.nodes.get(&cand_id) {
-                Some(n) => (
-                    n.vec_data.as_f32_slice().map(|s| s.to_vec()),
-                    n.inv_cached_norm,
-                ),
+            let cand_node = match self.nodes.get(&cand_id) {
+                Some(n) => n,
                 None => continue,
             };
+            if (cand_node.flags & FLAG_TOMBSTONE) != 0 {
+                continue;
+            }
+            let cand_slice = cand_node.vec_data.as_f32_slice();
+            let cand_inv_norm = cand_node.inv_cached_norm;
 
             let mut is_diverse = true;
             for sel in &selected {
                 let sim_cand_sel = match self.config.distance_metric {
                     DistanceMetric::Cosine => {
-                        if let (Some(c_slice), Some(s_slice)) = (&cand_slice, &sel.vec) {
+                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, &sel.vec) {
                             cosine_sim_cached_norms(c_slice, cand_inv_norm, s_slice, sel.inv_norm)
                         } else {
                             if let Some(sel_node) = self.nodes.get(&sel.id) {
@@ -788,7 +790,7 @@ impl CPIndex {
                                     None
                                 };
                                 calculate_similarity(
-                                    cand_slice.as_deref().unwrap_or(&[]),
+                                    cand_slice.unwrap_or(&[]),
                                     cand_norm,
                                     None,
                                     None,
@@ -801,12 +803,12 @@ impl CPIndex {
                         }
                     }
                     DistanceMetric::Euclidean => {
-                        if let (Some(c_slice), Some(s_slice)) = (&cand_slice, &sel.vec) {
+                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, &sel.vec) {
                             -euclidean_distance_squared_f32(c_slice, s_slice)
                         } else {
                             if let Some(sel_node) = self.nodes.get(&sel.id) {
                                 calculate_similarity(
-                                    cand_slice.as_deref().unwrap_or(&[]),
+                                    cand_slice.unwrap_or(&[]),
                                     None,
                                     None,
                                     None,
@@ -829,7 +831,7 @@ impl CPIndex {
             if is_diverse {
                 selected.push(SelectedInfo {
                     id: cand_id,
-                    vec: cand_slice,
+                    vec: cand_slice.map(|s| s.to_vec()),
                     inv_norm: cand_inv_norm,
                 });
             } else {
