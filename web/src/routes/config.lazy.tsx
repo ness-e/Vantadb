@@ -61,14 +61,14 @@ function ConfigPage() {
   const codeRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-cfg-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(setupRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, setupRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-cfg-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(codeRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -96,24 +96,28 @@ function ConfigPage() {
             sub="No API keys, no host/port/password, no cloud credentials — just a file path."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 config-grid">
-              <div className="nb-cell">
-                <div className="config-label-legacy">LEGACY — Pages of config</div>
-                <ul className="nb-list">
-                  {LEGACY_CONFIG.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="nb-cell config-cell-border">
-                <div className="config-label-vanta">VANTADB — Zero lines</div>
-                <ul className="nb-list">
-                  {VANTA_CONFIG.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+          <div className="nc-cfg-grid nc-cfg-part">
+            <div className="nc-cfg-col">
+              <span className="nc-cfg-col-title nc-cfg-col-title--danger">
+                LEGACY — Pages of config
+              </span>
+              <ul className="nc-cfg-list">
+                {LEGACY_CONFIG.map((item) => (
+                  <li key={item} className="nc-cfg-item">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="nc-cfg-col nc-cfg-col--vanta">
+              <span className="nc-cfg-col-title nc-cfg-col-title--amber">VANTADB — Zero lines</span>
+              <ul className="nc-cfg-list">
+                {VANTA_CONFIG.map((item) => (
+                  <li key={item} className="nc-cfg-item">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </NbSection>
@@ -125,38 +129,36 @@ function ConfigPage() {
             sub="Compare the configuration overhead of a traditional stack against VantaDB's zero-config approach."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 config-grid">
-              <div className="nb-cell config-cell-code">
-                <div className="config-code-header">
-                  <span className="config-code-filename">legacy_setup.py</span>
-                  <span className="config-code-lines">50+ lines</span>
-                </div>
-                <pre className="config-code-pre">
-                  <code>{LEGACY_CODE}</code>
-                </pre>
+          <div className="nc-cfg-grid nc-cfg-part">
+            <div className="nc-cfg-code-col">
+              <div className="nc-cfg-code-header">
+                <span className="nc-cfg-code-name">legacy_setup.py</span>
+                <span className="nc-cfg-code-lines">50+ lines</span>
               </div>
-              <div className="nb-cell config-cell-code-accent">
-                <div className="config-code-header">
-                  <span className="config-code-filename--amber">vantadb_setup.py</span>
-                  <span className="config-code-lines--amber">3 lines</span>
-                </div>
-                <pre className="config-code-pre--fg">
-                  <code>{VANTA_CODE}</code>
-                </pre>
+              <pre className="nc-cfg-code-pre">
+                <code>{LEGACY_CODE}</code>
+              </pre>
+            </div>
+            <div className="nc-cfg-code-col nc-cfg-code-col--amber">
+              <div className="nc-cfg-code-header">
+                <span className="nc-cfg-code-name nc-cfg-code-name--amber">vantadb_setup.py</span>
+                <span className="nc-cfg-code-lines nc-cfg-code-lines--amber">3 lines</span>
               </div>
+              <pre className="nc-cfg-code-pre nc-cfg-code-pre--fg">
+                <code>{VANTA_CODE}</code>
+              </pre>
             </div>
           </div>
         </NbSection>
 
         <NbSection className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="config-cta-row">
+            <div className="nc-cfg-cta">
               <div>
-                <h2 className="config-cta-heading">Zero config. Ship faster.</h2>
-                <p className="config-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-cfg-cta-heading">Zero config. Ship faster.</h2>
+                <p className="nc-cfg-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="config-cta-code">pip install vantadb-py</code>
+              <code className="nc-cfg-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

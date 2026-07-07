@@ -50,8 +50,7 @@ function SecurityPage() {
               <span className="nc-sec-stamp">No Telemetry</span>
               <p className="nc-sec-body">
                 We do not track your usage. The VantaDB core library contains zero analytics,
-                tracking pixels, or outbound HTTP requests. Your data never leaves your
-                environment.
+                tracking pixels, or outbound HTTP requests. Your data never leaves your environment.
               </p>
             </div>
             <div className="nc-sec-card nc-sec-part">

@@ -97,38 +97,30 @@ function PlaygroundPage() {
   }
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
     if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(terminalRef.current, 60),
-    });
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(terminalRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, terminalRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
     if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(statsRef.current, 60),
-    });
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, statsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
     if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(codeRef.current, 60),
-    });
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(codeRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, codeRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
     if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(installRef.current, 60),
-    });
+    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(installRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, installRef);
 
@@ -148,68 +140,63 @@ function PlaygroundPage() {
             sub="Full vector search engine compiled to WASM. No install, no server, no excuses."
           />
 
-          <div className="nb-engine-part">
-            <div className="playground-terminal">
-              <div className="playground-terminal-header">
-                <span className="playground-dot-red" />
-                <span className="playground-dot-yellow" />
-                <span className="playground-dot-green" />
-                <span className="playground-terminal-label">vantadb@playground</span>
+          <div className="nc-pg-terminal nc-pg-terminal--amber nc-pg-part">
+            <div className="nc-pg-term-header">
+              <span className="nc-pg-dot-red" />
+              <span className="nc-pg-dot-yellow" />
+              <span className="nc-pg-dot-green" />
+              <span className="nc-pg-term-label">vantadb@playground</span>
+            </div>
+
+            <div className="nc-pg-term-body">
+              <div className="nc-pg-prompt">
+                <span className="nc-pg-prompt-label">vantadb@playground:~$</span>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && runQuery()}
+                  placeholder="Type a query or select a sample..."
+                  className="nc-pg-prompt-input"
+                />
+                <button onClick={runQuery} disabled={simulating} className="nc-pg-run-btn">
+                  Run
+                </button>
               </div>
 
-              <div className="playground-terminal-content">
-                <div className="playground-prompt-row">
-                  <span className="playground-prompt-label">vantadb@playground:~$</span>
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && runQuery()}
-                    placeholder="Type a query or select a sample..."
-                    className="playground-prompt-input"
-                  />
-                  <button onClick={runQuery} disabled={simulating} className="playground-run-btn">
-                    Run
+              <div className="nc-pg-samples">
+                {SAMPLE_QUERIES.map((q) => (
+                  <button key={q} onClick={() => fillQuery(q)} className="nc-pg-sample-btn">
+                    {q}
                   </button>
-                </div>
+                ))}
+              </div>
 
-                <div className="playground-sample-row">
-                  {SAMPLE_QUERIES.map((q) => (
-                    <button key={q} onClick={() => fillQuery(q)} className="playground-sample-btn">
-                      {q}
-                    </button>
-                  ))}
-                </div>
+              <div className="nc-pg-results">
+                {simulating && <span className="nc-pg-simulating">simulating query...</span>}
 
-                <div className="playground-results-area">
-                  {simulating && <span className="playground-simulating">simulating query...</span>}
-
-                  {results && !simulating && (
-                    <div>
-                      <span className="playground-results-summary">
-                        {results.length} results ({results[0]?.score.toFixed(3)} max score)
-                      </span>
-                      {results.map((r) => (
-                        <div key={r.id} className="playground-result-row">
-                          <span className="playground-result-id">{r.id}</span>
-                          <div className="playground-score-bar">
-                            <div
-                              className="playground-score-bar-fill"
-                              style={{ width: `${r.score * 100}%` }}
-                            />
-                          </div>
-                          <span className="playground-result-text">{r.text}</span>
-                          <span className="playground-result-score">{r.score.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {!results && !simulating && (
-                    <span className="playground-empty">
-                      ready. select a sample query or type your own.
+                {results && !simulating && (
+                  <div>
+                    <span className="nc-pg-summary">
+                      {results.length} results ({results[0]?.score.toFixed(3)} max score)
                     </span>
-                  )}
-                </div>
+                    {results.map((r) => (
+                      <div key={r.id} className="nc-pg-row">
+                        <span className="nc-pg-row-id">{r.id}</span>
+                        <div className="nc-pg-row-bar">
+                          <div className="nc-pg-row-fill" style={{ width: `${r.score * 100}%` }} />
+                        </div>
+                        <span className="nc-pg-row-text">{r.text}</span>
+                        <span className="nc-pg-row-score">{r.score.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!results && !simulating && (
+                  <span className="nc-pg-empty">
+                    ready. select a sample query or type your own.
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -222,16 +209,16 @@ function PlaygroundPage() {
             sub="Current WASM runtime environment."
           />
 
-          <div className="nb-grid nb-grid--cols-4 nb-engine-part">
+          <div className="nc-pg-stats nc-pg-part">
             {[
               { label: "Engine", value: "VantaDB WASM" },
               { label: "Status", value: "Ready (simulated)" },
               { label: "Mode", value: "HNSW + BM25" },
               { label: "Dims", value: "1536d" },
             ].map((s) => (
-              <div key={s.label} className="playground-stat-card">
-                <span className="playground-stat-value">{s.value}</span>
-                <span className="playground-stat-label">{s.label}</span>
+              <div key={s.label} className="nc-pg-stat-card nc-pg-stat-card--amber">
+                <span className="nc-pg-stat-value">{s.value}</span>
+                <span className="nc-pg-stat-label">{s.label}</span>
               </div>
             ))}
           </div>
@@ -244,44 +231,40 @@ function PlaygroundPage() {
             sub="Embed VantaDB in any JS runtime."
           />
 
-          <div className="nb-engine-part">
-            <div className="playground-code-block">
-              <span className="playground-syntax-steel">
-                // Embed VantaDB in any JS runtime{"\n"}
-              </span>
-              <span className="playground-syntax-amber">import</span>{" "}
-              <span className="playground-syntax-default">{`{ VantaDB }`}</span>{" "}
-              <span className="playground-syntax-amber">from</span>{" "}
-              <span className="playground-syntax-steel">"@vantadb/wasm"</span>
-              <span className="playground-syntax-default">;</span>
-              {"\n\n"}
-              <span className="playground-syntax-amber">const</span>{" "}
-              <span className="playground-syntax-default">db = </span>
-              <span className="playground-syntax-amber">await</span>{" "}
-              <span className="playground-syntax-default">VantaDB.init();</span>
-              {"\n\n"}
-              <span className="playground-syntax-amber">await</span>{" "}
-              <span className="playground-syntax-default">db.insert({"{"})</span>
-              {"\n"}
-              <span className="playground-syntax-default"> id: </span>
-              <span className="playground-syntax-steel">"doc1"</span>
-              <span className="playground-syntax-default">,</span>
-              {"\n"}
-              <span className="playground-syntax-default"> vector: [...],</span>
-              {"\n"}
-              <span className="playground-syntax-default"> text: </span>
-              <span className="playground-syntax-steel">"..."</span>
-              <span className="playground-syntax-default">,</span>
-              {"\n"}
-              <span className="playground-syntax-default">{"}"});</span>
-              {"\n\n"}
-              <span className="playground-syntax-amber">const</span>{" "}
-              <span className="playground-syntax-default">results = </span>
-              <span className="playground-syntax-amber">await</span>{" "}
-              <span className="playground-syntax-default">db.hybridSearch(</span>
-              <span className="playground-syntax-steel">"query"</span>
-              <span className="playground-syntax-default">, {"{ topK: 10 }"});</span>
-            </div>
+          <div className="nc-pg-code nc-pg-code--amber nc-pg-part">
+            <span className="nc-pg-syn-steel">// Embed VantaDB in any JS runtime{"\n"}</span>
+            <span className="nc-pg-syn-amber">import</span>{" "}
+            <span className="nc-pg-syn-base">{`{ VantaDB }`}</span>{" "}
+            <span className="nc-pg-syn-amber">from</span>{" "}
+            <span className="nc-pg-syn-steel">"@vantadb/wasm"</span>
+            <span className="nc-pg-syn-base">;</span>
+            {"\n\n"}
+            <span className="nc-pg-syn-amber">const</span>{" "}
+            <span className="nc-pg-syn-base">db = </span>
+            <span className="nc-pg-syn-amber">await</span>{" "}
+            <span className="nc-pg-syn-base">VantaDB.init();</span>
+            {"\n\n"}
+            <span className="nc-pg-syn-amber">await</span>{" "}
+            <span className="nc-pg-syn-base">db.insert({"{"})</span>
+            {"\n"}
+            <span className="nc-pg-syn-base"> id: </span>
+            <span className="nc-pg-syn-steel">"doc1"</span>
+            <span className="nc-pg-syn-base">,</span>
+            {"\n"}
+            <span className="nc-pg-syn-base"> vector: [...],</span>
+            {"\n"}
+            <span className="nc-pg-syn-base"> text: </span>
+            <span className="nc-pg-syn-steel">"..."</span>
+            <span className="nc-pg-syn-base">,</span>
+            {"\n"}
+            <span className="nc-pg-syn-base">{"}"});</span>
+            {"\n\n"}
+            <span className="nc-pg-syn-amber">const</span>{" "}
+            <span className="nc-pg-syn-base">results = </span>
+            <span className="nc-pg-syn-amber">await</span>{" "}
+            <span className="nc-pg-syn-base">db.hybridSearch(</span>
+            <span className="nc-pg-syn-steel">"query"</span>
+            <span className="nc-pg-syn-base">, {"{ topK: 10 }"});</span>
           </div>
         </NbSection>
 
@@ -292,12 +275,10 @@ function PlaygroundPage() {
             sub="Add VantaDB to your project."
           />
 
-          <div className="nb-engine-part">
-            <div className="playground-install-row">
-              <div className="playground-install-command">
-                <span className="playground-syntax-amber">$</span>
-                npm install @vantadb/wasm
-              </div>
+          <div className="nc-pg-install nc-pg-part">
+            <div className="nc-pg-install-cmd">
+              <span className="nc-pg-syn-amber">$</span>
+              npm install @vantadb/wasm
             </div>
           </div>
         </NbSection>

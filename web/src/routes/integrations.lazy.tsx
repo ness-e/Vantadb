@@ -26,19 +26,16 @@ import vantadb_py as vanta
 client = OpenAI()
 db = vanta.VantaDB("./openai_memory")
 
-# Generate embedding via OpenAI
 resp = client.embeddings.create(
     model="text-embedding-3-small",
     input="User prefers async workflows"
 )
 vector = resp.data[0].embedding
 
-# Store in VantaDB
 db.put("sessions", "user-001",
     "User prefers async workflows",
     vector=vector)
 
-# Semantic search
 hits = db.search("sessions",
     query_vector=vector, top_k=5)`,
   },
@@ -53,7 +50,6 @@ import vantadb_py as vanta
 
 db = vanta.VantaDB("./ollama_store")
 
-# Generate embedding via Ollama
 resp = requests.post(
     "http://localhost:11434/api/embeddings",
     json={"model": "nomic-embed-text",
@@ -61,7 +57,6 @@ resp = requests.post(
 )
 vector = resp.json()["embedding"]
 
-# Store and search locally
 db.put("docs", "rag-1",
     "Offline RAG context", vector=vector)
 hits = db.search("docs",
@@ -73,7 +68,7 @@ hits = db.search("docs",
     tag: "vantadb-mcp",
     category: "Agent Protocol",
     experimental: true,
-    desc: "EXPERIMENTAL — Expose VantaDB namespaces and tools to Claude Desktop or any MCP-compatible runtime via vantadb-mcp.",
+    desc: "EXPERIMENTAL \u2014 Expose VantaDB namespaces and tools to Claude Desktop or any MCP-compatible runtime via vantadb-mcp.",
     code: `{
   "mcpServers": {
     "vantadb": {
@@ -91,23 +86,19 @@ hits = db.search("docs",
     label: "Python SDK",
     tag: "vantadb-py",
     category: "Native Bindings",
-    desc: "Direct Rust bindings via PyO3. Zero TCP overhead — sync VantaDB and async AsyncVantaDB with full SDK coverage.",
+    desc: "Direct Rust bindings via PyO3. Zero TCP overhead \u2014 sync VantaDB and async AsyncVantaDB with full SDK coverage.",
     code: `import vantadb_py as vanta
 
-# Open database path
 db = vanta.VantaDB("./vanta_memory")
 
-# Store structured memory
 db.put("memories", "user-pref",
     "Developer is building high-end interfaces",
     vector=[0.15, 0.82, 0.44])
 
-# Multi-modal retrieval
 hits = db.search_memory("memories",
     query_vector=[0.14, 0.85, 0.40],
     top_k=1)
 
-# Async wrapper
 async with vanta.AsyncVantaDB("./path") as adb:
     await adb.put("ns", "k", "v", vector=[0.1]*128)
     results = await adb.search("ns", [0.1]*128)`,
@@ -148,7 +139,7 @@ function IntegrationsPage() {
   };
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-int-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(connectorsRef.current, 60),
@@ -157,7 +148,7 @@ function IntegrationsPage() {
   }, connectorsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-int-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(ecosystemRef.current, 60),
@@ -168,7 +159,7 @@ function IntegrationsPage() {
   return (
     <div className="nb-page">
       <NbSubpageHero
-        pattern="p01"
+        pattern="p07"
         title={
           <span>
             Fits your stack.
@@ -183,52 +174,51 @@ function IntegrationsPage() {
         <NbSectionHeader
           monoLabel="[CONNECTORS]"
           headline="Framework Connectors."
-          sub="Drop-in integrations for the most popular AI frameworks — no glue code, no middleware."
+          sub="Drop-in integrations for the most popular AI frameworks \u2014 no glue code, no middleware."
         />
 
-        <div className="integrations-grid">
+        <div className="nc-int-grid">
           <div>
-            <div className="nb-grid nb-grid--cols-2">
+            <div className="nc-int-picker">
               {INTEGRATIONS.map((int) => (
                 <button
                   key={int.id}
                   onClick={() => setSelectedId(int.id)}
-                  className={
-                    "nb-cell integrations-btn" +
-                    (selectedId === int.id ? " integrations-btn--active" : "")
-                  }
+                  className={"nc-int-btn" + (selectedId === int.id ? " nc-int-btn--active" : "")}
                 >
                   <span
                     className={
-                      "nb-mono-label" + (selectedId === int.id ? "" : " nb-mono-label--steel")
+                      selectedId === int.id
+                        ? "nc-int-btn-cat"
+                        : "nc-int-btn-cat nc-int-btn-cat--steel"
                     }
                   >
                     {int.category}
                   </span>
-                  <div className="integrations-btn-label">{int.label}</div>
+                  <div className="nc-int-btn-label">{int.label}</div>
                 </button>
               ))}
             </div>
 
-            <div className="nb-card-frame integrations-card nb-engine-part">
-              <div className="integrations-tag-row">
-                <span className="nb-mono-label">{active.tag}</span>
+            <div className="nc-int-card nc-int-part">
+              <div className="nc-int-tag-row">
+                <span className="nc-int-tag">{active.tag}</span>
                 {active.experimental && (
-                  <span className="integrations-tag--experimental">EXPERIMENTAL</span>
+                  <span className="nc-int-tag--experimental">EXPERIMENTAL</span>
                 )}
               </div>
-              <p className="integrations-desc">{active.desc}</p>
+              <p className="nc-int-desc">{active.desc}</p>
             </div>
           </div>
 
-          <div className="nb-card-frame integrations-code-frame nb-engine-part">
-            <div className="integrations-code-header">
-              <span className="nb-mono-label nb-mono-label--muted">{active.tag}</span>
-              <button onClick={handleCopy} className="nb-btn nb-btn--ghost integrations-copy-btn">
+          <div className="nc-int-code-frame nc-int-part">
+            <div className="nc-int-code-header">
+              <span className="nc-int-code-label">{active.tag}</span>
+              <button onClick={handleCopy} className="nb-btn nb-btn--ghost nc-int-copy-btn">
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
-            <pre className="integrations-code-pre">
+            <pre className="nc-int-code-pre">
               <code>{active.code}</code>
             </pre>
           </div>
@@ -242,21 +232,21 @@ function IntegrationsPage() {
           sub="Works with your stack."
         />
 
-        <div className="nb-grid integrations-ecosystem-grid nb-engine-part">
+        <div className="nc-int-eco-grid nc-int-part">
           {ECOSYSTEM_GRID.map((item) => (
-            <div key={item.name} className="nb-card-frame integrations-ecosystem-cell">
-              <div className="integrations-ecosystem-name">{item.name}</div>
-              <span className="nb-mono-label nb-mono-label--steel">{item.tag}</span>
+            <div key={item.name} className="nc-int-eco-cell">
+              <div className="nc-int-eco-name">{item.name}</div>
+              <span className="nc-int-eco-tag">{item.tag}</span>
             </div>
           ))}
         </div>
       </NbSection>
 
       <NbSection ariaLabel="Build your integration">
-        <NbBlockAmber className="integrations-cta-wrapper">
+        <NbBlockAmber className="nc-int-cta">
           <span className="nb-mono-label">BUILD YOUR INTEGRATION</span>
-          <p className="integrations-cta-text">Check the docs to build your own connector.</p>
-          <a href="/docs" className="nb-btn nb-btn--ghost integrations-cta-link">
+          <p className="nc-int-cta-text">Check the docs to build your own connector.</p>
+          <a href="/docs" className="nb-btn nb-btn--ghost nc-int-cta-link">
             DOCS
           </a>
         </NbBlockAmber>

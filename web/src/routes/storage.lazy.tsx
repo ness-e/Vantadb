@@ -70,21 +70,21 @@ function StoragePage() {
   const statesRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-stor-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(stackRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, stackRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-stor-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(archRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, archRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-stor-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -112,31 +112,29 @@ function StoragePage() {
             sub="Replace your entire retrieval stack \u2014 Pinecone, Redis, S3 \u2014 with a single embedded engine."
           />
 
-          <div className="storage-compare-grid nb-engine-part">
-            <div className="storage-compare-col">
-              <div className="nb-cell storage-cell-border-bottom">
-                <span className="storage-label-mono storage-label-mono--steel">
-                  LEGACY \u2014 3 services
-                </span>
+          <div className="nc-stor-compare nc-stor-part">
+            <div className="nc-stor-col">
+              <div className="nc-stor-cell">
+                <span className="nc-stor-label nc-stor-label--steel">LEGACY \u2014 3 services</span>
               </div>
               {LEGACY_SERVICES.map((s) => (
                 <div
                   key={s.name}
-                  className="nb-cell"
+                  className="nc-stor-cell"
                   style={{ borderLeft: `3px solid ${s.color}` }}
                 >
-                  <div className="storage-service-name">{s.name}</div>
-                  <div className="storage-service-role">{s.role}</div>
+                  <div className="nc-stor-service">{s.name}</div>
+                  <div className="nc-stor-role">{s.role}</div>
                 </div>
               ))}
-              <div className="nb-cell storage-cell-border-top">
-                <span className="storage-label-mono storage-label-mono--danger">
+              <div className="nc-stor-cell">
+                <span className="nc-stor-label nc-stor-label--danger">
                   3 SDKs \u00B7 3 bills \u00B7 $200/mo
                 </span>
               </div>
             </div>
 
-            <div className="storage-arrow-col">
+            <div className="nc-stor-arrow">
               <svg
                 width="24"
                 height="24"
@@ -149,44 +147,51 @@ function StoragePage() {
               </svg>
             </div>
 
-            <div className="storage-compare-col storage-compare-col--accent">
-              <div className="nb-cell storage-cell-border-bottom">
-                <span className="storage-label-mono storage-label-mono--amber">
-                  VantaDB \u2014 1 binary
-                </span>
+            <div className="nc-stor-col nc-stor-col--vanta">
+              <div className="nc-stor-cell">
+                <span className="nc-stor-label nc-stor-label--amber">VantaDB \u2014 1 binary</span>
               </div>
-              <div className="nb-cell">
-                <div className="storage-brand-name">vantadb</div>
-                <div className="storage-brand-tags">
-                  Vector \u00B7 Full-text \u00B7 Hybrid \u00B7 WAL
-                </div>
+              <div className="nc-stor-cell">
+                <div className="nc-stor-brand">vantadb</div>
+                <div className="nc-stor-tags">Vector \u00B7 Full-text \u00B7 Hybrid \u00B7 WAL</div>
               </div>
-              <div className="nb-cell storage-cell-border-top">
-                <span className="storage-label-mono storage-label-mono--amber">
+              <div className="nc-stor-cell">
+                <span className="nc-stor-label nc-stor-label--amber">
                   1 SDK \u00B7 1 install \u00B7 $0
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="nb-grid nb-grid--cols-2 nb-engine-part">
-            <div className="nb-cell">
-              <span className="storage-label-mono storage-label-mono--steel">LEGACY STACK</span>
-              <ul className="storage-ul-reset storage-list-gap">
+          <div className="nc-stor-compare nc-stor-part">
+            <div className="nc-stor-col">
+              <span
+                className="nc-stor-label nc-stor-label--steel"
+                style={{ display: "block", padding: "var(--space-md)" }}
+              >
+                LEGACY STACK
+              </span>
+              <ul className="nc-stor-list" style={{ padding: "0 var(--space-md) var(--space-md)" }}>
                 {LEGACY_STACK.map((item) => (
-                  <li key={item} className="storage-li-item storage-li-item--muted">
-                    <span className="storage-icon storage-icon--danger">\u2717</span>
+                  <li key={item} className="nc-stor-item nc-stor-item--muted">
+                    <span className="nc-stor-icon nc-stor-icon--danger">\u2717</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-cell storage-cell-amber-border">
-              <span className="storage-label-mono storage-label-mono--amber">VANTADB</span>
-              <ul className="storage-ul-reset storage-list-gap">
+            <div className="nc-stor-arrow" />
+            <div className="nc-stor-col nc-stor-col--vanta">
+              <span
+                className="nc-stor-label nc-stor-label--amber"
+                style={{ display: "block", padding: "var(--space-md)" }}
+              >
+                VANTADB
+              </span>
+              <ul className="nc-stor-list" style={{ padding: "0 var(--space-md) var(--space-md)" }}>
                 {VANTA_STACK.map((item) => (
-                  <li key={item} className="storage-li-item storage-li-item--foreground">
-                    <span className="storage-icon storage-icon--vanta">\u2713</span>
+                  <li key={item} className="nc-stor-item nc-stor-item--fg">
+                    <span className="nc-stor-icon nc-stor-icon--amber">\u2713</span>
                     {item}
                   </li>
                 ))}
@@ -202,12 +207,12 @@ function StoragePage() {
             sub="VantaDB\u2019s storage stack is built on an LSM-tree foundation with dedicated vector and full-text indexes."
           />
 
-          <div className="nb-grid nb-grid--cols-3 nb-engine-part">
+          <div className="nc-stor-arch nc-stor-part">
             {LAYERS.map((l, i) => (
-              <div key={i} className="nb-cell storage-arch-cell">
-                <span className="storage-arch-num">0{i + 1}</span>
-                <h3 className="storage-arch-title">{l.title}</h3>
-                <p className="storage-arch-desc">{l.desc}</p>
+              <div key={i} className="nc-stor-arch-card">
+                <span className="nc-stor-arch-num">0{i + 1}</span>
+                <h3 className="nc-stor-arch-title">{l.title}</h3>
+                <p className="nc-stor-arch-desc">{l.desc}</p>
               </div>
             ))}
           </div>
@@ -220,12 +225,12 @@ function StoragePage() {
             sub="VantaDB transitions through well-defined states for durability and crash safety."
           />
 
-          <div className="nb-grid nb-grid--cols-3 nb-engine-part">
+          <div className="nc-stor-state nc-stor-part">
             {ENGINE_STATES.map((s) => (
-              <div key={s.state} className="nb-cell">
-                <span className="storage-state-label">STATE</span>
-                <div className="storage-state-name">{s.state}</div>
-                <p className="storage-state-desc">{s.desc}</p>
+              <div key={s.state} className="nc-stor-state-card">
+                <span className="nc-stor-state-label">STATE</span>
+                <div className="nc-stor-state-name">{s.state}</div>
+                <p className="nc-stor-state-desc">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -233,12 +238,12 @@ function StoragePage() {
 
         <NbSection variant="dark" className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="storage-cta-layout">
+            <div className="nc-stor-cta">
               <div>
-                <h2 className="storage-cta-title">One binary. Three engines. Zero ops.</h2>
-                <p className="storage-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-stor-cta-title">One binary. Three engines. Zero ops.</h2>
+                <p className="nc-stor-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="storage-cta-code">pip install vantadb-py</code>
+              <code className="nc-stor-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

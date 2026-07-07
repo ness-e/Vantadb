@@ -50,14 +50,14 @@ function MaintPage() {
   const timelineRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-maint-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(overviewRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, overviewRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-maint-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(timelineRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -85,30 +85,32 @@ function MaintPage() {
             sub="Three managed services become one embedded library — nothing to deploy, monitor, or scale."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 maint-grid">
-              <div className="nb-cell">
-                <div className="maint-label-legacy">LEGACY — 3 services to maintain</div>
-                <ul className="maint-list">
-                  {LEGACY_OPS_PROBLEMS.map((item) => (
-                    <li key={item} className="maint-list-item">
-                      <span className="maint-icon-steel">✗</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="nb-cell maint-cell-border">
-                <div className="maint-label-amber">VANTADB — nothing to maintain</div>
-                <ul className="maint-list">
-                  {NO_OPS_LIST.map((item) => (
-                    <li key={item} className="maint-list-item--fg">
-                      <span className="maint-icon-amber">✓</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <div className="nc-maint-grid nc-maint-part">
+            <div className="nc-maint-col">
+              <span className="nc-maint-col-title nc-maint-col-title--steel">
+                LEGACY — 3 services to maintain
+              </span>
+              <ul className="nc-maint-list">
+                {LEGACY_OPS_PROBLEMS.map((item) => (
+                  <li key={item} className="nc-maint-item nc-maint-item--muted">
+                    <span className="nc-maint-icon nc-maint-icon--steel">✗</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="nc-maint-col nc-maint-col--vanta">
+              <span className="nc-maint-col-title nc-maint-col-title--amber">
+                VANTADB — nothing to maintain
+              </span>
+              <ul className="nc-maint-list">
+                {NO_OPS_LIST.map((item) => (
+                  <li key={item} className="nc-maint-item nc-maint-item--fg">
+                    <span className="nc-maint-icon nc-maint-icon--amber">✓</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </NbSection>
@@ -120,65 +122,79 @@ function MaintPage() {
             sub="From 4 hours to 30 seconds — see exactly what each ops cycle looks like."
           />
 
-          <div className="nb-engine-part">
-            <h2 className="maint-timeline-subhead">From 4 hours to 30 seconds.</h2>
+          <div className="nc-maint-timeline nc-maint-part">
+            <div className="nc-maint-tl-head">From 4 hours to 30 seconds.</div>
 
-            <div className="nb-grid nb-grid--cols-2">
-              <div className="nb-cell">
-                <div className="nb-mono-label">LEGACY WEEKLY OPS</div>
-                {LEGACY_OPS.map((item, i) => (
-                  <div key={item.task} className="maint-timeline-row">
-                    <div className="maint-timeline-row-content">
-                      <span className="maint-icon-steel">✗</span>
+            <div className="nc-maint-grid">
+              <div>
+                <span
+                  className="nc-maint-col-title nc-maint-col-title--steel"
+                  style={{
+                    display: "block",
+                    marginBottom: "var(--space-md)",
+                    paddingBottom: "var(--space-sm)",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  LEGACY WEEKLY OPS
+                </span>
+                {LEGACY_OPS.map((item) => (
+                  <div key={item.task} className="nc-maint-tl-row">
+                    <div className="nc-maint-tl-content nc-maint-tl-content--muted">
+                      <span className="nc-maint-icon nc-maint-icon--steel">✗</span>
                       {item.task}
                     </div>
-                    <span className="maint-timeline-time maint-timeline-time--steel">
-                      {item.time}
-                    </span>
+                    <span className="nc-maint-tl-time nc-maint-tl-time--steel">{item.time}</span>
                   </div>
                 ))}
-                <div className="maint-timeline-total maint-label-steel">~4h / week</div>
+                <div className="nc-maint-tl-total" style={{ color: "var(--steel)" }}>
+                  ~4h / week
+                </div>
               </div>
-              <div className="nb-cell maint-cell-border">
-                <div className="nb-mono-label">VANTADB WEEKLY OPS</div>
-                {VANTA_OPS.map((item, i) => (
-                  <div key={item.task} className="maint-timeline-row">
-                    <div className="maint-timeline-row-content--fg">
-                      <span className="maint-icon-amber">✓</span>
+              <div>
+                <span
+                  className="nc-maint-col-title nc-maint-col-title--amber"
+                  style={{
+                    display: "block",
+                    marginBottom: "var(--space-md)",
+                    paddingBottom: "var(--space-sm)",
+                    borderBottom: "1px solid var(--amber-dim)",
+                  }}
+                >
+                  VANTADB WEEKLY OPS
+                </span>
+                {VANTA_OPS.map((item) => (
+                  <div key={item.task} className="nc-maint-tl-row">
+                    <div className="nc-maint-tl-content nc-maint-tl-content--fg">
+                      <span className="nc-maint-icon nc-maint-icon--amber">✓</span>
                       {item.task}
                     </div>
-                    <span className="maint-timeline-time maint-timeline-time--amber">
-                      {item.time}
-                    </span>
+                    <span className="nc-maint-tl-time nc-maint-tl-time--amber">{item.time}</span>
                   </div>
                 ))}
-                <div className="maint-timeline-total maint-timeline-total--amber">~30s / week</div>
+                <div className="nc-maint-tl-total nc-maint-tl-total--amber">~30s / week</div>
               </div>
             </div>
           </div>
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2">
-              <div className="nb-cell maint-cell-cross">
-                <span className="nb-mono-label">KEY INSIGHT</span>
-                <p className="maint-insight-text">
-                  Because VantaDB runs as an embedded library — not a separate server — there's
-                  nothing to deploy, monitor, or scale independently. Your application's lifecycle{" "}
-                  <em>is</em> the database lifecycle. No pager duty. No 2 AM wakeups.
-                </p>
-              </div>
-            </div>
+          <div className="nc-maint-insight nc-maint-part">
+            <span className="nc-maint-insight-label">KEY INSIGHT</span>
+            <p className="nc-maint-insight-text">
+              Because VantaDB runs as an embedded library — not a separate server — there's nothing
+              to deploy, monitor, or scale independently. Your application's lifecycle <em>is</em>{" "}
+              the database lifecycle. No pager duty. No 2 AM wakeups.
+            </p>
           </div>
         </NbSection>
 
         <NbSection className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="maint-cta-row">
+            <div className="nc-maint-cta">
               <div>
-                <h2 className="maint-cta-heading">Zero ops. Ship and sleep.</h2>
-                <p className="maint-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-maint-cta-heading">Zero ops. Ship and sleep.</h2>
+                <p className="nc-maint-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="maint-cta-code">pip install vantadb-py</code>
+              <code className="nc-maint-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

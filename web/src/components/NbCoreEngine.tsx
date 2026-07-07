@@ -161,7 +161,9 @@ export function NbCoreEngine() {
               <div className="nc-chip-desc">{block.desc}</div>
               <div className="nc-chip-pins">
                 {block.pins.map((pin) => (
-                  <span key={pin} className="nc-pin">{pin}</span>
+                  <span key={pin} className="nc-pin">
+                    {pin}
+                  </span>
                 ))}
               </div>
             </div>
@@ -171,10 +173,26 @@ export function NbCoreEngine() {
 
       <div className="nc-schematic-features">
         {[
-          { num: "01", title: "Rust Core", desc: "Memory safety without GC. Deterministic multi-threaded execution." },
-          { num: "02", title: "HNSW Index", desc: "Hierarchical Navigable Small World for sub-ms ANN vector search." },
-          { num: "03", title: "BM25 Engine", desc: "Full-text with unicode tokenizer. Combine with vectors via RRF." },
-          { num: "04", title: "WAL Durability", desc: "Write-Ahead Log with automatic crash recovery. Zero data loss." },
+          {
+            num: "01",
+            title: "Rust Core",
+            desc: "Memory safety without GC. Deterministic multi-threaded execution.",
+          },
+          {
+            num: "02",
+            title: "HNSW Index",
+            desc: "Hierarchical Navigable Small World for sub-ms ANN vector search.",
+          },
+          {
+            num: "03",
+            title: "BM25 Engine",
+            desc: "Full-text with unicode tokenizer. Combine with vectors via RRF.",
+          },
+          {
+            num: "04",
+            title: "WAL Durability",
+            desc: "Write-Ahead Log with automatic crash recovery. Zero data loss.",
+          },
         ].map((f) => (
           <article key={f.num} className="nc-schematic-feat">
             <span className="nc-num-marker">{f.num}</span>

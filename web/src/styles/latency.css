@@ -20,7 +20,9 @@
   background: transparent;
   color: var(--steel);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .nc-lat-mode-btn + .nc-lat-mode-btn {

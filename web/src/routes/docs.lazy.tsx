@@ -142,20 +142,16 @@ max_collections = 256`,
 ## Available
 - Python SDK (pip install vantadb-py, import vantadb_py)
 - Rust SDK (crates.io)
-- CLI (vanta-cli \u2014 put, get, delete, search, list, server, export, import)
+- CLI (vanta-cli)
 - HNSW vector search + BM25 full-text + hybrid RRF
 - WAL-backed durability with WAL compaction
 - 3 storage backends (Fjall, RocksDB, InMemory)
 - Batch operations (put_batch)
 - Graph methods (BFS, DFS, topological sort, DAG check)
 - MCP Server (experimental)
-- SQ8 + TurboQuant + RaBitQ quantization (4×–32× memory reduction)
-- Predictive kernel prefetching (madvise / PrefetchVirtualMemory)
-- TTL auto-eviction with background compaction
-- Batch operations via Rayon parallelism
-
-## Rebuild index
-$ vanta-cli rebuild-index --db-path ./my_db.vdb`,
+- SQ8 + TurboQuant + RaBitQ quantization
+- Predictive kernel prefetching
+- TTL auto-eviction with background compaction`,
     desc: "Overview of features available in VantaDB v0.2.0. The Python SDK, Rust SDK, and CLI (vanta-cli) are all ready for local, self-hosted use.",
   },
   {
@@ -192,7 +188,7 @@ function DocsPage() {
   const docsRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-docs-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(docsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -201,7 +197,7 @@ function DocsPage() {
   return (
     <div className="nb-page">
       <NbSubpageHero
-        pattern="p03"
+        pattern="p06"
         title={
           <span>
             Start in 60
@@ -219,61 +215,56 @@ function DocsPage() {
           sub="Comprehensive guides, SDK references, and configuration for every language and platform."
         />
 
-        <div className="docs-layout">
+        <div className="nc-docs-layout">
           <DocsSidebar items={sidebarItems} />
 
           <div>
             {sections.map((s) => (
-              <div
-                key={s.id}
-                id={s.id}
-                className="nb-card nb-bg-cross--faint docs-card nb-engine-part"
-              >
-                <h3 className="docs-section-title">{s.title}</h3>
-                <div className="nb-divider" />
-                <p className="docs-section-desc">{s.desc}</p>
-                <div className="nb-frame docs-code-frame">
-                  <pre className="docs-code-pre">
+              <div key={s.id} id={s.id} className="nc-docs-card nc-docs-part">
+                <h3 className="nc-docs-card-title">{s.title}</h3>
+                <p className="nc-docs-card-desc">{s.desc}</p>
+                <div className="nc-docs-code-frame">
+                  <pre className="nc-docs-code-pre">
                     <code>{s.code}</code>
                   </pre>
                 </div>
               </div>
             ))}
 
-            <div className="nb-card nb-bg-cross--faint docs-card nb-engine-part">
-              <h3 className="docs-section-title">When NOT to use VantaDB</h3>
-              <div className="nb-divider" />
-              <ul className="docs-limits-list">
+            <div className="nc-docs-card nc-docs-part">
+              <h3 className="nc-docs-card-title">When NOT to use VantaDB</h3>
+              <ul className="nc-docs-limits">
                 <li>
-                  <strong>Multi-node HA / distributed clustering</strong> — VantaDB is an embedded
-                  engine, not a distributed database. No built-in replication, sharding, or
+                  <strong>Multi-node HA / distributed clustering</strong> \u2014 VantaDB is an
+                  embedded engine, not a distributed database. No built-in replication, sharding, or
                   consensus.
                 </li>
                 <li>
-                  <strong>Vectors larger than available RAM</strong> — HNSW index lives in memory.
-                  If your dataset exceeds physical RAM, consider a client-server vector database.
+                  <strong>Vectors larger than available RAM</strong> \u2014 HNSW index lives in
+                  memory. If your dataset exceeds physical RAM, consider a client-server vector
+                  database.
                 </li>
                 <li>
-                  <strong>High-availability writes across processes</strong> — Single-writer
+                  <strong>High-availability writes across processes</strong> \u2014 Single-writer
                   semantics. Concurrent writes from multiple processes are not supported.
                 </li>
                 <li>
-                  <strong>Cloud-managed / DBaaS</strong> — No hosted offering yet. Bring your own
-                  infrastructure.
+                  <strong>Cloud-managed / DBaaS</strong> \u2014 No hosted offering yet. Bring your
+                  own infrastructure.
                 </li>
                 <li>
-                  <strong>Real-time streaming / CDC</strong> — WAL is for crash recovery, not for
-                  stream processing or change data capture.
+                  <strong>Real-time streaming / CDC</strong> \u2014 WAL is for crash recovery, not
+                  for stream processing or change data capture.
                 </li>
               </ul>
             </div>
 
-            <div className="nb-block-amber docs-help-block nb-engine-part">
-              <span className="docs-help-label">NEED HELP?</span>
-              <p className="docs-help-text">Join our Discord or open a GitHub discussion.</p>
+            <div className="nc-docs-help nc-docs-part">
+              <span className="nc-docs-help-label">Need Help?</span>
+              <p className="nc-docs-help-text">Join our Discord or open a GitHub discussion.</p>
               <a
                 href="https://github.com/ness-e/Vantadb/discussions"
-                className="nb-btn nb-btn--ghost docs-help-link"
+                className="nb-btn nb-btn--ghost nc-docs-help-link"
               >
                 DISCUSSIONS
               </a>
