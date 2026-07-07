@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { NbSection, NbSectionHeader } from "../components/nb";
 import "../styles/faq-accordion.css";
 

@@ -1,9 +1,9 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../../styles/ai-ide-tooling.css";
 
@@ -89,9 +89,7 @@ function IdeToolingPage() {
               <ul className="nc-ai-list">
                 {PROBLEMS.map((p) => (
                   <li key={p} className="nc-ai-item">
-                    <span className="nc-ai-icon nc-ai-icon--danger">
-                      ✗
-                    </span>
+                    <span className="nc-ai-icon nc-ai-icon--danger">✗</span>
                     {p}
                   </li>
                 ))}
@@ -102,9 +100,7 @@ function IdeToolingPage() {
               <ul className="nc-ai-list">
                 {BENEFITS.map((s) => (
                   <li key={s} className="nc-ai-item nc-ai-item--fg">
-                    <span className="nc-ai-icon nc-ai-icon--amber">
-                      ✓
-                    </span>
+                    <span className="nc-ai-icon nc-ai-icon--amber">✓</span>
                     {s}
                   </li>
                 ))}
@@ -150,9 +146,7 @@ function IdeToolingPage() {
         <NbBlockAmber>
           <div className="nb-text-center">
             <span className="nb-mono-label">BUILD IDE TOOLS</span>
-            <p className="nb-section-sub">
-              Read the docs to integrate semantic code search.
-            </p>
+            <p className="nb-section-sub">Read the docs to integrate semantic code search.</p>
             <Link to="/docs" className="nb-btn nb-btn--ghost">
               DOCS
             </Link>

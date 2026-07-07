@@ -7,7 +7,7 @@ interface NbAlertProps {
   children: ReactNode;
 }
 
-const ICON_BG: Record<string, string> = {
+const _ICON_BG: Record<string, string> = {
   warning: "nb-alert-icon",
   success: "nb-alert-icon",
   error: "nb-alert-icon",

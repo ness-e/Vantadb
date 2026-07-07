@@ -28,7 +28,7 @@
 
 .nb-fg-card--featured {
   border-color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 6%, var(--surface));
+  background: color-mix(in sRGB, var(--amber) 6%, var(--surface));
   box-shadow: 4px 4px 0 var(--amber);
 }
 
@@ -64,17 +64,17 @@
 }
 
 /* ── Responsive ──────────────────────────────── */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nb-fg-grid {
     grid-template-columns: 1fr 1fr;
   }
 
   .nb-fg-card[style*="span"] {
-    grid-column: span 1 !important;
+    grid-column: span 1;
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .nb-fg-grid {
     grid-template-columns: 1fr;
   }

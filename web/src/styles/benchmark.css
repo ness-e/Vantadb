@@ -98,7 +98,7 @@
   gap: var(--space-2xs);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .benchmark-table th,
   .benchmark-table td {
     padding: var(--space-2xs) var(--space-xs);

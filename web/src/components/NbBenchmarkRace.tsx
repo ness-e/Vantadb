@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { gsap } from "../lib/gsap";
 import "../styles/benchmark-race.css";
 import { NbSection, NbSectionHeader } from "./nb";
@@ -81,7 +81,7 @@ export function NbBenchmarkRace() {
         <div className="nb-rd-podium">
           <span className="nb-rd-podium-title">OVERALL STANDINGS</span>
           <div className="nb-rd-podium-steps">
-            {PODIUM.map((p, i) => (
+            {PODIUM.map((p, _i) => (
               <div
                 key={p.label}
                 className="nb-rd-podium-step"

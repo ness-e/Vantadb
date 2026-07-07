@@ -37,6 +37,7 @@ export function ScrollProgress() {
       className="nb-scroll-bar"
       style={{ width: `${progress * 100}%` }}
       role="progressbar"
+      aria-label="Page scroll progress"
       aria-valuenow={Math.round(progress * 100)}
       aria-valuemin={0}
       aria-valuemax={100}

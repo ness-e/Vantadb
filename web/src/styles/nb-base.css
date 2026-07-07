@@ -1,8 +1,7 @@
-@import "@fontsource-variable/space-grotesk";
-@import "@fontsource-variable/outfit";
-@import "@fontsource-variable/jetbrains-mono";
-
-@import "./tokens.css";
+@import url("@fontsource-variable/space-grotesk");
+@import url("@fontsource-variable/outfit");
+@import url("@fontsource-variable/jetbrains-mono");
+@import url("./tokens.css");
 
 *,
 *::before,
@@ -67,8 +66,8 @@ button:focus-visible {
 .nb-page-content {
   position: relative;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px), var(--background);
+    linear-gradient(90deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(255 255 255 / 3.5%) 1px, transparent 1px), var(--background);
   background-size: 4rem 4rem;
   background-position: 0 0;
   z-index: 20;
@@ -218,9 +217,11 @@ button:focus-visible {
 .nb-cell--span2 {
   grid-column: span 2;
 }
+
 .nb-cell--span3 {
   grid-column: span 3;
 }
+
 .nb-cell--row2 {
   grid-row: span 2;
 }
@@ -236,6 +237,7 @@ button:focus-visible {
 .nb-divider--amber {
   background: var(--amber);
 }
+
 .nb-divider--strong {
   background: var(--border-strong);
 }
@@ -252,6 +254,7 @@ button:focus-visible {
 .nb-hairline--amber {
   background: var(--amber);
 }
+
 .nb-hairline--strong {
   background: var(--border-strong);
 }
@@ -303,12 +306,12 @@ button:focus-visible {
 
 .nb-bg-cross--faint {
   background-image:
-    linear-gradient(0deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(0deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .nb-asymmetric,
   .nb-split-7-5 {
     grid-template-columns: 1fr;
@@ -319,13 +322,13 @@ button:focus-visible {
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nb-grid--cols-12 {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nb-section {
     padding: 3.5rem 1.25rem;
   }
@@ -347,7 +350,7 @@ button:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   [style*="clipPath"] {
-    clip-path: none !important;
+    clip-path: none;
   }
 }
 

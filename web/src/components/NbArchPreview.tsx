@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { NbSection, NbSectionHeader } from "../components/nb";
 import "../styles/arch-preview.css";
 
@@ -60,7 +60,7 @@ export function NbArchPreview() {
       />
 
       {/* 3D Layer Stack */}
-      <div className="nb-stack-3d" role="img" aria-label="3D architecture layer stack">
+      <div className="nb-stack-3d" role="group" aria-label="Architecture layers">
         {LAYERS.map((layer, i) => {
           const depth = LAYERS.length - 1 - i;
           const zOffset = depth * 12;

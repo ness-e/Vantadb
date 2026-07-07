@@ -1,12 +1,12 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { useRef } from "react";
-import { getPostBySlug } from "../../lib/blog";
-import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { NbSection, NbSectionHeader } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import DOMPurify from "dompurify";
+import { useRef } from "react";
+import { NbSection, NbSectionHeader } from "@/components/nb";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { getPostBySlug } from "../../lib/blog";
 import "../../styles/blog.css";
 
 export const Route = createLazyRoute("/blog/$slug")({

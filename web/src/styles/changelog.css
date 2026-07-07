@@ -208,7 +208,7 @@
   font-weight: var(--weight-bold);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-cl-release {
     grid-template-columns: 1fr;
   }
@@ -228,7 +228,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nc-cl-filter-bar {
     flex-wrap: wrap;
   }
@@ -241,6 +241,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-cl-filter-btn {
-    transition: none !important;
+    transition: none;
   }
 }

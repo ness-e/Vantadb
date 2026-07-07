@@ -1,11 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useState, useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../styles/integrations.css";
 
 export const Route = createLazyRoute("/integrations")({
@@ -184,7 +184,7 @@ function IntegrationsPage() {
                 <button
                   key={int.id}
                   onClick={() => setSelectedId(int.id)}
-                  className={"nc-int-btn" + (selectedId === int.id ? " nc-int-btn--active" : "")}
+                  className={`nc-int-btn${selectedId === int.id ? " nc-int-btn--active" : ""}`}
                 >
                   <span
                     className={

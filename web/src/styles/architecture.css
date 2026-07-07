@@ -129,12 +129,12 @@
     border-color 120ms ease,
     box-shadow 120ms ease,
     translate 120ms ease;
-  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  border-right: 1px solid rgb(0 0 0 / 30%);
 }
 
 .nc-arch-flame-segment:hover {
   translate: 0 -2px;
-  box-shadow: 0 4px 12px rgba(255, 85, 0, 0.2);
+  box-shadow: 0 4px 12px rgb(255 85 0 / 20%);
 }
 
 .nc-arch-flame-pct {
@@ -262,7 +262,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 820px) {
+@media (width <= 820px) {
   .nc-arch-stack {
     grid-template-columns: 1fr;
     gap: var(--space-sm);
@@ -282,7 +282,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nc-arch-registers {
     grid-template-columns: 1fr;
   }
@@ -290,7 +290,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-arch-flame-segment {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-arch-flame-segment:hover {
@@ -299,7 +299,7 @@
   }
 
   .nc-arch-register {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-arch-register:hover {

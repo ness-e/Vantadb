@@ -31,7 +31,7 @@
 
 .nc-int-btn--active {
   border-color: var(--amber);
-  background: rgba(255, 85, 0, 0.04);
+  background: rgb(255 85 0 / 4%);
 }
 
 .nc-int-btn-cat {
@@ -185,7 +185,7 @@
   box-shadow: var(--shadow-amber-lg);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-int-grid {
     grid-template-columns: 1fr;
   }
@@ -197,11 +197,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-int-btn {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-int-eco-cell {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-int-eco-cell:hover {

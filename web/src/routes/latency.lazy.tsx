@@ -1,11 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useRef, useState, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../styles/latency.css";
 
 export const Route = createLazyRoute("/latency")({
@@ -211,7 +211,7 @@ function LatencyPage() {
               <span className="nc-lat-bd-col nc-lat-bd-col--danger">Legacy</span>
               <span className="nc-lat-bd-col nc-lat-bd-col--amber">Vanta</span>
             </div>
-            {BREAKDOWN.map((row, i) => (
+            {BREAKDOWN.map((row, _i) => (
               <div key={row.label} className="nc-lat-bd-row">
                 <span className="nc-lat-bd-label">{row.label}</span>
                 <div className="nc-lat-bar-group">

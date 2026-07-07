@@ -1,9 +1,9 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../../styles/about-company.css";
 

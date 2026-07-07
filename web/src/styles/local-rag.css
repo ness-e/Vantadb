@@ -108,7 +108,7 @@
   overflow-x: auto;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-lr-compare,
   .nc-lr-pipeline {
     grid-template-columns: 1fr;

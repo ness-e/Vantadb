@@ -74,7 +74,8 @@ const CONNECTIONS = [
 ];
 
 function getBlockPos(id: string): { cx: number; cy: number; w: number; h: number } {
-  const b = BLOCKS.find((x) => x.id === id)!;
+  const b = BLOCKS.find((x) => x.id === id);
+  if (!b) return { cx: 0, cy: 0, w: 0, h: 0 };
   return { cx: b.x + b.w / 2, cy: b.y + b.h / 2, w: b.w, h: b.h };
 }
 

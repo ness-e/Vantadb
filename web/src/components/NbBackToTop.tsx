@@ -1,5 +1,5 @@
-import { useRef, memo } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { memo, useRef } from "react";
+import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
 
 export const NbBackToTop = memo(function NbBackToTop() {
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -61,7 +61,7 @@ export const NbBackToTop = memo(function NbBackToTop() {
   };
 
   return (
-    <button ref={btnRef} className="nb-back-to-top" onClick={scrollToTop} aria-label="Back to top">
+    <button ref={btnRef} type="button" className="nb-back-to-top" onClick={scrollToTop} aria-label="Back to top">
       <svg
         width="20"
         height="20"
@@ -71,6 +71,8 @@ export const NbBackToTop = memo(function NbBackToTop() {
         strokeWidth="2"
         strokeLinecap="square"
         strokeLinejoin="miter"
+        aria-hidden="true"
+        focusable="false"
       >
         <path d="M12 19V5M5 12l7-7 7 7" />
       </svg>

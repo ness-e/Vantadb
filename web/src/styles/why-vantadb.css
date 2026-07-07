@@ -91,7 +91,7 @@
   margin: 0;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-why-pillars {
     grid-template-columns: 1fr;
   }

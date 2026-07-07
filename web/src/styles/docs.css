@@ -119,8 +119,8 @@
   box-shadow: var(--shadow-amber-lg);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-docs-layout {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 }

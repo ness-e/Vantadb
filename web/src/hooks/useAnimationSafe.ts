@@ -1,5 +1,5 @@
-import { useGSAP, gsap } from "../lib/gsap";
 import type { RefObject } from "react";
+import { gsap, useGSAP } from "../lib/gsap";
 
 type AnimationCallback = (mm: gsap.MatchMedia) => void;
 

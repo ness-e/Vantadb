@@ -27,9 +27,11 @@
 .faq-console-bar-dot:first-child {
   background: #ff5f56;
 }
+
 .faq-console-bar-dot:nth-child(2) {
   background: #ffbd2e;
 }
+
 .faq-console-bar-dot:nth-child(3) {
   background: #27c93f;
 }
@@ -198,7 +200,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .faq-entry-ts {
     display: none;
   }

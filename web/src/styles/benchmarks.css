@@ -39,7 +39,7 @@
 }
 
 .nc-bm-table tbody tr:hover {
-  background: rgba(255, 85, 0, 0.04);
+  background: rgb(255 85 0 / 4%);
 }
 
 .nc-bm-td {
@@ -73,7 +73,7 @@
   margin-top: var(--space-lg);
   padding: var(--space-md) var(--space-lg);
   border: 2px solid var(--amber);
-  background: rgba(255, 85, 0, 0.04);
+  background: rgb(255 85 0 / 4%);
   font-size: var(--text-code);
   color: var(--steel);
   line-height: 1.7;
@@ -112,7 +112,7 @@
   font-size: var(--text-body);
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nc-bm-table {
     font-size: var(--text-micro);
   }
@@ -127,6 +127,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-bm-table tbody tr {
-    transition: none !important;
+    transition: none;
   }
 }

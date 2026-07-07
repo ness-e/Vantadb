@@ -141,7 +141,7 @@
   font-weight: var(--weight-bold);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-cfg-grid {
     grid-template-columns: 1fr;
   }

@@ -6,7 +6,7 @@ interface NbSubpageHeroProps {
 
 export function NbSubpageHero({ pattern = "p01", title, sub }: NbSubpageHeroProps) {
   return (
-    <header className={`nb-subpage-hero nb-subpage-hero--${pattern}`} role="banner">
+    <header className={`nb-subpage-hero nb-subpage-hero--${pattern}`}>
       <div className="nb-subpage-hero-bg" />
       <div className="nb-inner">
         <div className="nb-subpage-hero-body">

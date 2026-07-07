@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 
 export function useSingleOpen(): [number | null, (index: number) => void] {
   const [openIndex, setOpenIndex] = useState<number | null>(null);

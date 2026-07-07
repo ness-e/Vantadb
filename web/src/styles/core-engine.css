@@ -162,13 +162,13 @@
 
 /* ── Responsive ── */
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .nc-schematic-features {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nc-schematic {
     width: 100%;
     height: auto;
@@ -184,10 +184,10 @@
 
   .nc-schematic-chip {
     position: relative;
-    left: auto !important;
-    top: auto !important;
-    width: 100% !important;
-    height: auto !important;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: auto;
     margin-bottom: var(--space-sm);
     border: 2px solid var(--border-strong);
   }

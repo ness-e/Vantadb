@@ -1,7 +1,7 @@
-import { useRef, useState, useEffect, memo } from "react";
 import { Link } from "@tanstack/react-router";
+import { memo, useEffect, useRef, useState } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
-import { NbSection, NbCopyCommand } from "./nb";
+import { NbCopyCommand, NbSection } from "./nb";
 import "../styles/monolith.css";
 
 const BOOT_MESSAGES = [

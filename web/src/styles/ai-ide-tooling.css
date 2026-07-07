@@ -129,7 +129,7 @@
   margin: 0;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-ai-compare,
   .nc-ai-usecases {
     grid-template-columns: 1fr;

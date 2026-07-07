@@ -84,7 +84,6 @@ const VantaDBLogo: React.FC<VantaDBLogoProps> = React.memo(
             <VantaDBMark size={markPx} accentColor={accentColor} inverted={inverted} />
           </div>
         );
-      case "full":
       default:
         return <VantaDBLogoFull size={size} className={className} inverted={inverted} />;
     }

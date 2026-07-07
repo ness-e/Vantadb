@@ -105,7 +105,7 @@
   color: var(--amber);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-ac-values,
   .nc-ac-compare {
     grid-template-columns: 1fr;

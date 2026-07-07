@@ -175,7 +175,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 860px) {
+@media (width <= 860px) {
   .nb-rd-dash {
     grid-template-columns: 1fr;
   }
@@ -194,7 +194,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nb-rd-podium-steps {
     flex-direction: column;
   }

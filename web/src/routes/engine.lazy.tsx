@@ -1,11 +1,11 @@
 import { createLazyRoute } from "@tanstack/react-router";
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../styles/engine.css";
 
 export const Route = createLazyRoute("/engine")({
@@ -191,7 +191,7 @@ function WALSimulator() {
     if (consoleEndRef.current) {
       consoleEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [logs]);
+  }, []);
 
   const triggerCrash = () => {
     if (engineState !== "ready") return;

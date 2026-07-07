@@ -1,11 +1,11 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../styles/pricing.css";
 
 export const Route = createLazyRoute("/pricing")({

@@ -37,8 +37,8 @@
     45deg,
     transparent,
     transparent 20px,
-    rgba(255, 85, 0, 0.015) 20px,
-    rgba(255, 85, 0, 0.015) 21px
+    rgb(255 85 0 / 1.5%) 20px,
+    rgb(255 85 0 / 1.5%) 21px
   );
   pointer-events: none;
 }
@@ -96,7 +96,7 @@
   font-weight: var(--weight-bold);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-sec-grid {
     grid-template-columns: 1fr;
   }
@@ -104,6 +104,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-sec-card {
-    transition: none !important;
+    transition: none;
   }
 }

@@ -93,16 +93,17 @@
   flex: 1;
 }
 
-@media (max-width: 1024px) {
+@media (width <= 1024px) {
   .nc-uc-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-uc-grid {
     grid-template-columns: 1fr;
   }
+
   .nc-uc-pipeline {
     grid-template-columns: 1fr;
   }

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
   createLazyRoute: () => (opts: Record<string, unknown>) => opts,
@@ -37,6 +37,7 @@ vi.mock("@/components/NbSubpageHero", () => ({
 }));
 
 import { Route } from "../../routes/pricing.lazy";
+
 const PricingPage = (Route as unknown as { component: React.ComponentType }).component;
 
 describe("PricingPage", () => {

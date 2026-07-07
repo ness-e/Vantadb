@@ -123,19 +123,19 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .nb-patch-matrix {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nb-patch-matrix {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .nb-patch-matrix {
     grid-template-columns: 1fr;
   }

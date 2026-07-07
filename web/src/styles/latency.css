@@ -172,7 +172,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: rgba(255, 85, 0, 0.04);
+  background: rgb(255 85 0 / 4%);
   border-color: var(--amber);
 }
 
@@ -360,7 +360,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-lat-split {
     grid-template-columns: 1fr;
   }
@@ -378,10 +378,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-lat-mode-btn {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-lat-bar-fill {
-    transition: none !important;
+    transition: none;
   }
 }

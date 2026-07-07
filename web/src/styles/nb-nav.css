@@ -99,12 +99,12 @@
   color: var(--text-on-amber);
   background: var(--amber);
   border-color: var(--amber);
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 25%);
 }
 
 .nc-nav-link.active:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 30%);
 }
 
 .nc-nav-toggle-on {
@@ -250,7 +250,7 @@
 .nc-nav-gh-btn:hover {
   background: var(--amber);
   color: var(--text-on-amber);
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: 3px 3px 0 rgb(0 0 0 / 25%);
   transform: translate(-2px, -2px);
 }
 
@@ -310,7 +310,7 @@
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-overlay) - 1);
-  background: rgba(0, 0, 0, 0.88);
+  background: rgb(0 0 0 / 88%);
 }
 
 /* ── Drawer ── */
@@ -478,7 +478,7 @@
 
 /* ── Responsive ── */
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .nc-nav-links {
     display: none;
   }
@@ -492,7 +492,7 @@
   }
 }
 
-@media (min-width: 961px) {
+@media (width >= 961px) {
   .nc-nav-toggle {
     display: none;
   }
@@ -517,7 +517,7 @@
   .nc-drawer-cta,
   .nc-nav-drawer,
   .nc-toggle-bar {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-nav-dropdown {
@@ -558,7 +558,7 @@
 
   .nc-nav-link.active:hover {
     transform: none;
-    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+    box-shadow: 3px 3px 0 rgb(0 0 0 / 25%);
   }
 
   .nc-nav-gh-btn:hover {
