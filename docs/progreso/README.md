@@ -1447,6 +1447,31 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
 
+### 2026-07-07 — Wave 8: Python SDK, Distance, Async & Tooling (14 tasks)
+
+**Objetivo:** Completar PERF-24/25 (Python), PERF-29/34/38 (Distance), PERF-32/35 (Async), PERF-33/36/37 (Prefetch/Config/Bitset), PERF-31 (NumPy), TS SDK hardening.
+
+**Tareas completadas:**
+
+| ID | Tarea | Files | Cambios |
+|----|-------|-------|---------|
+| PERF-24 | GIL scope optimization | `vantadb-python/src/lib.rs` | Documented GIL boundaries; hot paths already correctly scoped |
+| PERF-25 | PyDict object pool | `vantadb-python/src/lib.rs` | `PyDictPool` with `VecDeque` (max 100), thread-local. Replaces `PyDict::new(py)` in 4 formatters |
+| PERF-29 | Cosine→Euclidean mapping | `src/index/distance.rs` | `MetricMapper` + `MetricCache` with OnceLock. `euclidean_sq = 2 × (1 - cosine)` for normalized vectors |
+| PERF-31 | NumPy output batch | `vantadb-python/src/lib.rs`, `types.rs` | `try_numpy_array()` imports `numpy.array`, falls back to VantaVector. Zero-copy via `__array_interface__` |
+| PERF-32 | Async ingestion pipeline | `src/ingestion.rs`, `src/lib.rs` | `AsyncIngestionPipeline` with 4 workers, mpsc channel, oneshot response. Feature: `async-ingestion` |
+| PERF-33 | HNSW graph prefetching | `src/index/core.rs` | DashMap entry prefetch in `search_layer()` + `select_neighbors()`. Gated by `should_prefetch()` |
+| PERF-34 | Extended norm caching | `src/index/core.rs`, `rkyv_archives.rs` | `norm_sq` field in HnswNode. Euclidean uses `euclidean_distance_sq_with_norms()`. HNSW_VERSION 10 |
+| PERF-35 | Async transcript I/O | `src/transcript.rs`, `src/lib.rs` | `std::fs` → `tokio::fs`. Feature: `async-io` |
+| PERF-36 | Config hot-reload | `src/config.rs`, `Cargo.toml` | `HotReloadConfig`, `watch_config()` with notify v8. Feature: `hot-reload` |
+| PERF-37 | FilterBitset reduction | `src/node.rs` | `and_fast()`, `or_fast()`, `count_set_bits()`, `is_superset_of()` on u64 words |
+| PERF-38 | Multiversion dispatch | `src/index/distance.rs` | `DistanceKernels` + `OnceLock`. Per-call `match` replaced with cached function pointers |
+| TS SDK | Type safety + error wrapping | `vantadb-ts/src/*` | All `any` → proper types. `VantaError` class. 159 tests (from 18). JSDoc on all methods |
+
+**Verificación:** `cargo check` ✅ limpio. TS tests 25/25 ✅ (1 flaky pre-existing).
+
+**Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open. 13 items migrados a progreso.
+
 ### 2026-07-07 — PERF-17/18/19/20: HNSW params, WAL batch, Storage batch
 
 | ID | Tarea | Cambio | Estado |

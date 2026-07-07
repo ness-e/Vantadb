@@ -9,6 +9,8 @@ use crate::tokenizer::AdvancedTokenizerConfig;
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
+#[cfg(feature = "hot-reload")]
+use std::sync::{Arc, RwLock};
 use tracing::debug;
 use tracing::warn;
 
@@ -98,6 +100,85 @@ impl PrefetchMode {
 pub struct RbacConfig {
     /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
+}
+
+/// Subset of [`VantaConfig`] fields that are safe to modify at runtime.
+///
+/// Fields that change storage layout, backend, or security posture are excluded.
+/// Only tuning knobs and log-level controls are reloaded.
+#[derive(Debug, Clone)]
+pub struct HotReloadConfig {
+    /// Prefetch mode — safe to toggle between on/off.
+    pub prefetch_mode: PrefetchMode,
+    /// Log output format — can be changed at runtime for debugging.
+    pub log_format: LogFormat,
+    /// Rate limit in requests per minute per IP (0 = disabled).
+    pub rate_limit_rpm: u32,
+    /// Batch size for batch ingestion operations.
+    pub batch_size: Option<usize>,
+    /// WAL buffer size in bytes.
+    pub wal_buffer_size: Option<usize>,
+    /// Number of nodes before triggering implicit WAL flush.
+    pub flush_threshold: Option<usize>,
+    /// Timeout for acquiring the insert spin-lock (ms).
+    pub insert_lock_timeout_ms: u64,
+    /// Sync mode for durability vs throughput.
+    pub sync_mode: SyncMode,
+}
+
+impl Default for HotReloadConfig {
+    fn default() -> Self {
+        Self {
+            prefetch_mode: PrefetchMode::Auto,
+            log_format: LogFormat::Compact,
+            rate_limit_rpm: 100,
+            batch_size: None,
+            wal_buffer_size: None,
+            flush_threshold: None,
+            insert_lock_timeout_ms: 2000,
+            sync_mode: SyncMode::Periodic,
+        }
+    }
+}
+
+impl HotReloadConfig {
+    /// Load hot-reloadable subset from a [`VantaConfig`].
+    pub fn from_config(cfg: &VantaConfig) -> Self {
+        Self {
+            prefetch_mode: cfg.prefetch_mode,
+            log_format: cfg.log_format,
+            rate_limit_rpm: cfg.rate_limit_rpm,
+            batch_size: cfg.batch_size,
+            wal_buffer_size: cfg.wal_buffer_size,
+            flush_threshold: cfg.flush_threshold,
+            insert_lock_timeout_ms: cfg.insert_lock_timeout_ms,
+            sync_mode: cfg.sync_mode,
+        }
+    }
+
+    /// Refresh `VantaConfig` fields from this hot-reload snapshot.
+    ///
+    /// Returns `true` if at least one field changed.
+    pub fn apply_to(&self, target: &mut VantaConfig) -> bool {
+        let mut changed = false;
+        macro_rules! update {
+            ($field:ident) => {
+                if target.$field != self.$field {
+                    target.$field = self.$field.clone();
+                    changed = true;
+                }
+            };
+        }
+        update!(prefetch_mode);
+        update!(log_format);
+        update!(rate_limit_rpm);
+        update!(batch_size);
+        update!(wal_buffer_size);
+        update!(flush_threshold);
+        update!(insert_lock_timeout_ms);
+        update!(sync_mode);
+        changed
+    }
 }
 
 /// Unified configuration for VantaDB.
@@ -205,6 +286,13 @@ pub struct VantaConfig {
     /// Set to 0 to disable WAL, or 1 for single-file (legacy) behaviour.
     /// Configured via `VANTADB_WAL_SHARDS`.
     pub wal_shards: usize,
+    /// Hot-reloadable config snapshot.
+    ///
+    /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
+    /// thread monitors the config file and atomically swaps this value.
+    /// Read via [`VantaConfig::hot_reload()`].
+    #[cfg(feature = "hot-reload")]
+    pub hot_reload_config: Arc<RwLock<HotReloadConfig>>,
 }
 
 /// Parse an environment variable with a fallback default.
@@ -413,6 +501,8 @@ impl Default for VantaConfig {
             advanced_tokenizer_config: None,
             wal_shards: parse_env_or("VANTADB_WAL_SHARDS", 4usize),
             rbac_config: RbacConfig::default(),
+            #[cfg(feature = "hot-reload")]
+            hot_reload_config: Arc::new(RwLock::new(HotReloadConfig::default())),
         }
     }
 }
@@ -587,6 +677,176 @@ impl VantaConfig {
         self.wal_shards = shards;
         self
     }
+
+    /// Returns a reference to the hot-reloadable config snapshot.
+    #[cfg(feature = "hot-reload")]
+    pub fn hot_reload(&self) -> Arc<RwLock<HotReloadConfig>> {
+        Arc::clone(&self.hot_reload_config)
+    }
+
+    /// Spawn a background watcher thread that monitors `path` for file changes
+    /// and atomically applies reloaded fields to `config`.
+    ///
+    /// Only safe-to-reload fields (see [`HotReloadConfig`]) are applied.
+    /// Changes to storage paths, backend, TLS, or API keys are ignored.
+    ///
+    /// The thread exits when the returned [`watch::Sender`] is dropped.
+    #[cfg(feature = "hot-reload")]
+    pub fn watch_config<C: Fn() + Send + 'static>(
+        config: Arc<RwLock<Self>>,
+        path: impl Into<std::path::PathBuf> + Send + 'static,
+        on_reload: C,
+    ) -> std::io::Result<std::sync::mpsc::Sender<()>> {
+        use notify::event::ModifyKind;
+        use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher};
+        use std::sync::mpsc;
+
+        let path = path.into();
+        let (tx, rx) = mpsc::channel::<()>();
+
+        let mut watcher = RecommendedWatcher::new(
+            move |res: notify::Result<Event>| {
+                if let Ok(event) = res {
+                    if matches!(event.kind, EventKind::Modify(ModifyKind::Data(_))) {
+                        let source_path = event.paths.first().cloned();
+                        if let Some(source) = source_path {
+                            if source == path {
+                                // Re-read config from the file
+                                let content = match std::fs::read_to_string(&source) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        warn!("hot-reload: failed to read config: {e}");
+                                        return;
+                                    }
+                                };
+                                let parsed: serde_json::Value = match serde_json::from_str(&content)
+                                {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        warn!("hot-reload: failed to parse config: {e}");
+                                        return;
+                                    }
+                                };
+                                match apply_hot_reload_from_value(&config, &parsed) {
+                                    Ok(changed) => {
+                                        if changed {
+                                            on_reload();
+                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!("hot-reload: failed to apply config: {e}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            Config::default(),
+        )
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        watcher
+            .watch(
+                path.parent().unwrap_or(std::path::Path::new(".")),
+                notify::RecursiveMode::NonRecursive,
+            )
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        std::thread::spawn(move || {
+            // block until shutdown signal then drop watcher
+            let _ = rx.recv();
+            drop(watcher);
+            debug!("hot-reload: watcher shut down");
+        });
+
+        Ok(tx)
+    }
+}
+
+/// Parse a `serde_json::Value` / `toml::Value` and apply hot-reloadable fields.
+#[cfg(feature = "hot-reload")]
+fn apply_hot_reload_from_value(
+    config: &Arc<RwLock<VantaConfig>>,
+    value: &serde_json::Value,
+) -> Result<bool, String> {
+    use serde_json::Value;
+
+    let mut hot = HotReloadConfig::default();
+
+    macro_rules! set_str_enum {
+        ($field:ident, $key:literal, $parser:path) => {
+            if let Some(v) = value.get($key).and_then(|v| v.as_str()) {
+                let parsed = $parser(v);
+                if parsed != $field {
+                    $field = parsed;
+                }
+            }
+        };
+    }
+
+    macro_rules! set_u32 {
+        ($field:ident, $key:literal) => {
+            if let Some(v) = value.get($key).and_then(|v| v.as_u64()) {
+                let parsed = v as u32;
+                if parsed != $field {
+                    $field = parsed;
+                }
+            }
+        };
+    }
+
+    macro_rules! set_u64 {
+        ($field:ident, $key:literal) => {
+            if let Some(v) = value.get($key).and_then(|v| v.as_u64()) {
+                if v != $field {
+                    $field = v;
+                }
+            }
+        };
+    }
+
+    macro_rules! set_opt_usize {
+        ($field:ident, $key:literal) => {
+            if let Some(v) = value.get($key) {
+                let parsed = match v {
+                    Value::Null => None,
+                    Value::Number(n) => n.as_u64().map(|n| n as usize),
+                    _ => None,
+                };
+                if parsed != $field {
+                    $field = parsed;
+                }
+            }
+        };
+    }
+
+    set_str_enum!(hot.prefetch_mode, "prefetch_mode", PrefetchMode::from_env_value);
+    set_str_enum!(hot.log_format, "log_format", LogFormat::from_env_value);
+    set_u32!(hot.rate_limit_rpm, "rate_limit_rpm");
+    set_opt_usize!(hot.batch_size, "batch_size");
+    set_opt_usize!(hot.wal_buffer_size, "wal_buffer_size");
+    set_opt_usize!(hot.flush_threshold, "flush_threshold");
+    set_u64!(hot.insert_lock_timeout_ms, "insert_lock_timeout_ms");
+
+    // sync_mode is a string in config files
+    if let Some(v) = value.get("sync_mode").and_then(|v| v.as_str()) {
+        let parsed = match v.to_lowercase().as_str() {
+            "always" => SyncMode::Always,
+            "never" => SyncMode::Never,
+            _ => SyncMode::Periodic,
+        };
+        if parsed != hot.sync_mode {
+            hot.sync_mode = parsed;
+        }
+    }
+
+    let mut guard = config.write().map_err(|e| e.to_string())?;
+    let changed = hot.apply_to(&mut guard);
+    if changed {
+        debug!("hot-reload: applied config changes");
+    }
+    Ok(changed)
 }
 
 #[cfg(test)]

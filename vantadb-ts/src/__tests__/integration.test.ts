@@ -56,7 +56,7 @@ describe("VantaDB WASM Integration", () => {
     await db.put({ namespace: "vec", key: "a", payload: "alpha", vector: vec });
     const hits = await db.search({ namespace: "vec", query_vector: vec, top_k: 5 });
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].score).toBeGreaterThan(0.99);
+    expect(hits[0].distance).toBeGreaterThan(0.99);
   });
 
   it("put batch", async () => {
@@ -108,8 +108,8 @@ describe("VantaDB WASM Integration", () => {
   });
 
   it("flush and compact wal", async () => {
-    await expect(db.flush()).resolves.toBeUndefined();
-    await expect(db.compactWal()).resolves.toBeUndefined();
+    expect(db.flush()).toBeUndefined();
+    expect(db.compactWal()).toBeUndefined();
   });
 
   it("generate snippet", async () => {

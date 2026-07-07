@@ -64,6 +64,13 @@ pub mod vector;
 pub mod wal;
 pub(crate) mod wal_sharded;
 
+/// Async ingestion pipeline for offloading node insertion to a worker pool.
+#[cfg(feature = "async-ingestion")]
+pub mod ingestion;
+/// Async transcript file I/O and processing.
+#[cfg(feature = "async-io")]
+pub mod transcript;
+
 // Re-exports for ergonomic API
 pub use binary_header::VantaHeader;
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
