@@ -1445,6 +1445,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo check` ✅ limpio en todo el workspace.
 
-**Backlog actualizado:** 82 items ❌ + 1 ⏳ = 83 open.
+**Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
+
+### 2026-07-07 — PERF-17/18/19/20: HNSW params, WAL batch, Storage batch
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| PERF-17 | ef_construction 200→400 | Ya implementado en commit `4054b4f` | ✅ |
+| PERF-18 | M/max0 16→32/64 | Ya implementado (m_max0=64 >= M=32) | ✅ |
+| PERF-19 | WAL batch append | `WalWriter::append_batch()`, `ShardedWal::append_batch()` ya existen | ✅ |
+| PERF-20 | Storage batch insert | `insert_batch()` + `delete_batch()` agregados con lock único, WAL batch, KV batch, HNSW batch | ✅ |
+
+**Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
 
 
