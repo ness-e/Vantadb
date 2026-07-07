@@ -23,7 +23,7 @@ pub(crate) fn init_wal(
     let wal_path = data_dir.join("vanta.wal");
     Ok(Some(crate::wal_sharded::ShardedWal::new(
         &wal_path,
-        4,
+        config.wal_shards,
         config.sync_mode,
     )?))
 }
