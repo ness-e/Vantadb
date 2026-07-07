@@ -1,0 +1,210 @@
+//! Python-accessible #[pyclass] types for the VantaDB Python SDK.
+//! Avoids per-result PyDict allocations in hot paths.
+
+use pyo3::buffer::ReadOnlyCell;
+use pyo3::exceptions::PyStopIteration;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use vantadb::sdk::VantaMemoryRecord;
+
+use crate::set_python_value;
+use crate::VantaVector;
+
+/// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
+///
+/// Avoids the intermediate Vec<f32> allocation that `to_vec()` creates.
+/// The view borrows from the underlying Python buffer object — the caller
+/// must ensure the buffer outlives the view.
+pub struct FlatBufferView<'a> {
+    data: &'a [ReadOnlyCell<f32>],
+    ndims: usize,
+}
+
+impl<'a> FlatBufferView<'a> {
+    /// Create a view from a PyBuffer f32 slice, nrows, and ndims.
+    pub fn new(data: &'a [ReadOnlyCell<f32>], _nrows: usize, ndims: usize) -> Self {
+        Self { data, ndims }
+    }
+
+    /// Read the i-th row into an owned Vec<f32> by copying each element.
+    /// Skips the intermediate full-buffer Vec<f32> from `to_vec()`.
+    pub fn row_to_vec(&self, index: usize) -> Vec<f32> {
+        let start = index * self.ndims;
+        self.data[start..start + self.ndims]
+            .iter()
+            .map(|c| c.get())
+            .collect()
+    }
+}
+
+/// A Python-accessible memory record with typed getter properties.
+///
+/// Wraps a `VantaMemoryRecord` and exposes fields as individual properties
+/// instead of allocating a PyDict per record.
+#[pyclass(name = "VantaMemoryRecord", skip_from_py_object)]
+#[derive(Clone)]
+pub struct VantaPyMemoryRecord {
+    pub inner: VantaMemoryRecord,
+}
+
+impl VantaPyMemoryRecord {
+    /// Create from an owned SDK record (Rust-only, not a Python constructor).
+    pub fn new(inner: VantaMemoryRecord) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl VantaPyMemoryRecord {
+    #[getter]
+    fn namespace(&self) -> &str {
+        &self.inner.namespace
+    }
+
+    #[getter]
+    fn key(&self) -> &str {
+        &self.inner.key
+    }
+
+    #[getter]
+    fn payload(&self) -> &str {
+        &self.inner.payload
+    }
+
+    #[getter]
+    fn metadata(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (k, v) in &self.inner.metadata {
+            set_python_value(py, &dict, k, v)?;
+        }
+        Ok(dict.unbind())
+    }
+
+    #[getter]
+    fn vector(&self) -> Option<VantaVector> {
+        self.inner.vector.clone().map(VantaVector::new)
+    }
+
+    #[getter]
+    fn created_at_ms(&self) -> u64 {
+        self.inner.created_at_ms
+    }
+
+    #[getter]
+    fn updated_at_ms(&self) -> u64 {
+        self.inner.updated_at_ms
+    }
+
+    #[getter]
+    fn version(&self) -> u64 {
+        self.inner.version
+    }
+
+    #[getter]
+    fn node_id(&self) -> u128 {
+        self.inner.node_id
+    }
+
+    #[getter]
+    fn expires_at_ms(&self) -> Option<u64> {
+        self.inner.expires_at_ms
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VantaMemoryRecord(namespace={}, key={}, dim={})",
+            self.inner.namespace,
+            self.inner.key,
+            self.inner.vector.as_ref().map(|v| v.len()).unwrap_or(0),
+        )
+    }
+}
+
+/// A Python-accessible list result page.
+///
+/// Wraps a page of memory records with pagination info.
+#[pyclass(name = "VantaListResult", skip_from_py_object)]
+#[derive(Clone)]
+pub struct VantaPyListResult {
+    pub records: Vec<VantaPyMemoryRecord>,
+    pub next_cursor: Option<usize>,
+}
+
+impl VantaPyListResult {
+    pub fn new(records: Vec<VantaPyMemoryRecord>, next_cursor: Option<usize>) -> Self {
+        Self {
+            records,
+            next_cursor,
+        }
+    }
+}
+
+#[pymethods]
+impl VantaPyListResult {
+    /// Return the list of records in this page.
+    #[getter]
+    fn records(&self) -> Vec<VantaPyMemoryRecord> {
+        self.records.clone()
+    }
+
+    /// Return the number of records in this page.
+    #[getter]
+    fn total_count(&self) -> usize {
+        self.records.len()
+    }
+
+    /// Cursor for the next page, or None if this was the last page.
+    #[getter]
+    fn next_cursor(&self) -> Option<usize> {
+        self.next_cursor
+    }
+
+    fn __len__(&self) -> usize {
+        self.records.len()
+    }
+
+    fn __getitem__(&self, idx: usize) -> PyResult<VantaPyMemoryRecord> {
+        self.records.get(idx).cloned().ok_or_else(|| {
+            pyo3::exceptions::PyIndexError::new_err("list index out of range")
+        })
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> VantaListResultIter {
+        VantaListResultIter {
+            inner: slf.records.clone(),
+            index: 0,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "VantaListResult(count={}, next_cursor={:?})",
+            self.records.len(),
+            self.next_cursor
+        )
+    }
+}
+
+/// Iterator for `VantaListResult`.
+#[pyclass(name = "VantaListResultIter")]
+struct VantaListResultIter {
+    inner: Vec<VantaPyMemoryRecord>,
+    index: usize,
+}
+
+#[pymethods]
+impl VantaListResultIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<VantaPyMemoryRecord>> {
+        if self.index < self.inner.len() {
+            let val = self.inner[self.index].clone();
+            self.index += 1;
+            Ok(Some(val))
+        } else {
+            Err(PyStopIteration::new_err("end of iteration"))
+        }
+    }
+}

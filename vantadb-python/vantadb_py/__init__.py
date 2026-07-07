@@ -8,9 +8,17 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 
-from .vantadb_py import VantaDB, VantaSearchHit, VantaVector, __version__
+from .vantadb_py import VantaDB, VantaListResult, VantaMemoryRecord, VantaSearchHit, VantaVector, __version__
 
-__all__ = ["VantaDB", "AsyncVantaDB", "VantaSearchHit", "VantaVector", "__version__"]
+__all__ = [
+    "VantaDB",
+    "AsyncVantaDB",
+    "VantaListResult",
+    "VantaMemoryRecord",
+    "VantaSearchHit",
+    "VantaVector",
+    "__version__",
+]
 
 
 def _to_thread(fn, *args, **kwargs):
