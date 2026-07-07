@@ -120,79 +120,42 @@ export interface ImportReport {
 }
 
 export interface OperationalMetrics {
-  /** Milliseconds elapsed during engine startup (stringified u64). */
   startup_ms: string;
-  /** Milliseconds spent replaying the WAL on database open. */
   wal_replay_ms: string;
-  /** Number of WAL records replayed during startup. */
   wal_records_replayed: string;
-  /** Milliseconds spent rebuilding the ANN index after startup. */
   ann_rebuild_ms: string;
-  /** Number of nodes scanned during ANN index rebuild. */
   ann_rebuild_scanned_nodes: string;
-  /** Milliseconds for derived index (memory) rebuild. */
   derived_rebuild_ms: string;
-  /** Milliseconds for text index rebuild. */
   text_index_rebuild_ms: string;
-  /** Number of posting entries written during text index build. */
   text_postings_written: string;
-  /** Number of text index repair operations performed. */
   text_index_repairs: string;
-  /** Number of lexical text queries executed. */
   text_lexical_queries: string;
-  /** Cumulative milliseconds spent on lexical text queries. */
   text_lexical_query_ms: string;
-  /** Total text candidates scored during hybrid search. */
   text_candidates_scored: string;
-  /** Number of text index consistency audits performed. */
   text_consistency_audits: string;
-  /** Number of consistency audit failures detected. */
   text_consistency_audit_failures: string;
-  /** Cumulative milliseconds for hybrid (text + vector) queries. */
   hybrid_query_ms: string;
-  /** Number of candidates fused during hybrid search. */
   hybrid_candidates_fused: string;
-  /** Queries routed through the hybrid (text+vector) planner. */
   planner_hybrid_queries: string;
-  /** Queries routed as text-only by the query planner. */
   planner_text_only_queries: string;
-  /** Queries routed as vector-only by the query planner. */
   planner_vector_only_queries: string;
-  /** Total records exported across all export operations. */
   records_exported: string;
-  /** Total records imported across all import operations. */
   records_imported: string;
-  /** Number of import errors encountered. */
   import_errors: string;
-  /** Number of prefix scans on the derived index. */
   derived_prefix_scans: string;
-  /** Number of fallbacks to full scan on the derived index. */
   derived_full_scan_fallbacks: string;
-  /** Resident set size in bytes (process physical memory usage). */
   process_rss_bytes: string;
-  /** Virtual memory size in bytes. */
   process_virtual_bytes: string;
-  /** Number of nodes currently in the HNSW graph. */
   hnsw_nodes_count: string;
-  /** Logical memory consumed by the HNSW graph in bytes. */
   hnsw_logical_bytes: string;
-  /** Resident bytes in memory-mapped regions, or null if unavailable. */
   mmap_resident_bytes: string | null;
-  /** Number of entries in the volatile metadata cache. */
   volatile_cache_entries: string;
-  /** Capacity of the volatile metadata cache in bytes. */
   volatile_cache_cap_bytes: string;
-  /** Bytes allocated by jemalloc, or null if jemalloc not in use. */
   jemalloc_allocated_bytes: string | null;
-  /** Active bytes tracked by jemalloc, or null. */
   jemalloc_active_bytes: string | null;
-  /** Metadata bytes used by jemalloc bookkeeping, or null. */
   jemalloc_metadata_bytes: string | null;
-  /** Resident bytes reported by jemalloc, or null. */
   jemalloc_resident_bytes: string | null;
-  /** Mapped memory regions tracked by jemalloc, or null. */
   jemalloc_mapped_bytes: string | null;
-  /** Retained memory in jemalloc caches, or null. */
   jemalloc_retained_bytes: string | null;
 }
 
@@ -209,4 +172,21 @@ export interface VantaConfig {
   read_only?: boolean;
   rss_threshold?: number;
   memory_limit?: number;
+}
+
+export interface GraphBfsResult {
+  visited: number[];
+  levels: Record<string, number>;
+  path: number[][];
+}
+
+export interface GraphDfsResult {
+  visited: number[];
+  order: number[];
+  has_cycle: boolean;
+}
+
+export interface GraphTopologicalSortResult {
+  sorted: number[];
+  has_cycle: boolean;
 }

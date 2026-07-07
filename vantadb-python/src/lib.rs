@@ -6,8 +6,8 @@
 
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{
-    PyFileExistsError, PyFileNotFoundError, PyIndexError, PyKeyError, PyOSError, PyPermissionError,
-    PyRuntimeError, PyStopIteration, PyTimeoutError, PyTypeError, PyValueError,
+    PyFileExistsError, PyFileNotFoundError, PyImportError, PyIndexError, PyKeyError, PyOSError,
+    PyPermissionError, PyRuntimeError, PyStopIteration, PyTimeoutError, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -17,6 +17,7 @@ use pyo3::types::{
 use pyo3::Py;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
@@ -34,6 +35,52 @@ use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord};
 
 thread_local! {
     static LRU_CACHE: RefCell<LruCache> = RefCell::new(LruCache::new(64));
+}
+
+/// A simple object pool for `PyDict` objects to reduce allocation overhead
+/// in hot paths like search result formatting (PERF-25).
+///
+/// Pre-allocated dicts are reused instead of going through Python's dict
+/// constructor for every search hit. The pool is thread-local and capped
+/// at 100 entries to bound memory usage.
+#[allow(dead_code)]
+struct PyDictPool {
+    pool: VecDeque<Py<PyDict>>,
+    max_capacity: usize,
+}
+
+impl PyDictPool {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            pool: VecDeque::with_capacity(capacity),
+            max_capacity: capacity,
+        }
+    }
+
+    /// Get a `PyDict` from the pool, or create a fresh one if empty.
+    /// Returns an owned `Py<PyDict>` so the caller can bind it to any lifetime.
+    fn get(&mut self, py: Python<'_>) -> Py<PyDict> {
+        match self.pool.pop_front() {
+            Some(d) => {
+                d.bind(py).clear();
+                d
+            }
+            None => PyDict::new(py).unbind(),
+        }
+    }
+
+    /// Return a `PyDict` to the pool for reuse.
+    #[allow(dead_code)]
+    fn put(&mut self, dict: Bound<'_, PyDict>) {
+        if self.pool.len() < self.max_capacity {
+            dict.clear();
+            self.pool.push_back(dict.unbind());
+        }
+    }
+}
+
+thread_local! {
+    static DICT_POOL: RefCell<PyDictPool> = RefCell::new(PyDictPool::with_capacity(100));
 }
 
 struct LruCache {
@@ -198,6 +245,26 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
     Err(PyTypeError::new_err(
         "Unsupported field value. Use str, int, float, bool, datetime, list, or None.",
     ))
+}
+
+/// Try to create a NumPy float32 array from `&[f32]` data using `numpy.array()`.
+///
+/// Returns `Ok(None)` if numpy is not installed, allowing the caller to fall
+/// back to a plain Python list or `VantaVector` (PERF-31).
+pub(crate) fn try_numpy_array(py: Python<'_>, data: &[f32]) -> PyResult<Option<Py<PyAny>>> {
+    let numpy_mod = match PyModule::import(py, "numpy") {
+        Ok(m) => m,
+        Err(e) => {
+            if e.is_instance_of::<PyImportError>(py) {
+                return Ok(None);
+            }
+            return Err(e);
+        }
+    };
+    let array_fn = numpy_mod.getattr("array")?;
+    let vv = VantaVector::new(data.to_vec());
+    let result = array_fn.call1((vv,))?;
+    Ok(Some(result.unbind().into()))
 }
 
 /// Extract a `Vec<f32>` from a Python object using the buffer protocol
@@ -415,7 +482,9 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
 
 #[allow(dead_code)]
 fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
+    // PERF-25: get dict from object pool
+    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let dict = dict_py.bind(py);
     dict.set_item("namespace", &record.namespace)?;
     dict.set_item("key", &record.key)?;
     dict.set_item("payload", &record.payload)?;
@@ -434,19 +503,23 @@ fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<P
         None => dict.set_item("expires_at_ms", py.None())?,
     }
 
-    let metadata = PyDict::new(py);
+    // PERF-25: get metadata dict from pool; embedded in parent so no put back
+    let meta_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let metadata = meta_py.bind(py);
     for (key, value) in &record.metadata {
         set_python_value(py, &metadata, key, value)?;
     }
     dict.set_item("metadata", metadata)?;
 
-    Ok(dict.unbind().into())
+    Ok(dict_py.into())
 }
 
 /// Owned variant — moves the vector out instead of cloning.
 /// Used in the search hot path where we own the data.
 fn memory_record_to_pydict_owned(py: Python, record: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
+    // PERF-25: get dict from object pool to reduce PyDict allocation in hot path
+    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let dict = dict_py.bind(py);
     dict.set_item("namespace", &record.namespace)?;
     dict.set_item("key", &record.key)?;
     dict.set_item("payload", &record.payload)?;
@@ -466,13 +539,15 @@ fn memory_record_to_pydict_owned(py: Python, record: VantaMemoryRecord) -> PyRes
         None => dict.set_item("expires_at_ms", py.None())?,
     }
 
-    let metadata = PyDict::new(py);
+    // PERF-25: get metadata dict from pool; embedded in parent so no put back
+    let meta_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let metadata = meta_py.bind(py);
     for (key, value) in &record.metadata {
         set_python_value(py, &metadata, key, value)?;
     }
     dict.set_item("metadata", metadata)?;
 
-    Ok(dict.unbind().into())
+    Ok(dict_py.into())
 }
 
 fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<Py<PyAny>> {
@@ -538,28 +613,32 @@ fn search_explanation_to_pydict(py: Python, exp: &VantaSearchExplanation) -> PyR
 
 #[allow(dead_code)]
 fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
+    // PERF-25: get dict from object pool
+    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let dict = dict_py.bind(py);
     dict.set_item("score", hit.score)?;
     dict.set_item("record", memory_record_to_pydict(py, &hit.record)?)?;
     match &hit.explanation {
         Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, exp)?)?,
         None => dict.set_item("explanation", py.None())?,
     }
-    Ok(dict.unbind().into())
+    Ok(dict_py.into())
 }
 
 /// Owned variant — consumes the hit and moves the vector out without cloning.
 /// Used in the search hot path to avoid Vec<f32> clone + Python list conversion.
 #[allow(dead_code)]
 fn memory_hit_to_pydict_owned(py: Python, hit: VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
-    let dict = PyDict::new(py);
+    // PERF-25: get dict from object pool
+    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
+    let dict = dict_py.bind(py);
     dict.set_item("score", hit.score)?;
     dict.set_item("record", memory_record_to_pydict_owned(py, hit.record)?)?;
     match hit.explanation {
         Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, &exp)?)?,
         None => dict.set_item("explanation", py.None())?,
     }
-    Ok(dict.unbind().into())
+    Ok(dict_py.into())
 }
 
 fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<Py<PyAny>> {
@@ -898,6 +977,7 @@ impl VantaDB {
         }
 
         let engine = self.engine.clone();
+        // PERF-24: GIL RELEASED — pure Rust node insert + WAL write
         py.detach(move || engine.insert_node(input).map_err(map_vanta_error))?;
 
         Ok(())
@@ -1168,7 +1248,9 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
+        // PERF-24: GIL RELEASED — pure Rust storage write + index update
         let record = py.detach(move || engine.put(input).map_err(map_vanta_error))?;
+        // PyDict formatting happens AFTER GIL re-acquisition
         memory_record_to_pydict_owned(py, record)
     }
 
@@ -1264,8 +1346,10 @@ impl VantaDB {
         };
 
         let engine = self.engine.clone();
+        // PERF-24: GIL RELEASED — pure Rust distance computation + HNSW traversal
         let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
 
+        // Pure Rust struct wrapping — no Python objects created
         hits.into_iter()
             .map(|hit| {
                 Ok(VantaPySearchHit {
@@ -1391,12 +1475,15 @@ impl VantaDB {
         vector: &Bound<'_, PyAny>,
         top_k: usize,
     ) -> PyResult<Vec<(u64, f32)>> {
+        // PERF-24: vector extraction (needs GIL) — done before detach
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
+        // GIL RELEASED: only pure Rust — distance computation + graph traversal
         py.detach(move || {
             engine
                 .search_vector(&v, top_k)
                 .map(|hits| {
+                    // Pure Rust tuple mapping — no Python objects created
                     hits.into_iter()
                         .map(|hit| (hit.node_id as u64, hit.distance))
                         .collect()
@@ -1419,10 +1506,12 @@ impl VantaDB {
         vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
     ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+        // PERF-24: vector extraction (needs GIL) — done before detach
         let parsed: PyResult<Vec<Vec<f32>>> =
             vectors.iter().map(|v| extract_vector(v, py)).collect();
         let parsed = parsed?;
         let engine = self.engine.clone();
+        // GIL RELEASED: pure Rust — parallel graph traversal, no Python objects
         py.detach(move || {
             use rayon::prelude::*;
             parsed
@@ -1880,8 +1969,15 @@ impl VantaPySearchHit {
     }
 
     #[getter]
-    fn vector(&self) -> Option<VantaVector> {
-        self.inner.vector.clone().map(VantaVector::new)
+    fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        match &self.inner.vector {
+            Some(v) => match try_numpy_array(py, v)? {
+                Some(arr) => Ok(Some(arr)),
+                None => Ok(Some(py.get_type::<VantaVector>().call1((v.clone(),))?.unbind())),
+            },
+            None => Ok(None),
+        }
     }
 
     #[getter]

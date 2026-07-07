@@ -13,6 +13,32 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.3] — 2026-07-07 (Wave 8: Python SDK, Distance, Async & Tooling)
+
+### Core Engine
+
+- **PERF-29: Cosine→Euclidean mapping optimization** — Added `MetricMapper` with `cosine_to_euclidean_sq()` for cheap interconversion using `euclidean_sq = 2 × (1 - cosine)` for normalized vectors. `MetricCache` backed by `OnceLock` stores conversion factor (`src/index/distance.rs`)
+- **PERF-33: Prefetching for HNSW graph traversal** — DashMap entry prefetch before neighbor traversal in `search_layer()` and `select_neighbors()`. Gated by `PrefetchMode` (`src/index/core.rs`)
+- **PERF-34: Extended norm caching** — Added `norm_sq` field to `HnswNode` alongside `inv_cached_norm`. Euclidean path uses `euclidean_distance_sq_with_norms()` (dot product + cached norms) instead of full element-wise kernel. `HNSW_VERSION` bumped to 10 (`src/index/core.rs`, `src/serialization/rkyv_archives.rs`)
+- **PERF-36: Config hot-reload** — `HotReloadConfig` struct with runtime-safe fields. `watch_config()` spawns background `notify`-based watcher. Feature-gated behind `hot-reload` (`src/config.rs`, `Cargo.toml`)
+- **PERF-37: FilterBitset overhead reduction** — Added `and_fast()`, `or_fast()`, `count_set_bits()`, `is_superset_of()` operating on u64 words at a time instead of per-bit iteration (`src/node.rs`)
+- **PERF-38: Runtime multiversion dispatch** — `DistanceKernels` struct + `OnceLock` for CPU feature detection. Replaced per-call `match` with cached function pointers (`src/index/distance.rs`)
+- **PERF-32: Async ingestion pipeline** — `AsyncIngestionPipeline` with configurable worker pool (default 4). `submit()` returns `oneshot::Receiver<Result<u128>>`. Feature-gated behind `async-ingestion` (`src/ingestion.rs`, `src/lib.rs`, `Cargo.toml`)
+- **PERF-35: Async transcript file I/O** — Replaced `std::fs` with `tokio::fs` equivalents. Feature-gated behind `async-io` (`src/transcript.rs`, `src/lib.rs`, `Cargo.toml`)
+
+### Python SDK
+
+- **PERF-24: GIL scope optimization** — Comments documenting GIL boundaries in `search()`, `search_batch()`, `search_memory()`, `insert()`, `put()`. Hot paths already correctly scoped (`vantadb-python/src/lib.rs`)
+- **PERF-25: Object pool for PyDict** — `PyDictPool` with `VecDeque` and max capacity 100, thread-local via `std::thread_local!`. Replaced `PyDict::new(py)` in 4 search result formatting functions (`vantadb-python/src/lib.rs`)
+- **PERF-31: NumPy arrays for vector output** — `try_numpy_array()` imports `numpy.array` with fallback to `VantaVector`. Zero-copy via `__array_interface__`. Applied in `VantaPySearchHit.vector()` and `VantaPyMemoryRecord.vector()` (`vantadb-python/src/lib.rs`, `vantadb-python/src/types.rs`)
+
+### TypeScript SDK
+
+- **Type safety** — All `any` replaced with proper types (`MemoryInput`, `Record<string, unknown>`, etc.). Added `isMemoryRecord()`, `isSearchHit()`, `validateVector()` type guards (`vantadb-ts/src/guards.ts`, `vantadb-ts/src/vantadb.ts`)
+- **Error wrapping** — `VantaError` class with `code`, `details`, `timestamp`. All 38 `this.inner.xxx()` calls wrapped in try/catch (`vantadb-ts/src/errors.ts`, `vantadb-ts/src/vantadb.ts`)
+- **JSDoc** — All 27 public methods + 3 static methods have `@param`, `@returns`, `@throws`, `@example` (`vantadb-ts/src/vantadb.ts`)
+- **Tests** — Expanded from 18 to 159 tests (95 new in `vanta.test.ts`), covering error handling, type validation, edge cases (`vantadb-ts/src/__tests__/vanta.test.ts`)
+
 ## [v0.2.2] — 2026-07-07 (Wave 1-7: Bugfixes & Optimizations)
 
 ### Core Engine

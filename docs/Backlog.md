@@ -80,7 +80,7 @@ aliases: []
 | `INT-07` | **Letta adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
 | `INT-08` | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
 | `INT-09` | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-10` | **LiteLLM adapter → PyPI** | 🟡 1d | 🟢 | ❌ |
+| `INT-10` | **LiteLLM adapter → PyPI** | 🟡 1d | 🟢 | ✅ |
 | `INT-11` | **Semantic Kernel adapter (crate + PyPI)** — Único missing del workspace. No existe ni siquiera como crate placeholder | 🟡 1d | 🟠 | ❌ |
 | `DEVOPS-05` | Pipeline CI unificado para publicar los 10 adapters a PyPI | 🟡 1-2d | 🔴 | ❌ |
 | `DEVOPS-12` | **Production PyPI signing pipeline** — OIDC trusted publishing configurado pero signed installers (Sigstore) y pipeline de release automatizado está "deferred". Completar para release formal | 🟡 1-2d | 🔴 | ❌ |
@@ -176,9 +176,9 @@ aliases: []
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
 | `DEVOPS-02` | ARM64 wheels (Apple Silicon, Graviton, RPi) | 🟡 2-3d | 🟠 | ❌ |
-| `DEVOPS-06` | Homebrew formula para `vanta-cli` | 🟢 4-6h | 🟢 | ❌ |
+| `DEVOPS-06` | Homebrew formula para `vanta-cli` | 🟢 4-6h | 🟢 | ✅ |
 | `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Research ✅, implementar | 🟡 2-3d | 🟡 | ❌ |
-| `TSK-121` | SHA256 hash verification del wheel en tests | 🟢 2-4h | 🟢 | ❌ |
+| `TSK-121` | SHA256 hash verification del wheel en tests | 🟢 2-4h | 🟢 | ✅ |
 | `DEVOPS-07` | Dockerfile multi-stage mejorado | 🟡 2-4h | 🟡 | ✅ |
 | `DEVOPS-11` | CodeQL analysis en CI | 🟢 2h | 🟡 | ✅ |
 
@@ -242,12 +242,12 @@ aliases: []
 | ~~`PERF-21`~~ | **AVX-512 f32x16 SIMD dispatch** — Runtime dispatch para dot product y euclidean distance. `avx512f` ya detectado en `hardware/mod.rs:166`, no cableado | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟡 | ✅ |
 | ~~`PERF-22`~~ | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-23`~~ | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
-| `PERF-24` | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
-| `PERF-25` | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-24`~~ | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
+| ~~`PERF-25`~~ | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | `PERF-26` | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | ~~`PERF-27`~~ | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-28`~~ | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ✅ |
-| `PERF-29` | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
+| ~~`PERF-29`~~ | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
 | ~~`PERF-30`~~ | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ✅ |
 
 ### 🗄️ Database Evolution
@@ -276,7 +276,7 @@ aliases: []
 | `COM-01` | **Discord server** | 🟢 2-4h | 🔴 | ❌ |
 | `TSK-106` | **Habilitar GitHub Discussions** | 🟢 1h | 🟡 | ❌ |
 | `TSK-107` | Community showcase page | 🟢 4-6h | 🟡 | ❌ |
-| `TSK-108` | Newsletter setup | 🟢 2-4h | 🟢 | ❌ |
+| `TSK-108` | Newsletter setup | 🟢 2-4h | 🟢 | ✅ |
 | `—` | Good first issues (20+ tagged) | 🟢 2-4h | 🟠 | ❌ |
 
 ### 🎨 SDK Mejoras
@@ -285,7 +285,7 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | `—` | TypeScript SDK hardening: type safety, error wrapping, JSDoc, tests | — | 🟡 2-3d | 🔴 | ❌ |
 | `—` | Python SDK: `put_batch` → keyword arguments | — | 🟢 1d | 🟡 | ❌ |
-| `—` | Python SDK: eliminar LRU cache home-grown | — | 🟢 1d | 🟢 | ❌ |
+| `—` | Python SDK: eliminar LRU cache home-grown | — | 🟢 1d | 🟢 | ✅ |
 | ~~`CODE-045`~~ | **`OperationalMetrics` TS 70% incompleto** — 11 de 37 campos mapeados | `types.ts:120-132` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-046`~~ | **`_mapRecord` es identity lie** — `any → T` sin validación alguna | `vantadb.ts:18-20` | 🟢 2h | 🟡 | ✅ |
 | ~~`CODE-047`~~ | **Tests TS con `catch {}` vacío** — 4 tests que pasan SIEMPRE. No testean nada | `dx04.test.ts:107-112` | 🟢 2h | 🟢 | ✅ |
@@ -315,7 +315,7 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `DEVOPS-06` | Homebrew formula | 🟢 4-6h | 🟢 | ❌ |
+| `DEVOPS-06` | Homebrew formula | 🟢 4-6h | 🟢 | ✅ |
 | `DEVOPS-09` | Auto-deploy web a Vercel en push a main | 🟡 1d | 🟡 | ✅ |
 | `DEVOPS-08` | Docs build verification en CI | 🟢 2-4h | 🟢 | ✅ |
 | `—` | Publicar 8 workspace members en crates.io | 🟡 2-3d | 🟡 | ❌ |
@@ -351,14 +351,14 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `PERF-31` | **Output batch via NumPy arrays** — Retornar resultados de search como `np.ndarray` en vez de listas Python | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟢 | ❌ |
-| `PERF-32` | **Async ingestion pipeline** — Producer-consumer con channel asíncrono para ingestion sin bloqueo | `src/ingestion.rs` | 🟡 2-3d | 🟢 | ❌ |
-| `PERF-33` | **Prefetching para graph traversal** — Prefetch listas de vecinos HNSW durante búsqueda. Reduce cache misses | `src/index/core.rs` | 🟡 1-2d | 🟢 | ❌ |
-| `PERF-34` | **Extended norm caching** — Precomputar y cachear normas para distancia euclidea. Reduce cómputos repetidos | `src/index/stats.rs`, `src/index/distance.rs` | 🟡 1-2d | 🟢 | ❌ |
-| `PERF-35` | **Async transcript file I/O** — Migrar `std::fs` → `tokio::fs` para operaciones de transcripción | `src/transcript.rs` | 🟡 1-2d | 🟢 | ❌ |
-| `PERF-36` | **Config hot-reload** — Watch archivo de configuración para cambios en caliente. Sin restart | `src/config.rs` | 🟡 2-3d | 🟢 | ❌ |
-| `PERF-37` | **FilterBitset overhead reduction** — Optimizar operaciones de bitset para filtros rápidos | `src/bitset.rs` | 🟡 1-2d | 🟢 | ❌ |
-| `PERF-38` | **Runtime multiversion dispatch** — Detectar CPU features en runtime y seleccionar kernel óptimo. Consolidar PERF-21 + dispatcher genérico | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟢 | ❌ |
+| ~~`PERF-31`~~ | **Output batch via NumPy arrays** — Retornar resultados de search como `np.ndarray` en vez de listas Python | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-32`~~ | **Async ingestion pipeline** — Producer-consumer con channel asíncrono para ingestion sin bloqueo | `src/ingestion.rs` | 🟡 2-3d | 🟢 | ✅ |
+| ~~`PERF-33`~~ | **Prefetching para graph traversal** — Prefetch listas de vecinos HNSW durante búsqueda. Reduce cache misses | `src/index/core.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-34`~~ | **Extended norm caching** — Precomputar y cachear normas para distancia euclidea. Reduce cómputos repetidos | `src/index/stats.rs`, `src/index/distance.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-35`~~ | **Async transcript file I/O** — Migrar `std::fs` → `tokio::fs` para operaciones de transcripción | `src/transcript.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-36`~~ | **Config hot-reload** — Watch archivo de configuración para cambios en caliente. Sin restart | `src/config.rs` | 🟡 2-3d | 🟢 | ✅ |
+| ~~`PERF-37`~~ | **FilterBitset overhead reduction** — Optimizar operaciones de bitset para filtros rápidos | `src/bitset.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-38`~~ | **Runtime multiversion dispatch** — Detectar CPU features en runtime y seleccionar kernel óptimo. Consolidar PERF-21 + dispatcher genérico | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟢 | ✅ |
 
 ### 🧹 Code Health General
 
@@ -401,7 +401,7 @@ aliases: []
 | `BIZ-02` | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ |
 | `TSK-122` | Sharded-slab para HNSW lock-free | 🟡 2-3d | 🟡 | ❌ |
 | `TSK-131` | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ |
-| `TSK-133` | Incremental backup (snapshot + WAL deltas) | 🟢 2-3d | 🟢 | ❌ |
+| `TSK-133` | Incremental backup (snapshot + WAL deltas) | 🟢 2-3d | 🟢 | ✅ |
 | `TSK-142` | WASM persistence via OPFS + Web Workers | 🟡 2-3d | 🟡 | ❌ |
 | `ENT-01` | SOC 2 prep (access controls, audit trails, retention) | 🟡 3-5d | 🟡 | ❌ |
 | `ENT-02` | HIPAA assessment + BAA readiness | 🟡 2-3d | 🟡 | ❌ |
@@ -621,6 +621,7 @@ Oct+       PHASE 5 (⬜ 21 items):
 - [[docs/research/INVESTIGATION_FFI.md]] — FFI/PyO3 optimization findings (batch, zero-copy, GIL)
 - [[docs/research/INVESTIGATION_HNSW_RECALL.md]] — HNSW recall optimization findings (ef_construction, M, heuristics)
 - [[docs/research/INVESTIGATION_INGESTION.md]] — Ingestion optimization findings (batch WAL, storage, async pipeline)
+
 
 
 

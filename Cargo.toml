@@ -64,6 +64,7 @@ clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
 rayon = { version = "1.12", optional = true }
 tracing = "0.1"
+notify = { version = "8", optional = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 twox-hash = "2.1.2"
 fail = { version = "0.5", optional = true, features = ["failpoints"] }
@@ -74,6 +75,8 @@ web-time = "1.1.0"
 
 [features]
 default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]
+async-ingestion = ["dep:tokio", "tokio/sync", "tokio/macros", "tokio/rt"]
+async-io = ["dep:tokio", "tokio/fs", "tokio/io-util"]
 arrow = ["dep:arrow"]
 rocksdb = ["dep:rocksdb"]
 fjall = ["dep:fjall"]
@@ -92,6 +95,7 @@ opentelemetry = [
     "dep:opentelemetry-otlp",
     "opentelemetry_sdk/rt-tokio",
 ]
+hot-reload = ["dep:notify"]
 server = [
     "cli",
     "dep:tokio",

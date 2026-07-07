@@ -2,11 +2,81 @@
 //!
 //! Extracted from the monolithic `core.rs` for better maintainability (PERF-05).
 
+use std::sync::OnceLock;
+
 use crate::hardware::{HardwareCapabilities, InstructionSet};
 use crate::node::{DistanceMetric, VectorRepresentations};
 use crate::vector::quantization::{rabitq_similarity, turbo_quant_similarity};
 
 use super::MAX_VEC_F32_LEN;
+
+// ---------------------------------------------------------------------------
+// PERF-38: Runtime multiversion dispatch — kernel function pointers cached
+// once so CPU detection + match overhead happens only at init time.
+// ---------------------------------------------------------------------------
+
+type KernelEuclideanSq = fn(&[f32], &[f32]) -> f32;
+type KernelDotProduct = fn(&[f32], &[f32]) -> f32;
+type KernelDotAndNorm = fn(&[f32], &[f32]) -> (f32, f32);
+
+struct DistanceKernels {
+    euclidean_sq: KernelEuclideanSq,
+    dot_product: KernelDotProduct,
+    dot_and_norm_b_sq: KernelDotAndNorm,
+}
+
+static KERNELS: OnceLock<DistanceKernels> = OnceLock::new();
+
+fn select_kernels() -> &'static DistanceKernels {
+    KERNELS.get_or_init(|| match HardwareCapabilities::global().instructions {
+        InstructionSet::Avx512 => DistanceKernels {
+            euclidean_sq: euclidean_distance_sq_f32x16,
+            dot_product: f32_dot_product_f32x16,
+            dot_and_norm_b_sq: f32_dot_and_norm_b_sq_f32x16,
+        },
+        _ => DistanceKernels {
+            euclidean_sq: euclidean_distance_sq_f32x8,
+            dot_product: f32_dot_product_f32x8,
+            dot_and_norm_b_sq: f32_dot_and_norm_b_sq_f32x8,
+        },
+    })
+}
+
+// ---------------------------------------------------------------------------
+// PERF-29: Cosine ↔ Euclidean mapping cache
+//
+// For normalized vectors: euclidean_sq = 2 * (1 - cosine).
+// MetricCache stores the precomputed conversion factor once.
+// ---------------------------------------------------------------------------
+
+/// Cached conversion between cosine similarity and Euclidean squared distance.
+pub struct MetricMapper;
+
+impl MetricMapper {
+    /// Convert cosine similarity to squared Euclidean distance.
+    /// Valid when both vectors are L2-normalized (||a|| = ||b|| = 1).
+    #[inline(always)]
+    pub fn cosine_to_euclidean_sq(cosine: f32) -> f32 {
+        metric_cache().factor * (1.0 - cosine)
+    }
+
+    /// Convert cosine similarity to negative Euclidean distance (higher = closer).
+    #[inline(always)]
+    pub fn cosine_to_euclidean_similarity(cosine: f32) -> f32 {
+        -Self::cosine_to_euclidean_sq(cosine)
+    }
+}
+
+/// Precomputed conversion factor populated once at startup.
+struct MetricCache {
+    factor: f32,
+}
+
+static METRIC_CACHE: OnceLock<MetricCache> = OnceLock::new();
+
+fn metric_cache() -> &'static MetricCache {
+    METRIC_CACHE.get_or_init(|| MetricCache { factor: 2.0 })
+}
 
 /// Precomputed dot product + squared norm of `b`. Returns `(dot, norm_b_sq)`.
 /// f32x8 kernel (AVX2 / NEON / scalar fallback).
@@ -246,33 +316,38 @@ fn f32_dot_and_norm_b_sq_f32x16(a: &[f32], b: &[f32]) -> (f32, f32) {
 // ---------------------------------------------------------------------------
 
 /// Compute squared Euclidean distance between two f32 vectors.
-/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+/// Cached dispatch: function pointer selected once at init.
 #[inline(always)]
 pub fn euclidean_distance_squared_f32(a: &[f32], b: &[f32]) -> f32 {
-    match HardwareCapabilities::global().instructions {
-        InstructionSet::Avx512 => euclidean_distance_sq_f32x16(a, b),
-        _ => euclidean_distance_sq_f32x8(a, b),
-    }
+    (select_kernels().euclidean_sq)(a, b)
+}
+
+/// Compute squared Euclidean distance using cached norms to skip the
+/// per-element subtraction kernel.
+/// euclidean_sq = ||a||² + ||b||² - 2·dot(a,b)
+#[inline(always)]
+pub fn euclidean_distance_sq_with_norms(
+    a: &[f32],
+    a_norm_sq: f32,
+    b: &[f32],
+    b_norm_sq: f32,
+) -> f32 {
+    let dot = f32_dot_product(a, b);
+    a_norm_sq + b_norm_sq - 2.0 * dot
 }
 
 /// Pure dot product — no norm computation.
-/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+/// Cached dispatch: function pointer selected once at init.
 #[inline(always)]
 fn f32_dot_product(a: &[f32], b: &[f32]) -> f32 {
-    match HardwareCapabilities::global().instructions {
-        InstructionSet::Avx512 => f32_dot_product_f32x16(a, b),
-        _ => f32_dot_product_f32x8(a, b),
-    }
+    (select_kernels().dot_product)(a, b)
 }
 
 /// Precomputed dot product + squared norm of `b`. Returns `(dot, norm_b_sq)`.
-/// Runtime dispatch: Avx512 → f32x16, Avx2/Neon → f32x8, Fallback → scalar.
+/// Cached dispatch: function pointer selected once at init.
 #[inline(always)]
 fn f32_dot_and_norm_b_sq(a: &[f32], b: &[f32]) -> (f32, f32) {
-    match HardwareCapabilities::global().instructions {
-        InstructionSet::Avx512 => f32_dot_and_norm_b_sq_f32x16(a, b),
-        _ => f32_dot_and_norm_b_sq_f32x8(a, b),
-    }
+    (select_kernels().dot_and_norm_b_sq)(a, b)
 }
 
 /// Compute similarity against a raw query when SQ8 is the only available

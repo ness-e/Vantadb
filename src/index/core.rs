@@ -180,6 +180,9 @@ pub struct HnswNode {
     pub storage_offset: u64,
     /// Pre-computed inverse L2 norm (1.0 / L2_norm) for Cosine fast-path. 0.0 = not cached.
     pub inv_cached_norm: f32,
+    /// Pre-computed squared L2 norm (||v||²) for Euclidean fast-path (PERF-34).
+    /// Populated alongside `inv_cached_norm`. 0.0 = not cached.
+    pub norm_sq: f32,
     /// Tombstone & feature flags.
     ///
     /// Bit layout:
@@ -487,6 +490,17 @@ impl CPIndex {
             }
             DistanceMetric::Euclidean => {
                 if let Some(node_slice) = node.vec_data.as_f32_slice() {
+                    if node.norm_sq > f32::EPSILON {
+                        if let Some(qn) = query_norm {
+                            let query_norm_sq = qn * qn;
+                            return -euclidean_distance_sq_with_norms(
+                                query_vec,
+                                query_norm_sq,
+                                node_slice,
+                                node.norm_sq,
+                            );
+                        }
+                    }
                     -euclidean_distance_squared_f32(query_vec, node_slice)
                 } else {
                     calculate_similarity(query_vec, query_norm, None, None, &node.vec_data, metric)
@@ -748,10 +762,12 @@ impl CPIndex {
         // into_sorted_vec returns ascending order based on NodeSimMin's Ord
         // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
 
+        #[allow(dead_code)]
         struct SelectedInfo {
             id: u128,
             vec: Option<Vec<f32>>,
             inv_norm: f32,
+            norm_sq: f32,
         }
 
         let mut selected: Vec<SelectedInfo> = Vec::with_capacity(m);
@@ -832,6 +848,7 @@ impl CPIndex {
                     id: cand_id,
                     vec: cand_slice.map(|s| s.to_vec()),
                     inv_norm: cand_inv_norm,
+                    norm_sq: cand_node.norm_sq,
                 });
             } else {
                 discarded.push(cand_id);
@@ -875,6 +892,7 @@ impl CPIndex {
                     neighbors: vec![NeighborVec::new()],
                     storage_offset,
                     inv_cached_norm: 0.0,
+                    norm_sq: 0.0,
                     flags: 0,
                 },
             );
@@ -902,20 +920,22 @@ impl CPIndex {
     }
 
     #[inline]
-    fn compute_inv_cached_norm(&self, vec_data: &VectorRepresentations) -> f32 {
-        match self.config.distance_metric {
-            DistanceMetric::Cosine => vec_data
+    fn compute_cached_norms(&self, vec_data: &VectorRepresentations) -> (f32, f32) {
+        let metric = self.config.distance_metric;
+        if metric == DistanceMetric::Euclidean || metric == DistanceMetric::Cosine {
+            vec_data
                 .as_f32_slice()
                 .map(|s| {
                     let norm = f32_l2_norm(s);
                     if norm > f32::EPSILON {
-                        1.0 / norm
+                        (1.0 / norm, norm * norm)
                     } else {
-                        0.0
+                        (0.0, 0.0)
                     }
                 })
-                .unwrap_or(0.0),
-            DistanceMetric::Euclidean => 0.0,
+                .unwrap_or((0.0, 0.0))
+        } else {
+            (0.0, 0.0)
         }
     }
 
@@ -929,7 +949,7 @@ impl CPIndex {
         let level = self.random_layer();
         let ef_cons = self.config.ef_construction;
 
-        let inv_cached_norm = self.compute_inv_cached_norm(&vec_data);
+        let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
 
         let query_f32 = vec_data.to_f32();
 
@@ -940,6 +960,7 @@ impl CPIndex {
             neighbors: vec![NeighborVec::new(); level + 1],
             storage_offset,
             inv_cached_norm,
+            norm_sq,
             flags: 0,
         };
 
@@ -972,7 +993,10 @@ impl CPIndex {
                 }
                 (Some(norm), Some(1.0 / norm))
             }
-            DistanceMetric::Euclidean => (None, None),
+            DistanceMetric::Euclidean => {
+                let norm = f32_l2_norm(&query_f32);
+                (Some(norm), None)
+            }
         };
 
         let mut curr_entry_points = vec![ep];
@@ -1132,13 +1156,16 @@ impl CPIndex {
             DistanceMetric::Cosine => {
                 let norm = f32_l2_norm(query_vec);
                 if norm < f32::EPSILON {
-                    // Zero-norm fallback: use Euclidean without norm info
+                    // Zero-norm fallback: use Euclidean without norm information
                     (DistanceMetric::Euclidean, None, None)
                 } else {
                     (DistanceMetric::Cosine, Some(norm), Some(1.0 / norm))
                 }
             }
-            DistanceMetric::Euclidean => (DistanceMetric::Euclidean, None, None),
+            DistanceMetric::Euclidean => {
+                let norm = f32_l2_norm(query_vec);
+                (DistanceMetric::Euclidean, Some(norm), None)
+            }
         };
         let mut curr_entry_points = vec![ep];
 
@@ -1645,34 +1672,37 @@ impl CPIndex {
                 neighbors.push(layer_neighbors);
             }
 
-            // Compute inv_cached_norm at load time for Cosine fast-path
-            let inv_cached_norm = match config.distance_metric {
-                DistanceMetric::Cosine => match &vec_data {
+            // Compute inv_cached_norm and norm_sq at load time for Cosine/Euclidean fast-path
+            let (inv_cached_norm, norm_sq) = if config.distance_metric == DistanceMetric::Cosine
+                || config.distance_metric == DistanceMetric::Euclidean
+            {
+                match &vec_data {
                     VectorRepresentations::Full(f) => {
                         let norm = f32_l2_norm(f);
                         if norm > f32::EPSILON {
-                            1.0 / norm
+                            (1.0 / norm, norm * norm)
                         } else {
-                            0.0
+                            (0.0, 0.0)
                         }
                     }
                     VectorRepresentations::MmapFull(ptr, len) => {
-                        debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in inv_norm");
+                        debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in cached norms");
                         debug_assert!(
                             *len > 0 && *len <= MAX_VEC_F32_LEN,
-                            "MmapFull len out of range in inv_norm"
+                            "MmapFull len out of range in cached norms"
                         );
                         let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                         let norm = f32_l2_norm(s);
                         if norm > f32::EPSILON {
-                            1.0 / norm
+                            (1.0 / norm, norm * norm)
                         } else {
-                            0.0
+                            (0.0, 0.0)
                         }
                     }
-                    _ => 0.0,
-                },
-                DistanceMetric::Euclidean => 0.0,
+                    _ => (0.0, 0.0),
+                }
+            } else {
+                (0.0, 0.0)
             };
             nodes.insert(
                 id,
@@ -1683,6 +1713,7 @@ impl CPIndex {
                     neighbors,
                     storage_offset,
                     inv_cached_norm,
+                    norm_sq,
                     flags: 0,
                 },
             );

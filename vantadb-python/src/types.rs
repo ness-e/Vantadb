@@ -8,6 +8,7 @@ use pyo3::types::PyDict;
 use vantadb::sdk::VantaMemoryRecord;
 
 use crate::set_python_value;
+use crate::try_numpy_array;
 use crate::VantaVector;
 
 /// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
@@ -81,8 +82,15 @@ impl VantaPyMemoryRecord {
     }
 
     #[getter]
-    fn vector(&self) -> Option<VantaVector> {
-        self.inner.vector.clone().map(VantaVector::new)
+    fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        match &self.inner.vector {
+            Some(v) => match try_numpy_array(py, v)? {
+                Some(arr) => Ok(Some(arr)),
+                None => Ok(Some(py.get_type::<VantaVector>().call1((v.clone(),))?.unbind())),
+            },
+            None => Ok(None),
+        }
     }
 
     #[getter]

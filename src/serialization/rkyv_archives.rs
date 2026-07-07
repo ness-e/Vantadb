@@ -6,10 +6,10 @@
 /// Zero-copy HNSW graph archive format using `repr(C)` structs
 /// that can be memory-mapped and accessed directly.
 ///
-/// Layout (version 9):
+/// Layout (version 10):
 ///   [ArchivedHnswHeader]             — 40 bytes, align 8
 ///   [padding]                        — 8 bytes for 16-byte alignment
-///   [ArchivedHnswNode; node_count]   — 48 bytes each, align 16
+///   [ArchivedHnswNode; node_count]   — 64 bytes each, align 16
 ///   [u64; neighbor_count_total]      — align 8
 ///
 /// Version 7 (deprecated) had no padding between header and nodes,
@@ -18,7 +18,7 @@ use crate::index::{CPIndex, HnswConfig, HnswNode};
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 
 const HNSW_MAGIC: [u8; 8] = *b"VNTHNSW\0";
-const HNSW_VERSION: u64 = 9;
+const HNSW_VERSION: u64 = 10;
 
 /// File header, always at offset 0.
 #[repr(C)]
@@ -40,6 +40,8 @@ pub struct ArchivedHnswNode {
     pub bitset: u128,
     pub storage_offset: u64,
     pub inv_cached_norm: f32,
+    /// Pre-computed squared L2 norm (PERF-34). 0.0 = not cached / zero vector.
+    pub norm_sq: f32,
     /// Offset (in u64 count) into the trailing neighbor array.
     pub neighbor_offset_u64: u64,
     /// Total neighbor cells for this node.
@@ -194,6 +196,7 @@ impl CPIndex {
                 bitset: node.bitset.to_u128(),
                 storage_offset: node.storage_offset,
                 inv_cached_norm: node.inv_cached_norm,
+                norm_sq: node.norm_sq,
                 neighbor_offset_u64: offset,
                 neighbor_count: (neighbor_data.len() - offset as usize) as u32,
             };
@@ -251,6 +254,8 @@ impl CPIndex {
                 neighbors,
                 storage_offset: archived.storage_offset,
                 inv_cached_norm: archived.inv_cached_norm,
+                norm_sq: archived.norm_sq,
+                flags: 0,
             };
             index.nodes.insert(archived.id as u64, node);
         }
