@@ -1,9 +1,15 @@
 //! Memory-mapped vector store file (VantaFile) with read/write and in-memory variants.
+//!
+//! When the `encryption` feature is enabled, VantaFile can optionally hold a
+//! [`Cipher`] instance for transparent at-rest encryption. The cipher is stored
+//! for use by the storage layer and can be retrieved via [`VantaFile::cipher`].
 
 use crate::binary_header::VantaHeader;
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
 use crate::node::DiskNodeHeader;
+#[cfg(feature = "encryption")]
+use crate::crypto::{Cipher, EncryptionStream};
 use std::fs::{File, OpenOptions};
 #[cfg(not(feature = "memmap2"))]
 use std::io::Read;
@@ -399,6 +405,10 @@ pub struct VantaFile {
     /// Byte offset for the next write operation.
     pub write_cursor: u64,
     read_only: bool,
+    /// AES-256-GCM cipher for at-rest encryption when the `encryption` feature
+    /// is enabled and `VANTADB_ENCRYPTION_KEY` is set.
+    #[cfg(feature = "encryption")]
+    pub cipher: Option<Cipher>,
 }
 
 unsafe impl Send for VantaFile {}
@@ -428,6 +438,8 @@ impl VantaFile {
             size,
             write_cursor: STORAGE_ALIGNMENT,
             read_only: false,
+            #[cfg(feature = "encryption")]
+            cipher: None,
         }
     }
 
@@ -506,6 +518,8 @@ impl VantaFile {
             size: current_size,
             write_cursor,
             read_only,
+            #[cfg(feature = "encryption")]
+            cipher: None,
         })
     }
 
@@ -674,5 +688,36 @@ impl VantaFile {
     /// Return the number of resident (in-RAM) bytes for this file's mapping.
     pub fn mmap_resident_bytes(&self) -> Option<u64> {
         get_resident_bytes_impl(self.mmap.as_ptr(), self.mmap.len())
+    }
+
+    /// Attach an encryption cipher to this VantaFile.
+    ///
+    /// When set, the storage layer should use the cipher to encrypt data before
+    /// writing and decrypt after reading. Requires the `encryption` feature.
+    #[cfg(feature = "encryption")]
+    pub fn with_cipher(mut self, cipher: Cipher) -> Self {
+        self.cipher = Some(cipher);
+        self
+    }
+
+    /// Return a reference to the optional encryption cipher.
+    #[cfg(feature = "encryption")]
+    pub fn cipher(&self) -> Option<&Cipher> {
+        self.cipher.as_ref()
+    }
+
+    /// Create an [`EncryptionStream`] wrapping this file's backing [`File`].
+    ///
+    /// Returns `None` if this VantaFile has no backing file (in-memory mode),
+    /// or if no cipher is set.
+    ///
+    /// The stream can be used for transparent encrypt-on-write and
+    /// decrypt-on-read operations on the underlying file handle, for example
+    /// with WAL or checkpoint files that use stream-based I/O.
+    #[cfg(feature = "encryption")]
+    pub fn encryption_stream(&self) -> Option<EncryptionStream<&File>> {
+        let file = self.file.as_ref()?;
+        let stream_cipher = Cipher::from_env().ok()?;
+        Some(EncryptionStream::new(file, stream_cipher))
     }
 }

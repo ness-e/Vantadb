@@ -16,8 +16,13 @@ use vantadb::VantaError;
 use wasm_bindgen::prelude::*;
 
 mod opfs;
+/// OPFS file handle abstraction wrapping a JS `FileSystemFileHandle`.
+pub use opfs::OpfsFile;
 /// OPFS-based storage for persisting VantaDB state in the browser.
 pub use opfs::OpfsStorage;
+
+#[cfg(feature = "opfs")]
+pub mod worker;
 
 /// WASM SIMD-accelerated cosine distance computation.
 pub mod simd;
@@ -232,6 +237,8 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
 pub struct VantaDB {
     inner: VantaEmbedded,
     opfs: Option<OpfsStorage>,
+    #[cfg(feature = "opfs")]
+    worker: Option<worker::OpfsWorkerProxy>,
 }
 
 #[wasm_bindgen]
@@ -246,7 +253,12 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB { inner, opfs: None })
+        Ok(VantaDB {
+            inner,
+            opfs: None,
+            #[cfg(feature = "opfs")]
+            worker: None,
+        })
     }
 
     /// Open VantaDB at the given storage path.
@@ -258,7 +270,12 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB { inner, opfs: None })
+        Ok(VantaDB {
+            inner,
+            opfs: None,
+            #[cfg(feature = "opfs")]
+            worker: None,
+        })
     }
 
     /// Open VantaDB with OPFS-based persistent storage in the browser.
@@ -271,9 +288,80 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
-        let db = VantaDB { inner, opfs };
+        let db = VantaDB {
+            inner,
+            opfs,
+            #[cfg(feature = "opfs")]
+            worker: None,
+        };
         db.load().await?;
         Ok(db)
+    }
+
+    /// Open VantaDB with OPFS persistence via a dedicated Web Worker.
+    #[cfg(feature = "opfs")]
+    pub async fn connect_worker(path: &str) -> Result<VantaDB, JsValue> {
+        init_tracing();
+        let worker_proxy = {
+            let global = js_sys::global();
+            let spawn_fn = js_sys::Reflect::get(&global, &"spawnOpfsWorker".into())
+                .map_err(|_| JsValue::from_str("spawnOpfsWorker not available — import opfs_bridge.js"))?;
+            let worker = spawn_fn
+                .dyn_into::<js_sys::Function>()
+                .map_err(|_| JsValue::from_str("spawnOpfsWorker is not a function"))?
+                .call0(&global)?;
+            let proxy = worker::OpfsWorkerProxy::new(worker);
+            proxy.init(path).await?;
+            proxy
+        };
+        let wasm_cfg = WasmConfig {
+            storage_path: path.to_string(),
+            ..WasmConfig::default()
+        };
+        let config = build_config(wasm_cfg);
+        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let db = VantaDB {
+            inner,
+            opfs: None,
+            worker: Some(worker_proxy),
+        };
+        // Load from worker-backed storage
+        let data = db.worker_read("db_state.json").await?;
+        if let Some(d) = data {
+            let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&d)
+                .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+            if !records.is_empty() {
+                db.inner.import_records(records).map_err(to_js_err)?;
+            }
+        }
+        Ok(db)
+    }
+
+    /// Read a file from the worker-backed OPFS storage.
+    #[cfg(feature = "opfs")]
+    pub async fn worker_read(&self, path: &str) -> Result<Option<Vec<u8>>, JsValue> {
+        match &self.worker {
+            Some(w) => w.read(path).await,
+            None => Err(JsValue::from_str("worker not initialized")),
+        }
+    }
+
+    /// Write a file through the worker-backed OPFS storage.
+    #[cfg(feature = "opfs")]
+    pub async fn worker_write(&self, path: &str, data: Vec<u8>) -> Result<(), JsValue> {
+        match &self.worker {
+            Some(w) => w.write(path, &data).await,
+            None => Err(JsValue::from_str("worker not initialized")),
+        }
+    }
+
+    /// Delete a file through the worker-backed OPFS storage.
+    #[cfg(feature = "opfs")]
+    pub async fn worker_delete(&self, path: &str) -> Result<(), JsValue> {
+        match &self.worker {
+            Some(w) => w.delete(path).await,
+            None => Err(JsValue::from_str("worker not initialized")),
+        }
     }
 
     /// Persist all in-memory records to OPFS storage.

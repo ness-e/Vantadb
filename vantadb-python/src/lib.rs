@@ -14,16 +14,14 @@ use pyo3::types::{
     PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods, PyTuple,
     PyTupleMethods,
 };
-use pyo3::Py;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use vantadb::config::VantaConfig;
 use vantadb::metadata;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaEmbedded, VantaExportReport,
     VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
+    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchRequest,
     VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
     VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier,
     VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
@@ -35,52 +33,6 @@ use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord};
 
 thread_local! {
     static LRU_CACHE: RefCell<LruCache> = RefCell::new(LruCache::new(64));
-}
-
-/// A simple object pool for `PyDict` objects to reduce allocation overhead
-/// in hot paths like search result formatting (PERF-25).
-///
-/// Pre-allocated dicts are reused instead of going through Python's dict
-/// constructor for every search hit. The pool is thread-local and capped
-/// at 100 entries to bound memory usage.
-#[allow(dead_code)]
-struct PyDictPool {
-    pool: VecDeque<Py<PyDict>>,
-    max_capacity: usize,
-}
-
-impl PyDictPool {
-    fn with_capacity(capacity: usize) -> Self {
-        Self {
-            pool: VecDeque::with_capacity(capacity),
-            max_capacity: capacity,
-        }
-    }
-
-    /// Get a `PyDict` from the pool, or create a fresh one if empty.
-    /// Returns an owned `Py<PyDict>` so the caller can bind it to any lifetime.
-    fn get(&mut self, py: Python<'_>) -> Py<PyDict> {
-        match self.pool.pop_front() {
-            Some(d) => {
-                d.bind(py).clear();
-                d
-            }
-            None => PyDict::new(py).unbind(),
-        }
-    }
-
-    /// Return a `PyDict` to the pool for reuse.
-    #[allow(dead_code)]
-    fn put(&mut self, dict: Bound<'_, PyDict>) {
-        if self.pool.len() < self.max_capacity {
-            dict.clear();
-            self.pool.push_back(dict.unbind());
-        }
-    }
-}
-
-thread_local! {
-    static DICT_POOL: RefCell<PyDictPool> = RefCell::new(PyDictPool::with_capacity(100));
 }
 
 struct LruCache {
@@ -480,75 +432,7 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
     Ok(dict.unbind().into())
 }
 
-#[allow(dead_code)]
-fn memory_record_to_pydict(py: Python, record: &VantaMemoryRecord) -> PyResult<Py<PyAny>> {
-    // PERF-25: get dict from object pool
-    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let dict = dict_py.bind(py);
-    dict.set_item("namespace", &record.namespace)?;
-    dict.set_item("key", &record.key)?;
-    dict.set_item("payload", &record.payload)?;
-    dict.set_item("created_at_ms", record.created_at_ms)?;
-    dict.set_item("updated_at_ms", record.updated_at_ms)?;
-    dict.set_item("version", record.version)?;
-    dict.set_item("node_id", record.node_id)?;
 
-    match &record.vector {
-        Some(vector) => dict.set_item("vector", VantaVector::new(vector.clone()))?,
-        None => dict.set_item("vector", py.None())?,
-    }
-
-    match record.expires_at_ms {
-        Some(ts) => dict.set_item("expires_at_ms", ts)?,
-        None => dict.set_item("expires_at_ms", py.None())?,
-    }
-
-    // PERF-25: get metadata dict from pool; embedded in parent so no put back
-    let meta_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let metadata = meta_py.bind(py);
-    for (key, value) in &record.metadata {
-        set_python_value(py, &metadata, key, value)?;
-    }
-    dict.set_item("metadata", metadata)?;
-
-    Ok(dict_py.into())
-}
-
-/// Owned variant — moves the vector out instead of cloning.
-/// Used in the search hot path where we own the data.
-fn memory_record_to_pydict_owned(py: Python, record: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
-    // PERF-25: get dict from object pool to reduce PyDict allocation in hot path
-    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let dict = dict_py.bind(py);
-    dict.set_item("namespace", &record.namespace)?;
-    dict.set_item("key", &record.key)?;
-    dict.set_item("payload", &record.payload)?;
-    dict.set_item("created_at_ms", record.created_at_ms)?;
-    dict.set_item("updated_at_ms", record.updated_at_ms)?;
-    dict.set_item("version", record.version)?;
-    dict.set_item("node_id", record.node_id)?;
-
-    // Move vector out of the owned record — no clone, no Python float list
-    match record.vector {
-        Some(vector) => dict.set_item("vector", VantaVector::new(vector))?,
-        None => dict.set_item("vector", py.None())?,
-    }
-
-    match record.expires_at_ms {
-        Some(ts) => dict.set_item("expires_at_ms", ts)?,
-        None => dict.set_item("expires_at_ms", py.None())?,
-    }
-
-    // PERF-25: get metadata dict from pool; embedded in parent so no put back
-    let meta_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let metadata = meta_py.bind(py);
-    for (key, value) in &record.metadata {
-        set_python_value(py, &metadata, key, value)?;
-    }
-    dict.set_item("metadata", metadata)?;
-
-    Ok(dict_py.into())
-}
 
 fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
@@ -611,35 +495,7 @@ fn search_explanation_to_pydict(py: Python, exp: &VantaSearchExplanation) -> PyR
     Ok(dict.unbind().into())
 }
 
-#[allow(dead_code)]
-fn memory_hit_to_pydict(py: Python, hit: &VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
-    // PERF-25: get dict from object pool
-    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let dict = dict_py.bind(py);
-    dict.set_item("score", hit.score)?;
-    dict.set_item("record", memory_record_to_pydict(py, &hit.record)?)?;
-    match &hit.explanation {
-        Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, exp)?)?,
-        None => dict.set_item("explanation", py.None())?,
-    }
-    Ok(dict_py.into())
-}
 
-/// Owned variant — consumes the hit and moves the vector out without cloning.
-/// Used in the search hot path to avoid Vec<f32> clone + Python list conversion.
-#[allow(dead_code)]
-fn memory_hit_to_pydict_owned(py: Python, hit: VantaMemorySearchHit) -> PyResult<Py<PyAny>> {
-    // PERF-25: get dict from object pool
-    let dict_py = DICT_POOL.with(|pool| pool.borrow_mut().get(py));
-    let dict = dict_py.bind(py);
-    dict.set_item("score", hit.score)?;
-    dict.set_item("record", memory_record_to_pydict_owned(py, hit.record)?)?;
-    match hit.explanation {
-        Some(exp) => dict.set_item("explanation", explanation_hit_to_pydict(py, &exp)?)?,
-        None => dict.set_item("explanation", py.None())?,
-    }
-    Ok(dict_py.into())
-}
 
 fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
@@ -985,67 +841,161 @@ impl VantaDB {
 
     /// Insert or update multiple namespace-scoped records in parallel (batched).
     ///
-    /// Each entry is a tuple: `(namespace, key, payload, metadata_dict_or_None, vector_or_None, ttl_ms_or_None)`.
-    /// Only `namespace`, `key`, `payload` are required; the remaining are keyword-style optional positional args.
+    /// Supports two calling conventions:
     ///
-    /// Returns a list of record dicts in the same order as inputs.
-    /// Up to ~5x faster than sequential `put()` calls for large batches.
-    #[pyo3(signature = (entries))]
+    /// 1. **Positional (tuple list)** — backward-compatible:
+    ///    ```
+    ///    db.put_batch([(namespace, key, payload, metadata, vector, ttl), ...])
+    ///    ```
+    ///    Each entry is a tuple of up to 6 elements.
+    ///
+    /// 2. **Keyword** — typed per-column arrays:
+    ///    ```
+    ///    db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///                 payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
+    ///                 namespace="ns", ttls=[None, 1000])
+    ///    ```
+    ///
+    /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
+    /// than sequential ``put()`` for large batches.
+    #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, ttls=None))]
     fn put_batch(
         &self,
         py: Python,
-        entries: &Bound<'_, PyAny>,
+        entries: Option<&Bound<'_, PyAny>>,
+        keys: Option<Vec<String>>,
+        vectors: Option<Vec<Vec<f32>>>,
+        payloads: Option<Vec<String>>,
+        metadatas: Option<Vec<Option<HashMap<String, String>>>>,
+        namespace: Option<String>,
+        ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
-        let mut inputs = Vec::with_capacity(entries.len().unwrap_or(0));
-        for entry in entries.try_iter()? {
-            let entry = entry?.cast::<PyTuple>()?.clone();
-            if entry.len() < 3 {
-                return Err(PyValueError::new_err(
-                    "each entry must be a tuple of at least (namespace, key, payload)",
-                ));
-            }
-            let namespace: String = entry.get_item(0)?.extract()?;
-            let key: String = entry.get_item(1)?.extract()?;
-            let payload: String = entry.get_item(2)?.extract()?;
-            let dict = if entry.len() > 3 && !entry.get_item(3)?.is_none() {
-                let item = entry.get_item(3)?;
-                Some(item.cast::<PyDict>()?.clone())
-            } else {
-                None
-            };
-            let vector_obj: Option<Bound<'_, PyAny>> =
-                if entry.len() > 4 && !entry.get_item(4)?.is_none() {
-                    Some(entry.get_item(4)?)
+        // Backward compat: old tuple-based list-of-entries API
+        if let Some(entries_list) = entries {
+            let mut inputs = Vec::with_capacity(entries_list.len().unwrap_or(0));
+            for entry in entries_list.try_iter()? {
+                let entry = entry?.cast::<PyTuple>()?.clone();
+                if entry.len() < 3 {
+                    return Err(PyValueError::new_err(
+                        "each entry must be a tuple of at least (namespace, key, payload)",
+                    ));
+                }
+                let namespace: String = entry.get_item(0)?.extract()?;
+                let key: String = entry.get_item(1)?.extract()?;
+                let payload: String = entry.get_item(2)?.extract()?;
+                let dict = if entry.len() > 3 && !entry.get_item(3)?.is_none() {
+                    let item = entry.get_item(3)?;
+                    Some(item.cast::<PyDict>()?.clone())
                 } else {
                     None
                 };
-            let ttl_ms: Option<u64> = if entry.len() > 5 {
-                let item = entry.get_item(5)?;
-                if item.is_none() {
-                    None
+                let vector_obj: Option<Bound<'_, PyAny>> =
+                    if entry.len() > 4 && !entry.get_item(4)?.is_none() {
+                        Some(entry.get_item(4)?)
+                    } else {
+                        None
+                    };
+                let ttl_ms: Option<u64> = if entry.len() > 5 {
+                    let item = entry.get_item(5)?;
+                    if item.is_none() {
+                        None
+                    } else {
+                        Some(item.extract()?)
+                    }
                 } else {
-                    Some(item.extract()?)
-                }
-            } else {
-                None
-            };
+                    None
+                };
 
-            let mut input = VantaMemoryInput::new(namespace, key, payload);
-            input.metadata = py_dict_to_metadata(dict.as_ref())?;
-            input.ttl_ms = ttl_ms;
-            input.vector = match &vector_obj {
-                Some(v) => {
-                    let vec = extract_vector(v, py)?;
-                    (!vec.is_empty()).then_some(vec)
-                }
-                None => None,
+                let mut input = VantaMemoryInput::new(namespace, key, payload);
+                input.metadata = py_dict_to_metadata(dict.as_ref())?;
+                input.ttl_ms = ttl_ms;
+                input.vector = match &vector_obj {
+                    Some(v) => {
+                        let vec = extract_vector(v, py)?;
+                        (!vec.is_empty()).then_some(vec)
+                    }
+                    None => None,
+                };
+                inputs.push(input);
+            }
+
+            let engine = self.engine.clone();
+            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
+            return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
+        }
+
+        // New keyword-based API
+        let keys = keys.ok_or_else(|| {
+            PyTypeError::new_err("either positional 'entries' or keyword 'keys' + 'vectors' is required")
+        })?;
+        let vectors = vectors.ok_or_else(|| {
+            PyTypeError::new_err("either positional 'entries' or keyword 'keys' + 'vectors' is required")
+        })?;
+        let n = keys.len();
+        if vectors.len() != n {
+            return Err(PyValueError::new_err(format!(
+                "keys.len() ({}) must equal vectors.len() ({})",
+                n,
+                vectors.len()
+            )));
+        }
+        if let Some(ref p) = payloads {
+            if p.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "payloads.len() ({}) must equal keys.len() ({})",
+                    p.len(),
+                    n
+                )));
+            }
+        }
+        if let Some(ref m) = metadatas {
+            if m.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "metadatas.len() ({}) must equal keys.len() ({})",
+                    m.len(),
+                    n
+                )));
+            }
+        }
+        if let Some(ref t) = ttls {
+            if t.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "ttls.len() ({}) must equal keys.len() ({})",
+                    t.len(),
+                    n
+                )));
+            }
+        }
+
+        let ns = namespace.unwrap_or_else(|| "default".to_string());
+        let mut inputs = Vec::with_capacity(n);
+        for i in 0..n {
+            let payload = match &payloads {
+                Some(p) => p[i].clone(),
+                None => String::new(),
             };
+            let mut input = VantaMemoryInput::new(ns.clone(), keys[i].clone(), payload);
+
+            if let Some(all_meta) = &metadatas {
+                if let Some(meta_dict) = &all_meta[i] {
+                    let mut btree = std::collections::BTreeMap::new();
+                    for (k, v) in meta_dict.iter() {
+                        btree.insert(k.clone(), VantaValue::String(v.clone()));
+                    }
+                    input.metadata = btree;
+                }
+            }
+
+            if let Some(ttl_list) = &ttls {
+                input.ttl_ms = ttl_list[i];
+            }
+
+            input.vector = Some(vectors[i].clone());
             inputs.push(input);
         }
 
         let engine = self.engine.clone();
         let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
-
         Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect())
     }
 
@@ -1235,7 +1185,7 @@ impl VantaDB {
         metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
-    ) -> PyResult<Py<PyAny>> {
+    ) -> PyResult<VantaPyMemoryRecord> {
         let mut input = VantaMemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
         input.ttl_ms = ttl_ms;
@@ -1250,18 +1200,22 @@ impl VantaDB {
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust storage write + index update
         let record = py.detach(move || engine.put(input).map_err(map_vanta_error))?;
-        // PyDict formatting happens AFTER GIL re-acquisition
-        memory_record_to_pydict_owned(py, record)
+        Ok(VantaPyMemoryRecord::new(record))
     }
 
     /// Retrieve a namespace-scoped persistent memory record.
-    fn get_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyAny>>> {
+    fn get_memory(
+        &self,
+        py: Python,
+        namespace: &str,
+        key: &str,
+    ) -> PyResult<Option<VantaPyMemoryRecord>> {
         let engine = self.engine.clone();
         let n = namespace.to_string();
         let k = key.to_string();
         let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
         match record {
-            Some(record) => Ok(Some(memory_record_to_pydict_owned(py, record)?)),
+            Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
             None => Ok(None),
         }
     }

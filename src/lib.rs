@@ -6,6 +6,10 @@
 //! Embedded core for durable local memory, vector retrieval,
 //! and structured fields.
 
+/// AES-256-GCM at-rest encryption for storage files.
+#[cfg(feature = "encryption")]
+pub mod crypto;
+
 pub(crate) mod backend;
 pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.
@@ -28,6 +32,8 @@ pub mod error;
 pub mod executor;
 pub mod gc;
 pub mod governor;
+#[cfg(feature = "governance")]
+pub mod governance;
 pub mod graph;
 pub mod hardware;
 pub mod index;
@@ -63,6 +69,14 @@ pub mod vector;
 /// Write-ahead log reader, writer, and record types.
 pub mod wal;
 pub(crate) mod wal_sharded;
+
+/// Async WAL shipping to remote replica (behind feature "wal-shipping").
+#[cfg(feature = "wal-shipping")]
+pub mod wal_shipping;
+
+/// WAL archival and point-in-time recovery (behind feature "pitr").
+#[cfg(feature = "pitr")]
+pub mod wal_archiver;
 
 /// Async ingestion pipeline for offloading node insertion to a worker pool.
 #[cfg(feature = "async-ingestion")]

@@ -23,7 +23,12 @@ serde_json = "1.0"
 tracing-wasm = "0.2"
 js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["console"], optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[features]
+default = []
+opfs = ["dep:web-sys"]
 
 [package.metadata.cargo-machete]
 ignored = ["getrandom"]

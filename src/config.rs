@@ -281,6 +281,12 @@ pub struct VantaConfig {
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
     /// RBAC configuration mapping API tokens to roles.
     pub rbac_config: RbacConfig,
+    /// Optional AES-256-GCM encryption key (hex-encoded 32-byte value).
+    ///
+    /// When set, storage files are transparently encrypted at rest using this
+    /// key. Requires the `encryption` feature. Configured via
+    /// `VANTADB_ENCRYPTION_KEY` environment variable.
+    pub encryption_key: Option<String>,
     /// Number of WAL shards for reduced mutex contention (default: 4).
     /// Each shard has its own append lock; workloads hash node IDs across shards.
     /// Set to 0 to disable WAL, or 1 for single-file (legacy) behaviour.
@@ -499,6 +505,13 @@ impl Default for VantaConfig {
             },
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
+            encryption_key: {
+                let v = env::var("VANTADB_ENCRYPTION_KEY").ok();
+                if v.is_some() {
+                    debug!("VANTADB_ENCRYPTION_KEY is set (value not logged)");
+                }
+                v
+            },
             wal_shards: parse_env_or("VANTADB_WAL_SHARDS", 4usize),
             rbac_config: RbacConfig::default(),
             #[cfg(feature = "hot-reload")]
@@ -657,6 +670,15 @@ impl VantaConfig {
     /// Sets the log output format.
     pub fn with_log_format(mut self, format: LogFormat) -> Self {
         self.log_format = format;
+        self
+    }
+
+    /// Sets the encryption key for at-rest AES-256-GCM encryption.
+    ///
+    /// The key should be a hex-encoded 32-byte (64 hex char) value.
+    /// Requires the `encryption` feature to have any effect.
+    pub fn with_encryption(mut self, key: String) -> Self {
+        self.encryption_key = Some(key);
         self
     }
 
