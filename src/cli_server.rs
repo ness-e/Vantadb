@@ -183,10 +183,7 @@ impl AuthRateLimiter {
     pub fn record_failure(&self, ip: &str) {
         let mut failures = self.failures.lock();
         let now = Instant::now();
-        let (count, first) = failures
-            .get(ip)
-            .map(|&(c, f)| (c, f))
-            .unwrap_or((0, now));
+        let (count, first) = failures.get(ip).map(|&(c, f)| (c, f)).unwrap_or((0, now));
         if now.duration_since(first).as_secs() > self.window_secs {
             failures.put(ip.to_string(), (1, now));
         } else {

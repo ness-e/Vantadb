@@ -5,7 +5,7 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
-use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
+use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
 use crate::storage::engine::{EvictionReason, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
@@ -327,6 +327,38 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Insert multiple SDK records in a single batch operation.
+    ///
+    /// Converts `VantaNodeInput` records to internal `UnifiedNode` nodes,
+    /// then delegates to `batch_insert` for batched persistence.
+    /// Returns the IDs of all inserted records.
+    #[tracing::instrument(skip(self, records), level = "debug", err)]
+    pub fn insert_batch(&self, records: &[crate::VantaNodeInput]) -> Result<Vec<u128>> {
+        let nodes: Vec<UnifiedNode> = records
+            .iter()
+            .map(|input| {
+                let mut node = UnifiedNode::new(input.id);
+                if let Some(content) = &input.content {
+                    node.set_field("content", FieldValue::String(content.clone()));
+                }
+                for (key, value) in &input.fields {
+                    node.set_field(key.clone(), FieldValue::from(value.clone()));
+                }
+                if let Some(vector) = &input.vector {
+                    if !vector.is_empty() {
+                        node.vector = VectorRepresentations::Full(vector.clone());
+                        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                    }
+                }
+                node
+            })
+            .collect();
+
+        self.batch_insert(&nodes)?;
+
+        Ok(records.iter().map(|r| r.id).collect())
+    }
+
     /// Retrieve a node by its numeric ID, checking the volatile cache first.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn get(&self, id: u128) -> Result<Option<UnifiedNode>> {
@@ -586,6 +618,109 @@ impl StorageEngine {
 
         let key = id.to_le_bytes();
         self.backend.delete(BackendPartition::Default, &key)?;
+
+        Ok(())
+    }
+
+    /// Delete multiple nodes in a single batch operation.
+    ///
+    /// Reduces I/O and lock contention by batching WAL records, KV backend writes,
+    /// and processing HNSW removal for all nodes under one guard.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn delete_batch(&self, ids: &[u128]) -> Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+
+        self.check_memory_pressure()?;
+        self.ensure_writable()?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("storage_insert_fail", |_| {
+            Err(crate::error::VantaError::IoError(std::io::Error::other(
+                "Simulated Storage insert catastrophic I/O failure",
+            )))
+        });
+
+        self.touch_activity();
+
+        // Phase 1: cardinality stats update, edge / scalar index removal
+        {
+            let mut stats = self.cardinality_stats.write();
+            for &id in ids {
+                if let Ok(Some(node)) = self.get(id) {
+                    for (field, value) in &node.relational {
+                        let val_keys = value.to_cardinality_keys();
+                        if let Some(val_map) = stats.get_mut(field.as_str()) {
+                            for val_key in val_keys {
+                                if let Some(count) = val_map.get_mut(&val_key) {
+                                    if *count > 0 {
+                                        *count -= 1;
+                                    }
+                                }
+                            }
+                            val_map.retain(|_, &mut v| v > 0);
+                        }
+                    }
+                    if let Some(ref ei) = self.edge_index {
+                        ei.remove_all_for_node(id);
+                    }
+                    if let Some(ref si) = self.scalar_index {
+                        si.remove_node(id);
+                    }
+                }
+            }
+        }
+
+        // Phase 2: WAL batch append
+        let wal_records: Vec<WalRecord> =
+            ids.iter().map(|&id| WalRecord::Delete { id }).collect();
+        if let Some(ref sharded) = self.wal {
+            sharded.batch_append(&wal_records)?;
+        }
+
+        // Phase 3: HNSW node removal + vector store tombstone marking
+        {
+            let hnsw = self.hnsw.load();
+            {
+                let mut vstore = self.vector_store.write();
+                for &id in ids {
+                    if let Some(offset) = hnsw.nodes.get(&id).map(|n| n.storage_offset) {
+                        if let Some(mut header) = vstore.read_header(offset) {
+                            header.flags |= FLAG_TOMBSTONE;
+                            vstore.write_header(offset, &header)?;
+                        }
+                    }
+                }
+            }
+            for &id in ids {
+                hnsw.nodes.remove(&id);
+                let mut ep = hnsw.entry_point.lock();
+                if *ep == id {
+                    *ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                }
+            }
+        }
+
+        // Phase 4: backend batch delete
+        {
+            let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(ids.len());
+            for &id in ids {
+                let key = id.to_le_bytes();
+                kv_ops.push(BackendWriteOp::Delete {
+                    partition: BackendPartition::Default,
+                    key: key.to_vec(),
+                });
+            }
+            self.backend.write_batch(kv_ops)?;
+        }
+
+        // Phase 5: volatile cache removal
+        {
+            let mut cache = self.volatile_cache.write();
+            for &id in ids {
+                cache.remove(&id);
+            }
+        }
 
         Ok(())
     }

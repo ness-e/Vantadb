@@ -184,10 +184,7 @@ pub struct WalWriter {
 
 impl WalWriter {
     /// Open or create WAL file, writing or validating WalHeader.
-    pub fn open(
-        path: impl AsRef<Path>,
-        sync_mode: crate::config::SyncMode,
-    ) -> Result<Self> {
+    pub fn open(path: impl AsRef<Path>, sync_mode: crate::config::SyncMode) -> Result<Self> {
         Self::open_with_buffer(path, sync_mode, 64 * KIB, None)
     }
 
