@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
-import { gsap, useGSAP, TextPlugin, ScrollTrigger } from "../lib/gsap";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
 import { NbSection, NbSectionHeader } from "./nb";
 import "../styles/quickstart.css";
 

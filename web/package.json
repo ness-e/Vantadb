@@ -18,7 +18,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "audit:tokens": "stylelint \"src/**/*.css\" --fix",
+    "audit:html": "htmlhint \"src/**/*.html\" 2>&1 || echo \"No standalone HTML files found; HTML is in JSX — audit skipped\"",
+    "audit:biome": "biome check --write src/",
+    "audit:a11y": "playwright test e2e/design-audit-pipeline.spec.ts",
+    "audit:visual": "playwright test e2e/design-audit-pipeline.spec.ts --grep visual-regression",
+    "audit:report": "node scripts/audit-report.mjs",
+    "audit:design": "node scripts/audit-report.mjs"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
@@ -44,6 +51,8 @@
     "vite-tsconfig-paths": "^6.0.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@biomejs/biome": "^2.5.2",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -61,9 +70,13 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "htmlhint": "^1.9.2",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.4",
     "simple-icons": "^16.25.0",
+    "stylelint": "^17.14.0",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-design-token-guard": "^0.4.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.1.3",

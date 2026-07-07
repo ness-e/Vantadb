@@ -132,7 +132,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nb-spec-grid {
     grid-template-columns: 1fr;
   }

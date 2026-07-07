@@ -1,9 +1,9 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
+import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../../styles/local-rag.css";
 
@@ -113,7 +113,9 @@ function LocalRagPage() {
             </ul>
           </div>
           <div className="nc-lr-col nc-lr-col--amber">
-            <span className="nc-lr-col-label nc-lr-col-label--amber">Local-first, zero exposure</span>
+            <span className="nc-lr-col-label nc-lr-col-label--amber">
+              Local-first, zero exposure
+            </span>
             <ul className="nc-lr-list">
               {COMPARISON.solutions.map((s) => (
                 <li key={s} className="nc-lr-item nc-lr-item--fg">

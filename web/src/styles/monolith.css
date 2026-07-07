@@ -142,7 +142,7 @@ a:hover .nb-boot-arrow {
 }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nb-boot-ascii {
     font-size: 0.4rem;
   }

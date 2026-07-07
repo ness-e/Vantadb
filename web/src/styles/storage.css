@@ -229,7 +229,7 @@
   font-weight: var(--weight-bold);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-stor-compare {
     grid-template-columns: 1fr;
     gap: var(--space-md);

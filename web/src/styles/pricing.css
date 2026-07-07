@@ -173,7 +173,7 @@
 }
 
 .nc-price-market tr:nth-child(even) td:not(:first-child) {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgb(255 255 255 / 1.5%);
 }
 
 .nc-price-market td:nth-child(3) {
@@ -241,7 +241,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .nc-price-board {
     grid-template-columns: 1fr;
   }
@@ -251,7 +251,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nc-price-market table {
     min-width: 100%;
   }
@@ -259,7 +259,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nc-price-card {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-price-card--featured {

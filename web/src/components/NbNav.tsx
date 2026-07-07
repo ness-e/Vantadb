@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import VantaDBLogo from "./VantaDBLogo";
-import { useState, useEffect, useCallback, memo, useRef } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { gsap, useGSAP } from "../lib/gsap";
 import { NbButton } from "./nb";
+import VantaDBLogo from "./VantaDBLogo";
 
 const navGroups = [
   {
@@ -113,11 +113,7 @@ export const NbNav = memo(function NbNav() {
 
   return (
     <>
-      <nav
-        className={`nc-nav${scrolled ? " nc-nav--scrolled" : ""}`}
-        role="navigation"
-        aria-label="Main navigation"
-      >
+      <nav className={`nc-nav${scrolled ? " nc-nav--scrolled" : ""}`} aria-label="Main navigation">
         <Link to="/" className="nc-nav-logo" aria-label="VantaDB home">
           <VantaDBLogo variant="full" size="sm" />
         </Link>

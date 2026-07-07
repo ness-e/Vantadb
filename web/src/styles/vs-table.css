@@ -94,6 +94,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .vs-table__cell {
-    transition: none !important;
+    transition: none;
   }
 }

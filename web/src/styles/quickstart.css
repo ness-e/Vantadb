@@ -101,9 +101,11 @@
 .qs-matrix-term-dot:first-child {
   background: #ff5f56;
 }
+
 .qs-matrix-term-dot:nth-child(2) {
   background: #ffbd2e;
 }
+
 .qs-matrix-term-dot:nth-child(3) {
   background: #27c93f;
 }
@@ -159,9 +161,11 @@
 .qs-tok-str {
   color: var(--amber);
 }
+
 .qs-tok-kw {
   color: #ff79c6;
 }
+
 .qs-tok-num {
   color: #bd93f9;
 }
@@ -183,6 +187,7 @@
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0;
   }
@@ -217,7 +222,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .qs-matrix {
     grid-template-columns: 1fr;
     padding: var(--space-sm);
@@ -229,7 +234,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .qs-matrix-card {
     padding: var(--space-sm);
   }

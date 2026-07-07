@@ -1,0 +1,89 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/.vite",
+      "!**/e2e/**/*-snapshots"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "noUnknownFunction": "error",
+        "noUnknownProperty": "error",
+        "noUnknownMediaFeatureName": "error",
+        "noUnknownPseudoClass": "error",
+        "noUnknownPseudoElement": "error",
+        "noUnknownTypeSelector": "error",
+        "noUnknownUnit": "error",
+        "noMissingVarFunction": "error",
+        "noInvalidDirectionInLinearGradient": "error",
+        "noInvalidGridAreas": "error",
+        "noInvalidPositionAtImportRule": "error"
+      },
+      "complexity": {
+        "noImportantStyles": "error",
+        "noUselessStringConcat": "error",
+        "noUselessThisAlias": "error"
+      },
+      "style": {
+        "noDescendingSpecificity": "warn",
+        "noNonNullAssertion": "warn",
+        "useConst": "error"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "warn",
+        "useSemanticElements": "warn",
+        "useFocusableInteractive": "warn"
+      },
+      "nursery": {
+        "noDuplicateSelectors": "error",
+        "noExcessiveSelectorClasses": { "level": "warn", "options": { "maxClasses": 4 } },
+        "useBaseline": "off"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noDebugger": "error",
+        "noDoubleEquals": "error",
+        "noImplicitAnyLet": "warn"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "css": {
+    "formatter": {
+      "quoteStyle": "double",
+      "lineWidth": 100
+    },
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}

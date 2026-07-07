@@ -239,9 +239,11 @@
 .nc-pg-syn-steel {
   color: var(--steel);
 }
+
 .nc-pg-syn-amber {
   color: var(--amber);
 }
+
 .nc-pg-syn-base {
   color: #e0e0e0;
 }
@@ -266,7 +268,7 @@
   gap: 0.5rem;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-pg-stats {
     grid-template-columns: repeat(2, 1fr);
   }

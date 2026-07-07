@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
-import { VsTable, type VsRow } from "../VsTable";
+import { describe, expect, it } from "vitest";
+import { type VsRow, VsTable } from "../VsTable";
 
 describe("VsTable", () => {
   const sampleRows: VsRow[] = [

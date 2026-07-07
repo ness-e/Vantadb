@@ -118,7 +118,7 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 12px 28px;
-  border: 2px solid #cc4400;
+  border: 2px solid #c40;
   cursor: pointer;
   background: var(--amber);
   color: var(--text-on-amber);
@@ -146,7 +146,7 @@
 }
 
 .nb-osc-cta-prefix {
-  color: rgba(0, 0, 0, 0.4);
+  color: rgb(0 0 0 / 40%);
   font-weight: 400;
 }
 
@@ -172,6 +172,7 @@
   100% {
     background: var(--success);
   }
+
   50% {
     background: transparent;
   }
@@ -255,12 +256,15 @@
     transform: translateX(0);
     opacity: 0;
   }
+
   10% {
     opacity: 1;
   }
+
   90% {
     opacity: 1;
   }
+
   100% {
     transform: translateX(360px);
     opacity: 0;
@@ -286,7 +290,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 860px) {
+@media (width <= 860px) {
   .nb-osc-hero {
     min-height: auto;
     padding: 5rem 1.25rem 3rem;
@@ -306,7 +310,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .nb-osc-hero {
     padding: 4rem 1rem 2.5rem;
   }
@@ -321,7 +325,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .nb-osc-pills {
     gap: var(--space-3xs);
   }

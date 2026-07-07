@@ -1,9 +1,9 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
-import { useRef, useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbSection, NbSectionHeader } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { getAllPosts } from "../../lib/blog";
 import "../../styles/blog.css";
@@ -63,7 +63,9 @@ function BlogIndex() {
                   <h2 className="nb-card-frame-title">{post.title}</h2>
                   {post.description && <p className="nb-card-frame-desc">{post.description}</p>}
                   <div className="nc-bl-tags">
-                    {post.author && <span className="nc-bl-tag nc-bl-tag--author">{post.author}</span>}
+                    {post.author && (
+                      <span className="nc-bl-tag nc-bl-tag--author">{post.author}</span>
+                    )}
                     {post.tags?.map((t) => (
                       <span key={t} className="nc-bl-tag">
                         {t}

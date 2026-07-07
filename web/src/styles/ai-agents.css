@@ -113,7 +113,7 @@
   overflow-x: auto;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-aa-compare,
   .nc-aa-primitives {
     grid-template-columns: 1fr;

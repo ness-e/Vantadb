@@ -1,5 +1,5 @@
+import type { ElementType, ReactNode } from "react";
 import { forwardRef } from "react";
-import type { ReactNode, ElementType } from "react";
 import { cn } from "../../lib/utils";
 
 interface NbSectionProps {

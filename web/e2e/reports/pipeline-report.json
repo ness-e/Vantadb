@@ -1,0 +1,221 @@
+{
+  "timestamp": "2026-07-07T15:02:59.827Z",
+  "results": [
+    {
+      "route": "/",
+      "name": "Home",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/config",
+      "name": "Setup Wizard",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/cost",
+      "name": "Cost Analyzer",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/storage",
+      "name": "Data Vault",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/maint",
+      "name": "Ops Log",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/playground",
+      "name": "Dev Console",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/why-vantadb",
+      "name": "Pitch Deck",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/use-cases",
+      "name": "Field Report",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/blog",
+      "name": "Reading Room",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/solutions/ai-agents",
+      "name": "Agent Blueprint",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/solutions/ai-ide-tooling",
+      "name": "IDE Spec",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/solutions/local-rag",
+      "name": "Local RAG Pipeline",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/core-engine",
+      "name": "Core Engine",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/data-model",
+      "name": "Data Model",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/query-language",
+      "name": "Query Language",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/indexing",
+      "name": "Indexing",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/vector-search",
+      "name": "Vector Search",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/graph-traversal",
+      "name": "Graph Traversal",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/time-series",
+      "name": "Time Series",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/schemas",
+      "name": "Schemas",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/relationships",
+      "name": "Relationships",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/connectors",
+      "name": "Connectors",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/security",
+      "name": "Security",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/clustering",
+      "name": "Clustering",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/extending-vantadb",
+      "name": "Extending",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    },
+    {
+      "route": "/docs/licensing",
+      "name": "Licensing",
+      "axeViolations": 0,
+      "cssIssues": [],
+      "consoleErrors": [],
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "totalAxeViolations": 0,
+    "totalCssIssues": 0,
+    "totalConsoleErrors": 0
+  }
+}

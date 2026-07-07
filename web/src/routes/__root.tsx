@@ -1,18 +1,17 @@
-import { Suspense } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  Outlet,
-  Link,
   createRootRouteWithContext,
-  useRouter,
+  Link,
+  Outlet,
   useMatches,
+  useRouter,
 } from "@tanstack/react-router";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
-
+import { Suspense } from "react";
 import { NbNav } from "../components/NbNav";
+import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
 import "../styles/nb-nav.css";
-import { NbFooter } from "../components/NbFooter";
 import { NbBackToTop } from "../components/NbBackToTop";
+import { NbFooter } from "../components/NbFooter";
 import { NbToastContainer } from "../components/nb";
 import { PendingComponent } from "../components/PendingComponent";
 import { ScrollProgress } from "../components/ScrollProgress";

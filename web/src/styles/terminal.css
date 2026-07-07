@@ -3,6 +3,7 @@
 .terminal-window {
   background: var(--surface);
   border: 1px solid var(--border);
+
   /* border-radius: 0 via tokens */
   overflow: hidden;
   position: relative;
@@ -53,7 +54,7 @@
 }
 
 .term-num {
-  color: var(--border);
+  color: var(--subtle);
   user-select: none;
   text-align: right;
   min-width: 1.5rem;
@@ -93,6 +94,7 @@
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0;
   }

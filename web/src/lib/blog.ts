@@ -65,7 +65,7 @@ export function getAllPosts(): BlogPost[] {
   }
 
   return posts
-    .filter((p) => p.date && !isNaN(new Date(p.date).getTime()))
+    .filter((p) => p.date && !Number.isNaN(new Date(p.date).getTime()))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 

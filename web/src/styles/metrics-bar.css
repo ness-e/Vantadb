@@ -214,7 +214,7 @@
   gap: var(--space-2xs);
   padding: var(--space-sm);
   border: 2px solid var(--amber);
-  background: color-mix(in srgb, var(--amber) 6%, var(--background));
+  background: color-mix(in sRGB, var(--amber) 6%, var(--background));
 }
 
 .nb-perf-speedup-value {
@@ -246,7 +246,7 @@
 }
 
 /* ── Responsive ──────────────────────────────── */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nb-perf-doc-header {
     flex-wrap: wrap;
   }

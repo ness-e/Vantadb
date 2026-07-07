@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { gsap, useGSAP, ScrollTrigger } from "../lib/gsap";
+import { gsap, useGSAP } from "../lib/gsap";
 import "../styles/architecture.css";
 
 const PIPELINE = [
@@ -29,7 +29,7 @@ export function NbArchSection() {
           },
         });
 
-        cards.forEach((card, i) => {
+        cards.forEach((card, _i) => {
           tl.fromTo(
             card,
             { opacity: 0, x: -16 },

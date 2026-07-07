@@ -270,7 +270,7 @@
   max-width: 65ch;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nb-subpage-hero {
     padding: calc(var(--nav-height) + var(--space-3xl)) 1.25rem var(--space-2xl);
   }

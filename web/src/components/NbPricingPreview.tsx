@@ -1,4 +1,4 @@
-import { NbSection, NbSectionHeader, NbButton } from "./nb";
+import { NbButton, NbSection, NbSectionHeader } from "./nb";
 import "../styles/pricing-preview.css";
 
 const TIERS = [

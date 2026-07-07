@@ -146,7 +146,7 @@ export function NbBenchmarkGrid() {
           </div>
 
           <div className="benchmark-table-wrap">
-            <table className="benchmark-table" role="grid">
+            <table className="benchmark-table">
               <thead>
                 <tr>
                   <th>Metric</th>

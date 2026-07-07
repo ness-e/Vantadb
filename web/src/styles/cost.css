@@ -166,14 +166,16 @@
   font-weight: var(--weight-bold);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-cost-grid {
     grid-template-columns: 1fr;
   }
+
   .nc-cost-provider-grid {
     grid-template-columns: 1fr;
     overflow-x: auto;
   }
+
   .nc-cost-tco {
     grid-template-columns: 1fr;
   }

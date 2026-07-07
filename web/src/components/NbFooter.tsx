@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { memo } from "react";
-import VantaDBLogo from "./VantaDBLogo";
 import { NbSection } from "./nb";
+import VantaDBLogo from "./VantaDBLogo";
 
 export const NbFooter = memo(function NbFooter() {
   return (

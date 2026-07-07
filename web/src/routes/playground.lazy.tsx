@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
 import { createLazyRoute } from "@tanstack/react-router";
+import { useRef, useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbSection, NbSectionHeader } from "@/components/nb";
-import { gsap } from "@/lib/gsap";
-import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
+import { useAnimationSafe } from "@/hooks/useAnimationSafe";
+import { gsap } from "@/lib/gsap";
+import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import "../styles/playground.css";
 
 export const Route = createLazyRoute("/playground")({

@@ -422,7 +422,7 @@
 
 /* ── Responsive ── */
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .nc-bl-link {
     grid-template-columns: 1fr;
     gap: var(--space-xs);
@@ -443,7 +443,7 @@
   .nc-bl-arrow,
   .nc-bl-nav .nb-arrow,
   .nc-bl-body-content a {
-    transition: none !important;
+    transition: none;
   }
 
   .nc-bl-link:hover .nc-bl-arrow {
