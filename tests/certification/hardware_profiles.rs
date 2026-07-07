@@ -15,8 +15,9 @@ use vantadb::storage::StorageEngine;
 /// The TempDir MUST outlive the StorageEngine to prevent dangling path references.
 fn temp_storage() -> (Arc<StorageEngine>, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("Failed to create temp dir");
-    let engine =
-        Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).expect("Failed to open storage"));
+    let engine = Arc::new(
+        StorageEngine::open(dir.path().to_str().unwrap()).expect("Failed to open storage"),
+    );
     (engine, dir)
 }
 
