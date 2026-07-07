@@ -145,6 +145,17 @@ impl StorageEngine {
             }
         }
 
+        // PERF-30: auto-flush when total node count exceeds flush_threshold
+        if let Some(threshold) = self.config.flush_threshold {
+            let hnsw = self.hnsw.load();
+            if hnsw.nodes.len() >= threshold {
+                drop(hnsw);
+                if let Err(e) = self.flush() {
+                    tracing::warn!("auto-flush failed: {e}");
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -298,6 +309,17 @@ impl StorageEngine {
                     EvictionReason::Watermark,
                 ) {
                     tracing::warn!("eviction failed: {e}");
+                }
+            }
+        }
+
+        // PERF-30: auto-flush when total node count exceeds flush_threshold
+        if let Some(threshold) = self.config.flush_threshold {
+            let hnsw = self.hnsw.load();
+            if hnsw.nodes.len() >= threshold {
+                drop(hnsw);
+                if let Err(e) = self.flush() {
+                    tracing::warn!("auto-flush failed: {e}");
                 }
             }
         }
@@ -551,6 +573,14 @@ impl StorageEngine {
         }
 
         hnsw.nodes.remove(&id);
+
+        // PERF-23: If we just removed the entry point, promote a replacement
+        {
+            let mut ep = hnsw.entry_point.lock();
+            if *ep == id {
+                *ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+            }
+        }
 
         self.volatile_cache.write().remove(&id);
 

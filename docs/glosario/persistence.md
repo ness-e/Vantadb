@@ -3,7 +3,7 @@ title: "Persistencia"
 type: glossary-entry
 status: stable
 tags: [glosario, persistencia, storage, durabilidad]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-07-07
 aliases: [persistence, storage, almacenamiento]
 ---
 
@@ -19,24 +19,25 @@ VantaDB implementa persistencia mediante múltiples capas:
 
 ### 1. Write-Ahead Log ([WAL](WAL.md))
 
-Registro secuencial de todas las mutaciones antes de aplicarlas al almacenamiento principal.
+Registro secuencial de todas las mutaciones, distribuido en **N shards round-robin** para reducir contención.
 
 ```rust
-// src/wal.rs
-pub struct WalWriter {
-    writer: BufWriter<File>,
-    sync_mode: SyncMode,
+// src/wal_sharded.rs
+pub struct ShardedWal {
+    shards: Vec<Mutex<WalShard>>,
+    counter: AtomicU64,
+    num_shards: usize,
 }
 
-pub fn append(&mut self, record: &WalRecord) -> Result<()> {
+pub fn append(&self, record: &WalRecord) -> Result<()> {
+    let idx = self.counter.fetch_add(1, Ordering::Relaxed) as usize % self.num_shards;
+    let mut shard = self.shards[idx].lock();
     let payload = bincode::serialize(record)?;
     let crc = crc32c(&payload);  // Checksum [CRC32C](CRC32C.md)
-    
-    self.writer.write_all(&payload)?;
-    self.writer.write_all(&crc.to_le_bytes())?;
-    
-    if self.sync_mode == SyncMode::Always {
-        self.sync()?;  // [fsync](fsync.md) inmediato
+    shard.writer.write_all(&payload)?;
+    shard.writer.write_all(&crc.to_le_bytes())?;
+    if shard.sync_mode == SyncMode::Always {
+        shard.sync()?;  // [fsync](fsync.md) inmediato
     }
     Ok(())
 }
@@ -68,11 +69,13 @@ pub struct VantaFile {
 El orden de operaciones es crítico para garantizar durabilidad:
 
 ```
-1. Escribir registro en WAL
-2. fsync del WAL ← DURABILIDAD GARANTIZADA
+1. ShardedWal.append(record)   → vanta.shard{idx}.wal (round-robin)
+2. fsync del shard             ← DURABILIDAD GARANTIZADA
 3. Aplicar mutación a storage backend
 4. ACK al cliente
 ```
+
+En recovery, los registros de todos los shards se leen, se ordenan por `global_seq = shard_idx + N * local_pos`, y se replican en orden secuencial global.
 
 **Regla:** Nunca ACK antes de fsync.
 

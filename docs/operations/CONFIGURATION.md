@@ -3,7 +3,7 @@ title: "Operations & Configuration Manual"
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-07
 aliases: []
 ---
 
@@ -44,6 +44,9 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `llm_url` | `String` | `http://localhost:11434` | `VANTA_LLM_URL` | Ollama endpoint for remote embeddings |
 | `llm_model` | `String` | `all-minilm` | `VANTA_LLM_MODEL` | Model name for embeddings |
 | `llm_summarize_model` | `String` | `llama3` | `VANTA_LLM_SUMMARIZE_MODEL` | Model name for summarization |
+| `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
+| `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
+| `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
 
 ### Enums
