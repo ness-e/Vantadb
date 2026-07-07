@@ -376,97 +376,73 @@ impl StorageEngine {
                 let wal_replay_started = Instant::now();
 
                 // Compute per-shard skip from global checkpoint based on round-robin distribution.
-                // Records are distributed evenly across shards, so each shard must skip
-                // checkpoint/num_shards records, plus one extra for the first (checkpoint%num_shards) shards.
-                let per_shard_skip = checkpoint_seq / num_shards as u64;
-                let extra = checkpoint_seq % num_shards as u64;
+                // With N shards, a record at local position `p` (0-indexed) in shard `s` has
+                // global seq: global_seq = s + N * p.
+                // The first `checkpoint_seq` records are already checkpointed and must be skipped.
+                // Each shard `s` has either `floor(checkpoint_seq/N)` or `ceil(checkpoint_seq/N)`
+                // pre-checkpoint records: shards 0..remainder-1 have one extra.
+                let full_rounds = checkpoint_seq / num_shards as u64;
+                let remainder = checkpoint_seq % num_shards as u64;
 
-                // Open all shard readers in parallel with their skip counts.
-                struct ShardReplay {
-                    reader: crate::wal::WalReader,
-                    local_count: u64,
-                    skip: u64,
+                // Read all records from all shards, compute their global seq, and sort.
+                struct TimedRecord {
+                    global_seq: u64,
+                    record: crate::wal::WalRecord,
                 }
-                let mut shard_readers: Vec<Option<ShardReplay>> = Vec::with_capacity(num_shards);
+                let mut pending: Vec<TimedRecord> = Vec::new();
                 for shard_idx in 0..num_shards {
                     let shard_path = shard_path_for(shard_idx);
                     if !shard_path.exists() {
-                        shard_readers.push(None);
                         continue;
                     }
-                    match crate::wal::WalReader::open(&shard_path) {
-                        Ok(reader) => {
-                            let shard_skip = if (shard_idx as u64) < extra {
-                                per_shard_skip + 1
-                            } else {
-                                per_shard_skip
-                            };
-                            shard_readers.push(Some(ShardReplay {
-                                reader,
-                                local_count: 0,
-                                skip: shard_skip,
-                            }));
+                    let mut reader = match crate::wal::WalReader::open(&shard_path) {
+                        Ok(r) => r,
+                        Err(_) => continue,
+                    };
+                    let skip = full_rounds + if (shard_idx as u64) < remainder { 1 } else { 0 };
+                    let mut local_pos = 0u64;
+                    while let Some(record) = reader.next_record()? {
+                        if local_pos >= skip {
+                            let global_seq = shard_idx as u64 + num_shards as u64 * local_pos;
+                            pending.push(TimedRecord { global_seq, record });
                         }
-                        Err(_) => shard_readers.push(None),
+                        local_pos += 1;
                     }
                 }
-
-                // Replay records in round-robin interleaved order across shards to preserve
-                // the original write order. Writes are distributed round-robin, so reading
-                // one record from each shard per round restores the original sequence.
-                loop {
-                    let mut had_any = false;
-                    for sr_opt in shard_readers.iter_mut() {
-                        let Some(sr) = sr_opt else { continue };
-                        match sr.reader.next_record()? {
-                            Some(record) => {
-                                had_any = true;
-                                sr.local_count += 1;
-                                if sr.local_count <= sr.skip {
-                                    continue;
-                                }
-                                wal_records_replayed += 1;
-                                match record {
-                                    crate::wal::WalRecord::Insert(node) => {
-                                        StorageEngine::replay_write_node(
-                                            vector_store,
-                                            hnsw,
-                                            backend,
-                                            node.id,
-                                            &node,
-                                        )?;
-                                    }
-                                    crate::wal::WalRecord::Update { id, node } => {
-                                        StorageEngine::replay_write_node(
-                                            vector_store,
-                                            hnsw,
-                                            backend,
-                                            id,
-                                            &node,
-                                        )?;
-                                    }
-                                    crate::wal::WalRecord::Delete { id } => {
-                                        if let Some(index_node) = hnsw.nodes.get(&id) {
-                                            let offset = index_node.storage_offset;
-                                            if let Some(h) = vector_store.read_header(offset) {
-                                                let mut tombstoned = h;
-                                                tombstoned.flags |= FLAG_TOMBSTONE;
-                                                vector_store.write_header(offset, &tombstoned)?;
-                                            }
-                                        }
-                                        let _ = backend
-                                            .delete(BackendPartition::Default, &id.to_le_bytes());
-                                    }
-                                    crate::wal::WalRecord::Checkpoint { .. } => {}
-                                }
-                            }
-                            None => {
-                                *sr_opt = None;
-                            }
+                pending.sort_by_key(|tr| tr.global_seq);
+                for tr in pending {
+                    wal_records_replayed += 1;
+                    match tr.record {
+                        crate::wal::WalRecord::Insert(node) => {
+                            StorageEngine::replay_write_node(
+                                vector_store,
+                                hnsw,
+                                backend,
+                                node.id,
+                                &node,
+                            )?;
                         }
-                    }
-                    if !had_any {
-                        break;
+                        crate::wal::WalRecord::Update { id, node } => {
+                            StorageEngine::replay_write_node(
+                                vector_store,
+                                hnsw,
+                                backend,
+                                id,
+                                &node,
+                            )?;
+                        }
+                        crate::wal::WalRecord::Delete { id } => {
+                            if let Some(index_node) = hnsw.nodes.get(&id) {
+                                let offset = index_node.storage_offset;
+                                if let Some(h) = vector_store.read_header(offset) {
+                                    let mut tombstoned = h;
+                                    tombstoned.flags |= FLAG_TOMBSTONE;
+                                    vector_store.write_header(offset, &tombstoned)?;
+                                }
+                            }
+                            let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
+                        }
+                        crate::wal::WalRecord::Checkpoint { .. } => {}
                     }
                 }
                 wal_replay_ms = wal_replay_started.elapsed().as_millis() as u64;
