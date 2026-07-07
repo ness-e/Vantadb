@@ -2,6 +2,7 @@
 name = "vantadb-dspy"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "DSPy retrieval module adapter for VantaDB — use VantaDB as a RetrieverModel for DSPy programs"
 publish = false

@@ -2,6 +2,7 @@
 name = "vantadb-haystack"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "Haystack DocumentStore adapter for VantaDB — use VantaDB as a drop-in document store for Haystack pipelines"
 publish = false

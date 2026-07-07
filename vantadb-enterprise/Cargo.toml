@@ -2,6 +2,7 @@
 name = "vantadb-enterprise"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Proprietary"
 description = "Enterprise features for VantaDB — proprietary license required"
 repository = "https://github.com/ness-e/Vantadb"

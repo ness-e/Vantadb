@@ -2,6 +2,7 @@
 name = "vantadb-crewai"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "Apache-2.0"
 description = "CrewAI memory adapter for VantaDB — use VantaDB as a long-term or RAG memory backend for CrewAI agents"
 publish = false

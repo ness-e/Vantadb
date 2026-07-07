@@ -2,6 +2,7 @@
 name = "vantadb-wasm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "VantaDB WASM bindings for JavaScript/TypeScript"
 repository = "https://github.com/ness-e/Vantadb"
 homepage = "https://vantadb.dev"
