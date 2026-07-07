@@ -13,6 +13,53 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] — 2026-07-07 (Phase 5: Governance, Encryption, PITR, WASM, Docs)
+
+### Governance (GOV-01)
+
+- **Redesign from scratch** — 4 modules replacing the deleted experimental-governance. Fixes all 12 known bugs (`src/governance/admission.rs`, `conflict.rs`, `consistency.rs`, `worker.rs`)
+- **Admission Filter** — Fixed-capacity Bloom filter + CountMinSketch with automatic reset at false-positive threshold. No more saturation death (CODE-GOV-01)
+- **Conflict Resolution** — Version-vector based detection, three-way merge, LWW fallback. Friction clamped to `[0.0, 1.0]`, exponential backoff on repeated conflicts (CODE-GOV-05/07)
+- **Consistency Buffer** — Bounded TTL-based buffer with batch flush and backpressure via `try_insert()` (CODE-GOV-06)
+- **Maintenance Worker** — Background thread (10s interval) handling bloom reset, conflict GC, buffer flush
+- Feature: `governance`
+
+### Encryption (TSK-72)
+
+- **AES-256-GCM at-rest encryption** — `Cipher` wrapper with random 12-byte nonce, `EncryptionStream` for transparent encrypt/decrypt on file handles (`src/crypto.rs`)
+- **VantaConfig** — `encryption_key` field from `VANTADB_ENCRYPTION_KEY` env var, SHA-256 key derivation
+- **VantaFile** — Optional `cipher` field, `encryption_stream()` method (`src/storage/vfile.rs`)
+- 13 unit tests (roundtrip, wrong key, partial reads, empty data)
+- Feature: `encryption`
+
+### WAL — Shipping & PITR
+
+- **BIZ-02: Async WAL shipping** — `WalShipper` reads rotated WAL segments, ships via HTTP POST with retry (3 retries, exponential backoff). Marker file tracks last-shipped position (`src/wal_shipping.rs`)
+- **TSK-131: Point-in-Time Recovery** — `WalArchiver` moves full segments to archive dir, applies retention (age + size). `PitrRestorer` replays up to target timestamp (`src/wal_archiver.rs`)
+- Features: `wal-shipping`, `pitr`
+
+### HNSW (TSK-122)
+
+- **Sharded-slab lock-free** — `DashMap<u128, HnswNode>` replaced with `sharded_slab::Slab<HnswNode>` + parallel ID→index mapping. Lock-free allocation and O(1) access (`src/index/core.rs`)
+- Feature: `sharded-slab`
+
+### WASM (TSK-142)
+
+- **OPFS persistence** — `OpfsFile` wrapping JS `FileSystemFileHandle` for read/write/append/delete (`vantadb-wasm/src/opfs.rs`)
+- **Web Worker bridge** — `OpfsWorker` + `OpfsWorkerProxy` via `MessageChannel` for off-main-thread I/O (`vantadb-wasm/src/worker.rs`)
+- **JS bindings** — `opfs_bridge.js` with `openFile`, `readFile`, `writeFile`, `appendFile` helpers
+- Feature: `opfs`
+
+### Python SDK
+
+- **PERF-26: Lazy serialization** — `put()` and `get_memory()` now return `VantaPyMemoryRecord` directly. Removed 4 eager PyDict builder functions + `PyDictPool` (`vantadb-python/src/lib.rs`)
+- **put_batch keyword arguments** — `#[pyo3(signature)]` with typed params: `keys`, `vectors`, `payloads`, `metadatas`, `namespace`, `ttls`. Full backward compat
+
+### Documentation & Testing
+
+- **DOC-20: LanceDB migration guide** — Full tutorial (~380 lines) with export→transform→import→verify flow, feature comparison table, FAQ (`docs/tutorials/migration-from-lancedb.md`)
+- **CODE-074: Playwright visual regression tests** — 6 specs: health endpoint, visual snapshot, 404, headers, metrics, security leak check. Snapshot diff helper with baseline/actual/diff dirs (`e2e/visual/`)
+
 ## [v0.2.3] — 2026-07-07 (Wave 8: Python SDK, Distance, Async & Tooling)
 
 ### Core Engine
