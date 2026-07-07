@@ -4,7 +4,7 @@
 //! and binds to the configured address.
 
 use crate::VantaError;
-use std::collections::HashMap;
+use lru::LruCache;
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
 use std::sync::OnceLock;
@@ -143,15 +143,13 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         .with_state(state)
 }
 
-const MAX_AUTH_FAILURE_ENTRIES: usize = 10_000;
-
 /// Per-IP rate limiter for authentication failures.
 pub struct AuthRateLimiter {
-    /// Per-IP map of (failure count, first-failure instant).
-    failures: Mutex<HashMap<String, (u32, Instant)>>,
+    /// Per-IP map of (failure count, first-failure instant). LRU evicts oldest.
+    failures: Mutex<LruCache<String, (u32, Instant)>>,
     /// Maximum failed attempts before rate-limiting kicks in.
     max_attempts: u32,
-    /// Time window (seconds) over which failures are counted.
+    /// Time window in seconds.
     window_secs: u64,
 }
 
@@ -159,28 +157,19 @@ impl AuthRateLimiter {
     /// Create a new rate limiter with the given attempt cap and window.
     pub fn new(max_attempts: u32, window_secs: u64) -> Self {
         Self {
-            failures: Mutex::new(HashMap::new()),
+            failures: Mutex::new(LruCache::new(1000)),
             max_attempts,
             window_secs,
         }
     }
 
-    fn sweep_expired(&self, failures: &mut HashMap<String, (u32, Instant)>) {
-        let now = Instant::now();
-        failures
-            .retain(|_, &mut (_, first)| now.duration_since(first).as_secs() <= self.window_secs);
-    }
-
     /// Returns `true` if the given IP has exceeded the allowed failure rate.
     pub fn is_rate_limited(&self, ip: &str) -> bool {
         let mut failures = self.failures.lock();
-        if failures.len() > MAX_AUTH_FAILURE_ENTRIES {
-            self.sweep_expired(&mut failures);
-        }
         let now = Instant::now();
         if let Some((count, first)) = failures.get(ip) {
             if now.duration_since(*first).as_secs() > self.window_secs {
-                failures.remove(ip);
+                failures.pop(ip);
                 return false;
             }
             *count >= self.max_attempts
@@ -192,21 +181,21 @@ impl AuthRateLimiter {
     /// Record an authentication failure for the given IP.
     pub fn record_failure(&self, ip: &str) {
         let mut failures = self.failures.lock();
-        if failures.len() > MAX_AUTH_FAILURE_ENTRIES {
-            self.sweep_expired(&mut failures);
-        }
         let now = Instant::now();
-        let entry = failures.entry(ip.to_string()).or_insert((0, now));
-        if now.duration_since(entry.1).as_secs() > self.window_secs {
-            *entry = (1, now);
+        let (count, first) = failures
+            .get(ip)
+            .map(|&(c, f)| (c, f))
+            .unwrap_or((0, now));
+        if now.duration_since(first).as_secs() > self.window_secs {
+            failures.put(ip.to_string(), (1, now));
         } else {
-            entry.0 += 1;
+            failures.put(ip.to_string(), (count + 1, first));
         }
     }
 
     /// Clear the failure count for the given IP.
     pub fn reset(&self, ip: &str) {
-        self.failures.lock().remove(ip);
+        self.failures.lock().pop(ip);
     }
 }
 
