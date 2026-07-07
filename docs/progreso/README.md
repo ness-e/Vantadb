@@ -1429,6 +1429,22 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | CODE-037 | AuthRateLimiter unbounded HashMap → LruCache capacity 1000 | `src/cli_server.rs` | ✅ Previene OOM bajo ataque distribuido |
 | DOC-19 | ARCHITECTURE.md → v0.2.0 + sharded WAL docs | `docs/architecture/ARCHITECTURE.md`, `docs/glosario/*`, `docs/operations/*` | ✅ v0.2.0 header, u128, StorageBackend trait, component map, sharded WAL glossary |
 
-**Backlog actualizado:** 87 items ❌ + 1 ⏳ = 88 open. 5 items migrados a progreso.
+**Backlog actualizado:** 82 items ❌ + 1 ⏳ = 83 open. 5 items migrados a progreso.
+
+### 2026-07-07 — Phase 2: SIMD, HNSW Diversity & Python SDK Optimizations (5 tasks across 3 tracks)
+
+**Objetivo:** Completar PERF-27 (select_neighbors), PERF-21 (AVX-512), PERF-22 (SQ8), PERF-16 (#[pyclass]), PERF-15 (PyBuffer).
+
+| ID | Tarea | Files | Cambios |
+|----|-------|-------|---------|
+| PERF-27 | select_neighbors heuristic diversity | `src/index/core.rs` | Tombstone filtering, eliminated per-candidate clone (borrows `&[f32]`), deferred clone to selection only |
+| PERF-21 | AVX-512 f32x16 SIMD dispatch | `src/index/distance.rs` | 3 f32x16 kernels (euclidean, dot, dot+norm), runtime dispatch via HardwareCapabilities. Auto-selects f32x16/8/scalar |
+| PERF-22 | SQ8 euclidean vectorization | `src/index/distance.rs` | SQ8 Cosine + Euclidean SIMD-ized with f32x8. Cosine does dot+norm in single vectorized pass |
+| PERF-16 | #[pyclass] for search hits/list | `vantadb-python/src/types.rs` (+new), `lib.rs`, `__init__.py` | VantaPyMemoryRecord, VantaPyListResult (with `__len__`, `__getitem__`, `__iter__`). Replaces PyDict allocations |
+| PERF-15 | PyBuffer zero-copy batch | `vantadb-python/src/lib.rs` | FlatBufferView over PyBuffer slice. put_batch_raw reads rows directly instead of full `to_vec()` |
+
+**Verificación:** `cargo check` ✅ limpio en todo el workspace.
+
+**Backlog actualizado:** 82 items ❌ + 1 ⏳ = 83 open.
 
 

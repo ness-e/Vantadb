@@ -18,12 +18,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Core Engine
 
 - **PERF-23: HNSW ep_enter freeze on delete** — When entry point is deleted, `find_new_entry_point()` promotes the remaining node with highest `max_layer`. Prevents empty search results after EP deletion (`src/index/core.rs`, `src/storage/engine/ops.rs`)
-- **PERF-28: Tombstone mitigation in search_layer** — Tombstoned nodes are now skipped during candidate heap population, preventing pollution of the early-stopping heuristic. WAL replay delete also removes nodes from `hnsw.nodes` to prevent zombie nodes (`src/index/core.rs`, `src/storage/engine/init.rs`)
-- **PERF-30: Config tuning for batch ingestion** — Added `batch_size`, `wal_buffer_size`, `flush_threshold` fields to `VantaConfig` with plumbing through engine ops. Auto-flush triggers when node count exceeds threshold (`src/config.rs`, `src/storage/engine/ops.rs`)
+- **PERF-28: Tombstone mitigation in search_layer** — Tombstoned nodes skipped during candidate heap population, preventing pollution of early-stopping heuristic. WAL replay delete removes nodes from `hnsw.nodes` to prevent zombie nodes (`src/index/core.rs`, `src/storage/engine/init.rs`)
+- **PERF-30: Config tuning for batch ingestion** — Added `batch_size`, `wal_buffer_size`, `flush_threshold` to `VantaConfig` with auto-flush when node count exceeds threshold (`src/config.rs`, `src/storage/engine/ops.rs`)
+- **PERF-27: select_neighbors heuristic diversity** — Tombstone filtering before diversity loop, eliminated per-candidate vector clone (now borrows `&[f32]` directly), deferred clone only to selected neighbors (`src/index/core.rs`)
+- **PERF-21: AVX-512 f32x16 SIMD dispatch** — 3 new f32x16 kernels (euclidean distance, dot product, combined dot+norm) with runtime dispatch via `HardwareCapabilities::instructions`. Auto-selects f32x16 on AVX-512, f32x8 on AVX2/NEON, and scalar fallback (`src/index/distance.rs`)
+- **PERF-22: SQ8 euclidean vectorization** — SQ8 euclidean and cosine similarity loops SIMD-ized with `wide::f32x8`. Cosine arm accumulated dot+norm in single vectorized pass (eliminated separate scalar fold) (`src/index/distance.rs`)
+- Clippy: `buffer_size.max(min).max(max)` → `buffer_size.clamp(min, max)` in `WalWriter::new` (`src/wal.rs`)
+
+### Python SDK
+
+- **PERF-16: `#[pyclass]` for search hits and list results** — Created `VantaPyMemoryRecord` and `VantaPyListResult` #[pyclass] types in `vantadb-python/src/types.rs`. Replaced PyDict-based returns in `put_batch()`, `put_batch_raw()`, and `list_memory()` with typed pyclass objects. `VantaPyListResult` supports `__len__`, `__getitem__`, `__iter__`, `__repr__`
+- **PERF-15: PyBuffer zero-copy batch ingestion** — `FlatBufferView` struct provides zero-copy view over 2D `PyBuffer<f32>`. `put_batch_raw()` reads rows directly from buffer slice instead of full `to_vec()` copy. Extracted `build_inputs()` helper to eliminate per-path duplication
 
 ### Security
 
-- **CODE-037: AuthRateLimiter HashMap→LruCache** — Replaced unbounded `HashMap<String, (u32, Instant)>` with `LruCache` (capacity 1000). Prevents memory exhaustion under distributed IP attack. Removed `MAX_AUTH_FAILURE_ENTRIES` and `sweep_expired()` (`src/cli_server.rs`)
+- **CODE-037: AuthRateLimiter HashMap→LruCache** — Replaced unbounded `HashMap<String, (u32, Instant)>` with `LruCache` (capacity 1000). Prevents memory exhaustion under distributed IP attack (`src/cli_server.rs`)
 
 ### Documentation
 
