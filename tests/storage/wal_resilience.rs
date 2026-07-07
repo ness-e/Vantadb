@@ -25,6 +25,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     // 1. Inicializar con configuración explícita
     let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
+        wal_shards: 1,
         ..Default::default()
     };
 
@@ -85,6 +86,7 @@ fn test_wal_middle_corruption_auto_healing() {
 
     let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
+        wal_shards: 1,
         ..Default::default()
     };
 
@@ -204,6 +206,7 @@ fn test_wal_selective_crc_corruption_recovery() {
 
     let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
+        wal_shards: 1,
         ..Default::default()
     };
 
@@ -308,6 +311,7 @@ fn test_wal_write_failure_simulated() {
 
     let config = VantaConfig {
         backend_kind: BackendKind::Fjall,
+        wal_shards: 1,
         ..Default::default()
     };
 
