@@ -17,7 +17,7 @@ function BlogIndex() {
   const postsRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-bl-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(postsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -45,34 +45,34 @@ function BlogIndex() {
         />
 
         {posts.length === 0 ? (
-          <div className="nb-frame blog-frame-empty nb-engine-part">
+          <div className="nb-frame nc-bl-frame nc-bl-frame--empty nc-bl-part">
             <span className="nb-section-sub">No posts yet. Check back soon.</span>
           </div>
         ) : (
-          <div className="blog-post-list nb-engine-part">
+          <div className="nc-bl-list nc-bl-part">
             {posts.map((post) => (
               <Link
                 key={post.slug}
                 to="/blog/$slug"
                 params={{ slug: post.slug }}
-                className="nb-cell blog-post-link"
+                className="nb-cell nc-bl-link"
               >
-                <span className="blog-post-date">{post.date}</span>
+                <span className="nc-bl-date">{post.date}</span>
 
-                <div className="blog-post-body">
+                <div className="nc-bl-body">
                   <h2 className="nb-card-frame-title">{post.title}</h2>
                   {post.description && <p className="nb-card-frame-desc">{post.description}</p>}
-                  <div className="blog-post-tags">
-                    {post.author && <span className="blog-tag-author">{post.author}</span>}
+                  <div className="nc-bl-tags">
+                    {post.author && <span className="nc-bl-tag nc-bl-tag--author">{post.author}</span>}
                     {post.tags?.map((t) => (
-                      <span key={t} className="blog-tag">
+                      <span key={t} className="nc-bl-tag">
                         {t}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <span className="nb-arrow blog-arrow" />
+                <span className="nb-arrow nc-bl-arrow" />
               </Link>
             ))}
           </div>
@@ -84,8 +84,8 @@ function BlogIndex() {
 
 export function PendingComponent() {
   return (
-    <div className="blog-pending">
-      <span className="blog-pending-text">Loading...</span>
+    <div className="nc-bl-pending">
+      <span className="nc-bl-pending-text">Loading...</span>
     </div>
   );
 }

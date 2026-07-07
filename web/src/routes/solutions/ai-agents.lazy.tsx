@@ -64,21 +64,21 @@ function AiAgentsPage() {
   const implRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(problemRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, problemRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(primitivesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, primitivesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(implRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -105,14 +105,14 @@ function AiAgentsPage() {
           sub="Every conversation starts from zero. VantaDB gives agents persistent memory that lives inside the process."
         />
 
-        <div className="nb-engine-part">
-          <div className="ai-agents-grid-2col">
-            <div className="ai-agents-cell-padded">
-              <span className="nb-mono-label">Stateless agents</span>
-              <ul className="nb-list">
+        <div className="nc-aa-part">
+          <div className="nc-aa-compare">
+            <div className="nc-aa-col">
+              <span className="nc-aa-col-label nc-aa-col-label--danger">Stateless agents</span>
+              <ul className="nc-aa-list">
                 {PROBLEMS.map((p) => (
-                  <li key={p.text} className="ai-agents-list-item-muted">
-                    <span className="ai-agents-list-icon ai-agents-list-icon--danger">
+                  <li key={p.text} className="nc-aa-item">
+                    <span className="nc-aa-icon nc-aa-icon--danger">
                       {p.icon}
                     </span>
                     {p.text}
@@ -120,12 +120,12 @@ function AiAgentsPage() {
                 ))}
               </ul>
             </div>
-            <div className="ai-agents-cell-amber-border">
-              <span className="nb-mono-label">Embedded memory</span>
-              <ul className="nb-list">
+            <div className="nc-aa-col nc-aa-col--amber">
+              <span className="nc-aa-col-label nc-aa-col-label--amber">Embedded memory</span>
+              <ul className="nc-aa-list">
                 {SOLUTIONS_LIST.map((s) => (
-                  <li key={s.text} className="ai-agents-list-item-foreground">
-                    <span className="ai-agents-list-icon ai-agents-list-icon--amber">{s.icon}</span>
+                  <li key={s.text} className="nc-aa-item nc-aa-item--fg">
+                    <span className="nc-aa-icon nc-aa-icon--amber">{s.icon}</span>
                     {s.text}
                   </li>
                 ))}
@@ -142,13 +142,13 @@ function AiAgentsPage() {
           sub="Structured, searchable, and purpose-built for agent architectures."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-2">
+        <div className="nc-aa-part">
+          <div className="nc-aa-primitives">
             {PRIMITIVES.map((p) => (
-              <div key={p.num} className="nb-cell ai-agents-cell-padded">
-                <span className="nb-mono-label">{p.num}</span>
-                <h3 className="nb-card-frame-title">{p.title}</h3>
-                <p className="nb-card-frame-desc">{p.desc}</p>
+              <div key={p.num} className="nc-aa-pcard">
+                <span className="nc-aa-pnum">{p.num}</span>
+                <h3 className="nc-aa-ptitle">{p.title}</h3>
+                <p className="nc-aa-pdesc">{p.desc}</p>
               </div>
             ))}
           </div>
@@ -162,19 +162,17 @@ function AiAgentsPage() {
           sub="Embed persistent memory into your agent with three lines of Python."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-frame">
-            <pre className="ai-agents-code-block">
-              <code>{MEMORY_CODE}</code>
-            </pre>
-          </div>
+        <div className="nc-aa-part">
+          <pre className="nc-aa-code">
+            <code>{MEMORY_CODE}</code>
+          </pre>
         </div>
 
-        <div className="nb-engine-part">
+        <div className="nc-aa-part">
           <NbBlockAmber>
             <div className="nb-text-center">
               <span className="nb-mono-label">BUILD YOUR AGENT</span>
-              <p className="ai-agents-cta-text">Get started with the docs.</p>
+              <p className="nb-section-sub">Get started with the docs.</p>
               <Link to="/docs" className="nb-btn nb-btn--ghost">
                 DOCS
               </Link>

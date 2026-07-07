@@ -5,6 +5,7 @@ import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
 import { gsap } from "@/lib/gsap";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import "../../styles/about.css";
 
 export const Route = createLazyRoute("/about/contact")({
   component: ContactPage,
@@ -54,14 +55,14 @@ function ContactPage() {
   const securityRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(contactsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, contactsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(securityRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -88,14 +89,14 @@ function ContactPage() {
           sub="The right channel for every conversation."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-3">
+        <div className="nc-ab-part">
+          <div className="nc-ab-contacts">
             {CONTACTS.map((c) => (
-              <div key={c.channel} className="nb-cell nb-card-frame">
-                <span className="nb-mono-label">{c.type === "email" ? "EMAIL" : "LINK"}</span>
-                <h3 className="nb-card-frame-title">{c.channel}</h3>
-                <span className="nb-card-frame-desc">{c.detail}</span>
-                <p className="nb-section-sub">{c.sub}</p>
+              <div key={c.channel} className="nc-ab-contact-card">
+                <span className="nc-ab-contact-type">{c.type === "email" ? "EMAIL" : "LINK"}</span>
+                <h3 className="nc-ab-contact-title">{c.channel}</h3>
+                <span className="nc-ab-contact-detail">{c.detail}</span>
+                <p className="nc-ab-contact-sub">{c.sub}</p>
               </div>
             ))}
           </div>
@@ -109,7 +110,7 @@ function ContactPage() {
           sub="How we handle security vulnerabilities."
         />
 
-        <div className="nb-engine-part">
+        <div className="nc-ab-part">
           <div className="nb-split-7-5">
             <div>
               <p>

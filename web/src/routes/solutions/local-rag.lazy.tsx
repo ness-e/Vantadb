@@ -60,21 +60,21 @@ function LocalRagPage() {
   const implRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(privacyRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, privacyRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, pipelineRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(implRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -100,24 +100,24 @@ function LocalRagPage() {
           headline="Cloud RAG leaks data."
           sub="Every SaaS vector DB adds a data exposure point. Local-first eliminates them."
         />
-        <div className="local-rag-grid-2col nb-engine-part">
-          <div className="nb-cell local-rag-cell-padded">
-            <span className="nb-mono-label">Cloud RAG leaks data</span>
-            <ul className="nb-list">
+        <div className="nc-lr-compare nc-lr-part">
+          <div className="nc-lr-col">
+            <span className="nc-lr-col-label nc-lr-col-label--danger">Cloud RAG leaks data</span>
+            <ul className="nc-lr-list">
               {COMPARISON.problems.map((p) => (
-                <li key={p} className="local-rag-list-item-muted">
-                  <span className="local-rag-list-icon-danger">✗</span>
+                <li key={p} className="nc-lr-item">
+                  <span className="nc-lr-icon nc-lr-icon--danger">✗</span>
                   {p}
                 </li>
               ))}
             </ul>
           </div>
-          <div className="nb-cell local-rag-cell-amber-border">
-            <span className="nb-mono-label">Local-first, zero exposure</span>
-            <ul className="nb-list">
+          <div className="nc-lr-col nc-lr-col--amber">
+            <span className="nc-lr-col-label nc-lr-col-label--amber">Local-first, zero exposure</span>
+            <ul className="nc-lr-list">
               {COMPARISON.solutions.map((s) => (
-                <li key={s} className="local-rag-list-item-foreground">
-                  <span className="local-rag-list-icon-amber">✓</span>
+                <li key={s} className="nc-lr-item nc-lr-item--fg">
+                  <span className="nc-lr-icon nc-lr-icon--amber">✓</span>
                   {s}
                 </li>
               ))}
@@ -132,11 +132,11 @@ function LocalRagPage() {
           headline="Ingest → Index → Retrieve."
           sub="Three stages from document to answer, entirely on-device."
         />
-        <div className="nb-grid nb-grid--cols-3 local-rag-mt-xl nb-engine-part">
+        <div className="nc-lr-pipeline nc-lr-part">
           {PIPELINE.map((step) => (
-            <div key={step.title} className="nb-cell local-rag-cell-padded">
-              <h3 className="nb-card-frame-title">{step.title}</h3>
-              <p className="nb-card-frame-desc">{step.desc}</p>
+            <div key={step.title} className="nc-lr-step">
+              <h3 className="nc-lr-step-title">{step.title}</h3>
+              <p className="nc-lr-step-desc">{step.desc}</p>
             </div>
           ))}
         </div>
@@ -148,15 +148,15 @@ function LocalRagPage() {
           headline="Twenty lines to local RAG."
           sub="Six imports, one database, zero cloud calls."
         />
-        <div className="nb-frame local-rag-mt-xl nb-engine-part">
-          <pre className="local-rag-code-block">
+        <div className="nc-lr-part">
+          <pre className="nc-lr-code">
             <code>{RAG_CODE}</code>
           </pre>
         </div>
-        <div className="nb-engine-part">
+        <div className="nc-lr-part">
           <NbBlockAmber as="div">
-            <div className="local-rag-cta-block">
-              <h2 className="local-rag-cta-heading">Start building privacy-first RAG today.</h2>
+            <div className="nc-lr-cta">
+              <h2 className="nc-lr-cta-heading">Start building privacy-first RAG today.</h2>
               <Link to="/docs" className="nb-btn nb-btn--ghost">
                 DOCS
               </Link>

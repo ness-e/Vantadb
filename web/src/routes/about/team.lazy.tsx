@@ -6,6 +6,7 @@ import { gsap } from "@/lib/gsap";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
 import { PendingComponent } from "@/components/PendingComponent";
+import "../../styles/about.css";
 
 export const Route = createLazyRoute("/about/team")({
   component: TeamPage,
@@ -61,7 +62,7 @@ function TeamPage() {
   const teamRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(teamRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -82,21 +83,21 @@ function TeamPage() {
           sub="Distributed across 6 time zones. United by one mission."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-3">
+        <div className="nc-ab-part">
+          <div className="nc-ab-team">
             {TEAM.map((m) => (
-              <div key={m.name} className="nb-cell nb-card-frame">
-                <div className="nb-dither">
+              <div key={m.name} className="nc-ab-team-card">
+                <div className="nc-ab-avatar-term">
                   <div>{"> user: " + m.avatarUser}</div>
                   <div>{"> status: " + m.avatarStatus}</div>
                 </div>
 
                 <div className="nb-card-frame-header">
-                  <h3 className="nb-card-frame-title">{m.name}</h3>
-                  <span className="nb-mono-label">[{m.role}]</span>
+                  <h3 className="nc-ab-team-name">{m.name}</h3>
+                  <span className="nc-ab-team-role">[{m.role}]</span>
                 </div>
 
-                <p className="nb-card-frame-desc">{m.desc}</p>
+                <p className="nc-ab-team-desc">{m.desc}</p>
               </div>
             ))}
           </div>

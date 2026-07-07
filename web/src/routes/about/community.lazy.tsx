@@ -5,6 +5,7 @@ import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
 import { gsap } from "@/lib/gsap";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import "../../styles/about.css";
 
 export const Route = createLazyRoute("/about/community")({
   component: CommunityPage,
@@ -73,14 +74,14 @@ function CommunityPage() {
   const waysRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(channelsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, channelsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(waysRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -107,20 +108,20 @@ function CommunityPage() {
           sub="Join the conversation on your platform of choice."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-2">
+        <div className="nc-ab-part">
+          <div className="nc-ab-channels">
             {CHANNELS.map((ch) => (
               <a
                 key={ch.name}
                 href={ch.href}
                 target={ch.href.startsWith("http") ? "_blank" : undefined}
                 rel="noopener noreferrer"
-                className="nb-cell nb-card-frame"
+                className="nc-ab-channel-card"
               >
-                <span className="nb-mono-label">{ch.tag}</span>
-                <h3 className="nb-card-frame-title">{ch.name}</h3>
-                <p className="nb-card-frame-desc">{ch.desc}</p>
-                <span className="nb-arrow nb-card-frame-header">{ch.cta}</span>
+                <span className="nc-ab-channel-tag">{ch.tag}</span>
+                <h3 className="nc-ab-channel-name">{ch.name}</h3>
+                <p className="nc-ab-channel-desc">{ch.desc}</p>
+                <span className="nc-ab-channel-cta">{ch.cta}</span>
               </a>
             ))}
           </div>
@@ -134,12 +135,12 @@ function CommunityPage() {
           sub="Everyone can contribute, regardless of experience."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-3">
+        <div className="nc-ab-part">
+          <div className="nc-ab-ways">
             {WAYS.map((w) => (
-              <div key={w.title} className="nb-cell nb-card-frame">
-                <h3 className="nb-card-frame-title">{w.title}</h3>
-                <p className="nb-card-frame-desc">{w.desc}</p>
+              <div key={w.title} className="nc-ab-way-card">
+                <h3 className="nc-ab-way-title">{w.title}</h3>
+                <p className="nc-ab-way-desc">{w.desc}</p>
               </div>
             ))}
           </div>

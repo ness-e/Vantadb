@@ -21,7 +21,7 @@ function BlogPost() {
   useScrollReveal();
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-bl-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(postRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -31,7 +31,7 @@ function BlogPost() {
     return (
       <div className="nb-page">
         <NbSection ariaLabel="Post not found">
-          <div className="nb-frame blog-slug-not-found-frame nb-engine-part">
+          <div className="nb-frame nc-bl-frame nc-bl-part">
             <span className="nb-card-frame-title">Post not found</span>
             <br />
             <Link to="/blog" className="nb-arrow">
@@ -46,7 +46,7 @@ function BlogPost() {
   return (
     <div className="nb-page">
       <NbSection ref={postRef} ariaLabel="Blog post">
-        <div className="blog-slug-breadcrumb">
+        <div className="nc-bl-breadcrumb">
           <span>Blog</span>
           <span>{post.slug}</span>
         </div>
@@ -57,10 +57,10 @@ function BlogPost() {
           sub={post.description || undefined}
         />
 
-        <div className="blog-slug-meta">
-          {post.author && <span className="blog-slug-author">By {post.author}</span>}
+        <div className="nc-bl-meta">
+          {post.author && <span className="nc-bl-author">By {post.author}</span>}
           {post.tags?.map((t) => (
-            <span key={t} className="blog-slug-tag">
+            <span key={t} className="nc-bl-meta-tag">
               {t}
             </span>
           ))}
@@ -69,13 +69,13 @@ function BlogPost() {
         <div className="nb-divider" />
 
         <div
-          className="article-body blog-slug-body nb-engine-part"
+          className="article-body nc-bl-body-text nc-bl-part"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.html) }}
         />
 
-        <div className="nb-divider blog-slug-divider" />
+        <div className="nb-divider nc-bl-divider" />
 
-        <nav className="blog-slug-nav">
+        <nav className="nc-bl-nav">
           <Link to="/blog" className="nb-arrow">
             Back to blog
           </Link>
@@ -87,8 +87,8 @@ function BlogPost() {
 
 export function PendingComponent() {
   return (
-    <div className="blog-pending">
-      <span className="blog-pending-text">Loading...</span>
+    <div className="nc-bl-pending">
+      <span className="nc-bl-pending-text">Loading...</span>
     </div>
   );
 }

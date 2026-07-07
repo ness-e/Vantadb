@@ -54,21 +54,21 @@ function CompanyPage() {
   const compareRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(purposeRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, purposeRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(valuesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, valuesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -103,10 +103,10 @@ function CompanyPage() {
           sub="Four principles that guide every line of code."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-2">
+        <div className="nc-ac-part">
+          <div className="nc-ac-values">
             {VALUES.map((v) => (
-              <div key={v.num} className="nb-cell about-company-value-card">
+              <div key={v.num} className="nc-ac-value-card">
                 <span className="nb-mono-label">{v.num}</span>
                 <h3 className="nb-card-frame-title">{v.title}</h3>
                 <p className="nb-card-frame-desc">{v.desc}</p>
@@ -123,25 +123,25 @@ function CompanyPage() {
           sub="Compare the alternatives."
         />
 
-        <div className="nb-engine-part">
-          <div className="about-company-compare-grid">
-            <div className="about-company-compare-card-left">
-              <span className="nb-mono-label">The alternatives</span>
-              <ul className="nb-list">
+        <div className="nc-ac-part">
+          <div className="nc-ac-compare">
+            <div className="nc-ac-compare-left">
+              <span className="nc-ac-compare-label">The alternatives</span>
+              <ul className="nc-ac-compare-list">
                 {COMPARISON_LEFT.map((item) => (
-                  <li key={item} className="about-company-compare-item-left">
-                    <span className="about-company-bullet about-company-bullet--x">✗</span>
+                  <li key={item} className="nc-ac-compare-item nc-ac-compare-item--muted">
+                    <span className="nc-ac-compare-icon">✗</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="about-company-compare-card-right">
-              <span className="nb-mono-label">VantaDB</span>
-              <ul className="nb-list">
+            <div className="nc-ac-compare-right">
+              <span className="nc-ac-compare-label">VantaDB</span>
+              <ul className="nc-ac-compare-list">
                 {COMPARISON_RIGHT.map((item) => (
-                  <li key={item} className="about-company-compare-item-right">
-                    <span className="about-company-bullet about-company-bullet--check">✓</span>
+                  <li key={item} className="nc-ac-compare-item nc-ac-compare-item--fg">
+                    <span className="nc-ac-compare-icon">✓</span>
                     {item}
                   </li>
                 ))}
