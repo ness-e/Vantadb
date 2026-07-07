@@ -350,9 +350,29 @@ impl StorageEngine {
             .and_then(|bytes| postcard::from_bytes::<u64>(&bytes).ok())
             .unwrap_or(0);
 
-        if !config.read_only && config.wal_shards > 0 && wal_path.exists() {
-            let wal_replay_started = Instant::now();
+        if !config.read_only && config.wal_shards > 0 {
             let num_shards = config.wal_shards.max(1);
+
+            // Build shard path for a given index
+            let shard_path_for = |idx: usize| -> std::path::PathBuf {
+                if num_shards > 1 {
+                    let dir = wal_path.parent().unwrap_or(Path::new("."));
+                    let stem = wal_path.file_stem().unwrap_or_default().to_string_lossy();
+                    let ext = wal_path
+                        .extension()
+                        .map(|e| format!(".{}", e.to_string_lossy()))
+                        .unwrap_or_default();
+                    let shard_name = format!("{}.shard{}{}", stem, idx, ext);
+                    dir.join(shard_name)
+                } else {
+                    wal_path.clone()
+                }
+            };
+
+            // With multi-shard WAL the base vanta.wal never exists; check shard0 instead.
+            let guard_path = shard_path_for(0);
+            if guard_path.exists() {
+            let wal_replay_started = Instant::now();
 
             // Compute per-shard skip from global checkpoint based on round-robin distribution.
             // Records are distributed evenly across shards, so each shard must skip
@@ -361,18 +381,7 @@ impl StorageEngine {
             let extra = checkpoint_seq % num_shards as u64;
 
             for shard_idx in 0..num_shards {
-                let shard_path = if num_shards > 1 {
-                    let dir = wal_path.parent().unwrap_or(Path::new("."));
-                    let stem = wal_path.file_stem().unwrap_or_default().to_string_lossy();
-                    let ext = wal_path
-                        .extension()
-                        .map(|e| format!(".{}", e.to_string_lossy()))
-                        .unwrap_or_default();
-                    let shard_name = format!("{}.shard{}{}", stem, shard_idx, ext);
-                    dir.join(shard_name)
-                } else {
-                    wal_path.clone()
-                };
+                let shard_path = shard_path_for(shard_idx);
 
                 if !shard_path.exists() {
                     continue;
@@ -437,6 +446,7 @@ impl StorageEngine {
                     "WAL replay: recovered un-flushed mutations"
                 );
             }
+        }
         }
         Ok((wal_replay_ms, wal_records_replayed))
     }
