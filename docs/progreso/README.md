@@ -1472,6 +1472,26 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open. 13 items migrados a progreso.
 
+### 2026-07-07 — Phase 5: Governance, Encryption, WAL Shipping, PITR, WASM, Docs (9 tasks)
+
+**Objetivo:** Implementar GOV-01 (governance redesign), TSK-72 (AES-256-GCM), BIZ-02 (WAL shipping), TSK-131 (PITR), TSK-122 (sharded-slab HNSW), TSK-142 (WASM OPFS), PERF-26 (lazy serialization), DOC-20 (LanceDB guide), CODE-074 (Playwright tests).
+
+| ID | Tarea | Archivos | Cambios |
+|----|-------|----------|---------|
+| GOV-01 | Governance redesign | `src/governance/` (4 mods) | Bloom+CountMinSketch, version vectors, TTL buffer, worker. Fixes 12 bugs. Feature: `governance` |
+| TSK-72 | AES-256-GCM encryption | `src/crypto.rs`, `vfile.rs`, `config.rs` | Cipher + EncryptionStream, env var key. Feature: `encryption` |
+| BIZ-02 | Async WAL shipping | `src/wal_shipping.rs` | HTTP POST batches, retry, marker tracking. Feature: `wal-shipping` |
+| TSK-131 | PITR archival WAL | `src/wal_archiver.rs` | Archiver + restorer, retention policy. Feature: `pitr` |
+| TSK-122 | Sharded-slab HNSW | `src/index/core.rs` | DashMap→sharded_slab::Slab, lock-free. Feature: `sharded-slab` |
+| TSK-142 | WASM OPFS persistence | `vantadb-wasm/` (3 files) | OpfsFile, Web Worker bridge, JS helpers. Feature: `opfs` |
+| PERF-26 | Lazy serialization | `vantadb-python/src/lib.rs` | Removed 4 eager PyDict builders, returns VantaPyMemoryRecord |
+| DOC-20 | LanceDB migration guide | `docs/tutorials/migration-from-lancedb.md` | 380-line tutorial with full migration script |
+| CODE-074 | Visual regression tests | `e2e/visual/` (3 files) | 6 Playwright specs, snapshot diff helper |
+
+**Verificación:** `cargo check` ✅. 23 archivos, 4196 líneas añadidas.
+
+**Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
+
 ### 2026-07-07 — PERF-17/18/19/20: HNSW params, WAL batch, Storage batch
 
 | ID | Tarea | Cambio | Estado |

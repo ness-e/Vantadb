@@ -109,7 +109,7 @@ aliases: []
 | ~~`DX-02`~~ | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** — VantaVector zero-copy + owned hot paths implementados | 🟡 2-3d | 🔴 | ✅ |
 | ~~`DX-03`~~ | **Python SDK performance profiling** — Bottlenecks documentados: PyDict set_item, metadata clones, vector copy | 🟡 1-2d | 🔴 | ✅ |
 | ~~`DX-04`~~ | **Zero-copy vectors en PyO3** — `VantaVector` con `__array_interface__` buffer protocol implementado | 🟡 2-3d | 🟠 | ✅ |
-| `—` | Eliminar `OldSerializationError` deprecated del enum | 🟢 1h | 🟡 | ❌ |
+| ~~`—` | Eliminar `OldSerializationError`~~ deprecated del enum | 🟢 1h | 🟡 | ❌ |
 
 ### 🏗️ Index & Storage Quality
 
@@ -156,7 +156,7 @@ aliases: []
 | `DOC-17` | Diagramas Mermaid (5) | 🟡 1-2d | 🟡 | ✅ |
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
 | ~~`DOC-19`~~ | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ✅ |
-| `DOC-20` | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
+| ~~`DOC-20`~~ | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
 | `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
 
@@ -244,7 +244,7 @@ aliases: []
 | ~~`PERF-23`~~ | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-24`~~ | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
 | ~~`PERF-25`~~ | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
-| `PERF-26` | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-26`~~ | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | ~~`PERF-27`~~ | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-28`~~ | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-29`~~ | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
@@ -283,8 +283,8 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `—` | TypeScript SDK hardening: type safety, error wrapping, JSDoc, tests | — | 🟡 2-3d | 🔴 | ❌ |
-| `—` | Python SDK: `put_batch` → keyword arguments | — | 🟢 1d | 🟡 | ❌ |
+| ~~`—` | TypeScript SDK~~ hardening: type safety, error wrapping, JSDoc, tests | — | 🟡 2-3d | 🔴 | ❌ |
+| ~~`—` | Python SDK: `put_batch`~~ → keyword arguments | — | 🟢 1d | 🟡 | ❌ |
 | `—` | Python SDK: eliminar LRU cache home-grown | — | 🟢 1d | 🟢 | ✅ |
 | ~~`CODE-045`~~ | **`OperationalMetrics` TS 70% incompleto** — 11 de 37 campos mapeados | `types.ts:120-132` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-046`~~ | **`_mapRecord` es identity lie** — `any → T` sin validación alguna | `vantadb.ts:18-20` | 🟢 2h | 🟡 | ✅ |
@@ -332,7 +332,7 @@ aliases: []
 | ~~`CODE-043`~~ | **`Cargo_test.toml` stale duplicate** — Features diferentes al real. Time bomb | `Cargo_test.toml` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-044`~~ | **`test_search_batch` skipeado pero API ya existe** — Test muerto | `tests/test_sdk.py:144` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-057`~~ | **`debug = 0` en profile.test** — Backtraces sin line numbers. Debug imposible | `Cargo.toml:508-510` | 🟢 1h | 🟡 | ✅ |
-| `CODE-074` | **Cero visual regression tests** — Sin Percy/Chromatic/Playwright screenshots | — | 🟡 2-3d | 🟡 | ❌ |
+| ~~`CODE-074`~~ | **Cero visual regression tests** — Sin Percy/Chromatic/Playwright screenshots | — | 🟡 2-3d | 🟡 | ❌ |
 | ~~`CODE-075`~~ | **Sin coverage provider en vitest** — No hay métricas de cobertura | `vitest.config.ts` | 🟢 1h | 🟢 | ✅ |
 
 ### 🛡️ Seguridad Post-Launch
@@ -395,19 +395,19 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `TSK-72` | AES-256-GCM at-rest encryption | 🟡 3-5d | 🟡 | ❌ |
+| ~~`TSK-72`~~ | AES-256-GCM at-rest encryption | 🟡 3-5d | 🟡 | ❌ |
 | `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 | ❌ |
 | `TSK-110` | SBOM en cada release (vía SEC-06) | 🟡 1d | 🟡 | ✅ |
-| `BIZ-02` | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ |
-| `TSK-122` | Sharded-slab para HNSW lock-free | 🟡 2-3d | 🟡 | ❌ |
-| `TSK-131` | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ |
+| ~~`BIZ-02`~~ | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ |
+| ~~`TSK-122`~~ | Sharded-slab para HNSW lock-free | 🟡 2-3d | 🟡 | ❌ |
+| ~~`TSK-131`~~ | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ |
 | `TSK-133` | Incremental backup (snapshot + WAL deltas) | 🟢 2-3d | 🟢 | ✅ |
 | `TSK-142` | WASM persistence via OPFS + Web Workers | 🟡 2-3d | 🟡 | ❌ |
 | `ENT-01` | SOC 2 prep (access controls, audit trails, retention) | 🟡 3-5d | 🟡 | ❌ |
 | `ENT-02` | HIPAA assessment + BAA readiness | 🟡 2-3d | 🟡 | ❌ |
 | `ENT-03` | Multi-tenant isolation (RAM, IOPS, storage quotas) | 🟡 3-5d | 🟡 | ❌ |
 | `ENT-04` | Connection pooling + circuit breaker | 🟡 2-3d | 🟡 | ❌ |
-| `GOV-01` | **Governance redesign** — Rediseñar admission control, conflict resolution, y consistency buffer basado en el design doc de experimental-governance. 12 bugs conocidos (Bloom saturation, friction invertido, death spiral, etc.). Ver `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md` | 🟠 3-5d | 🟡 | ❌ |
+| ~~`GOV-01`~~ | **Governance redesign** — Rediseñar admission control, conflict resolution, y consistency buffer basado en el design doc de experimental-governance. 12 bugs conocidos (Bloom saturation, friction invertido, death spiral, etc.). Ver `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md` | 🟠 3-5d | 🟡 | ❌ |
 | `LOW-01` | TLS 1.3 on vantadb-server | 🟢 1-2d | 🟢 | ✅ |
 
 ### 5.B VantaDB Cloud & Business
