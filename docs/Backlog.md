@@ -128,8 +128,8 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `PERF-15` | **`put_batch_raw()` con PyBuffer 2D** — Zero-copy batch ingestion desde NumPy arrays. Target: 10× ingestion QPS (17767 vs 127 LanceDB gap) | `vantadb-python/src/lib.rs` | 🟡 2-3d | 🔴 | ❌ |
-| `PERF-16` | **`#[pyclass]` para search hits** — Evita 5 PyDict allocations por resultado. ~30-50% reducción query latency (target: 2.27ms ChromaDB parity) | `vantadb-python/src/lib.rs`, `types.rs` | 🟡 2-3d | 🔴 | ❌ |
+| ~~`PERF-15`~~ | **`put_batch_raw()` con PyBuffer 2D** — Zero-copy batch ingestion desde NumPy arrays. Target: 10× ingestion QPS (17767 vs 127 LanceDB gap) | `vantadb-python/src/lib.rs` | 🟡 2-3d | 🔴 | ✅ |
+| ~~`PERF-16`~~ | **`#[pyclass]` para search hits** — Evita 5 PyDict allocations por resultado. ~30-50% reducción query latency (target: 2.27ms ChromaDB parity) | `vantadb-python/src/lib.rs`, `types.rs` | 🟡 2-3d | 🔴 | ✅ |
 | `PERF-17` | **ef_construction 200→400** — Mayor recall con costo moderado en index time. ChromaDB usa default 200, VantaDB necesita superar 90% recall@10 | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
 | `PERF-18` | **M/max0 16→24/32** — Mejor conectividad del grafo HNSW. Complementa PERF-17 para recall >90% | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
 | `PERF-19` | **WAL batch append** — Single write por batch en vez de por vector. Reduce I/O y contention en escritura concurrente | `src/storage/wal.rs`, `src/wal_sharded.rs` | 🟡 1-2d | 🟠 | ❌ |
@@ -239,13 +239,13 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `PERF-21` | **AVX-512 f32x16 SIMD dispatch** — Runtime dispatch para dot product y euclidean distance. `avx512f` ya detectado en `hardware/mod.rs:166`, no cableado | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟡 | ❌ |
-| `PERF-22` | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-21`~~ | **AVX-512 f32x16 SIMD dispatch** — Runtime dispatch para dot product y euclidean distance. `avx512f` ya detectado en `hardware/mod.rs:166`, no cableado | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟡 | ✅ |
+| ~~`PERF-22`~~ | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-23`~~ | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | `PERF-24` | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
 | `PERF-25` | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | `PERF-26` | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
-| `PERF-27` | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-27`~~ | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-28`~~ | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ✅ |
 | `PERF-29` | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
 | ~~`PERF-30`~~ | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ✅ |
@@ -520,7 +520,7 @@ Esfuerzo                │   Esfuerzo
 | 🧪 Testing | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🎯 Marketing vs Realidad | 0 | 1 | 0 | 0 | 0 | 1 |
 | 🏗️ Index & Storage Quality | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Optimizaciones Post-Benchmark | 0 | 6 | 0 | 0 | 0 | 6 |
+| ⚡ Optimizaciones Post-Benchmark | 0 | 4 | 0 | 0 | 0 | 4 |
 | 🌐 Web & Landing Page | 0 | 2 | 0 | 0 | 0 | 2 |
 | 📚 Documentación | 0 | 3 | 0 | 0 | 0 | 3 |
 | 🧪 WASM & MCP | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -542,9 +542,9 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
-| **Total** | **14** | **16** | **25** | **11** | **21** | **87** |
+| **Total** | **14** | **16** | **25** | **11** | **21** | **82** |
 
-Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 87 items ❌ + 1 ⏳ (BIZ-01) = 88 open.
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 82 items ❌ + 1 ⏳ (BIZ-01) = 83 open.
 
 ---
 
@@ -567,7 +567,7 @@ Jul 11-18  TIER 1 (🟠 17 items remaining):
              ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
              ─ Distribución: DEVOPS-02/06/10, TSK-121 ❌
               ─ Code health: ✅ ~~CODE-067~~
-             ─ ⚡ Post-Benchmark: PERF-15/16 🔴, PERF-17→20 🟠 ❌
+             ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, PERF-17→20 🟠 ❌
 Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
              ─ GC: ✅ ~~CODE-031/032/064/065/066~~ ~~CODE-037~~ ✅
@@ -575,7 +575,7 @@ Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~ 3 ❌
              ─ Accesibilidad: ✅ ~~CODE-048~~
              ─ SEO/Conversion: MKT-17 ❌
-             ─ ⚙️ Perf Media: PERF-21/22/24/25/26/27/29 🟡 ❌
+             ─ ⚙️ Perf Media: ~~PERF-21~~/~~PERF-22~~/24/25/26/~~PERF-27~~/29 🟡 ❌
 Ago-Sep    TIER 3 (🔵 12 items remaining):
               ─ Testing: CODE-074 ❌, ✅ ~~CODE-033/035/043/044/057/075~~
              ─ Seguridad: ✅ ~~CODE-036/058/061~~
@@ -621,5 +621,7 @@ Oct+       PHASE 5 (⬜ 21 items):
 - [[docs/research/INVESTIGATION_FFI.md]] — FFI/PyO3 optimization findings (batch, zero-copy, GIL)
 - [[docs/research/INVESTIGATION_HNSW_RECALL.md]] — HNSW recall optimization findings (ef_construction, M, heuristics)
 - [[docs/research/INVESTIGATION_INGESTION.md]] — Ingestion optimization findings (batch WAL, storage, async pipeline)
+
+
 
 
