@@ -124,17 +124,20 @@ impl VantaEmbedded {
             validate_metadata(&input.metadata)?;
         }
 
-        let results: Vec<Result<VantaMemoryRecord>> = {
-            #[cfg(feature = "rayon")]
-            {
-                inputs.into_par_iter()
+        let batch_size = self.config.batch_size.unwrap_or(1000);
+        let mut all_results: Vec<VantaMemoryRecord> = Vec::with_capacity(inputs.len());
+        for chunk in inputs.chunks(batch_size) {
+            let chunk_results: Vec<VantaMemoryRecord> = {
+                #[cfg(feature = "rayon")]
+                {
+                    chunk.to_vec().into_par_iter()
+                }
+                #[cfg(not(feature = "rayon"))]
+                {
+                    chunk.to_vec().into_iter()
+                }
             }
-            #[cfg(not(feature = "rayon"))]
-            {
-                inputs.into_iter()
-            }
-        }
-        .map(|input| {
+            .map(|input| {
             let engine = self.engine_handle()?;
             let node_id = memory_node_id(&input.namespace, &input.key);
             let existing = match engine.get(node_id)? {
@@ -182,9 +185,11 @@ impl VantaEmbedded {
             self.replace_derived_indexes(&engine, existing.as_ref(), Some(&record))?;
             Ok(record)
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
+            all_results.extend(chunk_results);
+        }
 
-        results.into_iter().collect()
+        Ok(all_results)
     }
 
     /// Retrieve a single memory record by namespace and key.

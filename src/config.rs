@@ -166,6 +166,15 @@ pub struct VantaConfig {
     /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
     /// limiting entirely (useful for tests and embedded-local usage).
     pub rate_limit_rpm: u32,
+    /// Batch size for batch ingestion operations (default: 1000).
+    /// Configured via `VANTADB_BATCH_SIZE`.
+    pub batch_size: Option<usize>,
+    /// WAL buffer size in bytes (default: 65536 / 64KB).
+    /// Configured via `VANTADB_WAL_BUFFER_SIZE`.
+    pub wal_buffer_size: Option<usize>,
+    /// Number of nodes before triggering implicit WAL flush (default: 10000).
+    /// Configured via `VANTADB_FLUSH_THRESHOLD`.
+    pub flush_threshold: Option<usize>,
     /// Path to the PEM-encoded TLS certificate file.
     ///
     /// Requires the `tls` feature. Configured via `VANTADB_TLS_CERT`.
@@ -339,6 +348,30 @@ impl Default for VantaConfig {
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
                 v
             },
+            batch_size: {
+                let v = parse_env_or::<u32>("VANTADB_BATCH_SIZE", 0)
+                    .try_into()
+                    .ok()
+                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                debug!(val = ?v, "VANTADB_BATCH_SIZE");
+                v
+            },
+            wal_buffer_size: {
+                let v = parse_env_or::<u32>("VANTADB_WAL_BUFFER_SIZE", 0)
+                    .try_into()
+                    .ok()
+                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                debug!(val = ?v, "VANTADB_WAL_BUFFER_SIZE");
+                v
+            },
+            flush_threshold: {
+                let v = parse_env_or::<u32>("VANTADB_FLUSH_THRESHOLD", 0)
+                    .try_into()
+                    .ok()
+                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                debug!(val = ?v, "VANTADB_FLUSH_THRESHOLD");
+                v
+            },
             tls_cert_path: {
                 let v = env::var("VANTADB_TLS_CERT").ok();
                 debug!(present = v.is_some(), "VANTADB_TLS_CERT");
@@ -492,6 +525,24 @@ impl VantaConfig {
         self
     }
 
+    /// Sets the batch size for batch ingestion operations.
+    pub fn with_batch_size(mut self, size: usize) -> Self {
+        self.batch_size = Some(size);
+        self
+    }
+
+    /// Sets the WAL buffer size in bytes.
+    pub fn with_wal_buffer_size(mut self, size: usize) -> Self {
+        self.wal_buffer_size = Some(size);
+        self
+    }
+
+    /// Sets the number of nodes before triggering an implicit WAL flush.
+    pub fn with_flush_threshold(mut self, threshold: usize) -> Self {
+        self.flush_threshold = Some(threshold);
+        self
+    }
+
     /// Sets the TLS certificate and key paths for HTTPS.
     ///
     /// Requires the `tls` feature to have any effect.
@@ -641,6 +692,9 @@ mod tests {
         assert_eq!(cfg.sync_mode, SyncMode::Periodic);
         assert_eq!(cfg.api_key, None);
         assert_eq!(cfg.rate_limit_rpm, 100);
+        assert_eq!(cfg.batch_size, None);
+        assert_eq!(cfg.wal_buffer_size, None);
+        assert_eq!(cfg.flush_threshold, None);
         assert_eq!(cfg.tls_cert_path, None);
         assert_eq!(cfg.tls_key_path, None);
         assert_eq!(cfg.log_format, LogFormat::Compact);
@@ -768,6 +822,24 @@ mod tests {
     }
 
     #[test]
+    fn test_with_batch_size() {
+        let cfg = VantaConfig::default().with_batch_size(500);
+        assert_eq!(cfg.batch_size, Some(500));
+    }
+
+    #[test]
+    fn test_with_wal_buffer_size() {
+        let cfg = VantaConfig::default().with_wal_buffer_size(131072);
+        assert_eq!(cfg.wal_buffer_size, Some(131072));
+    }
+
+    #[test]
+    fn test_with_flush_threshold() {
+        let cfg = VantaConfig::default().with_flush_threshold(5000);
+        assert_eq!(cfg.flush_threshold, Some(5000));
+    }
+
+    #[test]
     fn test_with_tls() {
         let cfg = VantaConfig::default().with_tls("cert.pem".into(), "key.pem".into());
         assert_eq!(cfg.tls_cert_path, Some("cert.pem".into()));
@@ -803,6 +875,9 @@ mod tests {
         assert_eq!(cfg_default.prefetch_mode, cfg_from_env.prefetch_mode);
         assert_eq!(cfg_default.log_format, cfg_from_env.log_format);
         assert_eq!(cfg_default.rate_limit_rpm, cfg_from_env.rate_limit_rpm);
+        assert_eq!(cfg_default.batch_size, cfg_from_env.batch_size);
+        assert_eq!(cfg_default.wal_buffer_size, cfg_from_env.wal_buffer_size);
+        assert_eq!(cfg_default.flush_threshold, cfg_from_env.flush_threshold);
     }
 
     // ── Builder chaining ───────────────────────────────────────
@@ -823,6 +898,9 @@ mod tests {
             .with_sync_mode(SyncMode::Always)
             .with_api_key(Some("sk-chained".into()))
             .with_rate_limit_rpm(200)
+            .with_batch_size(500)
+            .with_wal_buffer_size(131072)
+            .with_flush_threshold(5000)
             .with_tls("crt.pem".into(), "key.pem".into())
             .with_log_format(LogFormat::Json)
             .with_prefetch_mode(PrefetchMode::Disabled);
@@ -840,6 +918,9 @@ mod tests {
         assert_eq!(cfg.sync_mode, SyncMode::Always);
         assert_eq!(cfg.api_key, Some("sk-chained".into()));
         assert_eq!(cfg.rate_limit_rpm, 200);
+        assert_eq!(cfg.batch_size, Some(500));
+        assert_eq!(cfg.wal_buffer_size, Some(131072));
+        assert_eq!(cfg.flush_threshold, Some(5000));
         assert_eq!(cfg.tls_cert_path, Some("crt.pem".into()));
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);

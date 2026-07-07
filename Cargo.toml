@@ -22,6 +22,7 @@ chrono = { version = "0.4", features = ["serde"] }
 postcard = { version = "1.1", features = ["alloc"] }
 thiserror = "2"
 parking_lot = "0.12"
+lru = "0.12"
 dashmap = "6"
 arc-swap = "1.7"
 zerocopy = { version = "0.8", features = ["derive"] }

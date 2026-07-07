@@ -21,10 +21,14 @@ pub(crate) fn init_wal(
         return Ok(None);
     }
     let wal_path = data_dir.join("vanta.wal");
-    Ok(Some(crate::wal_sharded::ShardedWal::new(
+    let wal_buffer_size = config.wal_buffer_size.unwrap_or(64 * 1024);
+    let flush_threshold = config.flush_threshold;
+    Ok(Some(crate::wal_sharded::ShardedWal::new_with_buffer(
         &wal_path,
         config.wal_shards,
         config.sync_mode,
+        wal_buffer_size,
+        flush_threshold,
     )?))
 }
 

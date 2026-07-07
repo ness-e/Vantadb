@@ -34,6 +34,8 @@ pub(crate) struct ShardedWal {
     base_path: PathBuf,
     sync_mode: crate::config::SyncMode,
     next_shard: AtomicUsize,
+    wal_buffer_size: usize,
+    flush_threshold: Option<usize>,
 }
 
 impl ShardedWal {
@@ -42,6 +44,17 @@ impl ShardedWal {
         base_path: &Path,
         num_shards: usize,
         sync_mode: crate::config::SyncMode,
+    ) -> Result<Self> {
+        Self::new_with_buffer(base_path, num_shards, sync_mode, 64 * 1024, None)
+    }
+
+    /// Create a new `ShardedWal` with configurable buffer size and flush threshold.
+    pub fn new_with_buffer(
+        base_path: &Path,
+        num_shards: usize,
+        sync_mode: crate::config::SyncMode,
+        wal_buffer_size: usize,
+        flush_threshold: Option<usize>,
     ) -> Result<Self> {
         let num_shards = num_shards.max(1);
         let mut shards = Vec::with_capacity(num_shards);
@@ -59,7 +72,12 @@ impl ShardedWal {
             } else {
                 base_path.to_path_buf()
             };
-            let writer = WalWriter::open(&shard_path, sync_mode)?;
+            let writer = WalWriter::open_with_buffer(
+                &shard_path,
+                sync_mode,
+                wal_buffer_size,
+                flush_threshold,
+            )?;
             shards.push(Arc::new(Mutex::new(writer)));
         }
 
@@ -69,6 +87,8 @@ impl ShardedWal {
             base_path: base_path.to_path_buf(),
             sync_mode,
             next_shard: AtomicUsize::new(0),
+            wal_buffer_size,
+            flush_threshold,
         })
     }
 

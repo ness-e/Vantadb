@@ -442,6 +442,16 @@ impl CPIndex {
         }
     }
 
+    /// Find a replacement entry point when the current one is deleted.
+    /// Scans all nodes and returns the one with the most layers.
+    /// Returns None if the index is empty.
+    pub fn find_new_entry_point(&self) -> Option<u128> {
+        self.nodes
+            .iter()
+            .max_by_key(|kv| kv.value().neighbors.len())
+            .map(|kv| *kv.key())
+    }
+
     /// Thread-safe setter. Uses Release ordering to ensure the node
     /// is fully visible in DashMap before other threads follow this pointer.
     #[inline]
@@ -559,8 +569,6 @@ impl CPIndex {
                     self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
                 };
 
-                candidates.push(NodeSim(d, ep));
-
                 let eligible = if let Some(vs) = vector_store {
                     vs.read_header(node.storage_offset)
                         .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
@@ -568,7 +576,12 @@ impl CPIndex {
                 } else {
                     (node.flags & FLAG_TOMBSTONE) == 0
                 };
-                if eligible && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask)) {
+                if !eligible {
+                    continue;
+                }
+
+                candidates.push(NodeSim(d, ep));
+                if query_mask.is_all_set() || node.bitset.matches_mask(query_mask) {
                     results.push(NodeSimMin(d, ep));
                 }
                 visited.insert(ep);
@@ -689,20 +702,23 @@ impl CPIndex {
                                 )
                             };
 
-                            if results.len() < ef || results.peek().is_some_and(|worst| d > worst.0)
+                            let eligible = if let Some(vs) = vector_store {
+                                vs.read_header(neighbor.storage_offset)
+                                    .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
+                                    .unwrap_or(false)
+                            } else {
+                                (neighbor.flags & FLAG_TOMBSTONE) == 0
+                            };
+                            if !eligible {
+                                continue;
+                            }
+
+                            if results.len() < ef
+                                || results.peek().is_some_and(|worst| d > worst.0)
                             {
                                 candidates.push(NodeSim(d, neighbor_id));
-
-                                let eligible = if let Some(vs) = vector_store {
-                                    vs.read_header(neighbor.storage_offset)
-                                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
-                                        .unwrap_or(false)
-                                } else {
-                                    (neighbor.flags & FLAG_TOMBSTONE) == 0
-                                };
-                                if eligible
-                                    && (query_mask.is_all_set()
-                                        || neighbor.bitset.matches_mask(query_mask))
+                                if query_mask.is_all_set()
+                                    || neighbor.bitset.matches_mask(query_mask)
                                 {
                                     results.push(NodeSimMin(d, neighbor_id));
                                     if results.len() > ef {

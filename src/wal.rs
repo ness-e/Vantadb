@@ -176,11 +176,31 @@ pub struct WalWriter {
     record_count: u64,
     /// Whether to sync to disk on every write or periodically.
     pub sync_mode: crate::config::SyncMode,
+    /// Number of records written since the last sync.
+    records_since_sync: u64,
+    /// If `Some(N)`, auto-sync after N records when sync_mode is Periodic.
+    flush_threshold: Option<usize>,
 }
 
 impl WalWriter {
     /// Open or create WAL file, writing or validating WalHeader.
-    pub fn open(path: impl AsRef<Path>, sync_mode: crate::config::SyncMode) -> Result<Self> {
+    pub fn open(
+        path: impl AsRef<Path>,
+        sync_mode: crate::config::SyncMode,
+    ) -> Result<Self> {
+        Self::open_with_buffer(path, sync_mode, 64 * KIB, None)
+    }
+
+    /// Open or create WAL file with configurable buffer size and flush threshold.
+    ///
+    /// * `buffer_size` — capacity of the inner `BufWriter` (default: 64 KB).
+    /// * `flush_threshold` — if `Some(N)`, auto-sync after N records.
+    pub fn open_with_buffer(
+        path: impl AsRef<Path>,
+        sync_mode: crate::config::SyncMode,
+        buffer_size: usize,
+        flush_threshold: Option<usize>,
+    ) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let mut file = OpenOptions::new()
             .read(true)
@@ -332,12 +352,16 @@ impl WalWriter {
             file.seek(SeekFrom::Start(bytes_written))?;
         }
 
+        let buffer_size = buffer_size.max(KIB).min(32 * 1024 * KIB);
+
         Ok(Self {
-            writer: BufWriter::with_capacity(64 * KIB, file),
+            writer: BufWriter::with_capacity(buffer_size, file),
             path,
             bytes_written,
             record_count,
             sync_mode,
+            records_since_sync: 0,
+            flush_threshold,
         })
     }
 
@@ -361,9 +385,14 @@ impl WalWriter {
 
         self.bytes_written += 4 + payload.len() as u64 + 4;
         self.record_count += 1;
+        self.records_since_sync += 1;
 
         if self.sync_mode == crate::config::SyncMode::Always {
             self.sync()?;
+        } else if let Some(threshold) = self.flush_threshold {
+            if self.records_since_sync >= threshold as u64 {
+                self.sync()?;
+            }
         }
         Ok(())
     }
@@ -397,9 +426,14 @@ impl WalWriter {
         self.writer.write_all(&buf)?;
         self.bytes_written += buf.len() as u64;
         self.record_count += records.len() as u64;
+        self.records_since_sync += records.len() as u64;
 
         if self.sync_mode == crate::config::SyncMode::Always {
             self.sync()?;
+        } else if let Some(threshold) = self.flush_threshold {
+            if self.records_since_sync >= threshold as u64 {
+                self.sync()?;
+            }
         }
         Ok(())
     }
@@ -408,6 +442,7 @@ impl WalWriter {
     pub fn sync(&mut self) -> Result<()> {
         self.writer.flush()?;
         self.writer.get_ref().sync_data()?;
+        self.records_since_sync = 0;
         Ok(())
     }
 
