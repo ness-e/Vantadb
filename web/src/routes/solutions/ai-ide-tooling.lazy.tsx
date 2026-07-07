@@ -48,14 +48,14 @@ function IdeToolingPage() {
   const useCasesRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ai-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(gapRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, gapRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ai-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(useCasesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -82,14 +82,14 @@ function IdeToolingPage() {
           sub="Traditional tools search strings, not meaning. VantaDB embeds semantic understanding directly into your IDE tooling."
         />
 
-        <div className="nb-engine-part">
-          <div className="ai-ide-tooling-grid-2col">
-            <div className="ai-ide-tooling-cell-padded">
-              <span className="nb-mono-label">Problems</span>
-              <ul className="nb-list">
+        <div className="nc-ai-part">
+          <div className="nc-ai-compare">
+            <div className="nc-ai-col">
+              <span className="nc-ai-col-label nc-ai-col-label--steel">Problems</span>
+              <ul className="nc-ai-list">
                 {PROBLEMS.map((p) => (
-                  <li key={p} className="ai-ide-tooling-list-item-muted">
-                    <span className="ai-ide-tooling-list-icon ai-ide-tooling-list-icon--danger">
+                  <li key={p} className="nc-ai-item">
+                    <span className="nc-ai-icon nc-ai-icon--danger">
                       ✗
                     </span>
                     {p}
@@ -97,12 +97,12 @@ function IdeToolingPage() {
                 ))}
               </ul>
             </div>
-            <div className="ai-ide-tooling-cell-amber-border">
-              <span className="nb-mono-label">Solution</span>
-              <ul className="nb-list">
+            <div className="nc-ai-col nc-ai-col--amber">
+              <span className="nc-ai-col-label nc-ai-col-label--amber">Solution</span>
+              <ul className="nc-ai-list">
                 {BENEFITS.map((s) => (
-                  <li key={s} className="ai-ide-tooling-list-item-foreground">
-                    <span className="ai-ide-tooling-list-icon ai-ide-tooling-list-icon--amber">
+                  <li key={s} className="nc-ai-item nc-ai-item--fg">
+                    <span className="nc-ai-icon nc-ai-icon--amber">
                       ✓
                     </span>
                     {s}
@@ -121,22 +121,22 @@ function IdeToolingPage() {
           sub="Natural-language queries that understand your codebase architecture."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-3">
+        <div className="nc-ai-part">
+          <div className="nc-ai-usecases">
             {USE_CASES.map((uc) => (
-              <div key={uc.num} className="nb-cell ai-ide-tooling-cell-padded">
-                <span className="nb-mono-label">{uc.num}</span>
-                <h3 className="nb-card-frame-title">{uc.title}</h3>
-                <p className="nb-card-frame-desc">{uc.desc}</p>
+              <div key={uc.num} className="nc-ai-ucard">
+                <span className="nc-ai-unum">{uc.num}</span>
+                <h3 className="nc-ai-utitle">{uc.title}</h3>
+                <p className="nc-ai-udesc">{uc.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="nb-engine-part">
-          <div className="ai-ide-tooling-inner-grid">
+        <div className="nc-ai-part">
+          <div className="nc-ai-banner">
             <span className="nb-mono-label">HYBRID SEARCH</span>
-            <p className="ai-ide-tooling-inner-text">
+            <p className="nc-ai-banner-text">
               Each code unit (function, class, module) is indexed as a vector embedding plus
               structured AST metadata (name, signature, dependencies, docstring). Queries use hybrid
               search: BM25 for symbol matching, HNSW for semantic similarity, with RRF fusion for
@@ -150,7 +150,7 @@ function IdeToolingPage() {
         <NbBlockAmber>
           <div className="nb-text-center">
             <span className="nb-mono-label">BUILD IDE TOOLS</span>
-            <p className="ai-ide-tooling-cta-text">
+            <p className="nb-section-sub">
               Read the docs to integrate semantic code search.
             </p>
             <Link to="/docs" className="nb-btn nb-btn--ghost">

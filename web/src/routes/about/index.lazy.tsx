@@ -46,14 +46,14 @@ function AboutIndex() {
   const navRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, statsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-ab-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(navRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -80,11 +80,11 @@ function AboutIndex() {
           sub="What makes VantaDB different, measured."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-4">
+        <div className="nc-ab-part">
+          <div className="nc-ab-stats">
             {STATS.map((s) => (
-              <div key={s.label} className="nb-cell about-stat-card">
-                <span className="about-stat-value">{s.value}</span>
+              <div key={s.label} className="nc-ab-stat-card">
+                <span className="nc-ab-stat-card-value">{s.value}</span>
                 <span className="nb-mono-label">{s.label}</span>
               </div>
             ))}
@@ -99,14 +99,14 @@ function AboutIndex() {
           sub="Company, community, and contact."
         />
 
-        <div className="nb-engine-part">
-          <div className="nb-grid nb-grid--cols-3">
+        <div className="nc-ab-part">
+          <div className="nc-ab-nav">
             {NAV_SECTIONS.map((s) => (
-              <Link key={s.num} to={s.href as "/"} className="nb-cell about-nav-card">
+              <Link key={s.num} to={s.href as "/"} className="nc-ab-nav-card">
                 <span className="nb-mono-label">{s.num}</span>
                 <h3 className="nb-card-frame-title">{s.title}</h3>
                 <p className="nb-card-frame-desc">{s.desc}</p>
-                <span className="about-nav-arrow">{s.href}</span>
+                <span className="nc-ab-nav-arrow">{s.href}</span>
               </Link>
             ))}
           </div>

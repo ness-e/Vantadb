@@ -1,38 +1,283 @@
-.about-stat-card {
-  padding: var(--space-lg) var(--space-xl);
+/* ─── About: Dashboard / Command Center ─── */
+
+.nc-ab-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
 }
-.about-stat-value {
+
+.nc-ab-stat-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  text-align: center;
+  background: #080808;
+}
+
+.nc-ab-stat-card--amber {
+  border-color: var(--amber);
+}
+
+.nc-ab-stat-card-value {
+  font-family: var(--font-display);
+  font-weight: var(--weight-black);
+  font-size: var(--text-lead);
+  line-height: var(--leading-tight);
   color: var(--foreground);
-  font-size: var(--text-metric);
-  font-weight: 800;
-  letter-spacing: var(--tracking-tight);
-  line-height: 1;
-  display: block;
+  margin: 0 0 var(--space-xs);
 }
-.about-nav-card {
+
+.nc-ab-stat-card-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--muted);
+  margin: 0;
+}
+
+.nc-ab-nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+
+.nc-ab-nav-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-xl);
-  text-decoration: none;
-  border-left: 2px solid transparent;
-  transition: all 150ms var(--ease-brutal);
-  background: var(--background);
-}
-.about-nav-card:hover {
-  border-left-color: var(--amber);
-}
-.about-nav-arrow {
-  margin-top: auto;
-}
-@media (max-width: 640px) {
-  .about-stat-card {
-    padding: var(--space-md);
-  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .about-nav-card {
-    transition: none !important;
+.nc-ab-nav-card--amber {
+  border-color: var(--amber);
+}
+
+.nc-ab-nav-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  letter-spacing: var(--tracking-wide);
+  margin: 0;
+}
+
+.nc-ab-nav-title {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0;
+}
+
+.nc-ab-nav-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.nc-ab-nav-arrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.nc-ab-team {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+
+.nc-ab-team-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.nc-ab-team-card--amber {
+  border-color: var(--amber);
+}
+
+.nc-ab-avatar-term {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  background: #0a0a0a;
+  padding: var(--space-xs);
+  line-height: 1.6;
+  color: var(--steel);
+  margin: 0;
+}
+
+.nc-ab-team-name {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0;
+}
+
+.nc-ab-team-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin: 0;
+}
+
+.nc-ab-team-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.nc-ab-contacts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+
+.nc-ab-contact-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
+}
+
+.nc-ab-contact-card--amber {
+  border-color: var(--amber);
+}
+
+.nc-ab-contact-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin: 0 0 var(--space-xs);
+}
+
+.nc-ab-contact-title {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0 0 var(--space-xs);
+}
+
+.nc-ab-contact-detail {
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  color: var(--amber);
+  margin: 0 0 var(--space-xs);
+}
+
+.nc-ab-contact-sub {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  margin: 0;
+}
+
+.nc-ab-channels {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg);
+}
+
+.nc-ab-channel-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.nc-ab-channel-card--amber {
+  border-color: var(--amber);
+}
+
+.nc-ab-channel-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin: 0;
+}
+
+.nc-ab-channel-name {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0;
+}
+
+.nc-ab-channel-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.nc-ab-channel-cta {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.nc-ab-ways {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+
+.nc-ab-way-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #080808;
+}
+
+.nc-ab-way-title {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--foreground);
+  margin: 0 0 var(--space-sm);
+}
+
+.nc-ab-way-desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .nc-ab-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nc-ab-nav,
+  .nc-ab-team,
+  .nc-ab-contacts,
+  .nc-ab-ways {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-ab-channels {
+    grid-template-columns: 1fr;
   }
 }
