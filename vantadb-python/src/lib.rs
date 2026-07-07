@@ -911,7 +911,11 @@ impl VantaDB {
     /// Returns a list of record dicts in the same order as inputs.
     /// Up to ~5x faster than sequential `put()` calls for large batches.
     #[pyo3(signature = (entries))]
-    fn put_batch(&self, py: Python, entries: &Bound<'_, PyAny>) -> PyResult<Vec<VantaPyMemoryRecord>> {
+    fn put_batch(
+        &self,
+        py: Python,
+        entries: &Bound<'_, PyAny>,
+    ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let mut inputs = Vec::with_capacity(entries.len().unwrap_or(0));
         for entry in entries.try_iter()? {
             let entry = entry?.cast::<PyTuple>()?.clone();
@@ -962,10 +966,7 @@ impl VantaDB {
         let engine = self.engine.clone();
         let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
 
-        Ok(records
-            .into_iter()
-            .map(VantaPyMemoryRecord::new)
-            .collect())
+        Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect())
     }
 
     /// Insert or update multiple namespace-scoped records using a 2D NumPy array
@@ -1046,7 +1047,8 @@ impl VantaDB {
             if nrows != keys.len() {
                 return Err(PyValueError::new_err(format!(
                     "vectors.shape[0] ({}) must equal keys.len() ({})",
-                    nrows, keys.len()
+                    nrows,
+                    keys.len()
                 )));
             }
             check_lens(&payloads, &metadatas, &namespaces, &ttls, nrows)?;
@@ -1107,7 +1109,8 @@ impl VantaDB {
             if nrows != keys.len() {
                 return Err(PyValueError::new_err(format!(
                     "vectors.shape[0] ({}) must equal keys.len() ({})",
-                    nrows, keys.len()
+                    nrows,
+                    keys.len()
                 )));
             }
             check_lens(&payloads, &metadatas, &namespaces, &ttls, nrows)?;

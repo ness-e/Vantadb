@@ -300,7 +300,8 @@ fn sq8_similarity(
             let rem_s = chunks_s.remainder();
             for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
                 let vq = f32x8::from(
-                    *<&[f32; 8]>::try_from(q_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+                    *<&[f32; 8]>::try_from(q_chunk)
+                        .expect("chunks_exact(8) yields 8-element chunks"),
                 );
                 let decoded = [
                     (s_chunk[0] as f32) * inv_scale,
@@ -340,7 +341,8 @@ fn sq8_similarity(
             let rem_s = chunks_s.remainder();
             for (q_chunk, s_chunk) in chunks_q.zip(chunks_s) {
                 let vq = f32x8::from(
-                    *<&[f32; 8]>::try_from(q_chunk).expect("chunks_exact(8) yields 8-element chunks"),
+                    *<&[f32; 8]>::try_from(q_chunk)
+                        .expect("chunks_exact(8) yields 8-element chunks"),
                 );
                 let decoded = [
                     (s_chunk[0] as f32) * inv_scale,

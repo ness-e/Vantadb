@@ -713,8 +713,7 @@ impl CPIndex {
                                 continue;
                             }
 
-                            if results.len() < ef
-                                || results.peek().is_some_and(|worst| d > worst.0)
+                            if results.len() < ef || results.peek().is_some_and(|worst| d > worst.0)
                             {
                                 candidates.push(NodeSim(d, neighbor_id));
                                 if query_mask.is_all_set()

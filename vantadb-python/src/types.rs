@@ -164,9 +164,10 @@ impl VantaPyListResult {
     }
 
     fn __getitem__(&self, idx: usize) -> PyResult<VantaPyMemoryRecord> {
-        self.records.get(idx).cloned().ok_or_else(|| {
-            pyo3::exceptions::PyIndexError::new_err("list index out of range")
-        })
+        self.records
+            .get(idx)
+            .cloned()
+            .ok_or_else(|| pyo3::exceptions::PyIndexError::new_err("list index out of range"))
     }
 
     fn __iter__(slf: PyRef<'_, Self>) -> VantaListResultIter {
