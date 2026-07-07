@@ -11,9 +11,13 @@ use console::style;
 use std::sync::Arc;
 use vantadb::storage::StorageEngine;
 
-fn temp_storage() -> Arc<StorageEngine> {
+/// Returns a StorageEngine and a TempDir pin that keeps the directory alive.
+/// The TempDir MUST outlive the StorageEngine to prevent dangling path references.
+fn temp_storage() -> (Arc<StorageEngine>, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("Failed to create temp dir");
-    Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).expect("Failed to open storage"))
+    let engine =
+        Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).expect("Failed to open storage"));
+    (engine, dir)
 }
 
 #[tokio::test]
@@ -22,7 +26,7 @@ async fn hardware_certification_full() {
 
     // BLOCK 1: Emergency Logic
     harness.execute("Thermal & OOM Thresholds", || {
-        let storage = temp_storage();
+        let (storage, _dir) = temp_storage();
         TerminalReporter::sub_step("Verifying maintenance triggers...");
         // Verify that it starts false
         assert!(!storage
@@ -88,7 +92,7 @@ async fn hardware_certification_full() {
 
     // BLOCK 4: RSS Stability Under Load (ST2.2.2)
     harness.execute("RSS Stability Under Load", || {
-        let storage = temp_storage();
+        let (storage, _dir) = temp_storage();
 
         let (warmup_count, additional_count) = if cfg!(debug_assertions) {
             (2_000, 8_000)
