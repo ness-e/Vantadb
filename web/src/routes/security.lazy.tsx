@@ -17,7 +17,7 @@ function SecurityPage() {
   const principlesRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-sec-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(principlesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -26,7 +26,7 @@ function SecurityPage() {
   return (
     <div>
       <NbSubpageHero
-        pattern="p10"
+        pattern="p12"
         title={
           <span>
             Zero Trust.
@@ -42,45 +42,43 @@ function SecurityPage() {
           <NbSectionHeader
             monoLabel="[PRINCIPLES]"
             headline="Security by design."
-            sub="Every layer of VantaDB is built with a strict security boundary — no cloud pings, no telemetry, no data exfiltration."
+            sub="Every layer of VantaDB is built with a strict security boundary \u2014 no cloud pings, no telemetry, no data exfiltration."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-3 security-grid">
-              <div className="nb-card-frame">
-                <span className="nb-mono-label">NO TELEMETRY</span>
-                <p className="nb-card-frame-desc">
-                  We do not track your usage. The VantaDB core library contains zero analytics,
-                  tracking pixels, or outbound HTTP requests. Your data never leaves your
-                  environment.
-                </p>
-              </div>
-              <div className="nb-card-frame">
-                <span className="nb-mono-label">AES-256-GCM ENCRYPTION</span>
-                <p className="nb-card-frame-desc">
-                  Enterprise at-rest encryption is currently on the roadmap for Phase 5. This will
-                  ensure that WAL and LSM-tree SSTables are fully encrypted on disk.
-                </p>
-              </div>
-              <div className="nb-card-frame">
-                <span className="nb-mono-label">MEMORY SAFETY</span>
-                <p className="nb-card-frame-desc">
-                  Written entirely in Rust, the engine is immune to buffer overflows, use-after-free
-                  vulnerabilities, and memory leaks that plague traditional C/C++ vector databases.
-                </p>
-              </div>
+          <div className="nc-sec-grid">
+            <div className="nc-sec-card nc-sec-part">
+              <span className="nc-sec-stamp">No Telemetry</span>
+              <p className="nc-sec-body">
+                We do not track your usage. The VantaDB core library contains zero analytics,
+                tracking pixels, or outbound HTTP requests. Your data never leaves your
+                environment.
+              </p>
+            </div>
+            <div className="nc-sec-card nc-sec-part">
+              <span className="nc-sec-stamp">AES-256-GCM</span>
+              <p className="nc-sec-body">
+                Enterprise at-rest encryption is currently on the roadmap for Phase 5. This will
+                ensure that WAL and LSM-tree SSTables are fully encrypted on disk.
+              </p>
+            </div>
+            <div className="nc-sec-card nc-sec-part">
+              <span className="nc-sec-stamp">Memory Safe</span>
+              <p className="nc-sec-body">
+                Written entirely in Rust, the engine is immune to buffer overflows, use-after-free
+                vulnerabilities, and memory leaks that plague traditional C/C++ vector databases.
+              </p>
             </div>
           </div>
         </NbSection>
 
         <NbSection className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="security-cta-row">
+            <div className="nc-sec-cta-row">
               <div>
-                <h2 className="security-cta-heading">Built on Rust. Safe by default.</h2>
-                <p className="security-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-sec-cta-heading">Built on Rust. Safe by default.</h2>
+                <p className="nc-sec-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="security-cta-code">pip install vantadb-py</code>
+              <code className="nc-sec-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

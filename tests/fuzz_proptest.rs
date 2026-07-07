@@ -91,7 +91,7 @@ proptest! {
         let result = engine.delete(id.into());
         prop_assert!(result.is_err(), "Second delete should return an error");
         match result {
-            Err(VantaError::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, id.into()),
+            Err(VantaError::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, u128::from(id)),
             _ => panic!("Expected NodeNotFound, got {:?}", result),
         }
     }

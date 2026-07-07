@@ -25,16 +25,9 @@ const GRAPH_NODES = [
 ];
 
 const GRAPH_EDGES: [number, number][] = [
-  [0, 1],
-  [0, 3],
-  [0, 2],
-  [1, 4],
-  [2, 4],
-  [2, 5],
-  [3, 6],
-  [4, 7],
-  [1, 7],
-  [2, 6],
+  [0, 1], [0, 3], [0, 2], [1, 4],
+  [2, 4], [2, 5], [3, 6], [4, 7],
+  [1, 7], [2, 6],
 ];
 
 const PIPELINE_STAGES = [
@@ -130,17 +123,17 @@ function RRFWeightsSlider() {
   const queryLatency = (1.2 + (hnswWeight / 100) * 0.4).toFixed(2);
 
   return (
-    <div>
-      <div className="engine-slider-header">
-        <span className="engine-slider-title">RRF Weights Planner</span>
-        <span className="engine-slider-latency">LATENCY: {queryLatency}ms</span>
+    <div className="nc-engine-slider-wrap">
+      <div className="nc-engine-slider-header">
+        <span className="nc-engine-slider-title">RRF Weights Planner</span>
+        <span className="nc-engine-slider-latency">LATENCY: {queryLatency}ms</span>
       </div>
 
-      <p className="engine-slider-desc">
+      <p className="nc-engine-slider-desc">
         Adjust the slider to coordinate keyword recall against vector space clustering.
       </p>
 
-      <div className="engine-slider-labels">
+      <div className="nc-engine-slider-labels">
         <span>BM25: {bm25Weight}%</span>
         <span>HNSW: {hnswWeight}%</span>
       </div>
@@ -151,26 +144,22 @@ function RRFWeightsSlider() {
         max="100"
         value={bm25Weight}
         onChange={(e) => setBm25Weight(Number(e.target.value))}
-        className="engine-slider"
+        className="nc-engine-slider-input"
         aria-label="BM25 to HNSW fusion weight ratio"
       />
 
-      <div className="engine-slider-stats">
-        <div className="engine-slider-stat">
-          <span className="engine-slider-stat-label">LEXICAL RECALL</span>
-          <span className="engine-slider-stat-value">{lexicalRecall}%</span>
+      <div className="nc-engine-slider-stats">
+        <div className="nc-engine-slider-stat">
+          <span className="nc-engine-slider-stat-label">LEXICAL RECALL</span>
+          <span className="nc-engine-slider-stat-value">{lexicalRecall}%</span>
         </div>
-        <div className="engine-slider-stat">
-          <span className="engine-slider-stat-label">VECTOR RECALL</span>
-          <span className="engine-slider-stat-value">{vectorRecall}%</span>
+        <div className="nc-engine-slider-stat">
+          <span className="nc-engine-slider-stat-label">VECTOR RECALL</span>
+          <span className="nc-engine-slider-stat-value">{vectorRecall}%</span>
         </div>
-        <div className="engine-slider-stat engine-slider-stat--fused">
-          <span className="engine-slider-stat-label engine-slider-stat-label--amber">
-            FUSED @10
-          </span>
-          <span className="engine-slider-stat-value engine-slider-stat-value--amber">
-            {fusedRecall}%
-          </span>
+        <div className="nc-engine-slider-stat nc-engine-slider-stat--fused">
+          <span className="nc-engine-slider-stat-label nc-engine-slider-stat-label--amber">FUSED @10</span>
+          <span className="nc-engine-slider-stat-value nc-engine-slider-stat-value--amber">{fusedRecall}%</span>
         </div>
       </div>
     </div>
@@ -231,13 +220,13 @@ function WALSimulator() {
   };
 
   return (
-    <div>
-      <div className="engine-wal-header">
-        <div className="engine-wal-status">
-          <span className="engine-wal-dot" data-state={engineState} />
-          <span className="engine-wal-status-text">STATUS: {engineState.toUpperCase()}</span>
+    <div className="nc-engine-recorder">
+      <div className="nc-engine-recorder-header">
+        <div className="nc-engine-recorder-status">
+          <span className="nc-engine-recorder-dot" data-state={engineState} />
+          <span className="nc-engine-recorder-status-text">STATUS: {engineState.toUpperCase()}</span>
         </div>
-        <div className="engine-wal-actions">
+        <div className="nc-engine-recorder-actions">
           <button
             className="nb-btn nb-btn--ghost"
             onClick={triggerCrash}
@@ -251,9 +240,9 @@ function WALSimulator() {
         </div>
       </div>
 
-      <div className="engine-console">
+      <div className="nc-engine-recorder-console">
         {logs.map((log) => (
-          <div key={log} className="engine-console-line" data-level={getLogLevel(log)}>
+          <div key={log} className="nc-engine-recorder-line" data-level={getLogLevel(log)}>
             {log}
           </div>
         ))}
@@ -265,18 +254,16 @@ function WALSimulator() {
 
 function ArchitecturePipeline() {
   return (
-    <div className="engine-pipeline-scroll">
-      <div className="engine-pipeline-track">
+    <div className="nc-engine-conveyor">
+      <div className="nc-engine-conveyor-track">
         {PIPELINE_STAGES.map((s, i) => (
-          <div key={s.name} className="engine-pipeline-stage">
-            <div className="engine-pipeline-card" data-accent={s.accent}>
-              <div className="engine-pipeline-card-name">{s.name}</div>
-              <div className="engine-pipeline-card-desc">{s.desc}</div>
+          <div key={s.name} className="nc-engine-conveyor-stage">
+            <div className="nc-engine-conveyor-card" data-accent={s.accent}>
+              <div className="nc-engine-conveyor-card-name">{s.name}</div>
+              <div className="nc-engine-conveyor-card-desc">{s.desc}</div>
             </div>
             {i < PIPELINE_STAGES.length - 1 && (
-              <span className="engine-pipeline-arrow" aria-hidden="true">
-                →
-              </span>
+              <span className="nc-engine-conveyor-arrow" aria-hidden="true">→</span>
             )}
           </div>
         ))}
@@ -292,7 +279,7 @@ function EnginePage() {
   const pipelineRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(hybridRef.current, 60),
@@ -301,7 +288,7 @@ function EnginePage() {
   }, hybridRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(graphRef.current, 60),
@@ -310,7 +297,7 @@ function EnginePage() {
   }, graphRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(walRef.current, 60),
@@ -319,7 +306,7 @@ function EnginePage() {
   }, walRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
     if (!parts.length) return;
     const tl = gsap.timeline({
       scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60),
@@ -328,9 +315,9 @@ function EnginePage() {
   }, pipelineRef);
 
   return (
-    <div>
+    <div className="nc-engine-crt">
       <NbSubpageHero
-        pattern="p02"
+        pattern="p01"
         title={
           <span>
             Four modalities.
@@ -349,56 +336,34 @@ function EnginePage() {
             sub="VantaDB query planner optimizes combined metadata filters, HNSW vector similarity, and BM25 full-text queries, synthesizing them into a single-pass execution plan."
           />
 
-          <div className="nb-asymmetric">
-            <div className="nb-engine-part">
-              <p className="nb-section-sub">
-                Each query pass is fused through Reciprocal Rank Fusion, giving you the precision of
-                keyword search with the semantic reach of vector embeddings — without managing
-                separate infrastructure.
-              </p>
-            </div>
+          <div className="nc-engine-panel nc-engine-section nc-engine-part">
+            <div className="nc-engine-panel-label">Instrument: Hybrid Fusion</div>
+            <p className="nc-engine-slider-desc">
+              Each query pass is fused through Reciprocal Rank Fusion, giving you the precision of
+              keyword search with the semantic reach of vector embeddings — without managing
+              separate infrastructure.
+            </p>
 
             <div className="nb-grid nb-grid--cols-2">
-              <div className="nb-card-frame nb-engine-part">
-                <span className="nb-mono-label">LEXICAL</span>
-                <h3 className="nb-card-frame-title">BM25 Search</h3>
-                <p className="nb-card-frame-desc">
-                  Full-text lexical search at ~1.2ms p50 with 0.998 recall. Zero infrastructure
-                  required.
-                </p>
-                <div className="nb-card-frame-stats">
-                  <div>
-                    <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
-                      ~1.2ms
-                    </div>
-                    <div className="nb-card-frame-stat-label">P50 LATENCY</div>
-                  </div>
-                  <div>
-                    <div className="nb-card-frame-stat-value">0.998</div>
-                    <div className="nb-card-frame-stat-label">RECALL@10</div>
-                  </div>
-                </div>
+              <div className="nc-engine-gauge">
+                <div className="nc-engine-gauge-value">~1.2ms</div>
+                <span className="nc-engine-gauge-label">P50 Latency</span>
+                <span className="nc-engine-gauge-unit">Lexical BM25 search</span>
               </div>
-
-              <div className="nb-card-frame nb-engine-part">
-                <span className="nb-mono-label">VECTOR</span>
-                <h3 className="nb-card-frame-title">HNSW Recall</h3>
-                <p className="nb-card-frame-desc">
-                  Hierarchical Navigable Small World graphs for approximate nearest neighbor search
-                  across vectors.
-                </p>
-                <div className="nb-card-frame-stats">
-                  <div>
-                    <div className="nb-card-frame-stat-value nb-card-frame-stat-value--amber">
-                      M=16
-                    </div>
-                    <div className="nb-card-frame-stat-label">CONNECTIONS</div>
-                  </div>
-                  <div>
-                    <div className="nb-card-frame-stat-value">SQ8/Turbo/RaBitQ</div>
-                    <div className="nb-card-frame-stat-label">QUANTIZATION</div>
-                  </div>
-                </div>
+              <div className="nc-engine-gauge">
+                <div className="nc-engine-gauge-value">0.998</div>
+                <span className="nc-engine-gauge-label">Recall@10</span>
+                <span className="nc-engine-gauge-unit">Full-text recall rate</span>
+              </div>
+              <div className="nc-engine-gauge">
+                <div className="nc-engine-gauge-value">M=16</div>
+                <span className="nc-engine-gauge-label">HNSW Connections</span>
+                <span className="nc-engine-gauge-unit">Graph density</span>
+              </div>
+              <div className="nc-engine-gauge">
+                <div className="nc-engine-gauge-value">SQ8</div>
+                <span className="nc-engine-gauge-label">Quantization</span>
+                <span className="nc-engine-gauge-unit">Memory compression</span>
               </div>
             </div>
           </div>
@@ -411,16 +376,12 @@ function EnginePage() {
             sub="Hover nodes to explore in-memory relations. VantaDB stores directed adjacency lists alongside vectors — supporting BFS, DFS, topological sort, and DAG cycle detection for graph-based agent memory."
           />
 
-          <div className="nb-grid nb-grid--cols-2">
-            <div className="nb-card-frame nb-engine-part">
-              <div className="nb-card-frame-header">
-                <span className="nb-card-frame-header-label">Live Topology</span>
-                <span className="nb-card-frame-header-hint">HOVER TO TRAVERSE</span>
-              </div>
+          <div className="nb-grid nb-grid--cols-2 nc-engine-section">
+            <div className="nc-engine-panel nc-engine-part nc-engine-radar">
+              <div className="nc-engine-panel-label">Live Topology · Hover to traverse</div>
               <GraphTopology />
             </div>
-
-            <div className="nb-card-frame nb-engine-part">
+            <div className="nc-engine-part">
               <RRFWeightsSlider />
             </div>
           </div>
@@ -433,18 +394,13 @@ function EnginePage() {
             sub="VantaDB guarantees complete transaction safety. Write-Ahead Logging forces log flushes before write acknowledgment, recovering state instantly on reboot."
           />
 
-          <div className="nb-asymmetric">
-            <div className="nb-engine-part">
-              <p className="nb-section-sub">
-                The WAL journal uses CRC32C integrity checksums with fsync-on-write semantics. On
-                crash, automatic log replay detects the last consistent checkpoint and restores
-                state in under 1ms.
-              </p>
-            </div>
-
-            <div className="nb-card-frame nb-engine-part">
-              <WALSimulator />
-            </div>
+          <div className="nc-engine-section nc-engine-part">
+            <p className="nc-engine-slider-desc">
+              The WAL journal uses CRC32C integrity checksums with fsync-on-write semantics. On
+              crash, automatic log replay detects the last consistent checkpoint and restores
+              state in under 1ms.
+            </p>
+            <WALSimulator />
           </div>
         </NbSection>
 
@@ -455,19 +411,19 @@ function EnginePage() {
             sub="A query travels through six stages — from parsing and hybrid search through graph traversal to a durable write confirmation."
           />
 
-          <div className="nb-engine-part">
+          <div className="nc-engine-section nc-engine-part">
             <ArchitecturePipeline />
           </div>
         </NbSection>
 
         <NbSection variant="dark" className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="engine-cta-layout">
+            <div className="nc-engine-cta">
               <div>
-                <h2 className="engine-cta-heading">Four modalities. One dependency.</h2>
-                <p className="engine-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-engine-cta-heading">Four modalities. One dependency.</h2>
+                <p className="nc-engine-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="engine-cta-code">pip install vantadb-py</code>
+              <code className="nc-engine-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

@@ -130,6 +130,12 @@
 
 @media (max-width: 768px) {
   .integrations-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .integrations-btn {
+    transition: none !important;
   }
 }

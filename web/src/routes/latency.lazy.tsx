@@ -52,21 +52,21 @@ function LatencyPage() {
   const breakdownRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lat-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statsRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, statsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lat-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, pipelineRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-lat-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(breakdownRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -75,7 +75,7 @@ function LatencyPage() {
   return (
     <div>
       <NbSubpageHero
-        pattern="p06"
+        pattern="p08"
         title={
           <span>
             1.2ms p50 (Rust Core).
@@ -86,16 +86,16 @@ function LatencyPage() {
         sub="VantaDB runs in your process \u2014 no network round-trip, no serialization overhead, no cold starts. Every microsecond matters when your agent is waiting. Rust Core: 1.2ms p50 / Python SDK: ~39.74ms p50"
       />
 
-      <div className="latency-toggle-bar">
+      <div className="nc-lat-toggle">
         <button
           onClick={() => setMode("rust")}
-          className={`latency-mode-btn ${mode === "rust" ? "latency-mode-btn--active" : ""}`}
+          className={`nc-lat-mode-btn ${mode === "rust" ? "nc-lat-mode-btn--active" : ""}`}
         >
           Rust Core \u2014 1.2ms p50
         </button>
         <button
           onClick={() => setMode("python")}
-          className={`latency-mode-btn ${mode === "python" ? "latency-mode-btn--active" : ""}`}
+          className={`nc-lat-mode-btn ${mode === "python" ? "nc-lat-mode-btn--active" : ""}`}
         >
           Python SDK \u2014 ~39.74ms p50
         </button>
@@ -109,32 +109,32 @@ function LatencyPage() {
             sub="VantaDB eliminates every source of latency that traditional vector databases impose \u2014 no serialization, no network hops, no cold starts."
           />
 
-          <div className="nb-grid nb-grid--cols-2">
-            <div className="nb-cell nb-engine-part">
-              <span className="latency-label-legacy">LEGACY \u2014 ~200ms</span>
-              <ul className="latency-ul-reset latency-list-gap">
+          <div className="nc-lat-split">
+            <div className="nc-lat-col nc-lat-part">
+              <span className="nc-lat-col-title nc-lat-col-title--danger">LEGACY \u2014 ~200ms</span>
+              <ul className="nc-lat-list">
                 {LEGACY_ITEMS.map((item) => (
-                  <li key={item} className="latency-list-item">
-                    <span className="latency-icon latency-icon--danger">\u2717</span>
+                  <li key={item} className="nc-lat-item">
+                    <span className="nc-lat-icon nc-lat-icon--cross">\u2717</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="nb-cell latency-cell-border nb-engine-part">
-              <span className="latency-label-vanta">
+            <div className="nc-lat-col nc-lat-col--vanta nc-lat-part">
+              <span className="nc-lat-col-title nc-lat-col-title--amber">
                 VANTADB {mode === "rust" ? "Rust Core" : "Python SDK"} \u2014 {vantaLatency}ms
               </span>
-              <ul className="latency-ul-reset latency-list-gap">
+              <ul className="nc-lat-list">
                 {VANTA_ITEMS.map((item) => (
-                  <li key={item} className="latency-list-item latency-list-item--vanta">
-                    <span className="latency-icon latency-icon--vanta">\u2713</span>
+                  <li key={item} className="nc-lat-item nc-lat-item--vanta">
+                    <span className="nc-lat-icon nc-lat-icon--check">\u2713</span>
                     {item}
                   </li>
                 ))}
               </ul>
-              <div className="latency-footnote">
-                <span className="latency-footnote-icon">\u25B2</span>{" "}
+              <div className="nc-lat-footnote">
+                <span className="nc-lat-footnote-icon">\u25B2</span>{" "}
                 {mode === "rust"
                   ? "1.2ms p50 applies to Rust Core (native). Python SDK adds ~39.74ms p50 (FFI + serialization). Toggle above to compare."
                   : "Python SDK ~39.74ms p50 (~24.5% recall@10). Rust Core achieves 1.2ms p50 via zero-copy in-process access."}
@@ -150,10 +150,10 @@ function LatencyPage() {
             sub="Drag the slider to simulate batch query pipelines and see how latency compounds \u2014 or doesn\u2019t."
           />
 
-          <div className="nb-frame nb-engine-part">
-            <div className="latency-slider-header">
+          <div className="nc-lat-panel nc-lat-part">
+            <div className="nc-lat-slider-header">
               <span>
-                Queries in pipeline: <span className="latency-slider-value">{pipelineSize}</span>
+                Queries in pipeline: <span className="nc-lat-slider-val">{pipelineSize}</span>
               </span>
               <span>Drag to adjust</span>
             </div>
@@ -163,34 +163,34 @@ function LatencyPage() {
               max={200}
               value={pipelineSize}
               onChange={(e) => setPipelineSize(Number(e.target.value))}
-              className="latency-slider"
+              className="nc-lat-slider"
             />
           </div>
 
-          <div className="nb-grid nb-grid--cols-3 nb-engine-part">
-            <div className="nb-cell">
-              <span className="latency-label-value">LEGACY</span>
-              <div className="latency-value-lg latency-value-lg--danger">
+          <div className="nc-lat-results">
+            <div className="nc-lat-result nc-lat-part">
+              <span className="nc-lat-result-label nc-lat-result-label--danger">LEGACY</span>
+              <div className="nc-lat-result-value nc-lat-result-value--danger">
                 {(legacyTotal / 1000).toFixed(1)}s
               </div>
-              <div className="latency-formula">{pipelineSize} \u00d7 200ms</div>
+              <div className="nc-lat-result-formula">{pipelineSize} \u00d7 200ms</div>
             </div>
-            <div className="nb-cell latency-cell-border">
-              <span className="latency-label-vanta">
+            <div className="nc-lat-result nc-lat-result--vanta nc-lat-part">
+              <span className="nc-lat-result-label nc-lat-result-label--amber">
                 VANTADB {mode === "rust" ? "RUST CORE" : "PYTHON SDK"}
               </span>
-              <div className="latency-value-lg latency-value-lg--amber">
+              <div className="nc-lat-result-value nc-lat-result-value--amber">
                 {vantaTotal < 1000
                   ? `${Math.round(vantaTotal)}ms`
                   : `${(vantaTotal / 1000).toFixed(1)}s`}
               </div>
-              <div className="latency-formula">
+              <div className="nc-lat-result-formula">
                 {pipelineSize} \u00d7 {vantaLatency}ms
               </div>
             </div>
-            <div className="nb-cell latency-speedup-cell">
-              <div className="latency-speedup-value">{speedup}\u00d7</div>
-              <div className="latency-speedup-label">Faster</div>
+            <div className="nc-lat-result nc-lat-result--speed nc-lat-part">
+              <div className="nc-lat-speedup">{speedup}\u00d7</div>
+              <div className="nc-lat-speedup-label">Faster</div>
             </div>
           </div>
         </NbSection>
@@ -202,39 +202,32 @@ function LatencyPage() {
             sub="A granular look at where time is spent in a typical query \u2014 legacy vs VantaDB."
           />
 
-          <div className="nb-frame nb-engine-part">
-            <div className="latency-table-header">
-              <span>Phase</span>
+          <div className="nc-lat-breakdown nc-lat-part">
+            <div className="nc-lat-bd-header">
+              <span className="nc-lat-bd-col">Phase</span>
               <span />
-              <span className="latency-table-col-header latency-table-col-header--danger">
-                Legacy
-              </span>
-              <span className="latency-table-col-header latency-table-col-header--amber">
-                Vanta
-              </span>
+              <span className="nc-lat-bd-col nc-lat-bd-col--danger">Legacy</span>
+              <span className="nc-lat-bd-col nc-lat-bd-col--amber">Vanta</span>
             </div>
             {BREAKDOWN.map((row, i) => (
-              <div
-                key={row.label}
-                className={`latency-table-row ${i < BREAKDOWN.length - 1 ? "latency-table-row--bordered" : ""}`}
-              >
-                <span className="latency-table-label">{row.label}</span>
-                <div className="latency-bar-group">
-                  <div className="latency-bar latency-bar--bg">
+              <div key={row.label} className="nc-lat-bd-row">
+                <span className="nc-lat-bd-label">{row.label}</span>
+                <div className="nc-lat-bar-group">
+                  <div className="nc-lat-bar">
                     <div
-                      className="latency-bar-fill latency-bar-fill--danger"
+                      className="nc-lat-bar-fill nc-lat-bar-fill--danger"
                       style={{ "--pct": `${row.legacyW}%` } as React.CSSProperties}
                     />
                   </div>
-                  <div className="latency-bar latency-bar--bg">
+                  <div className="nc-lat-bar">
                     <div
-                      className="latency-bar-fill latency-bar-fill--amber"
+                      className="nc-lat-bar-fill nc-lat-bar-fill--amber"
                       style={{ "--pct": `${row.vantaW}%` } as React.CSSProperties}
                     />
                   </div>
                 </div>
-                <span className="latency-table-ms latency-table-ms--danger">{row.legacy}</span>
-                <span className="latency-table-ms latency-table-ms--amber">{row.vanta}</span>
+                <span className="nc-lat-ms nc-lat-ms--danger">{row.legacy}</span>
+                <span className="nc-lat-ms nc-lat-ms--amber">{row.vanta}</span>
               </div>
             ))}
           </div>
@@ -242,12 +235,12 @@ function LatencyPage() {
 
         <NbSection variant="dark" className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="latency-cta-layout">
+            <div className="nc-lat-cta">
               <div>
-                <h2 className="latency-cta-title">1.2ms at the core. No network tax.</h2>
-                <p className="latency-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-lat-cta-title">1.2ms at the core. No network tax.</h2>
+                <p className="nc-lat-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="latency-cta-code">pip install vantadb-py</code>
+              <code className="nc-lat-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

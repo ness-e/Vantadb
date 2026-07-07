@@ -16,7 +16,6 @@
 .playground-dot-red {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #ff5f56;
   display: inline-block;
 }
@@ -24,7 +23,6 @@
 .playground-dot-yellow {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #ffbd2e;
   display: inline-block;
 }
@@ -32,7 +30,6 @@
 .playground-dot-green {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #27c93f;
   display: inline-block;
 }

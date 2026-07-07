@@ -15,7 +15,7 @@ function BenchmarksPage() {
   const benchmarkRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-bm-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(benchmarkRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -39,54 +39,52 @@ function BenchmarksPage() {
         <NbSectionHeader
           monoLabel="[BENCHMARKS]"
           headline="Throughput vs Latency."
-          sub="Raw Rust core performance on the SIFT1M dataset — 100K 128-dimensional vectors."
+          sub="Raw Rust core performance on the SIFT1M dataset \u2014 100K 128-dimensional vectors."
         />
 
-        <div className="nb-engine-part">
-          <table className="benchmarks-table">
+        <div className="nc-bm-part">
+          <table className="nc-bm-table">
             <thead>
               <tr>
-                <th className="benchmarks-th">Engine</th>
-                <th className="benchmarks-th-right">Insert (QPS)</th>
-                <th className="benchmarks-th-right">Search (QPS)</th>
-                <th className="benchmarks-th-right">p99 Latency (ms)</th>
+                <th className="nc-bm-th">Engine</th>
+                <th className="nc-bm-th-right">Insert (QPS)</th>
+                <th className="nc-bm-th-right">Search (QPS)</th>
+                <th className="nc-bm-th-right">p99 Latency (ms)</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="benchmarks-td">
-                  <span className="benchmarks-amber-text">VantaDB (Rust)</span>
-                </td>
-                <td className="benchmarks-td-right">8,450</td>
-                <td className="benchmarks-td-right">1,195</td>
-                <td className="benchmarks-td-right">2.43</td>
+                <td className="nc-bm-td"><span className="nc-bm-amber">VantaDB (Rust)</span></td>
+                <td className="nc-bm-td-right nc-bm-amber">8,450</td>
+                <td className="nc-bm-td-right nc-bm-amber">1,195</td>
+                <td className="nc-bm-td-right nc-bm-amber">2.43</td>
               </tr>
               <tr>
-                <td className="benchmarks-td">ChromaDB (Local)</td>
-                <td className="benchmarks-td-right">1,200</td>
-                <td className="benchmarks-td-right">450</td>
-                <td className="benchmarks-td-right">12.50</td>
+                <td className="nc-bm-td">ChromaDB (Local)</td>
+                <td className="nc-bm-td-right">1,200</td>
+                <td className="nc-bm-td-right">450</td>
+                <td className="nc-bm-td-right">12.50</td>
               </tr>
               <tr>
-                <td className="benchmarks-td">Qdrant (Local Docker)</td>
-                <td className="benchmarks-td-right">4,100</td>
-                <td className="benchmarks-td-right">890</td>
-                <td className="benchmarks-td-right">5.10</td>
+                <td className="nc-bm-td">Qdrant (Local Docker)</td>
+                <td className="nc-bm-td-right">4,100</td>
+                <td className="nc-bm-td-right">890</td>
+                <td className="nc-bm-td-right">5.10</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <p className="benchmarks-footnote nb-engine-part">
+        <p className="nc-bm-footnote nc-bm-part">
           *Benchmarks run on AMD Ryzen 12-Core @ 3.5GHz with 100K 128-dimensional SIFT1M vectors.
           VantaDB uses BFS-compacted Memmapped HNSW and Fjall LSM-tree storage.
         </p>
 
-        <div className="benchmarks-note-box nb-engine-part">
-          <strong className="benchmarks-amber-text">Note:</strong> Benchmarks shown represent raw
+        <div className="nc-bm-note nc-bm-part">
+          <strong className="nc-bm-amber">Note:</strong> Benchmarks shown represent raw
           Rust core performance on the SIFT1M dataset. Real-world performance varies by dataset
           size, dimensionality, and hardware configuration. See full methodology in{" "}
-          <code className="benchmarks-code-inline">docs/operations/BENCHMARKS.md</code>.
+          <code className="nc-bm-code">docs/operations/BENCHMARKS.md</code>.
         </div>
       </NbSection>
     </div>
@@ -95,7 +93,7 @@ function BenchmarksPage() {
 
 export function PendingComponent() {
   return (
-    <div className="benchmarks-pending">
+    <div className="nc-bm-pending">
       <div>Loading...</div>
     </div>
   );

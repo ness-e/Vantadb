@@ -1,7 +1,7 @@
 import { createLazyRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbSection, NbSectionHeader, NbBlockAmber, NbCard } from "@/components/nb";
+import { NbSection, NbSectionHeader, NbBlockAmber } from "@/components/nb";
 import { gsap } from "@/lib/gsap";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
@@ -21,10 +21,10 @@ const tiers = [
     period: "forever",
     features: [
       "HNSW vector search + BM25 full-text + hybrid RRF",
-      "Unlimited vectors — no artificial caps",
+      "Unlimited vectors \u2014 no artificial caps",
       "Python SDK + Rust SDK + CLI",
       "WAL-backed durability, 3 storage backends",
-      "Apache 2.0 license — unrestricted use",
+      "Apache 2.0 license \u2014 unrestricted use",
       "Community support (Discord + GitHub)",
       "CrewAI + DSPy + Haystack + Mem0 adapters",
       "MCP Server (Model Context Protocol)",
@@ -35,7 +35,7 @@ const tiers = [
   },
   {
     name: "Cloud Pro",
-    tagline: "Managed cloud database. Aspirational — coming in a future release.",
+    tagline: "Managed cloud database. Aspirational \u2014 coming in a future release.",
     price: "$29",
     period: "per month",
     features: [
@@ -95,104 +95,26 @@ const tiers = [
 const comparisonColumns = ["Feature", "Self-Hosted", "Cloud Pro", "Cloud Business", "Enterprise"];
 
 const comparisonRows = [
-  {
-    feature: "Deployment",
-    os: "Embedded, single-node",
-    pro: "Managed serverless",
-    biz: "Managed dedicated",
-    ent: "On-prem / Hybrid",
-  },
-  {
-    feature: "Vector limit",
-    os: "Limited by hardware",
-    pro: "1M Vectors (scalable)",
-    biz: "10M Vectors",
-    ent: "Unlimited",
-  },
-  {
-    feature: "Storage limit",
-    os: "Local disk limit",
-    pro: "10 GB",
-    biz: "100 GB",
-    ent: "Unlimited",
-  },
-  {
-    feature: "Query engines",
-    os: "HNSW + BM25 + RRF",
-    pro: "HNSW + BM25 + RRF",
-    biz: "HNSW + BM25 + RRF",
-    ent: "All + Custom hooks",
-  },
-  {
-    feature: "Replication",
-    os: "None",
-    pro: "Automated backup",
-    biz: "Multi-region replica",
-    ent: "Multi-node (WAL-based)",
-  },
-  {
-    feature: "Authentication",
-    os: "None",
-    pro: "API Key",
-    biz: "API Key + Team SSO",
-    ent: "SAML / OIDC + RBAC",
-  },
-  {
-    feature: "Encryption",
-    os: "Optional (user-space)",
-    pro: "At-rest & In-transit",
-    biz: "At-rest & In-transit",
-    ent: "AES-256-GCM (Hardware)",
-  },
-  {
-    feature: "Support",
-    os: "Community (Discord)",
-    pro: "Priority Email",
-    biz: "Priority Slack / SLA",
-    ent: "Dedicated 24/7 SLA",
-  },
-  {
-    feature: "License",
-    os: "Apache 2.0",
-    pro: "Commercial Cloud",
-    biz: "Commercial Cloud",
-    ent: "Enterprise terms",
-  },
+  { feature: "Deployment", os: "Embedded, single-node", pro: "Managed serverless", biz: "Managed dedicated", ent: "On-prem / Hybrid" },
+  { feature: "Vector limit", os: "Limited by hardware", pro: "1M Vectors (scalable)", biz: "10M Vectors", ent: "Unlimited" },
+  { feature: "Storage limit", os: "Local disk limit", pro: "10 GB", biz: "100 GB", ent: "Unlimited" },
+  { feature: "Query engines", os: "HNSW + BM25 + RRF", pro: "HNSW + BM25 + RRF", biz: "HNSW + BM25 + RRF", ent: "All + Custom hooks" },
+  { feature: "Replication", os: "None", pro: "Automated backup", biz: "Multi-region replica", ent: "Multi-node (WAL-based)" },
+  { feature: "Authentication", os: "None", pro: "API Key", biz: "API Key + Team SSO", ent: "SAML / OIDC + RBAC" },
+  { feature: "Encryption", os: "Optional (user-space)", pro: "At-rest & In-transit", biz: "At-rest & In-transit", ent: "AES-256-GCM (Hardware)" },
+  { feature: "Support", os: "Community (Discord)", pro: "Priority Email", biz: "Priority Slack / SLA", ent: "Dedicated 24/7 SLA" },
+  { feature: "License", os: "Apache 2.0", pro: "Commercial Cloud", biz: "Commercial Cloud", ent: "Enterprise terms" },
 ];
 
 const FAQ_ITEMS = [
-  {
-    q: "Is VantaDB really free?",
-    a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits on self-hosted instances.",
-  },
-  {
-    q: "Can I use VantaDB commercially?",
-    a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required for local self-hosted deployments.",
-  },
-  {
-    q: "What is included in the Cloud plans?",
-    a: "Our cloud plans provide hosted serverless and dedicated instances. By running VantaDB on our managed infrastructure, you get client-server access via HTTPS, automatic scaling, automated backups, and uptime SLAs, without managing local resources.",
-  },
-  {
-    q: "Do you offer custom SLAs?",
-    a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA).",
-  },
-  {
-    q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?",
-    a: "VantaDB is embedded — it runs in your process with zero servers. No network hop, no per-vector pricing, no ops team required. While cloud vector databases charge $70-175/mo, VantaDB is free (Apache 2.0) and runs locally.",
-  },
-  {
-    q: "Can I migrate from Pinecone/ChromaDB to VantaDB?",
-    a: "Yes. We provide migration guides from ChromaDB and LanceDB in our documentation. The process typically involves exporting your vectors and re-indexing with VantaDB's Python SDK.",
-  },
-  {
-    q: "Do you offer a free trial for Cloud plans?",
-    a: "Cloud plans are aspirational and coming in a future release. In the meantime, the self-hosted version is free and fully functional.",
-  },
-  {
-    q: "What happens when I exceed 1M vectors in Cloud Pro?",
-    a: "Cloud Pro includes up to 1M vectors. If you need more, you can upgrade to Cloud Business (10M) or Enterprise (unlimited). Self-hosted has no artificial caps — your only limit is your hardware.",
-  },
+  { q: "Is VantaDB really free?", a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits on self-hosted instances." },
+  { q: "Can I use VantaDB commercially?", a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required for local self-hosted deployments." },
+  { q: "What is included in the Cloud plans?", a: "Our cloud plans provide hosted serverless and dedicated instances. By running VantaDB on our managed infrastructure, you get client-server access via HTTPS, automatic scaling, automated backups, and uptime SLAs, without managing local resources." },
+  { q: "Do you offer custom SLAs?", a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA)." },
+  { q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?", a: "VantaDB is embedded \u2014 it runs in your process with zero servers. No network hop, no per-vector pricing, no ops team required. While cloud vector databases charge $70-175/mo, VantaDB is free (Apache 2.0) and runs locally." },
+  { q: "Can I migrate from Pinecone/ChromaDB to VantaDB?", a: "Yes. We provide migration guides from ChromaDB and LanceDB in our documentation. The process typically involves exporting your vectors and re-indexing with VantaDB's Python SDK." },
+  { q: "Do you offer a free trial for Cloud plans?", a: "Cloud plans are aspirational and coming in a future release. In the meantime, the self-hosted version is free and fully functional." },
+  { q: "What happens when I exceed 1M vectors in Cloud Pro?", a: "Cloud Pro includes up to 1M vectors. If you need more, you can upgrade to Cloud Business (10M) or Enterprise (unlimited). Self-hosted has no artificial caps \u2014 your only limit is your hardware." },
 ];
 
 function PricingPage() {
@@ -201,21 +123,21 @@ function PricingPage() {
   const faqRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(plansRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, plansRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, compareRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(faqRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -243,72 +165,59 @@ function PricingPage() {
             sub="Self-hosted is free forever under Apache 2.0. Cloud plans unlock managed infrastructure for teams that need it."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 pricing-grid">
-              {tiers.slice(0, 2).map((tier) => (
-                <NbCard
-                  key={tier.name}
-                  variant={tier.featured ? "amber" : "default"}
-                  className="pricing-card"
+          <div className="nc-price-board nc-price-part">
+            {tiers.slice(0, 2).map((tier) => (
+              <div
+                key={tier.name}
+                className={`nc-price-card ${tier.featured ? "nc-price-card--featured" : ""}`}
+              >
+                <div>
+                  <div className="nc-price-name">{tier.name}</div>
+                  <p className="nc-price-tagline">{tier.tagline}</p>
+                </div>
+                <div className="nc-price-row">
+                  <span className="nc-price-value">{tier.price}</span>
+                  <span className="nc-price-period">{tier.period}</span>
+                </div>
+                <ul className="nc-price-features">
+                  {tier.features.map((f) => (
+                    <li key={f} className="nc-price-feature">{f}</li>
+                  ))}
+                </ul>
+                <Link
+                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
+                  className={`nc-price-cta ${tier.featured ? "nb-btn" : "nb-btn nb-btn--ghost"}`}
                 >
-                  <div>
-                    <div className="pricing-tier-name">{tier.name}</div>
-                    <p className="pricing-tier-tagline">{tier.tagline}</p>
-                  </div>
-                  <div className="pricing-price-row">
-                    <span className="pricing-price-value">{tier.price}</span>
-                    <span className="pricing-period">{tier.period}</span>
-                  </div>
-                  <ul className="nb-list pricing-features-list">
-                    {tier.features.map((f) => (
-                      <li key={f} className="pricing-feature-item">
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                    className={
-                      tier.featured
-                        ? "nb-btn pricing-card-cta"
-                        : "nb-btn nb-btn--ghost pricing-card-cta"
-                    }
-                  >
-                    {tier.cta}
-                  </Link>
-                </NbCard>
-              ))}
-            </div>
+                  {tier.cta}
+                </Link>
+              </div>
+            ))}
           </div>
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 pricing-grid--tight">
-              {tiers.slice(2).map((tier) => (
-                <NbCard key={tier.name} variant="default" className="pricing-card">
-                  <div>
-                    <div className="pricing-tier-name">{tier.name}</div>
-                    <p className="pricing-tier-tagline">{tier.tagline}</p>
-                  </div>
-                  <div className="pricing-price-row">
-                    <span className="pricing-price-value">{tier.price}</span>
-                    <span className="pricing-period">{tier.period}</span>
-                  </div>
-                  <ul className="nb-list pricing-features-list">
-                    {tier.features.map((f) => (
-                      <li key={f} className="pricing-feature-item">
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                    className="nb-btn nb-btn--ghost pricing-card-cta"
-                  >
-                    {tier.cta}
-                  </Link>
-                </NbCard>
-              ))}
-            </div>
+          <div className="nc-price-board nc-price-board--tight nc-price-part">
+            {tiers.slice(2).map((tier) => (
+              <div key={tier.name} className="nc-price-card">
+                <div>
+                  <div className="nc-price-name">{tier.name}</div>
+                  <p className="nc-price-tagline">{tier.tagline}</p>
+                </div>
+                <div className="nc-price-row">
+                  <span className="nc-price-value">{tier.price}</span>
+                  <span className="nc-price-period">{tier.period}</span>
+                </div>
+                <ul className="nc-price-features">
+                  {tier.features.map((f) => (
+                    <li key={f} className="nc-price-feature">{f}</li>
+                  ))}
+                </ul>
+                <Link
+                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
+                  className="nc-price-cta nb-btn nb-btn--ghost"
+                >
+                  {tier.cta}
+                </Link>
+              </div>
+            ))}
           </div>
         </NbSection>
 
@@ -319,42 +228,27 @@ function PricingPage() {
             sub="Compare capabilities across all four tiers to find the right fit for your project."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-card-frame pricing-table-wrapper">
-              <table className="nb-table pricing-table">
-                <thead>
-                  <tr>
-                    {comparisonColumns.map((col, idx) => {
-                      const thClass =
-                        idx === 2
-                          ? "pricing-th--featured"
-                          : idx === 0
-                            ? "pricing-th--first"
-                            : "pricing-th--default";
-                      return (
-                        <th key={col} className={thClass}>
-                          {col}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparisonRows.map((row, i) => (
-                    <tr
-                      key={row.feature}
-                      className={i % 2 === 0 ? "pricing-tr--even" : "pricing-tr--odd"}
-                    >
-                      <td className="pricing-td-feature">{row.feature}</td>
-                      <td>{row.os}</td>
-                      <td className="pricing-td--pro">{row.pro}</td>
-                      <td>{row.biz}</td>
-                      <td className="pricing-td--ent">{row.ent}</td>
-                    </tr>
+          <div className="nc-price-market nc-price-part">
+            <table>
+              <thead>
+                <tr>
+                  {comparisonColumns.map((col) => (
+                    <th key={col}>{col}</th>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row) => (
+                  <tr key={row.feature}>
+                    <td>{row.feature}</td>
+                    <td>{row.os}</td>
+                    <td>{row.pro}</td>
+                    <td>{row.biz}</td>
+                    <td>{row.ent}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </NbSection>
 
@@ -365,26 +259,24 @@ function PricingPage() {
             sub="Everything you need to know about VantaDB pricing, licensing, and cloud plans."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 pricing-faq-grid">
-              {FAQ_ITEMS.map((item) => (
-                <div key={item.q} className="nb-cell pricing-faq-item">
-                  <h3 className="pricing-faq-question">{item.q}</h3>
-                  <p className="pricing-faq-answer">{item.a}</p>
-                </div>
-              ))}
-            </div>
+          <div className="nc-price-faq nc-price-part">
+            {FAQ_ITEMS.map((item) => (
+              <div key={item.q} className="nc-price-faq-item">
+                <h3 className="nc-price-faq-q">{item.q}</h3>
+                <p className="nc-price-faq-a">{item.a}</p>
+              </div>
+            ))}
           </div>
         </NbSection>
 
         <NbSection ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="pricing-cta-row">
+            <div className="nc-price-cta-row">
               <div>
-                <h2 className="pricing-cta-heading">Start with Self-Hosted.</h2>
-                <p className="pricing-cta-sub">Free forever. No signup required.</p>
+                <h2 className="nc-price-cta-heading">Start with Self-Hosted.</h2>
+                <p className="nc-price-cta-sub">Free forever. No signup required.</p>
               </div>
-              <Link to="/docs" className="nb-btn nb-btn--ghost pricing-cta-btn">
+              <Link to="/docs" className="nb-btn nb-btn--ghost nc-price-cta-btn">
                 GET STARTED
               </Link>
             </div>
