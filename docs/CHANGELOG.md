@@ -3,7 +3,7 @@ title: Changelog
 type: documentation
 status: active
 tags: [vantadb]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-07
 aliases: []
 ---
 
@@ -61,7 +61,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **estimate_memory_bytes O(n) on insert (CODE-065):** Changed to cached counter
 - **WAL recover_state dead code (CODE-066):** `#[allow(dead_code)]` removed, function now operational
 - **LRU cache Python completely dead (CODE-014):** LRU now actually reads from cache instead of 100% miss
-- **XxHash 64-bit collision blocks both records (CODE-067):** Still open — collision resolution not yet implemented
+- **XxHash 64-bit collision blocks both records (CODE-067):** Migrated to XxHash3_128 + u128 node IDs — collision space now 2^128
+- **GC tests use Box::leak (CODE-033):** Replaced with TempDir-based cleanup for Windows compatibility
+- **Test config assumes 8-core CPU (CODE-035):** Changed to `available_parallelism()` for portable core count
+- **test_search_batch skipped (CODE-044):** Reactivated test with proper assertions
+- **Migration runner completo (DB-01):** Full `vanta-cli migrate` pipeline operational with v1-v2 range, VECTOR_INDEX_VERSION, WAL_POSTCARD_VERSION
 
 ### Python SDK
 - **hardware_profile mutates capabilities dict (CODE-004):** `clone()` now deep-copies instead of shallow ref

@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-07
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-11
+> **Last updated:** 2026-07-07
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -1398,4 +1398,21 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 - PERF-16: query latency 4.06ms → ~2.5ms (cerca de 2.27ms ChromaDB)
 
 **Backlog:** +25 items agregados. Pendientes: 98 items open.
+
+### 2026-07-07 — Wave 1-6: CODE-055, Test Fixes, Migration Runner (5 tasks)
+
+**Tareas completadas:**
+
+| ID | Tarea | Verificación |
+|----|-------|-------------|
+| CODE-055 | `rust-version.workspace` en 13 miembros Cargo.toml | ✅ `cargo check` pasa. Todos heredan MSRV 1.94.1 de `[workspace.package]` |
+| CODE-033 | GC tests usan `Box::leak` — TempDir cleanup falla en Windows | ✅ Reemplazado con TempDir-based cleanup |
+| CODE-035 | Test config asume CPU 8-core — `assert_eq!(..., 16)` | ✅ Cambiado a `available_parallelism()` |
+| CODE-044 | `test_search_batch` skipeado — test muerto | ✅ Reactivado con assertions reales |
+| DB-01 | Migration runner completo (`vanta-cli migrate`) | ✅ Pipeline v1-v2 operativo con VECTOR_INDEX_VERSION + WAL_POSTCARD_VERSION |
+| Snapshot | WAL/VantaFile/HNSW/export-import certification | ✅ `tests/core/snapshot_certification.rs` (1140L) existente y completo |
+| DOC-19 | ARCHITECTURE.md actualizado a v0.2.0 | ✅ Version header, u128, StorageBackend trait, component map actualizados |
+
+**Backlog actualizado:** Pendientes: 92 items ❌ + 1 ⏳ = 93 open. Último ⏳: BIZ-01 (Enterprise crate).
+
 
