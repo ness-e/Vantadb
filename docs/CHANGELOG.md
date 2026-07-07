@@ -13,6 +13,23 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.2] — 2026-07-07 (Wave 1-7: Bugfixes & Optimizations)
+
+### Core Engine
+
+- **PERF-23: HNSW ep_enter freeze on delete** — When entry point is deleted, `find_new_entry_point()` promotes the remaining node with highest `max_layer`. Prevents empty search results after EP deletion (`src/index/core.rs`, `src/storage/engine/ops.rs`)
+- **PERF-28: Tombstone mitigation in search_layer** — Tombstoned nodes are now skipped during candidate heap population, preventing pollution of the early-stopping heuristic. WAL replay delete also removes nodes from `hnsw.nodes` to prevent zombie nodes (`src/index/core.rs`, `src/storage/engine/init.rs`)
+- **PERF-30: Config tuning for batch ingestion** — Added `batch_size`, `wal_buffer_size`, `flush_threshold` fields to `VantaConfig` with plumbing through engine ops. Auto-flush triggers when node count exceeds threshold (`src/config.rs`, `src/storage/engine/ops.rs`)
+
+### Security
+
+- **CODE-037: AuthRateLimiter HashMap→LruCache** — Replaced unbounded `HashMap<String, (u32, Instant)>` with `LruCache` (capacity 1000). Prevents memory exhaustion under distributed IP attack. Removed `MAX_AUTH_FAILURE_ENTRIES` and `sweep_expired()` (`src/cli_server.rs`)
+
+### Documentation
+
+- **DOC-19: ARCHITECTURE.md → v0.2.0** — Updated version header, u128 node IDs, StorageBackend trait, component map. Added sharded WAL documentation to glosario/persistence.md, glosario/wal.md, operations/CONFIGURATION.md, operations/DURABILITY_GUARANTEES.md
+- **New:** `docs/plans/2026-07-07-wave-1-7-bugfixes-and-optimizations.md` — Full implementation plan
+
 ## [v0.2.1] — 2026-07-04 (Fleet Fix Session)
 
 ### Added

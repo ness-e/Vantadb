@@ -155,7 +155,7 @@ aliases: []
 | `DOC-16` | Tutorial series (3 creados) | 🟡 2-3d | 🟡 | ✅ |
 | `DOC-17` | Diagramas Mermaid (5) | 🟡 1-2d | 🟡 | ✅ |
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
-| `DOC-19` | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ❌ |
+| ~~`DOC-19`~~ | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ✅ |
 | `DOC-20` | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
 | `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
@@ -241,14 +241,14 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | `PERF-21` | **AVX-512 f32x16 SIMD dispatch** — Runtime dispatch para dot product y euclidean distance. `avx512f` ya detectado en `hardware/mod.rs:166`, no cableado | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟡 | ❌ |
 | `PERF-22` | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ❌ |
-| `PERF-23` | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-23`~~ | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | `PERF-24` | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
 | `PERF-25` | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | `PERF-26` | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | `PERF-27` | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ❌ |
-| `PERF-28` | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-28`~~ | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ✅ |
 | `PERF-29` | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
-| `PERF-30` | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ❌ |
+| ~~`PERF-30`~~ | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ✅ |
 
 ### 🗄️ Database Evolution
 
@@ -264,7 +264,7 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | ~~`CODE-031`~~ | **GC delete failure silencioso en sweep** — Si `storage.delete()` falla, TTL entry se elimina igual. Nodo expirado sobrevive para siempre | `gc.rs:47-51` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-032`~~ | **TTL map crece sin límite en deletes pre-expiry** — Nodos con TTL borrados manualmente nunca se limpian del map | `gc.rs:26-28` | 🟡 1d | 🟡 | ✅ |
-| `CODE-037` | **AuthRateLimiter HashMap unbounded** — Crecimiento por IP en ataque distribuido | `cli_server.rs:127-129` | 🟡 1d | 🟡 | ❌ |
+| ~~`CODE-037`~~ | **AuthRateLimiter HashMap unbounded** — Crecimiento por IP en ataque distribuido | `cli_server.rs:127-129` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-064`~~ | **`serialize_to_bytes` aloca Vec gigante** — ~2.5GB para 10M nodos de una | `core.rs:1401-1510` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-065`~~ | **`estimate_memory_bytes` O(n) en cada insert** — Itera todos los nodos. Debería ser cached counter | `core.rs:604-624` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`CODE-066`~~ | **WAL `recover_state()` muerto con `#[allow(dead_code)]`** — Y encima difiere del vivo (sí escribía backend). Peligro de confusión | `wal.rs:21` | 🟢 2h | 🟢 | ✅ |
@@ -542,9 +542,9 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
-| **Total** | **14** | **17** | **29** | **11** | **21** | **92** |
+| **Total** | **14** | **16** | **25** | **11** | **21** | **87** |
 
-Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 92 items ❌ + 1 ⏳ (BIZ-01) = 93 open.
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 87 items ❌ + 1 ⏳ (BIZ-01) = 88 open.
 
 ---
 
@@ -570,12 +570,12 @@ Jul 11-18  TIER 1 (🟠 17 items remaining):
              ─ ⚡ Post-Benchmark: PERF-15/16 🔴, PERF-17→20 🟠 ❌
 Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
-             ─ GC: ✅ ~~CODE-031/032/064/065/066~~ CODE-037 ❌
+             ─ GC: ✅ ~~CODE-031/032/064/065/066~~ ~~CODE-037~~ ✅
              ─ Comunidad: COM-01, TSK-106/107/108 ❌
              ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~ 3 ❌
              ─ Accesibilidad: ✅ ~~CODE-048~~
              ─ SEO/Conversion: MKT-17 ❌
-             ─ ⚙️ Perf Media: PERF-21→30 🟡 ❌
+             ─ ⚙️ Perf Media: PERF-21/22/24/25/26/27/29 🟡 ❌
 Ago-Sep    TIER 3 (🔵 12 items remaining):
               ─ Testing: CODE-074 ❌, ✅ ~~CODE-033/035/043/044/057/075~~
              ─ Seguridad: ✅ ~~CODE-036/058/061~~
@@ -621,3 +621,5 @@ Oct+       PHASE 5 (⬜ 21 items):
 - [[docs/research/INVESTIGATION_FFI.md]] — FFI/PyO3 optimization findings (batch, zero-copy, GIL)
 - [[docs/research/INVESTIGATION_HNSW_RECALL.md]] — HNSW recall optimization findings (ef_construction, M, heuristics)
 - [[docs/research/INVESTIGATION_INGESTION.md]] — Ingestion optimization findings (batch WAL, storage, async pipeline)
+
+

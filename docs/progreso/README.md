@@ -1413,6 +1413,22 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | Snapshot | WAL/VantaFile/HNSW/export-import certification | ✅ `tests/core/snapshot_certification.rs` (1140L) existente y completo |
 | DOC-19 | ARCHITECTURE.md actualizado a v0.2.0 | ✅ Version header, u128, StorageBackend trait, component map actualizados |
 
-**Backlog actualizado:** Pendientes: 92 items ❌ + 1 ⏳ = 93 open. Último ⏳: BIZ-01 (Enterprise crate).
+**Backlog actualizado:** Pendientes: 87 items ❌ + 1 ⏳ = 88 open. Último ⏳: BIZ-01 (Enterprise crate).
+
+### 2026-07-07 — Wave 1-7: Bugfixes & Optimizations (5 tasks)
+
+**Objetivo:** Fix HNSW EP freeze (PERF-23), tombstone mitigation (PERF-28), config tuning (PERF-30), AuthRateLimiter HashMap→LruCache (CODE-037), doc updates (DOC-19).
+
+**Tareas completadas:**
+
+| ID | Tarea | Files | Verificación |
+|----|-------|-------|-------------|
+| PERF-23 | HNSW ep_enter freeze fix — `find_new_entry_point()` promueve reemplazo tras delete | `src/index/core.rs`, `src/storage/engine/ops.rs`, `src/storage/engine/init.rs` | ✅ `cargo check` pasa. EP replacement test en hnsw_validation.rs |
+| PERF-28 | Tombstone mitigation — saltar nodos eliminados en search_layer + WAL replay zombie fix | `src/index/core.rs`, `src/storage/engine/init.rs` | ✅ Tombstoned nodes excluidos de candidates heap |
+| PERF-30 | Config tuning — batch_size, wal_buffer_size, flush_threshold en VantaConfig + auto-flush | `src/config.rs`, `src/storage/engine/ops.rs` | ✅ Config fields + plumbing + auto-flush at threshold |
+| CODE-037 | AuthRateLimiter unbounded HashMap → LruCache capacity 1000 | `src/cli_server.rs` | ✅ Previene OOM bajo ataque distribuido |
+| DOC-19 | ARCHITECTURE.md → v0.2.0 + sharded WAL docs | `docs/architecture/ARCHITECTURE.md`, `docs/glosario/*`, `docs/operations/*` | ✅ v0.2.0 header, u128, StorageBackend trait, component map, sharded WAL glossary |
+
+**Backlog actualizado:** 87 items ❌ + 1 ⏳ = 88 open. 5 items migrados a progreso.
 
 
