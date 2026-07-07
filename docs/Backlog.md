@@ -130,10 +130,10 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | ~~`PERF-15`~~ | **`put_batch_raw()` con PyBuffer 2D** — Zero-copy batch ingestion desde NumPy arrays. Target: 10× ingestion QPS (17767 vs 127 LanceDB gap) | `vantadb-python/src/lib.rs` | 🟡 2-3d | 🔴 | ✅ |
 | ~~`PERF-16`~~ | **`#[pyclass]` para search hits** — Evita 5 PyDict allocations por resultado. ~30-50% reducción query latency (target: 2.27ms ChromaDB parity) | `vantadb-python/src/lib.rs`, `types.rs` | 🟡 2-3d | 🔴 | ✅ |
-| `PERF-17` | **ef_construction 200→400** — Mayor recall con costo moderado en index time. ChromaDB usa default 200, VantaDB necesita superar 90% recall@10 | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
-| `PERF-18` | **M/max0 16→24/32** — Mejor conectividad del grafo HNSW. Complementa PERF-17 para recall >90% | `src/index/core.rs` | 🟢 4h | 🟠 | ❌ |
-| `PERF-19` | **WAL batch append** — Single write por batch en vez de por vector. Reduce I/O y contention en escritura concurrente | `src/storage/wal.rs`, `src/wal_sharded.rs` | 🟡 1-2d | 🟠 | ❌ |
-| `PERF-20` | **Storage batch insert** — Operaciones batch en engine layer. Complementa PERF-15/19 para throughput completo | `src/storage/engine/ops.rs` | 🟡 1-2d | 🟠 | ❌ |
+| ~~`PERF-17`~~ | **ef_construction 200→400** — Mayor recall con costo moderado en index time. ChromaDB usa default 200, VantaDB necesita superar 90% recall@10 | `src/index/core.rs` | 🟢 4h | 🟠 | ✅ |
+| ~~`PERF-18`~~ | **M/max0 16→24/32** — Mejor conectividad del grafo HNSW. Complementa PERF-17 para recall >90% | `src/index/core.rs` | 🟢 4h | 🟠 | ✅ |
+| ~~`PERF-19`~~ | **WAL batch append** — Single write por batch en vez de por vector. Reduce I/O y contention en escritura concurrente | `src/storage/wal.rs`, `src/wal_sharded.rs` | 🟡 1-2d | 🟠 | ✅ |
+| ~~`PERF-20`~~ | **Storage batch insert** — Operaciones batch en engine layer. Complementa PERF-15/19 para throughput completo | `src/storage/engine/ops.rs` | 🟡 1-2d | 🟠 | ✅ |
 
 ### 🌐 Presencia Web y Landing Page
 
@@ -520,7 +520,7 @@ Esfuerzo                │   Esfuerzo
 | 🧪 Testing | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🎯 Marketing vs Realidad | 0 | 1 | 0 | 0 | 0 | 1 |
 | 🏗️ Index & Storage Quality | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Optimizaciones Post-Benchmark | 0 | 4 | 0 | 0 | 0 | 4 |
+| ⚡ Optimizaciones Post-Benchmark | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🌐 Web & Landing Page | 0 | 2 | 0 | 0 | 0 | 2 |
 | 📚 Documentación | 0 | 3 | 0 | 0 | 0 | 3 |
 | 🧪 WASM & MCP | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -542,9 +542,9 @@ Esfuerzo                │   Esfuerzo
 | 🧹 Code Health General | 0 | 0 | 0 | 0 | 0 | 0 |
 | 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
 | ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
-| **Total** | **14** | **16** | **25** | **11** | **21** | **82** |
+| **Total** | **14** | **16** | **25** | **11** | **21** | **78** |
 
-Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 82 items ❌ + 1 ⏳ (BIZ-01) = 83 open.
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 78 items ❌ + 1 ⏳ (BIZ-01) = 79 open.
 
 ---
 
@@ -567,7 +567,7 @@ Jul 11-18  TIER 1 (🟠 17 items remaining):
              ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
              ─ Distribución: DEVOPS-02/06/10, TSK-121 ❌
               ─ Code health: ✅ ~~CODE-067~~
-             ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, PERF-17→20 🟠 ❌
+             ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, ~~PERF-17~~/~~PERF-18~~/~~PERF-19~~/~~PERF-20~~ 🟠 ✅
 Jul 18-25  TIER 2 (🟡 29 items remaining):
              ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
              ─ GC: ✅ ~~CODE-031/032/064/065/066~~ ~~CODE-037~~ ✅
@@ -621,6 +621,7 @@ Oct+       PHASE 5 (⬜ 21 items):
 - [[docs/research/INVESTIGATION_FFI.md]] — FFI/PyO3 optimization findings (batch, zero-copy, GIL)
 - [[docs/research/INVESTIGATION_HNSW_RECALL.md]] — HNSW recall optimization findings (ef_construction, M, heuristics)
 - [[docs/research/INVESTIGATION_INGESTION.md]] — Ingestion optimization findings (batch WAL, storage, async pipeline)
+
 
 
 
