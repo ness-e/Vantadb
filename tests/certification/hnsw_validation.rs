@@ -83,7 +83,10 @@ fn compute_recall(
             .into_iter()
             .map(|(id, _)| id)
             .collect();
-        let hits = truth.iter().filter(|id| hnsw_ids.contains(&(**id as u128))).count();
+        let hits = truth
+            .iter()
+            .filter(|id| hnsw_ids.contains(&(**id as u128)))
+            .count();
         total_recall += hits as f64 / k as f64;
         pb.inc(1);
     }
@@ -347,7 +350,7 @@ fn hnsw_hard_validation_certification() {
         for q in &queries {
             let truth = brute_force_knn(q, &dataset, 1);
             let res = index.search_nearest(q, None, None, &vantadb::node::ALL_BITSET, 1, None);
-            if !res.is_empty() && res[0].0 == truth[0].into() {
+            if !res.is_empty() && res[0].0 == truth[0] as u128 {
                 hits += 1;
             }
         }

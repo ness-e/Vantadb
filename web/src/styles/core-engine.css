@@ -1,15 +1,22 @@
-/* ── Blueprint Schematic ──────────────────────── */
-.nb-schematic {
-  position: relative;
-  margin-top: var(--space-2xl);
+/* ── Blueprint Schematic v2 ── */
+
+.nc-schematic-wrap {
   width: 100%;
-  height: 420px;
-  border: 2px solid var(--border-strong);
-  background: #070707;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: var(--space-2xl);
 }
 
-.nb-schematic-svg {
+.nc-schematic {
+  position: relative;
+  width: 1100px;
+  height: 640px;
+  border: 3px solid var(--border-strong);
+  background: #070707;
+  margin-inline: auto;
+}
+
+.nc-schematic-svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -17,15 +24,15 @@
   pointer-events: none;
 }
 
-/* Chip blocks */
-.nb-schematic-chip {
+/* ── Chip blocks ── */
+
+.nc-schematic-chip {
   position: absolute;
   border: 2px solid var(--border-strong);
   background: var(--surface);
-  padding: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs);
   z-index: 2;
   transition:
     border-color 120ms var(--ease-brutal),
@@ -33,67 +40,85 @@
     transform 120ms var(--ease-brutal);
 }
 
-.nb-schematic-chip:hover {
+.nc-schematic-chip:hover {
   border-color: var(--amber);
-  box-shadow: var(--shadow-amber);
+  box-shadow: 6px 6px 0 var(--amber-dim);
   transform: translate(-2px, -2px);
   z-index: 3;
 }
 
-.nb-schematic-chip-header {
+.nc-chip-header {
   display: flex;
   align-items: center;
   gap: var(--space-2xs);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 6px;
 }
 
-.nb-schematic-chip-icon {
-  font-size: 0.5rem;
-  color: var(--amber);
-  line-height: 1;
-}
-
-.nb-schematic-chip-label {
+.nc-chip-badge {
   font-family: var(--font-mono);
-  font-size: 0.55rem;
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-on-amber);
+  background: var(--amber);
+  padding: 2px 8px;
+  line-height: 1.4;
+}
+
+.nc-chip-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--foreground);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.nb-schematic-chip-desc {
+.nc-chip-desc {
   font-family: var(--font-mono);
-  font-size: 0.45rem;
+  font-size: var(--text-micro);
   color: var(--steel);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  flex: 1;
+  margin-top: 2px;
 }
 
-.nb-schematic-chip-pins {
+.nc-chip-pins {
   display: flex;
-  gap: var(--space-3xs);
+  gap: 4px;
   flex-wrap: wrap;
   margin-top: auto;
+  padding-top: 4px;
 }
 
-.nb-schematic-pin {
+.nc-pin {
   font-family: var(--font-mono);
-  font-size: 0.4rem;
+  font-size: 0.55rem;
   color: var(--muted);
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  padding: 1px 4px;
-  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
-/* Feature cards below */
-.nb-schematic-features {
+/* ── Feature cards ── */
+
+.nc-schematic-features {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-md);
-  margin-top: var(--space-xl);
+  margin-top: var(--space-2xl);
 }
 
-.nb-schematic-feat {
+.nc-schematic-feat {
   border: 2px solid var(--border-strong);
   padding: var(--space-lg);
   background: var(--surface);
@@ -103,19 +128,23 @@
   transition:
     border-color 80ms var(--ease-brutal),
     box-shadow 80ms var(--ease-brutal);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 3px 3px 0 var(--border);
 }
 
-.nb-schematic-feat:hover {
+.nc-schematic-feat:hover {
   border-color: var(--amber);
-  box-shadow: var(--shadow-amber);
+  box-shadow: 5px 5px 0 var(--amber);
 }
 
-.nb-schematic-feat .nb-num-marker {
+.nc-schematic-feat .nc-num-marker {
+  font-family: var(--font-mono);
   font-size: var(--text-label);
+  font-weight: var(--weight-bold);
+  color: var(--amber);
+  line-height: 1;
 }
 
-.nb-schematic-feat-title {
+.nc-schematic-feat-title {
   font-family: var(--font-display);
   font-size: var(--text-lead);
   font-weight: var(--weight-bold);
@@ -123,7 +152,7 @@
   line-height: var(--leading-tight);
 }
 
-.nb-schematic-feat-desc {
+.nc-schematic-feat-desc {
   font-family: var(--font-sans);
   font-size: var(--text-body);
   color: var(--muted);
@@ -132,52 +161,62 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 900px) {
-  .nb-schematic-features {
+
+@media (max-width: 960px) {
+  .nc-schematic-features {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
-  .nb-schematic {
+@media (max-width: 640px) {
+  .nc-schematic {
+    width: 100%;
     height: auto;
-    min-height: 420px;
+    min-height: auto;
+    border: none;
+    background: transparent;
+    margin-inline: 0;
   }
 
-  .nb-schematic-chip {
+  .nc-schematic-svg {
+    display: none;
+  }
+
+  .nc-schematic-chip {
     position: relative;
     left: auto !important;
     top: auto !important;
     width: 100% !important;
-    margin-bottom: var(--space-2xs);
+    height: auto !important;
+    margin-bottom: var(--space-sm);
+    border: 2px solid var(--border-strong);
   }
 
-  .nb-schematic-svg {
-    display: none;
+  .nc-schematic-wrap {
+    overflow: visible;
+    margin-top: var(--space-lg);
   }
-}
 
-@media (max-width: 640px) {
-  .nb-schematic-features {
+  .nc-schematic-features {
     grid-template-columns: 1fr;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nb-schematic-chip {
+  .nc-schematic-chip {
     transition: none;
   }
 
-  .nb-schematic-chip:hover {
+  .nc-schematic-chip:hover {
     transform: none;
     box-shadow: none;
   }
 
-  .nb-schematic-feat {
+  .nc-schematic-feat {
     transition: none;
   }
 
-  .nb-schematic-feat:hover {
-    box-shadow: none;
+  .nc-schematic-feat:hover {
+    box-shadow: 3px 3px 0 var(--border);
   }
 }

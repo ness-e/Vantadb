@@ -1,57 +1,79 @@
-.docs-layout {
+/* ── Reference Manual / Service Spec ── */
+
+.nc-docs-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
   gap: var(--space-xl);
   align-items: start;
 }
 
-.docs-card {
-  margin-bottom: var(--space-xl);
+.nc-docs-card {
+  border: 2px solid var(--border-strong);
+  background: #080808;
   padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  position: relative;
 }
 
-.docs-section-title {
+.nc-docs-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--amber);
+  opacity: 0.3;
+}
+
+.nc-docs-card-title {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
   margin: 0 0 var(--space-md);
 }
 
-.docs-section-desc {
+.nc-docs-card-desc {
+  font-size: var(--text-code);
   line-height: 1.6;
+  color: var(--muted);
   margin: var(--space-sm) 0 var(--space-md);
 }
 
-.docs-code-frame {
-  overflow-x: auto;
+.nc-docs-card-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
 }
 
-.docs-code-pre {
+.nc-docs-card-link:hover {
+  text-decoration: underline;
+}
+
+.nc-docs-card-link::after {
+  content: "\2192";
+}
+
+.nc-docs-code-frame {
+  overflow-x: auto;
+  margin-top: var(--space-sm);
+}
+
+.nc-docs-code-pre {
   margin: 0;
   white-space: pre;
   overflow-x: auto;
-}
-
-.docs-help-block {
-  text-align: center;
-}
-
-.docs-help-label {
   font-family: var(--font-mono);
-  margin-bottom: var(--space-2xs);
-  display: block;
+  font-size: var(--text-code);
+  line-height: 1.7;
+  color: var(--muted);
 }
 
-.docs-help-text {
-  margin: var(--space-2xs) 0;
-  opacity: 0.85;
-}
-
-.docs-help-link {
-  border-color: var(--text-on-amber);
-  box-shadow: var(--shadow-amber-lg);
-}
-
-.docs-limits-list {
+.nc-docs-limits {
   list-style: none;
   padding: 0;
   margin: var(--space-sm) 0 0;
@@ -60,20 +82,45 @@
   gap: var(--space-sm);
 }
 
-.docs-limits-list li {
+.nc-docs-limits li {
   font-size: var(--text-code);
   color: var(--muted);
   line-height: 1.6;
-  padding-left: var(--space-md);
+  padding: var(--space-2xs) 0 var(--space-2xs) var(--space-md);
   border-left: 2px solid var(--danger);
 }
 
-.docs-limits-list li strong {
+.nc-docs-limits li strong {
   color: var(--foreground);
 }
 
+.nc-docs-help {
+  text-align: center;
+}
+
+.nc-docs-help-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--steel);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2xs);
+  display: block;
+}
+
+.nc-docs-help-text {
+  font-size: var(--text-code);
+  margin: var(--space-2xs) 0;
+  opacity: 0.85;
+}
+
+.nc-docs-help-link {
+  border-color: var(--text-on-amber);
+  box-shadow: var(--shadow-amber-lg);
+}
+
 @media (max-width: 768px) {
-  .docs-layout {
+  .nc-docs-layout {
     grid-template-columns: 1fr !important;
   }
 }

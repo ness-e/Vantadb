@@ -132,9 +132,9 @@
 }
 
 .nb-btn--ghost-light:hover {
-  background: #ffffff;
-  color: #000000;
-  border-color: #ffffff;
+  background: var(--white);
+  color: var(--black);
+  border-color: var(--white);
   box-shadow: var(--shadow-lg);
   transform: translate(-2px, -2px);
 }
@@ -217,8 +217,8 @@
 
 .nb-block-warning {
   background: #111111;
-  border: 3px solid #ff5500;
-  color: #ffffff;
+  border: 3px solid var(--amber);
+  color: var(--white);
   padding: var(--space-lg);
   position: relative;
 }
@@ -473,7 +473,7 @@
 }
 
 .nb-log-line--warn::before {
-  color: #ffaa00;
+  color: var(--amber);
 }
 
 .nb-log-line--ok::before {
@@ -481,7 +481,7 @@
 }
 
 .nb-log-line--error::before {
-  color: #ff3333;
+  color: var(--danger);
 }
 
 .nb-metric {

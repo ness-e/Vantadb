@@ -1,8 +1,76 @@
-.security-grid {
-  margin-top: 3rem;
+/* ── Security Clearance / CLASSIFIED ── */
+
+.nc-sec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
-.security-cta-row {
+.nc-sec-card {
+  border: 2px solid var(--border-strong);
+  background: #080808;
+  padding: var(--space-xl);
+  position: relative;
+  overflow: hidden;
+}
+
+.nc-sec-card::before {
+  content: "CLASSIFIED";
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.45rem;
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  opacity: 0.5;
+  border: 1px solid var(--amber-dim);
+  padding: 2px 6px;
+}
+
+.nc-sec-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 20px,
+    rgba(255, 85, 0, 0.015) 20px,
+    rgba(255, 85, 0, 0.015) 21px
+  );
+  pointer-events: none;
+}
+
+.nc-sec-stamp {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  border: 2px solid var(--amber);
+  padding: 4px 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-md);
+  font-weight: var(--weight-bold);
+  position: relative;
+}
+
+.nc-sec-stamp::before {
+  content: "\25A0 ";
+  font-size: 0.4rem;
+}
+
+.nc-sec-body {
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+  position: relative;
+}
+
+.nc-sec-cta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -10,14 +78,32 @@
   flex-wrap: wrap;
 }
 
-.security-cta-heading {
+.nc-sec-cta-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   margin: 0 0 var(--space-2xs);
 }
 
-.security-cta-sub {
+.nc-sec-cta-sub {
   margin: 0;
+  font-size: var(--text-code);
 }
 
-.security-cta-code {
-  margin: 0;
+.nc-sec-cta-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
+}
+
+@media (max-width: 768px) {
+  .nc-sec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-sec-card {
+    transition: none !important;
+  }
 }

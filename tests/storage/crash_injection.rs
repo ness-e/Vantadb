@@ -121,7 +121,12 @@ fn test_crash_injection_and_cold_recovery_loop() {
                 node_id
             );
             let n = node.unwrap();
-            assert_eq!(n.id, node_id.into(), "Iteration {}: Node ID mismatch", i);
+            assert_eq!(
+                n.id,
+                u128::from(node_id),
+                "Iteration {}: Node ID mismatch",
+                i
+            );
         }
 
         // Además, verifiquemos que la estructura HNSW interna sea estructuralmente válida
@@ -235,7 +240,12 @@ fn test_crash_during_active_writes_with_tight_loop() {
                 node_id
             );
             let n = node.unwrap();
-            assert_eq!(n.id, node_id.into(), "Iteration {}: Node ID mismatch", i);
+            assert_eq!(
+                n.id,
+                u128::from(node_id),
+                "Iteration {}: Node ID mismatch",
+                i
+            );
         }
 
         // HNSW index must be structurally valid despite ungraceful shutdown

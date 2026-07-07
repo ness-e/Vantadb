@@ -1,327 +1,439 @@
-.engine-svg-graph {
+/* ── Control Room Instrument Panel ── */
+
+/* ── Ambient CRT scan line overlay ── */
+.nc-engine-crt {
+  position: relative;
+}
+
+.nc-engine-crt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 85, 0, 0.015) 2px,
+    rgba(255, 85, 0, 0.015) 4px
+  );
+  z-index: 1;
+}
+
+/* ── Instrument Panel ── */
+.nc-engine-panel {
+  border: 2px solid var(--border-strong);
+  background: #0a0a0a;
+  padding: var(--space-lg);
+  position: relative;
+}
+
+.nc-engine-panel::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 12px;
+  height: 12px;
+  border-top: 3px solid var(--amber);
+  border-left: 3px solid var(--amber);
+}
+
+.nc-engine-panel::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  border-bottom: 3px solid var(--amber);
+  border-right: 3px solid var(--amber);
+}
+
+.nc-engine-panel-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--amber);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2xs);
+}
+
+.nc-engine-panel-label::before {
+  content: "\25A0";
+  font-size: 0.5rem;
+}
+
+/* ── Gauge Cards ── */
+.nc-engine-gauge {
+  border: 2px solid var(--border-strong);
+  background: #070707;
+  padding: var(--space-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.nc-engine-gauge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255, 85, 0, 0.03), transparent 70%);
+  pointer-events: none;
+}
+
+.nc-engine-gauge-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-metric);
+  font-weight: var(--weight-black);
+  color: var(--amber);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.nc-engine-gauge-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: var(--space-2xs);
+  display: block;
+}
+
+.nc-engine-gauge-unit {
+  font-size: var(--text-body);
+  color: var(--muted);
+  margin-top: var(--space-xs);
+}
+
+/* ── Graph Topology (Radar Sweep) ── */
+.nc-engine-radar {
+  position: relative;
+}
+
+.nc-engine-radar .engine-svg-graph {
   display: block;
   width: 100%;
   height: auto;
+  filter: drop-shadow(0 0 6px rgba(255, 85, 0, 0.15));
 }
 
-.engine-graph-edge {
-  transition:
-    stroke 150ms ease,
-    stroke-width 150ms ease;
+.nc-engine-radar .engine-graph-edge {
+  transition: stroke 150ms ease, stroke-width 150ms ease;
 }
 
-.engine-graph-node {
+.nc-engine-radar .engine-graph-node {
   cursor: pointer;
 }
 
-.engine-graph-ring {
+.nc-engine-radar .engine-graph-ring {
   transition: stroke 150ms ease;
 }
 
-.engine-graph-label {
+.nc-engine-radar .engine-graph-label {
   transition: fill 150ms ease;
 }
 
-.engine-slider-header {
+/* ── Slider (Industrial) ── */
+.nc-engine-slider-wrap {
+  background: #070707;
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+}
+
+.nc-engine-slider-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-visible);
-  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-sm);
   margin-bottom: var(--space-lg);
 }
 
-.engine-slider-title {
+.nc-engine-slider-title {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: var(--text-label);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-weight: var(--weight-bold);
 }
 
-.engine-slider-latency {
+.nc-engine-slider-latency {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--text-micro);
+  color: var(--amber);
   font-variant-numeric: tabular-nums;
 }
 
-.engine-slider-desc {
-  font-size: 0.85rem;
+.nc-engine-slider-desc {
+  font-size: var(--text-code);
   color: var(--muted);
   line-height: 1.6;
-  margin: 0 0 var(--space-lg);
+  margin: 0 0 var(--space-md);
 }
 
-.engine-slider-labels {
+.nc-engine-slider-labels {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-bold);
   margin-bottom: var(--space-md);
   font-variant-numeric: tabular-nums;
+  color: var(--steel);
 }
 
-.engine-slider-stats {
+.nc-engine-slider-stats {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
+  margin-top: var(--space-md);
 }
 
-.engine-slider-stat {
+.nc-engine-slider-stat {
   padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--border);
 }
 
-.engine-slider-stat--fused {
-  border-left: 2px solid var(--amber);
+.nc-engine-slider-stat + .nc-engine-slider-stat {
+  border-left: 1px solid var(--border);
 }
 
-.engine-slider-stat-label {
+.nc-engine-slider-stat--fused {
+  background: rgba(255, 85, 0, 0.04);
+}
+
+.nc-engine-slider-stat-label {
   font-family: var(--font-mono);
   font-size: 0.55rem;
   color: var(--steel);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   display: block;
 }
 
-.engine-slider-stat-label--amber {
+.nc-engine-slider-stat-label--amber {
   color: var(--amber);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
-.engine-slider-stat-value {
+.nc-engine-slider-stat-value {
   font-family: var(--font-mono);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
 
-.engine-slider-stat-value--amber {
+.nc-engine-slider-stat-value--amber {
   color: var(--amber);
 }
 
-input[type="range"].engine-slider {
+input[type="range"].nc-engine-slider-input {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  background: var(--border-visible);
+  height: 3px;
+  background: var(--border-strong);
   outline: none;
-  margin: var(--space-lg) 0;
+  margin: var(--space-md) 0;
+  border-radius: 0;
 }
 
-input[type="range"].engine-slider::-webkit-slider-thumb {
+input[type="range"].nc-engine-slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 0;
   background: var(--amber);
-  border: 2px solid var(--background);
+  border: 2px solid #000;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(255, 85, 0, 0.3);
+}
+
+input[type="range"].nc-engine-slider-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 0;
+  background: var(--amber);
+  border: 2px solid #000;
   cursor: pointer;
 }
 
-input[type="range"].engine-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 0;
-  background: var(--amber);
-  border: 2px solid var(--background);
-  cursor: pointer;
+/* ── WAL Crash Recorder ── */
+.nc-engine-recorder {
+  background: #050505;
+  border: 2px solid var(--border-strong);
 }
 
-.engine-wal-header {
+.nc-engine-recorder-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-visible);
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-lg);
+  background: #0a0a0a;
 }
 
-.engine-wal-status {
+.nc-engine-recorder-status {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
-.engine-wal-dot {
+.nc-engine-recorder-dot {
   display: inline-block;
   width: 8px;
   height: 8px;
+  border: 1px solid var(--border-strong);
 }
 
-.engine-wal-dot[data-state="ready"] {
+.nc-engine-recorder-dot[data-state="ready"] {
   background: var(--amber);
+  box-shadow: 0 0 6px rgba(255, 85, 0, 0.4);
 }
 
-.engine-wal-dot[data-state="crashed"] {
+.nc-engine-recorder-dot[data-state="crashed"] {
   background: var(--danger);
 }
 
-.engine-wal-dot[data-state="recovering"] {
+.nc-engine-recorder-dot[data-state="recovering"] {
   background: var(--steel);
 }
 
-.engine-wal-status-text {
+.nc-engine-recorder-status-text {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
 }
 
-.engine-wal-actions {
+.nc-engine-recorder-actions {
   display: flex;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
 }
 
-.engine-console {
+.nc-engine-recorder-console {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--text-micro);
   height: 200px;
   overflow-y: auto;
-  line-height: 1.6;
-  background: var(--surface);
-  border: 2px solid var(--border-visible);
-  padding: var(--space-lg);
+  line-height: 1.7;
+  padding: var(--space-md) var(--space-lg);
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 27px,
+    rgba(255, 85, 0, 0.04) 27px,
+    rgba(255, 85, 0, 0.04) 28px
+  );
 }
 
-.engine-console-line {
+.nc-engine-recorder-line {
   padding: var(--space-2xs) 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 85, 0, 0.06);
 }
 
-.engine-console-line[data-level="error"] {
+.nc-engine-recorder-line[data-level="error"] {
   color: var(--danger);
 }
 
-.engine-console-line[data-level="ok"] {
+.nc-engine-recorder-line[data-level="ok"] {
   color: var(--amber);
 }
 
-.engine-console-line[data-level="warn"] {
+.nc-engine-recorder-line[data-level="warn"] {
   color: var(--steel);
 }
 
-.engine-console-line[data-level="info"] {
+.nc-engine-recorder-line[data-level="info"] {
   color: var(--muted);
 }
 
-.engine-pipeline-scroll {
+/* ── Pipeline Conveyor ── */
+.nc-engine-conveyor {
   overflow-x: auto;
-  background: var(--surface);
-  border: 2px solid var(--border-visible);
-  padding: var(--space-3xl) var(--space-xl);
+  background: #070707;
+  border: 2px solid var(--border-strong);
+  padding: var(--space-2xl) var(--space-lg);
+  position: relative;
 }
 
-.engine-pipeline-track {
+.nc-engine-conveyor::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--border-strong) 0,
+    var(--border-strong) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+.nc-engine-conveyor-track {
   display: flex;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   align-items: center;
   min-width: max-content;
 }
 
-.engine-pipeline-stage {
+.nc-engine-conveyor-stage {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-.engine-pipeline-card {
-  min-width: 140px;
-  padding: 1.25rem 2rem;
+.nc-engine-conveyor-card {
+  min-width: 130px;
+  padding: 1rem 1.5rem;
   background: var(--background);
-  border: 2px solid var(--border-visible);
+  border: 2px solid var(--border-strong);
+  position: relative;
 }
 
-.engine-pipeline-card[data-accent="amber"] {
+.nc-engine-conveyor-card[data-accent="amber"] {
   border-color: var(--amber);
+  background: rgba(255, 85, 0, 0.04);
 }
 
-.engine-pipeline-card[data-accent="steel"] {
+.nc-engine-conveyor-card[data-accent="steel"] {
   border-color: var(--steel);
 }
 
-.engine-pipeline-card-name {
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  font-weight: 700;
+.nc-engine-conveyor-card-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
   color: var(--foreground);
 }
 
-.engine-pipeline-card-desc {
+.nc-engine-conveyor-card-desc {
   font-family: var(--font-mono);
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   color: var(--muted);
   text-transform: uppercase;
+  letter-spacing: 0.06em;
   margin-top: var(--space-2xs);
 }
 
-.engine-pipeline-arrow {
+.nc-engine-conveyor-arrow {
   font-family: var(--font-mono);
-  color: var(--border-visible);
-  font-size: 1rem;
-}
-
-.nb-card-frame-title {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: var(--space-xs) 0;
-  color: var(--foreground);
-}
-
-.nb-card-frame-desc {
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 var(--space-lg);
-}
-
-.nb-card-frame-stats {
-  display: flex;
-  gap: var(--space-xl);
-}
-
-.nb-card-frame-stat-value {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--foreground);
-  font-variant-numeric: tabular-nums;
-}
-
-.nb-card-frame-stat-value--amber {
   color: var(--amber);
+  font-size: var(--text-lead);
+  opacity: 0.5;
 }
 
-.nb-card-frame-stat-label {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--steel);
-}
-
-.nb-card-frame-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: var(--space-md);
-}
-
-.nb-card-frame-header-label {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--steel);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.nb-card-frame-header-hint {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--muted);
-}
-
-.engine-cta-layout {
+/* ── CTA ── */
+.nc-engine-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -329,37 +441,50 @@ input[type="range"].engine-slider::-moz-range-thumb {
   flex-wrap: wrap;
 }
 
-.engine-cta-heading {
+.nc-engine-cta-heading {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   margin: 0 0 var(--space-2xs);
 }
 
-.engine-cta-sub {
-  font-size: 0.875rem;
+.nc-engine-cta-sub {
+  font-size: var(--text-code);
   opacity: 0.8;
   margin: 0;
 }
 
-.engine-cta-code {
+.nc-engine-cta-code {
   font-family: var(--font-mono);
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
 }
 
+/* ── Section spacing ── */
+.nc-engine-section {
+  margin-top: var(--space-2xl);
+}
+
+/* ── Responsive ── */
 @media (max-width: 768px) {
-  .engine-pipeline-card {
-    min-width: 110px;
-    padding: 1rem 1.25rem;
+  .nc-engine-conveyor-card {
+    min-width: 100px;
+    padding: 0.75rem 1rem;
   }
 
-  .engine-slider-stats {
+  .nc-engine-slider-stats {
     grid-template-columns: 1fr;
   }
 
-  .nb-card-frame-stats {
-    flex-direction: column;
-    gap: var(--space-sm);
+  .nc-engine-slider-stat + .nc-engine-slider-stat {
+    border-left: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-engine-radar .engine-graph-edge,
+  .nc-engine-radar .engine-graph-ring,
+  .nc-engine-radar .engine-graph-label {
+    transition: none !important;
   }
 }
