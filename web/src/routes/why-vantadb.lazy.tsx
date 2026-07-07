@@ -55,21 +55,21 @@ function WhyVantaDBPage() {
   const ctaRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(comparisonRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, comparisonRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(principlesRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, principlesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(ctaRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -83,62 +83,63 @@ function WhyVantaDBPage() {
         sub="21 reasons to ship embedded vector search."
       />
 
-      <NbSection ref={comparisonRef} ariaLabel="Comparison">
-        <NbSectionHeader
-          monoLabel="[COMPARISON]"
-          headline="VantaDB vs the field."
-          sub="Side-by-side comparison of architecture, latency, embedding, storage, search capability, and licensing."
-        />
-        <div className="nb-grid nb-grid--cols-2 why-vantadb-compare-grid nb-engine-part">
-          {COMPARISONS.map((c) => (
-            <div key={c.category} className="why-vantadb-compare-item">
-              <span className="nb-mono-label">{c.category}</span>
-              <div className="why-vantadb-compare-row">
-                <span className="why-vantadb-compare-vantadb">{c.vantadb}</span>
-                <span className="why-vantadb-arrow">→</span>
-                <span className="why-vantadb-compare-others">{c.others}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </NbSection>
+      <main>
+        <NbSection ref={comparisonRef} ariaLabel="Comparison">
+          <NbSectionHeader
+            monoLabel="[COMPARISON]"
+            headline="VantaDB vs the field."
+            sub="Side-by-side comparison of architecture, latency, embedding, storage, search capability, and licensing."
+          />
+          <table className="nc-why-table nc-why-part">
+            <tbody>
+              {COMPARISONS.map((c) => (
+                <tr key={c.category}>
+                  <td className="nc-why-cat">{c.category}</td>
+                  <td className="nc-why-vanta">{c.vantadb}</td>
+                  <td className="nc-why-others">{c.others}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </NbSection>
 
-      <NbSection
-        ref={principlesRef}
-        variant="lg"
-        className="nb-bg-cross--faint"
-        ariaLabel="Principles"
-      >
-        <NbSectionHeader
-          monoLabel="[PRINCIPLES]"
-          headline="Design philosophy."
-          sub="Three axioms that guide every decision in VantaDB."
-        />
-        <div className="nb-grid nb-grid--cols-3 nb-engine-part">
-          {PRINCIPLES.map((p) => (
-            <div key={p.title} className="why-vantadb-principle-card">
-              <h3 className="nb-card-frame-title">{p.title}</h3>
-              <p className="nb-card-frame-desc">{p.desc}</p>
-            </div>
-          ))}
-        </div>
-      </NbSection>
-
-      <NbSection ref={ctaRef} ariaLabel="Call to action">
-        <div className="nb-engine-part">
-          <NbBlockAmber as="div">
-            <div className="why-vantadb-cta-row">
-              <div>
-                <h2 className="why-vantadb-cta-heading">Ready to ship.</h2>
-                <p className="why-vantadb-cta-sub">One dependency. Zero infrastructure.</p>
+        <NbSection
+          ref={principlesRef}
+          variant="lg"
+          className="nb-bg-cross--faint"
+          ariaLabel="Principles"
+        >
+          <NbSectionHeader
+            monoLabel="[PRINCIPLES]"
+            headline="Design philosophy."
+            sub="Three axioms that guide every decision in VantaDB."
+          />
+          <div className="nc-why-pillars nc-why-part">
+            {PRINCIPLES.map((p) => (
+              <div key={p.title} className="nc-why-pillar nc-why-pillar--amber">
+                <h3 className="nc-why-pillar-title">{p.title}</h3>
+                <p className="nc-why-pillar-desc">{p.desc}</p>
               </div>
-              <Link to="/about/company" className="nb-btn nb-btn--ghost">
-                cd about/company
-              </Link>
-            </div>
-          </NbBlockAmber>
-        </div>
-      </NbSection>
+            ))}
+          </div>
+        </NbSection>
+
+        <NbSection ref={ctaRef} ariaLabel="Call to action">
+          <div className="nc-why-part">
+            <NbBlockAmber as="div">
+              <div className="nc-why-cta">
+                <div>
+                  <h2 className="nc-why-cta-heading">Ready to ship.</h2>
+                  <p className="nc-why-cta-sub">One dependency. Zero infrastructure.</p>
+                </div>
+                <Link to="/about/company" className="nb-btn nb-btn--ghost">
+                  cd about/company
+                </Link>
+              </div>
+            </NbBlockAmber>
+          </div>
+        </NbSection>
+      </main>
     </div>
   );
 }

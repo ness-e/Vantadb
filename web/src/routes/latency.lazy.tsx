@@ -111,7 +111,9 @@ function LatencyPage() {
 
           <div className="nc-lat-split">
             <div className="nc-lat-col nc-lat-part">
-              <span className="nc-lat-col-title nc-lat-col-title--danger">LEGACY \u2014 ~200ms</span>
+              <span className="nc-lat-col-title nc-lat-col-title--danger">
+                LEGACY \u2014 ~200ms
+              </span>
               <ul className="nc-lat-list">
                 {LEGACY_ITEMS.map((item) => (
                   <li key={item} className="nc-lat-item">

@@ -19,20 +19,44 @@ const releases = [
     date: "2026-06-22",
     tag: "Integrations + CLI Epic",
     changes: [
-      { type: "feature", text: "10 integration crates: OpenAI, Ollama, Haystack, DSPy, LiteLLM, CrewAI, Mem0, Letta, MCP (experimental), WASM (experimental)." },
-      { type: "feature", text: "Python SDK: 28 methods across query, graph, namespace, and admin operations." },
-      { type: "feature", text: "AsyncVantaDB wrapper with full async SDK and context manager support." },
-      { type: "feature", text: "CLI: 10 subcommands \u2014 put, get, delete, search, list, server, export, import, rebuild-index, stats, compact." },
-      { type: "feature", text: "MCP interface (vantadb-mcp) \u2014 expose VantaDB as an MCP tool server." },
-      { type: "feature", text: "WASM bindings (vantadb-wasm) \u2014 in-browser vector search via WebAssembly." },
+      {
+        type: "feature",
+        text: "10 integration crates: OpenAI, Ollama, Haystack, DSPy, LiteLLM, CrewAI, Mem0, Letta, MCP (experimental), WASM (experimental).",
+      },
+      {
+        type: "feature",
+        text: "Python SDK: 28 methods across query, graph, namespace, and admin operations.",
+      },
+      {
+        type: "feature",
+        text: "AsyncVantaDB wrapper with full async SDK and context manager support.",
+      },
+      {
+        type: "feature",
+        text: "CLI: 10 subcommands \u2014 put, get, delete, search, list, server, export, import, rebuild-index, stats, compact.",
+      },
+      {
+        type: "feature",
+        text: "MCP interface (vantadb-mcp) \u2014 expose VantaDB as an MCP tool server.",
+      },
+      {
+        type: "feature",
+        text: "WASM bindings (vantadb-wasm) \u2014 in-browser vector search via WebAssembly.",
+      },
       { type: "feature", text: "SQ8 quantization \u2014 4x memory reduction for vector indices." },
       { type: "feature", text: "Zero-copy HNSW graph archive with rkyv serialization." },
       { type: "feature", text: "WAL compaction, TTL eviction, batch put with Rayon parallelism." },
       { type: "feature", text: "Python 3.13+ support, ARM64 Linux wheels, Homebrew formula." },
       { type: "fix", text: "16 risky .unwrap() calls replaced with ? + error handling." },
       { type: "fix", text: "Infinite recursion in text_index without advanced-tokenizer." },
-      { type: "perf", text: "Cached inverse norms for cosine similarity; squared Euclidean distance." },
-      { type: "security", text: "PyO3 0.24 \u2192 0.29 upgrade, bincode 1.3 \u2192 2.0 migration." },
+      {
+        type: "perf",
+        text: "Cached inverse norms for cosine similarity; squared Euclidean distance.",
+      },
+      {
+        type: "security",
+        text: "PyO3 0.24 \u2192 0.29 upgrade, bincode 1.3 \u2192 2.0 migration.",
+      },
     ],
   },
   {
@@ -41,7 +65,10 @@ const releases = [
     tag: "Hardening",
     changes: [
       { type: "feature", text: "Metrics hardening and heap memory drift instrumentation." },
-      { type: "feature", text: "Expanded filter operators (Eq, Neq, Gt, Gte, Lt, Lte, In, Exists)." },
+      {
+        type: "feature",
+        text: "Expanded filter operators (Eq, Neq, Gt, Gte, Lt, Lte, In, Exists).",
+      },
       { type: "feature", text: "delete_by_filter(), similar_to_key(), count() SDK methods." },
       { type: "fix", text: "All production unwrap() calls replaced with ? propagation." },
       { type: "fix", text: "File locking edge cases: antivirus, backup, stale lock recovery." },
@@ -79,7 +106,10 @@ const releases = [
       { type: "feature", text: "3 storage backends: Fjall (default), RocksDB, InMemory." },
       { type: "feature", text: "Python bindings via PyO3 with full SDK." },
       { type: "feature", text: "WAL-backed durability with 3 sync modes." },
-      { type: "feature", text: "CI/CD: rust_ci, python_wheels, heavy_certification, bench workflows." },
+      {
+        type: "feature",
+        text: "CI/CD: rust_ci, python_wheels, heavy_certification, bench workflows.",
+      },
     ],
   },
 ];
@@ -173,9 +203,7 @@ function ChangelogPage() {
                     const cfg = TYPE_CONFIG[change.type] || { label: change.type.toUpperCase() };
                     return (
                       <div key={ci} className="nc-cl-change">
-                        <span className={`nc-cl-type nc-cl-type--${change.type}`}>
-                          {cfg.label}
-                        </span>
+                        <span className={`nc-cl-type nc-cl-type--${change.type}`}>{cfg.label}</span>
                         <span className="nc-cl-text">{change.text}</span>
                       </div>
                     );

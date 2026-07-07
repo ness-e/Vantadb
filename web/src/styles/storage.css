@@ -1,214 +1,245 @@
-.storage-compare-grid {
+/* ── Data Vault / Stack Consolidator ── */
+
+.nc-stor-compare {
   display: grid;
   grid-template-columns: 1fr 60px 1fr;
   align-items: center;
-  margin-top: 3rem;
-  margin-bottom: 3rem;
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-xl);
 }
 
-.storage-compare-col {
-  border: 2px solid var(--border-visible);
+.nc-stor-col {
+  border: 2px solid var(--border-strong);
   display: flex;
   flex-direction: column;
+  background: #080808;
 }
 
-.storage-compare-col--accent {
-  border-color: var(--border-visible);
-  border-left-color: var(--amber);
+.nc-stor-col--vanta {
+  border-color: var(--amber);
+  box-shadow: 4px 4px 0 var(--amber-dim);
 }
 
-.storage-arrow-col {
+.nc-stor-arrow {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.storage-cell-border-bottom {
-  border-bottom: 1px solid var(--border-visible);
-}
-
-.storage-cell-border-top {
-  border-top: 1px solid var(--border-visible);
-}
-
-.storage-label-mono {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: var(--text-title);
+  color: var(--amber);
+}
+
+.nc-stor-cell {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-md);
+}
+
+.nc-stor-cell:last-child {
+  border-bottom: none;
+}
+
+.nc-stor-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.storage-label-mono--steel {
+.nc-stor-label--steel {
   color: var(--steel);
 }
 
-.storage-label-mono--amber {
+.nc-stor-label--amber {
   color: var(--amber);
 }
 
-.storage-label-mono--danger {
+.nc-stor-label--danger {
   color: var(--danger);
 }
 
-.storage-service-name {
+.nc-stor-service {
   font-family: var(--font-display);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
   color: var(--foreground);
 }
 
-.storage-service-role {
+.nc-stor-role {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.5rem;
   color: var(--steel);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-top: 0.25rem;
+  margin-top: var(--space-2xs);
 }
 
-.storage-brand-name {
+.nc-stor-brand {
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   letter-spacing: -0.04em;
   color: var(--amber);
 }
 
-.storage-brand-tags {
+.nc-stor-tags {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: var(--text-micro);
   color: var(--muted);
-  margin-top: 0.5rem;
+  margin-top: var(--space-2xs);
 }
 
-.storage-ul-reset {
+.nc-stor-list {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.storage-list-gap {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: var(--space-sm);
 }
 
-.storage-li-item {
+.nc-stor-item {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-sm);
+  font-size: var(--text-code);
   line-height: 1.6;
 }
 
-.storage-li-item--muted {
+.nc-stor-item--muted {
   color: var(--muted);
 }
 
-.storage-li-item--foreground {
+.nc-stor-item--fg {
   color: var(--foreground);
 }
 
-.storage-icon {
+.nc-stor-icon {
   flex-shrink: 0;
   min-width: 1rem;
 }
 
-.storage-icon--danger {
+.nc-stor-icon--danger {
   color: var(--danger);
 }
 
-.storage-icon--vanta {
+.nc-stor-icon--amber {
   color: var(--amber);
 }
 
-.storage-cell-amber-border {
-  border-left: 2px solid var(--amber);
+.nc-stor-arch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
-.storage-arch-cell {
+.nc-stor-arch-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-sm);
 }
 
-.storage-arch-num {
+.nc-stor-arch-num {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: var(--text-micro);
   color: var(--amber);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-.storage-arch-title {
+.nc-stor-arch-title {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
   margin: 0;
 }
 
-.storage-arch-desc {
+.nc-stor-arch-desc {
+  font-size: var(--text-code);
   line-height: 1.6;
+  color: var(--muted);
   margin: 0;
 }
 
-.storage-state-label {
+.nc-stor-state {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
+}
+
+.nc-stor-state-card {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
+}
+
+.nc-stor-state-label {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: var(--text-micro);
   color: var(--amber);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-sm);
 }
 
-.storage-state-name {
+.nc-stor-state-name {
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   letter-spacing: -0.04em;
   color: var(--foreground);
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-sm);
 }
 
-.storage-state-desc {
+.nc-stor-state-desc {
+  font-size: var(--text-code);
   line-height: 1.6;
+  color: var(--muted);
   margin: 0;
 }
 
-.storage-cta-layout {
+.nc-stor-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-md);
   flex-wrap: wrap;
 }
 
-.storage-cta-title {
+.nc-stor-cta-title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 800;
-  color: var(--text-on-amber);
-  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
+  margin: 0 0 var(--space-2xs);
 }
 
-.storage-cta-sub {
-  color: var(--text-on-amber);
+.nc-stor-cta-sub {
+  font-size: var(--text-code);
   opacity: 0.8;
   margin: 0;
 }
 
-.storage-cta-code {
+.nc-stor-cta-code {
   font-family: var(--font-mono);
-  font-size: 1.125rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  color: var(--text-on-amber);
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
 }
 
 @media (max-width: 768px) {
-  .storage-compare-grid {
+  .nc-stor-compare {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: var(--space-md);
+  }
+
+  .nc-stor-arch {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-stor-state {
+    grid-template-columns: 1fr;
   }
 }

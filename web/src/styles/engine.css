@@ -124,7 +124,9 @@
 }
 
 .nc-engine-radar .engine-graph-edge {
-  transition: stroke 150ms ease, stroke-width 150ms ease;
+  transition:
+    stroke 150ms ease,
+    stroke-width 150ms ease;
 }
 
 .nc-engine-radar .engine-graph-node {

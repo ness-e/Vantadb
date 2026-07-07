@@ -1,85 +1,121 @@
-.config-grid {
-  margin-top: 3rem;
+/* ── Setup Wizard / Checklist ── */
+
+.nc-cfg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
-.config-label-legacy {
-  margin-bottom: var(--space-sm);
+.nc-cfg-col {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #080808;
 }
 
-.config-label-vanta {
-  margin-bottom: var(--space-sm);
+.nc-cfg-col--vanta {
+  border-color: var(--amber);
+  box-shadow: 4px 4px 0 var(--amber-dim);
 }
 
-.config-cell-border {
-  border-left: 2px solid var(--amber);
-}
-
-.config-cell-code {
-  padding: 0;
-  background: var(--black);
-}
-
-.config-cell-code-accent {
-  padding: 0;
-  background: var(--black);
-  border-left: 2px solid var(--amber);
-}
-
-.config-code-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) 1.25rem;
+.nc-cfg-col-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
   border-bottom: 1px solid var(--border);
 }
 
-.config-code-filename {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.nc-cfg-col-title--danger {
+  color: var(--danger);
 }
 
-.config-code-lines {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
+.nc-cfg-col-title--amber {
+  color: var(--amber);
+  font-weight: var(--weight-bold);
 }
 
-.config-code-filename--amber {
+.nc-cfg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.nc-cfg-item {
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.5;
+  padding: var(--space-2xs) 0;
+  padding-left: var(--space-sm);
+  border-left: 2px solid var(--border);
+}
+
+.nc-cfg-col--vanta .nc-cfg-item {
+  border-left-color: var(--amber-dim);
+}
+
+.nc-cfg-code-col {
+  border: 2px solid var(--border-strong);
+  background: #050505;
+}
+
+.nc-cfg-code-col--amber {
+  border-color: var(--amber);
+}
+
+.nc-cfg-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.nc-cfg-code-name {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: var(--text-micro);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  color: var(--steel);
+}
+
+.nc-cfg-code-name--amber {
+  color: var(--amber);
+  font-weight: var(--weight-bold);
+}
+
+.nc-cfg-code-lines {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: var(--muted);
+}
+
+.nc-cfg-code-lines--amber {
   color: var(--amber);
 }
 
-.config-code-lines--amber {
-  font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--amber);
-}
-
-.config-code-pre {
+.nc-cfg-code-pre {
   margin: 0;
-  padding: 1.5rem;
+  padding: var(--space-md);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--text-micro);
   line-height: 1.6;
   overflow-x: auto;
   white-space: pre;
+  color: var(--muted);
 }
 
-.config-code-pre--fg {
-  margin: 0;
-  padding: 1.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  line-height: 1.6;
-  overflow-x: auto;
-  white-space: pre;
+.nc-cfg-code-pre--fg {
+  color: var(--foreground);
 }
 
-.config-cta-row {
+.nc-cfg-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -87,14 +123,26 @@
   flex-wrap: wrap;
 }
 
-.config-cta-heading {
+.nc-cfg-cta-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   margin: 0 0 var(--space-2xs);
 }
 
-.config-cta-sub {
+.nc-cfg-cta-sub {
+  font-size: var(--text-code);
   margin: 0;
 }
 
-.config-cta-code {
-  margin: 0;
+.nc-cfg-cta-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
+}
+
+@media (max-width: 768px) {
+  .nc-cfg-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,41 +1,76 @@
-.why-vantadb-compare-grid {
+/* ── Pitch Deck / Value Prop Board ── */
+
+.nc-why-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-xl);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+}
+
+.nc-why-table td {
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.nc-why-table tr:last-child td {
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.nc-why-cat {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--steel);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.nc-why-vanta {
+  color: var(--amber);
+}
+
+.nc-why-others {
+  color: var(--muted);
+}
+
+.nc-why-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
   margin-top: var(--space-xl);
 }
 
-.why-vantadb-compare-item {
-  padding: var(--space-lg) var(--space-xl);
-  background: var(--background);
-}
-
-.why-vantadb-compare-row {
-  display: flex;
-  gap: var(--space-md);
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-code);
-  line-height: 1.5;
-  margin-top: var(--space-xs);
-}
-
-.why-vantadb-compare-vantadb {
-  color: var(--amber);
-  flex: 1;
-}
-
-.why-vantadb-compare-others {
-  color: var(--steel);
-  flex: 1;
-}
-
-.why-vantadb-principle-card {
+.nc-why-pillar {
+  border: 2px solid var(--border-strong);
   padding: var(--space-xl);
+  background: #070707;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  border-left: 2px solid var(--border-visible);
 }
 
-.why-vantadb-cta-row {
+.nc-why-pillar--amber {
+  border-color: var(--amber);
+}
+
+.nc-why-pillar-title {
+  font-family: var(--font-display);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  margin: 0;
+}
+
+.nc-why-pillar-desc {
+  font-size: var(--text-code);
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
+}
+
+.nc-why-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -43,21 +78,27 @@
   flex-wrap: wrap;
 }
 
-.why-vantadb-cta-heading {
+.nc-why-cta-heading {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   margin: 0 0 var(--space-2xs);
 }
 
-.why-vantadb-cta-sub {
-  font-size: 0.875rem;
+.nc-why-cta-sub {
+  font-size: var(--text-code);
   opacity: 0.8;
   margin: 0;
 }
 
-.why-vantadb-arrow {
-  font-family: var(--font-mono);
-  color: var(--amber);
-  line-height: 1;
+@media (max-width: 768px) {
+  .nc-why-pillars {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-why-table td {
+    transition: none;
+  }
 }

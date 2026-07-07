@@ -1,87 +1,146 @@
-.cost-grid {
-  margin-top: 3rem;
+/* ── Cost Analyzer / Receipt Comparison ── */
+
+.nc-cost-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
-.cost-label-legacy {
-  margin-bottom: var(--space-sm);
+.nc-cost-col {
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #080808;
 }
 
-.cost-label-vanta {
-  margin-bottom: var(--space-sm);
+.nc-cost-col--vanta {
+  border-color: var(--amber);
+  box-shadow: 4px 4px 0 var(--amber-dim);
 }
 
-.cost-list {
+.nc-cost-col-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: block;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.nc-cost-col-title--danger {
+  color: var(--danger);
+}
+
+.nc-cost-col-title--amber {
+  color: var(--amber);
+  font-weight: var(--weight-bold);
+}
+
+.nc-cost-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.nc-cost-item {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: var(--text-code);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.nc-cost-item--fg {
+  color: var(--foreground);
+}
+
+.nc-cost-icon {
+  flex-shrink: 0;
+  min-width: 1rem;
+  font-family: var(--font-mono);
+}
+
+.nc-cost-icon--danger {
+  color: var(--danger);
+}
+
+.nc-cost-icon--amber {
+  color: var(--amber);
+}
+
+.nc-cost-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-xl);
+}
+
+.nc-cost-provider-table {
+  border-collapse: collapse;
+  border: 2px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  min-width: 700px;
+}
+
+.nc-cost-provider-table th {
+  padding: var(--space-md) var(--space-sm);
+  text-align: left;
+  border-bottom: 2px solid var(--border-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.5rem;
+  font-weight: var(--weight-bold);
+  background: #050505;
+}
+
+.nc-cost-provider-table td {
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.nc-cost-provider-table th[data-amber="true"],
+.nc-cost-provider-table td[data-amber="true"] {
+  color: var(--amber);
+}
+
+.nc-cost-provider-table tfoot td {
+  border-top: 2px solid var(--border-strong);
+  font-weight: var(--weight-bold);
+}
+
+.nc-cost-tco {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: var(--space-xl);
+  align-items: center;
+  border: 2px solid var(--border-strong);
+  padding: var(--space-lg);
+  background: #070707;
   margin-top: var(--space-md);
 }
 
-.cost-list-item {
-  display: flex;
-  gap: var(--space-sm);
-}
-
-.cost-list-item--foreground {
-  gap: var(--space-sm);
-}
-
-.cost-icon-danger {
-  min-width: 1rem;
-}
-
-.cost-icon-amber {
-  min-width: 1rem;
-}
-
-.cost-cell-border {
-  border-left: 2px solid var(--amber);
-}
-
-.cost-table {
-  border: none;
-}
-
-.cost-th[data-amber="true"] {
+.nc-cost-tco-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
   color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.cost-td[data-amber="true"] {
-  color: var(--amber);
-}
-
-.cost-tfoot-row {
-  border-top: 2px solid var(--border-visible);
-}
-
-.cost-tfoot-value[data-amber="true"] {
-  color: var(--amber);
-}
-
-.cost-muted-cell {
+.nc-cost-tco-text {
+  font-size: var(--text-code);
+  line-height: 1.6;
+  margin: 0;
   color: var(--muted);
 }
 
-.cost-grid-flush {
-  margin-top: 0;
-}
-
-.cost-tco-cell {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 2rem;
-  align-items: center;
-}
-
-.cost-tco-text {
-  margin: 0;
-}
-
-.cost-cta-row {
+.nc-cost-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -89,14 +148,33 @@
   flex-wrap: wrap;
 }
 
-.cost-cta-heading {
+.nc-cost-cta-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-title);
+  font-weight: var(--weight-black);
   margin: 0 0 var(--space-2xs);
 }
 
-.cost-cta-sub {
+.nc-cost-cta-sub {
+  font-size: var(--text-code);
   margin: 0;
 }
 
-.cost-cta-code {
-  margin: 0;
+.nc-cost-cta-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-lead);
+  font-weight: var(--weight-bold);
+}
+
+@media (max-width: 768px) {
+  .nc-cost-grid {
+    grid-template-columns: 1fr;
+  }
+  .nc-cost-provider-grid {
+    grid-template-columns: 1fr;
+    overflow-x: auto;
+  }
+  .nc-cost-tco {
+    grid-template-columns: 1fr;
+  }
 }

@@ -54,7 +54,9 @@ function BenchmarksPage() {
             </thead>
             <tbody>
               <tr>
-                <td className="nc-bm-td"><span className="nc-bm-amber">VantaDB (Rust)</span></td>
+                <td className="nc-bm-td">
+                  <span className="nc-bm-amber">VantaDB (Rust)</span>
+                </td>
                 <td className="nc-bm-td-right nc-bm-amber">8,450</td>
                 <td className="nc-bm-td-right nc-bm-amber">1,195</td>
                 <td className="nc-bm-td-right nc-bm-amber">2.43</td>
@@ -81,9 +83,9 @@ function BenchmarksPage() {
         </p>
 
         <div className="nc-bm-note nc-bm-part">
-          <strong className="nc-bm-amber">Note:</strong> Benchmarks shown represent raw
-          Rust core performance on the SIFT1M dataset. Real-world performance varies by dataset
-          size, dimensionality, and hardware configuration. See full methodology in{" "}
+          <strong className="nc-bm-amber">Note:</strong> Benchmarks shown represent raw Rust core
+          performance on the SIFT1M dataset. Real-world performance varies by dataset size,
+          dimensionality, and hardware configuration. See full methodology in{" "}
           <code className="nc-bm-code">docs/operations/BENCHMARKS.md</code>.
         </div>
       </NbSection>

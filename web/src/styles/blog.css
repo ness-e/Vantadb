@@ -198,7 +198,6 @@
   }
 }
 
-
 @media (prefers-reduced-motion: reduce) {
   .blog-post-link {
     transition: none !important;

@@ -56,14 +56,14 @@ function CostPage() {
   const providersRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-cost-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(costRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
   }, costRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nb-engine-part");
+    const parts = gsap.utils.toArray<HTMLElement>(".nc-cost-part");
     if (!parts.length) return;
     const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(providersRef.current, 60) });
     parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
@@ -91,30 +91,28 @@ function CostPage() {
             sub="VantaDB eliminates the single largest variable cost from your vector search infrastructure — your only expense is the hardware you already run."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 cost-grid">
-              <div className="nb-cell">
-                <div className="cost-label-legacy">LEGACY — ~$200/mo</div>
-                <ul className="cost-list">
-                  {LEGACY_COSTS.map((item) => (
-                    <li key={item} className="cost-list-item">
-                      <span className="cost-icon-danger">✗</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="nb-cell cost-cell-border">
-                <div className="cost-label-vanta">VANTADB — $0</div>
-                <ul className="cost-list">
-                  {VANTA_COSTS.map((item) => (
-                    <li key={item} className="cost-list-item cost-list-item--foreground">
-                      <span className="cost-icon-amber">✓</span>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <div className="nc-cost-grid nc-cost-part">
+            <div className="nc-cost-col">
+              <span className="nc-cost-col-title nc-cost-col-title--danger">LEGACY — ~$200/mo</span>
+              <ul className="nc-cost-list">
+                {LEGACY_COSTS.map((item) => (
+                  <li key={item} className="nc-cost-item">
+                    <span className="nc-cost-icon nc-cost-icon--danger">✗</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="nc-cost-col nc-cost-col--vanta">
+              <span className="nc-cost-col-title nc-cost-col-title--amber">VANTADB — $0</span>
+              <ul className="nc-cost-list">
+                {VANTA_COSTS.map((item) => (
+                  <li key={item} className="nc-cost-item nc-cost-item--fg">
+                    <span className="nc-cost-icon nc-cost-icon--amber">✓</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </NbSection>
@@ -126,14 +124,14 @@ function CostPage() {
             sub="How VantaDB's $0 model stacks up against the leading managed vector database solutions."
           />
 
-          <div className="nb-engine-part">
-            <div className="nb-card-frame">
-              <table className="nb-table cost-table">
+          <div className="nc-cost-part">
+            <div style={{ overflowX: "auto" }}>
+              <table className="nc-cost-provider-table">
                 <thead>
                   <tr>
                     <th>Component</th>
                     {PROVIDERS.map((p) => (
-                      <th key={p.name} className="cost-th" data-amber={p.total === 0}>
+                      <th key={p.name} data-amber={p.total === 0}>
                         {p.name}
                       </th>
                     ))}
@@ -142,11 +140,11 @@ function CostPage() {
                 <tbody>
                   {(["Vector DB", "Cache", "Storage", "Egress", "Ops"] as const).map((comp) => (
                     <tr key={comp}>
-                      <td className="cost-muted-cell">{comp}</td>
+                      <td>{comp}</td>
                       {PROVIDERS.map((p) => {
                         const val = p.breakdown[comp];
                         return (
-                          <td key={p.name} className="cost-td" data-amber={val === 0}>
+                          <td key={p.name} data-amber={val === 0}>
                             ${val}
                           </td>
                         );
@@ -155,10 +153,10 @@ function CostPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="cost-tfoot-row">
+                  <tr>
                     <td>Total</td>
                     {PROVIDERS.map((p) => (
-                      <td key={p.name} className="cost-tfoot-value" data-amber={p.total === 0}>
+                      <td key={p.name} data-amber={p.total === 0}>
                         ${p.total}
                       </td>
                     ))}
@@ -168,28 +166,24 @@ function CostPage() {
             </div>
           </div>
 
-          <div className="nb-engine-part">
-            <div className="nb-grid nb-grid--cols-2 cost-grid-flush">
-              <div className="nb-cell cost-tco-cell">
-                <span className="nb-mono-label">TCO NOTE</span>
-                <p className="cost-tco-text">
-                  By eliminating three managed services, VantaDB removes the single largest variable
-                  cost from your vector search infrastructure. Your only expense is the compute you
-                  already run.
-                </p>
-              </div>
-            </div>
+          <div className="nc-cost-tco nc-cost-part">
+            <span className="nc-cost-tco-label">TCO NOTE</span>
+            <p className="nc-cost-tco-text">
+              By eliminating three managed services, VantaDB removes the single largest variable
+              cost from your vector search infrastructure. Your only expense is the compute you
+              already run.
+            </p>
           </div>
         </NbSection>
 
         <NbSection className="nb-bg-dot" ariaLabel="Get started">
           <NbBlockAmber as="div">
-            <div className="cost-cta-row">
+            <div className="nc-cost-cta">
               <div>
-                <h2 className="cost-cta-heading">Free software. Zero runtime cost.</h2>
-                <p className="cost-cta-sub">Install VantaDB in one command.</p>
+                <h2 className="nc-cost-cta-heading">Free software. Zero runtime cost.</h2>
+                <p className="nc-cost-cta-sub">Install VantaDB in one command.</p>
               </div>
-              <code className="cost-cta-code">pip install vantadb-py</code>
+              <code className="nc-cost-cta-code">pip install vantadb-py</code>
             </div>
           </NbBlockAmber>
         </NbSection>

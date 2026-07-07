@@ -31,7 +31,6 @@
   }
 }
 
-
 @media (prefers-reduced-motion: reduce) {
   .about-nav-card {
     transition: none !important;

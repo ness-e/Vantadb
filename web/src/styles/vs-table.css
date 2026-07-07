@@ -92,7 +92,6 @@
   background: var(--amber-dim);
 }
 
-
 @media (prefers-reduced-motion: reduce) {
   .vs-table__cell {
     transition: none !important;

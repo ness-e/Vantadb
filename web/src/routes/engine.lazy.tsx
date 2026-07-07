@@ -25,9 +25,16 @@ const GRAPH_NODES = [
 ];
 
 const GRAPH_EDGES: [number, number][] = [
-  [0, 1], [0, 3], [0, 2], [1, 4],
-  [2, 4], [2, 5], [3, 6], [4, 7],
-  [1, 7], [2, 6],
+  [0, 1],
+  [0, 3],
+  [0, 2],
+  [1, 4],
+  [2, 4],
+  [2, 5],
+  [3, 6],
+  [4, 7],
+  [1, 7],
+  [2, 6],
 ];
 
 const PIPELINE_STAGES = [
@@ -158,8 +165,12 @@ function RRFWeightsSlider() {
           <span className="nc-engine-slider-stat-value">{vectorRecall}%</span>
         </div>
         <div className="nc-engine-slider-stat nc-engine-slider-stat--fused">
-          <span className="nc-engine-slider-stat-label nc-engine-slider-stat-label--amber">FUSED @10</span>
-          <span className="nc-engine-slider-stat-value nc-engine-slider-stat-value--amber">{fusedRecall}%</span>
+          <span className="nc-engine-slider-stat-label nc-engine-slider-stat-label--amber">
+            FUSED @10
+          </span>
+          <span className="nc-engine-slider-stat-value nc-engine-slider-stat-value--amber">
+            {fusedRecall}%
+          </span>
         </div>
       </div>
     </div>
@@ -224,7 +235,9 @@ function WALSimulator() {
       <div className="nc-engine-recorder-header">
         <div className="nc-engine-recorder-status">
           <span className="nc-engine-recorder-dot" data-state={engineState} />
-          <span className="nc-engine-recorder-status-text">STATUS: {engineState.toUpperCase()}</span>
+          <span className="nc-engine-recorder-status-text">
+            STATUS: {engineState.toUpperCase()}
+          </span>
         </div>
         <div className="nc-engine-recorder-actions">
           <button
@@ -263,7 +276,9 @@ function ArchitecturePipeline() {
               <div className="nc-engine-conveyor-card-desc">{s.desc}</div>
             </div>
             {i < PIPELINE_STAGES.length - 1 && (
-              <span className="nc-engine-conveyor-arrow" aria-hidden="true">→</span>
+              <span className="nc-engine-conveyor-arrow" aria-hidden="true">
+                →
+              </span>
             )}
           </div>
         ))}
@@ -397,8 +412,8 @@ function EnginePage() {
           <div className="nc-engine-section nc-engine-part">
             <p className="nc-engine-slider-desc">
               The WAL journal uses CRC32C integrity checksums with fsync-on-write semantics. On
-              crash, automatic log replay detects the last consistent checkpoint and restores
-              state in under 1ms.
+              crash, automatic log replay detects the last consistent checkpoint and restores state
+              in under 1ms.
             </p>
             <WALSimulator />
           </div>
