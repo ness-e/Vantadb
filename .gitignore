@@ -135,6 +135,14 @@ Cargo_test.toml
 # TanStack Router generated file — committed so CI builds are deterministic
 !web/src/routeTree.gen.ts
 
+# VS Code canvas files
+*.canvas
+
+# Test runner artifacts (Playwright, E2E)
+web/playwright-report/
+web/test-results/
+web/e2e/reports/
+
 # Visual review screenshots & reports
 screenshots/
 *.page-*.png
