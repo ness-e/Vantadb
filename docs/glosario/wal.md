@@ -3,7 +3,7 @@ title: "wal"
 type: glossary-entry
 status: stable
 tags: [persistence, wal, durabilidad, recovery]
-last_refined: 2026-06
+last_refined: 2026-07
 links: "[[README.md]]"
 aliases: [Write-Ahead Log, Journal, Transaction Log]
 description: "Journaling mechanism where mutations are first written to a sequential log before being applied to the main storage, guaranteeing ACID durability"
@@ -52,86 +52,137 @@ INCORRECT order (data loss):
 
 ## Implementation in VantaDB
 
+VantaDB uses a **sharded WAL** (`ShardedWal`) that distributes records in round-robin fashion across N shard files to reduce contention and improve write throughput.
+
+```
+Archivos WAL típicos (N=4):
+  vanta.shard0.wal
+  vanta.shard1.wal
+  vanta.shard2.wal
+  vanta.shard3.wal
+```
+
+Cada shard es un archivo append-only secuencial con el mismo formato de registro (header + payload + CRC32C). El número de shards se configura via `wal_shards` (default: `4`, env: `VANTADB_WAL_SHARDS`).
+
 ### Writing Flow
 
 ```
 Cliente: put("doc1", vector, text, metadata)
     │
     ▼
-┌────────────────────────┐
-│ Serializar mutación    │
-└──────────┬─────────────┘
+┌──────────────────────────────┐
+│ Serializar mutación          │
+└──────────┬───────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ Calcular CRC32C        │
-└──────────┬─────────────┘
+┌──────────────────────────────┐
+│ Calcular CRC32C              │
+└──────────┬───────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ Append a wal.log       │
-└──────────┬─────────────┘
+┌──────────────────────────────┐
+│ ShardedWal.append(record)    │
+│ shard_idx = counter % N      │
+│ counter += 1                 │
+└──────────┬───────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ fsync() ← DURABLE      │
-└──────────┬─────────────┘
+┌──────────────────────────────┐
+│ Append a vanta.shard{idx}.wal│
+└──────────┬───────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ Aplicar a Fjall/HNSW   │
-└──────────┬─────────────┘
+┌──────────────────────────────┐
+│ fsync() ← DURABLE            │
+└──────────┬───────────────────┘
+           │
+           ▼
+┌──────────────────────────────┐
+│ Aplicar a Fjall/HNSW         │
+└──────────┬───────────────────┘
            │
            ▼
       ACK al cliente
 ```
 
-### Recovery Flow
+### Recovery Flow — Sort-Based Multi-Shard Replay
+
+Dado que los registros se distribuyen round-robin entre N shards, la recuperación no puede simplemente iterar un solo archivo. El algoritmo correcto es:
+
+1. Leer **todos** los registros de **todos** los shards
+2. Calcular la posición global de cada registro: `global_seq = shard_idx + N * local_pos`
+3. Saltar registros con `global_seq ≤ checkpoint_seq`
+4. Ordenar registros restantes por `global_seq`
+5. Replay en orden secuencial global
 
 ```
 Arranque tras crash
     │
     ▼
-┌────────────────────────┐
-│ Leer wal.log           │
-└──────────┬─────────────┘
+┌──────────────────────────────────┐
+│ Para cada shard 0..N-1:          │
+│  - Abrir vanta.shard{idx}.wal    │
+│  - Leer todos los registros      │
+│  - Calcular global_seq por record│
+└──────────┬───────────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ Para cada registro:    │
-│  - Verificar CRC32C    │
-│  - Si válido: aplicar  │
-│  - Si inválido: truncar│
-└──────────┬─────────────┘
+┌──────────────────────────────────┐
+│ Leer checkpoint_seq del backend  │
+│  - full_rounds = seq / N         │
+│  - remainder   = seq % N         │
+│  - Saltar records ≤ checkpoint   │
+│     por shard                    │
+└──────────┬───────────────────────┘
            │
            ▼
-┌────────────────────────┐
-│ Reconstruir índices    │
-│ (HNSW, BM25) desde     │
-│ estado canónico        │
-└──────────┬─────────────┘
+┌──────────────────────────────────┐
+│ Ordenar por global_seq           │
+│ (sort-based, O(M log M))         │
+└──────────┬───────────────────────┘
+           │
+           ▼
+┌──────────────────────────────────┐
+│ Replay en orden:                 │
+│  - Insert → VantaFile + HNSW    │
+│  - Update → VantaFile + HNSW    │
+│  - Delete → tombstone VantaFile │
+└──────────┬───────────────────────┘
+           │
+           ▼
+┌──────────────────────────────────┐
+│ Reconstruir índices derivados    │
+│ (BM25, payload indexes) desde    │
+│ estado canónico                  │
+└──────────┬───────────────────────┘
            │
            ▼
    Base de datos lista
 ```
+
+Esto garantiza que el orden de escritura original se preserva exactamente, incluso cuando los shards tienen cantidades desiguales de registros. Probado en `test_wal_replay_mixed_mutations`.
 
 ## Checkpointing
 
 El WAL crece indefinidamente si no se gestiona. **Checkpointing** es el proceso de:
 
 1. **Flush** of all pending data to main storage
-2. **Truncate** the WAL (remove already applied records)
-3. **Mark** the new starting point
+2. **Mark** the checkpoint sequence number (cuántos records globales están persistidos)
+3. **Truncate/rotate** the WAL shard files
+
+Con shards, el checkpoint se representa como un solo `checkpoint_seq` global (el número total de records escritos hasta el momento). Cada shard calcula cuántos registros saltar usando:
 
 ```
-WAL antes de checkpoint:
-[rec1][rec2][rec3][rec4][rec5][rec6][rec7][rec8]
-                        ↑
-                   checkpoint aquí
+full_rounds = checkpoint_seq / N   (N = número de shards)
+remainder   = checkpoint_seq % N
 
-WAL después de checkpoint:
-[rec5][rec6][rec7][rec8]  ← Solo registros nuevos
+Shard 0: skip hasta local_pos = full_rounds + (0 < remainder ? 1 : 0)
+Shard 1: skip hasta local_pos = full_rounds + (1 < remainder ? 1 : 0)
+...
+Shard k: skip hasta local_pos = full_rounds + (k < remainder ? 1 : 0)
 ```
+
+La compactación (`compact_wal()`) hace flush completo, guarda `checkpoint_seq`, y rota los archivos shard.
 
 ## Durability Modes
 
@@ -155,54 +206,13 @@ WAL después de checkpoint:
 ❌ **Concurrency isolation:** That depends on locks/MVCC
 ❌ **Performance:** Synchronous fsync adds latency
 
-## Known Issues (Audit)
-
-### AUD-01: Configurable fsync missing
-
-**Severity:** 🔒 Blocking
-
-El snapshot no demuestra que VantaDB implemente fsync síncrono antes del ACK. Sin esto, los claims de durabilidad no son verificables.
-
-**Mitigation required:**
-``rust
-pub enum SyncMode {
-    Always, // fsync on each write
-    Periodic(Duration), // fsync every N ms
-    Never, // OS decides
-}
-
-impl VantaEmbedded {
-    pub fn put(&self, ...) -> Result<()> {
-        self.wal.append(&mutation)?;
-        
-        match self.sync_mode {
-            SyncMode::Always => self.wal.fsync()?,
-            SyncMode::Periodic(_) => {/* batch */},
-            SyncMode::Never => {/* not fsync */},
-        }
-        
-        self.apply_to_storage(&mutation)?;
-        Ok(()) // ACK only after fsync
-    }
-}
-```
-
-### AUD-02: Recovery without Checksums
-
-**Severity:** 🔒 Blocking
-
-Sin [[crc32c]] en cada registro, el recovery no puede distinguir entre:
-- Registro válido
-- Registro corrupto (debe ignorarse)
-- Registro parcialmente escrito (debe truncarse)
-
-**Mitigation:** Add checksum to each record and validate in replay.
+## Known Issues
 
 ## Comparison with Other Systems
 
 | Sistema | WAL | fsync Default | Checksum | Recovery |
 |---------|-----|---------------|----------|----------|
-| **VantaDB** | ✅ | ⚠️ No verificado | ⚠️ CRC32C (no verificado) | ✅ Replay + rebuild |
+| **VantaDB** | ✅ Sharded (N-way) | ✅ Configurable (Always/Periodic/Never) | ✅ CRC32C | ✅ Sort-based multi-shard replay |
 | **SQLite** | ✅ | Siempre | ✅ CRC32 | ✅ Automático |
 | **PostgreSQL** | ✅ | Siempre | ✅ CRC32 | ✅ Automático |
 | **RocksDB** | ✅ | Configurable | ✅ CRC32 | ✅ Automático |
@@ -217,7 +227,7 @@ Sin [[crc32c]] en cada registro, el recovery no puede distinguir entre:
 - [[chaos-testing]] — Cómo validar durabilidad
 
 ### Related Implementation Documentation
-- [[../architecture/wal_durability|WAL Durability Architecture]]
+- [[../operations/DURABILITY_GUARANTEES|Durability Guarantees]]
 
 ---
 

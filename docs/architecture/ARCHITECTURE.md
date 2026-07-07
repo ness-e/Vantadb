@@ -100,19 +100,38 @@ The Write-Ahead Log guarantees durability before any mutation is applied to stor
 ```
 1. Serialize mutation
 2. Compute CRC32C of payload
-3. Append to wal.log
-4. fsync() ← DURABILITY GUARANTEED
-5. Apply to Fjall/RocksDB
-6. Update indexes (HNSW, BM25)
-7. ACK to client
+3. ShardedWal.append() → shard_idx = counter % N (round-robin)
+4. Append to vanta.shard{idx}.wal
+5. fsync() ← DURABILITY GUARANTEED
+6. Apply to Fjall/RocksDB
+7. Update indexes (HNSW, BM25)
+8. ACK to client
 ```
 
 ### WAL Compaction
 
 Automatic when accumulated size exceeds 256 MB (`compact_wal()`):
-- Rotates obsolete WAL segments (post-checkpoint)
+- Flushes all pending data + saves `checkpoint_seq`
+- Rotates all N shard files atomically
 - Exposed via `vanta-cli wal compact`
 - Zero interruption to read/write operations
+
+### Crash Recovery (Multi-Shard Sort-Based)
+
+After an unclean shutdown, `recover_state()` reconstructs the database by
+replaying WAL records **in original write order**:
+
+```
+1. Read all records from all N shard files
+2. Compute global_seq = shard_idx + N * local_pos for each
+3. Load checkpoint_seq, skip records with global_seq ≤ checkpoint_seq
+4. Sort surviving records by global_seq (O(M log M))
+5. Replay in sequential order: Insert/Update/Delete
+6. Rebuild derived indexes (BM25, payload indexes)
+```
+
+This is provably correct for round-robin distribution even when shards
+have unequal record counts.
 
 ---
 

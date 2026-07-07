@@ -22,7 +22,7 @@ specific failure mode:
 
 | Layer | Role | Durability mechanism |
 |---|---|---|
-| **[[wal\|WAL]]** (`vanta.wal`) | Ordered journal of every mutation | [[crc32c\|CRC32C]] per record, auto-healing scan-forward, optional per-write `fsync` |
+| **[[wal\|WAL]]** (`vanta.shard{0..N-1}.wal`) | Ordered journal of every mutation (round-robin across N shards) | [[crc32c\|CRC32C]] per record, sort-based multi-shard replay, optional per-write `fsync` |
 | **Backend KV** ([[fjall\|Fjall]]) | Relational fields, metadata, internal indexes | Fjall's own journal (LSM crash consistency), `PersistMode::SyncAll` on flush |
 | **Vector store** (`vector_store.vanta`) | Dense vector storage ([[mmap]]) | `msync` on flush, atomic RCU rename |
 | **[[hnsw\|HNSW]] index** (`vector_index.bin`) | In-memory vector index | Atomic RCU persist to `.bin` on flush |
@@ -37,7 +37,7 @@ crashes mid-write, the WAL contains the mutation and replay restores it.
 Every mutation (insert, update, delete) follows this exact order:
 
 ```
-1. WAL.append(record)          → vanta.wal
+1. ShardedWal.append(record)   → vanta.shard{idx}.wal  (round-robin)
 2. append_to_vstore(node)      → vector_store.vanta  (mmap)
 3. backend.put(relational)     → Fjall keyspace
 4. hnsw.add(node)              → HNSW in-memory index
@@ -78,9 +78,21 @@ At the end of a successful `flush()`, the system guarantees:
 ### checkpoint_seq
 
 Stored in the backend's internal metadata (`BackendPartition::InternalMetadata`,
-key `b"checkpoint_seq"`). It records the total number of WAL records that
-have been fully flushed. During crash recovery, WAL records whose sequence
-number is ≤ `checkpoint_seq` are skipped — they're already in the backend.
+key `b"checkpoint_seq"`). It records the **total number of WAL records** that
+have been fully flushed across all shards. During crash recovery, the engine
+splits `checkpoint_seq` into per-shard skip counts:
+
+```
+full_rounds = checkpoint_seq / N
+remainder   = checkpoint_seq % N
+
+Shard 0: skip first (full_rounds + (0 < remainder ? 1 : 0)) records
+Shard 1: skip first (full_rounds + (1 < remainder ? 1 : 0)) records
+...
+```
+
+WAL records whose global sequence number is ≤ `checkpoint_seq` are skipped —
+they're already in the backend.
 
 If `checkpoint_seq` is missing or corrupt, it defaults to `0`, causing a
 _full_ WAL replay (safe but slower).
@@ -93,21 +105,22 @@ When `VantaDB::open()` is called after an unclean shutdown:
 
 ```
 open()
-  ├── acquire file lock        ⟵ .vanta.lock (exclusive for writers)
-  ├── open KV backend          ⟵ Fjall crash-recovery (automatic)
-  ├── load HNSW from disk      ⟵ vector_index.bin
+  ├── acquire file lock         ⟵ .vanta.lock (exclusive for writers)
+  ├── open KV backend           ⟵ Fjall crash-recovery (automatic)
+  ├── load HNSW from disk       ⟵ vector_index.bin
   │   └── if missing/corrupt → rebuild from VantaFile scan
   ├── read checkpoint_seq
-  ├── if vanta.wal exists:
-  │     open WalReader
-  │     iterate WAL records
-  │     skip if seq ≤ checkpoint_seq
-  │     replay remaining:
-  │       Insert  → write VantaFile + HNSW add
-  │       Update  → write VantaFile + HNSW add
-  │       Delete  → tombstone VantaFile header
-  │     log replay count + duration
-  └── open fresh WalWriter
+  ├── for each shard 0..N-1:
+  │     open vanta.shard{idx}.wal
+  │     read all records, compute global_seq = idx + N * local_pos
+  │     skip if global_seq ≤ checkpoint_seq
+  ├── sort surviving records by global_seq
+  ├── replay in order:
+  │     Insert → write VantaFile + HNSW add
+  │     Update → write VantaFile + HNSW add
+  │     Delete → tombstone VantaFile header
+  ├── log replay count + duration
+  └── open fresh ShardedWal
 ```
 
 ### Idempotency
@@ -130,15 +143,15 @@ This is validated by `test_wal_replay_idempotence` in
 
 | Guarantee | Detail | Evidence |
 |---|---|---|
-| **No partial writes** | Every WAL record has CRC32C. Incomplete trailing records are truncated on next open. | ADR-002, `src/wal.rs` scan-forward |
+| **No partial writes** | Every WAL record has CRC32C. Incomplete trailing records are truncated on next open. | `src/wal.rs` scan-forward |
 | **Crash consistency** | After any number of crashes (including SIGKILL), the database opens without corruption and contains all committed data. | 200+ crash injection iterations (AUD-02 + AUD-03) |
 | **Idempotent recovery** | Reopening the same database multiple times produces identical state. | `test_wal_replay_idempotence` |
 | **Atomic checkpoint** | `checkpoint_seq` is persisted after data. If crash occurs mid-flush, WAL replay covers the gap. | `src/storage.rs:1721-1749` |
-| **Graceful shutdown** | SIGTERM and Ctrl+C flush all pending data before exit. | `src/cli_server.rs:404-520` |
+| **Graceful shutdown** | SIGTERM and Ctrl+C flush all pending data before exit. | `src/cli_server.rs` |
 | **Multi-process isolation** | Exclusive `.vanta.lock` prevents concurrent write access. | `src/storage.rs:622-690` |
 | **Middle corruption recovery** | If WAL is partially corrupt, Scan-Forward skips corrupt bytes and recovers subsequent records. | `test_wal_middle_corruption_auto_healing` |
 | **CRC corruption detection** | Selective CRC corruption discards only the corrupt record; adjacent records survive. | `test_wal_selective_crc_corruption_recovery` |
-| **WAL compaction safety** | `compact_wal()` flushes all data before rotating the WAL file. | `src/wal.rs:327-353` |
+| **WAL compaction safety** | `compact_wal()` flushes all data before rotating WAL shard files. | `src/wal_sharded.rs` |
 | **HNSW index recovery** | If `vector_index.bin` is missing or corrupt, HNSW is rebuilt from `vector_store.vanta`. | `src/storage.rs:745-768` |
 
 ### ❌ What VantaDB Does NOT Guarantee
@@ -181,12 +194,13 @@ This is validated by `test_wal_replay_idempotence` in
 
 ### 6.4 WAL file deleted externally
 
-- If `vanta.wal` is deleted while the database is closed, the engine starts
-  with an empty WAL. All data that was **flushed** (backend + HNSW) survives.
+- If any `vanta.shard{idx}.wal` is deleted while the database is closed, the engine
+  starts with the remaining shards. Any shard file that was deleted is treated as
+  empty. All data that was **flushed** (backend + HNSW) survives.
   Data that was only in the WAL is lost.
-- If `vanta.wal` is deleted while the database is open, the engine continues
-  writing to it (the file handle is still valid on most OSes). On close and
-  reopen, the file is gone, and unflushed data is lost.
+- If a shard is deleted while the database is open, the engine continues writing
+  to it (the file handle is still valid on most OSes). On close and reopen, the
+  file is gone, and unflushed data is lost.
 
 ### 6.5 WAL file corruption
 
@@ -276,7 +290,7 @@ If it opens and queries return expected data, the backup is valid.
 
 | File | Required? | Notes |
 |---|---|---|
-| `vanta.wal` | Yes | Current WAL (unflushed mutations) |
+| `vanta.shard{0..N-1}.wal` | Yes | Current WAL shard files (unflushed mutations). N = `wal_shards` config. |
 | `vector_store.vanta` | Yes | Vector data (mmap) |
 | `vector_index.bin` | Optional | Rebuilt on open if missing |
 | `internal.db/` | Yes | Fjall LSM tree (relational data) |

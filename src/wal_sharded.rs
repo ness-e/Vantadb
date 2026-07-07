@@ -28,6 +28,7 @@ pub(crate) enum WalOp {
 }
 
 /// A sharded write-ahead log that distributes writes across multiple WAL files.
+#[allow(dead_code)]
 pub(crate) struct ShardedWal {
     shards: Vec<Arc<Mutex<WalWriter>>>,
     num_shards: usize,

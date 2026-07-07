@@ -5,6 +5,7 @@
 
 use crate::VantaError;
 use lru::LruCache;
+use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(feature = "opentelemetry")]
 use std::sync::OnceLock;
