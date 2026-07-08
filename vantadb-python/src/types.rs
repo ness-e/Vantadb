@@ -136,9 +136,11 @@ impl VantaPyMemoryRecord {
             "version" => self.version().into_pyobject(py)?.into_any(),
             "node_id" => self.node_id().into_pyobject(py)?.into_any(),
             "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
-            _ => return Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                "VantaMemoryRecord has no field '{key}'"
-            ))),
+            _ => {
+                return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                    "VantaMemoryRecord has no field '{key}'"
+                )))
+            }
         })
     }
 
@@ -195,12 +197,18 @@ impl VantaPyListResult {
         self.records.len()
     }
 
-    fn __getitem__<'py>(&self, py: Python<'py>, key: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn __getitem__<'py>(
+        &self,
+        py: Python<'py>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         if let Ok(idx) = key.extract::<usize>() {
             match self.records.get(idx) {
                 Some(r) => Ok(r.clone().into_pyobject(py)?.into_any()),
-                None => Err(pyo3::exceptions::PyIndexError::new_err("list index out of range")),
+                None => Err(pyo3::exceptions::PyIndexError::new_err(
+                    "list index out of range",
+                )),
             }
         } else if let Ok(s) = key.extract::<String>() {
             match s.as_str() {
