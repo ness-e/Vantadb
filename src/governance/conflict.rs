@@ -173,18 +173,33 @@ impl ConflictResolver {
 
         match order {
             VersionOrder::Equal | VersionOrder::After => {
-                self.log_conflict(node_id, &incumbent.origin, &challenger.origin, "incumbent_wins");
+                self.log_conflict(
+                    node_id,
+                    &incumbent.origin,
+                    &challenger.origin,
+                    "incumbent_wins",
+                );
                 Resolution::Accepted(incumbent.clone())
             }
             VersionOrder::Before => {
-                self.log_conflict(node_id, &incumbent.origin, &challenger.origin, "challenger_wins");
+                self.log_conflict(
+                    node_id,
+                    &incumbent.origin,
+                    &challenger.origin,
+                    "challenger_wins",
+                );
                 Resolution::Accepted(challenger)
             }
             VersionOrder::Concurrent => {
                 if challenger.value == incumbent.value {
                     let mut merged = incumbent.clone();
                     merged.version = incumbent.version.merge(&challenger.version);
-                    self.log_conflict(node_id, &incumbent.origin, &challenger.origin, "merged_identical");
+                    self.log_conflict(
+                        node_id,
+                        &incumbent.origin,
+                        &challenger.origin,
+                        "merged_identical",
+                    );
                     return Resolution::Accepted(merged);
                 }
 
@@ -192,10 +207,20 @@ impl ConflictResolver {
                 let friction = self.compute_friction(&incumbent.origin, &challenger.origin);
 
                 if friction >= 1.0 - self.friction_coeff * (backoff as f64).recip() {
-                    self.log_conflict(node_id, &incumbent.origin, &challenger.origin, "superposition");
+                    self.log_conflict(
+                        node_id,
+                        &incumbent.origin,
+                        &challenger.origin,
+                        "superposition",
+                    );
                     Resolution::Superposition(vec![incumbent.clone(), challenger])
                 } else {
-                    self.log_conflict(node_id, &incumbent.origin, &challenger.origin, "challenger_wins_after_backoff");
+                    self.log_conflict(
+                        node_id,
+                        &incumbent.origin,
+                        &challenger.origin,
+                        "challenger_wins_after_backoff",
+                    );
                     Resolution::Accepted(challenger)
                 }
             }
@@ -206,8 +231,14 @@ impl ConflictResolver {
     /// Higher collision count → lower friction → harder to pass (GOV-02 fix).
     fn compute_friction(&self, incumbent_origin: &str, challenger_origin: &str) -> f64 {
         let backoff = self.conflict_backoff.read().expect("RwLock poisoned");
-        let inc_collisions = backoff.get(&(hash_str(incumbent_origin) as u64)).copied().unwrap_or(0);
-        let chal_collisions = backoff.get(&(hash_str(challenger_origin) as u64)).copied().unwrap_or(0);
+        let inc_collisions = backoff
+            .get(&(hash_str(incumbent_origin) as u64))
+            .copied()
+            .unwrap_or(0);
+        let chal_collisions = backoff
+            .get(&(hash_str(challenger_origin) as u64))
+            .copied()
+            .unwrap_or(0);
         let total = (inc_collisions + chal_collisions).max(1) as f64;
 
         let epsilon = 1e-6;
@@ -225,11 +256,7 @@ impl ConflictResolver {
 
     /// Three-way merge for concurrent writes on structured fields.
     /// Falls back to LWW for non-conflicting fields.
-    pub fn three_way_merge<T: Clone + PartialEq>(
-        base: &[T],
-        ours: &[T],
-        theirs: &[T],
-    ) -> Vec<T> {
+    pub fn three_way_merge<T: Clone + PartialEq>(base: &[T], ours: &[T], theirs: &[T]) -> Vec<T> {
         let max_len = ours.len().max(theirs.len());
         let mut result = Vec::with_capacity(max_len);
 
@@ -267,7 +294,13 @@ impl ConflictResolver {
         before - log.len()
     }
 
-    fn log_conflict(&self, node_id: u64, incumbent_origin: &str, challenger_origin: &str, resolution: &str) {
+    fn log_conflict(
+        &self,
+        node_id: u64,
+        incumbent_origin: &str,
+        challenger_origin: &str,
+        resolution: &str,
+    ) {
         let record = ConflictRecord {
             node_id,
             timestamp: now_nanos(),
@@ -289,7 +322,10 @@ impl ConflictResolver {
 
     /// Current backoff levels for all tracked nodes.
     pub fn backoff_levels(&self) -> HashMap<u64, u32> {
-        self.conflict_backoff.read().expect("RwLock poisoned").clone()
+        self.conflict_backoff
+            .read()
+            .expect("RwLock poisoned")
+            .clone()
     }
 }
 

@@ -35,3 +35,6 @@ dist-ssr
 src/SourceDesign/
 
 .vercel
+
+# WASM package (copy from vantadb-wasm/pkg)
+src/wasm/

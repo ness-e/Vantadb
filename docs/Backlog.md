@@ -12,7 +12,7 @@ aliases: []
 
 > **Purpose:** Single source of truth for all project tasks, active and postponed.
 > **Completed features:** `docs/CHANGELOG.md`
-> **Total items:** 170 (62 original + 108 code review + 0 governance redesign)
+> **Total items:** 172 (62 original + 108 code review + 0 governance redesign + 2 nuevos completados)
 
 ---
 
@@ -37,6 +37,13 @@ aliases: []
 | `SEC-08` | Migrar `rustls-pemfile` → `rustls-pki-types` (RUSTSEC activa) | — | 🟢 2-4h | 🔴 | ✅ |
 | `SEC-09` | Eliminar `bincode` de archive + actualizar docs | — | 🟢 2h | 🔴 | ✅ |
 | `SEC-10` | Security test suite: IQL injection, auth bypass, fuzzing | — | 🟡 1-2d | 🔴 | ✅ |
+
+### 🔧 Infraestructura & CI
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `NUEVO-05` | **Sanitizer CI: ASan + TSan** en rust_ci.yml | 🟡 2-3d | 🔴 | ❌ |
+| `NUEVO-06` | **Flat index threshold** <10K brute-force | 🟡 2-3d | 🔴 | ❌ |
 
 ### ⚡ Migration Runner
 
@@ -73,17 +80,9 @@ aliases: []
 |----|-------|----------|-----------|--------|
 | `INT-01` | **LangChain adapter → PyPI + PR upstream** | 🟡 1-2d | 🔴 | ❌ |
 | `INT-02` | **LlamaIndex adapter → PyPI + PR upstream** | 🟡 1-2d | 🔴 | ❌ |
-| `INT-03` | **Mem0 adapter → PyPI** | 🟡 1d | 🔴 | ❌ |
-| `INT-04` | **CrewAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-05` | **DSPy adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-06` | **Haystack adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-07` | **Letta adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-08` | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-09` | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
 | `INT-10` | **LiteLLM adapter → PyPI** | 🟡 1d | 🟢 | ✅ |
-| `INT-11` | **Semantic Kernel adapter (crate + PyPI)** — Único missing del workspace. No existe ni siquiera como crate placeholder | 🟡 1d | 🟠 | ❌ |
+| ~~`INT-11`~~ | **Semantic Kernel adapter (crate + PyPI)** — Único missing del workspace. No existe ni siquiera como crate placeholder | 🟡 1d | 🟠 | ❌ 🗑️ |
 | `DEVOPS-05` | Pipeline CI unificado para publicar los 10 adapters a PyPI | 🟡 1-2d | 🔴 | ❌ |
-| `DEVOPS-12` | **Production PyPI signing pipeline** — OIDC trusted publishing configurado pero signed installers (Sigstore) y pipeline de release automatizado está "deferred". Completar para release formal | 🟡 1-2d | 🔴 | ❌ |
 | `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ❌ |
 
 ### 🧪 Testing Crítico
@@ -93,6 +92,18 @@ aliases: []
 | `TEST-09` | Implementar tests WASM reales (39 tests, 11 categorías) | 🔴 2-3d | 🔴 | ✅ |
 | `TEST-10` | Configurar Vitest + React Testing Library para frontend | 🔴 2-3d | 🔴 | ✅ |
 | `TEST-06` | Load/stress tests Python (9) y TypeScript (6) | 🟡 2-3d | 🟡 | ✅ |
+
+### 🌐 Web & Landing (Bloqueante)
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `MKT-13` | **Integrar demo WASM interactiva en la hero** (botón "Try in browser") — ⏳ Ruta `/demo` creada, demo funcional y desplegada en Vercel. Falta solo el enlace desde la hero | 🟡 1-2h | 🔴 | ⏳ |
+| `MCP-IDE` | **Docs de setup MCP por IDE** (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
+| ~~`COM-01`~~ | **Discord server** — Ya creado por el usuario. Falta agregar invite link | 🟢 2-4h | 🔴 | ✅ |
+| `TSK-SDK` | **TypeScript SDK hardening**: type safety, error wrapping, JSDoc, tests (50+ tests) | 🟡 2-3d | 🔴 | ❌ |
+| ~~`NUEVO-02`~~ | **WASM demo en Vercel** (Transformers.js + OPFS) — Ya desplegado con deploy automático | 🟡 2-3d | 🔴 | ✅ |
+| ~~`NUEVO-03`~~ | **llms.txt en raíz del repo** — ✅ ya existe en raíz (describe el proyecto); `web/public/llms.txt` es para el sitio web | 🟢 1h | 🔴 | ✅ |
+| ~~`NUEVO-04`~~ | **CONTRIBUTING.md + CODE_OF_CONDUCT.md en raíz** — ✅ CONTRIBUTING ya estaba en raíz; CODE_OF_CONDUCT copiado de `.github/` a raíz | 🟢 1h | 🔴 | ✅ |
 
 ---
 
@@ -139,7 +150,6 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `MKT-13` | **Integrar demo WASM interactiva en la hero** (botón "Try in browser") | 🟡 1-2d | 🔴 | ❌ |
 | `MKT-14` | **Publicar 2 case studies** + ruta `/case-studies/` | 🟡 1-2d | 🔴 | ❌ |
 | `WEB-06` | Migrar 637 inline styles a Tailwind classes | 🟡 3-5d | 🟡 | ✅ |
 | `WEB-07` | Unificar animation libraries: mantener solo GSAP | 🟡 1-2d | 🟡 | ✅ |
@@ -157,8 +167,8 @@ aliases: []
 | `DOC-18` | Expandir HTTP_API.md (149L→504L) | 🟡 1d | 🟡 | ✅ |
 | ~~`DOC-19`~~ | **Actualizar `ARCHITECTURE.md` a v0.2.0** — dice "v0.1.x" en cabecera, refleja arquitectura desactualizada | 🟢 1-2h | 🔴 | ✅ |
 | ~~`DOC-20`~~ | **Migration guide LanceDB** — TSK-80 en CHANGELOG dice ✅ pero `docs/tutorials/` solo tiene ChromaDB guide. Crear guía de migración desde LanceDB | 🟡 1d | 🟡 | ❌ |
-| `—` | Docs de setup MCP por IDE (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
 | ~~`CODE-085`~~ | **README Python documenta APIs que no existen** (`put_memory`, `search_hybrid`) | `README.md:33,48,59` | 🟢 1h | 🟡 | ✅ |
+| `TSK-106` | **Habilitar GitHub Discussions** | 🟢 1h | 🟠 | ❌ |
 
 ### 🧪 WASM y MCP
 
@@ -175,9 +185,7 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `DEVOPS-02` | ARM64 wheels (Apple Silicon, Graviton, RPi) | 🟡 2-3d | 🟠 | ❌ |
 | `DEVOPS-06` | Homebrew formula para `vanta-cli` | 🟢 4-6h | 🟢 | ✅ |
-| `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Research ✅, implementar | 🟡 2-3d | 🟡 | ❌ |
 | `TSK-121` | SHA256 hash verification del wheel en tests | 🟢 2-4h | 🟢 | ✅ |
 | `DEVOPS-07` | Dockerfile multi-stage mejorado | 🟡 2-4h | 🟡 | ✅ |
 | `DEVOPS-11` | CodeQL analysis en CI | 🟢 2h | 🟡 | ✅ |
@@ -205,6 +213,28 @@ aliases: []
 
 | ~~`CODE-080`~~ | **Dependabot sin npm ecosystem** — Frontend sin update automático | `dependabot.yml` | 🟢 1h | 🟢 | ✅ |
 
+### 📦 Adapters & Integrations (Post-Lanzamiento)
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `INT-03` | **Mem0 adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-04` | **CrewAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-05` | **DSPy adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-06` | **Haystack adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-07` | **Letta adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-08` | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| `INT-09` | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+
+### 📖 Documentación & Community
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `NUEVO-01` | **README hero con readme-aura** + benchmark gráfico + GIF demo WASM | 🟡 2-3d | 🟠 | ❌ |
+| `NUEVO-07` | **Migration tools: Chroma→Vanta, LanceDB→Vanta** | 🟡 3-5d | 🟠 | ❌ |
+| `NUEVO-08` | **Learning path estructurado** en tutorials/ (5-7 ejemplos progresivos) | 🟡 2-3d | 🟠 | ❌ |
+| `NUEVO-09` | **TypeScript SDK: 50+ tests + type stubs + JSDoc** | 🟡 2-3d | 🟠 | ❌ |
+| `NUEVO-10` | **Benchmark suite pública reproducible** (script + resultados) | 🟡 3-5d | 🟠 | ❌ |
+
 ---
 
 ## TIER 2 — 🟡 Launch Campaign (Semanas 3-6, Jul 18 - Ago 15)
@@ -222,15 +252,17 @@ aliases: []
 | `MKT-05` | Technical blog posts (5+ pre-launch) | 🟡 2-3d | 🟠 | ❌ |
 | `MKT-10` | "AI Agent Memory" campaign | 🟡 2-3d | 🟠 | ❌ |
 | `MKT-15` | **Página de benchmarks competitivos** (`/product/benchmarks`) | 🟡 2-3d | 🔴 | ❌ |
-| `MKT-16` | **Publicar metodología de benchmark GraphRAG** | 🟡 1-2d | 🔴 | ❌ |
+| `MKT-16` | **Publicar metodología de benchmark GraphRAG** | 🟡 1-2d | 🟡 | ❌ |
 | `TSK-103` | Public benchmark site | 🟡 2-3d | 🟠 | ❌ |
 | `TSK-104` | Demo agent: LangChain + Ollama + VantaDB | 🟡 1-2d | 🟠 | ❌ |
+| `DEVOPS-12` | **Production PyPI signing pipeline** — OIDC trusted publishing, signed installers (Sigstore), pipeline de release automatizado | 🟡 1-2d | 🟡 | ❌ |
+| `DEVOPS-02` | ARM64 wheels (Apple Silicon, Graviton, RPi) | 🟡 2-3d | 🟡 | ❌ |
 
 ### 🌐 Conversión y SEO
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `MKT-17` | Página de comparación competitiva interactiva | 🟡 2-3d | 🟡 | ❌ |
+| `MKT-17` | Página de comparación competitiva interactiva | 🟡 2-3d | 🟢 | ❌ |
 | `MKT-07` | Pricing page | 🟡 1-2d | 🔴 | ✅ |
 | `WEB-08` | Anti-Slop Audit, Performance Budget, SEO Final Review | 🟢 1d | 🟢 | ✅ |
 | `WEB-17` | TanStack Router vs React Router (✅ mantener) | 🟡 2-3d | 🟡 | ✅ |
@@ -243,11 +275,11 @@ aliases: []
 | ~~`PERF-22`~~ | **SQ8 euclidean vectorization** — Scalar 8-bit path para distancia euclidea. Útil para dispositivos sin AVX | `src/index/distance.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-23`~~ | **ep_enter freeze fix** — Entry point nunca se actualiza tras deletes. Nodos huérfanos en HNSW traversal | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-24`~~ | **GIL scope optimization** — Acotar `Python::allow_threads()` al mínimo necesario. Reduce contención en SDK Python | `vantadb-python/src/lib.rs` | 🟡 1d | 🟡 | ❌ |
-| ~~`PERF-25`~~ | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
+| ~~`PERF-25`~~ | **Object pool para PyDict** — Reutilizar objetos PyDict en vez de allocar 5 por resultado de search | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ 🗑️ |
 | ~~`PERF-26`~~ | **Lazy serialization** — Diferir serialización de metadata hasta que sea necesario. Reduce overhead en hot paths | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟡 | ❌ |
 | ~~`PERF-27`~~ | **select_neighbors heuristic** — Asegurar diversidad en selección de vecinos HNSW. Mejora recall sin aumentar M | `src/index/core.rs` | 🟡 1-2d | 🟡 | ✅ |
 | ~~`PERF-28`~~ | **Tombstone mitigation en search** — Saltar nodos eliminados durante búsqueda HNSW. Complementa CODE-007 | `src/index/core.rs`, `src/index/engine.rs` | 🟡 1-2d | 🟡 | ✅ |
-| ~~`PERF-29`~~ | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ |
+| ~~`PERF-29`~~ | **Cosine→Euclidean mapping optimization** — Optimizar path de conversión entre métricas. Cachear mapeo | `src/index/distance.rs` | 🟡 1d | 🟡 | ❌ 🗑️ |
 | ~~`PERF-30`~~ | **Config tuning para batch ingestion** — Optimizar batch sizes, thresholds de flush, y WAL buffer sizes | `src/config.rs` | 🟢 4-6h | 🟡 | ✅ |
 
 ### 🗄️ Database Evolution
@@ -273,8 +305,6 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `COM-01` | **Discord server** | 🟢 2-4h | 🔴 | ❌ |
-| `TSK-106` | **Habilitar GitHub Discussions** | 🟢 1h | 🟡 | ❌ |
 | `TSK-107` | Community showcase page | 🟢 4-6h | 🟡 | ❌ |
 | `TSK-108` | Newsletter setup | 🟢 2-4h | 🟢 | ✅ |
 | `—` | Good first issues (20+ tagged) | 🟢 2-4h | 🟠 | ❌ |
@@ -283,7 +313,6 @@ aliases: []
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| ~~`—` | TypeScript SDK~~ hardening: type safety, error wrapping, JSDoc, tests | — | 🟡 2-3d | 🔴 | ❌ |
 | ~~`—` | Python SDK: `put_batch`~~ → keyword arguments | — | 🟢 1d | 🟡 | ❌ |
 | `—` | Python SDK: eliminar LRU cache home-grown | — | 🟢 1d | 🟢 | ✅ |
 | ~~`CODE-045`~~ | **`OperationalMetrics` TS 70% incompleto** — 11 de 37 campos mapeados | `types.ts:120-132` | 🟡 1d | 🟡 | ✅ |
@@ -304,6 +333,15 @@ aliases: []
 |----|-------|---------|----------|-----------|--------|
 | ~~`CODE-048`~~ | **Skip link después de `<Nav />`** — Usuario de teclado tabula toda nav antes de verlo | `__root.tsx:140-143` | 🟢 1h | 🟡 | ✅ |
 
+### ⚡ WASM & Performance
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `NUEVO-11` | **WASM IndexedDB fallback** | 🟡 2-3d | 🟡 | ❌ |
+| `NUEVO-12` | **WASM multi-tab coordination** (Web Locks + BroadcastChannel) | 🟡 2-3d | 🟡 | ❌ |
+| `NUEVO-13` | **HNSW auto-tuning PID loop** (ef_search dinámico) | 🟡 3-5d | 🟡 | ❌ |
+| `NUEVO-14` | **WASM bundle size <500KB gzip** | 🟡 1-2d | 🟡 | ❌ |
+| `NUEVO-15` | **Code coverage report en CI** + upload | 🟢 1d | 🟡 | ❌ |
 
 ---
 
@@ -319,6 +357,7 @@ aliases: []
 | `DEVOPS-09` | Auto-deploy web a Vercel en push a main | 🟡 1d | 🟡 | ✅ |
 | `DEVOPS-08` | Docs build verification en CI | 🟢 2-4h | 🟢 | ✅ |
 | `—` | Publicar 8 workspace members en crates.io | 🟡 2-3d | 🟡 | ❌ |
+| `DEVOPS-10` | **Firma de binarios Windows (SmartScreen)** — Research ✅, implementar | 🟡 2-3d | 🟢 | ❌ |
 
 ### 🧪 Testing Post-Launch
 
@@ -332,7 +371,7 @@ aliases: []
 | ~~`CODE-043`~~ | **`Cargo_test.toml` stale duplicate** — Features diferentes al real. Time bomb | `Cargo_test.toml` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-044`~~ | **`test_search_batch` skipeado pero API ya existe** — Test muerto | `tests/test_sdk.py:144` | 🟢 1h | 🟢 | ✅ |
 | ~~`CODE-057`~~ | **`debug = 0` en profile.test** — Backtraces sin line numbers. Debug imposible | `Cargo.toml:508-510` | 🟢 1h | 🟡 | ✅ |
-| ~~`CODE-074`~~ | **Cero visual regression tests** — Sin Percy/Chromatic/Playwright screenshots | — | 🟡 2-3d | 🟡 | ❌ |
+| ~~`CODE-074`~~ | **Cero visual regression tests** — Sin Percy/Chromatic/Playwright screenshots | — | 🟡 2-3d | 🟡 | ❌ 🗑️ |
 | ~~`CODE-075`~~ | **Sin coverage provider en vitest** — No hay métricas de cobertura | `vitest.config.ts` | 🟢 1h | 🟢 | ✅ |
 
 ### 🛡️ Seguridad Post-Launch
@@ -352,12 +391,12 @@ aliases: []
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
 | ~~`PERF-31`~~ | **Output batch via NumPy arrays** — Retornar resultados de search como `np.ndarray` en vez de listas Python | `vantadb-python/src/lib.rs` | 🟡 1-2d | 🟢 | ✅ |
-| ~~`PERF-32`~~ | **Async ingestion pipeline** — Producer-consumer con channel asíncrono para ingestion sin bloqueo | `src/ingestion.rs` | 🟡 2-3d | 🟢 | ✅ |
-| ~~`PERF-33`~~ | **Prefetching para graph traversal** — Prefetch listas de vecinos HNSW durante búsqueda. Reduce cache misses | `src/index/core.rs` | 🟡 1-2d | 🟢 | ✅ |
-| ~~`PERF-34`~~ | **Extended norm caching** — Precomputar y cachear normas para distancia euclidea. Reduce cómputos repetidos | `src/index/stats.rs`, `src/index/distance.rs` | 🟡 1-2d | 🟢 | ✅ |
-| ~~`PERF-35`~~ | **Async transcript file I/O** — Migrar `std::fs` → `tokio::fs` para operaciones de transcripción | `src/transcript.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-32`~~ | **Async ingestion pipeline** — Producer-consumer con channel asíncrono para ingestion sin bloqueo | `src/ingestion.rs` | 🟡 2-3d | 🟢 | ✅ 🗑️ |
+| ~~`PERF-33`~~ | **Prefetching para graph traversal** — Prefetch listas de vecinos HNSW durante búsqueda. Reduce cache misses | `src/index/core.rs` | 🟡 1-2d | 🟢 | ✅ 🗑️ |
+| ~~`PERF-34`~~ | **Extended norm caching** — Precomputar y cachear normas para distancia euclidea. Reduce cómputos repetidos | `src/index/stats.rs`, `src/index/distance.rs` | 🟡 1-2d | 🟢 | ✅ 🗑️ |
+| ~~`PERF-35`~~ | **Async transcript file I/O** — Migrar `std::fs` → `tokio::fs` para operaciones de transcripción | `src/transcript.rs` | 🟡 1-2d | 🟢 | ✅ 🗑️ |
 | ~~`PERF-36`~~ | **Config hot-reload** — Watch archivo de configuración para cambios en caliente. Sin restart | `src/config.rs` | 🟡 2-3d | 🟢 | ✅ |
-| ~~`PERF-37`~~ | **FilterBitset overhead reduction** — Optimizar operaciones de bitset para filtros rápidos | `src/bitset.rs` | 🟡 1-2d | 🟢 | ✅ |
+| ~~`PERF-37`~~ | **FilterBitset overhead reduction** — Optimizar operaciones de bitset para filtros rápidos | `src/bitset.rs` | 🟡 1-2d | 🟢 | ✅ 🗑️ |
 | ~~`PERF-38`~~ | **Runtime multiversion dispatch** — Detectar CPU features en runtime y seleccionar kernel óptimo. Consolidar PERF-21 + dispatcher genérico | `src/index/distance.rs`, `src/hardware/mod.rs` | 🟡 2-3d | 🟢 | ✅ |
 
 ### 🧹 Code Health General
@@ -385,6 +424,16 @@ aliases: []
 | ~~`CODE-016`~~ | **Python `__aexit__` bloquea event loop** — Llama `close()` sync | `__init__.py:40-41` | 🟢 2h | 🟡 | ✅ |
 | ~~`CODE-017`~~ | **`hardware_profile` property bloquea event loop** — Sin asyncio.to_thread | `__init__.py:231-233` | 🟢 2h | 🟡 | ✅ |
 
+### 🚀 Features Avanzadas
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `NUEVO-16` | **Product Quantization (PQ) 96x** — compresión para datasets >RAM | Alto (semanas) | 🔵 | ❌ |
+| `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers | Muy alto (meses) | 🔵 | ❌ |
+| `NUEVO-18` | **Sparse vectors nativos** — hybrid search real | Alto (semanas) | 🔵 | ❌ |
+| `NUEVO-19` | **Mover SourceDesign/ fuera de web/src/** | 🟢 1h | 🔵 | ❌ |
+| `NUEVO-20` | **Server Docker image** | 🟡 1-2d | 🔵 | ❌ |
+
 ---
 
 ## PHASE 5 — ⬜ Enterprise / Pre-Seed (Q4 2026)
@@ -398,14 +447,14 @@ aliases: []
 | ~~`TSK-72`~~ | AES-256-GCM at-rest encryption | 🟡 3-5d | 🟡 | ❌ |
 | `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 | ❌ |
 | `TSK-110` | SBOM en cada release (vía SEC-06) | 🟡 1d | 🟡 | ✅ |
-| ~~`BIZ-02`~~ | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ |
+| ~~`BIZ-02`~~ | WAL shipping asíncrono (replication sin Raft) | 🟡 3-5d | 🟡 | ❌ 🗑️ |
 | ~~`TSK-122`~~ | Sharded-slab para HNSW lock-free | 🟡 2-3d | 🟡 | ❌ |
-| ~~`TSK-131`~~ | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ |
+| ~~`TSK-131`~~ | PITR via archival WAL | 🟡 3-5d | 🟡 | ❌ 🗑️ |
 | `TSK-133` | Incremental backup (snapshot + WAL deltas) | 🟢 2-3d | 🟢 | ✅ |
-| `TSK-142` | WASM persistence via OPFS + Web Workers | 🟡 2-3d | 🟡 | ❌ |
-| `ENT-01` | SOC 2 prep (access controls, audit trails, retention) | 🟡 3-5d | 🟡 | ❌ |
-| `ENT-02` | HIPAA assessment + BAA readiness | 🟡 2-3d | 🟡 | ❌ |
-| `ENT-03` | Multi-tenant isolation (RAM, IOPS, storage quotas) | 🟡 3-5d | 🟡 | ❌ |
+| ~~`TSK-142`~~ | WASM persistence via OPFS + Web Workers | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`ENT-01`~~ | SOC 2 prep (access controls, audit trails, retention) | 🟡 3-5d | 🟡 | ❌ 🗑️ |
+| ~~`ENT-02`~~ | HIPAA assessment + BAA readiness | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`ENT-03`~~ | Multi-tenant isolation (RAM, IOPS, storage quotas) | 🟡 3-5d | 🟡 | ❌ 🗑️ |
 | `ENT-04` | Connection pooling + circuit breaker | 🟡 2-3d | 🟡 | ❌ |
 | ~~`GOV-01`~~ | **Governance redesign** — Rediseñar admission control, conflict resolution, y consistency buffer basado en el design doc de experimental-governance. 12 bugs conocidos (Bloom saturation, friction invertido, death spiral, etc.). Ver `docs/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md` | 🟠 3-5d | 🟡 | ❌ |
 | `LOW-01` | TLS 1.3 on vantadb-server | 🟢 1-2d | 🟢 | ✅ |
@@ -414,17 +463,18 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `CLD-01` | VantaDB Cloud Beta (Fly.io, NVMe, Bearer auth) | 🟡 3-5d | 🟡 | ❌ |
-| `CLD-02` | Pitch Deck + one-pager | 🟡 2-3d | 🟡 | ❌ |
-| `CLD-03` | Enterprise pilot program (3-5 early adopters) | 🟡 2-3d | 🟡 | ❌ |
-| `CLD-04` | Case Studies (mínimo 2) | 🟡 2-3d | 🟡 | ❌ |
-| `CLD-06` | Stripe billing integration | 🟡 2-3d | 🟡 | ❌ |
-| `CLD-07` | Web dashboard (admin panel) | 🟡 3-5d | 🟡 | ❌ |
+| ~~`CLD-01`~~ | VantaDB Cloud Beta (Fly.io, NVMe, Bearer auth) | 🟡 3-5d | 🟡 | ❌ 🗑️ |
+| ~~`CLD-02`~~ | Pitch Deck + one-pager | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`CLD-03`~~ | Enterprise pilot program (3-5 early adopters) | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`CLD-04`~~ | Case Studies (mínimo 2) | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`CLD-06`~~ | Stripe billing integration | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`CLD-07`~~ | Web dashboard (admin panel) | 🟡 3-5d | 🟡 | ❌ 🗑️ |
 | `BIZ-01` | Enterprise crate (encryption, audit, RBAC, replication) | 🟡 3-5d | 🟡 | ⏳ |
 | `BIZ-03` | Pricing page (ver MKT-07) | 🟡 1-2d | 🟡 | ✅ |
-| `BIZ-04` | Cloud architecture design doc | 🟡 2-3d | 🟡 | ❌ |
-| `BIZ-05` | Competitive pricing analysis | 🟡 1-2d | 🟡 | ❌ |
-| `BIZ-06` | Pitch Deck (10 slides) | 🟡 2-3d | 🟡 | ❌ |
+| ~~`BIZ-04`~~ | Cloud architecture design doc | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| ~~`BIZ-05`~~ | Competitive pricing analysis | 🟡 1-2d | 🟡 | ❌ 🗑️ |
+| ~~`BIZ-06`~~ | Pitch Deck (10 slides) | 🟡 2-3d | 🟡 | ❌ 🗑️ |
+| `NUEVO-21` | **Vectara competitive research** — agregar a análisis de mercado | 🟢 2-4h | ⬜ | ❌ |
 
 ---
 
@@ -464,6 +514,10 @@ Esfuerzo                │   Esfuerzo
 | ~~`CODE-048`~~ | ~~Mover skip link antes de Nav~~ | ~~🟢 1h~~ | ~~—~~ ✅ |
 | ~~`CODE-085`~~ | ~~Actualizar README Python~~ | ~~🟢 1h~~ | ~~—~~ ✅ |
 | ~~`CODE-091`~~ | ~~Renombrar distance→score en JS bindings~~ | ~~🟢 2h~~ | ~~—~~ ✅ |
+| ~~`NUEVO-03`~~ | ~~llms.txt en raíz del repo~~ | ~~🟢 1h~~ | ~~—~~ ✅ |
+| ~~`NUEVO-04`~~ | ~~CONTRIBUTING + CODE_OF_CONDUCT en raíz~~ | ~~🟢 1h~~ | ~~—~~ ✅ |
+| ~~`COM-01`~~ | ~~Crear Discord server~~ | ~~🟢 2-4h~~ | ~~—~~ ✅ |
+| ~~`NUEVO-02`~~ | ~~WASM demo en Vercel~~ | ~~🟡 2-3d~~ | ~~—~~ ✅ |
 
 ### 💎 High-Investment (Alto Impacto, Alto Esfuerzo) — PLANEAR BIEN
 
@@ -510,83 +564,57 @@ Esfuerzo                │   Esfuerzo
 
 | Categoría | TIER 0 ❌ | TIER 1 ❌ | TIER 2 ❌ | TIER 3 ❌ | PHASE 5 ❌ | Total |
 |-----------|----------|----------|----------|----------|-----------|-------|
-| 🩹 Data Loss & Crash Prev | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🛡️ Seguridad & Integrity | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Migration Runner | 0 | 0 | 0 | 0 | 0 | 0 |
-| 💥 Crash/Deadlock Fixes | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🐛 Correctness Bugs (Post-Benchmark) | 1 | 0 | 0 | 0 | 0 | 1 |
-| 🐛 Python SDK Data Bugs | 0 | 0 | 0 | 0 | 0 | 0 |
-| 📦 Integraciones & Release | 13 | 0 | 0 | 0 | 0 | 13 |
-| 🧪 Testing | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🎯 Marketing vs Realidad | 0 | 1 | 0 | 0 | 0 | 1 |
-| 🏗️ Index & Storage Quality | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Optimizaciones Post-Benchmark | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🌐 Web & Landing Page | 0 | 2 | 0 | 0 | 0 | 2 |
-| 📚 Documentación | 0 | 3 | 0 | 0 | 0 | 3 |
-| 🧪 WASM & MCP | 0 | 0 | 0 | 0 | 0 | 0 |
-| 📦 Distribución | 0 | 4 | 0 | 0 | 0 | 4 |
-| 🧹 Code Health Core | 0 | 1 | 0 | 0 | 0 | 1 |
-| 🧪 CI/CD Web Quality | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🚀 Launch Campaign | 0 | 0 | 9 | 0 | 0 | 9 |
-| 🌐 Conversión & SEO | 0 | 0 | 1 | 0 | 0 | 1 |
-| ⚙️ Performance Media (Post-Benchmark) | 0 | 0 | 10 | 0 | 0 | 10 |
-| 🗄️ Database Evolution | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🐛 GC & Background Tasks | 0 | 0 | 1 | 0 | 0 | 1 |
-| 👥 Comunidad | 0 | 0 | 5 | 0 | 0 | 5 |
-| 🎨 SDK Mejoras | 0 | 0 | 3 | 0 | 0 | 3 |
-| 🔧 Accesibilidad Web | 0 | 0 | 0 | 0 | 0 | 0 |
-| 📦 Distribución Avanzada | 0 | 0 | 0 | 2 | 0 | 2 |
-| 🧪 Testing Post-Launch | 0 | 0 | 0 | 1 | 0 | 1 |
-| 🛡️ Seguridad Post-Launch | 0 | 0 | 0 | 0 | 0 | 0 |
-| ⚡ Performance Baja Prioridad (Post-Benchmark) | 0 | 0 | 0 | 8 | 0 | 8 |
-| 🧹 Code Health General | 0 | 0 | 0 | 0 | 0 | 0 |
-| 🏢 Enterprise Readiness | 0 | 0 | 0 | 0 | 12 | 12 |
-| ☁️ VantaDB Cloud & Biz | 0 | 0 | 0 | 0 | 9 | 9 |
-| **Total** | **14** | **16** | **25** | **11** | **21** | **78** |
+| | | | | | | |
+| **Total** | **9** | **16** | **22** | **7** | **6** | **60** |
 
-Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Pendientes: 78 items ❌ + 1 ⏳ (BIZ-01) = 79 open.
+Nota: Tareas ✅ eliminadas del backlog y movidas a progreso (CODE-039/040/041/042, MKT-12, DOC-21, MCP-03). CODE-067 ya completado (XxHash3_128 + u128). CODE-055 completado (rust-version.workspace heredado). Snapshot tests certificate completado (1140L). Se eliminaron 19 ítems ❌ del backlog (🗑️) y se agregaron 21 nuevos (NUEVO-01→21). NUEVO-02/03/04 completados (WASM demo Vercel, llms.txt, CODE_OF_CONDUCT en raíz). COM-01 completado (Discord creado). Pendientes: 60 items ❌ + 1 ⏳ (BIZ-01) + 1 ⏳ (MKT-13) = 62 open.
 
 ---
 
 ## 📈 Timeline Consolidado
 
 ```
-Jul 4-11   TIER 0 (🔴 14 items remaining):
-              ─ Data loss: ✅ ~~CODE-026~~
-              ─ Security: ✅ ~~CODE-012~~, SEC-08/09/10
-              ─ Migration: ✅ ~~DB-01~~, DB-02 ✅, ✅ ~~snapshot tests~~
-               ─ Crash: ✅ ~~CODE-018/019~~
-              ─ Correctness: ✅ ~~CODE-092 (Euclidean bug)~~
-               ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
-             ─ Integrations: INT-01→11, DEVOPS-05/12, REL-02 ❌
-Jul 11-18  TIER 1 (🟠 17 items remaining):
-              ─ Marketing: ~~MKT-11, CODE-091, DX-02/03/04~~ ✅, `—` ❌
-              ─ Index: ✅ ~~CODE-007/008/010/024/029/030~~
-              ─ Web: MKT-13/14 ❌, ✅ ~~CODE-023/070/073/078/080~~
-             ─ Docs: DOC-19/20, MCP-IDE ❌
-             ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
-             ─ Distribución: DEVOPS-02/06/10, TSK-121 ❌
-              ─ Code health: ✅ ~~CODE-067~~
-             ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, ~~PERF-17~~/~~PERF-18~~/~~PERF-19~~/~~PERF-20~~ 🟠 ✅
-Jul 18-25  TIER 2 (🟡 29 items remaining):
-             ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104 ❌
-             ─ GC: ✅ ~~CODE-031/032/064/065/066~~ ~~CODE-037~~ ✅
-             ─ Comunidad: COM-01, TSK-106/107/108 ❌
-             ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~ 3 ❌
-             ─ Accesibilidad: ✅ ~~CODE-048~~
-             ─ SEO/Conversion: MKT-17 ❌
-             ─ ⚙️ Perf Media: ~~PERF-21~~/~~PERF-22~~/24/25/26/~~PERF-27~~/29 🟡 ❌
-Ago-Sep    TIER 3 (🔵 12 items remaining):
-              ─ Testing: CODE-074 ❌, ✅ ~~CODE-033/035/043/044/057/075~~
-             ─ Seguridad: ✅ ~~CODE-036/058/061~~
-              ─ Code health: ✅ ~~CODE-055~~, ✅ ~~18 others, CODE-039/040/041/042 moved → progreso~~
-             ─ Distribución: DEVOPS-06, crates.io ❌
-             ─ Post-launch: SEC-04→07, TEST-04/05/07/08 ✅
-             ─ ⚡ Perf Baja: PERF-31→38 🟢 ❌
-Oct+       PHASE 5 (⬜ 21 items):
-              ─ Enterprise: encryption, RBAC, audit, SOC2, HIPAA, PITR, WASM OPFS, multi-tenant
-              ─ Governance: GOV-01 redesign (admission, conflict, consistency)
-              ─ Cloud: WAL shipping, billing, dashboard, pitch deck, enterprise pilot
+Jul 4-11   TIER 0 (🔴 13 items remaining):
+               ─ Data loss: ✅ ~~CODE-026~~
+               ─ Security: ✅ ~~CODE-012~~, SEC-08/09/10
+               ─ Migration: ✅ ~~DB-01~~, DB-02 ✅, ✅ ~~snapshot tests~~
+                ─ Crash: ✅ ~~CODE-018/019~~
+               ─ Correctness: ✅ ~~CODE-092 (Euclidean bug)~~
+                ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
+              ─ Integrations: INT-01/02, DEVOPS-05, REL-02 ❌
+              ─ Infraestructura & CI: NUEVO-05/06 ❌
+               ─ Web & Landing: MKT-13 ⏳, MCP-IDE, TSK-SDK ❌ — COM-01, NUEVO-02/03/04 ✅
+Jul 11-18  TIER 1 (🟠 16 items remaining):
+               ─ Marketing: ~~MKT-11, CODE-091, DX-02/03/04~~ ✅, ~~—~~ ❌
+               ─ Index: ✅ ~~CODE-007/008/010/024/029/030~~
+               ─ Web: MKT-14 ❌, ✅ ~~CODE-023/070/073/078/080~~
+              ─ Docs: ~~DOC-19/20~~ ✅, ~~DOC-20~~ ❌, TSK-106 ❌
+              ─ WASM: ✅ ~~MCP-03~~, MCP-05, WASM-03/04/05 ✅
+              ─ Distribución: DEVOPS-06 ✅, TSK-121 ✅
+               ─ Code health: ✅ ~~CODE-067~~
+              ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, ~~PERF-17~~/~~PERF-18~~/~~PERF-19~~/~~PERF-20~~ 🟠 ✅
+              ─ Adapters: INT-03→09 ❌
+              ─ Docs & Community: NUEVO-01/07→10 ❌
+Jul 18-25  TIER 2 (🟡 22 items remaining):
+              ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104, DEVOPS-12/02 ❌
+              ─ GC: ✅ ~~CODE-031/032/064/065/066~~ ~~CODE-037~~ ✅
+              ─ Comunidad: TSK-107, Good first issues ❌
+              ─ SDK: ✅ ~~CODE-045/046/047/081/083/084/086/087/088~~, ~~Python put_batch~~ ❌
+              ─ Accesibilidad: ✅ ~~CODE-048~~
+              ─ SEO/Conversion: MKT-17 ❌
+              ─ ⚙️ Perf Media: ~~PERF-21~~/~~PERF-22~~/24/26/~~PERF-27~~ 🟡 ❌
+              ─ WASM & Performance: NUEVO-11→15 ❌
+Ago-Sep    TIER 3 (🔵 7 items remaining):
+               ─ Testing: ✅ ~~CODE-074 🗑️, CODE-033/035/043/044/057/075~~
+              ─ Seguridad: ✅ ~~CODE-036/058/061~~
+               ─ Code health: ✅ ~~CODE-055~~, ✅ ~~18 others, CODE-039/040/041/042 moved → progreso~~
+              ─ Distribución: crates.io, DEVOPS-10 ❌
+              ─ Post-launch: SEC-04→07, TEST-04/05/07/08 ✅
+              ─ ⚡ Perf Baja: ✅ ~~PERF-31→38 🗑️~~
+              ─ Features Avanzadas: NUEVO-16→20 ❌
+Oct+       PHASE 5 (⬜ 6 items):
+               ─ Enterprise: encryption, audit, RBAC, circuit breaker (6 ❌)
+               ─ Cloud & Biz: Vectara research (NUEVO-21)
 ```
 
 ---

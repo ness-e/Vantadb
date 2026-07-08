@@ -1,8 +1,7 @@
 @import url("tailwindcss") source(none);
+@import url("tw-animate-css");
 
 @source "../../src";
-
-@import url("tw-animate-css");
 
 @custom-variant dark (&:is(.dark *));
 

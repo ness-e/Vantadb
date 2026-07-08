@@ -2,7 +2,8 @@
 **/test_load_db_*/
 vantadb-python/test_load_db_4cbc46ae/
 vantadb-ts/test_load_db*/
-
+.env.local
+.env.example
 # Rust build artifacts
 target/
 **/target/
@@ -62,6 +63,7 @@ quickstart_memory.py
 .vanta_profile
 .env
 .env.*
+!.env.tokens.example
 
 # Datasets / local assets
 datasets/
@@ -126,7 +128,6 @@ ghost_out/
 Cargo_test.toml
 **/Cargo_test.toml
 .vercel
-.env*
 .playwright-mcp/
 
 # Understand-Anything (local scratch)

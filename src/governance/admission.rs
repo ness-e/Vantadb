@@ -1,9 +1,13 @@
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use twox_hash::XxHash64;
-use std::hash::{Hash, Hasher};
 
-const BLOOM_SEEDS: [u64; 3] = [0xdead_beef_dead_beef, 0xcafe_babe_cafe_babe, 0xbaad_f00d_baad_f00d];
+const BLOOM_SEEDS: [u64; 3] = [
+    0xdead_beef_dead_beef,
+    0xcafe_babe_cafe_babe,
+    0xbaad_f00d_baad_f00d,
+];
 
 /// Configuration for the admission filter.
 #[derive(Debug, Clone)]
@@ -44,11 +48,16 @@ impl CountMinSketch {
         let counters = (0..depth)
             .map(|_| (0..width).map(|_| AtomicU64::new(0)).collect())
             .collect();
-        Self { width, depth, counters }
+        Self {
+            width,
+            depth,
+            counters,
+        }
     }
 
     fn hash_row(&self, item: u64, row: usize) -> usize {
-        let mut hasher = XxHash64::with_seed(BLOOM_SEEDS[row % BLOOM_SEEDS.len()].wrapping_add(row as u64));
+        let mut hasher =
+            XxHash64::with_seed(BLOOM_SEEDS[row % BLOOM_SEEDS.len()].wrapping_add(row as u64));
         item.hash(&mut hasher);
         (hasher.finish() as usize) % self.width
     }
@@ -300,10 +309,7 @@ mod tests {
             filter.block_record(i);
         }
         let fp_rate = filter.estimated_fp_rate();
-        assert!(
-            fp_rate <= 1.0,
-            "FP rate should be bounded by 1.0"
-        );
+        assert!(fp_rate <= 1.0, "FP rate should be bounded by 1.0");
     }
 
     #[test]

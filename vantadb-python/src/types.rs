@@ -87,7 +87,9 @@ impl VantaPyMemoryRecord {
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(py.get_type::<VantaVector>().call1((v.clone(),))?.unbind())),
+                None => Ok(Some(
+                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
+                )),
             },
             None => Ok(None),
         }

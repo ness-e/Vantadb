@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/vantadb/0.1.5/vantadb/")]
+#![doc(html_root_url = "https://docs.rs/vantadb/0.2.0/vantadb/")]
 #![warn(missing_docs)]
 
 //! # VantaDB — Embedded Persistent Memory Engine
@@ -31,9 +31,9 @@ pub mod engine;
 pub mod error;
 pub mod executor;
 pub mod gc;
-pub mod governor;
 #[cfg(feature = "governance")]
 pub mod governance;
+pub mod governor;
 pub mod graph;
 pub mod hardware;
 pub mod index;

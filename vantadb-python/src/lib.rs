@@ -21,10 +21,10 @@ use vantadb::metadata;
 use vantadb::sdk::{
     VantaBm25TermContribution, VantaCapabilities, VantaEmbedded, VantaExportReport,
     VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchRequest,
-    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier,
-    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchRequest, VantaNodeInput,
+    VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult, VantaRuntimeProfile,
+    VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier, VantaTextIndexAuditReport,
+    VantaTextIndexRepairReport, VantaValue,
 };
 use vantadb::DistanceMetric;
 
@@ -432,8 +432,6 @@ fn capabilities_to_pydict(py: Python, capabilities: &VantaCapabilities) -> PyRes
     Ok(dict.unbind().into())
 }
 
-
-
 fn bm25_term_to_pydict(py: Python, term: &VantaBm25TermContribution) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("token", &term.token)?;
@@ -494,8 +492,6 @@ fn search_explanation_to_pydict(py: Python, exp: &VantaSearchExplanation) -> PyR
 
     Ok(dict.unbind().into())
 }
-
-
 
 fn rebuild_report_to_pydict(py: Python, report: &VantaIndexRebuildReport) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
@@ -926,10 +922,14 @@ impl VantaDB {
 
         // New keyword-based API
         let keys = keys.ok_or_else(|| {
-            PyTypeError::new_err("either positional 'entries' or keyword 'keys' + 'vectors' is required")
+            PyTypeError::new_err(
+                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
+            )
         })?;
         let vectors = vectors.ok_or_else(|| {
-            PyTypeError::new_err("either positional 'entries' or keyword 'keys' + 'vectors' is required")
+            PyTypeError::new_err(
+                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
+            )
         })?;
         let n = keys.len();
         if vectors.len() != n {
@@ -1928,7 +1928,9 @@ impl VantaPySearchHit {
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(py.get_type::<VantaVector>().call1((v.clone(),))?.unbind())),
+                None => Ok(Some(
+                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
+                )),
             },
             None => Ok(None),
         }

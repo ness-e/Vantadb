@@ -1,3 +1,4 @@
+import wasm from "vite-plugin-wasm";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -13,10 +14,19 @@ export default defineConfig({
     TanStackRouterVite(),
     react(),
     tailwindcss(),
+    wasm(),
     ...(process.env.ANALYZE ? [visualizer({ filename: "dist/stats.html", open: true })] : []),
   ],
+  server: {
+    fs: {
+      allow: [
+        "..",
+      ],
+    },
+  },
   base: "/",
   build: {
+    cssMinify: "esbuild",
     rollupOptions: {
       output: {
         manualChunks(id: string) {

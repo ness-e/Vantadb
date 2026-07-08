@@ -370,6 +370,6 @@ impl VantaDBStore {
 #[pymodule]
 fn vantadb_mem0(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBStore>()?;
-    m.add("__version__", "0.1.5")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

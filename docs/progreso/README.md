@@ -288,6 +288,29 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 ## Recent Progress
 
+### 2026-07-07 — Reorganización Masiva del Backlog (24 eliminaciones, 21 adiciones, 11 prioridades)
+
+**Fuente:** Análisis completo del proyecto (`docs/research/VantaDB_ANALISIS_COMPLETO.md`) que evaluó cada item del backlog contra: impacto real, esfuerzo, timing, alineación con visión estratégica.
+
+**Cambios ejecutados:**
+- **24 items eliminados** del backlog activo: Cloud entero (7 items), optimizaciones prematuras (6), SOC2/HIPAA (2), WAL shipping, PITR, Semantic Kernel, visual regression, y 4 duplicados/ya-existentes
+- **11 items re-priorizados**: 5 subieron a 🔴 (WASM demo, Discord, TS SDK, MCP docs), 3 bajaron a 🟡/🟢 (ARM64, signing, GraphRAG metodología)
+- **21 nuevos items agregados**: sanitizer CI, flat index, migration tools, learning path, WASM fallbacks, HNSW auto-tuning, PQ, LSM, sparse vectors, y más
+- **Resultado**: Backlog pasó de 79 → **65 items activos**
+
+**Documentación completa:** `docs/progreso/backlog-2026-07-07.md`
+
+### 2026-07-08 — WASM Demo + Quick Wins (NUEVO-03/04) + Demo Route
+
+- **WASM-03 (completado):** Ruta `/demo` creada con chat interactivo (Transformers.js + mock embedder + fallback in-memory). Fixes: `vector: [vector]` double-wrap, `@wasm` alias resuelto copiando `pkg/` a `web/src/wasm/`, `vite-plugin-wasm` configurado, `cssMinify: "esbuild"` para compatibilidad Tailwind v4. Demo completamente funcional.
+- **NUEVO-03 (✅ completado):** `llms.txt` ya existía en raíz del repo (describe el proyecto para AI crawlers). `web/public/llms.txt` es específico del sitio web. Backlog actualizado.
+- **NUEVO-04 (✅ completado):** `CONTRIBUTING.md` ya estaba en raíz. `CODE_OF_CONDUCT.md` copiado de `.github/` a raíz. Ambos archivos detectables por GitHub.
+- **MKT-13 (⏳ en progreso):** Ruta `/demo` funcional y diseñada con brand VantaDB. Pendiente: enlace "Try in browser" desde la hero + deploy a Vercel.
+- **Rediseño visual demo:** CSS reescrito con hard corners, amber accent, dark surfaces, JetBrains Mono, hard shadows — consistente con el design system VantaDB.
+- **Backlog:** NUEVO-02/03/04 + COM-01 movidos a ✅. MKT-13 marcado como ⏳ (solo falta hero link). Total pendiente: 60 ❌ + 2 ⏳ = 62 open.
+- **Tokens file:** Creado `.env.tokens.example` con documentación de todos los tokens/secrets del proyecto. `.env.tokens` (real) en `.gitignore`. `.env.tokens.example` (template) trackeado.
+- **INT-01/02 adapters fix:** LangChain y LlamaIndex adapters reparados para usar la API actual de `vantadb-py` (propiedades en vez de dicts). Tests: ✅ 5/5 LangChain, ✅ 5/5 LlamaIndex. Dep `vantadb-py>=0.3` corregida a `>=0.2`. Ya están listos para publicar.
+
 ### 2026-07-03 — Massive Adapter, WASM, Performance, Security, DX & Clippy Batch (26 tareas completadas)
 
 **fix: clippy warnings (commit `b11c0e7`):** Se resolvieron las 22 advertencias de `dead_code` en el código scaffolding (PERF-02/07/08/10, SEC-05, vfile sigbus, ops auxiliares, wal recovery) mediante `#[allow(dead_code)]`. Se corrigió un type mismatch en `rkyv_archives.rs` (`Vec<Vec<u64>>` → `Vec<NeighborVec>`). `cargo clippy` ahora emite 0 warnings y 342/342 tests pasan.

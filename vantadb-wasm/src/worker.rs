@@ -179,8 +179,7 @@ impl OpfsWorkerProxy {
 
     /// Send a request and await the response.
     async fn send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
-        let msg = serde_json::to_value(req)
-            .map_err(|e| js_sys::Error::new(&e.to_string()))?;
+        let msg = serde_json::to_value(req).map_err(|e| js_sys::Error::new(&e.to_string()))?;
 
         // Create a MessageChannel for this request/response pair.
         let global = js_sys::global();
@@ -197,15 +196,13 @@ impl OpfsWorkerProxy {
         let promise = js_sys::Promise::new(&mut {
             let port1 = port1.clone();
             move |resolve: js_sys::Function, _reject: js_sys::Function| {
-                let onmessage = js_sys::Function::new_no_args(
-                    &format!(
-                        r#"
+                let onmessage = js_sys::Function::new_no_args(&format!(
+                    r#"
                         const msg = arguments[0];
                         this.onmessage = null;
                         arguments[1](msg.data);
                         "#,
-                    ),
-                );
+                ));
                 Reflect::set(&port1, &"onmessage".into(), &onmessage).ok();
             }
         });
@@ -224,8 +221,7 @@ impl OpfsWorkerProxy {
         let resp_str = resp_val
             .as_string()
             .ok_or_else(|| JsValue::from_str("expected string response"))?;
-        serde_json::from_str(&resp_str)
-            .map_err(|e| js_sys::Error::new(&e.to_string()).into())
+        serde_json::from_str(&resp_str).map_err(|e| js_sys::Error::new(&e.to_string()).into())
     }
 
     /// Initialise the worker with a storage directory name.
@@ -235,9 +231,7 @@ impl OpfsWorkerProxy {
         };
         match self.send(&req).await? {
             WorkerResponse::Initialized => Ok(()),
-            WorkerResponse::Error { message } => {
-                Err(js_sys::Error::new(&message).into())
-            }
+            WorkerResponse::Error { message } => Err(js_sys::Error::new(&message).into()),
             _ => Err(js_sys::Error::new("unexpected worker response").into()),
         }
     }
@@ -249,9 +243,7 @@ impl OpfsWorkerProxy {
         };
         match self.send(&req).await? {
             WorkerResponse::ReadResult { data } => Ok(data),
-            WorkerResponse::Error { message } => {
-                Err(js_sys::Error::new(&message).into())
-            }
+            WorkerResponse::Error { message } => Err(js_sys::Error::new(&message).into()),
             _ => Err(js_sys::Error::new("unexpected worker response").into()),
         }
     }
@@ -264,9 +256,7 @@ impl OpfsWorkerProxy {
         };
         match self.send(&req).await? {
             WorkerResponse::Written => Ok(()),
-            WorkerResponse::Error { message } => {
-                Err(js_sys::Error::new(&message).into())
-            }
+            WorkerResponse::Error { message } => Err(js_sys::Error::new(&message).into()),
             _ => Err(js_sys::Error::new("unexpected worker response").into()),
         }
     }
@@ -279,9 +269,7 @@ impl OpfsWorkerProxy {
         };
         match self.send(&req).await? {
             WorkerResponse::Appended => Ok(()),
-            WorkerResponse::Error { message } => {
-                Err(js_sys::Error::new(&message).into())
-            }
+            WorkerResponse::Error { message } => Err(js_sys::Error::new(&message).into()),
             _ => Err(js_sys::Error::new("unexpected worker response").into()),
         }
     }
@@ -293,9 +281,7 @@ impl OpfsWorkerProxy {
         };
         match self.send(&req).await? {
             WorkerResponse::Deleted => Ok(()),
-            WorkerResponse::Error { message } => {
-                Err(js_sys::Error::new(&message).into())
-            }
+            WorkerResponse::Error { message } => Err(js_sys::Error::new(&message).into()),
             _ => Err(js_sys::Error::new("unexpected worker response").into()),
         }
     }
