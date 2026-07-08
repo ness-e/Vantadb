@@ -120,6 +120,28 @@ impl VantaPyMemoryRecord {
         self.inner.expires_at_ms
     }
 
+    fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3::conversion::IntoPyObject;
+        Ok(match key {
+            "namespace" => self.namespace().into_pyobject(py)?.into_any(),
+            "key" => self.key().into_pyobject(py)?.into_any(),
+            "payload" => self.payload().into_pyobject(py)?.into_any(),
+            "metadata" => self.metadata(py)?.into_bound(py).into_any(),
+            "vector" => match self.vector(py)? {
+                Some(v) => v.into_bound(py),
+                None => py.None().into_bound(py),
+            },
+            "created_at_ms" => self.created_at_ms().into_pyobject(py)?.into_any(),
+            "updated_at_ms" => self.updated_at_ms().into_pyobject(py)?.into_any(),
+            "version" => self.version().into_pyobject(py)?.into_any(),
+            "node_id" => self.node_id().into_pyobject(py)?.into_any(),
+            "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
+            _ => return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                "VantaMemoryRecord has no field '{key}'"
+            ))),
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "VantaMemoryRecord(namespace={}, key={}, dim={})",
@@ -173,11 +195,27 @@ impl VantaPyListResult {
         self.records.len()
     }
 
-    fn __getitem__(&self, idx: usize) -> PyResult<VantaPyMemoryRecord> {
-        self.records
-            .get(idx)
-            .cloned()
-            .ok_or_else(|| pyo3::exceptions::PyIndexError::new_err("list index out of range"))
+    fn __getitem__<'py>(&self, py: Python<'py>, key: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3::conversion::IntoPyObject;
+        if let Ok(idx) = key.extract::<usize>() {
+            match self.records.get(idx) {
+                Some(r) => Ok(r.clone().into_pyobject(py)?.into_any()),
+                None => Err(pyo3::exceptions::PyIndexError::new_err("list index out of range")),
+            }
+        } else if let Ok(s) = key.extract::<String>() {
+            match s.as_str() {
+                "records" => Ok(self.records().into_pyobject(py)?.into_any()),
+                "next_cursor" => Ok(self.next_cursor().into_pyobject(py)?.into_any()),
+                "total_count" => Ok(self.total_count().into_pyobject(py)?.into_any()),
+                _ => Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                    "VantaListResult has no field '{s}'"
+                ))),
+            }
+        } else {
+            Err(pyo3::exceptions::PyTypeError::new_err(
+                "VantaListResult indices must be integers or strings",
+            ))
+        }
     }
 
     fn __iter__(slf: PyRef<'_, Self>) -> VantaListResultIter {
