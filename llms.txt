@@ -1,0 +1,80 @@
+# VantaDB
+
+> VantaDB is an embedded vector database written in Rust, focused on long-term memory for AI agents.
+
+## Docs
+- docs/architecture/ARCHITECTURE.md
+- docs/operations/CONFIGURATION.md
+- docs/operations/DURABILITY_GUARANTEES.md
+- docs/Backlog.md
+
+## API
+- docs/api/EMBEDDED_SDK.md
+- docs/api/HTTP_API.md
+- docs/api/MCP.md
+- docs/api/PYTHON_SDK.md
+- docs/api/TS_SDK.md
+
+## Quick Start
+### Python
+```python
+from vantadb import VantaEmbedded
+
+db = VantaEmbedded(path="./memory")
+db.put("key1", [0.1, 0.2, 0.3], {"source": "chat"})
+results = db.search([0.1, 0.2, 0.3], top_k=5)
+```
+
+### Rust
+```rust
+use vantadb::VantaEmbedded;
+
+let db = VantaEmbedded::new("./memory");
+db.put("key1", &[0.1, 0.2, 0.3], None).await;
+let results = db.search(&[0.1, 0.2, 0.3], 5).await;
+```
+
+### CLI
+```bash
+vanta-cli put --namespace default --key hello --vector "[0.1, 0.2, 0.3]"
+vanta-cli search --namespace default --query "[0.1, 0.2, 0.3]"
+```
+
+### MCP Server
+```bash
+vanta-cli mcp  # Starts MCP server for AI agent integration
+```
+
+## Features
+- HNSW vector index with CPIndex (DashMap + xxHash + parking_lot)
+- 3 quantization schemes: RaBitQ (1-bit), TurboQuant (3-bit), SQ8 (8-bit)
+- QuantizationGovernor: auto f32-to-SQ8 based on access frequency
+- ShardedWAL: per-shard sequential recovery mechanism
+- SIMD distance kernels: AVX-512 + portable f32x8
+- MemoryGovernor: watermark-based memory eviction
+- 3 backends: Fjall (default), RocksDB (optional), InMemory
+- 6 SDKs: Python, TypeScript, Rust, WASM, MCP, REST
+- CLI with 33+ commands and shell completions
+- OpenTelemetry integration (OTLP + Prometheus)
+- FilterBitset multi-tenant filtering
+- RBAC (enterprise crate)
+
+## Integration Ecosystem
+- Python SDK: pip install vantadb-py
+- TypeScript SDK: npm install vantadb
+- Rust SDK: cargo add vantadb
+- LangChain adapter: langchain-vantadb (coming to PyPI)
+- LlamaIndex adapter: llama-index-vector-stores-vantadb (coming to PyPI)
+
+## Performance
+- HNSW M=32, ef_construct=400, ef_search=100
+- Batch insert with single lock acquisition
+- Zero-copy mmap vector store with BFS layout
+- LRU cache for hot nodes
+- Release profile: thin LTO, opt-level=3
+
+## Project Status
+- Version: 0.2.0
+- Pre-release, Phase 3 pre-launch (~95%)
+- License: Apache 2.0
+- Repository: https://github.com/ness-e/Vantadb

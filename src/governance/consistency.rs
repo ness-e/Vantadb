@@ -183,7 +183,11 @@ impl<T: Clone> ConsistencyBuffer<T> {
             let winner = record
                 .candidates
                 .iter()
-                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                .max_by(|a, b| {
+                    a.confidence
+                        .partial_cmp(&b.confidence)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
                 .cloned();
 
             match winner {
@@ -206,7 +210,8 @@ impl<T: Clone> ConsistencyBuffer<T> {
         if let Ok(mut lf) = self.last_flush.write() {
             *lf = now;
         }
-        self.flushed_count.fetch_add(result.accepted.len() as u64, Ordering::Relaxed);
+        self.flushed_count
+            .fetch_add(result.accepted.len() as u64, Ordering::Relaxed);
 
         result
     }
@@ -265,7 +270,8 @@ mod tests {
 
     #[test]
     fn test_insert_and_get() {
-        let buffer = ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
+        let buffer =
+            ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
         let candidates = vec![entry("val1", "alice", 0.9, 1)];
         assert!(buffer.try_insert(1, candidates.clone()).is_ok());
         let retrieved = buffer.get(&1);
@@ -276,16 +282,27 @@ mod tests {
     #[test]
     fn test_buffer_full_backpressure() {
         let buffer = ConsistencyBuffer::new(2, Duration::from_secs(10), Duration::from_secs(60), 5);
-        assert!(buffer.try_insert(1, vec![entry("a", "alice", 0.9, 1)]).is_ok());
-        assert!(buffer.try_insert(2, vec![entry("b", "bob", 0.8, 1)]).is_ok());
+        assert!(buffer
+            .try_insert(1, vec![entry("a", "alice", 0.9, 1)])
+            .is_ok());
+        assert!(buffer
+            .try_insert(2, vec![entry("b", "bob", 0.8, 1)])
+            .is_ok());
         let result = buffer.try_insert(3, vec![entry("c", "charlie", 0.7, 1)]);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_ttl_expiry() {
-        let buffer = ConsistencyBuffer::<String>::new(100, Duration::from_millis(1), Duration::from_secs(60), 50);
-        buffer.try_insert(1, vec![entry("x", "alice", 0.9, 1)]).unwrap();
+        let buffer = ConsistencyBuffer::<String>::new(
+            100,
+            Duration::from_millis(1),
+            Duration::from_secs(60),
+            50,
+        );
+        buffer
+            .try_insert(1, vec![entry("x", "alice", 0.9, 1)])
+            .unwrap();
         std::thread::sleep(Duration::from_millis(5));
         let tombstones = buffer.expire_entries();
         assert!(tombstones.contains(&1));
@@ -293,7 +310,8 @@ mod tests {
 
     #[test]
     fn test_flush_picks_highest_confidence() {
-        let buffer = ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
+        let buffer =
+            ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
         buffer
             .try_insert(
                 1,
@@ -307,7 +325,12 @@ mod tests {
 
     #[test]
     fn test_flush_tombstones_when_no_candidates() {
-        let buffer = ConsistencyBuffer::<String>::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
+        let buffer = ConsistencyBuffer::<String>::new(
+            100,
+            Duration::from_secs(10),
+            Duration::from_secs(60),
+            50,
+        );
         buffer.try_insert(42, vec![]).unwrap();
         let result = buffer.flush_all();
         assert!(result.tombstones.contains(&42));
@@ -315,17 +338,25 @@ mod tests {
 
     #[test]
     fn test_should_flush_by_count() {
-        let buffer = ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 2);
-        buffer.try_insert(1, vec![entry("a", "alice", 0.9, 1)]).unwrap();
+        let buffer =
+            ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 2);
+        buffer
+            .try_insert(1, vec![entry("a", "alice", 0.9, 1)])
+            .unwrap();
         assert!(!buffer.should_flush());
-        buffer.try_insert(2, vec![entry("b", "bob", 0.8, 1)]).unwrap();
+        buffer
+            .try_insert(2, vec![entry("b", "bob", 0.8, 1)])
+            .unwrap();
         assert!(buffer.should_flush());
     }
 
     #[test]
     fn test_record_tracking() {
-        let buffer = ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
-        buffer.try_insert(1, vec![entry("x", "alice", 0.9, 1)]).unwrap();
+        let buffer =
+            ConsistencyBuffer::new(100, Duration::from_secs(10), Duration::from_secs(60), 50);
+        buffer
+            .try_insert(1, vec![entry("x", "alice", 0.9, 1)])
+            .unwrap();
         assert_eq!(buffer.pending_writes(), 1);
         let _ = buffer.get(&1);
         assert_eq!(buffer.pending_reads(), 1);

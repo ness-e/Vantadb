@@ -5,11 +5,11 @@
 //! for use by the storage layer and can be retrieved via [`VantaFile::cipher`].
 
 use crate::binary_header::VantaHeader;
+#[cfg(feature = "encryption")]
+use crate::crypto::{Cipher, EncryptionStream};
 use crate::error::{Result, VantaError};
 use crate::index::CPIndex;
 use crate::node::DiskNodeHeader;
-#[cfg(feature = "encryption")]
-use crate::crypto::{Cipher, EncryptionStream};
 use std::fs::{File, OpenOptions};
 #[cfg(not(feature = "memmap2"))]
 use std::io::Read;

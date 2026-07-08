@@ -55,7 +55,10 @@ impl WalArchiver {
     pub fn new(archive_dir: impl AsRef<Path>, config: WalArchiveConfig) -> Result<Self> {
         let archive_dir = archive_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&archive_dir)?;
-        Ok(Self { archive_dir, config })
+        Ok(Self {
+            archive_dir,
+            config,
+        })
     }
 
     /// Move a rotated WAL segment into the archive directory.
@@ -258,10 +261,7 @@ impl PitrRestorer {
             total_replayed += replayed;
         }
 
-        info!(
-            records = total_replayed,
-            "PITR restore completed"
-        );
+        info!(records = total_replayed, "PITR restore completed");
 
         Ok(total_replayed)
     }
@@ -281,10 +281,7 @@ impl PitrRestorer {
     /// Format: `<original_name>.<timestamp_millis>`
     /// Example: `vanta.wal.1712345678901` → `1712345678901`
     fn parse_segment_timestamp(path: &Path) -> u64 {
-        let name = path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
         if let Some(ts_str) = name.rsplit('.').next() {
             if let Ok(ts) = ts_str.parse::<u64>() {
                 return ts;
@@ -311,8 +308,7 @@ mod tests {
     fn make_wal_segment(dir: &Path, name: &str) -> PathBuf {
         let path = dir.join(name);
         let mut w = WalWriter::open(&path, SyncMode::Periodic).unwrap();
-        w.append(&WalRecord::Insert(UnifiedNode::new(1)))
-            .unwrap();
+        w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
         w.sync().unwrap();
         drop(w);
         path
@@ -367,9 +363,7 @@ mod tests {
         std::fs::create_dir_all(&archive_dir).unwrap();
 
         let restorer = PitrRestorer::new(&archive_dir);
-        let count = restorer
-            .restore_to_timestamp(u64::MAX, |_| Ok(()))
-            .unwrap();
+        let count = restorer.restore_to_timestamp(u64::MAX, |_| Ok(())).unwrap();
         assert_eq!(count, 0);
     }
 

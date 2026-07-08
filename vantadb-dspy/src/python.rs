@@ -101,6 +101,6 @@ impl VantaDBRM {
 #[pymodule]
 fn vantadb_dspy(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBRM>()?;
-    m.add("__version__", "0.1.5")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

@@ -26,9 +26,9 @@ impl OpfsFile {
         let result = get_handle.apply(dir_handle, &args);
         let handle = match result {
             Ok(v) => {
-                let promise = v.dyn_into::<Promise>().map_err(|_| {
-                    JsValue::from_str("expected Promise from getFileHandle")
-                })?;
+                let promise = v
+                    .dyn_into::<Promise>()
+                    .map_err(|_| JsValue::from_str("expected Promise from getFileHandle"))?;
                 wasm_bindgen_futures::JsFuture::from(promise).await?
             }
             Err(_) => {
@@ -53,8 +53,7 @@ impl OpfsFile {
 
     /// Write data to the file, replacing its current contents.
     pub async fn write(&self, data: &[u8]) -> Result<(), JsValue> {
-        let writable =
-            js_call(&self.handle, "createWritable", &js_sys::Array::new()).await?;
+        let writable = js_call(&self.handle, "createWritable", &js_sys::Array::new()).await?;
         let buf = Uint8Array::new_with_length(data.len() as u32);
         buf.copy_from(data);
         let write_args = js_sys::Array::new();

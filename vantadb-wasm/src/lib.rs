@@ -304,8 +304,10 @@ impl VantaDB {
         init_tracing();
         let worker_proxy = {
             let global = js_sys::global();
-            let spawn_fn = js_sys::Reflect::get(&global, &"spawnOpfsWorker".into())
-                .map_err(|_| JsValue::from_str("spawnOpfsWorker not available — import opfs_bridge.js"))?;
+            let spawn_fn =
+                js_sys::Reflect::get(&global, &"spawnOpfsWorker".into()).map_err(|_| {
+                    JsValue::from_str("spawnOpfsWorker not available — import opfs_bridge.js")
+                })?;
             let worker = spawn_fn
                 .dyn_into::<js_sys::Function>()
                 .map_err(|_| JsValue::from_str("spawnOpfsWorker is not a function"))?

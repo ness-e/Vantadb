@@ -149,6 +149,6 @@ fn py_dict_to_vanta_metadata(dict: Option<&Bound<'_, PyDict>>) -> BTreeMap<Strin
 #[pymodule]
 fn vantadb_haystack(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBDocumentStore>()?;
-    m.add("__version__", "0.1.5")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

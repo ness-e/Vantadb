@@ -79,31 +79,25 @@ impl MaintenanceWorker {
         let conflict = self.conflict.clone();
         let buffer = self.buffer.clone();
 
-        let handle = thread::spawn(move || {
-            loop {
-                if !running.load(Ordering::SeqCst) {
-                    break;
-                }
-
-                let now = Instant::now();
-                let inactive = {
-                    let last = *last_activity.read().expect("RwLock poisoned");
-                    now.duration_since(last) >= inactivity
-                };
-
-                if inactive {
-                    if let Err(e) = Self::run_maintenance_cycle(
-                        &admission,
-                        &conflict,
-                        &buffer,
-                        &health,
-                    ) {
-                        tracing::warn!("Maintenance cycle error: {}", e);
-                    }
-                }
-
-                thread::sleep(interval);
+        let handle = thread::spawn(move || loop {
+            if !running.load(Ordering::SeqCst) {
+                break;
             }
+
+            let now = Instant::now();
+            let inactive = {
+                let last = *last_activity.read().expect("RwLock poisoned");
+                now.duration_since(last) >= inactivity
+            };
+
+            if inactive {
+                if let Err(e) = Self::run_maintenance_cycle(&admission, &conflict, &buffer, &health)
+                {
+                    tracing::warn!("Maintenance cycle error: {}", e);
+                }
+            }
+
+            thread::sleep(interval);
         });
 
         *self.handle.write().expect("RwLock poisoned") = Some(handle);
@@ -119,12 +113,7 @@ impl MaintenanceWorker {
 
     /// Manually trigger a maintenance cycle.
     pub fn trigger_maintenance(&self) -> Result<(), String> {
-        Self::run_maintenance_cycle(
-            &self.admission,
-            &self.conflict,
-            &self.buffer,
-            &self.health,
-        )
+        Self::run_maintenance_cycle(&self.admission, &self.conflict, &self.buffer, &self.health)
     }
 
     /// Mark activity (resets inactivity timer).
@@ -229,11 +218,7 @@ mod tests {
             Duration::from_secs(60),
             50,
         ));
-        let worker = MaintenanceWorker::new(
-            Some(admission),
-            Some(conflict),
-            Some(buffer),
-        );
+        let worker = MaintenanceWorker::new(Some(admission), Some(conflict), Some(buffer));
 
         worker.trigger_maintenance().unwrap();
         let health = worker.health();

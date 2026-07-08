@@ -6,12 +6,12 @@ import { NbEcosystem } from "@/components/NbEcosystem";
 import { NbFaqAccordion } from "@/components/NbFaqAccordion";
 import { NbFeatureGrid } from "@/components/NbFeatureGrid";
 import { NbMetricsBar } from "@/components/NbMetricsBar";
-import { NbMonolith } from "@/components/NbMonolith";
 import { NbPricingPreview } from "@/components/NbPricingPreview";
 import { NbQuickstart } from "@/components/NbQuickstart";
 import { NbTerminalHero } from "@/components/NbTerminalHero";
 import { NbTrustBar } from "@/components/NbTrustBar";
 import { NbUseCases } from "@/components/NbUseCases";
+import { NbVectorNebula } from "@/components/NbVectorNebula";
 import "../styles/terminal-hero.css";
 import "../styles/trust-bar.css";
 import "../styles/core-engine.css";
@@ -24,6 +24,7 @@ import "../styles/ecosystem.css";
 import "../styles/faq-accordion.css";
 import "../styles/pricing-preview.css";
 import "../styles/monolith.css";
+import "../styles/vector-nebula.css";
 
 export const Route = createLazyRoute("/")({
   component: IndexPage,
@@ -45,7 +46,7 @@ function IndexPage() {
       <NbEcosystem />
       <NbFaqAccordion />
       <NbPricingPreview />
-      <NbMonolith />
+      <NbVectorNebula />
     </main>
   );
 }

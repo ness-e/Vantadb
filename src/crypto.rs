@@ -101,8 +101,7 @@ impl Cipher {
         } else {
             Sha256::digest(key).into()
         };
-        let inner =
-            Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm accepts 32-byte keys");
+        let inner = Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm accepts 32-byte keys");
         Self { inner }
     }
 
@@ -110,8 +109,8 @@ impl Cipher {
     ///
     /// Expects a hex-encoded 32-byte key (64 hex characters, optional `0x` prefix).
     pub fn from_env() -> Result<Self, CryptoError> {
-        let encoded = std::env::var("VANTADB_ENCRYPTION_KEY")
-            .map_err(|_| CryptoError::KeyNotSet)?;
+        let encoded =
+            std::env::var("VANTADB_ENCRYPTION_KEY").map_err(|_| CryptoError::KeyNotSet)?;
         let key = decode_hex(&encoded)?;
         Ok(Self::new(&key))
     }
@@ -242,7 +241,10 @@ impl<S: Read + Write> Read for EncryptionStream<S> {
 /// or odd length.
 fn decode_hex(s: &str) -> Result<Vec<u8>, CryptoError> {
     let s = s.trim();
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+    let s = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
     if s.len() % 2 != 0 {
         return Err(CryptoError::InvalidKey(
             "hex string must have an even number of characters".into(),
@@ -387,7 +389,9 @@ mod tests {
         let mut buf = Cursor::new(Vec::new());
         {
             let mut writer = EncryptionStream::new(&mut buf, cipher);
-            writer.write_all(b"this is a longer message to test partial reads").unwrap();
+            writer
+                .write_all(b"this is a longer message to test partial reads")
+                .unwrap();
             writer.flush().unwrap();
         }
         let encrypted_bytes = buf.into_inner();

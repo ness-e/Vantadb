@@ -120,6 +120,6 @@ fn py_dict_to_string_map(dict: &Bound<'_, PyDict>) -> std::collections::BTreeMap
 #[pymodule]
 fn vantadb_crewai(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CrewAIMemory>()?;
-    m.add("__version__", "0.1.5")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

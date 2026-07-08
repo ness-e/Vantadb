@@ -843,7 +843,11 @@ fn apply_hot_reload_from_value(
         };
     }
 
-    set_str_enum!(hot.prefetch_mode, "prefetch_mode", PrefetchMode::from_env_value);
+    set_str_enum!(
+        hot.prefetch_mode,
+        "prefetch_mode",
+        PrefetchMode::from_env_value
+    );
     set_str_enum!(hot.log_format, "log_format", LogFormat::from_env_value);
     set_u32!(hot.rate_limit_rpm, "rate_limit_rpm");
     set_opt_usize!(hot.batch_size, "batch_size");

@@ -135,6 +135,6 @@ impl LettaStore {
 #[pymodule]
 fn vantadb_letta(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LettaStore>()?;
-    m.add("__version__", "0.1.5")?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

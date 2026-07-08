@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#141414"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff5500" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ff5500" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ff5500" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect y="260" width="960" height="20" fill="url(#glow)"/>
+  <!-- Grid lines -->
+  <g stroke="#ffffff" stroke-opacity="0.03" stroke-width="0.5">
+    <line x1="0" y1="100" x2="960" y2="100"/>
+    <line x1="0" y1="200" x2="960" y2="200"/>
+    <line x1="0" y1="300" x2="960" y2="300"/>
+    <line x1="0" y1="400" x2="960" y2="400"/>
+    <line x1="192" y1="0" x2="192" y2="540"/>
+    <line x1="384" y1="0" x2="384" y2="540"/>
+    <line x1="576" y1="0" x2="576" y2="540"/>
+    <line x1="768" y1="0" x2="768" y2="540"/>
+  </g>
+  <!-- Data nodes -->
+  <g fill="#ff5500" opacity="0.6">
+    <circle cx="120" cy="120" r="3"/>
+    <circle cx="300" cy="180" r="2"/>
+    <circle cx="450" cy="100" r="4"/>
+    <circle cx="600" cy="200" r="2.5"/>
+    <circle cx="750" cy="140" r="3.5"/>
+    <circle cx="840" cy="300" r="2"/>
+    <circle cx="200" cy="400" r="3"/>
+    <circle cx="500" cy="420" r="2.5"/>
+    <circle cx="700" cy="380" r="3"/>
+  </g>
+  <!-- Connections -->
+  <g stroke="#ff5500" stroke-opacity="0.15" stroke-width="0.8">
+    <line x1="120" y1="120" x2="300" y2="180"/>
+    <line x1="300" y1="180" x2="450" y2="100"/>
+    <line x1="450" y1="100" x2="600" y2="200"/>
+    <line x1="600" y1="200" x2="750" y2="140"/>
+    <line x1="750" y1="140" x2="840" y2="300"/>
+    <line x1="200" y1="400" x2="500" y2="420"/>
+    <line x1="500" y1="420" x2="700" y2="380"/>
+  </g>
+  <!-- Center content -->
+  <text x="480" y="240" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#ffffff" letter-spacing="4">VantaDB</text>
+  <text x="480" y="280" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#888888" letter-spacing="2">EMBEDDED VECTOR DATABASE FOR AI AGENTS</text>
+  <!-- Underline accent -->
+  <rect x="380" y="295" width="200" height="2" fill="#ff5500" rx="1"/>
+  <!-- Bottom tag -->
+  <text x="480" y="480" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#555555" letter-spacing="3">OPEN SOURCE · RUST · BM25 + HNSW</text>
+</svg>
