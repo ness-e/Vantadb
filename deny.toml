@@ -7,13 +7,11 @@ ignore = [
     # Only affects crossbeam 0.7, transitive via rayon. rayon has not updated.
     # VantaDB does not use crossbeam directly. Plan: upgrade rayon when fix ships.
     "RUSTSEC-2023-0089",
-    # RUSTSEC-2024-0436: rustls: `ManualIssueTime` policy enables client to lie about
-    # certificate expiration. VantaDB uses default time verifier, not ManualIssueTime.
-    # Only relevant if opt-in to the insecure policy. No action needed.
-    "RUSTSEC-2024-0436",
-    # RUSTSEC-2025-0134: 1Password `schemars` related; only used in test/dev builds,
-    # not in production server. Will upgrade when patch is available.
-    "RUSTSEC-2025-0134",
+    # RUSTSEC-2026-0002: lru IterMut soundness issue (Stacked Borrows).
+    # Transitive via tantivy 0.22.x which pins lru <0.16.
+    # Not exploitable in normal usage; only relevant for Miri/UB validation.
+    # Fix pending tantivy semver-major bump.
+    "RUSTSEC-2026-0002",
 ]
 
 [licenses]
