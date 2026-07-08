@@ -222,19 +222,31 @@ class VantaDBVectorStore(VectorStore):
     def delete_by_filter(self, filter_key: str, filter_val: Any) -> int:
         page = self._db.list_memory(self.namespace, filters={filter_key: filter_val}, limit=10000)
         count = 0
-        for rec in page.get("records", []):
-            key = rec.get("key")
+        for rec in page.records:
+            key = rec.key
             if key:
                 self._db.delete_memory(self.namespace, key)
                 count += 1
         return count
+
+    @staticmethod
+    def _record_to_dict(record: vanta.VantaMemoryRecord) -> dict:
+        return {
+            "key": record.key,
+            "payload": record.payload,
+            "metadata": dict(record.metadata),
+            "created_at_ms": record.created_at_ms,
+            "updated_at_ms": record.updated_at_ms,
+            "version": record.version,
+            "node_id": record.node_id,
+        }
 
     def get_by_ids(self, ids: Sequence[str], /) -> List[Document]:
         documents: List[Document] = []
         for key in ids:
             record = self._db.get_memory(self.namespace, key)
             if record:
-                documents.append(self._to_document(record))
+                documents.append(self._to_document(self._record_to_dict(record)))
         return documents
 
     # ── Relevance score normalization ────────────────────────

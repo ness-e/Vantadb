@@ -68,6 +68,25 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             "version": hit.version,
         }
 
+    @staticmethod
+    def _record_to_dict(record: vanta.VantaMemoryRecord) -> dict:
+        try:
+            vec = record.vector
+            if vec is not None:
+                vec = list(vec)
+        except (ValueError, TypeError, RuntimeError):
+            vec = None
+        return {
+            "key": record.key,
+            "payload": record.payload,
+            "metadata": dict(record.metadata),
+            "vector": vec,
+            "created_at_ms": record.created_at_ms,
+            "updated_at_ms": record.updated_at_ms,
+            "version": record.version,
+            "node_id": record.node_id,
+        }
+
     def _record_to_node(self, record: dict) -> TextNode:
         metadata = dict(record.get("metadata", {}))
         node_id = record.get("key", "")
@@ -109,8 +128,8 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             filters={"ref_doc_id": ref_doc_id},
             limit=10000,
         )
-        for rec in page.get("records", []):
-            key = rec.get("key")
+        for rec in page.records:
+            key = rec.key
             if key:
                 self._client.delete_memory(self._namespace, key)
 
@@ -176,7 +195,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             for node_id in node_ids:
                 record = self._client.get_memory(self._namespace, node_id)
                 if record:
-                    nodes.append(self._record_to_node(record))
+                    nodes.append(self._record_to_node(self._record_to_dict(record)))
         return nodes
 
     def delete_nodes(
@@ -191,7 +210,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
     def clear(self) -> None:
         all_records = self._client.list_memory(self._namespace, limit=10000)
-        for rec in all_records.get("records", []):
-            key = rec.get("key")
+        for rec in all_records.records:
+            key = rec.key
             if key:
                 self._client.delete_memory(self._namespace, key)
