@@ -102,9 +102,6 @@ pub(crate) mod mmap_shim {
         pub fn map_mut(file: &File) -> std::io::Result<Self> {
             MmapOptions::new().map_mut(file)
         }
-        pub fn as_ptr(&self) -> *const u8 {
-            self.0.as_ptr()
-        }
         /// Return a raw pointer to the mapped memory.
         pub fn as_ptr(&self) -> *const u8 {
             self.0.as_ptr()
