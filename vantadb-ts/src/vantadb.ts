@@ -240,7 +240,7 @@ export class VantaDB {
   async putBatch(inputs: MemoryInput[]): Promise<MemoryRecord[]> {
     this._assertOpen();
     try {
-      const records: unknown[] = await this.inner.put_batch(inputs);
+      const records = (await this.inner.put_batch(inputs)) as unknown[];
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -385,7 +385,7 @@ export class VantaDB {
   async search(request: SearchRequest): Promise<SearchHit[]> {
     this._assertOpen();
     try {
-      const raw: unknown[] = await this.inner.search(this._buildSearchRequest(request));
+      const raw = (await this.inner.search(this._buildSearchRequest(request))) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
         return {
