@@ -1836,7 +1836,8 @@ impl VantaVector {
 
     /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
     /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
-    fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    #[getter(__array_interface__)]
+    fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         let shape = PyTuple::new(py, [self.data.len()])?;
         dict.set_item("shape", shape)?;
@@ -1981,7 +1982,8 @@ impl VantaPySearchHit {
         )
     }
 
-    fn __array_interface__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    #[getter(__array_interface__)]
+    fn get_search_hit_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.inner.vector {
             Some(v) => {
                 let dict = PyDict::new(py);
