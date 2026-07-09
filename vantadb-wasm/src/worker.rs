@@ -19,7 +19,7 @@
 //!     │                           ├── open storage directory
 //! ```
 
-use js_sys::{Array, Promise, Reflect};
+use js_sys::{Array, Reflect};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -179,15 +179,15 @@ impl OpfsWorkerProxy {
 
     /// Send a request and await the response.
     async fn send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
-        let msg = serde_json::to_value(req).map_err(|e| js_sys::Error::new(&e.to_string()))?;
+        let msg = serde_wasm_bindgen::to_value(req)
+            .map_err(|e| js_sys::Error::new(&e.to_string()).into())?;
 
         // Create a MessageChannel for this request/response pair.
         let global = js_sys::global();
         let message_channel = Reflect::get(&global, &"MessageChannel".into())?
             .dyn_into::<js_sys::Function>()
             .map_err(|_| JsValue::from_str("MessageChannel not available"))?;
-        let channel = message_channel
-            .new(&Array::new())
+        let channel = Reflect::construct(&message_channel, &Array::new())
             .map_err(|_| JsValue::from_str("failed to create MessageChannel"))?;
         let port1 = Reflect::get(&channel, &"port1".into())?;
         let port2 = Reflect::get(&channel, &"port2".into())?;
