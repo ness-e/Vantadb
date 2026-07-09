@@ -119,6 +119,6 @@ jobs:
       - name: Publish to npm
         working-directory: vantadb-ts
         run: >
-          npm publish $(if [ '${{ inputs.dry_run || "" }}' = 'true' ]; then echo '--dry-run'; fi)
+          npm publish $(if [ '${{ inputs.dry_run || '' }}' = 'true' ]; then echo '--dry-run'; fi)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
