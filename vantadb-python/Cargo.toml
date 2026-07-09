@@ -19,3 +19,6 @@ tracing = "0.1"
 
 # In-process reference to the core engine (zero network overhead)
 vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2"] }
+
+[lints]
+workspace = true

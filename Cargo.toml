@@ -497,6 +497,20 @@ lto = "off"
 codegen-units = 16
 opt-level = 2
 
+[workspace.lints.clippy]
+missing_docs_in_private_items = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+new_without_default = "allow"
+useless_conversion = "allow"
+empty_line_after_outer_attr = "allow"
+manual_is_multiple_of = "allow"
+io_other_error = "allow"
+manual_div_ceil = "allow"
+ptr_arg = "allow"
+manual_clamp = "allow"
+unnecessary_cast = "allow"
+
 [workspace]
 members = [
     ".",

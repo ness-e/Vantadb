@@ -18,3 +18,6 @@ python = ["pyo3"]
 [dependencies]
 vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
 pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
+
+[lints]
+workspace = true
