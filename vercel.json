@@ -1,0 +1,4 @@
+{
+  "rootDirectory": "web",
+  "installCommand": "npm install --legacy-peer-deps"
+}
