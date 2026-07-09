@@ -29,6 +29,7 @@ use crate::opfs::OpfsStorage;
 /// Requests that can be sent to the worker.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type", content = "payload")]
+#[allow(missing_docs)]
 pub enum WorkerRequest {
     /// Initialize the worker with a storage directory name.
     Init { name: String },
@@ -45,6 +46,7 @@ pub enum WorkerRequest {
 /// Responses sent back from the worker.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type", content = "payload")]
+#[allow(missing_docs)]
 pub enum WorkerResponse {
     /// Worker has been initialized successfully.
     Initialized,
