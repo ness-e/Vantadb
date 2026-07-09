@@ -1,4 +1,4 @@
-name: "CodeQL"
+name: 'SEC: CodeQL — Analysis'
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,11 +23,6 @@ jobs:
       contents: read
       security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['rust']
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -34,12 +30,10 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@1ad29ea4a422cce9a242a9fae469541dcd08addc
         with:
-          languages: ${{ matrix.language }}
+          languages: rust
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@1ad29ea4a422cce9a242a9fae469541dcd08addc
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@1ad29ea4a422cce9a242a9fae469541dcd08addc
-        with:
-          category: "/language:${{matrix.language}}"

@@ -1,4 +1,4 @@
-name: Docs Check
+name: 'GATE: Docs — Lint & Frontmatter'
 
 on:
   push:
@@ -10,12 +10,17 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: docs-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   lint-markdown:
+    name: Lint Markdown
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -24,19 +29,10 @@ jobs:
       - name: Lint Markdown
         run: npx markdownlint-cli2 "docs/**/*.md"
 
-  check-links:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 20
-      - name: Check links
-        continue-on-error: true
-        run: npx lychee "docs/**/*.md" || echo "Link check skipped (tool not available)"
-
   check-format:
+    name: Check Frontmatter
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020

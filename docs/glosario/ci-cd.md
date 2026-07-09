@@ -33,7 +33,7 @@ aliases: [Continuous Integration, Continuous Deployment]
 ### GitHub Actions Workflows
 
 ```yaml
-# .github/workflows/rust_ci.yml
+# .github/workflows/ci-rust-10.yml
 name: Rust CI
 on: [push, pull_request]
 
@@ -52,10 +52,10 @@ jobs:
 
 | Workflow | Trigger | Propósito |
 |----------|---------|-----------|
-| **rust_ci.yml** | push/PR | Tests, lint, format |
-| **python_wheels.yml** | tag `v*` | Build + publish wheels |
+| **ci-rust-10.yml** | push/PR | Tests, lint, format |
+| **release-wheels-60.yml** | tag `v*` | Build + publish wheels |
 | **release.yml** | tag `v*` | Build binarios multi-platform |
-| **heavy_certification.yml** | weekly | Stress tests, chaos testing |
+| **heavy-certification-50.yml** | weekly | Stress tests, chaos testing |
 
 ##Publishing to PyPI
 

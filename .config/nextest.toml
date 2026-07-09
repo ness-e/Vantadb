@@ -1,6 +1,6 @@
 [profile.default]
 # Only quick integrity tests run in CI. Heavy tests (storage, WAL, text index, certification)
-# are excluded here and run exclusively in heavy_certification.yml (weekly).
+# are excluded here and run exclusively in heavy-certification-50.yml (weekly).
 # Binary IDs match the test file stem (e.g. tests/storage/wal_resilience.rs → wal_resilience).
 default-filter = """\
 not binary(benchmark_internal) \

@@ -1,0 +1,236 @@
+name: 'CI: Rust — Build & Lint + Tests'
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.config/nextest.toml'
+      - '.github/workflows/ci-rust-10.yml'
+      - 'deny.toml'
+      - 'rust-toolchain.toml'
+      - 'vantadb-server/**'
+      - 'vantadb-mcp/**'
+      - 'vantadb-wasm/**'
+      - 'integrations/**'
+      - '!web/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '.config/nextest.toml'
+      - '.github/workflows/ci-rust-10.yml'
+      - 'deny.toml'
+      - 'rust-toolchain.toml'
+      - 'vantadb-server/**'
+      - 'vantadb-mcp/**'
+      - 'vantadb-wasm/**'
+      - 'integrations/**'
+      - '!web/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+permissions:
+  contents: read
+
+jobs:
+  fmt:
+    name: Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          components: rustfmt
+          swap-mb: 0
+          install-system-deps: false
+
+      - name: Format Check
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy Lints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: clippy
+          install-nextest: false
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Clippy Lints
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  test:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: clippy
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 6144
+
+      - name: Cache benchmark dataset (GloVe 100d)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-v1
+
+      - name: Download benchmark datasets
+        run: bash scripts/download_benchmark_datasets.sh
+        shell: bash
+
+      - name: Run tests (Audit profile)
+        timeout-minutes: 25
+        run: cargo nextest run --profile audit --workspace --features "cli,arrow,tls,opentelemetry"
+
+  test-windows:
+    name: Tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Rust (Windows)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          cache-bin: "false"
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
+        with:
+          tool: nextest
+
+      - name: Cargo check (Windows smoke test)
+        run: cargo check --workspace
+
+      - name: Clippy (Windows)
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run quick integrity tests (Windows)
+        shell: pwsh
+        timeout-minutes: 25
+        run: cargo nextest run --profile ci-windows --workspace --features "cli,arrow,tls,opentelemetry"
+
+  coverage:
+    name: Code Coverage (cargo-llvm-cov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: llvm-tools-preview
+          install-nextest: true
+          install-llvm-cov: true
+          install-system-deps: true
+          swap-mb: 6144
+
+      - name: Cache benchmark dataset (GloVe 100d)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-v1
+
+      - name: Download benchmark datasets
+        run: bash scripts/download_benchmark_datasets.sh
+        shell: bash
+
+      - name: Run tests with coverage
+        timeout-minutes: 25
+        run: |
+          cargo llvm-cov nextest \
+            --profile audit \
+            --workspace \
+            --features "cli,arrow,tls,opentelemetry" \
+            --lcov --output-path lcov.info \
+            --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
+            2>&1
+          echo "--- Coverage Summary ---"
+          cargo llvm-cov report \
+            --ignore-filename-regex '(tests/|benches/|packages/experimental)'
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: coverage-lcov
+          path: lcov.info
+          if-no-files-found: warn
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
+        with:
+          tool: cargo-audit
+
+      - name: Security Audit
+        run: cargo audit --ignore RUSTSEC-2026-0176 --ignore RUSTSEC-2026-0177
+
+  deny:
+    name: Dependency Policy Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
+        with:
+          tool: cargo-deny
+
+      - name: Dependency Policy Check
+        run: cargo deny check

@@ -1,4 +1,4 @@
-name: Python Wheels
+name: 'RELEASE: Wheels — Build & Publish'
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
       - "vantadb-python/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - ".github/workflows/python_wheels.yml"
+      - ".github/workflows/release-wheels-60.yml"
   push:
     tags: ["v*.*.*"]
     paths:
@@ -22,13 +22,13 @@ on:
       - "vantadb-python/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - ".github/workflows/python_wheels.yml"
+      - ".github/workflows/release-wheels-60.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: python-wheels-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
@@ -291,6 +291,6 @@ jobs:
           verifications = data if isinstance(data, list) else [data]
           assert len(verifications) > 0, 'No attestation found'
           print(f'Attestations verified: {len(verifications)}')
-          print('Build provenance attestation: VALID')
+          print('Build provenance attestation: VERIFIED')
           "
           echo "Supply-chain integrity: VERIFIED"

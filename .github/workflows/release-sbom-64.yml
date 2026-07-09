@@ -1,31 +1,33 @@
-name: SBOM
+name: 'RELEASE: SBOM — Generate'
+
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   sbom:
+    name: Generate SBOM
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            target/
-          key: sbom-${{ hashFiles('Cargo.lock') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: sbom
       - run: cargo install cargo-cyclonedx --version 0.5.9
       - run: cargo cyclonedx --format json --output sbom.json
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: sbom
           path: sbom.json

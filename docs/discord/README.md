@@ -2,7 +2,7 @@
 
 **Server:** VantaDB Community
 **ID:** 1522793011094749204
-**Invite:** https://discord.gg/u8TmWujxuE
+**Invite:** https://discord.gg/g8nqB3NtXt
 **Icon:** [`d0e08d1dcb8002a809165b60d8ddc03e`](https://cdn.discordapp.com/icons/1522793011094749204/d0e08d1dcb8002a809165b60d8ddc03e.webp)
 
 ## Overview
