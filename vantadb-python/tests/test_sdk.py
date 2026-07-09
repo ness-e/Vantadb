@@ -337,7 +337,6 @@ class TestHardwareIntrospection:
         assert "iql_queries" in caps, f"capabilities should contain 'iql_queries', got {list(caps.keys())}"
         assert caps["persistence"] is True, f"expected persistence=True, got {caps['persistence']}"
 
-    @pytest.mark.skip(reason="process_rss_bytes field not yet available in hardware_profile")
     def test_hardware_profile_alias(self):
         """hardware_profile remains as a backward-compatible alias with memory telemetry."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
