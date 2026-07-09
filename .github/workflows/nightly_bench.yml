@@ -18,6 +18,8 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
 
+    timeout-minutes: 720  # 12h — high_density takes ~6h, leave room for others
+
     steps:
       - name: Free Disk Space
         run: |
