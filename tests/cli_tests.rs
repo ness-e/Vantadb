@@ -352,7 +352,7 @@ fn test_cmd_export_and_import() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "ex_ns", "k1", "export me");
 
-    let export_path = format!("{}/export.json", &path);
+    let export_path = format!("{}/export.json", path);
     let result = vantadb::cli_handlers::cmd_export(&path, Some("ex_ns"), &export_path);
     assert!(result.is_ok(), "export failed");
     assert!(Path::new(&export_path).exists(), "export file missing");
@@ -406,7 +406,7 @@ fn test_backup_and_restore() {
     eprintln!("DEBUG: source node_id = {}", src_node_id);
     drop(src_engine);
 
-    let backup_dir = format!("{}/test_backup", &path);
+    let backup_dir = format!("{}/test_backup", path);
 
     // Create backup
     let result = vantadb::cli_handlers::cmd_backup(&path, Some(&backup_dir), false);
@@ -459,7 +459,7 @@ fn test_backup_and_restore() {
     }
 
     // Try rebuild approach
-    let restore_path_rebuild = format!("{}/restored_rebuild", &path);
+    let restore_path_rebuild = format!("{}/restored_rebuild", path);
     let result =
         vantadb::cli_handlers::cmd_restore(&restore_path_rebuild, &backup_dir, true, false, true);
     assert!(
@@ -477,7 +477,7 @@ fn test_backup_and_restore() {
     assert!(node_rb.is_some(), "restored record should exist (rebuild)");
 
     // Also try without rebuild (original path)
-    let restore_path = format!("{}/restored", &path);
+    let restore_path = format!("{}/restored", path);
     let result = vantadb::cli_handlers::cmd_restore(&restore_path, &backup_dir, true, false, false);
     assert!(result.is_ok(), "restore should succeed: {:?}", result);
     assert!(std::path::Path::new(&restore_path).exists());
