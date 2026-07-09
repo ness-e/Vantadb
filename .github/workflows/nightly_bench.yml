@@ -8,21 +8,30 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   issues: write
 
 jobs:
-  benchmark:
-    name: Benchmark
+  light-benchmarks:
+    name: Light benchmarks
     runs-on: ubuntu-latest
-
-    timeout-minutes: 720
-
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - name: Add swap space (prevent OOM linker crash)
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+      - name: Add swap space
         run: |
           sudo swapoff /swapfile || true
           sudo rm -f /swapfile
@@ -42,7 +51,7 @@ jobs:
         with:
           shared-key: nightly-bench
 
-      - name: Install system dependencies (RocksDB + Clang)
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
@@ -56,16 +65,109 @@ jobs:
       - name: Run stress test benchmarks
         run: cargo bench --bench stress_test -- --nocapture 2>&1 | tee nightly_stress_results.txt
 
+      - name: Run concurrent benchmarks
+        run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
+
+      - name: Upload light results
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: light-bench-results
+          path: |
+            nightly_*_results.txt
+            target/criterion/
+
+  high-density:
+    name: High density
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+      - name: Add swap space
+        run: |
+          sudo swapoff /swapfile || true
+          sudo rm -f /swapfile
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: nightly-bench
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
       - name: Run high density benchmarks
         run: cargo bench --bench high_density -- --nocapture 2>&1 | tee nightly_density_results.txt
 
-      - name: Run concurrent benchmarks
-        run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
+      - name: Upload density results
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: density-bench-results
+          path: |
+            nightly_density_results.txt
+            target/criterion/
+
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    needs: [light-benchmarks, high-density]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
+
+      - name: Download light results
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: light-bench-results
+          path: light/
+
+      - name: Download density results
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: density-bench-results
+          path: density/
+
+      - name: Merge criterion results
+        run: |
+          mkdir -p target/criterion
+          if [ -d light/target/criterion ]; then
+            cp -r light/target/criterion/* target/criterion/
+          fi
+          if [ -d density/target/criterion ]; then
+            cp -r density/target/criterion/* target/criterion/
+          fi
+          # Merge result files (last one wins on conflict)
+          cp light/nightly_*_results.txt . 2>/dev/null || true
+          cp density/nightly_*_results.txt . 2>/dev/null || true
 
       - name: Extract criterion estimates
         id: extract
@@ -133,7 +235,6 @@ jobs:
               labels: ['benchmark', 'regression'],
             });
 
-            // Reopen or create — avoid duplicates
             const existing = issues.find(i =>
               i.title.startsWith('[Benchmark] Regression detected')
             );
