@@ -19,8 +19,8 @@ VantaDB uses a **two-tier CI strategy** to balance PR velocity with comprehensiv
 
 | Tier                                                | Trigger                 | Timeout | Scope                                                                |
 | --------------------------------------------------- | ----------------------- | ------- | -------------------------------------------------------------------- |
-| **Fast Gate** (`rust_ci.yml`)                       | Every push/PR to `main` | 30 min  | fmt, clippy, unit tests, integration tests                           |
-| **Heavy Certification** (`heavy_certification.yml`) | Manual / scheduled      | 60 min  | stress_protocol, hnsw_validation, sift_validation, competitive_bench |
+| **Fast Gate** (`ci-rust-10.yml`)                       | Every push/PR to `main` | 30 min  | fmt, clippy, unit tests, integration tests                           |
+| **Heavy Certification** (`heavy-certification-50.yml`) | Manual / scheduled      | 60 min  | stress_protocol, hnsw_validation, sift_validation, competitive_bench |
 
 ### Fast Gate Rules
 

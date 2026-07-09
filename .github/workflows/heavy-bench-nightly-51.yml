@@ -1,4 +1,4 @@
-name: Nightly Benchmarks
+name: 'HEAVY: Benchmarks — Nightly Regression'
 
 on:
   schedule:
@@ -24,37 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - name: Free Disk Space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - name: Add swap space
-        run: |
-          sudo swapoff /swapfile || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          components: rustfmt
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
-        with:
-          shared-key: nightly-bench
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          swap-mb: 6144
+          free-disk: true
 
       - name: Run HNSW benchmarks
         run: cargo bench --bench hnsw_pure -- --nocapture 2>&1 | tee nightly_hnsw_results.txt
@@ -83,37 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - name: Free Disk Space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-      - name: Add swap space
-        run: |
-          sudo swapoff /swapfile || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          components: rustfmt
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
-        with:
-          shared-key: nightly-bench
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          swap-mb: 6144
+          free-disk: true
 
       - name: Run high density benchmarks
         run: cargo bench --bench high_density -- --nocapture 2>&1 | tee nightly_density_results.txt
@@ -165,7 +111,6 @@ jobs:
           if [ -d density/target/criterion ]; then
             cp -r density/target/criterion/* target/criterion/
           fi
-          # Merge result files (last one wins on conflict)
           cp light/nightly_*_results.txt . 2>/dev/null || true
           cp density/nightly_*_results.txt . 2>/dev/null || true
 

@@ -106,7 +106,7 @@ When a crash artifact is produced:
 
 ### CI Integration
 
-Fuzzing runs as a scheduled job in `.github/workflows/heavy_certification.yml`
+Fuzzing runs as a scheduled job in `.github/workflows/heavy-certification-50.yml`
 on Linux runners only. It is **not** part of standard PR validation because it
 requires nightly and long wall-clock time.
 

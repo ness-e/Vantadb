@@ -1,4 +1,4 @@
-name: Adapters PyPI
+name: 'RELEASE: Adapters — PyPI Publish'
 
 on:
   workflow_dispatch:
@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: adapters-pypi-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   test-adapters:

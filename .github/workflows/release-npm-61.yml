@@ -1,4 +1,4 @@
-name: NPM Publish
+name: 'RELEASE: NPM — Publish'
 
 on:
   workflow_dispatch:
@@ -20,8 +20,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: npm-publish-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   CARGO_TERM_COLOR: always

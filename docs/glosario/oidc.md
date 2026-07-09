@@ -20,7 +20,7 @@ links: "[Glosario](../Glosario.md)"
 OIDC elimina la necesidad de almacenar tokens API de larga duración en secrets de GitHub:
 
 ```yaml
-# .github/workflows/python_wheels.yml
+# .github/workflows/release-wheels-60.yml
 permissions:
   id-token: write  # Requerido para OIDC
 
@@ -60,7 +60,7 @@ jobs:
 3. Configurar:
    - Repository owner: `ness-e`
    - Repository name: `Vantadb`
-   - Workflow: `python_wheels.yml`
+   - Workflow: `release-wheels-60.yml`
    - Environment: `pypi`
 
 ## Verificación de Attestations

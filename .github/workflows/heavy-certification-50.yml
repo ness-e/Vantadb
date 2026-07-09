@@ -1,4 +1,4 @@
-name: VantaDB Heavy Certification
+name: 'HEAVY: Certification — All Tests'
 
 on:
   workflow_dispatch:

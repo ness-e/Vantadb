@@ -1,4 +1,4 @@
-name: VantaDB Performance Benchmarks
+name: 'PERF: Benchmarks — Python Integration'
 
 on:
   push:
@@ -9,12 +9,6 @@ on:
       - 'benchmarks/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
-  pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'src/**'
-      - 'vantadb-python/**'
-      - 'benchmarks/**'
   workflow_dispatch:
     inputs:
       size:
@@ -40,7 +34,7 @@ env:
   RUST_BACKTRACE: 1
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   benchmark:
@@ -50,20 +44,9 @@ jobs:
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-    - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
+    - uses: ./.github/actions/rust-setup
       with:
-        toolchain: stable
-
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
-      with:
-        cache-bin: "false"
-
-    - name: Install system dependencies (RocksDB + Clang)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libclang-dev clang librocksdb-dev
+        swap-mb: 4096
 
     - name: Set up Python
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1

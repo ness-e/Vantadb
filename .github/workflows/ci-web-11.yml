@@ -1,4 +1,4 @@
-name: Web CI
+name: 'CI: Web — Build & Test'
 
 on:
   push:
@@ -10,15 +10,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: web-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build & Test
     defaults:
       run:
         working-directory: web
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020

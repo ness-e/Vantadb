@@ -266,7 +266,7 @@ Uso: `release-plz release` (desde la rama main, después de mergear)
 
 ### CI: sccache
 
-Agregado al workflow `rust_ci.yml` mediante `mozilla-actions/sccache-action`. Acelera compilaciones en CI reutilizando objetos compilados entre runs (~40-60% más rápido en rebuilds).
+Agregado al workflow `ci-rust-10.yml` mediante `mozilla-actions/sccache-action`. Acelera compilaciones en CI reutilizando objetos compilados entre runs (~40-60% más rápido en rebuilds).
 
 ### Flujo diario recomendado
 

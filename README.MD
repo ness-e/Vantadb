@@ -7,26 +7,26 @@
   <br>
 
   <!-- CI / Build -->
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg" alt="Rust CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/web-ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/web-ci.yml/badge.svg" alt="Web CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/python_wheels.yml/badge.svg" alt="Python Wheels"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/npm-publish.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/npm-publish.yml/badge.svg" alt="NPM Publish"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/adapters_publish.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/adapters_publish.yml/badge.svg" alt="Adapters Publish"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml/badge.svg" alt="Rust CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-web-11.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-web-11.yml/badge.svg" alt="Web CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-wheels-60.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-wheels-60.yml/badge.svg" alt="Python Wheels"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-npm-61.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-npm-61.yml/badge.svg" alt="NPM Publish"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-adapters-62.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-adapters-62.yml/badge.svg" alt="Adapters Publish"></a>
 
   <br>
 
   <!-- Quality / Security -->
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/cargo-deny.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/cargo-deny.yml/badge.svg" alt="Cargo Deny"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/codeql.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sbom.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/sbom.yml/badge.svg" alt="SBOM"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/docs-check.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/docs-check.yml/badge.svg" alt="Docs"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml/badge.svg" alt="Cargo Deny"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/release-sbom-64.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/release-sbom-64.yml/badge.svg" alt="SBOM"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml/badge.svg" alt="Docs"></a>
 
   <br>
 
   <!-- Performance -->
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg" alt="Benchmarks"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/nightly_bench.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/nightly_bench.yml/badge.svg" alt="Nightly Bench"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml/badge.svg" alt="Heavy Cert"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/perf-bench-40.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/perf-bench-40.yml/badge.svg" alt="Benchmarks"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy-bench-nightly-51.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy-bench-nightly-51.yml/badge.svg" alt="Nightly Bench"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml/badge.svg" alt="Heavy Cert"></a>
 
   <br>
 
@@ -38,6 +38,7 @@
   <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/pypi/v/vantadb-py?label=PyPI&logo=pypi&logoColor=white&color=3775A9" alt="PyPI"></a>
   <a href="https://pypi.org/project/vantadb-py/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.1%2B-000000?logo=rust&logoColor=white" alt="Rust"></a>
+  <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </div>
 
 <div align="center">
@@ -160,7 +161,7 @@ No separate cluster, daemon, or external service is required. VantaDB runs in-pr
 - The shipped ANN path uses **cosine similarity**.
 - Namespace-scoped `list/search` use derived namespace and scalar metadata indexes, with canonical records remaining the source of truth.
 - **Hybrid Search** is supported natively. The engine plans and executes lexical (BM25) and vector (Cosine) queries, fusing them using Reciprocal Rank Fusion (RRF).
-- SIFT-1M remains useful as a stress/recovery scenario via the [Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy_certification.yml) workflow.
+- SIFT-1M remains useful as a stress/recovery scenario via the [Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml) workflow.
 
 ---
 
