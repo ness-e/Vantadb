@@ -4,6 +4,8 @@
 
   <br>
 
+  <br>
+
   <!-- CI / Build -->
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/rust_ci.yml/badge.svg" alt="Rust CI"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/web-ci.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/web-ci.yml/badge.svg" alt="Web CI"></a>
@@ -11,11 +13,15 @@
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/npm-publish.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/npm-publish.yml/badge.svg" alt="NPM Publish"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/adapters_publish.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/adapters_publish.yml/badge.svg" alt="Adapters Publish"></a>
 
+  <br>
+
   <!-- Quality / Security -->
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/cargo-deny.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/cargo-deny.yml/badge.svg" alt="Cargo Deny"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/codeql.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/sbom.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/sbom.yml/badge.svg" alt="SBOM"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/docs-check.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/docs-check.yml/badge.svg" alt="Docs"></a>
+
+  <br>
 
   <!-- Performance -->
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml"><img src="https://github.com/ness-e/Vantadb/actions/workflows/bench.yml/badge.svg" alt="Benchmarks"></a>
