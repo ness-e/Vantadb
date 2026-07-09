@@ -24,7 +24,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo install cargo-cyclonedx --version 0.5.9
-      - run: cargo cyclonedx -f json -o sbom.json
+      - run: cargo cyclonedx --format json --output sbom.json
       - uses: actions/upload-artifact@v5
         with:
           name: sbom
