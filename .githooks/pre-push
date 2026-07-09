@@ -15,7 +15,7 @@ done
 
 # --- Resolve script directory (works even when CWD ≠ repo root) ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify.ps1"
 
 if [ ! -f "$VERIFY_SCRIPT" ]; then
