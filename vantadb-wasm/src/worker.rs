@@ -221,7 +221,8 @@ impl OpfsWorkerProxy {
         let resp_str = resp_val
             .as_string()
             .ok_or_else(|| JsValue::from_str("expected string response"))?;
-        serde_json::from_str(&resp_str).map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))
+        serde_json::from_str(&resp_str)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))
     }
 
     /// Initialise the worker with a storage directory name.
