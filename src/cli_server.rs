@@ -158,7 +158,7 @@ impl AuthRateLimiter {
     /// Create a new rate limiter with the given attempt cap and window.
     pub fn new(max_attempts: u32, window_secs: u64) -> Self {
         Self {
-            failures: Mutex::new(LruCache::new(1000)),
+            failures: Mutex::new(LruCache::new(std::num::NonZero::new(1000).unwrap())),
             max_attempts,
             window_secs,
         }

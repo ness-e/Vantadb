@@ -724,6 +724,7 @@ impl VantaConfig {
         use std::sync::mpsc;
 
         let path = path.into();
+        let path_for_watch = path.clone();
         let (tx, rx) = mpsc::channel::<()>();
 
         let mut watcher = RecommendedWatcher::new(
@@ -732,7 +733,7 @@ impl VantaConfig {
                     if matches!(event.kind, EventKind::Modify(ModifyKind::Data(_))) {
                         let source_path = event.paths.first().cloned();
                         if let Some(source) = source_path {
-                            if source == path {
+                            if source == path_for_watch {
                                 // Re-read config from the file
                                 let content = match std::fs::read_to_string(&source) {
                                     Ok(c) => c,
