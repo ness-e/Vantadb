@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -36,14 +35,14 @@ jobs:
           mkdir -p release
           cp target/${{ matrix.target }}/release/vanta-cli release/
           cp target/${{ matrix.target }}/release/vantadb-server release/
-          tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server
+          cp target/${{ matrix.target }}/release/vantadb-mcp release/
+          tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server vantadb-mcp
 
       - name: Upload release asset
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: release/vantadb-${{ matrix.target }}.tar.gz
-          asset_name: vantadb-${{ matrix.target }}.tar.gz
-          asset_content_type: application/gzip
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "vantadb-${{ matrix.target }}.tar.gz" \
+            --repo "${{ github.repository }}" \
+            --clobber
