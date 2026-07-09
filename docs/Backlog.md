@@ -12,7 +12,7 @@ aliases: []
 
 > **Purpose:** Single source of truth for all project tasks, active and postponed.
 > **Completed features:** `docs/CHANGELOG.md`
-> **Total items:** 172 (62 original + 108 code review + 0 governance redesign + 2 nuevos completados)
+> **Total items:** 173 (62 original + 108 code review + 0 governance redesign + 2 nuevos completados + 1 backlog post-release)
 
 ---
 
@@ -636,6 +636,20 @@ Oct+       PHASE 5 (⬜ 6 items):
 - [ ] Tarea movida de Backlog.md a progreso/README.md
 - [ ] Changelog actualizado si es cambio visible al usuario
 - [ ] `scripts/validate-docs-coverage.ps1` pasa
+
+---
+
+---
+
+## TIER 1 — 🟡 Publicación & Website (Post-Release)
+
+> Items para después del release inicial.
+
+### 🌐 Vercel / Website
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `WEB-001` | **Re-add interactive WASM demo page** — Restaurar `demo.tsx`/`demo.lazy.tsx` que importa `vantadb_wasm.js` después de publicar `@vantadb/wasm` en npm. Bloqueante de Vercel deploy. | 🟢 30min | 🟡 | ❌ |
 
 ---
 

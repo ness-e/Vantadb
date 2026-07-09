@@ -21,7 +21,6 @@ import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as EngineRouteImport } from './routes/engine'
 import { Route as DocsApiRouteImport } from './routes/docs-api'
 import { Route as DocsRouteImport } from './routes/docs'
-import { Route as DemoRouteImport } from './routes/demo'
 import { Route as CostRouteImport } from './routes/cost'
 import { Route as ConfigRouteImport } from './routes/config'
 import { Route as ChangelogRouteImport } from './routes/changelog'
@@ -99,11 +98,6 @@ const DocsRoute = DocsRouteImport.update({
   path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/docs.lazy').then((d) => d.Route))
-const DemoRoute = DemoRouteImport.update({
-  id: '/demo',
-  path: '/demo',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/demo.lazy').then((d) => d.Route))
 const CostRoute = CostRouteImport.update({
   id: '/cost',
   path: '/cost',
@@ -201,7 +195,6 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
-  '/demo': typeof DemoRoute
   '/docs': typeof DocsRoute
   '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
@@ -232,7 +225,6 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
-  '/demo': typeof DemoRoute
   '/docs': typeof DocsRoute
   '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
@@ -264,7 +256,6 @@ export interface FileRoutesById {
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
-  '/demo': typeof DemoRoute
   '/docs': typeof DocsRoute
   '/docs-api': typeof DocsApiRoute
   '/engine': typeof EngineRoute
@@ -297,7 +288,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/config'
     | '/cost'
-    | '/demo'
     | '/docs'
     | '/docs-api'
     | '/engine'
@@ -328,7 +318,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/config'
     | '/cost'
-    | '/demo'
     | '/docs'
     | '/docs-api'
     | '/engine'
@@ -359,7 +348,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/config'
     | '/cost'
-    | '/demo'
     | '/docs'
     | '/docs-api'
     | '/engine'
@@ -391,7 +379,6 @@ export interface RootRouteChildren {
   ChangelogRoute: typeof ChangelogRoute
   ConfigRoute: typeof ConfigRoute
   CostRoute: typeof CostRoute
-  DemoRoute: typeof DemoRoute
   DocsRoute: typeof DocsRoute
   DocsApiRoute: typeof DocsApiRoute
   EngineRoute: typeof EngineRoute
@@ -501,13 +488,6 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo': {
-      id: '/demo'
-      path: '/demo'
-      fullPath: '/demo'
-      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cost': {
@@ -631,7 +611,6 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogRoute: ChangelogRoute,
   ConfigRoute: ConfigRoute,
   CostRoute: CostRoute,
-  DemoRoute: DemoRoute,
   DocsRoute: DocsRoute,
   DocsApiRoute: DocsApiRoute,
   EngineRoute: EngineRoute,
