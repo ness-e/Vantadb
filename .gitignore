@@ -80,6 +80,32 @@ Thumbs.db
 !.agents/skills
 .agents/skills/*
 !.agents/skills/impeccable/
+!.agents/skills/spec-driven-development/
+!.agents/skills/planning-and-task-breakdown/
+!.agents/skills/incremental-implementation/
+!.agents/skills/test-driven-development/
+!.agents/skills/code-review-and-quality/
+!.agents/skills/code-simplification/
+!.agents/skills/debugging-and-error-recovery/
+!.agents/skills/git-workflow-and-versioning/
+!.agents/skills/shipping-and-launch/
+!.agents/skills/interview-me/
+!.agents/skills/idea-refine/
+!.agents/skills/context-engineering/
+!.agents/skills/source-driven-development/
+!.agents/skills/doubt-driven-development/
+!.agents/skills/frontend-ui-engineering/
+!.agents/skills/api-and-interface-design/
+!.agents/skills/security-and-hardening/
+!.agents/skills/performance-optimization/
+!.agents/skills/ci-cd-and-automation/
+!.agents/skills/deprecation-and-migration/
+!.agents/skills/documentation-and-adrs/
+!.agents/skills/observability-and-instrumentation/
+!.agents/skills/browser-testing-with-devtools/
+!.agents/skills/using-agent-skills/
+!.agents/agents/
+!.agents/references/
 .cargo/
 
 # Local Python test database and virtual environments
