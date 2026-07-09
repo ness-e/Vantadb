@@ -37,9 +37,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install adapter + test deps
         run: |
           python -m pip install --upgrade pip hatchling
+          pip install -e vantadb-python
           cd integrations/${{ matrix.adapter }}
           pip install -e .
           pip install pytest

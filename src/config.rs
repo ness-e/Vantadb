@@ -446,7 +446,7 @@ impl Default for VantaConfig {
                 let v = parse_env_or::<u32>("VANTADB_BATCH_SIZE", 0)
                     .try_into()
                     .ok()
-                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                    .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
                 v
             },
@@ -454,7 +454,7 @@ impl Default for VantaConfig {
                 let v = parse_env_or::<u32>("VANTADB_WAL_BUFFER_SIZE", 0)
                     .try_into()
                     .ok()
-                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                    .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_WAL_BUFFER_SIZE");
                 v
             },
@@ -462,7 +462,7 @@ impl Default for VantaConfig {
                 let v = parse_env_or::<u32>("VANTADB_FLUSH_THRESHOLD", 0)
                     .try_into()
                     .ok()
-                    .and_then(|n: usize| if n > 0 { Some(n) } else { None });
+                    .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_FLUSH_THRESHOLD");
                 v
             },
