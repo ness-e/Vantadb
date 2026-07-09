@@ -75,6 +75,7 @@ vanta-server-rc*.exe.sha256
 .idea/
 .DS_Store
 Thumbs.db
+.devin/
 .agents/*
 !.agents/skills
 .agents/skills/*
