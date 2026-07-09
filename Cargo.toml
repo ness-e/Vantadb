@@ -15,6 +15,9 @@ exclude = ["test/"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[lints]
+workspace = true
+
 [dependencies]
 # ── Core ──
 serde = { version = "1", features = ["derive"] }
