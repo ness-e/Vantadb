@@ -53,7 +53,7 @@ jobs:
         sudo rm -rf /opt/ghc
         sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
     - name: Add swap space (prevent OOM linker crash)
       run: |
@@ -72,7 +72,7 @@ jobs:
         components: rustfmt, clippy
 
     - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
+      uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
 
     - name: Install system dependencies (RocksDB + Clang)
       run: |
@@ -80,12 +80,12 @@ jobs:
         sudo apt-get install -y libclang-dev clang librocksdb-dev
 
     - name: Install cargo-nextest
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
       with:
         tool: nextest
 
     - name: Install cargo-audit and cargo-deny
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
       with:
         tool: cargo-audit,cargo-deny
 
@@ -100,7 +100,7 @@ jobs:
     # Las pruebas de certificación pesada (stress, hnsw_validation, etc.) se ejecutan
     # exclusivamente en heavy_certification.yml (semanal / manual).
     - name: Cache benchmark dataset (GloVe 100d)
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: data/benchmark/glove.6B.100d.txt
         key: glove-100d-v1
@@ -129,18 +129,18 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     - name: Set up Rust (Windows)
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
         components: clippy
     - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
+      uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
       with:
         cache-bin: "false"
     - name: Install cargo-nextest
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
       with:
         tool: nextest
     - name: Cargo check (Windows smoke test)
@@ -157,14 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-    - name: Free Disk Space
-      run: |
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /opt/hostedtoolcache/CodeQL
-
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
     - name: Add swap space (prevent OOM linker crash)
       run: |
@@ -182,7 +175,7 @@ jobs:
         components: llvm-tools-preview
 
     - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
+      uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
       with:
         cache-bin: "false"
 
@@ -192,17 +185,17 @@ jobs:
         sudo apt-get install -y libclang-dev clang librocksdb-dev
 
     - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
       with:
         tool: cargo-llvm-cov
 
     - name: Install cargo-nextest
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
       with:
         tool: nextest
 
     - name: Cache benchmark dataset (GloVe 100d)
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       with:
         path: data/benchmark/glove.6B.100d.txt
         key: glove-100d-v1
@@ -211,9 +204,6 @@ jobs:
       run: bash scripts/download_benchmark_datasets.sh
       shell: bash
 
-    # Run workspace tests with coverage instrumentation.
-    # Uses the audit nextest profile to skip heavy certification tests.
-    # Generates both an LCOV report (for tooling) and a text summary (for logs).
     - name: Run tests with coverage
       timeout-minutes: 60
       run: |
@@ -229,7 +219,7 @@ jobs:
           --ignore-filename-regex '(tests/|benches/|packages/experimental)'
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
       with:
         name: coverage-lcov
         path: lcov.info

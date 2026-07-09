@@ -17,7 +17,7 @@ updates:
     labels:
       - "dependencies"
       - "rust"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 15
     groups:
       rust-patch:
         patterns:

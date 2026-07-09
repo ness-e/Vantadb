@@ -30,10 +30,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: "3.11"
 
@@ -65,11 +65,10 @@ jobs:
         adapter: [langchain, llamaindex]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: "3.11"
 
@@ -81,7 +80,7 @@ jobs:
         run: python -m build
 
       - name: Store built packages
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: dist-${{ matrix.adapter }}
           path: integrations/${{ matrix.adapter }}/dist/
@@ -99,7 +98,7 @@ jobs:
 
     steps:
       - name: Download all dists
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           pattern: dist-*
           path: ./dist
@@ -125,19 +124,19 @@ jobs:
 
     steps:
       - name: Download all dists
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
           pattern: dist-*
           path: ./dist
           merge-multiple: true
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v5
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e
         with:
           subject-path: './dist/*'
 
       - name: Attach to Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@7c4723f7a335432393329f8f1c564994ce50185d
         with:
           files: ./dist/*
 

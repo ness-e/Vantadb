@@ -12,7 +12,6 @@ on:
         type: boolean
         default: false
   schedule:
-    # Weekly: Sundays at 03:00 UTC
     - cron: "0 3 * * 0"
 
 permissions:
@@ -28,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 8192
@@ -42,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 8192
@@ -55,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           free-disk: true
@@ -69,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
       - name: Run SIFT validation
         timeout-minutes: 30
@@ -81,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
       - name: Run competitive benchmark
         timeout-minutes: 30
@@ -94,7 +93,7 @@ jobs:
       group: failpoints-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
       - name: Run failpoint tests
         env:
@@ -112,13 +111,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
           free-disk: true
-      # Runs storage persistence and recovery tests.
-      # Note: prefetch_benchmark and file_locking_stress explicitly require the "cli" feature in Cargo.toml.
       - name: Run storage persistence & recovery tests
         timeout-minutes: 75
         run: >
@@ -148,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
@@ -161,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
@@ -184,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096

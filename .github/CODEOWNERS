@@ -1,0 +1,25 @@
+# Default owners for VantaDB repository
+* @ness-e
+
+# Python SDK & adapters
+/vantadb-python/ @ness-e
+/integrations/ @ness-e
+
+# TypeScript / WASM SDK
+/vantadb-ts/ @ness-e
+/vantadb-wasm/ @ness-e
+
+# Server & MCP
+/vantadb-server/ @ness-e
+/vantadb-mcp/ @ness-e
+
+# Web UI
+/web/ @ness-e
+
+# CI/CD & GitHub config
+/.github/ @ness-e
+
+# Documentation
+/docs/ @ness-e
+README.md @ness-e
+README_ES.md @ness-e
