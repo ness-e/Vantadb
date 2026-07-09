@@ -12,6 +12,15 @@ ignore = [
     # Not exploitable in normal usage; only relevant for Miri/UB validation.
     # Fix pending tantivy semver-major bump.
     "RUSTSEC-2026-0002",
+    # RUSTSEC-2024-0436: paste is no longer maintained.
+    # Transitive via tikv-jemalloc-ctl -> tikv-jemalloc-sys. No direct dep.
+    # Upstream jemallocator has not migrated away from paste.
+    "RUSTSEC-2024-0436",
+    # RUSTSEC-2025-0134: rustls-pemfile is unmaintained.
+    # Transitive via axum-server. Upstream archived the repo.
+    # Recommended migration: use rustls-pki-types directly.
+    # axum-server has not updated yet.
+    "RUSTSEC-2025-0134",
 ]
 
 [licenses]
