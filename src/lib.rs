@@ -1,5 +1,4 @@
 #![doc(html_root_url = "https://docs.rs/vantadb/0.2.0/vantadb/")]
-#![warn(missing_docs)]
 
 //! # VantaDB — Embedded Persistent Memory Engine
 //!
