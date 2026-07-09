@@ -57,7 +57,10 @@ pub enum WorkerResponse {
     /// Delete completed successfully.
     Deleted,
     /// An error occurred.
-    Error { message: String },
+    Error {
+        /// The error message.
+        message: String,
+    },
 }
 
 /// The worker-side state holding the OPFS storage handle.
@@ -195,14 +198,14 @@ impl OpfsWorkerProxy {
         // Set up the response listener on port1.
         let promise = js_sys::Promise::new(&mut {
             let port1 = port1.clone();
-            move |resolve: js_sys::Function, _reject: js_sys::Function| {
-                let onmessage = js_sys::Function::new_no_args(&format!(
+            move |_resolve: js_sys::Function, _reject: js_sys::Function| {
+                let onmessage = js_sys::Function::new_no_args(
                     r#"
-                        const msg = arguments[0];
-                        this.onmessage = null;
-                        arguments[1](msg.data);
-                        "#,
-                ));
+                    const msg = arguments[0];
+                    this.onmessage = null;
+                    arguments[1](msg.data);
+                    "#,
+                );
                 Reflect::set(&port1, &"onmessage".into(), &onmessage).ok();
             }
         });
