@@ -180,7 +180,7 @@ impl OpfsWorkerProxy {
     /// Send a request and await the response.
     async fn send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
         let msg = serde_wasm_bindgen::to_value(req)
-            .map_err(|e| js_sys::Error::new(&e.to_string()).into())?;
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
 
         // Create a MessageChannel for this request/response pair.
         let global = js_sys::global();
@@ -221,7 +221,7 @@ impl OpfsWorkerProxy {
         let resp_str = resp_val
             .as_string()
             .ok_or_else(|| JsValue::from_str("expected string response"))?;
-        serde_json::from_str(&resp_str).map_err(|e| js_sys::Error::new(&e.to_string()).into())
+        serde_json::from_str(&resp_str).map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))
     }
 
     /// Initialise the worker with a storage directory name.
