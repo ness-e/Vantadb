@@ -75,7 +75,10 @@ vanta-server-rc*.exe.sha256
 .idea/
 .DS_Store
 Thumbs.db
-.agents/
+.agents/*
+!.agents/skills
+.agents/skills/*
+!.agents/skills/impeccable/
 .cargo/
 
 # Local Python test database and virtual environments
@@ -112,7 +115,6 @@ vantadb-ts/node_modules/
 # Coverage reports
 lcov.info
 *.profraw
-
 
 # Obsidian vault config
 .obsidian/
@@ -153,7 +155,7 @@ web/scripts/eval-screenshots.mjs
 /engine-mobile.png
 /homepage.png
 
-
 clippy_output.txt
 
-.vercel
+langchain-vantadb/
+llama-index-vector-stores-vantadb/
