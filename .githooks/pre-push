@@ -1,0 +1,55 @@
+#!/bin/sh
+# VantaDB pre-push hook
+# Runs local verification. Skip with: git push --no-verify
+# Supports both Windows (PowerShell) and Unix (Bash) runners.
+
+set -e
+
+# --- Skip on force-push ---
+for arg in "$@"; do
+  if [ "$arg" = "--force" ] || [ "$arg" = "-f" ]; then
+    echo "pre-push: force push detected, skipping verification."
+    exit 0
+  fi
+done
+
+# --- Resolve script directory (works even when CWD ≠ repo root) ---
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify.ps1"
+
+if [ ! -f "$VERIFY_SCRIPT" ]; then
+  echo "pre-push: verify script not found at $VERIFY_SCRIPT, aborting."
+  exit 1
+fi
+
+echo "pre-push: running verification..."
+echo "pre-push: skip with 'git push --no-verify'"
+
+# --- Cross-platform runner ---
+# Timeout disabled as requested
+TIMEOUT_CMD=""
+
+if command -v pwsh >/dev/null 2>&1; then
+  # PowerShell 7 (cross-platform)
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT"
+  STATUS=$?
+elif command -v powershell.exe >/dev/null 2>&1; then
+  # Windows PowerShell
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT"
+  STATUS=$?
+else
+  echo "pre-push: ERROR — no PowerShell found (install pwsh 7+)."
+  echo "pre-push: to skip: git push --no-verify"
+  exit 1
+fi
+
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "pre-push: ❌ Verification FAILED (exit code: $STATUS)"
+  echo "pre-push:    Fix the issues above, or skip with: git push --no-verify"
+  exit $STATUS
+fi
+
+echo "pre-push: ✅ Verification passed."
+exit 0

@@ -53,17 +53,25 @@ try {
     $env:RUSTFLAGS = "-C opt-level=0"
     $env:RUST_MIN_STACK = "16777216"  # 16 MB stack for rustc threads
 
-    # 1. Rustfmt Check
+    # 1. Actionlint (GitHub Actions YAML validation, if installed)
+    $actionlint = Get-Command "actionlint" -ErrorAction SilentlyContinue
+    if ($actionlint) {
+        Run-Command "Actionlint (workflows)" @($actionlint.Source)
+    } else {
+        Write-Host "  [SKIP] actionlint not installed -- run: winget install actionlint" -ForegroundColor DarkGray
+    }
+
+    # 2. Rustfmt Check
     Write-Header "Code Formatting Check"
     Run-Command "Format Check" @("cargo", "fmt", "--all", "--", "--check")
 
-    # 2. Cargo Check (compile-only; --all-features is safe here because linking is skipped)
+    # 3. Cargo Check (compile-only; --all-features is safe here because linking is skipped)
     Run-Command "Workspace Compilation" @("cargo", "check", "--workspace", "--tests", "-j", "2")
 
-    # 3. Clippy Lints
+    # 4. Clippy Lints
     Run-Command "Clippy Lints" @("cargo", "clippy", "--workspace", "--tests", "-j", "2", "--", "-D", "warnings")
 
-    # 4. Security Audit
+    # 5. Security Audit
     Write-Header "Security Auditing"
     Run-Command "Cargo Audit" @("cargo", "audit", "--ignore", "RUSTSEC-2026-0176", "--ignore", "RUSTSEC-2026-0177")
 
