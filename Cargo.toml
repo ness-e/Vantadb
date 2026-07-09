@@ -500,6 +500,9 @@ lto = "off"
 codegen-units = 16
 opt-level = 2
 
+[workspace.lints.rust]
+missing_docs = "allow"
+
 [workspace.lints.clippy]
 missing_docs_in_private_items = "allow"
 too_many_arguments = "allow"

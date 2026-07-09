@@ -1842,11 +1842,7 @@ impl VantaVector {
         let shape = PyTuple::new(py, [self.data.len()])?;
         dict.set_item("shape", shape)?;
         dict.set_item("typestr", "<f4")?;
-        let ptr = self.data.as_ptr() as usize;
-        let data_tup = PyTuple::new(py, [0usize, 0usize])?;
-        data_tup.set_item(0, ptr)?;
-        data_tup.set_item(1, true)?;
-        let data: Py<PyAny> = data_tup.unbind().into();
+        let data = (self.data.as_ptr() as usize, true);
         dict.set_item("data", data)?;
         dict.set_item("version", 3)?;
         Ok(dict.unbind().into())
@@ -1990,10 +1986,8 @@ impl VantaPySearchHit {
                 let shape = PyTuple::new(py, [v.len()])?;
                 dict.set_item("shape", shape)?;
                 dict.set_item("typestr", "<f4")?;
-                let data_tup = PyTuple::new(py, [0usize, 0usize])?;
-                data_tup.set_item(0, v.as_ptr() as usize)?;
-                data_tup.set_item(1, true)?;
-                dict.set_item("data", data_tup)?;
+                let data = (v.as_ptr() as usize, true);
+                dict.set_item("data", data)?;
                 dict.set_item("version", 3)?;
                 Ok(dict.unbind().into())
             }
