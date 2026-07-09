@@ -16,6 +16,7 @@ on:
       - 'rust-toolchain.toml'
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
+      - 'vantadb-wasm/**'
       - 'integrations/**'
       - '!web/**'
   pull_request:
@@ -33,6 +34,7 @@ on:
       - 'rust-toolchain.toml'
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
+      - 'vantadb-wasm/**'
       - 'integrations/**'
       - '!web/**'
   workflow_dispatch:
