@@ -797,7 +797,7 @@ fn apply_hot_reload_from_value(
     let mut hot = HotReloadConfig::default();
 
     macro_rules! set_str_enum {
-        ($field:ident, $key:literal, $parser:path) => {
+        ($field:expr, $key:literal, $parser:path) => {
             if let Some(v) = value.get($key).and_then(|v| v.as_str()) {
                 let parsed = $parser(v);
                 if parsed != $field {
@@ -808,7 +808,7 @@ fn apply_hot_reload_from_value(
     }
 
     macro_rules! set_u32 {
-        ($field:ident, $key:literal) => {
+        ($field:expr, $key:literal) => {
             if let Some(v) = value.get($key).and_then(|v| v.as_u64()) {
                 let parsed = v as u32;
                 if parsed != $field {
@@ -819,7 +819,7 @@ fn apply_hot_reload_from_value(
     }
 
     macro_rules! set_u64 {
-        ($field:ident, $key:literal) => {
+        ($field:expr, $key:literal) => {
             if let Some(v) = value.get($key).and_then(|v| v.as_u64()) {
                 if v != $field {
                     $field = v;
@@ -829,7 +829,7 @@ fn apply_hot_reload_from_value(
     }
 
     macro_rules! set_opt_usize {
-        ($field:ident, $key:literal) => {
+        ($field:expr, $key:literal) => {
             if let Some(v) = value.get($key) {
                 let parsed = match v {
                     Value::Null => None,
