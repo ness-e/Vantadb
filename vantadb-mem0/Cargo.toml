@@ -19,3 +19,6 @@ python = ["pyo3"]
 vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2"] }
 # Python bindings via PyO3 (optional: disable via `--no-default-features` for pure-Rust usage)
 pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }
+
+[lints]
+workspace = true

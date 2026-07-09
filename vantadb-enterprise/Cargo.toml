@@ -25,3 +25,6 @@ replication = []
 [lib]
 name = "vantadb_enterprise"
 path = "src/lib.rs"
+
+[lints]
+workspace = true
