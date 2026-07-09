@@ -47,6 +47,9 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Build WASM package
         run: wasm-pack build --release
         working-directory: vantadb-wasm
@@ -83,6 +86,9 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Build WASM package (needed for local dep)
         run: wasm-pack build --release
         working-directory: vantadb-wasm
@@ -97,7 +103,9 @@ jobs:
 
       - name: Rewrite dependency for publish
         working-directory: vantadb-ts
-        run: npm pkg set dependencies.vantadb-wasm="^0.2.0"
+        run: |
+          WASM_VER=$(grep '^version' vantadb-wasm/Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+          npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
 
       - name: Publish to npm
         working-directory: vantadb-ts
