@@ -95,9 +95,18 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
       if (p.y > h + 20) p.y = -20;
 
       const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 4);
-      gradient.addColorStop(0, `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, ${pulseAlpha})`);
-      gradient.addColorStop(0.3, `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, ${pulseAlpha * 0.3})`);
-      gradient.addColorStop(1, `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, 0)`);
+      gradient.addColorStop(
+        0,
+        `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, ${pulseAlpha})`,
+      );
+      gradient.addColorStop(
+        0.3,
+        `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, ${pulseAlpha * 0.3})`,
+      );
+      gradient.addColorStop(
+        1,
+        `hsla(${p.hue}, ${COLORS[i % COLORS.length].s}, ${COLORS[i % COLORS.length].l}, 0)`,
+      );
 
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.radius * 4, 0, Math.PI * 2);
@@ -201,12 +210,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
           { opacity: 1, y: 0, duration: 0.5, ease: "var(--ease-swiss)" },
           "-=0.2",
         );
-        tl.fromTo(
-          ".nb-nebula-sub",
-          { opacity: 0 },
-          { opacity: 1, duration: 0.3 },
-          "-=0.15",
-        );
+        tl.fromTo(".nb-nebula-sub", { opacity: 0 }, { opacity: 1, duration: 0.3 }, "-=0.15");
         tl.fromTo(
           ".nb-nebula-actions",
           { opacity: 0, y: 12 },
@@ -228,7 +232,8 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
         <div className="nb-nebula-inner">
           <p className="nb-nebula-eyebrow">[VECTOR SPACE]</p>
           <h2 className="nb-nebula-title">
-            Build the future<br />
+            Build the future
+            <br />
             <span className="nb-nebula-accent">of AI memory.</span>
           </h2>
           <p className="nb-nebula-sub">

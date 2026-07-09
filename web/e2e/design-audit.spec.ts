@@ -52,15 +52,45 @@ const ALLOWED_BG = [
 ];
 
 const CONTAINER_TAGS = new Set([
-  "div", "section", "article", "header", "footer", "main",
-  "aside", "nav", "form", "fieldset", "table", "figure",
-  "details", "dialog",
+  "div",
+  "section",
+  "article",
+  "header",
+  "footer",
+  "main",
+  "aside",
+  "nav",
+  "form",
+  "fieldset",
+  "table",
+  "figure",
+  "details",
+  "dialog",
 ]);
 
 const IGNORE_BORDER_TAGS = new Set([
-  "span", "a", "strong", "em", "b", "i", "u", "small", "sub", "sup",
-  "label", "input", "textarea", "select", "option", "button",
-  "path", "svg", "img", "br", "hr", "wbr",
+  "span",
+  "a",
+  "strong",
+  "em",
+  "b",
+  "i",
+  "u",
+  "small",
+  "sub",
+  "sup",
+  "label",
+  "input",
+  "textarea",
+  "select",
+  "option",
+  "button",
+  "path",
+  "svg",
+  "img",
+  "br",
+  "hr",
+  "wbr",
 ]);
 
 function parseBlur(boxShadow: string): number {
@@ -82,7 +112,7 @@ interface Violation {
 }
 
 test.describe("Swiss Brutalism Design Audit", () => {
-  let allViolations: Violation[] = [];
+  const allViolations: Violation[] = [];
   let routeCount = 0;
 
   test.afterAll(() => {
@@ -112,7 +142,13 @@ test.describe("Swiss Brutalism Design Audit", () => {
       routeCount++;
       const violations: Violation[] = [];
       const push = (sel: string, prop: string, val: string, exp: string) => {
-        violations.push({ route: route.path, selector: sel, property: prop, value: val, expected: exp });
+        violations.push({
+          route: route.path,
+          selector: sel,
+          property: prop,
+          value: val,
+          expected: exp,
+        });
       };
 
       await page.goto(route.path);
@@ -128,7 +164,10 @@ test.describe("Swiss Brutalism Design Audit", () => {
       for (const el of sampled) {
         const tag = (await el.evaluate((node) => node.tagName.toLowerCase())) as string;
         const cls = (await el.getAttribute("class")) || "";
-        const selStr = `${tag}.${cls.split(/\s+/).filter((c) => c.startsWith("nc-")).join(".")}`;
+        const selStr = `${tag}.${cls
+          .split(/\s+/)
+          .filter((c) => c.startsWith("nc-"))
+          .join(".")}`;
 
         const styles = await el.evaluate((node) => {
           const s = getComputedStyle(node);
@@ -175,27 +214,56 @@ test.describe("Swiss Brutalism Design Audit", () => {
           if (rgb) {
             const [r, g, b] = rgb;
             if (r > 200 && g > 200 && b > 200) {
+              // known light color
             } else if (r < 40 && g < 40 && b < 40) {
+              // known dark color
             } else if (r === 255 && g === 85 && b === 0) {
+              // known accent color
             } else if (r < 80 && g < 80 && b < 80) {
+              // known dark color
             } else if (r === 0 && g === 200 && b === 83) {
+              // known accent color
             } else if (r === 255 && g === 23 && b === 68) {
+              // known accent color
             } else if (r > 80 && g > 80 && b > 80 && r < 150 && g < 150 && b < 150) {
+              // known mid color
             } else if (r > 150 && g > 150 && b > 150 && r < 200 && g < 200 && b < 200) {
+              // known light color
             } else {
-              push(selStr, "color (unexpected)", styles.color, "neutral, white, black, amber, success, danger");
+              push(
+                selStr,
+                "color (unexpected)",
+                styles.color,
+                "neutral, white, black, amber, success, danger",
+              );
             }
           }
         }
 
-        if (styles.backgroundColor && styles.backgroundColor !== "rgba(0, 0, 0, 0)" && styles.backgroundColor !== "transparent") {
+        if (
+          styles.backgroundColor &&
+          styles.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          styles.backgroundColor !== "transparent"
+        ) {
           const isAllowed = ALLOWED_BG.some((re) => re.test(styles.backgroundColor));
           if (!isAllowed) {
-            push(selStr, "background-color", styles.backgroundColor, "dark/light neutral or amber accent");
+            push(
+              selStr,
+              "background-color",
+              styles.backgroundColor,
+              "dark/light neutral or amber accent",
+            );
           }
         }
 
-        const VALID_FONTS = [/jetbrains/i, /space grotesk/i, /outfit/i, /monospace/i, /sans-serif/i, /system-ui/i];
+        const VALID_FONTS = [
+          /jetbrains/i,
+          /space grotesk/i,
+          /outfit/i,
+          /monospace/i,
+          /sans-serif/i,
+          /system-ui/i,
+        ];
         const fontOk = VALID_FONTS.some((re) => re.test(styles.fontFamily));
         if (!fontOk && tag !== "svg" && tag !== "path") {
           push(selStr, "font-family", styles.fontFamily, "JetBrains Mono / Space Grotesk / Outfit");
@@ -205,7 +273,7 @@ test.describe("Swiss Brutalism Design Audit", () => {
       const reducedMotion = await page.evaluate(() => {
         const sheets = [...document.styleSheets].flatMap((s) => {
           try {
-            return [...s.cssRules || []];
+            return [...(s.cssRules || [])];
           } catch {
             return [];
           }
@@ -213,7 +281,7 @@ test.describe("Swiss Brutalism Design Audit", () => {
         return sheets.some(
           (r) =>
             r.type === CSSRule.MEDIA_RULE &&
-            (r as CSSMediaRule).media.mediaText.includes("prefers-reduced-motion")
+            (r as CSSMediaRule).media.mediaText.includes("prefers-reduced-motion"),
         );
       });
 

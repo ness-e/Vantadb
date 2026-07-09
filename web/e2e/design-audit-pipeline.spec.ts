@@ -50,7 +50,10 @@ function readResults(): AuditResults[] {
   if (!existsSync(SCRATCH_FILE)) return [];
   const raw = readFileSync(SCRATCH_FILE, "utf-8").trim();
   if (!raw) return [];
-  return raw.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  return raw
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
 }
 
 interface AuditResults {
@@ -76,8 +79,31 @@ interface PipelineReport {
 }
 
 const DESIGN_TOKENS = {
-  validFonts: ["JetBrains Mono", "Space Grotesk", "Outfit", "Inter", "Fira Code", "Cascadia Code", "monospace", "sans-serif"],
-  validColors: ["rgb(30, 30, 46)", "rgb(49, 50, 68)", "rgb(69, 71, 90)", "rgb(88, 91, 112)", "rgb(108, 112, 134)", "rgb(166, 173, 200)", "rgb(205, 214, 244)", "rgb(245, 245, 245)", "rgb(255, 85, 0)", "rgb(230, 74, 0)", "rgb(255, 119, 51)", "rgb(255, 255, 255)", "rgb(0, 0, 0)"],
+  validFonts: [
+    "JetBrains Mono",
+    "Space Grotesk",
+    "Outfit",
+    "Inter",
+    "Fira Code",
+    "Cascadia Code",
+    "monospace",
+    "sans-serif",
+  ],
+  validColors: [
+    "rgb(30, 30, 46)",
+    "rgb(49, 50, 68)",
+    "rgb(69, 71, 90)",
+    "rgb(88, 91, 112)",
+    "rgb(108, 112, 134)",
+    "rgb(166, 173, 200)",
+    "rgb(205, 214, 244)",
+    "rgb(245, 245, 245)",
+    "rgb(255, 85, 0)",
+    "rgb(230, 74, 0)",
+    "rgb(255, 119, 51)",
+    "rgb(255, 255, 255)",
+    "rgb(0, 0, 0)",
+  ],
   validBorderRadius: ["0px"],
 };
 
@@ -147,9 +173,21 @@ test.describe("Design Audit Pipeline", () => {
 
         // Check border-radius only on structural container elements
         const structSelector = [
-          "div", "section", "header", "footer", "nav",
-          "main", "article", "aside", "ul", "ol", "li",
-          "table", "tr", "td", "th",
+          "div",
+          "section",
+          "header",
+          "footer",
+          "nav",
+          "main",
+          "article",
+          "aside",
+          "ul",
+          "ol",
+          "li",
+          "table",
+          "tr",
+          "td",
+          "th",
         ].join(",");
         const structElements = document.querySelectorAll(structSelector);
 
@@ -176,19 +214,20 @@ test.describe("Design Audit Pipeline", () => {
 
       appendResult(result);
 
-      const axeDetail = axeResults.violations.length > 0
-        ? axeResults.violations.map(
-            (v) => `  • ${v.id}: ${v.description} (${v.impact}) — ${v.help}`,
-          ).join("\n")
-        : "  ✓ No violations";
+      const axeDetail =
+        axeResults.violations.length > 0
+          ? axeResults.violations
+              .map((v) => `  • ${v.id}: ${v.description} (${v.impact}) — ${v.help}`)
+              .join("\n")
+          : "  ✓ No violations";
 
-      const cssDetail = cssIssues.length > 0
-        ? cssIssues.map((i) => `  • ${i}`).join("\n")
-        : "  ✓ All tokens compliant";
+      const cssDetail =
+        cssIssues.length > 0
+          ? cssIssues.map((i) => `  • ${i}`).join("\n")
+          : "  ✓ All tokens compliant";
 
-      const consoleDetail = consoleLogs.length > 0
-        ? consoleLogs.map((l) => `  • ${l}`).join("\n")
-        : "  ✓ No errors";
+      const consoleDetail =
+        consoleLogs.length > 0 ? consoleLogs.map((l) => `  • ${l}`).join("\n") : "  ✓ No errors";
 
       test.info().annotations.push({
         type: "axe-violations",

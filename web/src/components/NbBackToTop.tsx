@@ -61,7 +61,13 @@ export const NbBackToTop = memo(function NbBackToTop() {
   };
 
   return (
-    <button ref={btnRef} type="button" className="nb-back-to-top" onClick={scrollToTop} aria-label="Back to top">
+    <button
+      ref={btnRef}
+      type="button"
+      className="nb-back-to-top"
+      onClick={scrollToTop}
+      aria-label="Back to top"
+    >
       <svg
         width="20"
         height="20"

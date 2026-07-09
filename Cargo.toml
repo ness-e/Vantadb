@@ -463,6 +463,14 @@ path = "tests/multilingual_tokenizer_integration.rs"
 name = "security_audit"
 path = "tests/security/security_audit.rs"
 
+[[test]]
+name = "security"
+path = "tests/security.rs"
+
+[[test]]
+name = "sdk_serialization"
+path = "tests/sdk_serialization.rs"
+
 # ── Examples ──
 [[example]]
 name = "basic"

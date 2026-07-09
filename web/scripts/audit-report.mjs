@@ -71,20 +71,13 @@ function parsePlaywrightResults(jsonOutput) {
 function generateFullReport() {
   const layers = [];
 
-  layers.push(runCommand(
-    "npx stylelint \"src/**/*.css\"",
-    "Capa 1 — Tokens & CSS (stylelint)",
-  ));
+  layers.push(runCommand('npx stylelint "src/**/*.css"', "Capa 1 — Tokens & CSS (stylelint)"));
 
-  layers.push(runCommand(
-    "npx htmlhint \"index.html\" \"src/**/*.html\"",
-    "Capa 2 — HTML Semántico (HTMLHint)",
-  ));
+  layers.push(
+    runCommand('npx htmlhint "index.html" "src/**/*.html"', "Capa 2 — HTML Semántico (HTMLHint)"),
+  );
 
-  layers.push(runCommand(
-    "npx @biomejs/biome check src/",
-    "Capa 3 — Linter Unificado (Biome)",
-  ));
+  layers.push(runCommand("npx @biomejs/biome check src/", "Capa 3 — Linter Unificado (Biome)"));
 
   const playwrightLayer = runCommand(
     "npx playwright test e2e/design-audit-pipeline.spec.ts --reporter=json --workers=1",
@@ -93,9 +86,7 @@ function generateFullReport() {
   layers.push(playwrightLayer);
 
   // Parse Playwright JSON output to build route-level report
-  const pwResults = playwrightLayer?.output
-    ? parsePlaywrightResults(playwrightLayer.output)
-    : [];
+  const pwResults = playwrightLayer?.output ? parsePlaywrightResults(playwrightLayer.output) : [];
 
   // Write pipeline-report.json from parsed results
   const pipelineReport = {
@@ -106,13 +97,22 @@ function generateFullReport() {
       passed: pwResults.filter((r) => r.passed).length,
       failed: pwResults.filter((r) => !r.passed).length,
       totalAxeViolations: pwResults.reduce((s, r) => s + r.axeViolations, 0),
-      totalCssIssues: pwResults.reduce((s, r) => s + (Array.isArray(r.cssIssues) ? r.cssIssues.length : 0), 0),
-      totalConsoleErrors: pwResults.reduce((s, r) => s + (Array.isArray(r.consoleErrors) ? r.consoleErrors.length : 0), 0),
+      totalCssIssues: pwResults.reduce(
+        (s, r) => s + (Array.isArray(r.cssIssues) ? r.cssIssues.length : 0),
+        0,
+      ),
+      totalConsoleErrors: pwResults.reduce(
+        (s, r) => s + (Array.isArray(r.consoleErrors) ? r.consoleErrors.length : 0),
+        0,
+      ),
     },
   };
 
   if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });
-  writeFileSync(resolve(REPORTS_DIR, "pipeline-report.json"), JSON.stringify(pipelineReport, null, 2));
+  writeFileSync(
+    resolve(REPORTS_DIR, "pipeline-report.json"),
+    JSON.stringify(pipelineReport, null, 2),
+  );
 
   const stylelintResult = layers[0];
   const htmlhintResult = layers[1];
@@ -201,9 +201,7 @@ ${summary}
     <span class="status">${stylelintResult?.success ? "✓" : "✗"}</span>
   </div>
   <div class="layer-body">${
-    stylelintResult
-      ? escapeHtml(stylelintResult.output.slice(0, 2000))
-      : "Error running stylelint"
+    stylelintResult ? escapeHtml(stylelintResult.output.slice(0, 2000)) : "Error running stylelint"
   }</div>
 </div>
 
@@ -213,9 +211,7 @@ ${summary}
     <span class="status">${htmlhintResult?.success ? "✓" : "✗"}</span>
   </div>
   <div class="layer-body">${
-    htmlhintResult
-      ? escapeHtml(htmlhintResult.output.slice(0, 2000))
-      : "Error running HTMLHint"
+    htmlhintResult ? escapeHtml(htmlhintResult.output.slice(0, 2000)) : "Error running HTMLHint"
   }</div>
 </div>
 
@@ -225,9 +221,7 @@ ${summary}
     <span class="status">${biomeResult?.success ? "✓" : "✗"}</span>
   </div>
   <div class="layer-body">${
-    biomeResult
-      ? escapeHtml(biomeResult.output.slice(0, 2000))
-      : "Error running Biome"
+    biomeResult ? escapeHtml(biomeResult.output.slice(0, 2000)) : "Error running Biome"
   }</div>
 </div>
 
