@@ -1,0 +1,90 @@
+#!/bin/sh
+# VantaDB pre-commit hook
+# Runs fast checks before every commit. Blocks on failure.
+# Skip with: git commit --no-verify
+# Skip clippy with: SKIP_CLIPPY=1 git commit
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
+ok="${GREEN}ok${RESET}"
+fail="${RED}fail${RESET}"
+skip="${YELLOW}skipped${RESET}"
+
+printf "\n  ${BOLD}VantaDB Pre-Commit Checks${RESET}\n"
+printf "  ───────────────────────────\n"
+
+FAILED=0
+
+# Only check files that have staged changes
+STAGED_RS=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.rs$' || true)
+
+if [ -n "$STAGED_RS" ]; then
+    # 1. cargo fmt on staged files
+    printf "  -> cargo fmt ................ "
+    if cargo fmt --all -- --check 2>/dev/null; then
+        printf "$ok\n"
+    else
+        printf "$fail\n"
+        printf "    Run: cargo fmt\n"
+        FAILED=1
+    fi
+
+    # 2. cargo check (catches type errors, missing imports, broken APIs)
+    printf "  -> cargo check --workspace .. "
+    if cargo check --workspace -j 2 2>/dev/null; then
+        printf "$ok\n"
+    else
+        printf "$fail\n"
+        FAILED=1
+    fi
+
+    # 3. cargo clippy (linting, skip with SKIP_CLIPPY=1)
+    if [ -z "$SKIP_CLIPPY" ]; then
+        printf "  -> cargo clippy ............. "
+        if cargo clippy --workspace -- -D warnings 2>/dev/null; then
+            printf "$ok\n"
+        else
+            printf "$fail\n"
+            printf "    Skip with: SKIP_CLIPPY=1 git commit\n"
+            FAILED=1
+        fi
+    else
+        printf "  -> cargo clippy ............. $skip\n"
+    fi
+else
+    printf "  -> No staged Rust files; skipping cargo checks.\n"
+fi
+
+# 4. actionlint (GitHub Actions YAML validation, if installed)
+if command -v actionlint >/dev/null 2>&1; then
+    printf "  -> actionlint (workflows) ... "
+    if actionlint 2>/dev/null; then
+        printf "$ok\n"
+    else
+        printf "$fail\n"
+        FAILED=1
+    fi
+elif [ -d ".github/workflows" ]; then
+    printf "  -> actionlint .............. ${YELLOW}not found${RESET}\n"
+    printf "    Install: winget install actionlint\n"
+fi
+
+printf "\n"
+if [ $FAILED -eq 0 ]; then
+    printf "  ${GREEN}${BOLD}All checks passed.${RESET}\n"
+else
+    printf "  ${RED}${BOLD}Some checks failed. Fix or use --no-verify.${RESET}\n"
+fi
+printf "\n"
+
+exit $FAILED
