@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::binary_header::VantaHeader;
 use crate::error::Result;
-use crate::index::core::VECTOR_INDEX_VERSION;
+use crate::index::graph::VECTOR_INDEX_VERSION;
 use crate::storage::vfile::VFILE_VERSION;
 use crate::wal::{WalHeader, WAL_POSTCARD_VERSION};
 

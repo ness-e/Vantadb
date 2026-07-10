@@ -1,1901 +1,10 @@
-#[cfg(not(feature = "memmap2"))]
-use crate::storage::vfile::MmapMut;
-use dashmap::DashMap;
-#[cfg(feature = "memmap2")]
-use memmap2::MmapMut;
-use rand::{Rng, SeedableRng};
-use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use std::collections::BinaryHeap;
-use std::fs::{File, OpenOptions};
-use std::hash::BuildHasherDefault;
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use tracing::{info, warn};
-use twox_hash::XxHash64;
-
-/// Stack-inline neighbor list for HNSW graph edges.
-///
-/// Capacity 32 matches the default `HnswConfig::m` value. Lists with ≤32
-/// elements live entirely on the stack (zero heap allocation). Layer 0 lists
-/// that exceed 32 (up to `m_max0 = 64`) spill to the heap transparently,
-/// equivalent to the previous `Vec<u64>` behavior.
-pub type NeighborVec = SmallVec<[u128; 32]>;
-
-const ENTRY_POINT_NONE: u128 = u128::MAX;
-pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
-
-use super::distance::*;
-pub use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
-
-const FLAG_TOMBSTONE: u32 = 0x8;
-
-/// SCALE-01: Prefetching Predictivo del Kernel para búsqueda HNSW MMap.
-///
-/// Emite una sugerencia asíncrona al OS para pre-cargar páginas físicas del vector
-/// de un nodo candidato *antes* de que la CPU las calcule. Esto oculta la latencia
-/// de page fault detrás del cálculo de distancia del nodo actual.
-///
-/// La función es no-bloqueante y best-effort: si falla (permisos, no soportado),
-/// la búsqueda continúa correctamente sin degradación.
-///
-/// # Safety
-/// El puntero `mmap_ptr` debe ser válido durante la duración de la llamada.
-/// El rango `[offset, offset+len)` debe estar dentro del mmap mapeado.
-#[inline(always)]
-#[allow(unused_variables)]
-fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
-    #[cfg(unix)]
-    {
-        // POSIX: madvise(MADV_WILLNEED) — solicita al kernel cargar páginas de forma asíncrona.
-        // Disponible en Linux y macOS. No bloquea el hilo llamante.
-        unsafe {
-            // SAFETY: mmap_ptr es un puntero activo al mmap; offset+len está validado por
-            // el caller. madvise falla silenciosamente si el rango es inválido.
-            libc::madvise(
-                mmap_ptr.add(offset) as *mut libc::c_void,
-                len,
-                libc::MADV_WILLNEED,
-            );
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        // Windows: PrefetchVirtualMemory — equivalente a MADV_WILLNEED.
-        // Disponible desde Windows 8 / Server 2012. Falla silenciosamente en versiones anteriores.
-        use windows_sys::Win32::System::Memory::{PrefetchVirtualMemory, WIN32_MEMORY_RANGE_ENTRY};
-        use windows_sys::Win32::System::Threading::GetCurrentProcess;
-        unsafe {
-            // SAFETY: mismas garantías que el caso Unix.
-            let addr = mmap_ptr.add(offset) as *mut core::ffi::c_void;
-            let entry = WIN32_MEMORY_RANGE_ENTRY {
-                VirtualAddress: addr,
-                NumberOfBytes: len,
-            };
-            let process_handle = GetCurrentProcess();
-            // La firma acepta *const WIN32_MEMORY_RANGE_ENTRY y Flags=0 (requerido por Win32)
-            PrefetchVirtualMemory(process_handle, 1, std::ptr::addr_of!(entry), 0);
-        }
-    }
-
-    // Fallback no-op para plataformas sin soporte (e.g., WASM, Tier-3).
-    // El compilador elimina este bloque vacío en release.
-    #[cfg(not(any(unix, windows)))]
-    let _ = (mmap_ptr, offset, len);
-}
-
-/// Libera páginas de memoria del mmap para nodos fríos (Cold tier).
-/// Usa madvise(MADV_DONTNEED) para indicar al kernel que estas páginas
-/// pueden ser liberadas de RAM, reduciendo el RSS sin invalidar el mmap.
-///
-/// El rango `[offset, offset+len)` debe estar dentro del mmap mapeado.
-///
-/// # Safety
-///
-/// - `mmap_ptr` must be a valid pointer to an active memory-mapped region.
-/// - `offset + len` must not exceed the length of the mapped region.
-/// - The caller must hold a read guard (or equivalent) ensuring the mmap
-///   is not unmapped for the duration of this call.
-#[inline(always)]
-#[allow(unused_variables)]
-pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
-    #[cfg(unix)]
-    {
-        // SAFETY: `mmap_ptr` is a valid pointer into an active mmap region;
-        // the caller guarantees `offset` and `len` are within bounds.
-        // `madvise` will silently ignore invalid ranges.
-        unsafe {
-            libc::madvise(
-                mmap_ptr.add(offset) as *mut libc::c_void,
-                len,
-                libc::MADV_DONTNEED,
-            );
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        // No direct equivalent to MADV_DONTNEED on Windows.
-        // VirtualUnlock could free pages from the working set but requires
-        // the pages to be locked first. This is a no-op for simplicity.
-        let _ = (mmap_ptr, offset, len);
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    let _ = (mmap_ptr, offset, len);
-}
-
-use crate::config::PrefetchMode;
-use std::sync::OnceLock;
-
-/// Global prefetch mode — initialized once from `VantaConfig::prefetch_mode`
-/// or falls back to the env var `VANTA_PREFETCH` / `VANTA_DISABLE_PREFETCH`.
-static PREFETCH_MODE: OnceLock<PrefetchMode> = OnceLock::new();
-
-/// Override the global prefetch mode at runtime (called during initialization).
-pub fn set_prefetch_mode(mode: PrefetchMode) {
-    let _ = PREFETCH_MODE.set(mode);
-}
-
-#[inline(always)]
-fn should_prefetch() -> bool {
-    if let Some(mode) = PREFETCH_MODE.get() {
-        return mode.is_prefetch_enabled();
-    }
-    // Fallback: if config never initialized, read env var
-    let mode = std::env::var("VANTA_PREFETCH")
-        .ok()
-        .map(|v| PrefetchMode::from_env_value(&v));
-    let disabled = std::env::var("VANTA_DISABLE_PREFETCH")
-        .ok()
-        .map(|v| v == "1" || v == "true")
-        .unwrap_or(false);
-    match (mode, disabled) {
-        (Some(m), _) => m.is_prefetch_enabled(),
-        (_, true) => false,
-        _ => true,
-    }
-}
-
-pub(crate) const VECTOR_INDEX_VERSION: u16 = 6; // DB-05: migrate node_id from u64 to u128
-
-/// A node in the HNSW graph with its vector data and neighbor lists.
-pub struct HnswNode {
-    /// Unique node identifier.
-    pub id: u128,
-    /// Filter bitset for attribute-based filtering.
-    pub bitset: FilterBitset,
-    /// Stored vector representation (full, quantized, or mmap).
-    pub vec_data: VectorRepresentations,
-    /// Per-layer neighbor lists (layer 0 is the base layer).
-    pub neighbors: Vec<NeighborVec>,
-    /// Offset into the VantaFile (Phase 3)
-    pub storage_offset: u64,
-    /// Pre-computed inverse L2 norm (1.0 / L2_norm) for Cosine fast-path. 0.0 = not cached.
-    pub inv_cached_norm: f32,
-    /// Pre-computed squared L2 norm (||v||²) for Euclidean fast-path (PERF-34).
-    /// Populated alongside `inv_cached_norm`. 0.0 = not cached.
-    pub norm_sq: f32,
-    /// Tombstone & feature flags.
-    ///
-    /// Bit layout:
-    /// - 0x01: Reserved
-    /// - 0x02: Reserved
-    /// - 0x04: Reserved
-    /// - 0x08: Tombstone — node was deleted and should be ignored by search
-    /// - 0xF0..0x8000_0000: Unassigned — available for future feature flags
-    pub flags: u32,
-}
-
-/// Storage backend for the HNSW index data.
-#[derive(Debug)]
-pub enum IndexBackend {
-    /// Keep the index entirely in process memory.
-    InMemory,
-    /// Memory-mapped file backend with optional mutable mmap handle.
-    MMapFile {
-        /// Path to the mapped file on disk.
-        path: PathBuf,
-        /// Optional mutable mmap handle for live memory mapping.
-        mmap: Option<MmapMut>,
-    },
-}
-
-impl IndexBackend {
-    /// Create a new `MMapFile` backend for the given path.
-    pub fn new_mmap(path: PathBuf) -> Self {
-        IndexBackend::MMapFile { path, mmap: None }
-    }
-
-    /// Returns `true` if the backend uses a memory-mapped file.
-    pub fn is_mmap(&self) -> bool {
-        matches!(self, IndexBackend::MMapFile { .. })
-    }
-
-    /// Returns the file path of the mmap backend, or `None` for in-memory.
-    pub fn mmap_path(&self) -> Option<&Path> {
-        match self {
-            IndexBackend::MMapFile { path, .. } => Some(path.as_path()),
-            IndexBackend::InMemory => None,
-        }
-    }
-
-    /// Returns the number of resident (physically-in-RAM) bytes for the HNSW index mmap.
-    /// Uses the live mmap pointer directly when available (zero syscall overhead for address resolution).
-    /// Falls back to opening the file and creating a temporary read-only Mmap if the mutable mmap is not loaded.
-    pub fn mmap_resident_bytes(&self) -> Option<u64> {
-        match self {
-            IndexBackend::MMapFile { mmap: Some(m), .. } => {
-                crate::storage::vfile::get_resident_bytes(m.as_ptr(), m.len())
-            }
-            IndexBackend::MMapFile { path, mmap: None } => {
-                // Fallback: open the file and create a temporary read-only mmap
-                let file = match File::open(path) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        tracing::debug!(
-                            "mmap_resident_bytes fallback: failed to open {}: {e}",
-                            path.display()
-                        );
-                        return None;
-                    }
-                };
-                // SAFETY: `file` is a valid open handle; `Mmap::map` is the standard
-                // memmap2 crate API that creates a read-only mapping. The returned
-                // mmap is immediately used and dropped within this scope.
-                let mmap = match unsafe { crate::storage::vfile::Mmap::map(&file) } {
-                    Ok(m) => m,
-                    Err(e) => {
-                        tracing::debug!(
-                            "mmap_resident_bytes fallback: failed to mmap {}: {e}",
-                            path.display()
-                        );
-                        return None;
-                    }
-                };
-                crate::storage::vfile::get_resident_bytes(mmap.as_ptr(), mmap.len())
-            }
-            IndexBackend::InMemory => None,
-        }
-    }
-}
-
-/// Configuration parameters for the HNSW graph construction and search.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct HnswConfig {
-    /// Maximum number of connections per node in upper layers.
-    pub m: usize,
-    /// Maximum number of connections per node in layer 0 (base layer).
-    pub m_max0: usize,
-    /// Size of the dynamic candidate list during graph construction.
-    pub ef_construction: usize,
-    /// Size of the dynamic candidate list during search.
-    pub ef_search: usize,
-    /// Normalization factor for level generation (1/ln(m)).
-    pub ml: f64,
-    /// Distance metric used for similarity computations.
-    #[serde(default)]
-    pub distance_metric: DistanceMetric,
-}
-
-impl Default for HnswConfig {
-    fn default() -> Self {
-        Self {
-            m: 32,
-            m_max0: 64,
-            ef_construction: 400,
-            ef_search: 100,
-            ml: 1.0 / (32_f64).ln(),
-            distance_metric: DistanceMetric::Cosine,
-        }
-    }
-}
-
-// Custom wrapper to store (similarity, node_id) in BinaryHeap (Max-Heap)
-#[derive(Clone, PartialEq, Debug)]
-struct NodeSim(f32, u128);
-
-impl Eq for NodeSim {}
-
-impl PartialOrd for NodeSim {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NodeSim {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self
-            .0
-            .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-        {
-            std::cmp::Ordering::Equal => other.1.cmp(&self.1),
-            cmp => cmp,
-        }
-    }
-}
-
-// Wrapper for Min-Heap (used to track closest in result set)
-#[derive(Clone, PartialEq, Debug)]
-struct NodeSimMin(f32, u128);
-
-impl Eq for NodeSimMin {}
-
-impl PartialOrd for NodeSimMin {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for NodeSimMin {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match other
-            .0
-            .partial_cmp(&self.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-        {
-            std::cmp::Ordering::Equal => self.1.cmp(&other.1),
-            cmp => cmp,
-        }
-    }
-}
-
-/// Thread-safe HNSW graph index for approximate nearest neighbor search.
-pub struct CPIndex {
-    /// All nodes in the graph, keyed by node ID.
-    pub nodes: DashMap<u128, HnswNode, BuildHasherDefault<XxHash64>>,
-    /// Highest layer currently occupied by any node.
-    pub max_layer: AtomicUsize,
-    /// Entry point node ID (top-layer anchor for search).
-    pub entry_point: parking_lot::Mutex<u128>,
-    /// Storage backend (in-memory or mmap).
-    pub backend: IndexBackend,
-    /// HNSW construction and search configuration.
-    pub config: HnswConfig,
-    /// Cached node count to avoid O(n) in estimate_memory_bytes.
-    pub total_nodes: AtomicU64,
-    rng: parking_lot::Mutex<rand::rngs::StdRng>,
-}
-
-impl CPIndex {
-    /// Create a new empty HNSW index with default configuration.
-    pub fn new() -> Self {
-        Self {
-            nodes: Default::default(),
-            max_layer: AtomicUsize::new(0),
-            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
-            backend: IndexBackend::InMemory,
-            config: HnswConfig::default(),
-            total_nodes: AtomicU64::new(0),
-            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
-        }
-    }
-
-    /// Create a new empty HNSW index with the given configuration.
-    pub fn new_with_config(config: HnswConfig) -> Self {
-        Self {
-            nodes: Default::default(),
-            max_layer: AtomicUsize::new(0),
-            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
-            backend: IndexBackend::InMemory,
-            config,
-            total_nodes: AtomicU64::new(0),
-            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
-        }
-    }
-
-    /// Create a new empty HNSW index with the given storage backend.
-    pub fn with_backend(backend: IndexBackend) -> Self {
-        Self {
-            nodes: Default::default(),
-            max_layer: AtomicUsize::new(0),
-            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
-            backend,
-            config: HnswConfig::default(),
-            total_nodes: AtomicU64::new(0),
-            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
-        }
-    }
-
-    /// Estimate the memory usage of the index in bytes.
-    ///
-    /// Uses the cached `total_nodes` counter (O(1)) plus a per-node overhead
-    /// estimate, then iterates all nodes for precise vector/neighbor sizes.
-    pub fn estimate_memory_bytes(&self) -> usize {
-        let mut total = 0usize;
-        for r in self.nodes.iter() {
-            let node = r.value();
-            match &node.vec_data {
-                VectorRepresentations::Full(v) => total += v.len() * std::mem::size_of::<f32>(),
-                VectorRepresentations::MmapFull(_, _) => {} // Zero heap allocations for mapped memory
-                VectorRepresentations::Binary(b) => total += b.len() * std::mem::size_of::<u64>(),
-                VectorRepresentations::Turbo(t) => total += t.len(),
-                VectorRepresentations::SQ8(d, _) => total += d.len() + 4,
-                VectorRepresentations::None => {}
-            }
-            for layer in &node.neighbors {
-                total +=
-                    layer.len() * std::mem::size_of::<u128>() + std::mem::size_of::<NeighborVec>();
-            }
-            total += std::mem::size_of::<HnswNode>();
-        }
-        total += self.total_nodes.load(Ordering::Relaxed) as usize * 60;
-        total
-    }
-
-    fn random_layer(&self) -> usize {
-        let mut rng = self.rng.lock();
-        let r: f64 = rng.random_range(0.0001..1.0);
-        (-r.ln() * self.config.ml).floor() as usize
-    }
-
-    /// Thread-safe accessor for the current entry point.
-    #[inline]
-    pub fn get_entry_point(&self) -> Option<u128> {
-        let ep = *self.entry_point.lock();
-        if ep == ENTRY_POINT_NONE {
-            None
-        } else {
-            Some(ep)
-        }
-    }
-
-    /// Find a replacement entry point when the current one is deleted.
-    /// Scans all nodes and returns the one with the most layers.
-    /// Returns None if the index is empty.
-    pub fn find_new_entry_point(&self) -> Option<u128> {
-        self.nodes
-            .iter()
-            .max_by_key(|kv| kv.value().neighbors.len())
-            .map(|kv| *kv.key())
-    }
-
-    /// Thread-safe setter. Uses Release ordering to ensure the node
-    /// is fully visible in DashMap before other threads follow this pointer.
-    #[inline]
-    pub fn set_entry_point(&self, id: u128) {
-        *self.entry_point.lock() = id;
-    }
-
-    #[inline(always)]
-    fn fast_similarity(
-        &self,
-        query_vec: &[f32],
-        query_norm: Option<f32>,
-        query_inv_norm: Option<f32>,
-        node: &HnswNode,
-        metric: DistanceMetric,
-    ) -> f32 {
-        match metric {
-            DistanceMetric::Cosine => {
-                if let Some(q_inv_norm) = query_inv_norm {
-                    let node_inv_norm = node.inv_cached_norm;
-                    if node_inv_norm > f32::EPSILON {
-                        if let Some(node_slice) = node.vec_data.as_f32_slice() {
-                            return cosine_sim_cached_norms(
-                                query_vec,
-                                q_inv_norm,
-                                node_slice,
-                                node_inv_norm,
-                            );
-                        }
-                    }
-                }
-                calculate_similarity(query_vec, query_norm, None, None, &node.vec_data, metric)
-            }
-            DistanceMetric::Euclidean => {
-                if let Some(node_slice) = node.vec_data.as_f32_slice() {
-                    if node.norm_sq > f32::EPSILON {
-                        if let Some(qn) = query_norm {
-                            let query_norm_sq = qn * qn;
-                            return -euclidean_distance_sq_with_norms(
-                                query_vec,
-                                query_norm_sq,
-                                node_slice,
-                                node.norm_sq,
-                            );
-                        }
-                    }
-                    -euclidean_distance_squared_f32(query_vec, node_slice)
-                } else {
-                    calculate_similarity(query_vec, query_norm, None, None, &node.vec_data, metric)
-                }
-            }
-        }
-    }
-
-    /// Primary search subroutine for HNSW.
-    /// Performs a greedy beam search to return the `ef` nearest neighbors
-    /// found at `layer`. Candidates are validated against `query_mask`.
-    #[allow(clippy::too_many_arguments)]
-    fn search_layer(
-        &self,
-        query_vec: &[f32],
-        query_norm: Option<f32>,
-        query_inv_norm: Option<f32>,
-        entry_points: &[u128],
-        ef: usize,
-        layer: usize,
-        query_mask: &FilterBitset,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
-        metric: DistanceMetric,
-    ) -> BinaryHeap<NodeSimMin> {
-        let mut visited: std::collections::HashSet<u128, _> =
-            std::collections::HashSet::with_capacity_and_hasher(
-                ef * 2,
-                BuildHasherDefault::<XxHash64>::default(),
-            );
-        let mut candidates = BinaryHeap::new(); // Max-heap: candidates to visit
-        let mut results = BinaryHeap::new(); // Min-heap: best `ef` bounds
-
-        for &ep in entry_points {
-            if let Some(node) = self.nodes.get(&ep) {
-                let d = if let Some(vs) = vector_store {
-                    // Zero-copy search from VantaFile
-                    if let Some(header) = vs.read_header(node.storage_offset) {
-                        let vec_start = header.vector_offset as usize;
-                        let vec_end = vec_start + (header.vector_len as usize * 4);
-                        if vec_end > vs.mmap_bytes().len() {
-                            0.0
-                        } else {
-                            let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                            // SAFETY: bounds were verified above (`vec_end <= vs.mmap_bytes().len()`).
-                            // `vec_data` lives in the mmap region and is valid for the lifetime of
-                            // the borrow on `vs`. Alignment of f32 (4 bytes) is guaranteed by the
-                            // storage layout (vec_start is 64-byte aligned, then +8 for header fields).
-                            let f32_vec: &[f32] = unsafe {
-                                std::slice::from_raw_parts(
-                                    vec_data.as_ptr() as *const f32,
-                                    header.vector_len as usize,
-                                )
-                            };
-                            match metric {
-                                DistanceMetric::Cosine => {
-                                    if let Some(q_inv_norm) = query_inv_norm {
-                                        let node_inv_norm = node.inv_cached_norm;
-                                        if node_inv_norm > f32::EPSILON {
-                                            cosine_sim_cached_norms(
-                                                query_vec,
-                                                q_inv_norm,
-                                                f32_vec,
-                                                node_inv_norm,
-                                            )
-                                        } else {
-                                            f32_slice_similarity(
-                                                query_vec, query_norm, f32_vec, metric,
-                                            )
-                                        }
-                                    } else {
-                                        f32_slice_similarity(query_vec, query_norm, f32_vec, metric)
-                                    }
-                                }
-                                DistanceMetric::Euclidean => {
-                                    -euclidean_distance_squared_f32(query_vec, f32_vec)
-                                }
-                            }
-                        }
-                    } else {
-                        0.0
-                    }
-                } else {
-                    self.fast_similarity(query_vec, query_norm, query_inv_norm, &node, metric)
-                };
-
-                let eligible = if let Some(vs) = vector_store {
-                    vs.read_header(node.storage_offset)
-                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
-                        .unwrap_or(false)
-                } else {
-                    (node.flags & FLAG_TOMBSTONE) == 0
-                };
-                if !eligible {
-                    continue;
-                }
-
-                candidates.push(NodeSim(d, ep));
-                if query_mask.is_all_set() || node.bitset.matches_mask(query_mask) {
-                    results.push(NodeSimMin(d, ep));
-                }
-                visited.insert(ep);
-            }
-        }
-
-        while let Some(NodeSim(d_cand, cand_id)) = candidates.pop() {
-            // Early stopping condition: if candidate is worse than the worst result
-            if results.len() >= ef {
-                if let Some(worst) = results.peek() {
-                    // Because it's a min-heap, peek gives the smallest similarity (worst match)
-                    if d_cand < worst.0 {
-                        break;
-                    }
-                }
-            }
-
-            let neighbors = if let Some(node) = self.nodes.get(&cand_id) {
-                if layer < node.neighbors.len() {
-                    Some(node.neighbors[layer].clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            if let Some(neighbors_list) = neighbors {
-                // SCALE-01: Predictive prefetch — issue prefetch hints for ALL neighbors of
-                // the current candidate before computing any distance. This lets the kernel
-                // (and SSD controller) start DMA of the physical pages in parallel while the
-                // CPU computes the current node's distance.
-                if should_prefetch() {
-                    if let Some(vs) = vector_store {
-                        let mmap_base = vs.mmap_bytes().as_ptr();
-                        let mmap_len = vs.mmap_bytes().len();
-                        for &pf_neighbor_id in &neighbors_list {
-                            if !visited.contains(&pf_neighbor_id) {
-                                if let Some(pf_node) = self.nodes.get(&pf_neighbor_id) {
-                                    if let Some(h) = vs.read_header(pf_node.storage_offset) {
-                                        let vec_start = h.vector_offset as usize;
-                                        let vec_len_bytes = h.vector_len as usize * 4;
-                                        // Validar bounds antes de emitir prefetch
-                                        if vec_start + vec_len_bytes <= mmap_len
-                                            && vec_len_bytes > 0
-                                        {
-                                            prefetch_mmap_vector(
-                                                mmap_base,
-                                                vec_start,
-                                                vec_len_bytes,
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                for &neighbor_id in &neighbors_list {
-                    if !visited.contains(&neighbor_id) {
-                        visited.insert(neighbor_id);
-
-                        if let Some(neighbor) = self.nodes.get(&neighbor_id) {
-                            let d = if let Some(vs) = vector_store {
-                                if let Some(h) = vs.read_header(neighbor.storage_offset) {
-                                    let vec_start = h.vector_offset as usize;
-                                    let vec_end = vec_start + (h.vector_len as usize * 4);
-                                    if vec_end > vs.mmap_bytes().len() {
-                                        0.0
-                                    } else {
-                                        let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                        // SAFETY: bounds verified above (`vec_end > vs.mmap_bytes().len()` guard).
-                                        // Same alignment guarantees as the entry-point search path above.
-                                        let f32_v: &[f32] = unsafe {
-                                            std::slice::from_raw_parts(
-                                                v_data.as_ptr() as *const f32,
-                                                h.vector_len as usize,
-                                            )
-                                        };
-                                        match metric {
-                                            DistanceMetric::Cosine => {
-                                                if let Some(q_inv_norm) = query_inv_norm {
-                                                    let neighbor_inv_norm =
-                                                        neighbor.inv_cached_norm;
-                                                    if neighbor_inv_norm > f32::EPSILON {
-                                                        cosine_sim_cached_norms(
-                                                            query_vec,
-                                                            q_inv_norm,
-                                                            f32_v,
-                                                            neighbor_inv_norm,
-                                                        )
-                                                    } else {
-                                                        f32_slice_similarity(
-                                                            query_vec, query_norm, f32_v, metric,
-                                                        )
-                                                    }
-                                                } else {
-                                                    f32_slice_similarity(
-                                                        query_vec, query_norm, f32_v, metric,
-                                                    )
-                                                }
-                                            }
-                                            DistanceMetric::Euclidean => {
-                                                -euclidean_distance_squared_f32(query_vec, f32_v)
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    0.0
-                                }
-                            } else {
-                                self.fast_similarity(
-                                    query_vec,
-                                    query_norm,
-                                    query_inv_norm,
-                                    &neighbor,
-                                    metric,
-                                )
-                            };
-
-                            let eligible = if let Some(vs) = vector_store {
-                                vs.read_header(neighbor.storage_offset)
-                                    .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
-                                    .unwrap_or(false)
-                            } else {
-                                (neighbor.flags & FLAG_TOMBSTONE) == 0
-                            };
-                            if !eligible {
-                                continue;
-                            }
-
-                            if results.len() < ef || results.peek().is_some_and(|worst| d > worst.0)
-                            {
-                                candidates.push(NodeSim(d, neighbor_id));
-                                if query_mask.is_all_set()
-                                    || neighbor.bitset.matches_mask(query_mask)
-                                {
-                                    results.push(NodeSimMin(d, neighbor_id));
-                                    if results.len() > ef {
-                                        results.pop(); // Remove the worst to keep size at `ef`
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        results
-    }
-
-    /// Select neighbors using the HNSW paper heuristic (Algorithm 4, Malkov & Yashunin 2018).
-    /// Applies spatial diversity from slot 0 — no unconditional acceptance.
-    /// keepPrunedConnections=true: fills limited remaining slots with discarded candidates.
-    ///
-    /// Metric: cosine similarity (higher = closer). The diversity condition is:
-    ///   reject if similarity(candidate, selected) > similarity(candidate, query)
-    /// This is the correct inversion of the paper's distance-based condition
-    /// because cosine similarity is monotonically inverse to angular distance.
-    fn select_neighbors(&self, candidates: BinaryHeap<NodeSimMin>, m: usize) -> NeighborVec {
-        // Consumes the heap directly. Callers must extract entry_points
-        // BEFORE calling this function if they need the original heap data.
-        let sorted = candidates.into_sorted_vec();
-        // into_sorted_vec returns ascending order based on NodeSimMin's Ord
-        // NodeSimMin Ord equates higher similarity to "Less", meaning best candidates come first!
-
-        #[allow(dead_code)]
-        struct SelectedInfo {
-            id: u128,
-            vec: Option<Vec<f32>>,
-            inv_norm: f32,
-            norm_sq: f32,
-        }
-
-        let mut selected: Vec<SelectedInfo> = Vec::with_capacity(m);
-        let mut discarded: Vec<u128> = Vec::new();
-
-        for ns in sorted.into_iter() {
-            if selected.len() >= m {
-                break;
-            }
-
-            let cand_id = ns.1;
-            let sim_q_cand = ns.0;
-
-            let cand_node = match self.nodes.get(&cand_id) {
-                Some(n) => n,
-                None => continue,
-            };
-            if (cand_node.flags & FLAG_TOMBSTONE) != 0 {
-                continue;
-            }
-            let cand_slice = cand_node.vec_data.as_f32_slice();
-            let cand_inv_norm = cand_node.inv_cached_norm;
-
-            let mut is_diverse = true;
-            for sel in &selected {
-                let sim_cand_sel = match self.config.distance_metric {
-                    DistanceMetric::Cosine => {
-                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, &sel.vec) {
-                            cosine_sim_cached_norms(c_slice, cand_inv_norm, s_slice, sel.inv_norm)
-                        } else {
-                            if let Some(sel_node) = self.nodes.get(&sel.id) {
-                                let cand_norm = if cand_inv_norm > f32::EPSILON {
-                                    Some(1.0 / cand_inv_norm)
-                                } else {
-                                    None
-                                };
-                                calculate_similarity(
-                                    cand_slice.unwrap_or(&[]),
-                                    cand_norm,
-                                    None,
-                                    None,
-                                    &sel_node.vec_data,
-                                    self.config.distance_metric,
-                                )
-                            } else {
-                                0.0
-                            }
-                        }
-                    }
-                    DistanceMetric::Euclidean => {
-                        if let (Some(c_slice), Some(s_slice)) = (cand_slice, &sel.vec) {
-                            -euclidean_distance_squared_f32(c_slice, s_slice)
-                        } else {
-                            if let Some(sel_node) = self.nodes.get(&sel.id) {
-                                calculate_similarity(
-                                    cand_slice.unwrap_or(&[]),
-                                    None,
-                                    None,
-                                    None,
-                                    &sel_node.vec_data,
-                                    self.config.distance_metric,
-                                )
-                            } else {
-                                0.0
-                            }
-                        }
-                    }
-                };
-
-                if sim_cand_sel > sim_q_cand {
-                    is_diverse = false;
-                    break;
-                }
-            }
-
-            if is_diverse {
-                selected.push(SelectedInfo {
-                    id: cand_id,
-                    vec: cand_slice.map(|s| s.to_vec()),
-                    inv_norm: cand_inv_norm,
-                    norm_sq: cand_node.norm_sq,
-                });
-            } else {
-                discarded.push(cand_id);
-            }
-        }
-
-        // keepPrunedConnections: fill remaining slots with discarded candidates.
-        // HNSW relies on keeping degree close to M.
-        let mut final_selected: NeighborVec = selected.into_iter().map(|s| s.id).collect();
-        for &disc_id in discarded.iter() {
-            if final_selected.len() >= m {
-                break;
-            }
-            final_selected.push(disc_id);
-        }
-
-        final_selected
-    }
-
-    fn validate_node(
-        &self,
-        id: u128,
-        bitset: FilterBitset,
-        vec_data: &VectorRepresentations,
-        storage_offset: u64,
-    ) -> bool {
-        if let Some(mut node) = self.nodes.get_mut(&id) {
-            node.bitset = bitset;
-            node.vec_data = vec_data.clone();
-            node.storage_offset = storage_offset;
-            return true;
-        }
-
-        if vec_data.is_none() {
-            self.nodes.insert(
-                id,
-                HnswNode {
-                    id,
-                    bitset,
-                    vec_data: vec_data.clone(),
-                    neighbors: vec![NeighborVec::new()],
-                    storage_offset,
-                    inv_cached_norm: 0.0,
-                    norm_sq: 0.0,
-                    flags: 0,
-                },
-            );
-            self.total_nodes.fetch_add(1, Ordering::Relaxed);
-            return true;
-        }
-
-        false
-    }
-
-    /// Insert or update a node in the HNSW graph.
-    #[tracing::instrument(skip(self, vec_data), level = "debug")]
-    pub fn add(
-        &self,
-        id: u128,
-        bitset: FilterBitset,
-        vec_data: VectorRepresentations,
-        storage_offset: u64,
-    ) {
-        if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
-            return;
-        }
-
-        self.insert_hnsw(id, bitset, vec_data, storage_offset);
-    }
-
-    #[inline]
-    fn compute_cached_norms(&self, vec_data: &VectorRepresentations) -> (f32, f32) {
-        let metric = self.config.distance_metric;
-        if metric == DistanceMetric::Euclidean || metric == DistanceMetric::Cosine {
-            vec_data
-                .as_f32_slice()
-                .map(|s| {
-                    let norm = f32_l2_norm(s);
-                    if norm > f32::EPSILON {
-                        (1.0 / norm, norm * norm)
-                    } else {
-                        (0.0, 0.0)
-                    }
-                })
-                .unwrap_or((0.0, 0.0))
-        } else {
-            (0.0, 0.0)
-        }
-    }
-
-    fn insert_hnsw(
-        &self,
-        id: u128,
-        bitset: FilterBitset,
-        vec_data: VectorRepresentations,
-        storage_offset: u64,
-    ) {
-        let level = self.random_layer();
-        let ef_cons = self.config.ef_construction;
-
-        let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
-
-        let query_f32 = vec_data.to_f32();
-
-        let node = HnswNode {
-            id,
-            bitset,
-            vec_data,
-            neighbors: vec![NeighborVec::new(); level + 1],
-            storage_offset,
-            inv_cached_norm,
-            norm_sq,
-            flags: 0,
-        };
-
-        let ep = match self.get_entry_point() {
-            None => {
-                self.set_entry_point(id);
-                self.max_layer.store(level, Ordering::Release);
-                self.nodes.insert(id, node);
-                self.total_nodes.fetch_add(1, Ordering::Relaxed);
-                return;
-            }
-            Some(entry) => entry,
-        };
-
-        self.nodes.insert(id, node);
-        self.total_nodes.fetch_add(1, Ordering::Relaxed);
-
-        let query_f32 = match query_f32 {
-            Some(v) => v,
-            None => return,
-        };
-
-        let (query_norm, query_inv_norm) = match self.config.distance_metric {
-            DistanceMetric::Cosine => {
-                let norm = f32_l2_norm(&query_f32);
-                if norm < f32::EPSILON {
-                    self.nodes.remove(&id);
-                    self.total_nodes.fetch_sub(1, Ordering::Relaxed);
-                    return;
-                }
-                (Some(norm), Some(1.0 / norm))
-            }
-            DistanceMetric::Euclidean => {
-                let norm = f32_l2_norm(&query_f32);
-                (Some(norm), None)
-            }
-        };
-
-        let mut curr_entry_points = vec![ep];
-        let top_layer = self.max_layer.load(Ordering::Acquire);
-
-        for layer in (level + 1..=top_layer).rev() {
-            let mut w = self.search_layer(
-                &query_f32,
-                query_norm,
-                query_inv_norm,
-                &curr_entry_points,
-                1,
-                layer,
-                &crate::node::ALL_BITSET,
-                None,
-                self.config.distance_metric,
-            );
-            if let Some(NodeSimMin(_, best_id)) = w.pop() {
-                curr_entry_points = vec![best_id];
-            }
-        }
-
-        let start_layer = std::cmp::min(level, top_layer);
-        for layer in (0..=start_layer).rev() {
-            let w = self.search_layer(
-                &query_f32,
-                query_norm,
-                query_inv_norm,
-                &curr_entry_points,
-                ef_cons,
-                layer,
-                &crate::node::ALL_BITSET,
-                None,
-                self.config.distance_metric,
-            );
-
-            let m_max = if layer == 0 {
-                self.config.m_max0
-            } else {
-                self.config.m
-            };
-
-            curr_entry_points = w.iter().map(|ns| ns.1).collect();
-            let selected_neighbors = self.select_neighbors(w, m_max);
-
-            if let Some(mut n) = self.nodes.get_mut(&id) {
-                n.neighbors[layer] = selected_neighbors.clone();
-            }
-
-            for &neighbor_id in &selected_neighbors {
-                let (needs_shrink, current_neighbors) = {
-                    if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                        if layer < neighbor_node.neighbors.len() {
-                            if !neighbor_node.neighbors[layer].contains(&id) {
-                                neighbor_node.neighbors[layer].push(id);
-                            }
-
-                            if neighbor_node.neighbors[layer].len() > m_max {
-                                (true, neighbor_node.neighbors[layer].clone())
-                            } else {
-                                (false, NeighborVec::new())
-                            }
-                        } else {
-                            (false, NeighborVec::new())
-                        }
-                    } else {
-                        (false, NeighborVec::new())
-                    }
-                };
-
-                if needs_shrink {
-                    self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
-                }
-            }
-        }
-
-        self.update_metadata(level, id);
-    }
-
-    #[inline]
-    fn shrink_neighbors(
-        &self,
-        neighbor_id: u128,
-        m_max: usize,
-        current_neighbors: &[u128],
-        layer: usize,
-    ) {
-        let (nb_vec, nb_inv_norm) = match self.nodes.get(&neighbor_id) {
-            Some(n) => (
-                n.vec_data.as_f32_slice().map(|s| s.to_vec()),
-                n.inv_cached_norm,
-            ),
-            None => (None, 0.0),
-        };
-
-        if let Some(nb_v) = nb_vec {
-            let mut cand_heap = BinaryHeap::new();
-            let q_norm = if nb_inv_norm > f32::EPSILON {
-                Some(1.0 / nb_inv_norm)
-            } else {
-                None
-            };
-            let q_inv_norm = if nb_inv_norm > f32::EPSILON {
-                Some(nb_inv_norm)
-            } else {
-                None
-            };
-            for &n_target in current_neighbors {
-                if let Some(nt) = self.nodes.get(&n_target) {
-                    let d = self.fast_similarity(
-                        &nb_v,
-                        q_norm,
-                        q_inv_norm,
-                        &nt,
-                        self.config.distance_metric,
-                    );
-                    cand_heap.push(NodeSimMin(d, n_target));
-                }
-            }
-            let pruned = self.select_neighbors(cand_heap, m_max);
-            if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                neighbor_node.neighbors[layer] = pruned;
-            }
-        }
-    }
-
-    fn update_metadata(&self, level: usize, id: u128) {
-        let current_max = self.max_layer.load(Ordering::Acquire);
-        if level > current_max {
-            self.max_layer.fetch_max(level, Ordering::Release);
-            self.set_entry_point(id);
-        }
-    }
-
-    /// Search the HNSW graph for the nearest neighbors of the query vector.
-    #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
-    pub fn search_nearest(
-        &self,
-        query_vec: &[f32],
-        _q_1bit: Option<&[u64]>, // We let these pass but currently default to calculate_similarity internal handler
-        _q_3bit: Option<(&[u8], f32)>,
-        query_mask: &FilterBitset,
-        top_k: usize,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
-    ) -> Vec<(u128, f32)> {
-        let ep = match self.get_entry_point() {
-            Some(id) => id,
-            None => return Vec::new(),
-        };
-
-        let ef_search = self.config.ef_search.max(top_k);
-        // When Cosine metric is configured but the query vector is zero-norm
-        // (no defined direction), fall back to Euclidean for this query.
-        // Returning empty results for a zero-vector query breaks practical
-        // use-cases where callers use [0.0]*N as a "find all nearest" probe.
-        let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
-            DistanceMetric::Cosine => {
-                let norm = f32_l2_norm(query_vec);
-                if norm < f32::EPSILON {
-                    // Zero-norm fallback: use Euclidean without norm information
-                    (DistanceMetric::Euclidean, None, None)
-                } else {
-                    (DistanceMetric::Cosine, Some(norm), Some(1.0 / norm))
-                }
-            }
-            DistanceMetric::Euclidean => {
-                let norm = f32_l2_norm(query_vec);
-                (DistanceMetric::Euclidean, Some(norm), None)
-            }
-        };
-        let mut curr_entry_points = vec![ep];
-
-        let max_l = self.max_layer.load(Ordering::Acquire);
-        for layer in (1..=max_l).rev() {
-            let mut w = self.search_layer(
-                query_vec,
-                query_norm,
-                query_inv_norm,
-                &curr_entry_points,
-                1,
-                layer,
-                &crate::node::ALL_BITSET,
-                vector_store,
-                effective_metric,
-            );
-            if let Some(NodeSimMin(_, best_id)) = w.pop() {
-                curr_entry_points = vec![best_id];
-            }
-        }
-
-        let w = self.search_layer(
-            query_vec,
-            query_norm,
-            query_inv_norm,
-            &curr_entry_points,
-            ef_search,
-            0,
-            query_mask,
-            vector_store,
-            effective_metric,
-        );
-
-        // Filter NaN scores before sorting (CODE-030)
-        let mut result: Vec<NodeSimMin> = w.into_sorted_vec();
-        result.retain(|ns| !ns.0.is_nan());
-
-        // into_sorted_vec returns highest similarity (best) first!
-        result.truncate(top_k);
-
-        let mut final_results = Vec::with_capacity(result.len());
-        for NodeSimMin(score, id) in result {
-            let adjusted_score = match effective_metric {
-                DistanceMetric::Euclidean => -(-score).max(0.0).sqrt(),
-                DistanceMetric::Cosine => score,
-            };
-            final_results.push((id, adjusted_score));
-        }
-        final_results
-    }
-
-    /// BFS traversal order for on-disk layout: entry point first, then graph neighbors
-    /// (upper layers before lower) to improve mmap locality on large indexes.
-    pub(crate) fn serialization_order(&self) -> Vec<u128> {
-        use std::collections::{HashSet, VecDeque};
-
-        let mut order = Vec::with_capacity(self.nodes.len());
-        let mut seen = HashSet::new();
-
-        if let Some(ep) = self.get_entry_point() {
-            let mut queue = VecDeque::new();
-            queue.push_back(ep);
-            seen.insert(ep);
-
-            while let Some(node_id) = queue.pop_front() {
-                order.push(node_id);
-                if let Some(node) = self.nodes.get(&node_id) {
-                    for layer in (0..node.neighbors.len()).rev() {
-                        for &neighbor_id in &node.neighbors[layer] {
-                            if seen.insert(neighbor_id) {
-                                queue.push_back(neighbor_id);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let mut orphans: Vec<u128> = self
-            .nodes
-            .iter()
-            .map(|r| *r.key())
-            .filter(|id| !seen.contains(id))
-            .collect();
-        orphans.sort_unstable();
-        order.extend(orphans);
-        order
-    }
-
-    /// Serialize the index into a compact byte buffer.
-    pub fn serialize_to_bytes(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
-        self.serialize_to_writer(&mut buf).unwrap();
-        buf
-    }
-
-    /// Serialize the index into a compact binary stream.
-    ///
-    /// Writes: magic header, max_layer, config block, distance metric byte,
-    /// entry point, node count, then each node (id, bitset, storage_offset,
-    /// vector data, per-layer neighbor lists). Avoids the intermediate `Vec`
-    /// allocation of `serialize_to_bytes`.
-    pub fn serialize_to_writer(&self, w: &mut impl Write) -> std::io::Result<()> {
-        let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
-        let mut pos = 0usize;
-
-        let hdr = header.serialize();
-        w.write_all(&hdr)?;
-        pos += hdr.len();
-
-        let max_layer_bytes = (self.max_layer.load(Ordering::Acquire) as u64).to_le_bytes();
-        w.write_all(&max_layer_bytes)?;
-        pos += max_layer_bytes.len();
-
-        // Config block (only in V2+)
-        for val in [
-            (self.config.m as u64).to_le_bytes(),
-            (self.config.m_max0 as u64).to_le_bytes(),
-            (self.config.ef_construction as u64).to_le_bytes(),
-            (self.config.ef_search as u64).to_le_bytes(),
-            self.config.ml.to_le_bytes(),
-        ] {
-            w.write_all(&val)?;
-            pos += val.len();
-        }
-
-        // V3+: distance metric byte (0 = Cosine, 1 = Euclidean)
-        let metric_byte: u8 = match self.config.distance_metric {
-            DistanceMetric::Cosine => 0,
-            DistanceMetric::Euclidean => 1,
-        };
-        w.write_all(&[metric_byte])?;
-        pos += 1;
-
-        match self.get_entry_point() {
-            Some(ep) => {
-                w.write_all(&[1])?;
-                w.write_all(&ep.to_le_bytes())?;
-                pos += 17;
-            }
-            None => {
-                w.write_all(&[0])?;
-                w.write_all(&0u128.to_le_bytes())?;
-                pos += 17;
-            }
-        }
-
-        let node_count = self.nodes.len() as u64;
-        let nc = node_count.to_le_bytes();
-        w.write_all(&nc)?;
-        pos += nc.len();
-
-        for node_id in self.serialization_order() {
-            let Some(node) = self.nodes.get(&node_id) else {
-                continue;
-            };
-            let id_bytes = node.id.to_le_bytes();
-            w.write_all(&id_bytes)?;
-            pos += id_bytes.len();
-
-            let bs = node.bitset.to_bytes();
-            w.write_all(&bs)?;
-            pos += bs.len();
-
-            let so = node.storage_offset.to_le_bytes();
-            w.write_all(&so)?;
-            pos += so.len();
-
-            match &node.vec_data {
-                VectorRepresentations::Full(f) => {
-                    w.write_all(&[1])?;
-                    w.write_all(&(f.len() as u64).to_le_bytes())?;
-                    pos += 9;
-                    // V4+: f32 alignment padding
-                    let padding = (4 - (pos % 4)) % 4;
-                    if padding > 0 {
-                        w.write_all(&[0u8; 4][..padding])?;
-                        pos += padding;
-                    }
-                    for &val in f {
-                        let b = val.to_le_bytes();
-                        w.write_all(&b)?;
-                        pos += b.len();
-                    }
-                }
-                VectorRepresentations::MmapFull(ptr, len) => {
-                    w.write_all(&[1])?;
-                    w.write_all(&(*len as u64).to_le_bytes())?;
-                    pos += 9;
-                    let padding = (4 - (pos % 4)) % 4;
-                    if padding > 0 {
-                        w.write_all(&[0u8; 4][..padding])?;
-                        pos += padding;
-                    }
-                    if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!(
-                                "MmapFull invalid ptr/len in serialize: ptr={:p} len={}",
-                                ptr.0, *len
-                            ),
-                        ));
-                    }
-                    // SAFETY: ptr.0 validated non-null, len is bounded by MAX_VEC_F32_LEN.
-                    let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
-                    for &val in slice {
-                        let b = val.to_le_bytes();
-                        w.write_all(&b)?;
-                        pos += b.len();
-                    }
-                }
-                VectorRepresentations::Binary(b) => {
-                    w.write_all(&[2])?;
-                    w.write_all(&(b.len() as u64).to_le_bytes())?;
-                    pos += 9;
-                    for &val in b {
-                        let b2 = val.to_le_bytes();
-                        w.write_all(&b2)?;
-                        pos += b2.len();
-                    }
-                }
-                VectorRepresentations::Turbo(t) => {
-                    w.write_all(&[3])?;
-                    w.write_all(&(t.len() as u64).to_le_bytes())?;
-                    pos += 9;
-                    w.write_all(t)?;
-                    pos += t.len();
-                }
-                VectorRepresentations::SQ8(d, scale) => {
-                    w.write_all(&[4])?;
-                    w.write_all(&(d.len() as u64).to_le_bytes())?;
-                    pos += 9;
-                    for &v in d {
-                        w.write_all(&[v as u8])?;
-                        pos += 1;
-                    }
-                    let sb = scale.to_le_bytes();
-                    w.write_all(&sb)?;
-                    pos += sb.len();
-                }
-                VectorRepresentations::None => {
-                    w.write_all(&[0])?;
-                    w.write_all(&0u64.to_le_bytes())?;
-                    pos += 9;
-                }
-            }
-
-            let layer_count = node.neighbors.len() as u64;
-            let lc = layer_count.to_le_bytes();
-            w.write_all(&lc)?;
-            pos += lc.len();
-            for layer in &node.neighbors {
-                let neighbor_count = layer.len() as u64;
-                let nc = neighbor_count.to_le_bytes();
-                w.write_all(&nc)?;
-                pos += nc.len();
-                for &nid in layer {
-                    let nidb = nid.to_le_bytes();
-                    w.write_all(&nidb)?;
-                    pos += nidb.len();
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Deserialize an index from a byte buffer, optionally copying data into owned memory.
-    pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
-        use std::io::{Error, ErrorKind};
-
-        #[inline]
-        fn take_bytes<'a>(
-            data: &'a [u8],
-            pos: &mut usize,
-            n: usize,
-            field: &str,
-        ) -> std::io::Result<&'a [u8]> {
-            if *pos + n > data.len() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::UnexpectedEof,
-                    format!("Truncated {field}"),
-                ));
-            }
-            let slice = &data[*pos..*pos + n];
-            *pos += n;
-            Ok(slice)
-        }
-
-        #[inline]
-        fn read_le_u128(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u128> {
-            let bytes = take_bytes(data, pos, 16, field)?;
-            Ok(u128::from_le_bytes(bytes.try_into().map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("failed to parse {field} as u128: {e}"),
-                )
-            })?))
-        }
-
-        #[inline]
-        fn read_le_u64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<u64> {
-            let bytes = take_bytes(data, pos, 8, field)?;
-            Ok(u64::from_le_bytes(bytes.try_into().map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("failed to parse {field} as u64: {e}"),
-                )
-            })?))
-        }
-
-        #[inline]
-        fn read_le_f64(data: &[u8], pos: &mut usize, field: &str) -> std::io::Result<f64> {
-            let bytes = take_bytes(data, pos, 8, field)?;
-            Ok(f64::from_le_bytes(bytes.try_into().map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("failed to parse {field} as f64: {e}"),
-                )
-            })?))
-        }
-
-        if data.len() < crate::binary_header::VantaHeader::SIZE + 8 {
-            return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
-        }
-
-        let mut pos = 0;
-
-        let header = match crate::binary_header::VantaHeader::deserialize(
-            &data[pos..pos + crate::binary_header::VantaHeader::SIZE],
-        ) {
-            Ok(h) => h,
-            Err(e) => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("Failed to parse binary header: {:?}", e),
-                ))
-            }
-        };
-        pos += crate::binary_header::VantaHeader::SIZE;
-
-        if let Err(e) = header.validate(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch") {
-            return Err(Error::new(ErrorKind::InvalidData, format!("{}", e)));
-        }
-
-        let version = header.format_version as u32;
-
-        let max_layer = read_le_u64(data, &mut pos, "max_layer")? as usize;
-
-        let mut config = HnswConfig::default();
-        if version >= 2 {
-            config.m = read_le_u64(data, &mut pos, "config.m")? as usize;
-            config.m_max0 = read_le_u64(data, &mut pos, "config.m_max0")? as usize;
-            config.ef_construction =
-                read_le_u64(data, &mut pos, "config.ef_construction")? as usize;
-            config.ef_search = read_le_u64(data, &mut pos, "config.ef_search")? as usize;
-            config.ml = read_le_f64(data, &mut pos, "config.ml")?;
-        }
-        // V3+: distance metric byte
-        if version >= 3 && pos < data.len() {
-            config.distance_metric = match take_bytes(data, &mut pos, 1, "distance_metric")?[0] {
-                1 => DistanceMetric::Euclidean,
-                _ => DistanceMetric::Cosine,
-            };
-        }
-
-        let ep_exists = take_bytes(data, &mut pos, 1, "ep_exists")?[0];
-        let ep_id = read_le_u128(data, &mut pos, "ep_id")?;
-        let entry_point = if ep_exists == 1 { Some(ep_id) } else { None };
-
-        let node_count = read_le_u64(data, &mut pos, "node_count")? as usize;
-
-        // Sanity: each node needs at least 45 bytes (id + bitset_len + offset + type + vec_len + layer_count).
-        // bitset payload is variable — 4 bytes len prefix is the minimum.
-        const MIN_BYTES_PER_NODE: usize = 16 + 4 + 8 + 1 + 8 + 8;
-        let remaining = data.len().saturating_sub(pos);
-        if node_count > remaining / MIN_BYTES_PER_NODE {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "node_count ({node_count}) exceeds plausible limit for {remaining} remaining bytes",
-                ),
-            ));
-        }
-
-        let nodes = DashMap::with_capacity_and_hasher(node_count, BuildHasherDefault::default());
-
-        for _ in 0..node_count {
-            let id = read_le_u128(data, &mut pos, "node id")?;
-
-            let (bitset, consumed) = FilterBitset::from_bytes(&data[pos..])?;
-            pos += consumed;
-
-            let storage_offset = read_le_u64(data, &mut pos, "storage_offset")?;
-
-            let vec_type = take_bytes(data, &mut pos, 1, "vec_type")?[0];
-
-            let vec_len = read_le_u64(data, &mut pos, "vec_len")? as usize;
-
-            let vec_data = match vec_type {
-                1 => {
-                    let byte_len = vec_len.checked_mul(4).ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, "vec_len overflow (f32)")
-                    })?;
-                    if version >= 4 {
-                        let padding = (4 - (pos % 4)) % 4;
-                        pos += padding;
-                    }
-                    let vec_bytes = take_bytes(data, &mut pos, byte_len, "f32 vec")?;
-                    if force_copy {
-                        let mut v = Vec::with_capacity(vec_len);
-                        for i in 0..vec_len {
-                            let start = i * 4;
-                            v.push(f32::from_le_bytes(
-                                vec_bytes[start..start + 4].try_into().map_err(|e| {
-                                    std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        format!(
-                                            "f32 vec chunk at byte {start} expected 4 bytes: {e}"
-                                        ),
-                                    )
-                                })?,
-                            ));
-                        }
-                        VectorRepresentations::Full(v)
-                    } else {
-                        let ptr = vec_bytes.as_ptr() as *const f32;
-                        if ptr.is_null() {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                "MmapFull: null pointer from vec_bytes",
-                            ));
-                        }
-                        if vec_len == 0 || vec_len > MAX_VEC_F32_LEN {
-                            return Err(Error::new(
-                                ErrorKind::InvalidData,
-                                format!("MmapFull: invalid vec_len {vec_len}"),
-                            ));
-                        }
-                        VectorRepresentations::MmapFull(SendPtr(ptr), vec_len)
-                    }
-                }
-                2 => {
-                    let byte_len = vec_len.checked_mul(8).ok_or_else(|| {
-                        Error::new(ErrorKind::InvalidData, "vec_len overflow (binary)")
-                    })?;
-                    let vec_bytes = take_bytes(data, &mut pos, byte_len, "binary vec")?;
-                    let mut v = Vec::with_capacity(vec_len);
-                    for i in 0..vec_len {
-                        let start = i * 8;
-                        v.push(u64::from_le_bytes(
-                            vec_bytes[start..start + 8].try_into().map_err(|e| {
-                                std::io::Error::new(
-                                    std::io::ErrorKind::InvalidData,
-                                    format!(
-                                        "binary vec chunk at byte {start} expected 8 bytes: {e}"
-                                    ),
-                                )
-                            })?,
-                        ));
-                    }
-                    VectorRepresentations::Binary(v.into_boxed_slice())
-                }
-                3 => {
-                    let vec_bytes = take_bytes(data, &mut pos, vec_len, "turbo vec")?;
-                    VectorRepresentations::Turbo(vec_bytes.to_vec().into_boxed_slice())
-                }
-                4 => {
-                    let sq8_bytes = take_bytes(data, &mut pos, vec_len, "sq8 vec")?;
-                    let sq8_data: Vec<i8> = sq8_bytes.iter().map(|&b| b as i8).collect();
-                    let scale_bytes = take_bytes(data, &mut pos, 4, "sq8 scale")?;
-                    let scale = f32::from_le_bytes(scale_bytes.try_into().map_err(|e| {
-                        Error::new(ErrorKind::InvalidData, format!("sq8 scale: {e}"))
-                    })?);
-                    VectorRepresentations::SQ8(sq8_data.into_boxed_slice(), scale)
-                }
-                _ => VectorRepresentations::None,
-            };
-
-            let layer_count = read_le_u64(data, &mut pos, "layer_count")? as usize;
-            let layer_remaining = data.len().saturating_sub(pos);
-            if layer_count > layer_remaining / 8 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    format!("layer_count ({layer_count}) exceeds remaining data"),
-                ));
-            }
-
-            let mut neighbors = Vec::with_capacity(layer_count);
-            for _ in 0..layer_count {
-                let neighbor_count = read_le_u64(data, &mut pos, "neighbor_count")? as usize;
-
-                let byte_len = neighbor_count
-                    .checked_mul(16)
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidData, "neighbor_count overflow"))?;
-                let nbr_bytes = take_bytes(data, &mut pos, byte_len, "neighbor ids")?;
-                let mut layer_neighbors = NeighborVec::with_capacity(neighbor_count);
-                for i in 0..neighbor_count {
-                    let start = i * 16;
-                    layer_neighbors.push(u128::from_le_bytes(
-                        nbr_bytes[start..start + 16].try_into().map_err(|e| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!("neighbor id at byte {start} expected 16 bytes: {e}"),
-                            )
-                        })?,
-                    ));
-                }
-                neighbors.push(layer_neighbors);
-            }
-
-            // Compute inv_cached_norm and norm_sq at load time for Cosine/Euclidean fast-path
-            let (inv_cached_norm, norm_sq) = if config.distance_metric == DistanceMetric::Cosine
-                || config.distance_metric == DistanceMetric::Euclidean
-            {
-                match &vec_data {
-                    VectorRepresentations::Full(f) => {
-                        let norm = f32_l2_norm(f);
-                        if norm > f32::EPSILON {
-                            (1.0 / norm, norm * norm)
-                        } else {
-                            (0.0, 0.0)
-                        }
-                    }
-                    VectorRepresentations::MmapFull(ptr, len) => {
-                        if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
-                            (0.0, 0.0)
-                        } else {
-                            // SAFETY: ptr.0 validated above; SendPtr is constructed only from
-                            // valid mmap regions that live for the engine's lifetime.
-                            let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
-                            let norm = f32_l2_norm(s);
-                            if norm > f32::EPSILON {
-                                (1.0 / norm, norm * norm)
-                            } else {
-                                (0.0, 0.0)
-                            }
-                        }
-                    }
-                    _ => (0.0, 0.0),
-                }
-            } else {
-                (0.0, 0.0)
-            };
-            nodes.insert(
-                id,
-                HnswNode {
-                    id,
-                    bitset,
-                    vec_data,
-                    neighbors,
-                    storage_offset,
-                    inv_cached_norm,
-                    norm_sq,
-                    flags: 0,
-                },
-            );
-        }
-
-        let node_count = nodes.len() as u64;
-        Ok(Self {
-            nodes,
-            max_layer: AtomicUsize::new(max_layer),
-            entry_point: parking_lot::Mutex::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
-            backend: IndexBackend::InMemory,
-            config,
-            total_nodes: AtomicU64::new(node_count),
-            rng: parking_lot::Mutex::new(rand::rngs::StdRng::seed_from_u64(42)),
-        })
-    }
-
-    /// Persist the index to a file on disk.
-    pub fn persist_to_file(&self, path: &Path) -> std::io::Result<()> {
-        #[cfg(feature = "failpoints")]
-        {
-            fail::fail_point!("hnsw_serialize_fail", |_| {
-                Err(std::io::Error::other(
-                    "Injected HNSW persist serialization failure",
-                ))
-            });
-        }
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        self.serialize_to_writer(&mut writer)?;
-        writer.flush()?;
-        info!(path = %path.display(), node_count = self.nodes.len(), "HNSW index persisted (streaming)");
-        Ok(())
-    }
-
-    /// Load an index from a file, optionally using memory-mapped I/O.
-    pub fn load_from_file(path: &Path, use_mmap: bool) -> Option<Self> {
-        if !path.exists() {
-            return None;
-        }
-
-        if use_mmap {
-            let file = match OpenOptions::new().read(true).write(true).open(path) {
-                Ok(f) => f,
-                Err(_) => return None,
-            };
-
-            // SAFETY: `file` is a valid read-write handle to an existing file.
-            // `MmapMut::map_mut` from memmap2 creates a writable mapping; the
-            // returned mmap is stored in `IndexBackend::MMapFile` and lives for
-            // the index's lifetime or until explicitly replaced.
-            let mmap = match unsafe { crate::storage::vfile::MmapMut::map_mut(&file) } {
-                Ok(m) => m,
-                Err(e) => {
-                    warn!(err = %e, "Failed to mmap HNSW index file — will rebuild");
-                    return None;
-                }
-            };
-
-            match Self::deserialize_from_bytes(&mmap, false) {
-                Ok(mut index) => {
-                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded zero-copy index from file");
-                    index.backend = IndexBackend::MMapFile {
-                        path: path.to_path_buf(),
-                        mmap: Some(mmap),
-                    };
-                    if let Err(violations) = index.validate_index() {
-                        warn!(
-                            violation_count = violations.len(),
-                            "HNSW index has integrity violations after deserialization"
-                        );
-                        for v in &violations[..violations.len().min(5)] {
-                            warn!(violation = %v, "HNSW integrity violation");
-                        }
-                    }
-                    Some(index)
-                }
-                Err(e) => {
-                    warn!(err = %e, "Corrupt vector_index.bin — will rebuild and overwrite");
-                    None
-                }
-            }
-        } else {
-            let data = match std::fs::read(path) {
-                Ok(d) => d,
-                Err(_) => return None,
-            };
-
-            match Self::deserialize_from_bytes(&data, true) {
-                Ok(index) => {
-                    info!(path = %path.display(), node_count = index.nodes.len(), "HNSW cold-start: loaded memory-copied index from file");
-                    if let Err(violations) = index.validate_index() {
-                        warn!(
-                            violation_count = violations.len(),
-                            "HNSW index has integrity violations after deserialization"
-                        );
-                        for v in &violations[..violations.len().min(5)] {
-                            warn!(violation = %v, "HNSW integrity violation");
-                        }
-                    }
-                    Some(index)
-                }
-                Err(e) => {
-                    warn!(err = %e, "Corrupt vector_index.bin — will rebuild and overwrite");
-                    None
-                }
-            }
-        }
-    }
-
-    /// Sync the in-memory index state to the memory-mapped file.
-    pub fn sync_to_mmap(&mut self) -> std::io::Result<()> {
-        #[cfg(feature = "failpoints")]
-        {
-            fail::fail_point!("hnsw_serialize_fail", |_| {
-                Err(std::io::Error::other(
-                    "Injected HNSW sync mmap serialization failure",
-                ))
-            });
-        }
-        let path = match &self.backend {
-            IndexBackend::MMapFile { path, .. } => path.clone(),
-            _ => return Ok(()),
-        };
-
-        let data = self.serialize_to_bytes();
-        let temp_path = path.with_extension("bin.tmp");
-
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&temp_path)?;
-        file.set_len(data.len() as u64)?;
-
-        // SAFETY: `file` is a newly created/truncated handle; `MmapMut::map_mut`
-        // creates a writable mapping matching the file length. The mapped memory
-        // is immediately initialized with `copy_from_slice` before any reads.
-        let mut mapped = unsafe { MmapMut::map_mut(&file)? };
-        mapped.copy_from_slice(&data);
-        mapped.flush()?;
-
-        // Remapear todos los nodos a la nueva dirección de memoria virtual para evitar dangling pointers
-        let new_index = Self::deserialize_from_bytes(&mapped, false)?;
-        self.nodes = new_index.nodes;
-        self.entry_point = new_index.entry_point;
-
-        if let IndexBackend::MMapFile { ref mut mmap, .. } = self.backend {
-            *mmap = Some(mapped);
-        }
-
-        // Swap atómico de archivos: temp -> final
-        drop(file);
-        std::fs::rename(&temp_path, &path)?;
-
-        info!(path = %path.display(), node_count = self.nodes.len(), bytes = data.len(), "HNSW MMap synced & zero-copy pointers re-mapped via atomic rename");
-        Ok(())
-    }
-}
-
-// `IndexStats`, `stats()`, and `validate_index()` are in the `stats` module.
-impl Default for CPIndex {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
-    use super::*;
     use crate::index::distance::{cosine_sim_f32, cosine_sim_with_query_norm, f32_l2_norm};
+    use crate::index::*;
     use crate::node::DistanceMetric;
+    use rand::Rng;
 
     #[test]
     fn cosine_with_precomputed_query_norm_matches_full_path() {
@@ -1967,10 +76,9 @@ mod tests {
         }));
 
         let stop = Arc::new(AtomicBool::new(false));
-        let insert_mutex = Arc::new(Mutex::new(())); // Imita el insert_lock de StorageEngine
+        let insert_mutex = Arc::new(Mutex::new(()));
         let mut handles = Vec::new();
 
-        // Lanzar 2 hilos que insertan nodos de manera sincronizada
         for t in 0..2 {
             let index = index.clone();
             let stop = stop.clone();
@@ -1991,7 +99,6 @@ mod tests {
                         raw_vec
                     };
 
-                    // Adquirir lock para cumplir el contrato de CPIndex::add
                     let _guard = insert_mutex.lock().unwrap();
                     index.add(
                         id,
@@ -2003,7 +110,6 @@ mod tests {
             }));
         }
 
-        // Lanzar 4 hilos de búsqueda
         for _ in 0..4 {
             let index = index.clone();
             let stop = stop.clone();
@@ -2017,7 +123,6 @@ mod tests {
                     } else {
                         query
                     };
-                    // Búsqueda concurrente sin adquirir insert_lock
                     let _res =
                         index.search_nearest(&q_vec, None, None, &crate::node::ALL_BITSET, 5, None);
                     thread::sleep(Duration::from_micros(10));
@@ -2025,16 +130,13 @@ mod tests {
             }));
         }
 
-        // Dejar correr por 1 segundo
         thread::sleep(Duration::from_millis(1000));
         stop.store(true, Ordering::Relaxed);
 
-        // Join de todos los hilos
         for handle in handles {
             let _ = handle.join();
         }
 
-        // Validar integridad estructural del grafo
         assert!(index.validate_index().is_ok());
     }
 
@@ -2051,12 +153,11 @@ mod tests {
         let storage = Arc::new(StorageEngine::open(db_path).unwrap());
 
         let mut handles = Vec::new();
-        // 4 hilos insertando de forma concurrente
         for t in 0..4 {
             let storage = storage.clone();
             handles.push(thread::spawn(move || {
                 let mut rng = rand::rng();
-                let start_id = t * 500 + 1; // Evitar ID 0 que a veces es entry point
+                let start_id = t * 500 + 1;
                 for i in 0..500 {
                     let id = (start_id + i) as u128;
                     let raw_vec: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
@@ -2078,11 +179,9 @@ mod tests {
             let _ = handle.join();
         }
 
-        // Validar integridad
         let hnsw = storage.hnsw.load();
         assert!(hnsw.validate_index().is_ok());
 
-        // Validar que todos los nodos sean alcanzables BFS desde el entry point
         let ep = hnsw.get_entry_point().expect("Should have entry point");
         let mut visited = std::collections::HashSet::new();
         let mut queue = std::collections::VecDeque::new();
@@ -2091,7 +190,6 @@ mod tests {
 
         while let Some(node_id) = queue.pop_front() {
             if let Some(node) = hnsw.nodes.get(&node_id) {
-                // BFS en todos los vecinos de todas las capas
                 for layer in &node.neighbors {
                     for &neighbor in layer {
                         if visited.insert(neighbor) {
@@ -2102,7 +200,6 @@ mod tests {
             }
         }
 
-        // Todos los nodos en HNSW deben ser alcanzables
         assert_eq!(
             visited.len(),
             hnsw.nodes.len(),
@@ -2161,7 +258,8 @@ mod tests {
     #[test]
     fn deserialize_garbage_after_valid_header() {
         let mut garbage = vec![0u8; 512];
-        let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
+        let header =
+            crate::binary_header::VantaHeader::new(*b"VNDX", graph::VECTOR_INDEX_VERSION, 0);
         let hdr = header.serialize();
         garbage[..hdr.len()].copy_from_slice(&hdr);
         let result = CPIndex::deserialize_from_bytes(&garbage, true);
@@ -2169,19 +267,128 @@ mod tests {
     }
 
     #[test]
+    fn sync_to_mmap_preserves_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vector_index.bin");
+
+        let index = build_small_test_index();
+        index.persist_to_file(&path).expect("persist_to_file");
+        drop(index);
+
+        let mut loaded = CPIndex::load_from_file(&path, true).expect("load mmap");
+        let query = vec![0.1, 0.9, 0.2, 0.4];
+        let before = loaded.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
+
+        let raw = [99f32.sin(), 99f32.cos(), 99f32.sin(), 99f32.cos()];
+        let norm = f32_l2_norm(&raw);
+        let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
+        loaded.add(
+            999,
+            FilterBitset::new(),
+            VectorRepresentations::Full(normalized),
+            0,
+        );
+
+        loaded.sync_to_mmap().expect("sync_to_mmap");
+
+        let reloaded = CPIndex::load_from_file(&path, true).expect("reload mmap");
+        assert_eq!(reloaded.nodes.len(), loaded.nodes.len());
+        let after = reloaded.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
+        assert_eq!(before, after);
+    }
+
+    fn node_count_offset() -> usize {
+        let header_size = crate::binary_header::VantaHeader::SIZE;
+        let max_layer = 8;
+        let config = 5 * 8;
+        let metric_byte = 1;
+        let ep_exists = 1;
+        let ep_id = 16;
+        header_size + max_layer + config + metric_byte + ep_exists + ep_id
+    }
+
+    #[test]
+    fn persist_and_load_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vector_index.bin");
+
+        let index = build_small_test_index();
+        index.persist_to_file(&path).expect("persist_to_file");
+
+        let loaded = CPIndex::load_from_file(&path, false).expect("load_from_file");
+        assert_eq!(loaded.nodes.len(), index.nodes.len());
+
+        let query = vec![0.1, 0.9, 0.2, 0.4];
+        let before = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
+        let after = loaded.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
+        assert_eq!(before, after);
+    }
+
+    #[test]
+    fn validate_index_detects_self_loop_and_broken_reference() {
+        let index = build_small_test_index();
+
+        assert!(index.validate_index().is_ok(), "clean index must pass");
+
+        let first_id = *index.nodes.iter().next().unwrap().key();
+        let second_id = *index.nodes.iter().skip(1).next().unwrap().key();
+
+        if let Some(mut node) = index.nodes.get_mut(&first_id) {
+            if !node.neighbors.is_empty() && !node.neighbors[0].is_empty() {
+                node.neighbors[0].push(second_id + 9999);
+            }
+        }
+
+        let result = index.validate_index();
+        assert!(result.is_err(), "Must detect broken reference");
+        let msgs = result.unwrap_err();
+        assert!(
+            msgs.iter().any(|m| m.contains("non-existent")),
+            "Must mention non-existent neighbor: {msgs:?}"
+        );
+    }
+
+    #[test]
+    fn validate_index_empty_index() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            m: 8,
+            m_max0: 16,
+            ef_construction: 64,
+            ef_search: 32,
+            ml: 1.0 / (8_f64).ln(),
+            distance_metric: DistanceMetric::Cosine,
+        });
+        assert!(index.validate_index().is_ok(), "empty index must pass");
+        let st = index.stats();
+        assert_eq!(st.node_count, 0);
+        assert_eq!(st.max_layer, 0);
+        assert_eq!(st.orphan_count, 0);
+    }
+
+    #[test]
+    fn stats_after_insertions() {
+        let index = build_small_test_index();
+        let st = index.stats();
+        assert_eq!(st.node_count, 16);
+        assert!(st.max_layer > 0);
+        assert_eq!(st.violation_count, 0);
+        assert!(st.avg_connections_l0 > 0.0);
+    }
+
+    #[test]
     fn deserialize_absurd_node_count() {
         let index = build_small_test_index();
         let mut bytes = index.serialize_to_bytes();
 
-        let header_size = crate::binary_header::VantaHeader::SIZE;
-        // max_layer(8) + config v2 (m, m_max0, ef_construction, ef_search, ml = 5*8=40)
-        // + distance_metric(1) + ep_exists(1) + ep_id(16) = 66 bytes after header
-        let node_count_offset = header_size + 8 + 40 + 1 + 1 + 16;
-        if node_count_offset + 8 <= bytes.len() {
-            bytes[node_count_offset..node_count_offset + 8]
-                .copy_from_slice(&u64::MAX.to_le_bytes());
-            let result = CPIndex::deserialize_from_bytes(&bytes, true);
-            assert!(result.is_err(), "Absurd node_count must return Err");
-        }
+        let offset = node_count_offset();
+        assert!(
+            offset + 8 <= bytes.len(),
+            "node_count offset {} exceeds buffer len {}",
+            offset,
+            bytes.len()
+        );
+        bytes[offset..offset + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+        let result = CPIndex::deserialize_from_bytes(&bytes, true);
+        assert!(result.is_err(), "Absurd node_count must return Err");
     }
 }
