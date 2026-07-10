@@ -196,6 +196,28 @@ jobs:
       - name: cargo check (MSRV)
         run: cargo check --workspace
 
+  minimal-versions:
+    name: Minimal Versions Check (-Zminimal-versions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: minimal-versions
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: cargo check (minimal-versions)
+        run: cargo +nightly check -Zminimal-versions --workspace
+
   coverage:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
