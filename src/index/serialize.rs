@@ -188,6 +188,7 @@ impl CPIndex {
 
         use crate::index::graph::{HnswConfig, ENTRY_POINT_NONE};
         use dashmap::DashMap;
+        use portable_atomic::AtomicU128;
         use std::hash::BuildHasherDefault;
         use std::sync::atomic::{AtomicU64, AtomicUsize};
 
@@ -449,7 +450,7 @@ impl CPIndex {
         Ok(Self {
             nodes,
             max_layer: AtomicUsize::new(max_layer),
-            entry_point: parking_lot::Mutex::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
+            entry_point: AtomicU128::new(entry_point.unwrap_or(ENTRY_POINT_NONE)),
             backend: IndexBackend::InMemory,
             config,
             total_nodes: AtomicU64::new(node_count),

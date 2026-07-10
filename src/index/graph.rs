@@ -3,6 +3,7 @@ use crate::storage::vfile::MmapMut;
 use dashmap::DashMap;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
+use portable_atomic::AtomicU128;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -253,7 +254,7 @@ impl Ord for NodeSimMin {
 pub struct CPIndex {
     pub nodes: DashMap<u128, HnswNode, BuildHasherDefault<XxHash64>>,
     pub max_layer: AtomicUsize,
-    pub entry_point: parking_lot::Mutex<u128>,
+    pub entry_point: AtomicU128,
     pub backend: IndexBackend,
     pub config: HnswConfig,
     pub total_nodes: AtomicU64,
@@ -289,7 +290,7 @@ impl CPIndex {
         Self {
             nodes: Default::default(),
             max_layer: AtomicUsize::new(0),
-            entry_point: parking_lot::Mutex::new(ENTRY_POINT_NONE),
+            entry_point: AtomicU128::new(ENTRY_POINT_NONE),
             backend,
             config,
             total_nodes: AtomicU64::new(0),
@@ -339,7 +340,7 @@ impl CPIndex {
 
     #[inline]
     pub fn get_entry_point(&self) -> Option<u128> {
-        let ep = *self.entry_point.lock();
+        let ep = self.entry_point.load(Ordering::Relaxed);
         if ep == ENTRY_POINT_NONE {
             None
         } else {
@@ -356,7 +357,7 @@ impl CPIndex {
 
     #[inline]
     pub fn set_entry_point(&self, id: u128) {
-        *self.entry_point.lock() = id;
+        self.entry_point.store(id, Ordering::Relaxed);
     }
 
     #[inline(always)]

@@ -4616,6 +4616,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "parking_lot",
+ "portable-atomic",
  "postcard",
  "prometheus",
  "proptest",
