@@ -1,3 +1,12 @@
+---
+title: "VantaDB — Auditoría Completa del Codebase"
+type: review
+status: active
+tags: [vantadb, audit, codebase]
+last_reviewed: 2026-07-10
+language: es
+---
+
 # VantaDB — Auditoría Completa del Codebase
 
 **Fecha:** 2026-07-09
@@ -43,10 +52,10 @@
 | Manejo de Errores | B | `thiserror` enum robusto, pero variantes String eliminan contexto. Sin source chaining. |
 | Seguridad | B- | Path traversal mitigado parcialmente. Sin forced-auth mode en server. |
 | Rendimiento | B+ | Bundle web optimizado (code splitting). WASM `wasm-opt=true`. 17 crates duplicados. |
-| CI/CD | A- | Pipeline profesional, perfiles nextest, build provenance. Sin MSRV check ni macOS CI. |
+| CI/CD | A- | Pipeline profesional, perfiles nextest, build provenance. Sin MSRV check. macOS CI ✅. |
 | Docker | C | ~~Version mismatch Rust. Error swallowing en skeleton build.~~ curl en prod image. |
 | Bindings Python | A | PyO3 correcto, GIL management excelente. Faltan stubs `.pyi`. |
-| Bindings TS | B+ | Types completos. Async inconsistente (sync/async mezclado). |
+| Bindings TS | A- | Types completos. Async consistente (sync/async corregido en WASM + TS). |
 | Bindings WASM | B | `wasm-opt=true`. NaN sanitization correcta. `tracing-wasm` feature-gated. Sin code splitting. |
 | Web Frontend | A- | 27 rutas lazy-loaded, diseño system robusto. 3 bugs lógicos resueltos (W1, W3, W5), 3 restantes. |
 | Dependencias | B+ | 5 unmaintained allowlisted. 17 duplicados. lru migrado a 0.13. |
@@ -372,8 +381,8 @@ Los únicos `// SAFETY:` comments del codebase están en español en `index/core
 |---|---|---|
 | Unit tests | ✅ | ~40 módulos con `#[cfg(test)] mod tests` |
 | Integration tests | ✅ | `storage/engine/tests.rs` (604 líneas) |
-| Property-based tests | ❌ | Cero — ni `proptest` ni `quickcheck` |
-| Concurrency tests | ❌ | Cero — a pesar de uso intensivo de RwLock/Mutex/DashMap |
+| Property-based tests | ✅ 18 proptests | `tests/proptest_serialization_roundtrip.rs` — VantaValue/VantaMetadata/VantaMemoryRecord round-trips via JSON + postcard |
+| Concurrency tests | ✅ 6 tests | `tests/concurrency_primitives.rs` — DashMap, RwLock, ArcSwap, StorageEngine concurrent stress |
 | Miri tests | ❌ | Cero — unsafe code no verificado con Miri |
 | Fuzz harnesses | ❌ | Cero — WAL, parser, archive format sin fuzzing |
 | Regression tests for unsafe | ❌ | Cero — `#![deny(unsafe_op_in_unsafe_fn)]` no está habilitado |
@@ -418,7 +427,7 @@ Los únicos `// SAFETY:` comments del codebase están en español en `index/core
 
 | # | Problema | Archivo | Severidad |
 |---|---|---|---|
-| CI1 | Sin macOS Rust CI testing | `ci-rust-10.yml` | **MEDIA** |
+| CI1 | ~~Sin macOS Rust CI testing~~ ✅ Completo | `ci-rust-10.yml` | **MEDIA** — Añadido job `test-macos` con cargo check + clippy + nextest audit |
 | CI2 | Sin MSRV check (`cargo check --minimal-versions`) | Missing | **MEDIA** |
 | CI3 | Sin Windows binary release | `release-binaries-63.yml` | **MEDIA** |
 | CI4 | Sin Linux ARM64 binary | `release-binaries-63.yml` | **BAJA** |
@@ -527,7 +536,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 
 ### 10.2 TypeScript (`vantadb-ts/`)
 
-**Nota general: B+**
+**Nota general: A-**
 
 | Aspecto | Estado |
 |---|---|
@@ -538,8 +547,8 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 **Problemas:**
 
 | # | Problema | Detalle | Severidad |
-|---|---|---|---|
-| TS1 | Async inconsistency | `put()`/`get()`/`delete()` son sync pero WASM subyacente es `async fn` | **MEDIA** |
+|---|---|---|---|---|
+| TS1 | ~~Async inconsistency~~ ✅ Resuelto | `put()`/`get()`/`delete()` son sync — WASM `put()`, `put_batch()`, `search()` migrados a `fn` | **MEDIA** |
 | TS2 | Test runner inconsistente | `.then()` y `async/await` mezclados | **BAJA** |
 | TS3 | Distance metric case mismatch | TS envía `"Cosine"`, WASM da default `"Cosine"`, pero MCP usa `"cosine"` (minúscula) | **BAJA** |
 
@@ -826,15 +835,15 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 2.9 | ~~Añadir `#![deny(unsafe_op_in_unsafe_fn)]`~~ ✅ Completo | `src/lib.rs` | 15 min |
 | 2.10 | ~~Consolidar `thiserror` a v2 sola~~ ✅ Completo | `Cargo.toml`, `Cargo.lock` | 15 min |
 | 2.11 | ~~Reducir duplicate crate versions (17 pares)~~ ✅ Investigado — ver §12.6 | `Cargo.toml` + §12.6 | 1-2 días (requiere upgrade tantivy) |
-| 2.12 | Unificar async pattern en TS SDK | `vantadb-ts/src/` | 1 hora |
+| 2.12 | ~~Unificar async pattern en TS SDK~~ ✅ Completo | `vantadb-wasm/src/lib.rs`, `vantadb-ts/src/vantadb.ts`, `vantadb-wasm/tests/wasm_tests.rs` | WASM `put()`, `put_batch()`, `search()`: `pub async fn` → `pub fn`. TS `putBatch()`, `search()`: removed `async`/`await`/`Promise<>`. Extra: `#[cfg(test)]` module + `wasm_tests.rs`: 27 `.await` removed, 32 `async fn` → `fn`. Verificado: `cargo build` ✅, `cargo test --no-run -p vantadb-wasm` ✅, `vitest run` 159/159 ✅ |
 
 ### Prioridad 3 — Media (Mejora Continua)
 
 | # | Acción | Esfuerzo |
 |---|---|---|
-| 3.1 | Añadir property-based tests (proptest) para serialización round-trips | 2 días |
-| 3.2 | Añadir concurrency tests para RwLock/Mutex/DashMap | 2 días |
-| 3.3 | Añadir macOS a Rust CI matrix | 1 hora |
+| 3.1 | ~~Añadir property-based tests (proptest) para serialización round-trips~~ ✅ Completo | `tests/proptest_serialization_roundtrip.rs` — 18 proptests. Documenta f64 ULP loss en JSON (postcard para floats), u128_serde + postcard incompatibilidad, bare u128 OK. |
+| 3.2 | ~~Añadir concurrency tests para RwLock/Mutex/DashMap~~ ✅ Completo | `tests/concurrency_primitives.rs` — 6 tests. Deadlock RwLock (barriers mixtos) y StorageEngine hang (lock ordering) corregidos. |
+| 3.3 | ~~Añadir macOS a Rust CI matrix~~ ✅ Completo | `.github/workflows/ci-rust-10.yml` — job `test-macos` con dtolnay/rust-toolchain, nextest, audit profile. |
 | 3.4 | Añadir MSRV check (`cargo check --minimal-versions`) a CI | 30 min |
 | 3.5 | Añadir Windows + Linux ARM64 a binary releases | 1 día |
 | 3.6 | Añadir fuzz harnesses para WAL + parser + archive | 2 días |
@@ -896,6 +905,20 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 1.6 | CI injection vector: reemplazado bash `if` con `${{ inputs.dry_run == 'true' && '--dry-run' \|\| '' }}` | `.github/workflows/release-npm-61.yml:67,127` |
 | 1.7 | `tracing-wasm` ya feature-gated (`optional = true` + `#[cfg(feature = "tracing-wasm")]`) | Verificado |
 | 1.8 | Scroll race condition: no se encontró `scrollTo({top:0})` en el código actual | Verificado |
+
+### 15.3 Fase 3 — Prioridad 2 (Completada)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 2.12 | WASM async → sync; TS SDK async unificado | `vantadb-wasm/src/lib.rs`: `pub async fn put/put_batch/search` → `pub fn` (3). `vantadb-ts/src/vantadb.ts`: `putBatch()`, `search()` — removidos `async`/`await`/`Promise<>`. `vantadb-wasm/tests/wasm_tests.rs`: 27 `.await` removed, 23 test `async fn` → `fn`. `vantadb-wasm/src/lib.rs #[cfg(test)]`: 10 `.await` removed, 9 test `async fn` → `fn`. Verificado: `cargo build` ✅, `cargo test --no-run -p vantadb-wasm` ✅, `vitest run` 159/159 ✅ |
+
+### 15.4 Fase 4 — Prioridad 3 (Completada)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 3.1 | Proptest serialization round-trips | `tests/proptest_serialization_roundtrip.rs` (620 líneas, 18 proptests). Root causes documentadas: f64 ULP en serde_json (ryu) → postcard para floats; `#[serde(with = "u128_serde")]` + postcard WontImplement; bare u128 OK. `Cargo.toml`: +`serde_json` dev-dep. |
+| 3.2 | Concurrency stress tests | `tests/concurrency_primitives.rs` (335 líneas, 6 tests). DashMap concurrent insert/remove, RwLock read/write stress, ArcSwap concurrent load/store, StorageEngine phased concurrent insert/get/delete. Deadlocks corregidos. `.config/nextest.toml`: excluido de default profile. |
+| 3.3 | macOS CI matrix | `.github/workflows/ci-rust-10.yml`: job `test-macos` con dtolnay/rust-toolchain + Swatinem/rust-cache + taiki-e/install-action@nextest + cargo check + clippy + `cargo nextest run --profile audit`. |
 
 ---
 
@@ -962,7 +985,7 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | CI/CD | 9.0 |
 | Docker | 5.0 |
 | Python Binding | 9.0 |
-| TS Binding | 7.5 |
+| TS Binding | 8.0 |
 | WASM Binding | 7.0 |
 | Web Frontend | 8.5 |
 | Documentation | 8.0 |
