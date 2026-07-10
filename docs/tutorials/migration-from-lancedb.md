@@ -8,6 +8,8 @@ aliases: []
 
 # Migrating from LanceDB to VantaDB
 
+> **Canonical reference.**
+
 If you're using LanceDB today, switching to VantaDB unlocks **GraphRAG traversal**, **built-in hybrid search (BM25 + HNSW)**, **TTL-based record expiry**, and the **VantaDB PyPI integration ecosystem** — while keeping your existing vector workflow. This tutorial shows the exact API mappings and provides a migration script you can run on your existing LanceDB tables.
 
 ## Why migrate?
@@ -34,6 +36,26 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 - [ ] LanceDB table data is readable (Python 3.10+, `lancedb` installed)
 - [ ] All LanceDB columns map to a VantaDB field (payload, metadata, vector)
 - [ ] Embedding dimensions match between LanceDB and VantaDB
+
+## Supported filter operators
+
+| Operator | Meaning | Example |
+|----------|---------|---------|
+| `$eq` | Equals | `{"field": "value"}` |
+| `$neq` | Not equals | `{"field": {"$neq": "value"}}` |
+| `$gt` | Greater than | `{"field": {"$gt": 100}}` |
+| `$gte` | Greater than or equal | `{"field": {"$gte": 100}}` |
+| `$lt` | Less than | `{"field": {"$lt": 100}}` |
+| `$lte` | Less than or equal | `{"field": {"$lte": 100}}` |
+
+**Note:** Python SDK currently supports equality only. Full operator support is available on the Rust SDK.
+
+## Known limitations
+
+- **No schema enforcement**: LanceDB enforces column types; VantaDB stores everything as string `payload` + `BTreeMap<String, VantaValue>` metadata.
+- **No SQL queries**: VantaDB uses IQL (LISP-like query language) or direct SDK methods. No SQL.
+- **No `create_table` / `drop_table`**: Namespaces are created lazily on first `put()` and have no lifecycle management yet.
+- **No concurrent writers**: VantaDB is single-writer with process-level file locking.
 
 ## Side-by-side API comparison
 
