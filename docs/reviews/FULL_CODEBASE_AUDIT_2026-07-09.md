@@ -5,7 +5,7 @@
 **Alcance:** Rust core (51 módulos), bindings (Python/TS/WASM/Server), web frontend, CI/CD, Docker, dependencias, documentación
 **Metodología:** 5 skills de addyosmani/agent-skills (code-review, security, performance, simplification, adversarial) + 5 exploraciones paralelas profundas
 
-> **🟢 Prioridad 0 completada** — `d2986bf`. Ver [§14.1 Progreso](#141-progreso) para detalle.
+> **🟢 Prioridades 0 y 1 completadas** — Prioridad 0 en `d2986bf`, Prioridad 1 en seguimiento. Ver [§14.1 Progreso](#141-progreso) para detalle.
 
 ---
 
@@ -34,7 +34,7 @@
 
 ### Estado General: B+ → Mejorando
 
-**🟢 Prioridad 0 completada en `d2986bf` — ver [§15 Progreso](#15-progreso-de-implementación)**
+**🟢 Prioridades 0 y 1 completadas — P0 en `d2986bf`, P1 en commit posterior. Ver [§15 Progreso](#15-progreso-de-implementación)**
 
 | Categoría | Nota | Hallazgos Críticos |
 |---|---|---|
@@ -42,13 +42,13 @@
 | Código Inseguro (Unsafe) | C+ | 50 bloques unsafe ahora tienen SAFETY comments. 13 archivos endurecidos. |
 | Manejo de Errores | B | `thiserror` enum robusto, pero variantes String eliminan contexto. Sin source chaining. |
 | Seguridad | B- | Path traversal mitigado parcialmente. Sin forced-auth mode en server. |
-| Rendimiento | B+ | Bundle web optimizado (code splitting). WASM `wasm-opt=false`. 17 crates duplicados. |
+| Rendimiento | B+ | Bundle web optimizado (code splitting). WASM `wasm-opt=true`. 17 crates duplicados. |
 | CI/CD | A- | Pipeline profesional, perfiles nextest, build provenance. Sin MSRV check ni macOS CI. |
-| Docker | C | Version mismatch Rust. Error swallowing en skeleton build. curl en prod image. |
+| Docker | C | ~~Version mismatch Rust. Error swallowing en skeleton build.~~ curl en prod image. |
 | Bindings Python | A | PyO3 correcto, GIL management excelente. Faltan stubs `.pyi`. |
 | Bindings TS | B+ | Types completos. Async inconsistente (sync/async mezclado). |
-| Bindings WASM | B | `wasm-opt=false`. NaN sanitization correcta. Sin code splitting. |
-| Web Frontend | A- | 27 rutas lazy-loaded, diseño system robusto. 6 bugs lógicos. |
+| Bindings WASM | B | `wasm-opt=true`. NaN sanitization correcta. `tracing-wasm` feature-gated. Sin code splitting. |
+| Web Frontend | A- | 27 rutas lazy-loaded, diseño system robusto. 3 bugs lógicos resueltos (W1, W3, W5), 3 restantes. |
 | Dependencias | B+ | 5 unmaintained allowlisted. 17 duplicados. lru migrado a 0.13. |
 | Documentación | B+ | README excelente. `llms.txt` corregido con APIs reales. FAQ desactualizada. |
 
@@ -320,12 +320,12 @@ No se encontraron ciclos entre locks principales. Diseño deadlock-free para los
 | Initial CSS | ~137 KB | ⚠️ Tailwind v4 full output |
 | Lazy-loaded routes | 15 chunks, ~93 KB | ✅ Excelente |
 | Vendor chunks | React 178KB, GSAP 132KB, Router 81KB | ✅ Cacheable |
-| Total fonts | 11 woff2, ~189 KB | ⚠️ Google Fonts cargado doble |
+| Total fonts | 11 woff2, ~189 KB | ✅ Google Fonts duplicado resuelto |
 | Source maps en prod | None | ✅ |
 | Code splitting | Per-route + shared chunks | ✅ |
 
 **Problemas**:
-1. Google Fonts cargado dos veces (self-hosted + external `<link>`) — 80KB+ perdido
+1. ~~Google Fonts cargado dos veces (self-hosted + external `<link>`) — 80KB+ perdido~~ ✅ Resuelto — removidos preconnects a Google Fonts CDN, fonts via local @fontsource
 2. GSAP 132KB para scroll animations en marketing site — considerar `Motion` (motion.dev) como alternativa más ligera
 3. `vite-tsconfig-paths` importado pero no usado en `vite.config.ts`
 
@@ -610,12 +610,12 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 
 | # | Bug | Archivo | Líneas | Descripción |
 |---|---|---|---|---|
-| W1 | Duplicate OG meta tags | `security.tsx` | 18-22 | `og:title`, `og:description`, `og:url` duplicados confunden crawlers |
-| W2 | `isActive` matching demasiado amplio | `NbNav.tsx` | 112 | `location.pathname.startsWith(path)` matchea substrings parciales |
-| W3 | Scroll race condition | `useScrollReveal.ts` | `scrollTo({top:0})` en mount compite con `scrollRestoration: true` del router |
-| W4 | `new Date()` durante render | `FaqAccordion` | 70 | Previene optimizaciones React, causa hydration mismatch si se añade SSR |
-| W5 | Google Fonts cargado doble | `nb-base.css` + `index.html` | — | 80KB+ de descarga duplicada, posible FOUT |
-| W6 | `vite-tsconfig-paths` import no usado | `vite.config.ts` | — | Import muerto |
+| W1 | Duplicate OG meta tags | `__root.tsx` | 70-76 | `og:title`, `og:description`, `og:url` duplicados confunden crawlers | ✅ Resuelto |
+| W2 | `isActive` matching demasiado amplio | `NbNav.tsx` | 112 | `location.pathname.startsWith(path)` matchea substrings parciales | 🔴 Pendiente |
+| W3 | Scroll race condition | `useScrollReveal.ts` | `scrollTo({top:0})` en mount compite con `scrollRestoration: true` del router | ✅ No se encontró el scrollTo en el código actual — verificado |
+| W4 | `new Date()` durante render | `FaqAccordion` | 70 | Previene optimizaciones React, causa hydration mismatch si se añade SSR | 🔴 Pendiente |
+| W5 | Google Fonts cargado doble | `nb-base.css` + `index.html` | — | 80KB+ de descarga duplicada, posible FOUT | ✅ Resuelto |
+| W6 | `vite-tsconfig-paths` import no usado | `vite.config.ts` | — | Import muerto | 🟡 Pendiente |
 
 ### 11.4 Accesibilidad
 
@@ -695,7 +695,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | Aspecto | EN | ES |
 |---|---|---|
 | Badges | ✅ 14 | ⚠️ Missing Discord badge |
-| Quickstart | ✅ 5 steps con código runnable | ❌ **API calls desactualizadas** (`get_memory()` en vez de `get()`) |
+| Quickstart | ✅ 5 steps con código runnable | ✅ **Corregido** (`get()` en vez de `get_memory()`) |
 | Core capabilities | ✅ 8-row table | ✅ |
 | Benchmarks | ✅ p50/p99 + SIFT1M | ✅ |
 | Documentation links | ✅ 13 linked documents | ✅ |
@@ -759,18 +759,18 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 0.4 | Eliminar `vantadb.rb` duplicado en raíz | `vantadb.rb` | ✅ `d2986bf` |
 | 0.5 | Migrar `lru 0.12.5` → 0.13 | `Cargo.toml`, `Cargo.lock` | ✅ `d2986bf` |
 
-### Prioridad 1 — Crítica (Código Roto o Funcionalidad Degradada)
+### Prioridad 1 — Crítica (Código Roto o Funcionalidad Degradada) ✅ Completada
 
-| # | Acción | Archivos | Esfuerzo |
+| # | Acción | Archivos | Estado |
 |---|---|---|---|
-| 1.1 | Actualizar `README_ES.md` con API calls correctas (`get()` en vez de `get_memory()`) | `README_ES.md` | 15 min |
-| 1.2 | Corregir Docker `RUST_VERSION=1.86` → `1.94` + remover `|| true` | `Dockerfile` | 30 min |
-| 1.3 | Habilitar `wasm-opt = true` en perfil WASM | `Cargo.toml` | 15 min |
-| 1.4 | Corregir duplicate OG tags en `security.tsx` | `web/src/routes/security.lazy.tsx` | 5 min |
-| 1.5 | Resolver double Google Fonts load | `web/src/nb-base.css` + `web/index.html` | 15 min |
-| 1.6 | Sanitizar input injection vector en `release-npm-61.yml` | `.github/workflows/release-npm-61.yml` | 15 min |
-| 1.7 | Hacer `tracing-wasm` feature-gated | `vantadb-wasm/Cargo.toml` + `lib.rs` | 30 min |
-| 1.8 | Corregir scroll race condition entre `useScrollReveal` y router | `web/src/hooks/useScrollReveal.ts` | 30 min |
+| 1.1 | Actualizar `README_ES.md` con API calls correctas (`get()` en vez de `get_memory()`) | `README_ES.md` | ✅ |
+| 1.2 | Corregir Docker `RUST_VERSION=1.86` → `1.94` + remover `|| true` | `Dockerfile` | ✅ (RUST_VERSION ya en 1.94; removido `; true`) |
+| 1.3 | Habilitar `wasm-opt = true` en perfil WASM | `vantadb-wasm/Cargo.toml` | ✅ Ya estaba en `true` |
+| 1.4 | Corregir duplicate OG tags en `security.tsx` | `web/src/routes/__root.tsx` | ✅ Removidos `og:title`, `og:description`, `og:url` del root |
+| 1.5 | Resolver double Google Fonts load | `web/src/routes/__root.tsx` | ✅ Removidos preconnects a Google Fonts CDN |
+| 1.6 | Sanitizar input injection vector en `release-npm-61.yml` | `.github/workflows/release-npm-61.yml` | ✅ Reemplazado bash `if` con expresión GHA |
+| 1.7 | Hacer `tracing-wasm` feature-gated | `vantadb-wasm/Cargo.toml` + `lib.rs` | ✅ Ya feature-gated (`optional = true` + `#[cfg]`) |
+| 1.8 | Corregir scroll race condition entre `useScrollReveal` y router | `web/src/hooks/useScrollReveal.ts` | ✅ No había `scrollTo({top:0})` en el código actual |
 
 ### Prioridad 2 — Alta (Deuda Técnica con Impacto)
 
@@ -844,18 +844,18 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | `vantadb.rb` | Eliminado (duplicado de `Formula/vantadb.rb`) |
 | `Cargo.toml` / `Cargo.lock` | lru 0.12.5 → 0.13 (elimina RUSTSEC-2026-0002) |
 
-### 15.2 Siguiente Fase: Prioridad 1 — Crítica
+### 15.2 Fase 2 — Prioridad 1 (Completada)
 
-| # | Acción | Archivos | Esfuerzo |
-|---|---|---|---|
-| 1.1 | Actualizar `README_ES.md` con API calls correctas | `README_ES.md` | 15 min |
-| 1.2 | Corregir Docker `RUST_VERSION=1.86` → `1.94` + remover `\|\| true` | `Dockerfile` | 30 min |
-| 1.3 | Habilitar `wasm-opt = true` en perfil WASM | `Cargo.toml` | 15 min |
-| 1.4 | Corregir duplicate OG tags en `security.tsx` | `web/src/routes/security.lazy.tsx` | 5 min |
-| 1.5 | Resolver double Google Fonts load | `web/src/nb-base.css` + `web/index.html` | 15 min |
-| 1.6 | Sanitizar input injection vector en CI workflow | `.github/workflows/release-npm-61.yml` | 15 min |
-| 1.7 | Hacer `tracing-wasm` feature-gated | `vantadb-wasm/Cargo.toml` + `lib.rs` | 30 min |
-| 1.8 | Corregir scroll race condition en `useScrollReveal` | `web/src/hooks/useScrollReveal.ts` | 30 min |
+| # | Acción | Cambios |
+|---|---|---|
+| 1.1 | `README_ES.md`: `get_memory()` → `get()` + `search_memory()` → `search()` | `README_ES.md:120,123` |
+| 1.2 | Docker: RUST_VERSION ya en 1.94; removido `2>/dev/null; true` del skeleton build | `Dockerfile:47` |
+| 1.3 | `wasm-opt = true` — ya estaba habilitado en `vantadb-wasm/Cargo.toml` | Verificado |
+| 1.4 | OG tags duplicados: removidos `og:title`, `og:description`, `og:url` del root route | `web/src/routes/__root.tsx:70-76` |
+| 1.5 | Google Fonts preconnects innecesarios: removidos (fonts vía local @fontsource) | `web/src/routes/__root.tsx:82-85` |
+| 1.6 | CI injection vector: reemplazado bash `if` con `${{ inputs.dry_run == 'true' && '--dry-run' \|\| '' }}` | `.github/workflows/release-npm-61.yml:67,127` |
+| 1.7 | `tracing-wasm` ya feature-gated (`optional = true` + `#[cfg(feature = "tracing-wasm")]`) | Verificado |
+| 1.8 | Scroll race condition: no se encontró `scrollTo({top:0})` en el código actual | Verificado |
 
 ---
 
