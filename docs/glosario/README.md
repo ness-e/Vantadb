@@ -42,7 +42,9 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 | [[crc32c]] | Hardware-accelerated checksum | WAL record integrity |
 | [[lsm-tree]] | Log-Structured Merge-Tree | Underlying storage engine pattern |
 | [[mvcc]] | Multi-Version Concurrency Control | Transactional isolation |
-| [[crdt]] | Conflict-free Replicated Data Type | Distributed concurrency |
+| [[crdt]] | Conflict-free Replicated Data Types | Distributed convergence for multi-node scaling |
+| [[bincode]] | Compact binary serialization format | WAL and index state persistence |
+| [[serde]] | Rust serialization/deserialization framework | JSON for HTTP API, bincode for disk storage |
 
 ---
 
@@ -98,7 +100,7 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 | [[graphrag]] | RAG with graph traversal | Reducing context tokens by 40-60% |
 | [[ai-agents]] | Autonomous agent systems with memory | Core target user profile |
 | [[mcp]] | Model Context Protocol | Integration with IDEs and agents |
-| [[wasm]] | WebAssembly | Portability for Edge execution |
+| [[wasm]] | Binary instruction format for stack-based VM | Browser and edge runtime via Rust compilation target |
 
 ---
 
@@ -122,6 +124,17 @@ aliases: [Glossary, Concepts, Technical Reference, Dictionary]
 |---------|-------------------|----------------------|
 | [[rbac]] | Role-Based Access Control | Granular security |
 | [[multi-tenancy]] | Tenant isolation | VantaDB Cloud architecture |
+
+---
+
+---
+
+## Competitors & Ecosystem
+
+| Concept | Short Description | Relevance in VantaDB |
+|---------|-------------------|----------------------|
+| [[qdrant]] | Rust vector search engine, client-server architecture | Competitor — VantaDB differentiates on embedded/local-first |
+| [[lancedb]] | Open-source embedded vector database on Lance columnar format | Competitor — VantaDB differentiates on hybrid search + schema-less |
 
 ---
 

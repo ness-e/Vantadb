@@ -8,6 +8,8 @@ aliases: []
 
 # Migrating from ChromaDB to VantaDB
 
+> **Canonical reference.**
+
 If you're using ChromaDB today, switching to VantaDB unlocks **graph edges**, **MCP protocol support**, **WASM browser runtime**, and **hybrid search** — while keeping your existing vector workflow. This tutorial shows the exact API mappings and provides a migration script you can run on your existing ChromaDB data.
 
 ## Side-by-side API comparison
@@ -298,3 +300,32 @@ Migration takes ~5 minutes and you keep all your existing data and embeddings. F
 ---
 
 **Key takeaway:** VantaDB is a drop-in upgrade from ChromaDB — same mental model, richer feature set, and your migration script runs in under 60 lines of Python.
+
+## Pre-migration checklist
+
+- [ ] VantaDB is installed (`pip install vantadb-py` or `cargo add vantadb`)
+- [ ] ChromaDB collection data is accessible
+- [ ] You have a text representation for each document (for `payload` field)
+- [ ] Embedding dimensions match between ChromaDB and VantaDB
+
+## Post-migration index management
+
+```python
+# Rebuild all indexes (HNSW + text + derived)
+report = db.rebuild_index()
+
+# Compact vector store for better page-fault locality
+db.compact_wal()  # archive + start fresh WAL
+```
+
+## Known limitations
+
+- **Collections → Namespaces**: ChromaDB collections are first-class objects with metadata. VantaDB namespaces are string prefixes on keys. There is no `create_namespace()` — namespaces are created lazily on first `put()`.
+- **No `peek()` equivalent**: Use `list_memory()` with `limit` and optional `cursor`.
+- **No `where` document filter by content**: VantaDB metadata filters match on `metadata` field, not document text. Use `text_query` for payload search.
+- **No `update` vs `upsert` distinction**: VantaDB `put()` is always upsert.
+- **VantaDB is embedded only**: There is no VantaDB server to connect to remotely (the optional HTTP server is for localhost tooling).
+
+## Rollback plan
+
+Keep your ChromaDB data directory intact during migration. VantaDB does not modify or delete your ChromaDB data.
