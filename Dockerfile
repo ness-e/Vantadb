@@ -44,7 +44,7 @@ RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --package ${BINARY}
+    cargo build --profile ci --package ${BINARY}
 
 # Remove skeleton before copying real sources
 RUN rm -rf src/ vantadb-*/src/
@@ -54,7 +54,7 @@ COPY . .
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --config 'profile.release.strip="symbols"' --package ${BINARY}
+    cargo build --profile ci --package ${BINARY}
 
 # ───────────────────────────────────────────────────────
 # Stage 2 — Minimal runtime image
