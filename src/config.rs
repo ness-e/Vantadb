@@ -242,6 +242,13 @@ pub struct VantaConfig {
     /// `Authorization: Bearer <token>` on all protected endpoints.
     /// If `None`, the server runs without authentication (development mode).
     pub api_key: Option<String>,
+    /// If true, the server refuses to start unless an API key is configured.
+    ///
+    /// When set via `VANTADB_REQUIRE_AUTH` (or `--require-auth`), the server
+    /// validates that `api_key` is set at startup and exits with an error if
+    /// it is not. This prevents accidentally running in unauthenticated mode
+    /// in production-like environments.
+    pub require_auth: bool,
     /// Maximum HTTP requests per minute per remote IP for the rate limiter.
     ///
     /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
@@ -437,6 +444,11 @@ impl Default for VantaConfig {
                 debug!(present = v.is_some(), "VANTADB_API_KEY");
                 v
             },
+            require_auth: {
+                let v = parse_env_or("VANTADB_REQUIRE_AUTH", false);
+                debug!(val = v, "VANTADB_REQUIRE_AUTH");
+                v
+            },
             rate_limit_rpm: {
                 let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 100u32);
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
@@ -617,6 +629,14 @@ impl VantaConfig {
     /// When `None`, the server runs in unauthenticated mode.
     pub fn with_api_key(mut self, key: Option<String>) -> Self {
         self.api_key = key;
+        self
+    }
+
+    /// Enable forced authentication mode.
+    ///
+    /// When `true`, the server refuses to start unless `api_key` is configured.
+    pub fn with_require_auth(mut self, enabled: bool) -> Self {
+        self.require_auth = enabled;
         self
     }
 
@@ -1100,6 +1120,14 @@ mod tests {
         assert_eq!(cfg.api_key, Some("sk-test".into()));
         let cfg = VantaConfig::default().with_api_key(None);
         assert_eq!(cfg.api_key, None);
+    }
+
+    #[test]
+    fn test_with_require_auth() {
+        let cfg = VantaConfig::default().with_require_auth(true);
+        assert!(cfg.require_auth);
+        let cfg = VantaConfig::default().with_require_auth(false);
+        assert!(!cfg.require_auth);
     }
 
     #[test]

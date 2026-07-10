@@ -579,10 +579,11 @@ pub fn shutdown_telemetry() {
 }
 
 fn log_security_mode(config: &VantaConfig) {
-    let auth_status = if config.api_key.is_some() {
-        "Bearer token auth ✓"
-    } else {
-        "No auth (dev mode)"
+    let auth_status = match (&config.api_key, config.require_auth) {
+        (Some(_), true) => "Bearer token auth ✓ (forced)",
+        (Some(_), false) => "Bearer token auth ✓",
+        (None, true) => "ERROR: require_auth but no key configured",
+        (None, false) => "No auth (dev mode)",
     };
 
     let rate_status = if config.rate_limit_rpm == 0 {
@@ -613,11 +614,34 @@ fn log_security_mode(config: &VantaConfig) {
     );
 }
 
+/// Validate that the auth configuration is consistent.
+///
+/// Returns an error if `require_auth` is `true` but no `api_key` is configured.
+fn validate_auth_config(config: &VantaConfig) -> Result<()> {
+    if config.require_auth && config.api_key.is_none() {
+        console::error(
+            "Forced authentication enabled but no API key configured",
+            Some(
+                "Set the VANTADB_API_KEY environment variable to provide an authentication \
+                 token. Alternatively, unset VANTADB_REQUIRE_AUTH / remove --require-auth \
+                 to allow unauthenticated (dev) mode.",
+            ),
+        );
+        return Err(VantaError::InvalidInput(
+            "require_auth is set but no api_key is configured".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Start the HTTP (or TLS) server, binding to the address in the config.
 pub async fn run(config: VantaConfig) -> Result<()> {
     init_telemetry(false, Some(config.log_format));
 
     console::print_banner();
+
+    validate_auth_config(&config)?;
+
     console::progress("Initializing storage engine...", None);
 
     let storage = match StorageEngine::open_with_config(&config.storage_path, Some(config.clone()))
@@ -830,4 +854,56 @@ async fn serve_http_or_tls(
 
     flush_on_shutdown(&storage);
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::VantaError;
+
+    #[test]
+    fn validate_auth_allows_key_without_require() {
+        let cfg = VantaConfig {
+            api_key: Some("sk-test".into()),
+            require_auth: false,
+            ..Default::default()
+        };
+        assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn validate_auth_allows_no_key_without_require() {
+        let cfg = VantaConfig {
+            api_key: None,
+            require_auth: false,
+            ..Default::default()
+        };
+        assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn validate_auth_allows_key_with_require() {
+        let cfg = VantaConfig {
+            api_key: Some("sk-test".into()),
+            require_auth: true,
+            ..Default::default()
+        };
+        assert!(validate_auth_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn validate_auth_rejects_no_key_with_require() {
+        let cfg = VantaConfig {
+            api_key: None,
+            require_auth: true,
+            ..Default::default()
+        };
+        let err = validate_auth_config(&cfg).unwrap_err();
+        match err {
+            VantaError::InvalidInput(msg) => {
+                assert!(msg.contains("require_auth"), "msg: {msg}");
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+    }
 }

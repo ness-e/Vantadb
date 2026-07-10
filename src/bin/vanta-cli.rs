@@ -120,7 +120,8 @@ fn main() -> Result<()> {
             mcp,
             port,
             host,
-        } => cli_handlers::cmd_server(&args.db, http, mcp, port, host, args.verbose)?,
+            require_auth,
+        } => cli_handlers::cmd_server(&args.db, http, mcp, port, host, require_auth, args.verbose)?,
     }
 
     Ok(())

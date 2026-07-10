@@ -1154,7 +1154,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__server)
-            opts="-p -d -v -h --http --mcp --port --host --db --verbose --help"
+            opts="-p -d -v -h --http --mcp --port --host --require-auth --db --verbose --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

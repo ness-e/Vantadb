@@ -172,6 +172,10 @@ pub enum Commands {
         /// Host for the HTTP server
         #[arg(long, env = "VANTADB_HOST")]
         host: Option<String>,
+
+        /// Force authentication: refuse to start without an API key
+        #[arg(long, env = "VANTADB_REQUIRE_AUTH")]
+        require_auth: bool,
     },
 }
 

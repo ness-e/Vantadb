@@ -7,6 +7,7 @@ use crate::cli::Cli;
 use crate::cli::Shell;
 use crate::cli_handlers::fmt::{header_style, info_style};
 use crate::cli_handlers::{create_spinner, open_database, print_info, print_warning, MIB};
+use crate::config::VantaConfig;
 use crate::error::Result;
 
 #[tracing::instrument]
@@ -176,12 +177,13 @@ pub fn cmd_server(
     mcp: bool,
     port: Option<u16>,
     host: Option<String>,
+    require_auth: bool,
     _verbose: bool,
 ) -> Result<()> {
     let mcp_mode = mcp && !http;
 
     if mcp_mode {
-        return cmd_server_mcp(db_path, port, host);
+        return cmd_server_mcp(db_path, port, host, require_auth);
     }
 
     #[cfg(feature = "server")]
@@ -190,7 +192,7 @@ pub fn cmd_server(
             crate::error::VantaError::RuntimeError(format!("Failed to start tokio runtime: {e}"))
         })?;
 
-        rt.block_on(cmd_server_http(db_path, port, host))
+        rt.block_on(cmd_server_http(db_path, port, host, require_auth))
     }
 
     #[cfg(not(feature = "server"))]
@@ -203,18 +205,29 @@ pub fn cmd_server(
 }
 
 #[cfg(feature = "server")]
-async fn cmd_server_http(db_path: &str, port: Option<u16>, host: Option<String>) -> Result<()> {
+async fn cmd_server_http(
+    db_path: &str,
+    port: Option<u16>,
+    host: Option<String>,
+    require_auth: bool,
+) -> Result<()> {
     let config = VantaConfig {
         storage_path: db_path.to_string(),
         port: port.unwrap_or(8080),
         host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
+        require_auth,
         ..Default::default()
     };
 
     crate::cli_server::run(config).await
 }
 
-fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Result<()> {
+fn cmd_server_mcp(
+    db_path: &str,
+    port: Option<u16>,
+    host: Option<String>,
+    require_auth: bool,
+) -> Result<()> {
     use crate::error::VantaError;
 
     let binary_name = "vantadb-server";
@@ -232,6 +245,9 @@ fn cmd_server_mcp(db_path: &str, port: Option<u16>, host: Option<String>) -> Res
         }
         if let Some(ref h) = host {
             cmd.env("VANTADB_HOST", h);
+        }
+        if require_auth {
+            cmd.env("VANTADB_REQUIRE_AUTH", "true");
         }
         cmd.arg("--mcp");
         cmd.stdin(std::process::Stdio::inherit());

@@ -153,6 +153,7 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l host -d '
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l http -d 'Start HTTP server wrapper (default)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l mcp -d 'Start MCP server wrapper over stdio'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -l require-auth -d 'Force authentication: refuse to start without an API key'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand server" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand help; and not __fish_seen_subcommand_from put get list rebuild-index audit-index repair-text-index export import query status completions search delete migrate namespace server help" -f -a "put" -d 'Save a key-value pair to persistent memory'

@@ -12,7 +12,7 @@ aliases: []
 
 > **Purpose:** Single source of truth for all project tasks, active and postponed.
 > **Completed features:** `docs/CHANGELOG.md`
-> **Total items:** 173 (62 original + 108 code review + 0 governance redesign + 2 nuevos completados + 1 backlog post-release)
+> **Total items:** 176 (62 original + 108 code review + 0 governance redesign + 2 nuevos completados + 1 backlog post-release + 3 recomendaciones 2.4 — REC-01 ✅ completado)
 
 ---
 
@@ -201,6 +201,9 @@ aliases: []
 | ~~`CODE-014`~~ | **LRU cache Python completamente muerto** — Cachea pero nunca lee. 100% overhead | `lib.rs:615-641` | 🟡 1d | 🟡 | ✅ |
 | ~~`CODE-089`~~ | **`VantaConfig.storage_path` sin efecto en WASM** — Siempre InMemory, path ignorado. Usuarios engañados | `types.rs:142-147` | 🟢 4h | 🟡 | ✅ |
 | ~~`CODE-090`~~ | **`insertNode(id: number)` hace `BigInt(id)` — overflow > 2^53** | `vantadb.ts:210-217` | 🟢 2h | 🟡 | ✅ |
+| ~~`REC-01`~~ | **Test coverage para `SerdeMsgError` + source chaining** — Verificar Display y `error.source()` en `SerializationError` | `src/error.rs` | 🟢 1h | 🟡 | ✅ |
+| `REC-02` | **Helper `VantaError::serialization(e)`** — Reducir boilerplate `VantaError::SerializationError(Box::new(e))` en 20 call sites | `src/error.rs` | 🟢 1h | 🟢 | ❌ |
+| `REC-03` | **Extender source chaining a variantes String restantes (E1)** — `WalError(String)`, `SearchError(String)`, `Generic(String)`, `BackendError(String)` — mismo patrón que 2.4 | `src/error.rs` + call sites | 🟡 1-2d | 🟡 | ❌ |
 
 ### 🧪 CI/CD Web Quality
 

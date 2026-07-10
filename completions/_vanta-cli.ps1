@@ -303,6 +303,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--http', '--http', [CompletionResultType]::ParameterName, 'Start HTTP server wrapper (default)')
             [CompletionResult]::new('--mcp', '--mcp', [CompletionResultType]::ParameterName, 'Start MCP server wrapper over stdio')
+            [CompletionResult]::new('--require-auth', '--require-auth', [CompletionResultType]::ParameterName, 'Force authentication: refuse to start without an API key')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
