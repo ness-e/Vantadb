@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { gsap } from "../lib/gsap";
+import { animate } from "motion";
 
 const GLITCH_CHARS = "01X%$&*/#<>[]{}";
 
@@ -15,10 +15,11 @@ export function useTextScramble() {
 
     const state = { progress: 0 };
 
-    gsap.to(state, {
+    animate(state, {
       progress: 1,
+    }, {
       duration: duration / 1000,
-      ease: "power2.out",
+      ease: "easeOut",
       onUpdate: () => {
         const revealed = Math.floor(state.progress * length);
         let result = originalText.slice(0, revealed);

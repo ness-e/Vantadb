@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/engine.css";
 
 export const Route = createLazyRoute("/engine")({
@@ -294,39 +293,27 @@ function EnginePage() {
   const pipelineRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(hybridRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = hybridRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, hybridRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(graphRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = graphRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, graphRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(walRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = walRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, walRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-engine-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = pipelineRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, pipelineRef);
 
   return (

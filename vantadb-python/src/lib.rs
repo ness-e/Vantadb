@@ -270,42 +270,6 @@ fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec
     Ok(result)
 }
 
-/// Extract a 2D batch of vectors from a Python object using the buffer protocol
-/// (NumPy ndarray). Returns `(nrows, ndims, flat_data)` in row-major order.
-///
-/// Supports both f32 and f64 buffers with downcasting for the latter.
-#[allow(dead_code)]
-fn extract_2d_buffer(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<(usize, usize, Vec<f32>)> {
-    if let Ok(buf) = PyBuffer::<f32>::get(obj) {
-        let shape: &[usize] = buf.shape();
-        if shape.len() != 2 {
-            return Err(PyValueError::new_err(
-                "vectors must be a 2D array (shape [N, D])",
-            ));
-        }
-        let nrows = shape[0];
-        let ndims = shape[1];
-        let flat = buf.to_vec(py)?;
-        return Ok((nrows, ndims, flat));
-    }
-    if let Ok(buf) = PyBuffer::<f64>::get(obj) {
-        let shape: &[usize] = buf.shape();
-        if shape.len() != 2 {
-            return Err(PyValueError::new_err(
-                "vectors must be a 2D array (shape [N, D])",
-            ));
-        }
-        let nrows = shape[0];
-        let ndims = shape[1];
-        let flat_f64 = buf.to_vec(py)?;
-        let flat: Vec<f32> = flat_f64.into_iter().map(|x| x as f32).collect();
-        return Ok((nrows, ndims, flat));
-    }
-    Err(PyTypeError::new_err(
-        "Expected a 2D NumPy array (buffer protocol)",
-    ))
-}
-
 pub(crate) fn set_python_value(
     py: Python<'_>,
     dict: &Bound<'_, PyDict>,

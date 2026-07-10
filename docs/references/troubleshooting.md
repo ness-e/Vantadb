@@ -1,3 +1,12 @@
+---
+title: "VantaDB — Troubleshooting Común (Windows)"
+type: reference
+status: active
+tags: [vantadb, troubleshooting, windows]
+last_reviewed: 2026-07-10
+language: es
+---
+
 # VantaDB — Troubleshooting Común (Windows)
 
 > **Cómo usar:** Cuando encuentres un error inesperado, busca aquí primero por síntoma (exit code, mensaje). Si no está documentado, investígalo y agrega la entrada.

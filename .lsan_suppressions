@@ -1,0 +1,2 @@
+# RocksDB known leaks (not our code)
+leak:rocksdb

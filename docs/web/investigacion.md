@@ -1,3 +1,12 @@
+---
+title: "Construyendo la Identidad Visual de VantaDB: Swiss + Neubrutalism"
+type: design
+status: active
+tags: [vantadb, design, web, swiss, neubrutalism, brand]
+last_reviewed: 2026-07-10
+language: es
+---
+
 # Construyendo la Identidad Visual de VantaDB: Un Manual de Diseño Basado en Swiss + Neubrutalism para Combatir la Monocultura AI
 
 ## Fundamentos Teóricos: La Sinergia entre Orden Matemático y Carácter Agresivo

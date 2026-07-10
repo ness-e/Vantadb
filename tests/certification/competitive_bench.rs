@@ -205,6 +205,7 @@ fn sift1m_competitive_benchmark() {
         ef_search: 100,
         ml: 1.0 / (16_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
+        flat_threshold: None,
     };
     let high_recall_cos = HnswConfig {
         m: 32,
@@ -213,6 +214,7 @@ fn sift1m_competitive_benchmark() {
         ef_search: 200,
         ml: 1.0 / (32_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
+        flat_threshold: None,
     };
     let balanced_l2 = HnswConfig {
         m: 16,
@@ -221,6 +223,7 @@ fn sift1m_competitive_benchmark() {
         ef_search: 100,
         ml: 1.0 / (16_f64).ln(),
         distance_metric: DistanceMetric::Euclidean,
+        flat_threshold: None,
     };
     let high_recall_l2 = HnswConfig {
         m: 32,
@@ -229,6 +232,7 @@ fn sift1m_competitive_benchmark() {
         ef_search: 200,
         ml: 1.0 / (32_f64).ln(),
         distance_metric: DistanceMetric::Euclidean,
+        flat_threshold: None,
     };
 
     for &scale in &[10_000usize, 100_000] {

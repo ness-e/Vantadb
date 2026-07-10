@@ -3,7 +3,7 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-07-10
 aliases: []
 ---
 
@@ -108,7 +108,7 @@ vanta-cli server --mcp --db ./vanta_data
 cargo run --bin vanta-cli -- server --mcp --db ./vanta_data
 ```
 
-### MCP Client Configuration
+### Per-IDE Setup
 
 Configure your MCP client to connect to VantaDB:
 
@@ -122,6 +122,85 @@ Configure your MCP client to connect to VantaDB:
   }
 }
 ```
+
+Below are IDE-specific instructions.
+
+### Cursor
+
+1. Open Cursor Settings → **Features** → **MCP Servers**
+2. Click **Add new MCP server**
+3. Fill in:
+   - **Name:** `vantadb`
+   - **Type:** `command`
+   - **Command:** `vanta-cli server --mcp --db ~/.vantadb`
+4. Click **Save**
+
+The MCP server will start automatically when Cursor needs it. If `vanta-cli` is not in PATH, use the full path (e.g., `~/.cargo/bin/vanta-cli`).
+
+### Claude Code
+
+Add to your project's `.claude/settings.json` (or `~/.claude/settings.json` for global):
+
+```json
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "/path/to/vantadb"]
+    }
+  }
+}
+```
+
+The server starts automatically when Claude Code needs to use a VantaDB tool.
+
+### Windsurf
+
+1. Open Windsurf Settings → **AI** → **MCP Servers**
+2. Click **Add Server**
+3. Fill in:
+   - **Name:** `vantadb`
+   - **Command:** `vanta-cli`
+   - **Arguments:** `server --mcp --db ~/.vantadb`
+4. Click **Save**
+
+### OpenCode
+
+Add to your `opencode.json` (project root or `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "vantadb": {
+      "type": "local",
+      "command": ["vanta-cli", "server", "--mcp", "--db", "~/.vantadb"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### Cline (VS Code)
+
+Configure in VS Code settings (`settings.json`):
+
+```json
+{
+  "cline.mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+    }
+  }
+}
+```
+
+### Notes
+
+- **First time?** Install the CLI: `cargo install vantadb-cli` or download the binary from [releases](https://github.com/ness-e/Vantadb/releases).
+- **Cross-IDE:** VantaDB's MCP server can run simultaneously across multiple IDEs — each connects independently to the same database path.
+- **Custom binary path:** If `vanta-cli` is not in PATH, replace with the full path (e.g., `~/.cargo/bin/vanta-cli`).
+- **Windows:** Use forward slashes or escaped backslashes for paths (e.g., `C:/Users/me/.vantadb`).
 
 ### Example Tool Calls
 
@@ -191,26 +270,7 @@ The MCP server implementation:
 
 ## Integration Examples
 
-### Claude Desktop
-
-Add to Claude Desktop configuration:
-
-```json
-{
-  "mcpServers": {
-    "vantadb": {
-      "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
-    }
-  }
-}
-```
-
-### Cursor / VS Code
-
-Configure MCP-compatible extensions to connect to VantaDB for persistent memory in AI-assisted development.
-
-## Performance
+## Integration Examples
 
 - **Latency**: Sub-millisecond for in-process operations
 - **Throughput**: Configurable via semaphore limits

@@ -8,7 +8,7 @@ aliases: []
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-07
+> **Last updated:** 2026-07-10
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -30,8 +30,9 @@ VantaDB is a vector database in Rust focused on high performance, hybrid HNSW, G
 | **Testing** | 🟢 Complete (Compiles clean, 444/444 tests passing) | 90% | ✅ |
 | DX Tools | 15 | 15 | ✅ |
 | CLI | 7 | 7 | ✅ |
+| Infraestructura & CI | 2 | 2 | ✅ |
 | Project Management | 6 | 6 | ✅ |
-| **Total** | **86** | **~86** | **✅** |
+| **Total** | **89** | **~89** | **✅** |
 
 ## Legend
 
@@ -898,7 +899,38 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - [x] `SEC-02` — rustls-pemfile confirmed on v2. Already resolved
 - **Ids:** `SEC-01`, `SEC-02`
 
-### MEM-01: Mem0 Integration Crate (vantadb-mem0)
+### NUEVO-05: Sanitizer CI (ASan + TSan)
+- **Fecha:** 2026-07-10
+- **Objetivo:** Add AddressSanitizer and ThreadSanitizer CI jobs to catch memory errors and data races in CI.
+- **Checklist:**
+  - [x] ASan job in `ci-rust-10.yml` with nightly + `-Z sanitizer=address`
+  - [x] TSan job in `ci-rust-10.yml` with nightly + `-Z sanitizer=thread`
+  - [x] `.lsan_suppressions` for known RocksDB false positives
+  - [x] Both jobs marked `continue-on-error: true`
+- **Ids:** `NUEVO-05`
+
+### NUEVO-06: Flat Index Threshold <10K brute-force
+- **Fecha:** 2026-07-10
+- **Objetivo:** When the index has few nodes (< threshold), skip HNSW graph traversal and use brute-force flat scan for equivalent accuracy with less overhead.
+- **Checklist:**
+  - [x] `flat_threshold` field on `VantaConfig` (env var `VANTADB_FLAT_THRESHOLD`, default 10000)
+  - [x] Builder method `with_flat_threshold()`
+  - [x] Wired from `VantaConfig` → `HnswConfig` → `CPIndex` in `init_indexes()`
+  - [x] Flat search dispatch in `graph.rs::search_layer()` when node count ≤ threshold
+  - [x] Tests: `flat_search_matches_hnsw_on_small_dataset`, `flat_search_used_when_under_threshold`, `test_with_flat_threshold`
+- **Ids:** `NUEVO-06`
+
+### MCP-IDE: Docs de setup MCP por IDE
+- **Fecha:** 2026-07-10
+- **Objetivo:** Add per-IDE setup documentation for Cursor, Claude Code, Windsurf, OpenCode, and Cline.
+- **Checklist:**
+  - [x] Cursor setup (Settings → Features → MCP Servers)
+  - [x] Claude Code setup (.claude/settings.json)
+  - [x] Windsurf setup (Settings → AI → MCP Servers)
+  - [x] OpenCode setup (opencode.json)
+  - [x] Cline setup (VS Code settings.json)
+  - [x] Notes for first-time install, cross-IDE usage, custom binary path, Windows paths
+- **Ids:** `MCP-IDE`
 - **Fecha:** 2026-07-02
 - **Objetivo:** Create PyO3 crate `vantadb-mem0/` for Mem0 VectorStoreBackend integration (57K stars, 20 backends).
 - **Checklist:**
@@ -983,7 +1015,7 @@ These tasks reached 100% completion and were moved here from the active backlog.
   - `web/src/components/SwissArchSection.tsx`
   - `web/src/components/SwissUseCases.tsx`
 
-### WEB-14: Implement missing GSAP animations per DiseñoNuevo.md
+### WEB-14: Implement missing GSAP animations per REDESIGN_V2_PLAN.md
 - **Fecha:** 2026-07-02
 - **Objetivo:** Refinar e implementar las animaciones GSAP que faltaban o eran inconsistentes con el movimiento minimalista de 12px y custom easing definidos en la spec de diseño.
 - **Checklist Completado:**

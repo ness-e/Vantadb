@@ -20,6 +20,24 @@
         "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; npx --yes @rayenking/discord-mcp"
       ],
       "enabled": true
+    },
+    "metasearchmcp": {
+      "command": [
+        "metasearchmcp-mcp"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis sin key."
+    },
+    "argus": {
+      "command": [
+        "argus",
+        "mcp",
+        "serve"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "14 providers, extracción 12-step, dead URL recovery, RRF fusion."
     }
   }
 }

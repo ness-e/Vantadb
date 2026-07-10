@@ -27,6 +27,8 @@ pub use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentatio
 pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {
+        // SAFETY: `madvise` is async-signal-safe. Takes a pointer+len derived from
+        // the owned mmap; invalid offsets are ignored by the kernel.
         unsafe {
             libc::madvise(
                 mmap_ptr.add(offset) as *mut libc::c_void,
@@ -40,6 +42,9 @@ pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usiz
     {
         use windows_sys::Win32::System::Memory::{PrefetchVirtualMemory, WIN32_MEMORY_RANGE_ENTRY};
         use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        // SAFETY: `GetCurrentProcess` returns a pseudo-handle (always valid).
+        // `PrefetchVirtualMemory` takes a validated pointer+len from the owned mmap;
+        // invalid ranges are best-effort.
         unsafe {
             let addr = mmap_ptr.add(offset) as *mut core::ffi::c_void;
             let entry = WIN32_MEMORY_RANGE_ENTRY {
@@ -60,6 +65,9 @@ pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usiz
 pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {
+        // SAFETY: caller guarantees `mmap_ptr` + `offset + len` is within a valid
+        // mmap region. `madvise` with `MADV_DONTNEED` is async-signal-safe; the
+        // mapping itself remains valid after the hint.
         unsafe {
             libc::madvise(
                 mmap_ptr.add(offset) as *mut libc::c_void,
@@ -160,6 +168,8 @@ impl IndexBackend {
                         return None;
                     }
                 };
+                // SAFETY: `file` is a valid open handle; `Mmap::map` checks the
+                // resulting pointer internally and returns `Err` on failure.
                 let mmap = match unsafe { crate::storage::vfile::Mmap::map(&file) } {
                     Ok(m) => m,
                     Err(e) => {
@@ -186,6 +196,15 @@ pub struct HnswConfig {
     pub ml: f64,
     #[serde(default)]
     pub distance_metric: DistanceMetric,
+    /// If `Some(n)`, use brute-force flat scan instead of HNSW graph
+    /// when the number of nodes is below this threshold.
+    /// Default: `Some(10000)`. Set to `None` to always use HNSW.
+    #[serde(default = "default_flat_threshold")]
+    pub flat_threshold: Option<usize>,
+}
+
+const fn default_flat_threshold() -> Option<usize> {
+    Some(10000)
 }
 
 impl Default for HnswConfig {
@@ -197,6 +216,7 @@ impl Default for HnswConfig {
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            flat_threshold: Some(10000),
         }
     }
 }

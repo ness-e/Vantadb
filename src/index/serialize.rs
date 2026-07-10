@@ -120,6 +120,9 @@ impl CPIndex {
                             ),
                         ));
                     }
+                    // SAFETY: null/zero/overflow guard above ensures `ptr.0` is non-null,
+                    // `*len` is bounded by `MAX_VEC_F32_LEN`, and the resulting slice
+                    // length is valid for the serialized representation.
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
                         let b = val.to_le_bytes();
@@ -498,6 +501,8 @@ impl CPIndex {
                 Err(_) => return None,
             };
 
+            // SAFETY: `file` is a valid open handle; `map_mut` checks the
+            // resulting pointer internally and returns `Err` on failure.
             let mmap = match unsafe { MmapMut::map_mut(&file) } {
                 Ok(m) => m,
                 Err(e) => {
@@ -566,6 +571,8 @@ impl CPIndex {
             .open(&temp_path)?;
         file.set_len(data.len() as u64)?;
 
+        // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes;
+        // `map_mut` validates the pointer internally.
         let mut mapped = unsafe { MmapMut::map_mut(&file)? };
         mapped.copy_from_slice(&data);
         mapped.flush()?;

@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/playground.css";
 
 export const Route = createLazyRoute("/playground")({
@@ -97,31 +96,27 @@ function PlaygroundPage() {
   }
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(terminalRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = terminalRef.current?.querySelectorAll<HTMLElement>(".nc-pg-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, terminalRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(statsRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = statsRef.current?.querySelectorAll<HTMLElement>(".nc-pg-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, statsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(codeRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = codeRef.current?.querySelectorAll<HTMLElement>(".nc-pg-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, codeRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-pg-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(installRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = installRef.current?.querySelectorAll<HTMLElement>(".nc-pg-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, installRef);
 
   return (

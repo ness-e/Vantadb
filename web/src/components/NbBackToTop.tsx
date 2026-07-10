@@ -1,63 +1,52 @@
-import { memo, useRef } from "react";
-import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
+import { memo, useEffect, useRef } from "react";
+import { animate } from "motion";
 
 export const NbBackToTop = memo(function NbBackToTop() {
   const btnRef = useRef<HTMLButtonElement>(null);
-  const stRef = useRef<ScrollTrigger | null>(null);
 
-  useGSAP(() => {
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      if (!btnRef.current) return;
+  useEffect(() => {
+    if (!btnRef.current) return;
 
-      gsap.set(btnRef.current, { autoAlpha: 0, y: 16 });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-      stRef.current = ScrollTrigger.create({
-        start: 500,
-        end: "max",
-        onUpdate: (self) => {
-          if (self.direction === -1 || self.progress === 1) {
-            gsap.to(btnRef.current, {
-              autoAlpha: 1,
-              y: 0,
-              duration: 0.25,
-              ease: "power2.out",
-              overwrite: true,
-            });
-          } else if (self.direction === 1) {
-            gsap.to(btnRef.current, {
-              autoAlpha: 0,
-              y: 16,
-              duration: 0.25,
-              ease: "power2.in",
-              overwrite: true,
-            });
-          }
-        },
-        onLeaveBack: () => {
-          gsap.to(btnRef.current, {
-            autoAlpha: 0,
-            y: 16,
-            duration: 0.25,
-            ease: "power2.in",
-            overwrite: true,
-          });
-        },
-      });
-    });
+    const btn = btnRef.current;
+    btn.style.opacity = "0";
+    btn.style.transform = "translateY(16px)";
+
+    let lastScrollY = window.scrollY;
+    let anim: ReturnType<typeof animate> | null = null;
+
+    const onScroll = () => {
+      const currentScrollY = window.scrollY;
+      const direction = currentScrollY > lastScrollY ? 1 : -1;
+      lastScrollY = currentScrollY;
+
+      anim?.stop();
+
+      if (currentScrollY > 500 && (direction === -1 || currentScrollY + window.innerHeight >= document.documentElement.scrollHeight - 10)) {
+        anim = animate(
+          btn,
+          { opacity: 1, y: 0 },
+          { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+        );
+      } else if (currentScrollY > 500 && direction === 1) {
+        anim = animate(
+          btn,
+          { opacity: 0, y: 16 },
+          { duration: 0.25, ease: [0.55, 0.085, 0.68, 0.53] },
+        );
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      stRef.current?.kill();
-      stRef.current = null;
-      mm.revert();
+      window.removeEventListener("scroll", onScroll);
+      anim?.stop();
     };
   }, []);
 
   const scrollToTop = () => {
-    gsap.to(window, {
-      scrollTo: { y: 0 },
-      duration: 0.5,
-      ease: "power2.out",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (

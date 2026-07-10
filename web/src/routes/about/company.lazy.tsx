@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../../styles/about-company.css";
 
 export const Route = createLazyRoute("/about/company")({
@@ -54,24 +53,21 @@ function CompanyPage() {
   const compareRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(purposeRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = purposeRef.current?.querySelectorAll<HTMLElement>(".nc-ac-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, purposeRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(valuesRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = valuesRef.current?.querySelectorAll<HTMLElement>(".nc-ac-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, valuesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-ac-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = compareRef.current?.querySelectorAll<HTMLElement>(".nc-ac-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, compareRef);
 
   return (

@@ -28,6 +28,7 @@ mod tests {
             ef_search: 32,
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            ..HnswConfig::default()
         });
 
         for i in 0..64u128 {
@@ -73,6 +74,7 @@ mod tests {
             ef_search: 32,
             ml: 1.0 / (16_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            ..HnswConfig::default()
         }));
 
         let stop = Arc::new(AtomicBool::new(false));
@@ -215,6 +217,7 @@ mod tests {
             ef_search: 32,
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            ..HnswConfig::default()
         });
         for i in 0..16u128 {
             let raw = [
@@ -357,6 +360,7 @@ mod tests {
             ef_search: 32,
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            ..HnswConfig::default()
         });
         assert!(index.validate_index().is_ok(), "empty index must pass");
         let st = index.stats();
@@ -390,5 +394,67 @@ mod tests {
         bytes[offset..offset + 8].copy_from_slice(&u64::MAX.to_le_bytes());
         let result = CPIndex::deserialize_from_bytes(&bytes, true);
         assert!(result.is_err(), "Absurd node_count must return Err");
+    }
+
+    #[test]
+    fn flat_search_matches_hnsw_on_small_dataset() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            flat_threshold: Some(100),
+            ..HnswConfig::default()
+        });
+
+        for i in 0..20u128 {
+            let raw = [
+                (i as f32 * 0.1).sin(),
+                (i as f32 * 0.2).cos(),
+                (i as f32 * 0.3).sin(),
+                (i as f32 * 0.4).cos(),
+            ];
+            let norm = f32_l2_norm(&raw);
+            let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
+            index.add(
+                i + 1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            );
+        }
+
+        let query = vec![0.1, 0.9, 0.2, 0.4];
+        let results = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
+
+        assert_eq!(results.len(), 5, "flat search should return top_k results");
+        for (_id, score) in &results {
+            assert!(!score.is_nan(), "flat search scores must not be NaN");
+        }
+        for w in results.windows(2) {
+            assert!(
+                w[0].1 >= w[1].1 - f32::EPSILON,
+                "flat search scores must be descending: {} < {}",
+                w[0].1,
+                w[1].1
+            );
+        }
+    }
+
+    #[test]
+    fn flat_search_used_when_under_threshold() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            flat_threshold: Some(50),
+            ..HnswConfig::default()
+        });
+
+        for i in 0..10u128 {
+            index.add(
+                i + 1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![i as f32; 4]),
+                0,
+            );
+        }
+
+        let query = vec![0.0; 4];
+        let results = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 3, None);
+        assert_eq!(results.len(), 3);
     }
 }

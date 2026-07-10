@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../../styles/ai-ide-tooling.css";
 
 export const Route = createLazyRoute("/solutions/ai-ide-tooling")({
@@ -48,17 +47,15 @@ function IdeToolingPage() {
   const useCasesRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-ai-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(gapRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = gapRef.current?.querySelectorAll<HTMLElement>(".nc-ai-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, gapRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-ai-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(useCasesRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = useCasesRef.current?.querySelectorAll<HTMLElement>(".nc-ai-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, useCasesRef);
 
   return (

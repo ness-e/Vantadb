@@ -299,6 +299,10 @@ pub struct VantaConfig {
     /// Set to 0 to disable WAL, or 1 for single-file (legacy) behaviour.
     /// Configured via `VANTADB_WAL_SHARDS`.
     pub wal_shards: usize,
+    /// If set, use brute-force flat scan instead of HNSW graph when the number
+    /// of index nodes is at or below this threshold. Default: 10000.
+    /// Set to 0 to disable (always use HNSW). Configured via `VANTADB_FLAT_THRESHOLD`.
+    pub flat_threshold: Option<usize>,
     /// Hot-reloadable config snapshot.
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
@@ -525,6 +529,14 @@ impl Default for VantaConfig {
                 v
             },
             wal_shards: parse_env_or("VANTADB_WAL_SHARDS", 4usize),
+            flat_threshold: {
+                let v = parse_env_or::<u32>("VANTADB_FLAT_THRESHOLD", 10000);
+                if v == 0 {
+                    None
+                } else {
+                    Some(v as usize)
+                }
+            },
             rbac_config: RbacConfig::default(),
             #[cfg(feature = "hot-reload")]
             hot_reload_config: Arc::new(RwLock::new(HotReloadConfig::default())),
@@ -717,6 +729,13 @@ impl VantaConfig {
     /// Sets the number of WAL shards for reduced mutex contention.
     pub fn with_wal_shards(mut self, shards: usize) -> Self {
         self.wal_shards = shards;
+        self
+    }
+
+    /// Sets the flat index threshold for brute-force search.
+    /// Set to `None` or `Some(0)` to always use HNSW.
+    pub fn with_flat_threshold(mut self, threshold: Option<usize>) -> Self {
+        self.flat_threshold = threshold.filter(|&v| v > 0);
         self
     }
 
@@ -1007,6 +1026,7 @@ mod tests {
         assert_eq!(cfg.log_format, LogFormat::Compact);
         assert_eq!(cfg.insert_lock_timeout_ms, 2000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
+        assert_eq!(cfg.flat_threshold, Some(10000));
     }
 
     // ── Builder methods ───────────────────────────────────────
@@ -1174,6 +1194,16 @@ mod tests {
     }
 
     #[test]
+    fn test_with_flat_threshold() {
+        let cfg = VantaConfig::default().with_flat_threshold(Some(5000));
+        assert_eq!(cfg.flat_threshold, Some(5000));
+        let cfg = VantaConfig::default().with_flat_threshold(None);
+        assert_eq!(cfg.flat_threshold, None);
+        let cfg = VantaConfig::default().with_flat_threshold(Some(0));
+        assert_eq!(cfg.flat_threshold, None);
+    }
+
+    #[test]
     fn test_from_env_equals_default() {
         // `from_env()` delegates to `default()`, which reads env vars.
         // In an isolated test environment with no preset vars, both yield
@@ -1193,6 +1223,7 @@ mod tests {
         assert_eq!(cfg_default.batch_size, cfg_from_env.batch_size);
         assert_eq!(cfg_default.wal_buffer_size, cfg_from_env.wal_buffer_size);
         assert_eq!(cfg_default.flush_threshold, cfg_from_env.flush_threshold);
+        assert_eq!(cfg_default.flat_threshold, cfg_from_env.flat_threshold);
     }
 
     // ── Builder chaining ───────────────────────────────────────
@@ -1218,7 +1249,8 @@ mod tests {
             .with_flush_threshold(5000)
             .with_tls("crt.pem".into(), "key.pem".into())
             .with_log_format(LogFormat::Json)
-            .with_prefetch_mode(PrefetchMode::Disabled);
+            .with_prefetch_mode(PrefetchMode::Disabled)
+            .with_flat_threshold(Some(2000));
 
         assert_eq!(cfg.storage_path, "/data/vanta");
         assert_eq!(cfg.memory_limit, Some(8_000_000_000));
@@ -1239,5 +1271,6 @@ mod tests {
         assert_eq!(cfg.tls_cert_path, Some("crt.pem".into()));
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
+        assert_eq!(cfg.flat_threshold, Some(2000));
     }
 }

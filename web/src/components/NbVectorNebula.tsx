@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { memo, useCallback, useEffect, useRef } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { animate, inView } from "motion";
 import "../styles/vector-nebula.css";
 
 interface Particle {
@@ -192,35 +192,39 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
     };
   }, [draw, initParticles]);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const tl = gsap.timeline({
-          scrollTrigger: { trigger: sectionRef.current, start: "top 75%" },
-        });
-        tl.fromTo(
-          ".nb-nebula-eyebrow",
-          { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.4, ease: "var(--ease-swiss)" },
-        );
-        tl.fromTo(
-          ".nb-nebula-title",
-          { opacity: 0, y: 24 },
-          { opacity: 1, y: 0, duration: 0.5, ease: "var(--ease-swiss)" },
-          "-=0.2",
-        );
-        tl.fromTo(".nb-nebula-sub", { opacity: 0 }, { opacity: 1, duration: 0.3 }, "-=0.15");
-        tl.fromTo(
-          ".nb-nebula-actions",
-          { opacity: 0, y: 12 },
-          { opacity: 1, y: 0, duration: 0.3 },
-          "-=0.1",
-        );
-      });
-    },
-    { scope: sectionRef },
-  );
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const cleanup = inView(
+      el,
+      () => {
+        const targets = [
+          { sel: ".nb-nebula-eyebrow", dur: 0.4, y: 20 },
+          { sel: ".nb-nebula-title", dur: 0.5, y: 24, delay: 0.2 },
+          { sel: ".nb-nebula-sub", dur: 0.3, delay: 0.2 },
+          { sel: ".nb-nebula-actions", dur: 0.3, y: 12, delay: 0.2 },
+        ];
+        let totalDelay = 0;
+        for (const t of targets) {
+          const target = el.querySelector(t.sel);
+          if (target) {
+            totalDelay += t.delay ?? 0;
+            animate(
+              target,
+              { opacity: [0, 1], y: [(t.y ?? 12), 0] },
+              { duration: t.dur, delay: totalDelay, ease: [0.05, 0.95, 0.3, 1] },
+            );
+          }
+        }
+      },
+      { amount: 0.3 },
+    );
+
+    return () => cleanup?.();
+  }, []);
 
   return (
     <section ref={sectionRef} className="nb-nebula" aria-label="Closing statement">

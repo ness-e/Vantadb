@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../../styles/local-rag.css";
 
 export const Route = createLazyRoute("/solutions/local-rag")({
@@ -60,24 +59,21 @@ function LocalRagPage() {
   const implRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(privacyRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = privacyRef.current?.querySelectorAll<HTMLElement>(".nc-lr-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, privacyRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(pipelineRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = pipelineRef.current?.querySelectorAll<HTMLElement>(".nc-lr-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, pipelineRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-lr-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(implRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = implRef.current?.querySelectorAll<HTMLElement>(".nc-lr-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, implRef);
 
   return (

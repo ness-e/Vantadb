@@ -127,6 +127,7 @@ fn hnsw_hard_validation_certification() {
             ef_search: 100,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -154,6 +155,7 @@ fn hnsw_hard_validation_certification() {
             ef_search: 200,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");
@@ -181,6 +183,7 @@ fn hnsw_hard_validation_certification() {
             ef_search: 350,
             ml: 1.0 / (32_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
         };
         let index = build_index(&dataset, config, "Building");
         let recall = compute_recall(&index, &queries, &dataset, k, "Searching");

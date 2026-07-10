@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { useEffect, useRef } from "react";
+import { animate, inView } from "motion";
 import "../styles/benchmark.css";
 
 const METRICS = [
@@ -78,31 +78,27 @@ const METRICS = [
 export function NbBenchmarkGrid() {
   const sectionRef = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const rows = gsap.utils.toArray<HTMLElement>(".benchmark-table tbody tr");
-        if (!rows.length) return;
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 80%",
-          },
-        });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-        tl.fromTo(
-          rows,
-          { opacity: 0, x: -24 },
-          {
-            opacity: 1,
-            x: 0,
-            duration: 0.3,
-            stagger: 0.04,
-            ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
-          },
-        );
+    const cleanup = inView(
+      el,
+      () => {
+        const rows = el.querySelectorAll<HTMLElement>(".benchmark-table tbody tr");
+        if (rows.length) {
+          animate(
+            rows,
+            { opacity: [0, 1], x: [-24, 0] },
+            {
+              duration: 0.3,
+              delay: 0.04,
+              ease: [0.05, 0.95, 0.3, 1],
+            },
+          );
+        }
 
         METRICS.forEach((m) => {
           if (m.numericTarget === null) return;
@@ -113,25 +109,24 @@ export function NbBenchmarkGrid() {
 
           const state = { val: 0 };
           const { numericTarget: target, suffix, isDecimal } = m;
-          tl.to(
-            state,
-            {
-              val: target,
-              duration: 0.2,
-              ease: "cubic-bezier(0.05, 0.95, 0.3, 1)",
-              onUpdate: () => {
-                cell.textContent = isDecimal
-                  ? `${state.val.toFixed(1)}${suffix}`
-                  : `${Math.round(state.val)}${suffix}`;
-              },
+          animate(state, {
+            val: target,
+          }, {
+            duration: 0.2,
+            ease: [0.05, 0.95, 0.3, 1],
+            onUpdate: () => {
+              cell.textContent = isDecimal
+                ? `${state.val.toFixed(1)}${suffix}`
+                : `${Math.round(state.val)}${suffix}`;
             },
-            0,
-          );
+          });
         });
-      });
-    },
-    { scope: sectionRef },
-  );
+      },
+      { amount: 0.3 },
+    );
+
+    return () => cleanup?.();
+  }, []);
 
   return (
     <section className="nb-section" ref={sectionRef} aria-label="Benchmark comparison">

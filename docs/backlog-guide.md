@@ -187,7 +187,7 @@ aliases: []
 | `WEB-11` 🟡 | **React.memo + useMemo + useCallback** | 0 memoization. Componentes como Nav, SwissFooter se rerenderizan en cada navegación. |
 | `WEB-12` 🟡 | **Componente reusable `<VsTable>`** | Mismo layout "Legacy vs VantaDB" repetido manualmente en 7+ archivos. DRY. |
 | `WEB-13` 🔴 | **SEO: OG tags, canonical, JSON-LD** | **0 OG tags, 0 structured data.** Compartir en Twitter/LinkedIn muestra un link genérico. Sin JSON-LD no hay rich snippets en Google. |
-| `WEB-14` 🟡 | **Implementar GSAP animations** | DiseñoNuevo.md especifica: scroll-trigger reveals, count-up numbers, stroke-dashoffset grid, typewriter terminal. No implementado. |
+| `WEB-14` 🟡 | **Implementar GSAP animations** | REDESIGN_V2_PLAN.md especifica: scroll-trigger reveals, count-up numbers, stroke-dashoffset grid, typewriter terminal. No implementado. |
 | `WEB-15` 🟢 | **Fix Nav background** | Usa `rgba(10,10,10,0.85)` (dark), debe ser `--surface-glass` (warm paper). |
 | `WEB-16` 🟢 | **Fix H1 weight y text-align** | H1 weight 800→700. 9 elementos con text-align:center → left. Detalles de QA. |
 | `WEB-17` 🟡 | **Evaluar TanStack Router** | 23 páginas mayormente estáticas. TanStack Router con file-based routing + `routeTree.gen.ts` (`@ts-nocheck`) es overkill. React Router sería más simple. |

@@ -4,8 +4,7 @@ import { useRef } from "react";
 import { NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import { getPostBySlug } from "../../lib/blog";
 import "../../styles/blog.css";
 
@@ -21,10 +20,9 @@ function BlogPost() {
   useScrollReveal();
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-bl-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(postRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = postRef.current?.querySelectorAll<HTMLElement>(".nc-bl-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, postRef);
 
   if (!post) {

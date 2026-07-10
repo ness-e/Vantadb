@@ -285,7 +285,7 @@ impl StorageEngine {
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
                 || effective_memory < 16 * GIB);
 
-        let hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
+        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
             if use_mmap {
                 info!(
                     backend = "mmap",
@@ -315,6 +315,10 @@ impl StorageEngine {
         } else {
             VantaFile::open(vector_store_path, 64 * MIB)?
         };
+
+        if let Some(threshold) = config.flat_threshold {
+            hnsw.config.flat_threshold = Some(threshold);
+        }
 
         Ok((hnsw, vector_store))
     }

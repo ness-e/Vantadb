@@ -1,3 +1,12 @@
+---
+title: "Estructura Visual de la Información en Diseño Web"
+type: design
+status: active
+tags: [vantadb, design, web, ui, swiss, neubrutalism]
+last_reviewed: 2026-07-10
+language: es
+---
+
 # Estructura Visual de la Información en Diseño Web
 
 ## 📚 Terminología Correcta
