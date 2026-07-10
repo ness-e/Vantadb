@@ -15,12 +15,6 @@ export const Route = createFileRoute("/security")({
           "Security-first embedded database for AI agents. WAL integrity, zero-network attack surface, PHI-safe local storage.",
       },
       { property: "og:url", content: "https://vantadb.dev/security" },
-      { property: "og:title", content: "VantaDB — Embedded Security Posture" },
-      {
-        property: "og:description",
-        content: "Security-first embedded database for AI agents.",
-      },
-      { property: "og:url", content: "https://vantadb.dev/security" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/security" }],
     scripts: [

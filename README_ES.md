@@ -120,7 +120,7 @@ record = db.put(
 stored = db.get_memory("agent/main", "memory-001")
 
 # 4. busqueda-hibrida (BM25 + Similitud Coseno fusionada vía RRF)
-hits = db.search_memory("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Telemetría Operacional y Cierre Seguro
 caps = db.hardware_profile()

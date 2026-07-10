@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # VantaDB Server — multi-stage build with dependency caching & minimal runtime
 # https://vantadb.dev
-ARG RUST_VERSION=1.86
+ARG RUST_VERSION=1.94
 ARG BINARY=vantadb-server
-ARG APP_VERSION=0.1.5
+ARG APP_VERSION=0.3.0
 
 # ───────────────────────────────────────────────────────
 # Stage 1 — Build the Rust binary
@@ -44,7 +44,7 @@ RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --package ${BINARY} 2>/dev/null || true
+    cargo build --release --package ${BINARY} 2>/dev/null; true
 
 # Remove skeleton before copying real sources
 RUN rm -rf src/ vantadb-*/src/
