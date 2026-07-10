@@ -9,7 +9,34 @@ aliases: []
 
 # VantaDB Community Governance & SLA Policy
 
+> **Canonical governance document.** Historical context and decision rationale in [[../architecture/adr/009_community_governance_model.md|ADR 009]]. Technical governance design (conflict resolution, admission control) in [[../architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md]].
+
 This document establishes the official governance rules, contribution workflows, and maintainer SLA commitments for **VantaDB** as an Open-Core system (Apache-2.0). Our goal is to ensure a transparent, active, and welcoming community for external developers and systems engineers.
+
+---
+
+## Governance Model
+
+VantaDB uses a **Benevolent Dictator for Life (BDFL) with Core Team** model:
+
+| Role | Authority | Appointment |
+|------|-----------|-------------|
+| **BDFL** | Final authority on design decisions, API changes, conflict resolution | Project founder (intended to transition to steering committee) |
+| **Core Team (3-5)** | Merge permissions on `vantadb-server` and `vantadb-core` | Nominated by BDFL after >6 months contribution, confirmed by Core Team majority |
+| **Committers** | Merge permissions on ancillary crates, docs | Granted by any Core Team member after demonstrated competence |
+
+### RFC Process
+
+Major changes require a formal RFC:
+1. PR against `docs/rfc/` with structured RFC document
+2. Minimum 7-day comment period
+3. Core Team vote (simple majority, BDFL breaks ties)
+
+**Requires RFC:** Public API changes, storage format/WAL layout changes, new backends, licensing-impacting dependencies.
+
+### CLA Requirement
+
+Contributors whose changes exceed 15 lines must sign an Individual CLA via GitHub CLA assistant. Corporate contributions require a Corporate CLA.
 
 ---
 
