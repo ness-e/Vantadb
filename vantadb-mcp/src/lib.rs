@@ -1066,7 +1066,11 @@ pub fn handle_tools_call(
                 .unwrap_or(config.default_top_k as u64);
             let top_k = (raw_top_k as usize).min(config.max_top_k);
 
-            let distance_metric = match args["distance_metric"].as_str() {
+            let distance_metric = match args["distance_metric"]
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_lowercase())
+                .as_deref()
+            {
                 Some("euclidean") => vantadb::DistanceMetric::Euclidean,
                 _ => vantadb::DistanceMetric::Cosine,
             };
@@ -1104,26 +1108,19 @@ pub fn handle_tools_call(
                 validate_vector(vec_arr, config.max_vector_dim).map_err(|e| e.to_json())?;
             let k = args["k"].as_u64().unwrap_or(5) as usize;
 
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let hits = embedded
+                .search_vector(&vector, k)
+                .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+
             let mut results = Vec::new();
-            let index = storage.hnsw.load();
-            let vs = storage.vector_store.read();
-            let neighbors = index.search_nearest(
-                &vector,
-                None,
-                None,
-                &vantadb::node::ALL_BITSET,
-                k,
-                Some(&vs),
-            );
-            for (id, distance) in neighbors {
-                if let Ok(Some(node)) = storage.get(id) {
-                    let record = vantadb::sdk::memory_record_from_node(node);
-                    let rec_val = record
-                        .as_ref()
-                        .and_then(|r| serde_json::to_value(r).ok())
-                        .unwrap_or(Value::Null);
-                    results
-                        .push(json!({"id": id.to_string(), "distance": distance, "node": rec_val}));
+            for hit in hits {
+                if let Ok(Some(node)) = embedded.get_node(hit.node_id) {
+                    results.push(json!({
+                        "id": hit.node_id.to_string(),
+                        "distance": hit.distance,
+                        "node": node,
+                    }));
                 }
             }
             Ok(text_content(serialize_content(&results)))
