@@ -785,7 +785,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.7 | ~~Expandir `.env.example` con todas las 22 variables~~ ✅ Completo | `.env.example` | ✅ Expandido de 9 a 22 variables documentadas en CONFIGURATION.md |
 | 2.8 | ~~Añadir `proptest` para HNSW search correctness~~ ✅ Completo | `tests/proptest_hnsw_search.rs`, `src/index/graph.rs` | 1 día |
 | 2.9 | ~~Añadir `#![deny(unsafe_op_in_unsafe_fn)]`~~ ✅ Completo | `src/lib.rs` | 15 min |
-| 2.10 | Consolidar `thiserror` a v2 sola | `Cargo.toml` | 15 min |
+| 2.10 | ~~Consolidar `thiserror` a v2 sola~~ ✅ Completo | `Cargo.toml`, `Cargo.lock` | 15 min |
 | 2.11 | Reducir duplicate crate versions (17 pares) | `Cargo.toml` con `[patch]` sections | 1-2 días |
 | 2.12 | Unificar async pattern en TS SDK | `vantadb-ts/src/` | 1 hora |
 
