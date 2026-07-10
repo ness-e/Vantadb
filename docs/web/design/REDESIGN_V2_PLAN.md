@@ -3,6 +3,8 @@
 > **NO** es una mejora de lo que existe. Es una reconstrucción completa desde cero.
 > Fecha: 2026-07-04 | Estilo: Swiss + Neubrutalism (Anti-Slop)
 > Manifiesto: "Si el diseño corporativo es un sedán familiar, VantaDB es un coche de rally Grupo B."
+>
+> **Ejecución granular absorbida.** El contenido de `../strategy/implementation_plan.md` (Phase 0–6 specs, cleanup lists, verification plan, git commits) está integrado en §§12–16 de este documento.
 
 ---
 
@@ -779,3 +781,75 @@ En lugar de logos de empresas reales (startup sin clientes conocidos):
 | Interactive diagrams | None | ✅ (architecture + benchmarks) |
 | Mobile responsive | Partial | ✅ Full |
 | WCAG compliance | Partial | ✅ AA minimum |
+
+---
+
+## 12. Components a Eliminar (Phase 6)
+
+| Componente | Razón |
+|---|---|
+| `SingularityHero.tsx` | Reemplazado por NbTerminalHero |
+| `AmberParticles.tsx` | Partículas no son Swiss+Neubrutalism |
+| `TypewriterHero.tsx` | Reemplazado por terminal hero |
+| `CodeGridBackground.tsx` | Grid se maneja con CSS puro |
+| `ComparisonTable.tsx` | Reemplazado por NbBenchmarkRace |
+| `AnimeMorphLogo.tsx` | No Swiss |
+| `AnimeStaggerGrid.tsx` | No Swiss |
+| `ScrollStory.tsx` | Reemplazado por NbCoreEngine scroll pin |
+| `CtaSection.tsx` | Reemplazado por NbMonolithCta |
+| `HeroSubpage.tsx` | Reemplazado por NbPageHero |
+
+## 13. CSS a Reemplazar
+
+| Archivo Viejo | Reemplazo |
+|---|---|
+| `hero.css` | Inline en `NbTerminalHero` |
+| `comparison.css` | `nb-grid.css` |
+| `cards.css` | Estilos unificados en `nb-components.css` |
+| `effects.css` | Eliminar (sin efectos difusos) |
+| `visualizations.css` | Reescribir para SVG monoline |
+
+## 14. Anti-Slop Audit Final (Granular)
+
+- [ ] `border-radius` = 0 en todo el proyecto
+- [ ] `box-shadow: none` (sin sombras difusas)
+- [ ] Sin gradientes decorativos
+- [ ] Naranja solo en señales activas/CTAs (regla 95/5)
+- [ ] Texto alineado a izquierda (excepto CTA final)
+- [ ] Tipografía correcta: Space Grotesk / Outfit / JetBrains Mono
+- [ ] Bordes 2px en cards/frames, 1px en grids internos
+- [ ] Animaciones ≤ 150ms UI, ≤ 300ms reveals
+- [ ] `prefers-reduced-motion` respetado en todo GSAP
+- [ ] `font-variant-numeric: tabular-nums` en datos numéricos
+- [ ] Touch targets ≥ 44×44px en mobile
+- [ ] Contraste WCAG AA: ≥ 4.5:1 texto, ≥ 3:1 UI
+
+## 15. Verification Plan
+
+### Automated Tests
+```powershell
+npx tsc --noEmit
+npx eslint .
+npm run build
+```
+
+### Visual (por fase)
+- **Fase 0:** Tokens correctos, sin errores de compilación
+- **Fase 1:** Nav funcional desktop/mobile, footer con todas las páginas
+- **Fase 2:** Landing completa con 10 secciones responsivas
+- **Fase 3:** Engine/Architecture/Integrations/UseCases con estilo Swiss
+- **Fase 4:** Metrics pages legibles, changelog timeline funcional
+- **Fase 5:** Solutions/Pricing/About/Blog redesigned, roadmap 404
+- **Fase 6:** Anti-slop audit passed, responsive 375px–1920px
+
+## 16. Git Commits (por fase)
+
+```bash
+git commit -m "feat(design): phase 0 — design tokens + grid"
+git commit -m "feat(nav): phase 1 — nav and footer"
+git commit -m "feat(index): phase 2 — landing page redesign"
+git commit -m "feat(pages): phase 3 — technical subpages"
+git commit -m "feat(pages): phase 4 — metrics + changelog"
+git commit -m "feat(pages): phase 5 — solutions, about, blog"
+git commit -m "chore(cleanup): phase 6 — purge + anti-slop"
+```

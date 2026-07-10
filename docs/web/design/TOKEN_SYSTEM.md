@@ -117,6 +117,7 @@
 |---|---|---|---|---|
 | `--text-micro` | `0.6rem` | 9.6px | 9.6px | Legal, timestamps |
 | `--text-label` | `0.72rem` | 11.5px | 11.5px | ALL CAPS labels, tag text |
+| `--text-sm` | `0.875rem` | 14px | 14px | Small text, captions |
 | `--text-body` | `1.05rem` | 16.8px | 16.8px | Body copy, descriptions |
 | `--text-code` | `0.88rem` | 14px | 14px | Code, terminal |
 | `--text-lead` | `1.2rem` | 19.2px | 19.2px | Lead paragraphs |

@@ -307,8 +307,35 @@ Section labels with bracket notation: `[SECTION]`, `[01]`, `[02]`.
 
 | Variant | Color |
 |---|---|
-| `.nb-label--amber` | `var(--amber)` |
-| `.nb-index--amber` | `var(--amber)` (permanent) |
+| `.nb-divider--amber` | `var(--amber)` |
+| `.nb-divider--strong` | `var(--border-strong)` |
+
+---
+
+## 17. Accordion (`.nb-accordion`)
+
+### Purpose
+Expandable content sections — FAQs, spec details.
+
+### Anatomy
+```
+┌──────────────────────────────────────┐
+│  Item 1                    [+]        │  2px border-strong
+├──────────────────────────────────────┤
+│  ┌────────────────────────────────┐  │
+│  │  Revealed content              │  │
+│  └────────────────────────────────┘  │
+├──────────────────────────────────────┤
+│  Item 2                    [+]        │
+└──────────────────────────────────────┘
+```
+
+| Property | Value |
+|---|---|
+| Item border | `2px solid var(--border-strong)` |
+| Button | `width: 100%`, left-aligned, amber on hover |
+| Toggle | `+` symbol, rotates 45° when open |
+| Content | `--text-body` color `var(--muted)` |
 
 ---
 
@@ -439,11 +466,177 @@ Standard section title block — label + heading + optional border.
 | Variant | Addition |
 |---|---|
 | `.nb-section-header--bordered` | `2px` bottom border + padding |
+| `.nb-section-header--hairline` | `1px` bottom border |
 | `.nb-section-header--right-border` | `2px` right border |
+| `.nb-section-header--amber` | Amber bottom border |
+| `.nb-section-header--center` | Center-aligned |
+
+### Typographic Header Elements
+
+| Class | Font | Size | Color |
+|---|---|---|---|
+| `.nb-section-headline` | `--font-display` | `--text-display` | `--foreground` |
+| `.nb-section-sub` | `--font-sans` | `--text-body` | `var(--muted)` |
+| `.nb-mono-label` | `--font-mono` | `--text-label` | `var(--steel)` |
+| `.nb-amber-title` | `--font-display` | `1.25rem` | `var(--amber)` |
+| `.nb-footer-heading` | `--font-mono` | `0.65rem` | `var(--amber)` |
 
 ---
 
-## 17. Section Layout (`.nb-section`)
+## 17. Accordion (`.nb-accordion`)
+
+### Purpose
+Expandable content sections — FAQs, spec details.
+
+| Property | Value |
+|---|---|
+| Item border | `2px solid var(--border-strong)` |
+| Button | `width: 100%`, left-aligned, amber on hover |
+| Toggle | `+` symbol, rotates 45° when open |
+| Content | `--text-body` color `var(--muted)` |
+
+## 18. Metric (`.nb-metric`)
+
+### Purpose
+Data display — benchmarks, stats, KPIs.
+
+| Element | Spec |
+|---|---|
+| Value | `--font-mono`, `--text-metric`, `700`, `tabular-nums` |
+| Label | `--text-micro`, `uppercase`, `--tracking-wide`, `var(--steel)` |
+| Unit | `0.5em`, muted, `vertical-align: super` |
+
+## 19. Copy Command (`.nb-copy-command`)
+
+### Purpose
+Install commands and CLI snippets with one-click copy.
+
+| Element | Spec |
+|---|---|
+| Block | `2px solid var(--amber)` border, `--terminal-bg`, `var(--shadow-md)` |
+| Prompt ($) | `var(--steel)` |
+| Command | `var(--amber)`, bold |
+| Cursor | Amber blink animation |
+| Copy btn | Ghost button, amber text |
+
+## 20. Code Block (`.nb-code-block`)
+
+### Purpose
+Multi-line code samples.
+
+| Property | Value |
+|---|---|
+| Background | `--terminal-bg` (#080808) |
+| Border | `2px solid var(--border-strong)` |
+| Padding | `var(--space-md)` |
+| Font | `--font-mono`, `--text-code` |
+
+## 21. Block Amber (`.nb-block-amber`)
+
+### Purpose
+High-emphasis callout or CTA area.
+
+| Property | Value |
+|---|---|
+| Background | `var(--amber)` |
+| Color | `var(--text-on-amber)` (#0a0a0a) |
+| Padding | `var(--space-lg)` |
+
+## 22. Log Line (`.nb-log-line`)
+
+### Purpose
+Terminal log-style data display.
+
+| Property | Value |
+|---|---|
+| Font | `--font-mono`, `--text-code` |
+| Color | `var(--muted)` |
+| Prefix | `attr(data-level)` — amber for default |
+
+| Variant | Color |
+|---|---|
+| Info | `var(--steel)` |
+| Warn | `var(--amber)` |
+| Ok | `var(--success)` |
+| Error | `var(--danger)` |
+
+## 23. Meta Tag (`.nb-meta-tag`)
+
+### Purpose
+Small metadata labels, tags, categories.
+
+| Property | Value |
+|---|---|
+| Font | `--font-mono`, `--text-micro` |
+| Transform | `uppercase` |
+| Tracking | `--tracking-wide` |
+| Color | `var(--steel)` |
+| Prefix | `>` in amber |
+| Border | `1px solid var(--border-visible)` |
+
+## 24. Tactile Components
+
+### Tactile Card (`.nb-tactile-card`)
+| Property | Value |
+|---|---|
+| Border | `2px solid var(--border-visible)` |
+| Hover border | `var(--amber)` |
+
+### Tactile Input (`.nb-tactile-input`)
+| Property | Value |
+|---|---|
+| Border | `2px solid var(--border-strong)` |
+| Focus border | `var(--amber)` |
+
+### Tactile Button (`.nb-tactile-btn`)
+| Property | Value |
+|---|---|
+| Background | `var(--amber)` |
+| Hover | Invert to white text + white border |
+
+## 25. Num Marker (`.nb-num-marker`)
+
+### Purpose
+Large decorative number for step sequences or indices.
+
+| Property | Value |
+|---|---|
+| Font | `--font-display`, `clamp(3rem, 6vw, 5rem)`, `900` |
+| Tracking | `-0.06em` |
+| Color | `var(--border-strong)` |
+| Amber variant | `.nb-num-marker--amber` |
+
+## 26. Dither Image (`.nb-dither-image`)
+
+### Purpose
+Team photos and editorial images with 1-bit dithering filter.
+
+| Property | Value |
+|---|---|
+| Filter | SVG filter: dither (discrete color matrix, 2 values) |
+| Rendering | `image-rendering: pixelated` |
+
+## 27. Animation Components
+
+### Ticker (`.nb-ticker`)
+Opacity flash `0.8s steps(1)` — live indicator.
+
+### Cursor (`.nb-cursor`)
+Amber cursor blink `1s step-end`.
+
+### Split Flip (`.nb-split` / `.nb-split-inner`)
+Vertical split-flip animation container.
+
+## 28. Grid Hairlines
+
+| Component | Class | Description |
+|---|---|---|
+| Hairline V | `.nb-hairline-v` | 1px vertical grid line |
+| Grid overlay | `.nb-grid-overlay` | SVG grid overlay (absolute positioned) |
+
+---
+
+## 29. Section Layout (`.nb-section`)
 
 | Property | Value |
 |---|---|
@@ -460,7 +653,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 18. Inner Content (`.nb-inner`)
+## 30. Inner Content (`.nb-inner`)
 
 | Property | Value |
 |---|---|
@@ -476,7 +669,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 19. Grid Layouts
+## 31. Grid Layouts
 
 ### Grid (`.nb-grid`)
 
@@ -555,7 +748,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 20. Background Textures
+## 32. Background Textures
 
 ### Scanline (`.scanline`)
 
@@ -600,7 +793,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 21. Scrollbar
+## 33. Scrollbar
 
 | Property | Value |
 |---|---|
@@ -612,7 +805,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 22. Selection
+## 34. Selection
 
 | Property | Value |
 |---|---|
@@ -621,9 +814,9 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 23. Page Templates (Subpage Patterns)
+## 35. Page Templates (Subpage Patterns)
 
-### 23.1 Subpage Hero
+### 35.1 Subpage Hero
 
 ```
 ┌──────────────────────────────────────────┐
@@ -651,7 +844,7 @@ Standard section title block — label + heading + optional border.
 **Variant `--sm`:** Padding top reduced, title smaller. For docs index, legal pages.
 **Variant `--docs`:** Title in `--font-mono`, search input subtitle, `.nb-bg-cross` background.
 
-### 23.2 Feature Page Template
+### 35.2 Feature Page Template
 
 ```
 ┌──────────────────────────────────────────┐
@@ -685,7 +878,7 @@ Standard section title block — label + heading + optional border.
 └──────────────────────────────────────────┘
 ```
 
-### 23.3 Docs Page Template
+### 35.3 Docs Page Template
 
 ```
 ┌──────────────────────────────────────────┐
@@ -708,7 +901,7 @@ Standard section title block — label + heading + optional border.
 | Code blocks | `--font-mono`, `--text-code`, visible border |
 | Inline code | `--amber` background |
 
-### 23.4 CTA Section
+### 35.4 CTA Section
 
 ```
 ┌──────────────────────────────────────────┐
@@ -729,7 +922,7 @@ Standard section title block — label + heading + optional border.
 
 ---
 
-## 24. Implementation Rules
+## 36. Implementation Rules
 
 1. **No hardcoded values** — every color, size, radius, shadow must reference a token.
 2. **Mobile-first CSS** — base styles target `< 768px`, override with `min-width`.
@@ -739,3 +932,62 @@ Standard section title block — label + heading + optional border.
 6. **Border-radius** — zero everywhere. No exceptions.
 7. **Icons** — use `.nb-icon-box` container. 2px stroke min.
 8. **Accessibility** — `focus-visible: 2.5px solid var(--amber)` on all interactive elements.
+
+---
+
+## 37. Usage Examples
+
+### Card with Index
+```tsx
+<div className="nb-card">
+  <span className="nb-index">[01]</span>
+  <div className="nb-icon-box">
+    <SearchIcon />
+  </div>
+  <h3 className="text-title">Hybrid Search</h3>
+  <p className="text-body">HNSW + BM25 in a single query.</p>
+  <a className="nb-arrow">Learn more</a>
+</div>
+```
+
+### Telemetry Row
+```tsx
+<div className="nb-telemetry">
+  <span>QUERY: 1.2ms</span>
+  <span>RECALL: 0.998</span>
+  <span>INDEXED: 10K</span>
+</div>
+```
+
+### Warning Block
+```tsx
+<div className="nb-block-warning">
+  <p>This API will be deprecated in v0.8.0. Migrate to the new query interface.</p>
+</div>
+```
+
+### Frame with Label
+```tsx
+<div className="nb-frame" data-frame-label="ARCHITECTURE">
+  {/* content */}
+</div>
+```
+
+### Bento Grid with Anchor
+```tsx
+<div className="nb-bento nb-bento--3col">
+  <div className="nb-bento-cell nb-bento-cell--featured">
+    {/* featured content — spans 2x2 */}
+  </div>
+  <div className="nb-bento-cell">{/* content */}</div>
+  <div className="nb-bento-cell">{/* content */}</div>
+  <div className="nb-bento-cell nb-bento-cell--span2">{/* content */}</div>
+</div>
+```
+
+### Mechanical Button
+```tsx
+<button className="btn-primary">
+  GET STARTED
+</button>
+```
