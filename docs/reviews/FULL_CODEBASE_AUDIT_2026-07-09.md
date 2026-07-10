@@ -686,6 +686,45 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 - `@testing-library/jest-dom v6.9.1` desactualizado
 - `esbuild` y `rollup` como dependencies (no devDependencies) — probablemente transitivas
 
+### 12.6 Análisis de Duplicados — Finding 2.11
+
+**Estado:** Investigado — `[patch]` no viable para same-source. Bloqueado en upgrade de tantivy.
+
+El approach sugerido (`[patch]` sections en Cargo.toml) **no es viable** para consolidar versiones dentro de crates.io. Cargo rechaza explícitamente `[patch]` entries que apuntan al mismo source:
+```
+error: patch for `lru` in `https://github.com/rust-lang/crates.io-index`
+       points to the same source, but patches must point to different sources.
+```
+
+Usar `[patch]` con git sources para forzar consolidación rompería compatibilidad de API entre semver major versions (ej. `lru 0.12` tiene API distinta a `0.13`).
+
+**Duplicados detectados en `Cargo.lock` (July 2026):**
+
+| Crate | Versiones | Categoría | Resolución |
+|---|---|---|---|
+| `thiserror` | 1.0.69 + 2.0.18 | ✅ Resuelto (Finding 2.10) | Migrado a v2 en `Cargo.toml` |
+| `hashbrown` | 0.14.5, 0.15.5, 0.16.1, 0.17.1 | Bloqueado | 3 ecosistemas (arrow v0.17, fjall v0.14/0.16, tantivy v0.15) |
+| `windows-sys` | 0.52.0, 0.59.0, 0.60.2, 0.61.2 | Bajo impacto | Inevitable por fragmentación winapi |
+| `getrandom` | 0.2.17, 0.3.4, 0.4.3 | Bloqueado | Cada versión de rand trae su propio getrandom |
+| `rand` / `rand_chacha` / `rand_core` | 0.8.6 + 0.9.4 | Bloqueado | 0.8 es de tantivy, 0.9 de proptest + nuestro direct dep |
+| `lz4_flex` | 0.11.6 + 0.13.1 | Bloqueado | 0.11 de tantivy, 0.13 de fjall |
+| `lru` | 0.12.5 + 0.13.0 | Bloqueado | 0.12 de tantivy, 0.13 directo nuestro |
+| `rustc-hash` | 1.1.0 + 2.1.3 | Bloqueado | 1.1 de tantivy+bindgen, 2.1 de lsm-tree (fjall) |
+| `shlex` | 1.3.0 + 2.0.1 | Build-only | 1.3 de bindgen, 2.0 de cc (ambos build deps) |
+| `itertools` | 0.12.1 + 0.13.0 + 0.14.0 | Bloqueado | 0.12 de tantivy+bindgen, 0.13 de criterion (dev), 0.14 transitivo nuevo |
+| `reqwest` | 0.12.28 + 0.13.4 | Bajo impacto | 0.12 es directo nuestro, 0.13 llegó por update transitivo |
+| `rustix` / `linux-raw-sys` / `r-efi` | 2 versiones c/u | Bajo impacto | Transitive io-uring/fd-lock churn |
+
+**Causa raíz:** 12 de los 16 pares restantes son transitivos de **tantivy v0.22.1**, que pincha versiones antiguas de lru, rand, getrandom, rustc-hash, lz4_flex, itertools, hashbrown, etc.
+
+**Path real de resolución:**
+1. Upgrade tantivy 0.22 → 0.24+ (resolvería ~12 pares). **Esfuerzo: 2-3 días** (API migration, test verification)
+2. Upgrade rocksdb 0.22 → 0.23+ (consolidaría shlex, posiblemente bindgen). **Esfuerzo: 1 día**
+3. Upgrade arrow 58 → 59+ (consolidaría hashbrown v0.17). **Esfuerzo: 1 día**
+4. Upgrade fjall 3.1 → 4.0 (si existe) (consolidaría hashbrown 0.14/0.16). **Esfuerzo: 1 día**
+
+> **Nota:** Todos nuestros direct deps están en sus últimas versiones semver-compatibles. `cargo update` global no consolidó ningún duplicado — solo bumpió patches menores dentro de rangos existentes.
+
 ---
 
 ## 13. Documentación
@@ -786,7 +825,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.8 | ~~Añadir `proptest` para HNSW search correctness~~ ✅ Completo | `tests/proptest_hnsw_search.rs`, `src/index/graph.rs` | 1 día |
 | 2.9 | ~~Añadir `#![deny(unsafe_op_in_unsafe_fn)]`~~ ✅ Completo | `src/lib.rs` | 15 min |
 | 2.10 | ~~Consolidar `thiserror` a v2 sola~~ ✅ Completo | `Cargo.toml`, `Cargo.lock` | 15 min |
-| 2.11 | Reducir duplicate crate versions (17 pares) | `Cargo.toml` con `[patch]` sections | 1-2 días |
+| 2.11 | ~~Reducir duplicate crate versions (17 pares)~~ ✅ Investigado — ver §12.6 | `Cargo.toml` + §12.6 | 1-2 días (requiere upgrade tantivy) |
 | 2.12 | Unificar async pattern en TS SDK | `vantadb-ts/src/` | 1 hora |
 
 ### Prioridad 3 — Media (Mejora Continua)
