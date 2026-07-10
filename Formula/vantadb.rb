@@ -2,7 +2,14 @@ class Vantadb < Formula
   desc "VantaDB: an embedded persistent memory and vector retrieval engine for local-first AI applications"
   homepage "https://vantadb.dev"
   license "Apache-2.0"
-  # Set VERSION before release: export VERSION=x.y.z && sed -i "s/RELEASE_VERSION/$VERSION/" Formula/vantadb.rb
+  # Set VERSION before release:
+  #   export VERSION=x.y.z
+  #   sed -i "s/RELEASE_VERSION/$VERSION/" Formula/vantadb.rb
+  # Then generate SHA256 for each tarball:
+  #   for plat in x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu; do
+  #     url="https://github.com/ness-e/Vantadb/releases/download/v$VERSION/vantadb-$plat.tar.gz"
+  #     curl -sL "$url" | sha256sum
+  #   done
   version "RELEASE_VERSION"
 
   livecheck do
