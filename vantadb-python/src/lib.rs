@@ -109,6 +109,15 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
         if first.is_none() {
             return Err(PyTypeError::new_err("List elements cannot be None."));
         }
+        // Check i64 before bool since Python bools are a subclass of int.
+        // This ensures e.g. [0, 1] is classified as ListInt, not ListBool.
+        if first.extract::<i64>().is_ok() {
+            let mut vec = Vec::with_capacity(py_list.len());
+            for item in py_list.iter() {
+                vec.push(item.extract::<i64>()?);
+            }
+            return Ok(VantaValue::ListInt(vec));
+        }
         if first.extract::<bool>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
@@ -134,13 +143,6 @@ fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
                 }
             }
             return Ok(VantaValue::ListDateTime(vec));
-        }
-        if first.extract::<i64>().is_ok() {
-            let mut vec = Vec::with_capacity(py_list.len());
-            for item in py_list.iter() {
-                vec.push(item.extract::<i64>()?);
-            }
-            return Ok(VantaValue::ListInt(vec));
         }
         if first.extract::<f64>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());

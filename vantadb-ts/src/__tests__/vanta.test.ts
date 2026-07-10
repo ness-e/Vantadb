@@ -689,39 +689,30 @@ describe("VantaDB edge cases", () => {
   });
 
   it("concurrent puts to same key", () => {
-    const promises: Promise<MemoryRecord>[] = [];
     for (let i = 0; i < 20; i++) {
-      promises.push(
-        Promise.resolve(
-          db.put({ namespace: "concurrent_same", key: "x", payload: `v${i}` }),
-        ),
-      );
+      db.put({ namespace: "concurrent_same", key: "x", payload: `v${i}` });
     }
-    const results = promises.map((p) => p.then((r) => r));
-    // Wait for all
-    return Promise.all(results).then(() => {
-      const r = db.get("concurrent_same", "x");
-      expect(r).not.toBeNull();
-    });
+    const r = db.get("concurrent_same", "x");
+    expect(r).not.toBeNull();
   });
 
   it("concurrent puts across keys", () => {
-    const promises: Promise<MemoryRecord>[] = [];
     for (let i = 0; i < 100; i++) {
-      promises.push(
-        Promise.resolve(
-          db.put({
-            namespace: "concurrent_multi",
-            key: `k${i}`,
-            payload: `v${i}`,
-            vector: [i % 10, 0, 0, 0],
-          }),
-        ),
-      );
+      db.put({
+        namespace: "concurrent_multi",
+        key: `k${i}`,
+        payload: `v${i}`,
+        vector: [i % 10, 0, 0, 0],
+      });
     }
-    return Promise.all(promises).then((records) => {
-      expect(records.length).toBe(100);
-    });
+    const records: MemoryRecord[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = db.list("concurrent_multi", { limit: 20, cursor });
+      records.push(...page.records);
+      cursor = page.next_cursor;
+    } while (cursor);
+    expect(records.length).toBe(100);
   });
 
   it("list after close throws VantaError", () => {
