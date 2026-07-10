@@ -8,7 +8,7 @@ use crate::storage::vfile::VantaFile;
 use std::sync::Arc;
 use zerocopy::IntoBytes;
 
-const FLAG_TOMBSTONE: u32 = 0x8;
+use crate::storage::engine::FLAG_TOMBSTONE;
 
 /// Serialized metadata stored per node in the KV backend.
 #[derive(serde::Serialize, serde::Deserialize)]

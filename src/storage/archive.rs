@@ -10,8 +10,7 @@ use std::path::PathBuf;
 use web_time::Instant;
 use zerocopy::IntoBytes;
 
-const FLAG_TOMBSTONE: u32 = 0x8;
-const STORAGE_ALIGNMENT: u64 = 64;
+use crate::storage::engine::{FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 const BFS_QUEUE_CAPACITY: usize = 1024;
 
 /// Rewrite the VantaFile with nodes in BFS order, returning the new offset map and file size.

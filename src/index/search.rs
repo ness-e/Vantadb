@@ -5,6 +5,7 @@ use twox_hash::XxHash64;
 use super::distance::*;
 use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
 use crate::node::{DistanceMetric, FilterBitset};
+use crate::storage::engine::FLAG_TOMBSTONE;
 
 impl CPIndex {
     #[allow(clippy::too_many_arguments)]
@@ -78,10 +79,10 @@ impl CPIndex {
 
                 let eligible = if let Some(vs) = vector_store {
                     vs.read_header(node.storage_offset)
-                        .map(|h| (h.flags & graph::FLAG_TOMBSTONE) == 0)
+                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                         .unwrap_or(false)
                 } else {
-                    (node.flags & graph::FLAG_TOMBSTONE) == 0
+                    (node.flags & FLAG_TOMBSTONE) == 0
                 };
                 if !eligible {
                     continue;
@@ -203,10 +204,10 @@ impl CPIndex {
 
                             let eligible = if let Some(vs) = vector_store {
                                 vs.read_header(neighbor.storage_offset)
-                                    .map(|h| (h.flags & graph::FLAG_TOMBSTONE) == 0)
+                                    .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
                                     .unwrap_or(false)
                             } else {
-                                (neighbor.flags & graph::FLAG_TOMBSTONE) == 0
+                                (neighbor.flags & FLAG_TOMBSTONE) == 0
                             };
                             if !eligible {
                                 continue;
@@ -260,7 +261,7 @@ impl CPIndex {
                 Some(n) => n,
                 None => continue,
             };
-            if (cand_node.flags & graph::FLAG_TOMBSTONE) != 0 {
+            if (cand_node.flags & FLAG_TOMBSTONE) != 0 {
                 continue;
             }
             let cand_slice = cand_node.vec_data.as_f32_slice();

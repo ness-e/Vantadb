@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use zerocopy::{FromBytes, IntoBytes};
 
-const STORAGE_ALIGNMENT: u64 = 64;
+use crate::storage::engine::STORAGE_ALIGNMENT;
 
 /// Current VantaFile format version.
 /// Version history:
