@@ -5,6 +5,33 @@ use crate::node::DistanceMetric;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(crate) mod u128_serde {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(val: &u128, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&val.to_string())
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u128, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum U128 {
+            Str(String),
+            Num(u64),
+        }
+        match U128::deserialize(deserializer)? {
+            U128::Str(s) => s.parse().map_err(serde::de::Error::custom),
+            U128::Num(n) => Ok(n as u128),
+        }
+    }
+}
+
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VantaRuntimeProfile {
@@ -134,6 +161,7 @@ pub struct VantaMemoryRecord {
     /// Monotonic version counter.
     pub version: u64,
     /// Deterministic node id derived from namespace and key.
+    #[serde(with = "u128_serde")]
     pub node_id: u128,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,

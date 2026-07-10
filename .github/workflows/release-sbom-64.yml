@@ -26,7 +26,7 @@ jobs:
         with:
           shared-key: sbom
       - run: cargo install cargo-cyclonedx --version 0.5.9
-      - run: cargo cyclonedx --format json --output sbom.json
+      - run: cargo cyclonedx --format json --override-filename sbom
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: sbom
