@@ -351,4 +351,39 @@ mod tests {
         );
         assert!(debug.contains("7"), "Debug should contain the value");
     }
+
+    #[test]
+    fn serde_msg_error_display() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid utf-8");
+        let e = SerdeMsgError::new("text index decode error", inner);
+        assert_eq!(e.to_string(), "text index decode error");
+    }
+
+    #[test]
+    fn serde_msg_error_source() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid utf-8");
+        let e = SerdeMsgError::new("text index decode error", inner);
+        let source = e.source().unwrap();
+        assert_eq!(source.to_string(), "invalid utf-8");
+    }
+
+    #[test]
+    fn serde_msg_error_into_vanta_error() {
+        let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid utf-8");
+        let e = VantaError::SerializationError(Box::new(SerdeMsgError::new(
+            "text index decode error",
+            inner,
+        )));
+        assert!(e.to_string().contains("text index decode error"));
+        assert!(e.source().is_some());
+        let source_msg = e.source().unwrap().to_string();
+        assert_eq!(source_msg, "text index decode error");
+    }
+
+    #[test]
+    fn serialization_error_source_plain() {
+        let inner = postcard::Error::SerdeSerCustom;
+        let e = VantaError::SerializationError(Box::new(inner));
+        assert!(e.source().is_some());
+    }
 }
