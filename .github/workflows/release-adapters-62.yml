@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex]
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
 
     steps:
       - name: Checkout
@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        adapter: [langchain, llamaindex]
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
