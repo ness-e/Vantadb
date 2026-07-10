@@ -108,7 +108,7 @@ Without a versioning strategy, a serialization change is a silent breaking chang
 
 ### 2.3 No Migration Path
 
-The `vanta-cli migrate` command exists (`src/cli_handlers.rs:2096`) but only handles the `.vanta.schema` file version. There is:
+The `vanta-cli migrate` command exists (`src/cli_handlers/migrate.rs`) but only handles the `.vanta.schema` file version. There is:
 
 - No mechanism to migrate VantaFile contents from v1 to v2
 - No mechanism to migrate HNSW index format versions
@@ -335,7 +335,7 @@ Since HNSW index is a **derived index** (rebuildable from canonical data), the s
 
 | Task | Files | Effort |
 |---|---|---|
-| Refactor `cmd_migrate` into a `MigrationEngine` struct | `src/cli_handlers.rs` → new `src/migration.rs` | Medium |
+| Refactor `cmd_migrate` into a `MigrationEngine` struct | `src/cli_handlers/migrate.rs` → `src/migration.rs` | Medium |
 | Implement VantaFile migration (v1 → v2 with CRC32C footer) | `src/migration.rs` | Large |
 | Implement Vector Index migration (rebuild-based) | `src/migration.rs` | Medium |
 | Implement WAL migration (drain + rotate) | `src/migration.rs` | Medium |

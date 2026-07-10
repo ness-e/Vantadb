@@ -221,7 +221,7 @@ pub(crate) fn get_u64_field(fields: &VantaFields, key: &str) -> Option<u64> {
     }
 }
 
-pub(crate) fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
+pub fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
     if !node.is_alive() {
         return None;
     }

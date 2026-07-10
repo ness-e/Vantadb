@@ -12,8 +12,8 @@ pub(crate) mod types;
 pub use builder::VantaEmbedded;
 pub use connect::connect;
 pub use serialization::{
-    export_line_from_record, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
-    FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    export_line_from_record, memory_record_from_node, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
+    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
 pub use types::{
     VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,

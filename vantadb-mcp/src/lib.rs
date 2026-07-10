@@ -1117,7 +1117,13 @@ pub fn handle_tools_call(
             );
             for (id, distance) in neighbors {
                 if let Ok(Some(node)) = storage.get(id) {
-                    results.push(json!({"id": id, "distance": distance, "node": node}));
+                    let record = vantadb::sdk::memory_record_from_node(node);
+                    let rec_val = record
+                        .as_ref()
+                        .and_then(|r| serde_json::to_value(r).ok())
+                        .unwrap_or(Value::Null);
+                    results
+                        .push(json!({"id": id.to_string(), "distance": distance, "node": rec_val}));
                 }
             }
             Ok(text_content(serialize_content(&results)))

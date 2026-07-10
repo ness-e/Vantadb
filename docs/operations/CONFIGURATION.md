@@ -212,7 +212,7 @@ Activated by building with `--features opentelemetry`. All spans are exported vi
 
 Span coverage includes:
 - All public SDK methods (`VantaMemory::put`, `get`, `search`, etc.) — `src/sdk.rs`
-- All CLI command handlers (`cmd_put`, `cmd_get`, etc.) — `src/cli_handlers.rs`
+- All CLI command handlers (`cmd_put`, `cmd_get`, etc.) — `src/cli_handlers/`
 - HTTP route handlers (`/health`, `/metrics`, `/api/v2/query`) — `src/cli_server.rs`
 
 ## 10. SIMD and Build Behavior
