@@ -42,8 +42,8 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `NUEVO-05` | **Sanitizer CI: ASan + TSan** en rust_ci.yml | 🟡 2-3d | 🔴 | ❌ |
-| `NUEVO-06` | **Flat index threshold** <10K brute-force | 🟡 2-3d | 🔴 | ❌ |
+| ~~`NUEVO-05`~~ | ~~**Sanitizer CI: ASan + TSan** en rust_ci.yml~~ | ~~🟡 2-3d~~ | ~~🔴~~ | ✅ |
+| ~~`NUEVO-06`~~ | ~~**Flat index threshold** <10K brute-force~~ | ~~🟡 2-3d~~ | ~~🔴~~ | ✅ |
 
 ### ⚡ Migration Runner
 
@@ -98,9 +98,9 @@ aliases: []
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
 | `MKT-13` | **Integrar demo WASM interactiva en la hero** (botón "Try in browser") — ⏳ Ruta `/demo` creada, demo funcional y desplegada en Vercel. Falta solo el enlace desde la hero | 🟡 1-2h | 🔴 | ⏳ |
-| `MCP-IDE` | **Docs de setup MCP por IDE** (Cursor, Claude Code, Windsurf) | 🟡 1-2d | 🔴 | ❌ |
+| ~~`MCP-IDE`~~ | ~~**Docs de setup MCP por IDE** (Cursor, Claude Code, Windsurf)~~ | ~~🟡 1-2d~~ | ~~🔴~~ | ✅ |
 | ~~`COM-01`~~ | **Discord server** — Ya creado por el usuario. Falta agregar invite link | 🟢 2-4h | 🔴 | ✅ |
-| `TSK-SDK` | **TypeScript SDK hardening**: type safety, error wrapping, JSDoc, tests (50+ tests) | 🟡 2-3d | 🔴 | ❌ |
+| ~~`TSK-SDK`~~ | **TypeScript SDK hardening**: type safety, error wrapping, JSDoc, tests (60 tests, 218/219 passing) | 🟡 2-3d | 🔴 | ✅ |
 | ~~`NUEVO-02`~~ | **WASM demo en Vercel** (Transformers.js + OPFS) — Ya desplegado con deploy automático | 🟡 2-3d | 🔴 | ✅ |
 | ~~`NUEVO-03`~~ | **llms.txt en raíz del repo** — ✅ ya existe en raíz (describe el proyecto); `web/public/llms.txt` es para el sitio web | 🟢 1h | 🔴 | ✅ |
 | ~~`NUEVO-04`~~ | **CONTRIBUTING.md + CODE_OF_CONDUCT.md en raíz** — ✅ CONTRIBUTING ya estaba en raíz; CODE_OF_CONDUCT copiado de `.github/` a raíz | 🟢 1h | 🔴 | ✅ |
@@ -220,13 +220,13 @@ aliases: []
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
-| `INT-03` | **Mem0 adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-04` | **CrewAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-05` | **DSPy adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-06` | **Haystack adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-07` | **Letta adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-08` | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
-| `INT-09` | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ❌ |
+| ~~`INT-03`~~ | **Mem0 adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-04`~~ | **CrewAI adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-05`~~ | **DSPy adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-06`~~ | **Haystack adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-07`~~ | **Letta adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-08`~~ | **OpenAI adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
+| ~~`INT-09`~~ | **Ollama adapter → PyPI** | 🟡 1d | 🟠 | ✅ |
 
 ### 📖 Documentación & Community
 
@@ -585,8 +585,8 @@ Jul 4-11   TIER 0 (🔴 13 items remaining):
                ─ Correctness: ✅ ~~CODE-092 (Euclidean bug)~~
                 ─ Python bugs: ✅ ~~CODE-004/005/011/014~~
               ─ Integrations: INT-01/02, DEVOPS-05, REL-02 ❌
-              ─ Infraestructura & CI: NUEVO-05/06 ❌
-               ─ Web & Landing: MKT-13 ⏳, MCP-IDE, TSK-SDK ❌ — COM-01, NUEVO-02/03/04 ✅
+               ─ Infraestructura & CI: NUEVO-05/06 ✅
+                ─ Web & Landing: MKT-13 ⏳, MCP-IDE ✅, TSK-SDK ✅ — COM-01, NUEVO-02/03/04 ✅
 Jul 11-18  TIER 1 (🟠 16 items remaining):
                ─ Marketing: ~~MKT-11, CODE-091, DX-02/03/04~~ ✅, ~~—~~ ❌
                ─ Index: ✅ ~~CODE-007/008/010/024/029/030~~
@@ -596,7 +596,7 @@ Jul 11-18  TIER 1 (🟠 16 items remaining):
               ─ Distribución: DEVOPS-06 ✅, TSK-121 ✅
                ─ Code health: ✅ ~~CODE-067~~
               ─ ⚡ Post-Benchmark: ~~PERF-15~~/~~PERF-16~~ ✅, ~~PERF-17~~/~~PERF-18~~/~~PERF-19~~/~~PERF-20~~ 🟠 ✅
-              ─ Adapters: INT-03→09 ❌
+               ─ Adapters: INT-03→09 ✅
               ─ Docs & Community: NUEVO-01/07→10 ❌
 Jul 18-25  TIER 2 (🟡 22 items remaining):
               ─ Launch: LEG-01, MKT-03→05/10/15/16, TSK-103/104, DEVOPS-12/02 ❌

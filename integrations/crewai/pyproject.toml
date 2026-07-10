@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vantadb-crewai"
+version = "0.3.0"
+description = "CrewAI adapter for VantaDB — embedded vector memory for AI agents"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+authors = [{name = "VantaDB Team"}]
+keywords = ["vantadb", "crewai", "vector-store", "rag", "ai-memory"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "vantadb-py>=0.2",
+    "crewai>=0.100",
+]
+
+[project.urls]
+Homepage = "https://github.com/ness-e/Vantadb"
+Repository = "https://github.com/ness-e/Vantadb"
+Documentation = "https://github.com/ness-e/Vantadb/tree/main/integrations/crewai"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vantadb_crewai"]
