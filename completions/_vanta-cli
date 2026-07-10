@@ -359,6 +359,7 @@ _arguments "${_arguments_options[@]}" : \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--http[Start HTTP server wrapper (default)]' \
 '--mcp[Start MCP server wrapper over stdio]' \
+'--require-auth[Force authentication\: refuse to start without an API key]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \

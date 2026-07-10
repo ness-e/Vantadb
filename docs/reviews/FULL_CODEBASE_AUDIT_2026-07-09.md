@@ -111,7 +111,7 @@ lib.rs (re-exports públicos)
 | A2 | ~~`hnsw.nodes.remove()` en delete + corrección entry_point sin atomicidad~~ ✅ Mitigado | `storage/engine/ops.rs` | Con `AtomicU128`, la ventana donde una búsqueda puede empezar desde un entry point eliminado existe pero es benigna: HNSW tolera entry points no-óptimos (el searchBacktrack en `search_nearest` corrige automáticamente). |
 | A3 | `#[cfg(any())]` en `pub mod rkyv_archives` — dead code intencional sin doc | `serialization/mod.rs:6` | Código muerto que confunde, sin explicación |
 | A4 | `hnsw.rs` es placeholder de 4 líneas que re-exporta de core.rs | `index/hnsw.rs` | Capa de indirección innecesaria |
-| A5 | `FLAG_TOMBSTONE` definido 3 veces | `mod.rs:34`, `archive.rs:13`, `node.rs` | Riesgo de drift entre definiciones |
+| A5 | ~~`FLAG_TOMBSTONE` definido 5 veces~~ ✅ Completo | `engine/mod.rs:34` es la única definición. Se eliminaron las copias en `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs`. `NodeFlags::TOMBSTONE` en `node.rs` es un flag diferente (in-memory bitset). | Riesgo de drift eliminado |
 | A6 | `hybrid_search` retiene `self.nodes.read()` durante scan completo + cosine | `engine.rs` | Bloquea escrituras durante búsquedas largas en datasets grandes |
 
 ---
@@ -270,7 +270,7 @@ No se encontraron ciclos entre locks principales. Diseño deadlock-free para los
 | # | Issue | Capa | Severidad |
 |---|---|---|---|
 | S1 | `.vercel/` con project/org IDs committeado en git | Infraestructura | **CRÍTICA** |
-| S2 | Sin forced-auth mode en server si `api_key` es None | Server | **ALTA** |
+| S2 | Sin forced-auth mode en server si `api_key` es None | Server | ✅ |
 | S3 | Homebrew formula SHA256 placeholders (instalación imposible) | Release | **ALTA** |
 | S4 | `scripts/install.sh` usa `curl` sin verificación SSL | Scripts | **MEDIA** |
 | S5 | Untrusted input injection en `release-npm-61.yml` | CI/CD | **MEDIA** |
@@ -358,7 +358,7 @@ No se encontraron ciclos entre locks principales. Diseño deadlock-free para los
 
 ### 7.3 Duplicación
 
-- **FLAG_TOMBSTONE**: Definido en 3 lugares (`mod.rs:34`, `archive.rs:13`, `node.rs`)
+- **FLAG_TOMBSTONE**: ~~Definido en 5 lugares~~ ✅ Ahora solo en `engine/mod.rs:34`. Eliminadas copias en `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs`. `NodeFlags::TOMBSTONE` en `node.rs` es un flag diferente (bitset in-memory).
 - **from_raw_parts pattern**: ~10 copias casi idénticas del mismo patrón de acceso mmap
 - **Homebrew formula**: 2 copias (`Formula/vantadb.rb` y `vantadb.rb` en root) — diferentes estructuras
 
@@ -579,7 +579,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 
 | # | Problema | Detalle | Severidad |
 |---|---|---|---|
-| SVR1 | Sin forced-auth mode | Si `api_key` es None, todos los endpoints están abiertos. No hay `--require-auth` | **ALTA** |
+| SVR1 | Sin forced-auth mode | Si `api_key` es None, todos los endpoints están abiertos. No hay `--require-auth` | ✅ |
 | SVR2 | MCP error inconsistency | Algunos tool errors retornan `Ok(error_content(...))` en vez de `Err(McpError::invalid_params(...))` | **BAJA** |
 | SVR3 | IP extraction solo funciona detrás de reverse proxy | Usa `ConnectInfo<SocketAddr>` — en deployment directo, la IP mostrada puede ser incorrecta | **BAJA** |
 
@@ -780,8 +780,8 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.2 | ~~Fragmentar `index/core.rs` (1,984 líneas)~~ ✅ Completo | Crear `src/index/graph.rs` (700), `search.rs` (419), `serialize.rs` (618), `stats.rs` (110) — `core.rs` reducido a solo tests (311) | 1 día |
 | 2.3 | ~~Reemplazar `entry_point` Mutex con `AtomicU128`~~ ✅ Completo | `src/index/graph.rs`, `serialize.rs`, `init.rs`, `ops.rs`, `Cargo.toml` (+ `portable-atomic`) | 30 min |
 | 2.4 | ~~Migrar variantes `String` de `VantaError` a source chaining~~ ✅ Completo | `src/error.rs` + 8 archivos (21 call sites): `SerializationError(String)` → `Box<dyn Error + Send + Sync>` con `SerdeMsgError` para errores con contexto. `ExportError` eliminado (no usado). | 1 hora |
-| 2.5 | Unificar `FLAG_TOMBSTONE` en un solo lugar | `node.rs`, `mod.rs`, `archive.rs` | 15 min |
-| 2.6 | Añadir forced-auth mode al server | `cli_server.rs` | 1 hora |
+| 2.5 | ~~Unificar `FLAG_TOMBSTONE` en un solo lugar~~ ✅ Completo | Se unificó en `src/storage/engine/mod.rs:34`. Eliminadas 4 copias: `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs` + actualizado `search.rs` para importar del home único. `NodeFlags::TOMBSTONE` en `node.rs` no se tocó (es un flag diferente). 5 archivos modificados. | 15 min |
+| 2.6 | ~~Añadir forced-auth mode al server~~ ✅ | `cli_server.rs`, `config.rs`, `cli.rs`, `cli_handlers/server.rs` | 1 hora |
 | 2.7 | Expandir `.env.example` con todas las 22 variables | `.env.example` | 30 min |
 | 2.8 | Añadir `proptest` para HNSW search correctness | `tests/` | 1 día |
 | 2.9 | Añadir `#![deny(unsafe_op_in_unsafe_fn)]` | `src/lib.rs` | 15 min |
