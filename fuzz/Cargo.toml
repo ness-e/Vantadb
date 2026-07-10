@@ -31,6 +31,18 @@ path = "fuzz_targets/fuzz_node_deserialize.rs"
 test = false
 doc = false
 
+[[bin]]
+name = "fuzz_wal"
+path = "fuzz_targets/fuzz_wal.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_archive"
+path = "fuzz_targets/fuzz_archive.rs"
+test = false
+doc = false
+
 [workspace]
 # Empty workspace block keeps cargo-fuzz isolated from the root workspace
 
