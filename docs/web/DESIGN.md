@@ -808,7 +808,7 @@ VantaDB is a **senior infrastructure engineer who also teaches at a code bootcam
 |---|---|---|
 | Token System | All CSS tokens | `design/TOKEN_SYSTEM.md` |
 | Component Spec | Detailed component specs | `design/COMPONENT_SPEC.md` |
-| Component Library | Component catalog | `design/COMPONENT_LIBRARY.md` |
+| Component Library | Component catalog (merged into spec) | `design/COMPONENT_SPEC.md` |
 | Icon System | Monoline SVG icon specs | `design/ICON_SYSTEM.md` |
 | Site Map | Complete route inventory | `product/SITE_MAP.md` |
 | Product | Product description | `product/PRODUCT.md` |

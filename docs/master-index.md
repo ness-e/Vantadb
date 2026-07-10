@@ -14,8 +14,8 @@ tags: [vantadb, documentation, index, master-index]
 > Index of all documentation, architecture decisions, protocol definitions, and operational references for the VantaDB project.
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
-- **Version**: 0.2.0
-- **Last Updated**: 2026-07-04
+- **Version**: 0.3.0
+- **Last Updated**: 2026-07-10
 - **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros
 
@@ -76,7 +76,7 @@ tags: [vantadb, documentation, index, master-index]
 | 2 | [[api/PYTHON_SDK.md\|PYTHON_SDK.md]] | Python bindings — `vantadb-py` | Done |
 | 3 | [[api/HTTP_API.md\|HTTP_API.md]] | REST / HTTP server specification — `GET /health`, `GET /metrics`, `POST /api/v2/query` | Done |
 | 4 | [[api/MCP.md\|MCP.md]] | MCP (Model Context Protocol) server specification | Done |
-| 5 | [[api/TS_SDK.md\|TS_SDK.md]] | TypeScript SDK — `vantadb-ts` | Pending |
+| 5 | [[api/TS_SDK.md\|TS_SDK.md]] | TypeScript SDK — `vantadb-ts` (WASM bindings) | Done |
 
 ---
 
@@ -140,9 +140,11 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[articles/why_i_built_local_memory_engine_for_ai_agents.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | (content coming) |
-| 2 | [[articles/sqlite_for_ai_agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | (content coming) |
-| 3 | [[articles/how_hybrid_search_works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | (content coming) |
+| 1 | [[articles/why_i_built_local_memory_engine_for_ai_agents.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | Planned |
+| 2 | [[articles/sqlite_for_ai_agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | Planned |
+| 3 | [[articles/how_hybrid_search_works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | Planned |
+
+> ℹ️ Articles exist as blog posts in `web/content/blog/` — see [[web/README.md\|Web Site Overview]] for published content.
 
 ---
 
@@ -157,10 +159,12 @@ The glossary lives in two complementary locations:
 
 ## Migration Guides
 
+Migrated from `migration/` to `tutorials/` (consolidated into the tutorial series).
+
 | # | Document | Description |
 |---|----------|-------------|
-| 1 | [[migration/FROM_CHROMADB.md\|From ChromaDB]] | Migrating from ChromaDB to VantaDB |
-| 2 | [[migration/FROM_LANCEDB.md\|From LanceDB]] | Migrating from LanceDB to VantaDB |
+| 1 | [[tutorials/03-migrating-from-chromadb.md\|From ChromaDB]] | Migrating from ChromaDB to VantaDB |
+| 2 | [[tutorials/migration-from-lancedb.md\|From LanceDB]] | Migrating from LanceDB to VantaDB |
 
 ---
 
@@ -178,9 +182,11 @@ The glossary lives in two complementary locations:
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
 | 1 | [[web/README.md\|Web Site Overview]] | Documentation index for the VantaDB website project | Active |
-| 2 | [[web/design/DiseñoNuevo.md\|Design System]] | Master design specification (Swiss High-Contrast Minimal) | Active |
-| 3 | [[web/brand/BRAND_PLATFORM.md\|Brand Platform]] | Brand strategy, purpose, vision, and positioning | Active |
-| 4 | [[web/brand/VERBAL_IDENTITY.md\|Verbal Identity]] | Tone of voice and editorial guidelines | Active |
+| 2 | [[web/design/REDESIGN_V2_PLAN.md\|Design System]] | Master design specification (Swiss+Neubrutalism) | Active |
+| 3 | [[web/design/TOKEN_SYSTEM.md\|Token System]] | Design tokens: typography, color, spacing, shadows | Active |
+| 4 | [[web/design/COMPONENT_SPEC.md\|Component Spec]] | Component library specification (Nb system) | Active |
+| 5 | [[web/product/PRODUCT.md\|Product]] | Product purpose, users, and personality | Active |
+| 6 | [[web/product/SITE_MAP.md\|Site Map]] | Complete route inventory with status | Active |
 
 ---
 
@@ -193,6 +199,10 @@ The glossary lives in two complementary locations:
 | 3 | [[QUICKSTART.md\|QUICKSTART]] | Quickstart guide for new users |
 | 4 | [[README.md\|Documentation Overview]] | Docs landing page and reading guide |
 | 5 | [[bitacora.md\|Devlog (Bitacora)]] | Development log and daily notes |
+| 6 | [[FAQ.md\|FAQ]] | Frequently Asked Questions |
+| 7 | [[DESIGN_RULES.md\|Design Rules]] | Swiss + Neubrutalism visual design rules |
+| 8 | [[backlog-guide.md\|Backlog Guide]] | Backlog management conventions |
+| 9 | [[ci-cd-guide.md\|CI/CD Guide]] | CI/CD pipeline guide for contributors |
 
 ---
 
@@ -202,8 +212,45 @@ See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [
 
 ---
 
+## Reviews & Audits
+
+| # | Document | Description | Status |
+|---|----------|-------------|--------|
+| 1 | [[reviews/FINAL-REVIEW.md\|Final Review]] | Skills ecosystem evaluation and cleanup plan | Active |
+| 2 | [[reviews/FULL_CODEBASE_AUDIT_2026-07-09.md\|Codebase Audit]] | Full Rust core + bindings + web audit | Active |
+| 3 | [[reviews/analisis_proyecto.md\|Project Analysis]] | Architecture, security, concurrency, code quality | Active |
+
+---
+
+## References & Troubleshooting
+
+| # | Document | Description |
+|---|----------|-------------|
+| 1 | [[references/troubleshooting.md\|Troubleshooting]] | Common Windows build/runtime issues |
+| 2 | [[references/bug-workflow.md\|Bug Workflow]] | Bug reporting and triage process |
+| 3 | [[references/reading-nextest-output.md\|Nextest Output]] | How to read cargo-nextest test results |
+
+---
+
+## Research
+
+| # | Document | Description |
+|---|----------|-------------|
+| 1 | [[research/VantaDB_RESEARCH_UNIFIED.md\|Unified Research]] | Consolidated cross-agent research report |
+| 2 | [[research/VantaDB_ANALISIS_COMPLETO.md\|Complete Analysis]] | Full project analysis and decisions |
+| 3 | [[research/ACID_TRANSACTIONS.md\|ACID Transactions]] | ACID compliance research |
+| 4 | [[research/DOCS_TOOLS_RESEARCH.md\|Docs Tools Research]] | Documentation tool evaluation (mdBook, Starlight, etc.) |
+| 5 | [[research/DOCS_AUDIT_REPORT.md\|Docs Audit Report]] | Comprehensive documentation audit |
+| 6 | [[research/SIGNED_RELEASES.md\|Signed Releases]] | Sigstore/SLSA release signing research |
+| 7 | [[research/COGNEE_EVALUATION.md\|Cognée Evaluation]] | Evaluation of the Cognée project |
+| 8 | [[research/SQL_ANALYSIS.md\|SQL Analysis]] | SQL-based query language analysis |
+| 9 | [[research/VantaDB_RESEARCH_VALIDADO.md\|Validated Research]] | Validated and cross-checked research findings |
+
+---
+
 ## Meta / Configuration
 
 | File | Description |
 |------|-------------|
 | `Cargo.toml` | Rust project manifest |
+| `opencode.jsonc` | OpenCode agent configuration |

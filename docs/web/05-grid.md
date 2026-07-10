@@ -173,5 +173,5 @@ layouts all function at full resolution.
 
 ```
 [ END GRID ]
->> next: 06-components.md
+>> next: 07-animation.md
 ```

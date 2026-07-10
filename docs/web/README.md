@@ -19,15 +19,14 @@ aliases: []
 ```
 docs/web/
 ├── README.md                          ← Este archivo — índice maestro
-├── brand/                             ← Identidad de marca y verbal
-│   ├── BRAND_PLATFORM.md              ← BMC, purpose, vision, values, archetypes
-│   ├── VERBAL_IDENTITY.md             ← Voice, tone, writing principles, glossary
-│   ├── LOGO_USAGE.md                  ← Logo especificaciones y usos
-│   └── VISUAL_IDENTITY.md             ← Resumen visual ejecutivo (color, tipografía, grid)
+├── brand/                             ← ⏳ Planificado — Identidad de marca y verbal
+│   ├── BRAND_PLATFORM.md              ← ⏳ BMC, purpose, vision, values, archetypes
+│   ├── VERBAL_IDENTITY.md             ← ⏳ Voice, tone, writing principles, glossary
+│   ├── LOGO_USAGE.md                  ← ⏳ Logo especificaciones y usos
+│   └── VISUAL_IDENTITY.md             ← ⏳ Resumen visual ejecutivo (color, tipografía, grid)
 ├── design/                            ← Especificación visual y técnica
 │   ├── TOKEN_SYSTEM.md                ← TODOS los tokens CSS del sistema
 │   ├── COMPONENT_SPEC.md              ← Especificación detallada de cada componente
-│   ├── COMPONENT_LIBRARY.md           ← Catálogo de componentes Swiss + Neubrutalism
 │   ├── ICON_SYSTEM.md                 ← Sistema de iconografía (nb-icon-box)
 │   ├── MOTION_CHOREOGRAPHY.md         ← Animación, easing, snap-fast mechanics
 │   └── SUB_PAGE_PATTERNS.md           ← Patrón común de subpáginas
@@ -38,8 +37,7 @@ docs/web/
 │   ├── REPORTE-DE-REVISION.md         ← Auditoría visual vs diseño actual
 │   ├── NEUBRUTALIST_CHECKLIST.md      ← Pre-Flight Checklist neubrutalista
 │   └── ACCESSIBILITY_STATEMENT.md     ← Declaración de accesibilidad y cumplimiento
-└── strategy/                          ← Plan de implementación y fases
-    ├── implementation_plan.md         ← MASTER — índice y decisiones resueltas
+└── strategy/                          ← Análisis competitivo
     └── COMPETITIVE_ANALYSIS.md        ← Análisis competitivo
 ```
 
@@ -48,7 +46,7 @@ docs/web/
 | Tipo | Formato | Ejemplo |
 |:---|:---|:---|
 | Documentos fuente | `UPPER_SNAKE_CASE.md` | `BRAND_PLATFORM.md` |
-| Documentos técnicos | `UPPER_SNAKE_CASE.md` | `COMPONENT_LIBRARY.md` |
+| Documentos técnicos | `UPPER_SNAKE_CASE.md` | `TOKEN_SYSTEM.md` |
 | Este archivo | `README.md` | — |
 
 ## Documentos Clave
