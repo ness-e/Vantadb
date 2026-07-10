@@ -478,14 +478,12 @@ pub fn calculate_similarity(
             DistanceMetric::Euclidean => -euclidean_distance_squared_f32(raw_query, f),
         },
         VectorRepresentations::MmapFull(ptr, len) => {
-            debug_assert!(
-                !ptr.0.is_null(),
-                "MmapFull pointer is null in compute_similarity"
-            );
-            debug_assert!(
-                *len > 0 && *len <= MAX_VEC_F32_LEN,
-                "MmapFull len out of range in compute_similarity"
-            );
+            if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+                return 0.0;
+            }
+            // SAFETY: ptr.0 is non-null and len is bounded by MAX_VEC_F32_LEN (10M).
+            // The SendPtr is only constructed from valid mmap regions that are
+            // protected by the engine's read locks for the duration of the search.
             let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
             match metric {
                 DistanceMetric::Cosine => match query_norm {

@@ -16,8 +16,9 @@ VantaDB is an open-source embedded vector database that unifies vector search (H
 - [Engine](/engine) — HNSW, BM25, hybrid RRF
 - [Architecture](/architecture) — WAL, storage engine, query pipeline
 - [Pricing](/pricing) — Apache 2.0 open core
-- [Changelog](/changelog) — Release history v0.1.0 → v0.1.5
+- [Changelog](/changelog) — Release history
 - [Roadmap](/about/roadmap) — Engineering milestones and timeline
+- [GitHub](https://github.com/ness-e/Vantadb) — Source code, issues, discussions
 
 ## Solutions
 - [AI Agents](/solutions/ai-agents) — Persistent memory for LLM agents
@@ -29,3 +30,46 @@ VantaDB is an open-source embedded vector database that unifies vector search (H
 2. **Three query engines** — vector + full-text + hybrid, RRF fusion
 3. **Zero ops** — No servers, no clusters, no per-vector pricing
 4. **Low-latency** — 1.2ms p50 HNSW vector search latency
+
+## API (HTTP Server)
+The VantaDB HTTP server exposes a single query endpoint:
+
+- **POST `/api/v2/query`** — Execute VantaQL statements (JSON body: `{"query": "<vantaql>"}`)
+- **GET `/health`** — Health check (unauthenticated)
+- **GET `/metrics`** — Prometheus-formatted metrics (requires auth)
+
+### VantaQL Statement Types
+- `query nodes { ... }` — Vector + full-text + hybrid search with filters
+- `insert node { ... }` — Insert a new node with vector, content, and metadata
+- `update node { ... }` — Update an existing node by ID
+- `delete node { ... }` — Delete a node by ID
+- `relate` — Create semantic relationships between nodes
+
+### Authentication
+- Optional bearer token via `Authorization: Bearer <token>` header
+- Optional RBAC with admin/reader/writer roles
+
+## SDKs
+
+### Python (`vantadb-py`)
+```python
+import vantadb
+db = vantadb.VantaDB()
+db.insert(1, "Hello world", [0.1, 0.2, 0.3])
+results = db.search([0.1, 0.2, 0.3], top_k=10)
+```
+
+### Rust (`vantadb`)
+```rust
+use vantadb::VantaEmbedded;
+let engine = VantaEmbedded::new();
+let results = engine.search(&query, 10)?;
+```
+
+### TypeScript (`vantadb-ts`)
+```typescript
+import { VantaDB } from 'vantadb';
+const db = new VantaDB();
+await db.connect();
+const results = await db.search(vector, 10);
+```

@@ -108,6 +108,7 @@ pub(crate) fn get_node_from_backend(
         return Ok(None);
     }
     let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
+    // SAFETY: bounds verified above (`vec_end > vstore.size` guard).
     let f32_vec: &[f32] = unsafe {
         std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
     };

@@ -169,6 +169,9 @@ static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 pub(crate) fn install_sigbus_handler() -> Result<()> {
     use std::sync::Once;
     static INSTALL_ONCE: Once = Once::new();
+    // SAFETY: `sigaction` is called exactly once (via `Once`). The handler
+    // (`sigbus_handler`) is signal-safe (only atomic stores). `sigemptyset`
+    // and `sigaction` are async-signal-safe POSIX functions.
     INSTALL_ONCE.call_once(|| unsafe {
         let mut sa: libc::sigaction = std::mem::zeroed();
         sa.sa_sigaction = sigbus_handler as *const () as usize;
@@ -184,6 +187,10 @@ pub(crate) fn install_sigbus_handler() -> Result<()> {
     Ok(())
 }
 
+// SAFETY: This function is used exclusively as a signal handler for SIGBUS,
+// registered via `sigaction`. It only performs async-signal-safe operations
+// (atomic stores on static variables) and never calls into the allocator,
+// libc I/O, or any non-signal-safe function.
 #[cfg(unix)]
 unsafe extern "C" fn sigbus_handler(
     _signum: libc::c_int,
@@ -244,6 +251,9 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
     }
     #[cfg(unix)]
     {
+        // SAFETY: `sysconf` is async-signal-safe and POSIX guarantees it returns
+        // a positive value for `_SC_PAGESIZE`. This is called during metrics
+        // collection; no heap or lock is held that could cause reentrancy issues.
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
         let page_size = if page_size <= 0 {
             4096
@@ -261,6 +271,10 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
             let pages_in_chunk = (num_pages - chunk_start_page).min(65536);
             let chunk_addr = (aligned_addr + chunk_start_page * page_size) as *mut libc::c_void;
             let chunk_len = pages_in_chunk * page_size;
+            // SAFETY: `mincore` is async-signal-safe on both Linux and macOS.
+            // `chunk_addr` points to the current aligned region of the mmap;
+            // `chunk_len` is bounded by page-aligned size checks above.
+            // `vec_buffer` is a valid writable buffer of at least `pages_in_chunk` bytes.
             #[cfg(target_os = "macos")]
             let res = unsafe {
                 libc::mincore(
@@ -296,7 +310,11 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
             ((len + (addr_val - aligned_addr) + page_size - 1) & !(page_size - 1)).max(page_size);
         let num_pages = aligned_len / page_size;
         let mut resident_pages = 0u64;
+        // SAFETY: `GetCurrentProcess` is a trivial Win32 call that always succeeds
+        // (returns a pseudo-handle, no cleanup needed).
         let h_process = unsafe { GetCurrentProcess() };
+        // SAFETY: `PSAPI_WORKING_SET_EX_INFORMATION` is a POD struct;
+        // zero-initialization is valid and fills the buffer for subsequent per-page queries.
         let mut info_buffer = vec![
             unsafe { std::mem::zeroed::<PSAPI_WORKING_SET_EX_INFORMATION>() };
             num_pages.min(65536)
@@ -309,9 +327,15 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
             }
             let cb =
                 (pages_in_chunk * std::mem::size_of::<PSAPI_WORKING_SET_EX_INFORMATION>()) as u32;
+            // SAFETY: `QueryWorkingSetEx` is a synchronous Win32 API call.
+            // `h_process` is a valid pseudo-handle; `info_buffer` is a valid writable
+            // buffer of the expected size. Each entry is a POD with the `Flags` field
+            // that the kernel populates.
             if unsafe { QueryWorkingSetEx(h_process, info_buffer.as_mut_ptr() as *mut _, cb) } != 0
             {
                 for entry in info_buffer.iter().take(pages_in_chunk) {
+                    // SAFETY: The kernel has written the entry; reading `Flags` is a
+                    // safe bitfield read on the initialized POD.
                     if (unsafe { entry.VirtualAttributes.Flags } & 1) != 0 {
                         resident_pages += 1;
                     }
@@ -408,7 +432,15 @@ pub struct VantaFile {
     pub cipher: Option<Cipher>,
 }
 
+// SAFETY: VantaFile owns a `File` handle, a `VantaFileMap` (Mmap/MmapMut/Vec<u8>),
+// a `PathBuf`, and an `AtomicBool` — all of which are `Send`. The mmap pointers
+// are managed by the memmap2 crate or the in-memory shim (Vec<u8>), both of which
+// are `Send + Sync`. The cipher field (behind `#[cfg(feature = "encryption")]`) is
+// Send by construction. No mutable aliasing crosses threads because all mutations
+// go through `&mut self` or the storage engine's locks.
 unsafe impl Send for VantaFile {}
+// SAFETY: same reasoning — all fields are Sync-safe, and the engine serializes
+// read-write access through `RwLock<VantaFile>`.
 unsafe impl Sync for VantaFile {}
 
 impl VantaFile {
@@ -467,6 +499,10 @@ impl VantaFile {
             current_size = initial_size.max(min_header_size);
             file.set_len(current_size).map_err(VantaError::IoError)?;
         }
+        // SAFETY: `file` is a valid open handle at the correct size (already
+        // truncated/validated above). `MmapOptions::map`/`map_mut` from memmap2
+        // create kernel-backed mappings; the returned `Mmap`/`MmapMut` is stored
+        // in `self.mmap` and lives for the `VantaFile`'s lifetime.
         let mut mmap = if read_only {
             VantaFileMap::ReadOnly(unsafe {
                 MmapOptions::new().map(&file).map_err(VantaError::IoError)?
@@ -551,6 +587,9 @@ impl VantaFile {
                 field: "backing_file".into(),
                 reason: "no backing file".into(),
             })?;
+        // SAFETY: `file` is the existing backing file handle at `self.size` bytes.
+        // `MmapMut::map_mut` maps the file into writable memory. The previous
+        // mapping is dropped (safe — memmap2 unmaps on Drop).
         self.mmap = VantaFileMap::ReadWrite(unsafe {
             MmapOptions::new()
                 .map_mut(file)

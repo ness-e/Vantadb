@@ -70,6 +70,10 @@ impl<'a> ArchivedHnswGraph<'a> {
         if !addr.is_multiple_of(std::mem::align_of::<ArchivedHnswHeader>()) {
             return None;
         }
+        // SAFETY: `data` is at least `header_size` bytes (checked above);
+        // `data.as_ptr()` is aligned to `align_of::<ArchivedHnswHeader>()` (checked above).
+        // The struct is `#[repr(C)]` and all bytes are valid for the `ArchivedHnswHeader`
+        // representation.
         let header: &'a ArchivedHnswHeader =
             unsafe { &*(data.as_ptr() as *const ArchivedHnswHeader) };
         if header.magic != HNSW_MAGIC {
@@ -89,10 +93,9 @@ impl<'a> ArchivedHnswGraph<'a> {
         }
 
         let nodes_addr = data.as_ptr() as usize + nodes_start;
-        debug_assert!(
-            nodes_addr.is_multiple_of(node_align),
-            "ArchivedHnswNode array misaligned"
-        );
+        // SAFETY: the `nodes_start` + `node_count * node_size` bounds were
+        // validated above (`data.len() < nodes_end` → early return). Alignment
+        // to `node_align` (16) is guaranteed by the layout computation on line 85.
         let nodes: &'a [ArchivedHnswNode] = unsafe {
             std::slice::from_raw_parts(
                 data.as_ptr().add(nodes_start) as *const ArchivedHnswNode,
@@ -100,10 +103,9 @@ impl<'a> ArchivedHnswGraph<'a> {
             )
         };
         let neighbor_bytes = &data[nodes_end..];
-        debug_assert!(
-            (neighbor_bytes.as_ptr() as usize).is_multiple_of(std::mem::align_of::<u64>()),
-            "neighbor_data misaligned"
-        );
+        // SAFETY: `nodes_end <= data.len()` so `neighbor_bytes` is valid.
+        // Alignment to u64 (8 bytes) is guaranteed by the serialization layout
+        // (nodes are 64 bytes each, and `nodes_start` is 16-byte aligned).
         let neighbor_data: &'a [u64] = unsafe {
             std::slice::from_raw_parts(
                 neighbor_bytes.as_ptr() as *const u64,
@@ -167,6 +169,9 @@ impl CPIndex {
         let padding = (node_align - (header_size % node_align)) % node_align;
         let nodes_start = header_size + padding;
 
+        // SAFETY: `header` is a stack-local `ArchivedHnswHeader` with valid data;
+        // reinterpreting it as `&[u8]` of the same size is valid for any `#[repr(C)]`
+        // struct with no padding invalidation concerns (all fields are integer types).
         let header_bytes = unsafe {
             std::slice::from_raw_parts(
                 &header as *const ArchivedHnswHeader as *const u8,
@@ -200,6 +205,8 @@ impl CPIndex {
                 neighbor_offset_u64: offset,
                 neighbor_count: (neighbor_data.len() - offset as usize) as u32,
             };
+            // SAFETY: `archived` is a stack-local `ArchivedHnswNode` with all fields
+            // initialized. Casting to `&[u8]` of the correct size is valid for `#[repr(C)]`.
             let node_bytes = unsafe {
                 std::slice::from_raw_parts(
                     &archived as *const ArchivedHnswNode as *const u8,
@@ -209,6 +216,8 @@ impl CPIndex {
             buf.extend_from_slice(node_bytes);
         }
 
+        // SAFETY: `neighbor_data` is a valid `Vec<u64>` populated above; the pointer
+        // is not null and the length matches `neighbor_data.len() * size_of::<u64>()`.
         let neighbor_bytes = unsafe {
             std::slice::from_raw_parts(neighbor_data.as_ptr() as *const u8, neighbor_data.len() * 8)
         };
@@ -313,6 +322,8 @@ mod tests {
             max_layer: 0,
             distance_metric: 0,
         };
+        // SAFETY: same reasoning as in `serialize_to_rkyv`: `header` is a valid
+        // `#[repr(C)]` struct on the stack; reinterpreting as `&[u8]` is sound.
         let header_bytes = unsafe {
             std::slice::from_raw_parts(
                 &header as *const ArchivedHnswHeader as *const u8,

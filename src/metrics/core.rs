@@ -1121,6 +1121,9 @@ fn get_native_memory() -> Option<(u64, u64)> {
         use mach2::task_info::MACH_TASK_BASIC_INFO;
         use mach2::traps::mach_task_self;
         use std::mem;
+        // SAFETY: `task_info` is a Mach FFI call. `mach_task_self()` always returns
+        // a valid task port. `info` is zero-initialized (safe for POD) and written
+        // by the kernel. `count` is set to the correct buffer size beforehand.
         unsafe {
             let mut info: mach_task_basic_info = mem::zeroed();
             let mut count = (mem::size_of::<mach_task_basic_info>() / mem::size_of::<u32>()) as u32;
@@ -1143,6 +1146,9 @@ fn get_native_memory() -> Option<(u64, u64)> {
             GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
         };
         use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        // SAFETY: `GetCurrentProcess` returns a pseudo-handle (always valid, no close needed).
+        // `GetProcessMemoryInfo` is a documented Win32 FFI call; `counters` is zero-initialized
+        // (safe for POD) and the correct size is passed. The function writes `counters` fields.
         unsafe {
             let mut counters: PROCESS_MEMORY_COUNTERS = mem::zeroed();
             let process_handle = GetCurrentProcess();
