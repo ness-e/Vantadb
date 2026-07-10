@@ -235,6 +235,10 @@ impl WalShipper {
             return None;
         }
         let data = std::fs::read_to_string(&self.marker_path).ok()?;
+        if data.len() > 1024 * 1024 {
+            tracing::warn!("WAL shipping marker file exceeds 1MB, ignoring");
+            return None;
+        }
         serde_json::from_str(&data).ok()
     }
 

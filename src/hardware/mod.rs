@@ -99,7 +99,9 @@ impl HardwareScout {
 
             // Check if we have a valid cached profile
             if let Ok(data) = fs::read_to_string(Self::PROFILE_PATH) {
-                if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data) {
+                if data.len() > 1024 * 1024 {
+                    tracing::warn!("Hardware cache file exceeds 1MB, ignoring");
+                } else if let Ok(cached_caps) = serde_json::from_str::<HardwareCapabilities>(&data) {
                     if cached_caps.env_hash == env_hash {
                         // Cache Hit: Environment unchanged! Perfect cold-start speedup.
                         Self::log_adaptive_status(&cached_caps, true);
