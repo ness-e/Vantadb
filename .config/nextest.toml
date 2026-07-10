@@ -7,6 +7,7 @@ not binary(benchmark_internal) \
 and not binary(benchmark_datasets) \
 and not binary(cli_tests) \
 and not binary(concurrency_parity) \
+and not binary(concurrency_primitives) \
 and not binary(derived_index_recovery) \
 and not binary(durability_recovery) \
 and not binary(edge_cases) \
