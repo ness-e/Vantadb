@@ -100,6 +100,12 @@ proptest! {
     /// Prop 3 — Monotonicidad top-k: aumentar top_k nunca descarta resultados
     /// que ya aparecían. Los resultados con k pequeño deben ser un prefijo
     /// de los resultados con k grande (mismos primeros elementos, mismo orden).
+    ///
+    /// Nota: esta propiedad se cumple porque `small` y `large` se consultan
+    /// sobre la misma instancia de `VantaEmbedded` (mismo `ef_search`).
+    /// Si las consultas usaran distintos `ef_search`, la naturaleza aproximada
+    /// de HNSW podría no garantizar el prefijo. Para vectores pocos (n ≤ 10)
+    /// y `ef_search = 100`, la monotonicidad se sostiene en la práctica.
     #[test]
     fn prop_hnsw_top_k_monotonicity(
         vectors in multi_vec_strategy(),
@@ -274,13 +280,14 @@ fn prop_hnsw_mixed_normalization() {
 
     // Query con vector normalizado de la misma dirección que dos vectores
     // insertados: [1,0,0,0] y [2,0,0,0] son colineales.
-    // Cosine similarity es invariante a escala, así que ambos deben tener
-    // score ≈ 1.0 frente a query [1,0,0,0].
+    // Cosine similarity es invariante a escala, así que ambos deberían tener
+    // score ≈ 1.0 frente a query [1,0,0,0], pero la naturaleza aproximada
+    // de HNSW puede retornar solo uno de ellos (por eso la cota ≥ 1).
     let q = vec![1.0, 0.0, 0.0, 0.0];
     let hits = db.search_vector(&q, 10).unwrap();
     assert!(!hits.is_empty(), "collinear query should return results");
 
-    // Al menos dos resultados deben tener score muy cercano a 1.0
+    // Al menos un resultado debe tener score muy cercano a 1.0
     // (los vectores [1,0,0,0] y [2,0,0,0] son colineales con la query)
     let close_matches: Vec<&vantadb::VantaSearchHit> =
         hits.iter().filter(|h| h.distance > 0.99).collect();

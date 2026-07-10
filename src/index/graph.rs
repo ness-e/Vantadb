@@ -694,3 +694,71 @@ impl Default for CPIndex {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::node::ALL_BITSET;
+
+    /// Euclidean distance invariants: identical vectors → score ≈ 0.0,
+    /// all scores ≤ 0 (negative distance), descending order.
+    #[test]
+    fn test_euclidean_distance_metric() {
+        let index = CPIndex::new_with_config(HnswConfig {
+            distance_metric: DistanceMetric::Euclidean,
+            ..Default::default()
+        });
+
+        let vectors: Vec<Vec<f32>> = vec![
+            vec![1.0, 0.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0, 0.0],
+            vec![0.0, 0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 0.0, 1.0],
+        ];
+        for (i, v) in vectors.iter().enumerate() {
+            index.add(
+                i as u128,
+                FilterBitset::new(),
+                VectorRepresentations::Full(v.clone()),
+                0,
+            );
+        }
+
+        let query = vec![1.0, 0.0, 0.0, 0.0];
+        let results = index.search_nearest(&query, None, None, &ALL_BITSET, 4, None);
+
+        assert!(
+            !results.is_empty(),
+            "Euclidean search should return results"
+        );
+
+        let (closest_id, closest_score) = results[0];
+        assert_eq!(
+            closest_id, 0,
+            "identical vector should be closest (id=0), got id={}",
+            closest_id
+        );
+        assert!(
+            closest_score.abs() < 0.01,
+            "identical vector should have score ~0.0, got {}",
+            closest_score
+        );
+
+        for (_id, score) in &results {
+            assert!(
+                *score <= 0.001,
+                "Euclidean scores must be <= 0, got {}",
+                score
+            );
+        }
+
+        for window in results.windows(2) {
+            assert!(
+                window[0].1 >= window[1].1 - f32::EPSILON,
+                "Euclidean scores must be descending: {} < {}",
+                window[0].1,
+                window[1].1
+            );
+        }
+    }
+}
