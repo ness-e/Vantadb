@@ -52,7 +52,7 @@ language: es
 | Manejo de Errores | B | `thiserror` enum robusto, pero variantes String eliminan contexto. Sin source chaining. |
 | Seguridad | B- | Path traversal mitigado parcialmente. Sin forced-auth mode en server. |
 | Rendimiento | B+ | Bundle web optimizado (code splitting). WASM `wasm-opt=true`. 17 crates duplicados. |
-| CI/CD | A- | Pipeline profesional, perfiles nextest, build provenance. Sin MSRV check. macOS CI ✅. |
+| CI/CD | A | Pipeline profesional, perfiles nextest, build provenance. MSRV check ✅. macOS CI ✅. Fuzz CI ✅. Windows+ARM64 releases ✅. |
 | Docker | C | ~~Version mismatch Rust. Error swallowing en skeleton build.~~ curl en prod image. |
 | Bindings Python | A | PyO3 correcto, GIL management excelente. Faltan stubs `.pyi`. |
 | Bindings TS | A- | Types completos. Async consistente (sync/async corregido en WASM + TS). |
@@ -384,7 +384,7 @@ Los únicos `// SAFETY:` comments del codebase están en español en `index/core
 | Property-based tests | ✅ 18 proptests | `tests/proptest_serialization_roundtrip.rs` — VantaValue/VantaMetadata/VantaMemoryRecord round-trips via JSON + postcard |
 | Concurrency tests | ✅ 6 tests | `tests/concurrency_primitives.rs` — DashMap, RwLock, ArcSwap, StorageEngine concurrent stress |
 | Miri tests | ❌ | Cero — unsafe code no verificado con Miri |
-| Fuzz harnesses | ❌ | Cero — WAL, parser, archive format sin fuzzing |
+| Fuzz harnesses | ✅ 4 targets | `fuzz/fuzz_targets/` — `fuzz_parser` (parser entry points), `fuzz_node_deserialize` (UnifiedNode+WalRecord postcard), `fuzz_wal` (WalHeader deserialize + roundtrip), `fuzz_archive` (CPIndex deserialize) |
 | Regression tests for unsafe | ❌ | Cero — `#![deny(unsafe_op_in_unsafe_fn)]` no está habilitado |
 
 ---
@@ -428,11 +428,11 @@ Los únicos `// SAFETY:` comments del codebase están en español en `index/core
 | # | Problema | Archivo | Severidad |
 |---|---|---|---|
 | CI1 | ~~Sin macOS Rust CI testing~~ ✅ Completo | `ci-rust-10.yml` | **MEDIA** — Añadido job `test-macos` con cargo check + clippy + nextest audit |
-| CI2 | Sin MSRV check (`cargo check --minimal-versions`) | Missing | **MEDIA** |
-| CI3 | Sin Windows binary release | `release-binaries-63.yml` | **MEDIA** |
-| CI4 | Sin Linux ARM64 binary | `release-binaries-63.yml` | **BAJA** |
+| CI2 | ~~Sin MSRV check (`cargo check --minimal-versions`)~~ ✅ Completo | `ci-rust-10.yml` — job `msrv` con toolchain 1.94.1 | **MEDIA** |
+| CI3 | ~~Sin Windows binary release~~ ✅ Completo | `release-binaries-63.yml` — añadido `x86_64-pc-windows-msvc` | **MEDIA** |
+| CI4 | ~~Sin Linux ARM64 binary~~ ✅ Completo | `release-binaries-63.yml` — añadido `aarch64-unknown-linux-gnu` con gcc-aarch64-linux-gnu | **BAJA** |
 | CI5 | Untrusted input injection vector en `dry_run` | `release-npm-61.yml:67` | **MEDIA** |
-| CI6 | Sin fuzz CI integration | Missing | **MEDIA** |
+| CI6 | ~~Sin fuzz CI integration~~ ✅ Completo | `.github/workflows/fuzz-40.yml` — build + run semanal con cargo-fuzz (nightly) | **MEDIA** |
 | CI7 | Sin `-Zminimal-versions` en CI | Missing | **BAJA** |
 
 ### 8.4 Perfiles Cargo
@@ -844,9 +844,9 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 3.1 | ~~Añadir property-based tests (proptest) para serialización round-trips~~ ✅ Completo | `tests/proptest_serialization_roundtrip.rs` — 18 proptests. Documenta f64 ULP loss en JSON (postcard para floats), u128_serde + postcard incompatibilidad, bare u128 OK. |
 | 3.2 | ~~Añadir concurrency tests para RwLock/Mutex/DashMap~~ ✅ Completo | `tests/concurrency_primitives.rs` — 6 tests. Deadlock RwLock (barriers mixtos) y StorageEngine hang (lock ordering) corregidos. |
 | 3.3 | ~~Añadir macOS a Rust CI matrix~~ ✅ Completo | `.github/workflows/ci-rust-10.yml` — job `test-macos` con dtolnay/rust-toolchain, nextest, audit profile. |
-| 3.4 | Añadir MSRV check (`cargo check --minimal-versions`) a CI | 30 min |
-| 3.5 | Añadir Windows + Linux ARM64 a binary releases | 1 día |
-| 3.6 | Añadir fuzz harnesses para WAL + parser + archive | 2 días |
+| 3.4 | ~~Añadir MSRV check (`cargo check --minimal-versions`) a CI~~ ✅ Completo | `.github/workflows/ci-rust-10.yml` — job `msrv` con dtolnay/rust-toolchain@1.94.1 + `cargo check --workspace`. |
+| 3.5 | ~~Añadir Windows + Linux ARM64 a binary releases~~ ✅ Completo | `.github/workflows/release-binaries-63.yml` — matrix añadido `x86_64-pc-windows-msvc` (windows-latest) + `aarch64-unknown-linux-gnu` (ubuntu-latest con gcc-aarch64-linux-gnu). Packaging diferenciado: `.zip` para Windows, `.tar.gz` para Unix. |
+| 3.6 | ~~Añadir fuzz harnesses para WAL + parser + archive~~ ✅ Completo | `fuzz/fuzz_targets/fuzz_wal.rs` (WalHeader deserialize + roundtrip), `fuzz_archive.rs` (CPIndex::deserialize_from_bytes). CI: `.github/workflows/fuzz-40.yml` — build + run semanal con cargo-fuzz (nightly). |
 | 3.7 | Migrar de GSAP a `motion` (motion.dev) para web frontend | 1 día |
 | 3.8 | Habilitar `noUnusedLocals` y `noUnusedParameters` en tsconfig | 30 min |
 | 3.9 | Añadir security headers (CSP, HSTS) a Vercel config | 15 min |
@@ -919,6 +919,9 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 3.1 | Proptest serialization round-trips | `tests/proptest_serialization_roundtrip.rs` (620 líneas, 18 proptests). Root causes documentadas: f64 ULP en serde_json (ryu) → postcard para floats; `#[serde(with = "u128_serde")]` + postcard WontImplement; bare u128 OK. `Cargo.toml`: +`serde_json` dev-dep. |
 | 3.2 | Concurrency stress tests | `tests/concurrency_primitives.rs` (335 líneas, 6 tests). DashMap concurrent insert/remove, RwLock read/write stress, ArcSwap concurrent load/store, StorageEngine phased concurrent insert/get/delete. Deadlocks corregidos. `.config/nextest.toml`: excluido de default profile. |
 | 3.3 | macOS CI matrix | `.github/workflows/ci-rust-10.yml`: job `test-macos` con dtolnay/rust-toolchain + Swatinem/rust-cache + taiki-e/install-action@nextest + cargo check + clippy + `cargo nextest run --profile audit`. |
+| 3.4 | MSRV check | `.github/workflows/ci-rust-10.yml`: job `msrv` con dtolnay/rust-toolchain@1.94.1 + `cargo check --workspace`. |
+| 3.5 | Binary releases (Windows + ARM64) | `.github/workflows/release-binaries-63.yml`: matrix entries `x86_64-pc-windows-msvc` (windows-latest, .zip) + `aarch64-unknown-linux-gnu` (ubuntu-latest, cross-compile con gcc-aarch64-linux-gnu). |
+| 3.6 | Fuzz harnesses | `fuzz/fuzz_targets/fuzz_wal.rs` (WalHeader deserialize + roundtrip), `fuzz_archive.rs` (CPIndex::deserialize_from_bytes). `.github/workflows/fuzz-40.yml`: build + run semanal con cargo-fuzz (nightly). |
 
 ---
 
@@ -981,8 +984,8 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | Security | 7.0 |
 | Performance | 7.5 |
 | Code Quality | 7.0 |
-| Testing | 7.0 |
-| CI/CD | 9.0 |
+| Testing | 7.5 |
+| CI/CD | 9.5 |
 | Docker | 5.0 |
 | Python Binding | 9.0 |
 | TS Binding | 8.0 |
