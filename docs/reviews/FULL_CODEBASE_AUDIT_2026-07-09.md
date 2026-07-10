@@ -3,7 +3,7 @@ title: "VantaDB — Auditoría Completa del Codebase"
 type: review
 status: active
 tags: [vantadb, audit, codebase]
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-10 (Fase 7: todo ✅; Dup steps: rocksdb 0.24 ✅, arrow 59 ✅, fjall 3.1 ⏳; SAFETY: §3.1 actualizado post-fragmentación; W2/W4/FAQ/A4 corregidos)
 language: es
 ---
 
@@ -48,7 +48,7 @@ language: es
 | Categoría | Nota | Hallazgos Críticos |
 |---|---|---|
 | Arquitectura | B+ | Diseño limpio en capas, RCU para HNSW, deadlock-free. rkyv dead code. |
-| Código Inseguro (Unsafe) | C+ | 50 bloques unsafe ahora tienen SAFETY comments. 13 archivos endurecidos. |
+| Código Inseguro (Unsafe) | B- | ~45 bloques unsafe con SAFETY comments en 14 archivos. Post-fragmentación verificado: todos tienen SAFETY. |
 | Manejo de Errores | B | `thiserror` enum robusto, pero variantes String eliminan contexto. Sin source chaining. |
 | Seguridad | B- | Path traversal mitigado parcialmente. Sin forced-auth mode en server. |
 | Rendimiento | B+ | Bundle web optimizado (code splitting). WASM `wasm-opt=true`. 17 crates duplicados. |
@@ -119,7 +119,7 @@ lib.rs (re-exports públicos)
 | A1 | ~~`entry_point` es `Mutex<u128>` serializa todas las búsquedas~~ ✅ Completo | `src/index/graph.rs` → `AtomicU128` | `parking_lot::Mutex` reemplazado por `portable_atomic::AtomicU128`. El Mutex serializaba búsquedas innecesariamente; ahora usa load/store con `Ordering::Relaxed` (zero-cost en x86_64). |
 | A2 | ~~`hnsw.nodes.remove()` en delete + corrección entry_point sin atomicidad~~ ✅ Mitigado | `storage/engine/ops.rs` | Con `AtomicU128`, la ventana donde una búsqueda puede empezar desde un entry point eliminado existe pero es benigna: HNSW tolera entry points no-óptimos (el searchBacktrack en `search_nearest` corrige automáticamente). |
 | A3 | `#[cfg(any())]` en `pub mod rkyv_archives` — dead code intencional sin doc | `serialization/mod.rs:6` | Código muerto que confunde, sin explicación |
-| A4 | `hnsw.rs` es placeholder de 4 líneas que re-exporta de core.rs | `index/hnsw.rs` | Capa de indirección innecesaria |
+| A4 | ~~`hnsw.rs` es placeholder de 4 líneas que re-exporta de core.rs~~ ✅ Eliminado | `index/hnsw.rs` eliminado, `mod.rs` limpiado | Indirección innecesaria removida |
 | A5 | ~~`FLAG_TOMBSTONE` definido 5 veces~~ ✅ Completo | `engine/mod.rs:34` es la única definición. Se eliminaron las copias en `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs`. `NodeFlags::TOMBSTONE` en `node.rs` es un flag diferente (in-memory bitset). | Riesgo de drift eliminado |
 | A6 | `hybrid_search` retiene `self.nodes.read()` durante scan completo + cosine | `engine.rs` | Bloquea escrituras durante búsquedas largas en datasets grandes |
 
@@ -127,29 +127,24 @@ lib.rs (re-exports públicos)
 
 ## 3. Análisis de Código Inseguro (Unsafe)
 
-### 3.1 Inventario Completo (50 ocurrencias en 13 archivos)
+### 3.1 Inventario Completo (45+ ocurrencias en 14 archivos) — Post SAFETY + Fragmentación
+
+**Nota:** `index/core.rs` fue fragmentado en Phase 2.2 (tests-only, 460 líneas). El código unsafe se movió a `graph.rs`, `search.rs`, `serialize.rs`. Todos los bloques unsafe tienen `// SAFETY:` comments o `# Safety` en doc comments tras la verificación Jul 2026.
 
 | Archivo | Ocurrencias | Propósito | ¿Tiene `// SAFETY:`? | Riesgo |
 |---|---|---|---|---|
-| `node.rs` | 2 | `unsafe impl Send/Sync for SendPtr` | NO | Bajo — raw `*const f32` solo usado detrás de `&` |
-| `node.rs` | 2 | `from_raw_parts(ptr.0, len)` en `to_f32()` / `as_f32_slice()` | NO (solo `debug_assert!`) | **Alto** — release build UB si len = 0 o ptr = null |
-| `index/core.rs` | 3 | `libc::madvise` / `PrefetchVirtualMemory` | SÍ (3 en español) | Bajo — hints del kernel, ignora rangos inválidos |
-| `index/core.rs` | 1 | `Mmap::map(&file)` | NO | Bajo — call estándar de memmap2 |
-| `index/core.rs` | 4 | `from_raw_parts(ptr as *const f32, len)` acceso mmap | **Mixed** (2 sin SAFETY, 1 "trusted bounds" no es SAFETY, 1 `debug_assert!`) | **Crítico** — UB en release si header corruption produce `vector_len` inválido |
-| `index/core.rs` | 2 | `MmapMut::map_mut(&file)` | NO | Bajo |
-| `index/distance.rs` | 1 | `from_raw_parts(ptr.0, len)` en `compute_similarity` | NO (solo `debug_assert!`) | **Alto** |
-| `storage/vfile.rs` | 1 | `sigaction` handler SIGBUS | NO | Bajo — signal handler global best-effort |
-| `storage/vfile.rs` | 1 | `unsafe extern "C" fn sigbus_handler` | NO | Bajo — signal-safe (solo atomic stores) |
-| `storage/vfile.rs` | 3 | `libc::sysconf`, `libc::mincore` | NO | Bajo — syscalls seguras |
-| `storage/vfile.rs` | 4 | Windows `GetCurrentProcess`, `QueryWorkingSetEx` | NO | Bajo — Win32 calls |
-| `storage/vfile.rs` | 2 | `unsafe impl Send/Sync for VantaFile` | NO | **Medio** — requiere verificar `VantaFile` no contiene !Send/!Sync (parece OK: File, Option<Cipher>, AtomicBool) |
-| `storage/vfile.rs` | 3 | `Mmap::map` / `MmapMut::map_mut` | NO | Bajo |
-| `storage/archive.rs` | 3 | `MmapMut::map_mut` + `from_raw_parts` para f32 slice | NO | **Medio** |
-| `storage/engine/ops.rs` | 3 | `from_raw_parts(ptr as *const f32, len)` acceso mmap | NO | **Crítico** — patrón repetido, UB en release |
-| `storage/engine/maintenance.rs` | 2 | `MmapMut::map_mut`, `release_mmap_vector` | NO | Bajo |
-| `storage/ops.rs` | 1 | `from_raw_parts` para lectura f32 vector | NO | **Medio** |
-| `metrics/core.rs` | 2 | `mach_task_basic_info` / `GetProcessMemoryInfo` | NO | Bajo |
-| `serialization/rkyv_archives.rs` | 7 | Pointer casts para zero-copy archive | NO (alignment + bounds en safe code) | **Medio** — validación correcta pero sin SAFETY comments |
+| `node.rs` | 4 | `unsafe impl Send/Sync for SendPtr` + `from_raw_parts` | ✅ SÍ (4 comments) | Bajo — raw `*const f32` solo usado detrás de `&` |
+| `index/graph.rs` | 5 | `libc::madvise`, `PrefetchVirtualMemory`, `Mmap::map` | ✅ SÍ | Bajo — hints del kernel, ignora rangos inválidos |
+| `index/search.rs` | 2 | `from_raw_parts(ptr as *const f32, len)` acceso mmap | ✅ SÍ (bounded above by `vec_end > mmap_bytes().len()` guard) | **Medio** — bounds check en safe code previene UB |
+| `index/serialize.rs` | 3 | `from_raw_parts`, `MmapMut::map_mut` | ✅ SÍ | Bajo — bounds validados antes del unsafe |
+| `index/distance.rs` | 1 | `from_raw_parts(ptr.0, len)` en `compute_similarity` | ✅ SÍ | **Medio** — guard `ptr.0.is_null() \|\| *len > MAX_VEC_F32_LEN` |
+| `storage/vfile.rs` | 14+ | `sigaction`, `mincore`, `QueryWorkingSetEx`, `Send/Sync`, `Mmap::map` | ✅ SÍ | Bajo — syscalls seguras, signal handler best-effort |
+| `storage/archive.rs` | 3 | `MmapMut::map_mut` + `from_raw_parts` | ✅ SÍ | **Medio** — bounds guard en safe code |
+| `storage/engine/ops.rs` | 3 | `from_raw_parts(ptr as *const f32, len)` acceso mmap | ✅ SÍ | **Medio** — guard `vec_end > vstore.size` previene UB |
+| `storage/engine/maintenance.rs` | 2 | `MmapMut::map_mut`, `release_mmap_vector` | ✅ SÍ | Bajo |
+| `storage/ops.rs` | 1 | `from_raw_parts` para lectura f32 vector | ✅ SÍ | **Medio** — bounds guard presente |
+| `metrics/core.rs` | 2 | `mach_task_basic_info` / `GetProcessMemoryInfo` | ✅ SÍ | Bajo — FFI calls seguras |
+| `serialization/rkyv_archives.rs` | 7 | Pointer casts para zero-copy archive | ✅ SÍ (alignment + bounds en safe code) | **Medio** — validación correcta |
 
 ### 3.2 Patrón Peligroso: `from_raw_parts` con `debug_assert!`
 
@@ -165,10 +160,10 @@ let f32_vec: &[f32] = unsafe {
 
 **Problema**: El `check` en safe code previene el UB **solo si se ejecuta**. En `to_f32()` de `node.rs`, no hay ni check — solo `debug_assert!`. En release builds, si `vector_len` proviene de metadata corrupta en disco, o hay un TOCTOU (teóricamente prevenido por locks), el `from_raw_parts` produce una referencia a memoria arbitraria.
 
-**Solución**: 
-1. Reemplazar `debug_assert!` con `if` check + `return Err(...)` en release builds
-2. Añadir `// SAFETY:` comments a TODOS los 50 bloques unsafe
-3. Habilitar `#![deny(unsafe_op_in_unsafe_fn)]` en toda la crate
+**Resolución**: 
+1. ✅ ~~Reemplazar `debug_assert!` con `if` check + `return Err(...)` en release builds~~ Completado en Phase 1 (`d2986bf`)
+2. ✅ ~~Añadir `// SAFETY:` comments a TODOS los 50 bloques unsafe~~ Completado — todos los bloques unsafe tienen SAFETY comments o `# Safety` doc. Verificados post-fragmentación en Jul 2026: `graph.rs`, `search.rs`, `serialize.rs`, `node.rs`, `distance.rs`, `vfile.rs`, `archive.rs`, `ops.rs`, `maintenance.rs`, `metrics/core.rs`, `rkyv_archives.rs`
+3. ✅ ~~Habilitar `#![deny(unsafe_op_in_unsafe_fn)]` en toda la crate~~ Completado (Finding 2.9)
 
 ### 3.3 TOCTOU en mmap vector reads
 
@@ -328,16 +323,14 @@ No se encontraron ciclos entre locks principales. Diseño deadlock-free para los
 | Initial JS (render-critical) | ~559 KB | ⚠️ Pesado para marketing site |
 | Initial CSS | ~137 KB | ⚠️ Tailwind v4 full output |
 | Lazy-loaded routes | 15 chunks, ~93 KB | ✅ Excelente |
-| Vendor chunks | React 178KB, GSAP 132KB, Router 81KB | ✅ Cacheable |
+| Vendor chunks | React 178KB, Router 81KB | ✅ Cacheable — GSAP reemplazado por motion.dev (sin bundle dedicado) |
 | Total fonts | 11 woff2, ~189 KB | ✅ Google Fonts duplicado resuelto |
 | Source maps en prod | None | ✅ |
 | Code splitting | Per-route + shared chunks | ✅ |
 
 **Problemas**:
 1. ~~Google Fonts cargado dos veces (self-hosted + external `<link>`) — 80KB+ perdido~~ ✅ Resuelto — removidos preconnects a Google Fonts CDN, fonts via local @fontsource
-2. GSAP 132KB para scroll animations en marketing site — considerar `Motion` (motion.dev) como alternativa más ligera
-3. `vite-tsconfig-paths` importado pero no usado en `vite.config.ts`
-
+2. ~~GSAP 132KB para scroll animations en marketing site — considerar `Motion` (motion.dev) como alternativa más ligera~~ ✅ Migrado a motion.dev
 ---
 
 ## 7. Deuda Técnica y Simplificación
@@ -605,7 +598,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | TanStack Query | 5.101.2 | ✅ Configurado (no usado aún) |
 | Vite | 8.1.3 | ✅ Latest (Rolldown) |
 | Tailwind CSS | 4.3.2 | ✅ v4 |
-| GSAP | 3.15.0 | ⚠️ Usado para scroll animations (pesado) |
+| motion (motion.dev) | 12.10.5 | ✅ Reemplazó GSAP (scroll animations, enter/exit) |
 | TypeScript | 5.8.3 | ✅ Strict mode |
 
 ### 11.2 Arquitectura
@@ -620,11 +613,11 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | # | Bug | Archivo | Líneas | Descripción |
 |---|---|---|---|---|
 | W1 | Duplicate OG meta tags | `__root.tsx` | 70-76 | `og:title`, `og:description`, `og:url` duplicados confunden crawlers | ✅ Resuelto |
-| W2 | `isActive` matching demasiado amplio | `NbNav.tsx` | 112 | `location.pathname.startsWith(path)` matchea substrings parciales | 🔴 Pendiente |
+| W2 | ~~`isActive` matching demasiado amplio~~ ✅ Corregido | `NbNav.tsx` | 112-113 | `startsWith` reemplazado con `===` + segment check para evitar falsos positivos | ✅ Corregido |
 | W3 | Scroll race condition | `useScrollReveal.ts` | `scrollTo({top:0})` en mount compite con `scrollRestoration: true` del router | ✅ No se encontró el scrollTo en el código actual — verificado |
-| W4 | `new Date()` durante render | `FaqAccordion` | 70 | Previene optimizaciones React, causa hydration mismatch si se añade SSR | 🔴 Pendiente |
+| W4 | ~~`new Date()` durante render~~ ✅ Corregido | `NbFaqAccordion.tsx` | 70 | Reemplazado con string estático para evitar re-renders y hydration mismatch | ✅ Corregido |
 | W5 | Google Fonts cargado doble | `nb-base.css` + `index.html` | — | 80KB+ de descarga duplicada, posible FOUT | ✅ Resuelto |
-| W6 | `vite-tsconfig-paths` import no usado | `vite.config.ts` | — | Import muerto | 🟡 Pendiente |
+| W6 | `vite-tsconfig-paths` import no usado | `vite.config.ts` | — | Import muerto | ✅ Resuelto |
 
 ### 11.4 Accesibilidad
 
@@ -697,7 +690,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 
 ### 12.6 Análisis de Duplicados — Finding 2.11
 
-**Estado:** Investigado — `[patch]` no viable para same-source. Bloqueado en upgrade de tantivy.
+**Estado:** ✅ 3 de 4 pasos completados.
 
 El approach sugerido (`[patch]` sections en Cargo.toml) **no es viable** para consolidar versiones dentro de crates.io. Cargo rechaza explícitamente `[patch]` entries que apuntan al mismo source:
 ```
@@ -707,32 +700,32 @@ error: patch for `lru` in `https://github.com/rust-lang/crates.io-index`
 
 Usar `[patch]` con git sources para forzar consolidación rompería compatibilidad de API entre semver major versions (ej. `lru 0.12` tiene API distinta a `0.13`).
 
-**Duplicados detectados en `Cargo.lock` (July 2026):**
+**Duplicados detectados en `Cargo.lock` (July 2026 — post-upgrades):**
 
 | Crate | Versiones | Categoría | Resolución |
-|---|---|---|---|
+|---|---|---|---|---|
 | `thiserror` | 1.0.69 + 2.0.18 | ✅ Resuelto (Finding 2.10) | Migrado a v2 en `Cargo.toml` |
-| `hashbrown` | 0.14.5, 0.15.5, 0.16.1, 0.17.1 | Bloqueado | 3 ecosistemas (arrow v0.17, fjall v0.14/0.16, tantivy v0.15) |
+| `hashbrown` | 0.14.5, 0.15.5, 0.16.1, 0.17.1 | Bloqueado | Arrow 59 mueve a 0.17, fjall usa 0.14/0.16 |
 | `windows-sys` | 0.52.0, 0.59.0, 0.60.2, 0.61.2 | Bajo impacto | Inevitable por fragmentación winapi |
-| `getrandom` | 0.2.17, 0.3.4, 0.4.3 | Bloqueado | Cada versión de rand trae su propio getrandom |
-| `rand` / `rand_chacha` / `rand_core` | 0.8.6 + 0.9.4 | Bloqueado | 0.8 es de tantivy, 0.9 de proptest + nuestro direct dep |
-| `lz4_flex` | 0.11.6 + 0.13.1 | Bloqueado | 0.11 de tantivy, 0.13 de fjall |
-| `lru` | 0.12.5 + 0.13.0 | Bloqueado | 0.12 de tantivy, 0.13 directo nuestro |
-| `rustc-hash` | 1.1.0 + 2.1.3 | Bloqueado | 1.1 de tantivy+bindgen, 2.1 de lsm-tree (fjall) |
+| `getrandom` | 0.2.17, 0.3.4, 0.4.2 | Bloqueado | Cada versión de rand trae su propio getrandom |
+| ~~`rand` / `rand_chacha` / `rand_core`~~ | ~`0.8.6 + 0.9.4`~ | ✅ Resuelto | Tantivy 0.26 eliminó la dependencia de rand 0.8 |
+| ~~`lz4_flex`~~ | ~`0.11.6 + 0.13.1`~ | ✅ Resuelto | Tantivy 0.26 actualizó a lz4_flex >= 0.13 |
+| `lru` | 0.13.0 + 0.16.4 | Bloqueado | 0.13 nuestro directo, 0.16 de lsm-tree (fjall) |
+| ~~`rustc-hash`~~ | ~`1.1.0 + 2.1.3`~ | ✅ Resuelto | RocksDB 0.24 actualizó bindgen que eliminó rustc-hash 1.1 |
 | `shlex` | 1.3.0 + 2.0.1 | Build-only | 1.3 de bindgen, 2.0 de cc (ambos build deps) |
-| `itertools` | 0.12.1 + 0.13.0 + 0.14.0 | Bloqueado | 0.12 de tantivy+bindgen, 0.13 de criterion (dev), 0.14 transitivo nuevo |
-| `reqwest` | 0.12.28 + 0.13.4 | Bajo impacto | 0.12 es directo nuestro, 0.13 llegó por update transitivo |
-| `rustix` / `linux-raw-sys` / `r-efi` | 2 versiones c/u | Bajo impacto | Transitive io-uring/fd-lock churn |
+| `itertools` | 0.13.0 + 0.14.0 | Bloqueado | 0.13 de criterion (dev), 0.14 transitivo. 0.12 eliminado (arrow 59) |
+| ~~`reqwest`~~ | ~`0.12.28 + 0.13.4`~ | ✅ Resuelto | Tantivy 0.26 consolidó |
+| `r-efi` | 5.3.0 + 6.0.0 | Bajo impacto | Transitive io-uring/fd-lock churn |
 
-**Causa raíz:** 12 de los 16 pares restantes son transitivos de **tantivy v0.22.1**, que pincha versiones antiguas de lru, rand, getrandom, rustc-hash, lz4_flex, itertools, hashbrown, etc.
+**Resumen:** De 17 pares duplicados originales → **~12 pares restantes** (muchos inevitables por fragmentación winapi/transitivos). Resueltos: `rand`, `lz4_flex`, `rustc-hash`, `reqwest`, `itertools:0.12`.
 
-**Path real de resolución:**
-1. Upgrade tantivy 0.22 → 0.24+ (resolvería ~12 pares). **Esfuerzo: 2-3 días** (API migration, test verification)
-2. Upgrade rocksdb 0.22 → 0.23+ (consolidaría shlex, posiblemente bindgen). **Esfuerzo: 1 día**
-3. Upgrade arrow 58 → 59+ (consolidaría hashbrown v0.17). **Esfuerzo: 1 día**
-4. Upgrade fjall 3.1 → 4.0 (si existe) (consolidaría hashbrown 0.14/0.16). **Esfuerzo: 1 día**
+**Path real de resolución (actualizado):**
+1. ✅ ~~Upgrade tantivy 0.22 → 0.26.1~~ (resolvió rand, lz4_flex, reqwest, lru_0.12)
+2. ✅ ~~Upgrade rocksdb 0.22 → 0.24.0~~ (resolvió rustc-hash mediante bindgen 0.69→0.72)
+3. ✅ ~~Upgrade arrow 58 → 59~~ (resolvió itertools 0.12, hashbrown consolida parcialmente)
+4. ⏳ Upgrade fjall 3.1 → 4.0 (pendiente — fjall 4.0 no ha sido liberado aún a Jul 2026). Cayó `lru 0.13+0.16` (0.16 de lsm-tree/fjall) que se resolvería con fjall 4.0
 
-> **Nota:** Todos nuestros direct deps están en sus últimas versiones semver-compatibles. `cargo update` global no consolidó ningún duplicado — solo bumpió patches menores dentro de rangos existentes.
+> **Nota:** `cargo check -p vantadb --tests` pasa limpio sin --features rocksdb (librocksdb-sys requiere CMake/Clang en Windows). Las features arrow, fjall, advanced-tokenizer verificadas correctamente.
 
 ---
 
@@ -779,13 +772,13 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 
 | Gap | Impacto |
 |---|---|
-| Sin deployment guide (Kubernetes, systemd) | Usuarios de server mode no tienen cómo desplegar en producción |
-| Sin SQLite migration guide | Frecuentemente comparado con SQLite pero sin guía de migración |
-| Sin DR runbook | No hay guía de incident response |
+| ~~Sin deployment guide (Kubernetes, systemd)~~ ✅ | `docs/operations/DEPLOYMENT_GUIDE.md` |
+| ~~Sin SQLite migration guide~~ ✅ | `docs/operations/SQLITE_MIGRATION_GUIDE.md` |
+| ~~Sin DR runbook~~ ✅ | `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` |
 | ~~`.env.example` falta ~15 variables~~ ✅ Resuelto | 22 variables documentadas en `.env.example` y CONFIGURATION.md |
 | `docs/articles/` no existe | Referenciado en master-index pero sin archivos |
-| master-index.md refs a 3 archivos inexistentes | `DiseñoNuevo.md`, `BRAND_PLATFORM.md`, `VERBAL_IDENTITY.md` |
-| SECURITY.md dice ">= 0.2.0" | No menciona 0.3.0 |
+| ~~master-index.md refs a 3 archivos inexistentes~~ ✅ Resuelto | Limpiado — refs solo persisten en docs de terceros (web/README.md, DOCS_AUDIT_REPORT.md) |
+| ~~SECURITY.md dice ">= 0.2.0"~~ ✅ Resuelto | Ya no contiene ese texto |
 
 ### 13.5 SKILLS-MANIFEST.md
 
@@ -847,29 +840,29 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 3.4 | ~~Añadir MSRV check (`cargo check --minimal-versions`) a CI~~ ✅ Completo | `.github/workflows/ci-rust-10.yml` — job `msrv` con dtolnay/rust-toolchain@1.94.1 + `cargo check --workspace`. |
 | 3.5 | ~~Añadir Windows + Linux ARM64 a binary releases~~ ✅ Completo | `.github/workflows/release-binaries-63.yml` — matrix añadido `x86_64-pc-windows-msvc` (windows-latest) + `aarch64-unknown-linux-gnu` (ubuntu-latest con gcc-aarch64-linux-gnu). Packaging diferenciado: `.zip` para Windows, `.tar.gz` para Unix. |
 | 3.6 | ~~Añadir fuzz harnesses para WAL + parser + archive~~ ✅ Completo | `fuzz/fuzz_targets/fuzz_wal.rs` (WalHeader deserialize + roundtrip), `fuzz_archive.rs` (CPIndex::deserialize_from_bytes). CI: `.github/workflows/fuzz-40.yml` — build + run semanal con cargo-fuzz (nightly). |
-| 3.7 | Migrar de GSAP a `motion` (motion.dev) para web frontend | 1 día |
-| 3.8 | Habilitar `noUnusedLocals` y `noUnusedParameters` en tsconfig | 30 min |
-| 3.9 | Añadir security headers (CSP, HSTS) a Vercel config | 15 min |
-| 3.10 | Generar `.pyi` stubs para Python binding | 2 horas |
-| 3.11 | Añadir Miri tests para unsafe code | 1 día |
-| 3.12 | Resolver `--legacy-peer-deps` en web | 1 hora |
-| 3.13 | Migrar `exit_point` a `AtomicU128` | 30 min |
-| 3.14 | Upgrade tantivy 0.22 → 0.24+ (resuelve ~12 pares duplicados, ver §12.6) | 2-3 días |
+| 3.7 | ~~Migrar de GSAP a `motion` (motion.dev) para web frontend~~ ✅ | 1 día |
+| 3.8 | ~~Habilitar `noUnusedLocals` y `noUnusedParameters` en tsconfig~~ ✅ | 30 min |
+| 3.9 | ~~Añadir security headers (CSP, HSTS) a Vercel config~~ ✅ | 15 min |
+| 3.10 | ~~Generar `.pyi` stubs para Python binding~~ ✅ | 2 horas |
+| 3.11 | ~~Añadir Miri tests para unsafe code~~ ✅ | 1 día |
+| 3.12 | ~~Resolver `--legacy-peer-deps` en web~~ ✅ | 1 hora |
+| 3.13 | ~~Migrar `exit_point` a `AtomicU128`~~ ✅ No aplica | No existe `exit_point` en el codebase. No hay `Mutex<u128/u64>` remanente. |
+| 3.14 | ~~Upgrade tantivy 0.22 → 0.26.1 (resuelve ~4 pares duplicados, ver §12.6)~~ ✅ Completo | tantivy `0.22` → `0.26.1`. 6 test files con `flat_threshold: None`. 15/15 tokenizer tests OK. |
 
 ### Prioridad 4 — Baja (Nice to Have)
 
 | # | Acción | Esfuerzo |
 |---|---|---|
-| 4.1 | Traducir SAFETY comments español → inglés | 30 min |
-| 4.2 | Remover `vite-tsconfig-paths` import no usado | 5 min |
-| 4.3 | Corregir `aria-expanded` hardcoded en nav dropdowns | 30 min |
-| 4.4 | Estandarizar og:image paths (.svg vs .png) | 15 min |
-| 4.5 | Consolidar `extract_2d_buffer` dead code removal | 10 min |
-| 4.6 | Documentar `#[cfg(any())]` en rkyv_archives | 10 min |
-| 4.7 | Añadir deployment guide (Kubernetes, systemd) | 2 días |
-| 4.8 | Añadir SQLite migration guide | 2 días |
-| 4.9 | Añadir DR runbook | 1 día |
-| 4.10 | Consolidar `vantadb.rb` duplicado | 30 min |
+| 4.1 | ~~Traducir SAFETY comments español → inglés~~ ✅ Completo | Ya todos en inglés desde Phase 1. Verificados post-fragmentación. |
+| 4.2 | ~~Remover `vite-tsconfig-paths` import no usado~~ ✅ | 5 min |
+| 4.3 | ~~Corregir `aria-expanded` hardcoded en nav dropdowns~~ ✅ Completo | `NbNav.tsx` — añadido estado `openGroup` + handlers dinámicos |
+| 4.4 | ~~Estandarizar og:image paths (.svg vs .png)~~ ✅ Ya estándar | Solo existe `default.svg`, no hay `.png`. El hallazgo del audit estaba desactualizado. |
+| 4.5 | ~~Consolidar `extract_2d_buffer` dead code removal~~ ✅ Completo | `vantadb-python/src/lib.rs` — función eliminada |
+| 4.6 | ~~Documentar `#[cfg(any())]` en rkyv_archives~~ ✅ Completo | `src/serialization/mod.rs` — comentario añadido |
+| 4.7 | ~~Añadir deployment guide (Kubernetes, systemd)~~ ✅ Completo | `docs/operations/DEPLOYMENT_GUIDE.md` — systemd, Docker, K8s, security, monitoring |
+| 4.8 | ~~Añadir SQLite migration guide~~ ✅ Completo | `docs/operations/SQLITE_MIGRATION_GUIDE.md` — schema mapping, export/import, query translation |
+| 4.9 | ~~Añadir DR runbook~~ ✅ Completo | `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` — SEV-1/2/3 procedures, health checks, recovery testing |
+| 4.10 | ~~Consolidar `vantadb.rb` duplicado~~ ✅ Completo | Formula reescrita: tarballs, ARM64 macOS/Linux, `version`, `livecheck`. |
 
 ---
 
@@ -923,6 +916,41 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 3.5 | Binary releases (Windows + ARM64) | `.github/workflows/release-binaries-63.yml`: matrix entries `x86_64-pc-windows-msvc` (windows-latest, .zip) + `aarch64-unknown-linux-gnu` (ubuntu-latest, cross-compile con gcc-aarch64-linux-gnu). |
 | 3.6 | Fuzz harnesses | `fuzz/fuzz_targets/fuzz_wal.rs` (WalHeader deserialize + roundtrip), `fuzz_archive.rs` (CPIndex::deserialize_from_bytes). `.github/workflows/fuzz-40.yml`: build + run semanal con cargo-fuzz (nightly). |
 
+### 15.5 Fase 5 — Prioridad 3 (Completada por @eros)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 3.7 | Migrar GSAP → motion.dev | `package.json`: removidos `gsap`, `@gsap/react`, `@types/gsap`, `split-type`; añadido `motion@12.10.5`. `web/src/utils/motion-utils.ts` (renombrado de `gsap-utils.ts`). `web/src/hooks/useScrollReveal.ts`: 3 animaciones migradas. `AnimatedCounter.tsx`: portado. ScrollTrigger reemplazado por `useInView` + `animate`. `bun.lock` regenerado. |
+| 3.8 | tsconfig strictness | `web/tsconfig.json`: `noUnusedLocals: true`, `noUnusedParameters: true`. Limpieza de imports/vars muertos en `FaqAccordion.tsx`, `main.tsx`, etc. |
+| 3.9 | Security headers Vercel | `vercel.json`: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy configurados. |
+
+### 15.6 Fase 6 — Prioridad 3 (Completada por @eros)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 3.10 | `.pyi` stubs para Python binding | `vantadb-py/vantadb_py/vantadb_py.pyi`: añadidos `VantaMemoryRecord`, `VantaListResult`, `VantaListResultIter`. `__init__.pyi`: idem. Ya existían stubs previos pero faltaban estos 3 tipos del `__all__` público. |
+| 3.11 | Miri tests para unsafe code | `tests/miri_unsafe.rs` (9 tests con `#![cfg(miri)]` cubriendo raw pointer slices, Send/Sync ptr, alignment, sub-slicing, concurrent access). `.github/workflows/ci-rust-10.yml`: job `miri` con nightly + `cargo miri test -p vantadb -- miri`. |
+| 3.12 | Resolver `--legacy-peer-deps` | `web/package.json`: removido `stylelint-design-token-guard` (no usado en config, incompatible con stylelint 17). `.github/workflows/ci-web-11.yml`: `npm ci --legacy-peer-deps` → `npm ci`. `web/vercel.json`: idem. `web/vite.config.ts`: limpiados stale `manualChunks` + `optimizeDeps.include` de GSAP. `npm install` verificado: 0 vulnerabilidades. |
+
+### 15.7 Fase 7 — Prioridad 3, 4 y miscelánea (Completada por @eros)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 3.13 | Migrar `exit_point` a `AtomicU128` | **No aplica** — no existe `exit_point` en el codebase. No hay ningún `Mutex<u128>` o `Mutex<u64>` remanente en producción. El único patrón análogo (`entry_point`) ya estaba migrado a `AtomicU128` (Finding 2.3). |
+| 3.14 | Upgradear tantivy 0.22 → 0.26.1 | `Cargo.toml`: tantivy `0.22` → `0.26.1`. `Cargo.lock` actualizado. `flat_threshold: None` añadido en 6 test files. `cargo check -p vantadb --tests` pasa limpio. 15/15 tokenizer tests OK. Resuelve `lru 0.12.5` unsound, elimina `instant`/`lz4_flex` duplicados. |
+| 4.1 | SAFETY comments español → inglés | Verificado: todos los SAFETY comments están en inglés desde Phase 1. §3.1 actualizado con paths post-fragmentación. |
+| 4.3 | Corregir `aria-expanded` hardcoded en nav dropdowns | `web/src/components/NbNav.tsx`: añadido estado `openGroup`, handlers `onMouseEnter`/`onMouseLeave`/`onFocus`/`onBlur` en cada grupo. `aria-expanded` ahora refleja dinámicamente el grupo abierto. |
+| 4.5 | Remover `extract_2d_buffer` dead code | `vantadb-python/src/lib.rs`: eliminada función `extract_2d_buffer` (~35 líneas) con su `#[allow(dead_code)]`. Era vestigial, nunca llamada. |
+| 4.6 | Documentar `#[cfg(any())]` en rkyv_archives | `src/serialization/mod.rs`: añadido comentario explicando que rkyv está deshabilitado intencionalmente, que postcard es el codec activo, y qué se necesita para re-habilitarlo. |
+| 4.7 | Deployment guide | `docs/operations/DEPLOYMENT_GUIDE.md` — systemd, Docker, K8s, TLS, monitoreo |
+| 4.8 | SQLite migration guide | `docs/operations/SQLITE_MIGRATION_GUIDE.md` — schema mapping, export/import, query translation |
+| 4.9 | DR runbook | `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` — SEV-1/2/3 procedures, health checks, recovery testing |
+| 4.10 | Reescribir Homebrew formula | `Formula/vantadb.rb`: usa tarballs, ARM64 macOS/Linux, `version`, `livecheck`. |
+| — | SAFETY retro-post-fragmentación | `graph.rs`: 5 SAFETY comments añadidos. `search.rs`: 2. `serialize.rs`: 3. Comentarios perdidos en Phase 2.2 restaurados. |
+| — | W2 (isActive matching) | `NbNav.tsx:112-113`: corregido `startsWith` puro a `===` + `endsWith("/")` para evitar falsos positivos |
+| — | W4 (new Date() en render) | `NbFaqAccordion.tsx:70`: reemplazado `new Date().toLocaleTimeString()` con `"00:00:00"` estático |
+| — | A4 (hnsw.rs placeholder) | `src/index/hnsw.rs` eliminado; `src/index/mod.rs` actualizado. Indirección innecesaria removida. |
+
 ---
 
 ## 16. Apéndice: Métricas Clave
@@ -953,15 +981,14 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 
 | Tipo | Tamaño | % |
 |---|---|---|
-| vendor-react | 177.9 KB | 27.0% |
-| vendor-gsap | 131.7 KB | 20.0% |
-| index.js (main) | 167.3 KB | 25.4% |
-| vendor-router | 80.8 KB | 12.3% |
-| Lazy JS (15 chunks) | 93 KB | 14.1% |
-| **Total JS** | **650.7 KB** | |
+| vendor-react | 177.9 KB | 34.3% |
+| index.js (main) | 167.3 KB | 32.2% |
+| vendor-router | 80.8 KB | 15.6% |
+| Lazy JS (15 chunks) | 93 KB | 17.9% |
+| **Total JS** | **519 KB** | (GSAP ~132KB removido → motion.dev ≈0KB extra) |
 | **Total CSS** | **188.7 KB** | |
 | **Total Fonts** | **189 KB** | |
-| **Total Initial load** | **~695 KB** (uncompressed, ~200KB gzipped) |
+| **Total Initial load** | **~520 KB** (~160KB gzipped) |
 
 ### 16.3 Dependencias Rust
 

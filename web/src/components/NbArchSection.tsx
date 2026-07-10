@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { useEffect, useRef } from "react";
+import { animate, inView } from "motion";
 import "../styles/architecture.css";
 
 const PIPELINE = [
@@ -15,41 +15,40 @@ export function NbArchSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const lineRef = useRef<SVGPathElement>(null);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const cards = gsap.utils.toArray<HTMLElement>(".nb-arch-stage .nb-card");
-        if (!cards.length) return;
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 60%",
-          },
-        });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-        cards.forEach((card, _i) => {
-          tl.fromTo(
-            card,
-            { opacity: 0, x: -16 },
-            { opacity: 1, x: 0, duration: 0.35, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
-            "-=0.1",
-          );
-        });
-
-        if (lineRef.current) {
-          tl.fromTo(
-            lineRef.current,
-            { strokeDashoffset: 300 },
-            { strokeDashoffset: 0, duration: 0.8, ease: "cubic-bezier(0.05, 0.95, 0.3, 1)" },
-            "-=0.3",
+    const cleanup = inView(
+      el,
+      () => {
+        const cards = el.querySelectorAll<HTMLElement>(".nb-arch-stage .nb-card");
+        if (cards.length) {
+          animate(
+            cards,
+            { opacity: [0, 1], x: [-16, 0] },
+            {
+              duration: 0.35,
+              delay: 0.1,
+              ease: [0.05, 0.95, 0.3, 1],
+            },
           );
         }
-      });
-    },
-    { scope: sectionRef },
-  );
+        if (lineRef.current) {
+          animate(
+            lineRef.current,
+            { strokeDashoffset: [300, 0] },
+            { duration: 0.8, ease: [0.05, 0.95, 0.3, 1], delay: 0.15 },
+          );
+        }
+      },
+      { amount: 0.3 },
+    );
+
+    return () => cleanup?.();
+  }, []);
 
   return (
     <section

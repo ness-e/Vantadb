@@ -1,3 +1,12 @@
+---
+title: "Reporte de Revisión y Evaluación del Proyecto — VantaDB"
+type: review
+status: active
+tags: [vantadb, review, architecture, security]
+last_reviewed: 2026-07-10
+language: es
+---
+
 # Reporte de Revisión y Evaluación del Proyecto — VantaDB
 
 Este documento presenta una evaluación de arquitectura, seguridad, concurrencia, calidad de código y estado del roadmap de **VantaDB** a fecha del **2 de julio de 2026**.

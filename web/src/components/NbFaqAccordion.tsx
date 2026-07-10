@@ -65,15 +65,8 @@ export function NbFaqAccordion() {
                   onClick={() => toggle(i)}
                   aria-expanded={isOpen}
                 >
-                  {/* Timestamp */}
-                  <span className="faq-entry-ts">
-                    {new Date().toLocaleTimeString("en-US", {
-                      hour12: false,
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
+                  {/* Static timestamp — avoids render-time Date() calling */}
+                  <span className="faq-entry-ts">00:00:00</span>
 
                   {/* Severity badge */}
                   <span className="faq-entry-sev" style={{ color: sevColor }}>

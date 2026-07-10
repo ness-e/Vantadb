@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { gsap } from "../lib/gsap";
 import "../styles/benchmark-race.css";
 import { NbSection, NbSectionHeader } from "./nb";
 
@@ -55,17 +54,14 @@ export function NbBenchmarkRace() {
 
   useEffect(() => {
     if (!visible) return;
-    const ctx = gsap.context(() => {
-      const fills = gsap.utils.toArray<HTMLElement>(".nb-rd-bar-fill");
-      if (!fills.length) return;
-      gsap.to(fills, {
-        width: (i) => fills[i].dataset.target ?? "0%",
-        duration: 0.4,
-        stagger: 0.05,
-        ease: "steps(10)",
-      });
-    }, sectionRef);
-    return () => ctx.revert();
+    const fills = sectionRef.current?.querySelectorAll<HTMLElement>(".nb-rd-bar-fill");
+    if (!fills?.length) return;
+    const fillArray = Array.from(fills);
+    fillArray.forEach((fill, i) => {
+      const targetWidth = fill.dataset.target ?? "0%";
+      fill.style.transition = `width 0.4s steps(10) ${i * 0.05}s`;
+      fill.style.width = targetWidth;
+    });
   }, [visible]);
 
   return (
@@ -77,7 +73,6 @@ export function NbBenchmarkRace() {
       />
 
       <div className="nb-rd-dash">
-        {/* ── Podium ── */}
         <div className="nb-rd-podium">
           <span className="nb-rd-podium-title">OVERALL STANDINGS</span>
           <div className="nb-rd-podium-steps">
@@ -94,7 +89,6 @@ export function NbBenchmarkRace() {
           </div>
         </div>
 
-        {/* ── Charts ── */}
         <div className="nb-rd-charts">
           {GROUPS.map((group) => (
             <div key={group.id} className="nb-rd-group">

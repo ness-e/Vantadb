@@ -107,6 +107,7 @@ fn hnsw_recall_snapshot_baseline() {
             ef_search: 100,
             ml: 1.0 / (24_f64).ln(),
             distance_metric: DistanceMetric::Cosine,
+            flat_threshold: None,
         };
         let index = CPIndex::new_with_config(config);
 

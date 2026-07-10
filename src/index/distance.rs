@@ -610,6 +610,7 @@ mod tests {
             ef_search: 50,
             ml: 1.0 / (8_f64).ln(),
             distance_metric: DistanceMetric::Euclidean,
+            ..HnswConfig::default()
         };
         let index = CPIndex::new_with_config(config);
         index.add(

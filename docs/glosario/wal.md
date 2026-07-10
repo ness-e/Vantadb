@@ -2,7 +2,7 @@
 title: "wal"
 type: glossary-entry
 status: stable
-tags: [persistence, wal, durabilidad, recovery]
+tags: [persistence, wal, durability, recovery]
 last_refined: 2026-07
 links: "[[README.md]]"
 aliases: [Write-Ahead Log, Journal, Transaction Log]
@@ -31,7 +31,7 @@ INCORRECT order (data loss):
 3. Append to WAL (asynchronous)
 ```
 
-## Estructura de un Registro WAL
+## WAL Record Structure
 
 ```
 ┌─────────────────────────────────────┐
@@ -62,7 +62,7 @@ Archivos WAL típicos (N=4):
   vanta.shard3.wal
 ```
 
-Cada shard es un archivo append-only secuencial con el mismo formato de registro (header + payload + CRC32C). El número de shards se configura via `wal_shards` (default: `4`, env: `VANTADB_WAL_SHARDS`).
+Each shard is a sequential append-only file with the same record format (header + payload + CRC32C). Shard count is configured via `wal_shards` (default: `4`, env: `VANTADB_WAL_SHARDS`).
 
 ### Writing Flow
 
@@ -164,13 +164,13 @@ Esto garantiza que el orden de escritura original se preserva exactamente, inclu
 
 ## Checkpointing
 
-El WAL crece indefinidamente si no se gestiona. **Checkpointing** es el proceso de:
+The WAL grows indefinitely without management. **Checkpointing** is the process of:
 
 1. **Flush** of all pending data to main storage
-2. **Mark** the checkpoint sequence number (cuántos records globales están persistidos)
+2. **Mark** the checkpoint sequence number (how many global records are persisted)
 3. **Truncate/rotate** the WAL shard files
 
-Con shards, el checkpoint se representa como un solo `checkpoint_seq` global (el número total de records escritos hasta el momento). Cada shard calcula cuántos registros saltar usando:
+With shards, the checkpoint is a single global `checkpoint_seq` (the total number of records written so far). Each shard calculates how many records to skip using:
 
 ```
 full_rounds = checkpoint_seq / N   (N = número de shards)
@@ -182,17 +182,17 @@ Shard 1: skip hasta local_pos = full_rounds + (1 < remainder ? 1 : 0)
 Shard k: skip hasta local_pos = full_rounds + (k < remainder ? 1 : 0)
 ```
 
-La compactación (`compact_wal()`) hace flush completo, guarda `checkpoint_seq`, y rota los archivos shard.
+Compaction (`compact_wal()`) performs a full flush, saves `checkpoint_seq`, and rotates the shard files.
 
 ## Durability Modes
 
-| Modo | fsync | Latencia | Riesgo de Pérdida |
-|------|-------|----------|-------------------|
-| **Always** | Cada write | ~5-10ms | Cero |
-| **Periodic** | Cada N ms | <1ms | Últimos N ms |
-| **Never** | OS decide | ~0.1ms | Alta |
+| Mode | fsync | Latency | Loss Risk |
+|------|-------|---------|-----------|
+| **Always** | Every write | ~5-10ms | Zero |
+| **Periodic** | Every N ms | <1ms | Last N ms |
+| **Never** | OS decides | ~0.1ms | High |
 
-## Garantías del WAL en VantaDB
+## WAL Guarantees in VantaDB
 
 ### What WAL Guarantees
 
@@ -200,7 +200,7 @@ La compactación (`compact_wal()`) hace flush completo, guarda `checkpoint_seq`,
 ✅ **Atomicity:** Complete transactions or none
 ✅ **Deterministic recovery:** Replay produces the same state
 
-### Lo que WAL NO Garantiza
+### What WAL Does NOT Guarantee
 
 ❌ **Consistency between indexes:** That depends on the coherence protocol
 ❌ **Concurrency isolation:** That depends on locks/MVCC
@@ -210,21 +210,21 @@ La compactación (`compact_wal()`) hace flush completo, guarda `checkpoint_seq`,
 
 ## Comparison with Other Systems
 
-| Sistema | WAL | fsync Default | Checksum | Recovery |
-|---------|-----|---------------|----------|----------|
+| System | WAL | fsync Default | Checksum | Recovery |
+|--------|-----|---------------|----------|----------|
 | **VantaDB** | ✅ Sharded (N-way) | ✅ Configurable (Always/Periodic/Never) | ✅ CRC32C | ✅ Sort-based multi-shard replay |
-| **SQLite** | ✅ | Siempre | ✅ CRC32 | ✅ Automático |
-| **PostgreSQL** | ✅ | Siempre | ✅ CRC32 | ✅ Automático |
-| **RocksDB** | ✅ | Configurable | ✅ CRC32 | ✅ Automático |
-| **FAISS** | ❌ | N/A | N/A | ❌ Sin persistencia |
+| **SQLite** | ✅ | Always | ✅ CRC32 | ✅ Automatic |
+| **PostgreSQL** | ✅ | Always | ✅ CRC32 | ✅ Automatic |
+| **RocksDB** | ✅ | Configurable | ✅ CRC32 | ✅ Automatic |
+| **FAISS** | ❌ | N/A | N/A | ❌ No persistence |
 
 ## See Also
 
-- [[fsync]] — Garantía de persistencia física
-- [[crc32c]] — Integridad de registros
-- [[fjall]] — Backend con WAL propio
-- [[transactional]] — Propiedad que el WAL habilita
-- [[chaos-testing]] — Cómo validar durabilidad
+- [[fsync]] — Physical persistence guarantee
+- [[crc32c]] — Record integrity
+- [[fjall]] — Backend with its own WAL
+- [[transactional]] — Property enabled by WAL
+- [[chaos-testing]] — Validating durability
 
 ### Related Implementation Documentation
 - [[../operations/DURABILITY_GUARANTEES|Durability Guarantees]]

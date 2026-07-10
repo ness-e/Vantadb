@@ -2,8 +2,9 @@
 
 pub(crate) mod core; // tests only
 pub(crate) mod distance;
+pub(crate) mod flat;
 pub(crate) mod graph;
-pub(crate) mod hnsw;
+
 pub(crate) mod refresh;
 pub(crate) mod search;
 pub(crate) mod serialize;

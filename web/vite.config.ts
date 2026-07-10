@@ -33,15 +33,12 @@ export default defineConfig({
           if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"))
             return "vendor-router";
 
-          if (id.includes("node_modules/gsap") || id.includes("@gsap/react")) return "vendor-gsap";
         },
       },
     },
   },
   optimizeDeps: {
-    // Forzar que Vite pre-empaquete GSAP como una unidad cohesiva
-    // sin tree-shaking agresivo que elimina el registerPlugin como side-effect
-    include: ["gsap", "gsap/ScrollTrigger", "gsap/TextPlugin", "@gsap/react"],
+    include: [],
   },
   test: {
     globals: true,

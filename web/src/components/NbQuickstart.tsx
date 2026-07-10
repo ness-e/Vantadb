@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
+import { animate, inView } from "motion";
 import { NbSection, NbSectionHeader } from "./nb";
 import "../styles/quickstart.css";
 
@@ -96,20 +96,22 @@ export function NbQuickstart() {
   const beamRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        ScrollTrigger.create({
-          trigger: sectionRef.current,
-          start: "top 75%",
-          onEnter: () => setHasEntered(true),
-          once: true,
-        });
-      });
-    },
-    { scope: sectionRef },
-  );
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const cleanup = inView(
+      el,
+      () => {
+        setHasEntered(true);
+      },
+      { amount: 0.3 },
+    );
+
+    return () => cleanup?.();
+  }, []);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -133,14 +135,22 @@ export function NbQuickstart() {
 
     const el = codeRefs.current[stepIndex];
     if (el) {
-      gsap.killTweensOf(el);
       el.textContent = "";
       delete el.dataset.qsHl;
       const dur = Math.max(0.25, step.cmd.length * 0.03);
-      gsap.to(el, {
+
+      const state = { chars: 0 };
+      animate(state, {
+        chars: step.cmd.length,
+      }, {
         duration: dur,
-        text: step.cmd,
-        ease: "none",
+        ease: "linear",
+        onUpdate: () => {
+          const revealed = Math.floor(state.chars);
+          el.textContent = step.cmd.slice(0, revealed);
+          el.innerHTML = highlighted(stepIndex, revealed);
+          el.dataset.qsHl = "1";
+        },
         onComplete: () => {
           el.innerHTML = HIGHLIGHTED[stepIndex];
           el.dataset.qsHl = "1";
@@ -155,7 +165,6 @@ export function NbQuickstart() {
     setActiveStep(i);
     const el = codeRefs.current[i];
     if (el) {
-      gsap.killTweensOf(el);
       el.innerHTML = HIGHLIGHTED[i];
       el.dataset.qsHl = "1";
     }
@@ -188,6 +197,11 @@ export function NbQuickstart() {
     };
   }, [hasEntered, typeStep]);
 
+  function highlighted(stepIndex: number, upTo: number): string {
+    const raw = STEPS[stepIndex].cmd;
+    return highlight(raw.slice(0, upTo));
+  }
+
   return (
     <NbSection ref={sectionRef} variant="lg" ariaLabel="Quickstart guide">
       <NbSectionHeader
@@ -197,7 +211,6 @@ export function NbQuickstart() {
       />
 
       <div className="qs-matrix">
-        {/* Sequence beam */}
         <div
           ref={beamRef}
           className={`qs-beam ${allComplete ? "qs-beam--done" : ""}`}
@@ -209,7 +222,6 @@ export function NbQuickstart() {
           aria-hidden="true"
         />
 
-        {/* Grid */}
         {STEPS.map((step, i) => {
           const isActive = !allComplete && activeStep === i;
           const isPast = !allComplete && i < activeStep;
@@ -225,7 +237,6 @@ export function NbQuickstart() {
               onClick={() => handleClick(i)}
               aria-current={isActive ? "step" : undefined}
             >
-              {/* Terminal header */}
               <div className="qs-matrix-term-bar" aria-hidden="true">
                 <span className="qs-matrix-term-dot" />
                 <span className="qs-matrix-term-dot" />
@@ -237,7 +248,6 @@ export function NbQuickstart() {
                 )}
               </div>
 
-              {/* Command */}
               <div className="qs-matrix-cmd">
                 <span className="qs-matrix-prompt">$</span>
                 <code
@@ -250,7 +260,6 @@ export function NbQuickstart() {
                 {isActive && <span className="qs-cursor-qm" aria-hidden="true" />}
               </div>
 
-              {/* Output */}
               <div className="qs-matrix-out">
                 <span className="qs-matrix-out-prefix">&gt;</span>
                 <span className="qs-matrix-out-text">{step.output}</span>

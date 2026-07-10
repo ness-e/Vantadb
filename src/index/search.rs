@@ -39,6 +39,11 @@ impl CPIndex {
                             0.0
                         } else {
                             let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
+                            // SAFETY: `vec_end > vs.mmap_bytes().len()` guard above ensures
+                            // `vec_start + header.vector_len * 4 <= mmap size` — the byte range
+                            // is valid and the alignment cast to `f32` is safe (mmap pages are
+                            // aligned, and HNSW stores vectors with 4-byte alignment in the
+                            // memory-mapped file).
                             let f32_vec: &[f32] = unsafe {
                                 std::slice::from_raw_parts(
                                     vec_data.as_ptr() as *const f32,
@@ -155,6 +160,9 @@ impl CPIndex {
                                         0.0
                                     } else {
                                         let v_data = &vs.mmap_bytes()[vec_start..vec_end];
+                                        // SAFETY: `vec_end > vs.mmap_bytes().len()` guard above
+                                        // ensures `h.vector_len * 4` does not exceed the mmap
+                                        // region. Pointer is derived from the mmap byte slice.
                                         let f32_v: &[f32] = unsafe {
                                             std::slice::from_raw_parts(
                                                 v_data.as_ptr() as *const f32,
@@ -341,6 +349,13 @@ impl CPIndex {
         final_selected
     }
 
+    fn use_flat_search(&self) -> bool {
+        self.config
+            .flat_threshold
+            .map(|t| self.nodes.len() <= t)
+            .unwrap_or(false)
+    }
+
     #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
     pub fn search_nearest(
         &self,
@@ -351,6 +366,16 @@ impl CPIndex {
         top_k: usize,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
     ) -> Vec<(u128, f32)> {
+        if self.use_flat_search() {
+            return crate::index::flat::flat_search(
+                &self.nodes,
+                query_vec,
+                query_mask,
+                top_k,
+                self.config.distance_metric,
+            );
+        }
+
         let ep = match self.get_entry_point() {
             Some(id) => id,
             None => return Vec::new(),

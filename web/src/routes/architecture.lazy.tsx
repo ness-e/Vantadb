@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/architecture.css";
 
 export const Route = createLazyRoute("/architecture")({
@@ -209,24 +208,21 @@ function ArchitecturePage() {
   const specsRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-arch-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(flowRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = flowRef.current?.querySelectorAll<HTMLElement>(".nc-arch-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, flowRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-arch-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(profilerRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = profilerRef.current?.querySelectorAll<HTMLElement>(".nc-arch-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, profilerRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-arch-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(specsRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = specsRef.current?.querySelectorAll<HTMLElement>(".nc-arch-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, specsRef);
 
   return (

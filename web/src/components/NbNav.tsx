@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { animate } from "motion";
 import { NbButton } from "./nb";
 import VantaDBLogo from "./VantaDBLogo";
 
@@ -43,6 +43,7 @@ const flatLinks = [
 export const NbNav = memo(function NbNav() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,20 +56,20 @@ export const NbNav = memo(function NbNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useGSAP(
-    () => {
-      if (drawerOpen && drawerBodyRef.current) {
-        gsap.from(drawerBodyRef.current.children, {
-          opacity: 0,
-          x: -20,
+  useEffect(() => {
+    if (drawerOpen && drawerBodyRef.current) {
+      const children = Array.from(drawerBodyRef.current.children);
+      animate(
+        children,
+        { opacity: [0, 1], x: [-20, 0] },
+        {
           duration: 0.18,
-          stagger: 0.04,
-          ease: "power2.out",
-        });
-      }
-    },
-    { dependencies: [drawerOpen], scope: drawerBodyRef },
-  );
+          delay: 0.04,
+          ease: [0.25, 0.46, 0.45, 0.94],
+        },
+      );
+    }
+  }, [drawerOpen]);
 
   useEffect(() => {
     document.body.classList.toggle("overflow-hidden", drawerOpen);
@@ -109,7 +110,10 @@ export const NbNav = memo(function NbNav() {
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+    path === "/"
+      ? location.pathname === "/"
+      : location.pathname === path ||
+        location.pathname.startsWith(path.endsWith("/") ? path : path + "/");
 
   return (
     <>
@@ -120,12 +124,23 @@ export const NbNav = memo(function NbNav() {
 
         <div className="nc-nav-links">
           {navGroups.map((group) => (
-            <div key={group.label} className="nc-nav-group">
+            <div
+              key={group.label}
+              className="nc-nav-group"
+              onMouseEnter={() => setOpenGroup(group.label)}
+              onMouseLeave={() => setOpenGroup(null)}
+              onFocus={() => setOpenGroup(group.label)}
+              onBlur={() => {
+                if (!document.activeElement?.closest(`.nc-nav-group`)) {
+                  setOpenGroup(null);
+                }
+              }}
+            >
               <button
                 type="button"
                 className="nc-nav-group-btn"
                 aria-haspopup="true"
-                aria-expanded="false"
+                aria-expanded={openGroup === group.label}
               >
                 {group.label}
                 <svg width="8" height="6" viewBox="0 0 8 6" fill="none" aria-hidden="true">

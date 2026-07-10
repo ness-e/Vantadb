@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/pricing.css";
 
 export const Route = createLazyRoute("/pricing")({
@@ -201,24 +200,21 @@ function PricingPage() {
   const faqRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(plansRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = plansRef.current?.querySelectorAll<HTMLElement>(".nc-price-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, plansRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(compareRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = compareRef.current?.querySelectorAll<HTMLElement>(".nc-price-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, compareRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-price-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(faqRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = faqRef.current?.querySelectorAll<HTMLElement>(".nc-price-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, faqRef);
 
   return (

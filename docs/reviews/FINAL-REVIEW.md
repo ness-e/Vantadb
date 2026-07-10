@@ -1,3 +1,12 @@
+---
+title: "Final Review — VantaDB Skills Ecosystem"
+type: review
+status: active
+tags: [vantadb, review, skills]
+last_reviewed: 2026-07-10
+language: en
+---
+
 # FINAL REVIEW — VantaDB Skills Ecosystem
 
 **Date:** 2026-07-03  

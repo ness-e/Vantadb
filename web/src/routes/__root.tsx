@@ -6,9 +6,9 @@ import {
   useMatches,
   useRouter,
 } from "@tanstack/react-router";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { NbNav } from "../components/NbNav";
-import { gsap, ScrollTrigger, useGSAP } from "../lib/gsap";
+import { animate, inView } from "motion";
 import "../styles/nb-nav.css";
 import { NbBackToTop } from "../components/NbBackToTop";
 import { NbFooter } from "../components/NbFooter";
@@ -31,7 +31,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error: _error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
   return (
@@ -123,55 +123,59 @@ function RootComponent() {
   const matches = useMatches();
   const routeId = matches[matches.length - 1]?.routeId;
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.from(".route-content", { opacity: 0, y: 8, duration: 0.25, ease: "power2.out" });
+    const routeContent = document.querySelector(".route-content");
+    if (routeContent) {
+      animate(
+        routeContent,
+        { opacity: [0, 1], y: [8, 0] },
+        { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] },
+      );
+    }
 
-        const sections = gsap.utils.toArray<HTMLElement>(".nb-page-section");
-        sections.forEach((section) => {
-          const eyebrow = section.querySelector<HTMLElement>(".nb-eyebrow");
-          const heading = section.querySelector<HTMLElement>("h2");
+    const cleanups: (() => void)[] = [];
+    const sections = document.querySelectorAll<HTMLElement>(".nb-page-section");
+    sections.forEach((section) => {
+      const eyebrow = section.querySelector<HTMLElement>(".nb-eyebrow");
+      const heading = section.querySelector<HTMLElement>("h2");
 
-          if (eyebrow) {
-            gsap.fromTo(
+      if (eyebrow) {
+        const cu = inView(
+          section,
+          () => {
+            animate(
               eyebrow,
-              { clipPath: "inset(0 0 100% 0)", opacity: 0 },
-              {
-                clipPath: "inset(0)",
-                opacity: 1,
-                duration: 0.3,
-                ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-                scrollTrigger: { trigger: section, start: "top 80%" },
-              },
+              { clipPath: ["inset(0 0 100% 0)", "inset(0)"], opacity: [0, 1] },
+              { duration: 0.3, ease: [0.25, 1, 0.5, 1] },
             );
-          }
+          },
+          { amount: 0.3 },
+        );
+        cleanups.push(cu ?? (() => {}));
+      }
 
-          if (heading) {
-            gsap.fromTo(
+      if (heading) {
+        const cu = inView(
+          section,
+          () => {
+            animate(
               heading,
-              { opacity: 0, y: 12 },
-              {
-                opacity: 1,
-                y: 0,
-                duration: 0.3,
-                ease: "cubic-bezier(0.25, 1, 0.5, 1)",
-                scrollTrigger: { trigger: section, start: "top 80%" },
-              },
+              { opacity: [0, 1], y: [12, 0] },
+              { duration: 0.3, ease: [0.25, 1, 0.5, 1] },
             );
-          }
-        });
-      });
+          },
+          { amount: 0.3 },
+        );
+        cleanups.push(cu ?? (() => {}));
+      }
+    });
 
-      return () => {
-        ScrollTrigger.getAll().forEach((t) => t.kill());
-        mm.revert();
-      };
-    },
-    { dependencies: [routeId] },
-  );
+    return () => {
+      cleanups.forEach((c) => c());
+    };
+  }, [routeId]);
 
   return (
     <QueryClientProvider client={queryClient}>

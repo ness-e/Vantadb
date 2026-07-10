@@ -7,12 +7,6 @@ interface NbAlertProps {
   children: ReactNode;
 }
 
-const _ICON_BG: Record<string, string> = {
-  warning: "nb-alert-icon",
-  success: "nb-alert-icon",
-  error: "nb-alert-icon",
-};
-
 export function NbAlert({ variant, icon, heading, children }: NbAlertProps) {
   return (
     <div className={`nb-alert nb-alert--${variant}`}>

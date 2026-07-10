@@ -3,8 +3,7 @@ import { useMemo, useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import { getAllPosts } from "../../lib/blog";
 import "../../styles/blog.css";
 
@@ -17,10 +16,9 @@ function BlogIndex() {
   const postsRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-bl-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(postsRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = postsRef.current?.querySelectorAll<HTMLElement>(".nc-bl-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, postsRef);
 
   return (

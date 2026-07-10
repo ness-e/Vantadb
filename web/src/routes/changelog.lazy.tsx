@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/changelog.css";
 
 export const Route = createLazyRoute("/changelog")({
@@ -142,10 +141,9 @@ function ChangelogPage() {
   const releasesRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-cl-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(releasesRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = releasesRef.current?.querySelectorAll<HTMLElement>(".nc-cl-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, releasesRef);
 
   return (

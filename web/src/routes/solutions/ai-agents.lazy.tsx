@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../../styles/ai-agents.css";
 
 export const Route = createLazyRoute("/solutions/ai-agents")({
@@ -64,24 +63,21 @@ function AiAgentsPage() {
   const implRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(problemRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = problemRef.current?.querySelectorAll<HTMLElement>(".nc-aa-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, problemRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(primitivesRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = primitivesRef.current?.querySelectorAll<HTMLElement>(".nc-aa-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, primitivesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-aa-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(implRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = implRef.current?.querySelectorAll<HTMLElement>(".nc-aa-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, implRef);
 
   return (

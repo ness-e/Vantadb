@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/why-vantadb.css";
 
 export const Route = createLazyRoute("/why-vantadb")({
@@ -55,24 +54,21 @@ function WhyVantaDBPage() {
   const ctaRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(comparisonRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = comparisonRef.current?.querySelectorAll<HTMLElement>(".nc-why-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, comparisonRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(principlesRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = principlesRef.current?.querySelectorAll<HTMLElement>(".nc-why-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, principlesRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-why-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({ scrollTrigger: scrollTriggerConfig(ctaRef.current, 60) });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+    const parts = ctaRef.current?.querySelectorAll<HTMLElement>(".nc-why-part");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, ctaRef);
 
   return (

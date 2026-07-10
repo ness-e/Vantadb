@@ -263,6 +263,42 @@ jobs:
       - name: Security Audit
         run: cargo audit --ignore RUSTSEC-2026-0176 --ignore RUSTSEC-2026-0177
 
+  miri:
+    name: Miri (UB Detection)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Rust (Nightly + Miri)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly
+          components: miri
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: miri-cache
+
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Miri Setup (core)
+        run: cargo miri setup --manifest-path Cargo.toml -p vantadb
+        env:
+          MIRI_NO_HOST_FALLBACK: 1
+
+      - name: Miri Test (core — unsafe patterns)
+        run: cargo miri test --manifest-path Cargo.toml -p vantadb -- miri
+        env:
+          MIRI_NO_HOST_FALLBACK: 1
+          RUSTFLAGS: "-Zrandomize-layout"
+        continue-on-error: true
+
   deny:
     name: Dependency Policy Check
     runs-on: ubuntu-latest
@@ -283,3 +319,63 @@ jobs:
 
       - name: Dependency Policy Check
         run: cargo deny check
+
+  sanitizer-asan:
+    name: ASan (AddressSanitizer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install nightly + ASan
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: sanitizer-asan
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Test with AddressSanitizer
+        run: cargo test --package vantadb --features "cli,arrow,tls,opentelemetry"
+        env:
+          RUSTFLAGS: "-Z sanitizer=address"
+          RUSTDOCFLAGS: "-Z sanitizer=address"
+          ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:abort_on_error=1"
+          LSAN_OPTIONS: "suppressions=.lsan_suppressions"
+
+  sanitizer-tsan:
+    name: TSan (ThreadSanitizer)
+    needs: sanitizer-asan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install nightly + TSan
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: sanitizer-tsan
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
+
+      - name: Test with ThreadSanitizer
+        run: cargo test --package vantadb --features "cli,arrow,tls,opentelemetry"
+        env:
+          RUSTFLAGS: "-Z sanitizer=thread"
+          RUSTDOCFLAGS: "-Z sanitizer=thread"
+          TSAN_OPTIONS: "suppress_equal_stacks=1:halt_on_error=1:abort_on_error=1"

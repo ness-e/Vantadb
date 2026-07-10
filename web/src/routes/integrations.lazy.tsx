@@ -4,8 +4,7 @@ import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
-import { gsap } from "@/lib/gsap";
-import { fadeUp, scrollTriggerConfig } from "@/lib/gsap-utils";
+import { fadeUp } from "@/lib/motion-utils";
 import "../styles/integrations.css";
 
 export const Route = createLazyRoute("/integrations")({
@@ -139,21 +138,15 @@ function IntegrationsPage() {
   };
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-int-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(connectorsRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = connectorsRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, connectorsRef);
 
   useAnimationSafe(() => {
-    const parts = gsap.utils.toArray<HTMLElement>(".nc-int-part");
-    if (!parts.length) return;
-    const tl = gsap.timeline({
-      scrollTrigger: scrollTriggerConfig(ecosystemRef.current, 60),
-    });
-    parts.forEach((part) => tl.add(fadeUp(part, { stagger: 0 }), "-=0.15"));
+        const parts = ecosystemRef.current?.querySelectorAll<HTMLElement>(".");
+    if (!parts?.length) return;
+    fadeUp(parts, { stagger: 0.2 });
   }, ecosystemRef);
 
   return (

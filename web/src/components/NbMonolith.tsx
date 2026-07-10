@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { memo, useEffect, useRef, useState } from "react";
-import { gsap, useGSAP } from "../lib/gsap";
+import { animate, inView } from "motion";
 import { NbCopyCommand, NbSection } from "./nb";
 import "../styles/monolith.css";
 
@@ -24,35 +24,39 @@ export const NbMonolith = memo(function NbMonolith() {
   const [bootDone, setBootDone] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  useGSAP(
-    () => {
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const tl = gsap.timeline({
-          scrollTrigger: { trigger: containerRef.current, start: "top 75%" },
-        });
-        tl.fromTo(
-          ".nb-boot-title",
-          { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.4, ease: "var(--ease-swiss)" },
-        );
-        tl.fromTo(
-          ".nb-boot-install",
-          { opacity: 0, y: 12 },
-          { opacity: 1, y: 0, duration: 0.35 },
-          "-=0.15",
-        );
-        tl.fromTo(".nb-boot-sub", { opacity: 0 }, { opacity: 1, duration: 0.25 }, "-=0.1");
-        tl.fromTo(
-          ".nb-boot-actions",
-          { opacity: 0, y: 8 },
-          { opacity: 1, y: 0, duration: 0.25 },
-          "-=0.05",
-        );
-      });
-    },
-    { scope: containerRef },
-  );
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const cleanup = inView(
+      el,
+      () => {
+        const cards = [
+          { sel: ".nb-boot-title", dur: 0.4, y: 20 },
+          { sel: ".nb-boot-install", dur: 0.35, y: 12, delay: 0.2 },
+          { sel: ".nb-boot-sub", dur: 0.25, delay: 0.2 },
+          { sel: ".nb-boot-actions", dur: 0.25, y: 8, delay: 0.2 },
+        ];
+        let totalDelay = 0;
+        for (const card of cards) {
+          const target = el.querySelector(card.sel);
+          if (target) {
+            totalDelay += card.delay ?? 0;
+            animate(
+              target,
+              { opacity: [0, 1], y: [(card.y ?? 12), 0] },
+              { duration: card.dur, delay: totalDelay, ease: [0.05, 0.95, 0.3, 1] },
+            );
+          }
+        }
+      },
+      { amount: 0.3 },
+    );
+
+    return () => cleanup?.();
+  }, []);
 
   // Boot sequence timer
   useEffect(() => {
@@ -75,7 +79,6 @@ export const NbMonolith = memo(function NbMonolith() {
   return (
     <NbSection ref={containerRef} variant="dark" ariaLabel="Get started">
       <div className="nb-boot">
-        {/* ASCII Logo */}
         <pre className="nb-boot-ascii" aria-hidden="true">
           {`╔══════════════════════════════════╗
 ║          V A N T A D B           ║
@@ -94,7 +97,6 @@ export const NbMonolith = memo(function NbMonolith() {
 
         <p className="nb-boot-sub">Zero servers. One line. Infinite context.</p>
 
-        {/* Boot progress */}
         <div className="nb-boot-progress-wrap">
           <div className="nb-boot-progress-label">
             <span>BOOT SEQUENCE</span>
