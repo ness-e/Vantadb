@@ -313,12 +313,18 @@ pub struct VantaConfig {
 }
 
 /// Parse an environment variable with a fallback default.
-fn parse_env_or<T: FromStr>(key: &str, default: T) -> T {
+fn parse_env_or<T: FromStr>(key: &str, default: T) -> T
+where
+    <T as FromStr>::Err: std::fmt::Debug,
+{
     match env::var(key) {
         Ok(val) => match val.parse::<T>() {
             Ok(v) => v,
-            Err(_) => {
-                warn!("Invalid value for {}: \"{}\" — using default", key, val);
+            Err(e) => {
+                warn!(
+                    "Invalid value for {}: \"{}\" ({:?}) — using default",
+                    key, val, e
+                );
                 default
             }
         },
@@ -781,6 +787,11 @@ impl VantaConfig {
                                         return;
                                     }
                                 };
+                                // Limit input to 1MB to prevent OOM via deeply nested JSON
+                                if content.len() > 1024 * 1024 {
+                                    warn!("hot-reload: config file exceeds 1MB, ignoring");
+                                    return;
+                                }
                                 let parsed: serde_json::Value = match serde_json::from_str(&content)
                                 {
                                     Ok(v) => v,
