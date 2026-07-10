@@ -180,6 +180,22 @@ jobs:
         timeout-minutes: 25
         run: cargo nextest run --profile audit --workspace --features "cli,arrow,tls,opentelemetry"
 
+  msrv:
+    name: MSRV Check (1.94.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: dtolnay/rust-toolchain@1.94.1
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          shared-key: msrv-check
+
+      - name: cargo check (MSRV)
+        run: cargo check --workspace
+
   coverage:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
