@@ -783,8 +783,8 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.5 | ~~Unificar `FLAG_TOMBSTONE` en un solo lugar~~ ✅ Completo | Se unificó en `src/storage/engine/mod.rs:34`. Eliminadas 4 copias: `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs` + actualizado `search.rs` para importar del home único. `NodeFlags::TOMBSTONE` en `node.rs` no se tocó (es un flag diferente). 5 archivos modificados. | 15 min |
 | 2.6 | ~~Añadir forced-auth mode al server~~ ✅ | `cli_server.rs`, `config.rs`, `cli.rs`, `cli_handlers/server.rs` | 1 hora |
 | 2.7 | ~~Expandir `.env.example` con todas las 22 variables~~ ✅ Completo | `.env.example` | ✅ Expandido de 9 a 22 variables documentadas en CONFIGURATION.md |
-| 2.8 | Añadir `proptest` para HNSW search correctness | `tests/` | 1 día |
-| 2.9 | Añadir `#![deny(unsafe_op_in_unsafe_fn)]` | `src/lib.rs` | 15 min |
+| 2.8 | ~~Añadir `proptest` para HNSW search correctness~~ ✅ Completo | `tests/proptest_hnsw_search.rs`, `src/index/graph.rs` | 1 día |
+| 2.9 | ~~Añadir `#![deny(unsafe_op_in_unsafe_fn)]`~~ ✅ Completo | `src/lib.rs` | 15 min |
 | 2.10 | Consolidar `thiserror` a v2 sola | `Cargo.toml` | 15 min |
 | 2.11 | Reducir duplicate crate versions (17 pares) | `Cargo.toml` con `[patch]` sections | 1-2 días |
 | 2.12 | Unificar async pattern en TS SDK | `vantadb-ts/src/` | 1 hora |
