@@ -1,0 +1,14 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 008fc854a6d6d95cc197fdd47440196437dc503e2306bce7b7e6901159083fd7 # shrinks to opts = VantaMemoryListOptions { filters: {"a": ListFloat([-3.788864438951731e-220])}, limit: 0, cursor: None }
+cc f494ee8b8ad19a5cf8d85061b0b17c3167d494034b99c6bfbabf1b9f4fe2dd7d # shrinks to input = VantaNodeInput { id: 0, content: None, vector: None, fields: {"A": Float(2.4180402083183705e-300)} }
+cc b94292ea5c495d5ea94ba8e328c15dd6fa674c043b48ec764cab35a2ef37cffa # shrinks to rec = VantaNodeRecord { id: 0, fields: {"a": Float(-2.8743202789934506e-193)}, vector: None, vector_dimensions: 0, edges: [], confidence_score: -0.0, importance: 0.0, hits: 0, last_accessed: 0, epoch: 0, tier: Hot, is_alive: false }
+cc 6eed6d73f52b23558397b71530f8c9cc5f435bc79039eb8d24e753869b23aec4 # shrinks to input = VantaMemoryInput { namespace: "", key: "", payload: "", metadata: {"a": ListFloat([1.4072742483487771e-221])}, vector: None, ttl_ms: None }
+cc d12425b07ce60381c13c127457452a593a959e32b93002fba8dcd7f0f3a61d27 # shrinks to rec = VantaMemoryRecord { namespace: "", key: "", payload: "", metadata: {"_": Float(-1.1537529569874482e265)}, created_at_ms: 0, updated_at_ms: 0, version: 0, node_id: 0, vector: None, expires_at_ms: None }
+cc 81167d423474bc52a68825f15bb7c22b8b84840f3821081889ed20bd1e3e3c2d # shrinks to val = Float(-5.025632176309379e-195)
+cc 8f96d50b34e9215cb59cb10c9796a2f819d333dd0455e6931441ed3fb263dc09 # shrinks to result = Read([VantaNodeRecord { id: 0, fields: {"A": Float(-1.7518239336717105e-228)}, vector: None, vector_dimensions: 0, edges: [], confidence_score: -0.0, importance: 0.0, hits: 0, last_accessed: 0, epoch: 0, tier: Hot, is_alive: false }])
+cc 49bce5b76b15988c128734adcf226b70b464c9cead91667a2f034cef27659d83 # shrinks to hit = VantaMemorySearchHit { record: VantaMemoryRecord { namespace: "", key: "", payload: "", metadata: {"A": ListFloat([-4.826958641300066e-268])}, created_at_ms: 0, updated_at_ms: 0, version: 0, node_id: 0, vector: None, expires_at_ms: None }, score: 0.0, explanation: None }
