@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs"],
   "mcp": {
     "codegraph": {
       "type": "local",

@@ -450,6 +450,16 @@ Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.
 3. No implementar sin spec (para features nuevas) ni mergear sin review
 4. No saltarse pasos con excusas — las skills tienen tablas anti-racionalización
 5. Skills de diseño/creativo y de ingeniería son complementarias — ambas pueden aplicarse
+6. **Relaciones, dependencias e implicaciones:** cada cambio DEBE analizar:
+
+   ```
+   1. USAR codegraph_explore para mapear callers/callees/blast radius del cambio
+   2. IDENTIFICAR módulos aguas arriba (dependen de lo que cambia)
+   3. IDENTIFICAR módulos aguas abajo (de los que depende el cambio)
+   4. EVALUAR implicaciones: ¿rompe contratos existentes? ¿cambia comportamiento público?
+      ¿afecta performance/memoria? ¿introduce nuevos errores? ¿require migración de datos?
+   5. DOCUMENTAR hallazgos en el commit message o ADR
+   ```
 
 ## Ritual de Inicio de Sesión (MUST DO)
 
@@ -476,8 +486,54 @@ Al empezar cada sesión, ejecutar en orden:
 Al **finalizar** la sesión:
 ```
 skill progreso                   # mueve tareas completadas a docs/progreso/
+ponytail-review                   # revisa over-engineering residual
 just verify                       # fmt + clippy + test + deny (o just verify-quick)
 ```
+
+## Ponytail — Lazy Senior Dev Mode
+
+Integrado vía plugin OpenCode desde `~/.agents/ponytail/` (v4.8.4, MIT, 80k stars).
+
+**Filosofía:** antes de escribir código, subir esta escalera y detenerse en el primer peldaño que aplica:
+
+```
+1. ¿Esto necesita existir?       → no: skip (YAGNI)
+2. ¿Ya existe en el codebase?    → reusar, no reescribir
+3. ¿Lo resuelve la stdlib?       → usarla
+4. ¿Feature nativa del platform? → usarla
+5. ¿Dependency ya instalada?     → usarla
+6. ¿Se puede en una línea?       → una línea
+7. Recién acá: el mínimo que funciona
+```
+
+**No recorta:** validación de trust boundaries, data-loss handling, seguridad, accesibilidad. Solo over-engineering.
+
+### Comandos
+
+| Comando | Qué hace |
+|---------|----------|
+| `/ponytail` | Reporta nivel actual |
+| `/ponytail lite` | Moderado — solo corta lo obvio |
+| `/ponytail full` | Default — escalera completa |
+| `/ponytail ultra` | Máxima intensidad |
+| `/ponytail off` | Desactivado |
+| `/ponytail-review` | Revisa el diff actual por over-engineering |
+| `/ponytail-audit` | Audita todo el repo |
+| `/ponytail-debt` | Cosecha deuda técnica diferida |
+
+### Modo default
+
+El modo default es `full`. Se puede cambiar con `PONYTAIL_DEFAULT_MODE` (lite/full/ultra/off) o persistir con `/ponytail <nivel>`.
+
+### Skills integradas
+
+Las 6 skills de ponytail están disponibles como skills del proyecto:
+- `ponytail` — lazy mode activo
+- `ponytail-review` — revisión de diff
+- `ponytail-audit` — auditoría completa
+- `ponytail-debt` — deuda técnica
+- `ponytail-gain` — scoreboard de impacto
+- `ponytail-help` — referencia rápida
 
 ## Progreso Skill (MUST USE)
 
