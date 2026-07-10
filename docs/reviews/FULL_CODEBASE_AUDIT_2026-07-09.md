@@ -734,7 +734,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | Sin deployment guide (Kubernetes, systemd) | Usuarios de server mode no tienen cómo desplegar en producción |
 | Sin SQLite migration guide | Frecuentemente comparado con SQLite pero sin guía de migración |
 | Sin DR runbook | No hay guía de incident response |
-| `.env.example` falta ~15 variables | 7 de 22 variables documentadas en CONFIGURATION.md |
+| ~~`.env.example` falta ~15 variables~~ ✅ Resuelto | 22 variables documentadas en `.env.example` y CONFIGURATION.md |
 | `docs/articles/` no existe | Referenciado en master-index pero sin archivos |
 | master-index.md refs a 3 archivos inexistentes | `DiseñoNuevo.md`, `BRAND_PLATFORM.md`, `VERBAL_IDENTITY.md` |
 | SECURITY.md dice ">= 0.2.0" | No menciona 0.3.0 |
@@ -782,7 +782,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.4 | ~~Migrar variantes `String` de `VantaError` a source chaining~~ ✅ Completo | `src/error.rs` + 8 archivos (21 call sites): `SerializationError(String)` → `Box<dyn Error + Send + Sync>` con `SerdeMsgError` para errores con contexto. `ExportError` eliminado (no usado). | 1 hora |
 | 2.5 | ~~Unificar `FLAG_TOMBSTONE` en un solo lugar~~ ✅ Completo | Se unificó en `src/storage/engine/mod.rs:34`. Eliminadas 4 copias: `archive.rs`, `wal.rs`, `storage/ops.rs`, `index/graph.rs` + actualizado `search.rs` para importar del home único. `NodeFlags::TOMBSTONE` en `node.rs` no se tocó (es un flag diferente). 5 archivos modificados. | 15 min |
 | 2.6 | ~~Añadir forced-auth mode al server~~ ✅ | `cli_server.rs`, `config.rs`, `cli.rs`, `cli_handlers/server.rs` | 1 hora |
-| 2.7 | Expandir `.env.example` con todas las 22 variables | `.env.example` | 30 min |
+| 2.7 | ~~Expandir `.env.example` con todas las 22 variables~~ ✅ Completo | `.env.example` | ✅ Expandido de 9 a 22 variables documentadas en CONFIGURATION.md |
 | 2.8 | Añadir `proptest` para HNSW search correctness | `tests/` | 1 día |
 | 2.9 | Añadir `#![deny(unsafe_op_in_unsafe_fn)]` | `src/lib.rs` | 15 min |
 | 2.10 | Consolidar `thiserror` a v2 sola | `Cargo.toml` | 15 min |
