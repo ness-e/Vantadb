@@ -32,7 +32,7 @@ The primary entry point to all documentation is the [[master-index|Master Index]
 | [[api/EMBEDDED_SDK.md\|api/]] | Python and Rust SDK reference |
 | [[architecture/ARCHITECTURE.md\|architecture/]] | Core engine architecture, ADRs, audits |
 | [[operations/CONFIGURATION.md\|operations/]] | CI/CD, benchmarks, configuration, monitoring |
-| [[migration/FROM_CHROMADB.md\|migration/]] | Migration guides (ChromaDB, LanceDB) |
+| [[tutorials/03-migrating-from-chromadb.md\|tutorials/]] | Migration guides (ChromaDB, LanceDB) |
 | [[articles/why_i_built_local_memory_engine.md\|articles/]] | Published technical articles |
 | [[case_studies/rag_edge_device.md\|case_studies/]] | Deployment case studies |
 | [[graphrag/README.md\|graphrag/]] | GraphRAG architecture and design |
@@ -46,6 +46,7 @@ The primary entry point to all documentation is the [[master-index|Master Index]
 
 ## Conventions
 
-- The entire documentation vault is maintained in English.
+- Documentation is primarily written in English.
+- Spanish is permitted in `glosario/` (bilingual glossary terms) and `web/` (market research, Spanish-language user research).
 - Internal vault links use Obsidian wikilinks format (`[[Link]]`) for seamless navigation.
 - Public-facing documentation retains GitHub-compatible markdown links where required.
