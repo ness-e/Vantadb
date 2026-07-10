@@ -612,11 +612,9 @@ impl StorageEngine {
         hnsw.nodes.remove(&id);
 
         // PERF-23: If we just removed the entry point, promote a replacement
-        {
-            let mut ep = hnsw.entry_point.lock();
-            if *ep == id {
-                *ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-            }
+        if hnsw.entry_point.load(Ordering::Relaxed) == id {
+            let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+            hnsw.entry_point.store(new_ep, Ordering::Relaxed);
         }
 
         self.volatile_cache.write().remove(&id);
@@ -698,9 +696,9 @@ impl StorageEngine {
             }
             for &id in ids {
                 hnsw.nodes.remove(&id);
-                let mut ep = hnsw.entry_point.lock();
-                if *ep == id {
-                    *ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                if hnsw.entry_point.load(Ordering::Relaxed) == id {
+                    let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                    hnsw.entry_point.store(new_ep, Ordering::Relaxed);
                 }
             }
         }

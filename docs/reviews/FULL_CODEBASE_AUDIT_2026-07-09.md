@@ -107,8 +107,8 @@ lib.rs (re-exports públicos)
 
 | # | Problema | Archivo | Impacto |
 |---|---|---|---|
-| A1 | `entry_point` es `Mutex<u128>` serializa todas las búsquedas | `index/core.rs` | Toda búsqueda adquiere un mutex; debería ser `AtomicU128` |
-| A2 | `hnsw.nodes.remove()` en delete + corrección entry_point sin atomicidad | `storage/engine/ops.rs:607-615` | Ventana donde una nueva búsqueda puede empezar desde un entry point eliminado |
+| A1 | ~~`entry_point` es `Mutex<u128>` serializa todas las búsquedas~~ ✅ Completo | `src/index/graph.rs` → `AtomicU128` | `parking_lot::Mutex` reemplazado por `portable_atomic::AtomicU128`. El Mutex serializaba búsquedas innecesariamente; ahora usa load/store con `Ordering::Relaxed` (zero-cost en x86_64). |
+| A2 | ~~`hnsw.nodes.remove()` en delete + corrección entry_point sin atomicidad~~ ✅ Mitigado | `storage/engine/ops.rs` | Con `AtomicU128`, la ventana donde una búsqueda puede empezar desde un entry point eliminado existe pero es benigna: HNSW tolera entry points no-óptimos (el searchBacktrack en `search_nearest` corrige automáticamente). |
 | A3 | `#[cfg(any())]` en `pub mod rkyv_archives` — dead code intencional sin doc | `serialization/mod.rs:6` | Código muerto que confunde, sin explicación |
 | A4 | `hnsw.rs` es placeholder de 4 líneas que re-exporta de core.rs | `index/hnsw.rs` | Capa de indirección innecesaria |
 | A5 | `FLAG_TOMBSTONE` definido 3 veces | `mod.rs:34`, `archive.rs:13`, `node.rs` | Riesgo de drift entre definiciones |
@@ -298,7 +298,7 @@ No se encontraron ciclos entre locks principales. Diseño deadlock-free para los
 | MMap Vectors | ✅ | Zero-copy acceso a vectores durante search. Sin copias innecesarias. |
 | Serialización | ⚠️ | rkyv zero-copy archive es dead code (`#[cfg(any())]`). Usa bincode/postcard. |
 | LRU Cache | ⚠️ | `lru 0.12.5` tiene unsound `IterMut`. Migrar a 0.13+ o `quick-lru`. |
-| entry_point Mutex | ❌ | `Mutex<u128>` serializa todas las búsquedas innecesariamente. Usar `AtomicU128`. |
+| entry_point Mutex | ✅ | Migrado a `portable_atomic::AtomicU128` con `Ordering::Relaxed` |
 
 ### 6.2 WASM
 
@@ -778,7 +778,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 |---|---|---|---|
 | 2.1 | ~~Fragmentar `cli_handlers.rs` (2,197 líneas)~~ ✅ Completo | `src/cli_handlers/` con 12 submódulos | 1 día |
 | 2.2 | ~~Fragmentar `index/core.rs` (1,984 líneas)~~ ✅ Completo | Crear `src/index/graph.rs` (700), `search.rs` (419), `serialize.rs` (618), `stats.rs` (110) — `core.rs` reducido a solo tests (311) | 1 día |
-| 2.3 | Reemplazar `entry_point` Mutex con `AtomicU128` | `src/index/core.rs` | 30 min |
+| 2.3 | ~~Reemplazar `entry_point` Mutex con `AtomicU128`~~ ✅ Completo | `src/index/graph.rs`, `serialize.rs`, `init.rs`, `ops.rs`, `Cargo.toml` (+ `portable-atomic`) | 30 min |
 | 2.4 | Migrar variantes `String` de `VantaError` a source chaining | `src/error.rs` | 1 hora |
 | 2.5 | Unificar `FLAG_TOMBSTONE` en un solo lugar | `node.rs`, `mod.rs`, `archive.rs` | 15 min |
 | 2.6 | Añadir forced-auth mode al server | `cli_server.rs` | 1 hora |

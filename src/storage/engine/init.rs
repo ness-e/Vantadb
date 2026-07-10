@@ -443,11 +443,11 @@ impl StorageEngine {
                             // PERF-23/28: Remove from HNSW graph to prevent zombie nodes
                             hnsw.nodes.remove(&id);
                             // If this was the entry point, promote a replacement
-                            let mut ep = hnsw.entry_point.lock();
-                            if *ep == id {
-                                *ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                            if hnsw.entry_point.load(std::sync::atomic::Ordering::Relaxed) == id {
+                                let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                                hnsw.entry_point
+                                    .store(new_ep, std::sync::atomic::Ordering::Relaxed);
                             }
-                            drop(ep);
                             let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                         }
                         crate::wal::WalRecord::Checkpoint { .. } => {}
