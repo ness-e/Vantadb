@@ -22,8 +22,6 @@ pub(crate) const MAX_VEC_F32_LEN: usize = 10_000_000;
 use super::distance::*;
 pub use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
 
-pub(crate) const FLAG_TOMBSTONE: u32 = 0x8;
-
 #[inline(always)]
 #[allow(unused_variables)]
 pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {

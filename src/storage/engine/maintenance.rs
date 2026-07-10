@@ -10,7 +10,7 @@ use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
     engine_mmap_resident_bytes, EvictionReason, EvictionReport, IndexRebuildReport,
-    QuantizationMaintenanceReport, StorageEngine, STORAGE_ALIGNMENT,
+    QuantizationMaintenanceReport, StorageEngine, FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::storage::vfile::MmapMut;
@@ -28,7 +28,7 @@ impl StorageEngine {
             .filter(|r| {
                 let n = r.value();
                 if let Some(h) = vstore.read_header(n.storage_offset) {
-                    (h.flags & crate::storage::engine::FLAG_TOMBSTONE) != 0
+                    (h.flags & FLAG_TOMBSTONE) != 0
                 } else {
                     false
                 }

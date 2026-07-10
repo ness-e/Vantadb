@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tracing::info;
 
-const FLAG_TOMBSTONE: u32 = 0x8;
+use crate::storage::engine::FLAG_TOMBSTONE;
 
 /// Open or skip WAL initialization based on the read-only configuration flag.
 pub(crate) fn init_wal(
