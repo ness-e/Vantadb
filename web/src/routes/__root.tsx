@@ -69,13 +69,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "VantaDB" },
-      { property: "og:title", content: "VantaDB — Embedded Vector Database for AI Agents" },
-      {
-        property: "og:description",
-        content:
-          "Open-source embedded vector database for AI agents. HNSW + BM25 + hybrid search in a single Rust binary. Apache 2.0. Sub-millisecond hybrid queries, zero infrastructure.",
-      },
-      { property: "og:url", content: "https://vantadb.dev" },
       { property: "og:locale", content: "en_US" },
       { property: "og:image", content: "https://vantadb.dev/og/default.svg" },
       { property: "og:image:width", content: "1200" },
@@ -89,8 +82,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "icon", href: "/favicon.svg?v=2", type: "image/svg+xml" },
       { rel: "canonical", href: "https://vantadb.dev" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
     ],
     scripts: [
       {

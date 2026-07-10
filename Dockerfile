@@ -44,7 +44,7 @@ RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --package ${BINARY} 2>/dev/null; true
+    cargo build --release --package ${BINARY}
 
 # Remove skeleton before copying real sources
 RUN rm -rf src/ vantadb-*/src/
