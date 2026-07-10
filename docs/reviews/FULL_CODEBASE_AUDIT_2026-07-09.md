@@ -864,6 +864,26 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 4.9 | ~~Añadir DR runbook~~ ✅ Completo | `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` — SEV-1/2/3 procedures, health checks, recovery testing |
 | 4.10 | ~~Consolidar `vantadb.rb` duplicado~~ ✅ Completo | Formula reescrita: tarballs, ARM64 macOS/Linux, `version`, `livecheck`. |
 
+### Prioridad 5 — Post-Audit Fixes (Completado en Jul 2026)
+
+| # | Acción | Cambios |
+|---|---|---|
+| 5.1 | Docker: perfil release → ci + strip | `Dockerfile` — skeleton + real build usan `--profile ci`. `Cargo.toml` — `[profile.ci]` añadido `strip = "symbols"` |
+| 5.2 | Docker: `.dockerignore` + `.cargo/` | `.dockerignore` — añadida exclusión de `.cargo/` |
+| 5.3 | Docker: HEALTHCHECK start_period unificado | `docker-compose.yml` — `start_period: 10s` (consistente con Dockerfile) |
+| 5.4 | CI: `-Zminimal-versions` | `.github/workflows/ci-rust-10.yml` — nuevo job `minimal-versions` con `cargo +nightly check -Zminimal-versions` (continue-on-error) |
+| 5.5 | Path traversal: absolute path + prefix rejection | `src/storage/ops.rs:prevent_path_traversal` — rechaza paths absolutos y Windows prefixes |
+| 5.6 | Homebrew formula: SHA256 generation docs | `Formula/vantadb.rb` — comentario con script de generación de SHA256 |
+| 5.7 | `install.sh`: SSL flags + checksum verification | `scripts/install.sh` — `--ssl-reqd` en curl, SHA256 checksum opcional, fallo en API fallback |
+| 5.8 | PY2: ListBool type inference corregido | `vantadb-python/src/lib.rs` — en listas, `i64` se verifica antes que `bool` para evitar `[0,1]` → `ListBool` |
+| 5.9 | TS2: Test runner `.then()` → síncrono | `vantadb-ts/src/__tests__/vanta.test.ts` — tests concurrentes convertidos de `.then()` a síncronos (WASM ya es sync) |
+| 5.10 | TS3: Distance metric case-insensitive | `vantadb-mcp/src/lib.rs` — `search_memory` normaliza a lowercase para aceptar "Cosine"/"Euclidean" |
+| 5.11 | WA5: MCP `search_semantic` via API pública | `vantadb-mcp/src/lib.rs` — reemplazado acceso directo a `storage.hnsw`/`storage.vector_store` con `VantaEmbedded::search_vector()` |
+| 5.12 | E5: `parse_env_or` error logging mejorado | `src/config.rs` — incluye parse error y valor inválido en warning |
+| 5.13 | §5.2: Deserialización con límite de tamaño | `src/config.rs`, `src/hardware/mod.rs`, `src/wal_shipping.rs` — límite de 1MB en inputs JSON |
+| 5.14 | SKILLS-MANIFEST: TOC "Core 50" → "(37)" | `SKILLS-MANIFEST.md` — TOC actualizado a "Essential Skillset (37)" |
+| 5.15 | FAQ.md: versión verificada | `docs/FAQ.md` — ya muestra 0.3.0, no requiere cambios |
+
 ---
 
 ## 15. Progreso de Implementación

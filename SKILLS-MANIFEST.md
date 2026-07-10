@@ -8,7 +8,7 @@
 
 ## Quick Navigation
 
-- [Core 50 — Essential Skillset](#core-50--essential-skillset)
+- [Essential Skillset (37)](#essential-skillset-37)
 - [All Skills by Category](#all-skills-by-category)
 - [Skill Loading Guide](#skill-loading-guide)
 
