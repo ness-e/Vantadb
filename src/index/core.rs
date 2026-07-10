@@ -103,13 +103,10 @@ fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
 pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {
-        // POSIX: madvise(MADV_DONTNEED) — indica al kernel que estas páginas
-        // no son necesarias y pueden ser liberadas de RAM. El mmap sigue válido,
-        // pero las páginas se cargarán bajo demanda desde disco cuando se accedan.
-        // Disponible en Linux y macOS. No bloquea el hilo llamante.
+        // SAFETY: `mmap_ptr` is a valid pointer into an active mmap region;
+        // the caller guarantees `offset` and `len` are within bounds.
+        // `madvise` will silently ignore invalid ranges.
         unsafe {
-            // SAFETY: mmap_ptr es un puntero activo al mmap; offset+len está validado por
-            // el caller. madvise falla silenciosamente si el rango es inválido.
             libc::madvise(
                 mmap_ptr.add(offset) as *mut libc::c_void,
                 len,
@@ -120,14 +117,12 @@ pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize
 
     #[cfg(windows)]
     {
-        // Windows: No hay equivalente directo a MADV_DONTNEED.
-        // VirtualUnlock puede liberar páginas del working set, pero requiere
-        // que las páginas estén bloqueadas primero. Para simplicidad, no-op.
+        // No direct equivalent to MADV_DONTNEED on Windows.
+        // VirtualUnlock could free pages from the working set but requires
+        // the pages to be locked first. This is a no-op for simplicity.
         let _ = (mmap_ptr, offset, len);
     }
 
-    // Fallback no-op para plataformas sin soporte (e.g., WASM, Tier-3).
-    // El compilador elimina este bloque vacío en release.
     #[cfg(not(any(unix, windows)))]
     let _ = (mmap_ptr, offset, len);
 }
@@ -247,6 +242,9 @@ impl IndexBackend {
                         return None;
                     }
                 };
+                // SAFETY: `file` is a valid open handle; `Mmap::map` is the standard
+                // memmap2 crate API that creates a read-only mapping. The returned
+                // mmap is immediately used and dropped within this scope.
                 let mmap = match unsafe { crate::storage::vfile::Mmap::map(&file) } {
                     Ok(m) => m,
                     Err(e) => {
@@ -544,7 +542,10 @@ impl CPIndex {
                             0.0
                         } else {
                             let vec_data = &vs.mmap_bytes()[vec_start..vec_end];
-                            // Safety: we trust the header.vector_len and bounds checking above
+                            // SAFETY: bounds were verified above (`vec_end <= vs.mmap_bytes().len()`).
+                            // `vec_data` lives in the mmap region and is valid for the lifetime of
+                            // the borrow on `vs`. Alignment of f32 (4 bytes) is guaranteed by the
+                            // storage layout (vec_start is 64-byte aligned, then +8 for header fields).
                             let f32_vec: &[f32] = unsafe {
                                 std::slice::from_raw_parts(
                                     vec_data.as_ptr() as *const f32,
@@ -668,7 +669,8 @@ impl CPIndex {
                                         0.0
                                     } else {
                                         let v_data = &vs.mmap_bytes()[vec_start..vec_end];
-                                        // Safety: trusted bounds and aligned data
+                                        // SAFETY: bounds verified above (`vec_end > vs.mmap_bytes().len()` guard).
+                                        // Same alignment guarantees as the entry-point search path above.
                                         let f32_v: &[f32] = unsafe {
                                             std::slice::from_raw_parts(
                                                 v_data.as_ptr() as *const f32,
@@ -1360,11 +1362,16 @@ impl CPIndex {
                         w.write_all(&[0u8; 4][..padding])?;
                         pos += padding;
                     }
-                    debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in serialize");
-                    debug_assert!(
-                        *len > 0 && *len <= MAX_VEC_F32_LEN,
-                        "MmapFull len out of range in serialize"
-                    );
+                    if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "MmapFull invalid ptr/len in serialize: ptr={:p} len={}",
+                                ptr.0, *len
+                            ),
+                        ));
+                    }
+                    // SAFETY: ptr.0 validated non-null, len is bounded by MAX_VEC_F32_LEN.
                     let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                     for &val in slice {
                         let b = val.to_le_bytes();
@@ -1686,17 +1693,18 @@ impl CPIndex {
                         }
                     }
                     VectorRepresentations::MmapFull(ptr, len) => {
-                        debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in cached norms");
-                        debug_assert!(
-                            *len > 0 && *len <= MAX_VEC_F32_LEN,
-                            "MmapFull len out of range in cached norms"
-                        );
-                        let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
-                        let norm = f32_l2_norm(s);
-                        if norm > f32::EPSILON {
-                            (1.0 / norm, norm * norm)
-                        } else {
+                        if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
                             (0.0, 0.0)
+                        } else {
+                            // SAFETY: ptr.0 validated above; SendPtr is constructed only from
+                            // valid mmap regions that live for the engine's lifetime.
+                            let s = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+                            let norm = f32_l2_norm(s);
+                            if norm > f32::EPSILON {
+                                (1.0 / norm, norm * norm)
+                            } else {
+                                (0.0, 0.0)
+                            }
                         }
                     }
                     _ => (0.0, 0.0),
@@ -1761,6 +1769,10 @@ impl CPIndex {
                 Err(_) => return None,
             };
 
+            // SAFETY: `file` is a valid read-write handle to an existing file.
+            // `MmapMut::map_mut` from memmap2 creates a writable mapping; the
+            // returned mmap is stored in `IndexBackend::MMapFile` and lives for
+            // the index's lifetime or until explicitly replaced.
             let mmap = match unsafe { crate::storage::vfile::MmapMut::map_mut(&file) } {
                 Ok(m) => m,
                 Err(e) => {
@@ -1846,6 +1858,9 @@ impl CPIndex {
             .open(&temp_path)?;
         file.set_len(data.len() as u64)?;
 
+        // SAFETY: `file` is a newly created/truncated handle; `MmapMut::map_mut`
+        // creates a writable mapping matching the file length. The mapped memory
+        // is immediately initialized with `copy_from_slice` before any reads.
         let mut mapped = unsafe { MmapMut::map_mut(&file)? };
         mapped.copy_from_slice(&data);
         mapped.flush()?;

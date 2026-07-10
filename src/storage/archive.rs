@@ -199,6 +199,8 @@ pub(crate) fn rebuild_hnsw_from_vstore(
                         if end <= vstore.size as usize {
                             indexed_vectors += 1;
                             let slice = &vstore.mmap_bytes()[start..end];
+                            // SAFETY: `end <= vstore.size` verified above.
+                            // The underlying mmap is stable for the duration of the read.
                             crate::node::VectorRepresentations::Full(
                                 unsafe {
                                     std::slice::from_raw_parts(

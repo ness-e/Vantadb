@@ -4,6 +4,8 @@ use std::hash::{Hash, Hasher};
 use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
+
 /// Dynamic bitset supporting >128 bits for multi-tenant filtering.
 ///
 /// Backed by `Vec<u64>` — grows on demand as bits are set. The sentinel
@@ -188,7 +190,12 @@ pub enum DistanceMetric {
 /// Wrapper around a raw `*const f32` pointer that implements `Send` + `Sync`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SendPtr(pub *const f32);
+// SAFETY: SendPtr wraps a `*const f32` that is only ever dereferenced behind
+// shared `&` references with valid bounds checked at the call site. The
+// pointer is never mutated through, so sharing across threads is sound.
 unsafe impl Send for SendPtr {}
+// SAFETY: Same reasoning as `Send` — `SendPtr` is used exclusively for
+// read-only mmap-backed vector access. No mutable aliasing crosses threads.
 unsafe impl Sync for SendPtr {}
 
 impl Default for SendPtr {
@@ -238,8 +245,12 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => Some(v.clone()),
             VectorRepresentations::MmapFull(ptr, len) => {
-                debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in to_f32");
-                debug_assert!(*len > 0, "MmapFull len is zero in to_f32");
+                if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+                    return None;
+                }
+                // SAFETY: ptr.0 is guaranteed non-null and len is bounded by
+                // MAX_VEC_F32_LEN (10M). The SendPtr is only constructed from
+                // valid mmap regions that outlive the read lock held by caller.
                 let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
                 Some(slice.to_vec())
             }
@@ -257,8 +268,10 @@ impl VectorRepresentations {
         match self {
             VectorRepresentations::Full(v) => Some(v.as_slice()),
             VectorRepresentations::MmapFull(ptr, len) => {
-                debug_assert!(!ptr.0.is_null(), "MmapFull pointer is null in as_f32_slice");
-                debug_assert!(*len > 0, "MmapFull len is zero in as_f32_slice");
+                if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+                    return None;
+                }
+                // SAFETY: same invariants as to_f32 — non-null ptr + bounded len.
                 Some(unsafe { std::slice::from_raw_parts(ptr.0, *len) })
             }
             _ => None,

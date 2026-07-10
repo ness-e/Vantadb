@@ -130,6 +130,9 @@ impl StorageEngine {
                     .open(&temp_path)?;
                 file.set_len(data.len() as u64)?;
 
+                // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes.
+                // `MmapMut::map_mut` from memmap2 creates a writable mapping of matching size.
+                // The mapped memory is immediately initialized via `copy_from_slice` below.
                 let mut mapped = unsafe { MmapMut::map_mut(&file)? };
                 mapped.copy_from_slice(&data);
                 mapped.flush()?;
@@ -247,6 +250,9 @@ impl StorageEngine {
             let vector_size_aligned = (vector_size + 63) & !63;
             let offset_usize = offset as usize;
             if offset_usize + vector_size_aligned <= mmap.len() && vector_size_aligned > 0 {
+                // SAFETY: the bounds check above guarantees the range is within
+                // the mmap region. `release_mmap_vector` expects the caller to
+                // ensure this (per its own `# Safety` doc).
                 unsafe {
                     crate::index::release_mmap_vector(
                         mmap.as_ptr(),
