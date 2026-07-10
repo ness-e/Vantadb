@@ -845,6 +845,7 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | 3.11 | Añadir Miri tests para unsafe code | 1 día |
 | 3.12 | Resolver `--legacy-peer-deps` en web | 1 hora |
 | 3.13 | Migrar `exit_point` a `AtomicU128` | 30 min |
+| 3.14 | Upgrade tantivy 0.22 → 0.24+ (resuelve ~12 pares duplicados, ver §12.6) | 2-3 días |
 
 ### Prioridad 4 — Baja (Nice to Have)
 

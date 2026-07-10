@@ -7,7 +7,6 @@ use crate::cli::Cli;
 use crate::cli::Shell;
 use crate::cli_handlers::fmt::{header_style, info_style};
 use crate::cli_handlers::{create_spinner, open_database, print_info, print_warning, MIB};
-use crate::config::VantaConfig;
 use crate::error::Result;
 
 #[tracing::instrument]
@@ -211,6 +210,8 @@ async fn cmd_server_http(
     host: Option<String>,
     require_auth: bool,
 ) -> Result<()> {
+    use crate::config::VantaConfig;
+
     let config = VantaConfig {
         storage_path: db_path.to_string(),
         port: port.unwrap_or(8080),
