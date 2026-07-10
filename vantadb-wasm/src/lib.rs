@@ -769,6 +769,7 @@ static TRACING_INIT: AtomicBool = AtomicBool::new(false);
 
 fn init_tracing() {
     if !TRACING_INIT.swap(true, Ordering::Relaxed) {
+        #[cfg(feature = "tracing-wasm")]
         tracing_wasm::set_as_global_default();
     }
 }

@@ -114,6 +114,11 @@ jobs:
         working-directory: vantadb-ts
         run: |
           WASM_VER=$(grep '^version' vantadb-wasm/Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+          # Sanitize: allow only semver-safe characters
+          if ! echo "$WASM_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
+            echo "ERROR: Invalid version extracted: '$WASM_VER'" >&2
+            exit 1
+          fi
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
 
       - name: Publish to npm
