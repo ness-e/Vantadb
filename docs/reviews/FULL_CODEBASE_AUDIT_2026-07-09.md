@@ -189,7 +189,7 @@ El lock `vector_store.read()` se mantiene durante ambas operaciones, lo que prev
 | # | Problema | Ejemplo | Impacto |
 |---|---|---|---|
 | E1 | Variantes String pierden contexto estructurado | `WalError(String)`, `SearchError(String)`, `Generic(String)`, `BackendError(String)` | No se puede hacer pattern match sobre la causa raíz |
-| E2 | Sin source chaining en variantes no-IoError | `SerializationError(String)` convierte postcard error a String, perdiendo el error original | No se puede inspeccionar la causa original |
+| E2 | ~~Sin source chaining en variantes no-IoError~~ ✅ Completo | `SerializationError(#[source] Box<dyn Error + Send + Sync>)` preserva el error original. 21 call sites migrados. | `error.source()` devuelve el postcard/serde error original |
 | E3 | `IqlParseError` tiene posición pero no tipo `Spanned` | `IqlParseError { message: String, line: usize, col: usize }` | Dificulta pretty-printing con span labels |
 | E4 | `Result<T>` no es `#[must_use]` | `let _ = fallible_op();` compila sin warning | Resultados descartables silenciosamente |
 | E5 | `parse_env_or` traga errores de parseo | `fn parse_env_or<T: FromStr>(key: &str, default: T) -> T` con `warn!()` en error | Silencioso, el warning puede perderse en logs |
@@ -779,7 +779,7 @@ Los perfiles `ci` y `dev` con `debug = 0` son configuraciones avanzadas y excele
 | 2.1 | ~~Fragmentar `cli_handlers.rs` (2,197 líneas)~~ ✅ Completo | `src/cli_handlers/` con 12 submódulos | 1 día |
 | 2.2 | ~~Fragmentar `index/core.rs` (1,984 líneas)~~ ✅ Completo | Crear `src/index/graph.rs` (700), `search.rs` (419), `serialize.rs` (618), `stats.rs` (110) — `core.rs` reducido a solo tests (311) | 1 día |
 | 2.3 | ~~Reemplazar `entry_point` Mutex con `AtomicU128`~~ ✅ Completo | `src/index/graph.rs`, `serialize.rs`, `init.rs`, `ops.rs`, `Cargo.toml` (+ `portable-atomic`) | 30 min |
-| 2.4 | Migrar variantes `String` de `VantaError` a source chaining | `src/error.rs` | 1 hora |
+| 2.4 | ~~Migrar variantes `String` de `VantaError` a source chaining~~ ✅ Completo | `src/error.rs` + 8 archivos (21 call sites): `SerializationError(String)` → `Box<dyn Error + Send + Sync>` con `SerdeMsgError` para errores con contexto. `ExportError` eliminado (no usado). | 1 hora |
 | 2.5 | Unificar `FLAG_TOMBSTONE` en un solo lugar | `node.rs`, `mod.rs`, `archive.rs` | 15 min |
 | 2.6 | Añadir forced-auth mode al server | `cli_server.rs` | 1 hora |
 | 2.7 | Expandir `.env.example` con todas las 22 variables | `.env.example` | 30 min |

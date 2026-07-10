@@ -494,14 +494,14 @@ impl VantaEmbedded {
         else {
             return Ok(None);
         };
-        postcard::from_bytes(&bytes).map(Some).map_err(|err| {
-            VantaError::SerializationError(format!("derived index state decode error: {err}"))
-        })
+        postcard::from_bytes(&bytes)
+            .map(Some)
+            .map_err(|err| VantaError::SerializationError(Box::new(err)))
     }
 
     fn write_derived_index_state(engine: &StorageEngine, state: &DerivedIndexState) -> Result<()> {
         let bytes = postcard::to_allocvec(state)
-            .map_err(|err| VantaError::SerializationError(err.to_string()))?;
+            .map_err(|err| VantaError::SerializationError(Box::new(err)))?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             DERIVED_INDEX_STATE_KEY,
@@ -515,14 +515,14 @@ impl VantaEmbedded {
         else {
             return Ok(None);
         };
-        postcard::from_bytes(&bytes).map(Some).map_err(|err| {
-            VantaError::SerializationError(format!("text index state decode error: {err}"))
-        })
+        postcard::from_bytes(&bytes)
+            .map(Some)
+            .map_err(|err| VantaError::SerializationError(Box::new(err)))
     }
 
     fn write_text_index_state(engine: &StorageEngine, state: &TextIndexState) -> Result<()> {
         let bytes = postcard::to_allocvec(state)
-            .map_err(|err| VantaError::SerializationError(err.to_string()))?;
+            .map_err(|err| VantaError::SerializationError(Box::new(err)))?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             TEXT_INDEX_STATE_KEY,
@@ -1691,7 +1691,7 @@ impl VantaEmbedded {
         for record in records {
             let line = export_line_from_record(record);
             serde_json::to_writer(&mut writer, &line)
-                .map_err(|err| VantaError::SerializationError(err.to_string()))?;
+                .map_err(|err| VantaError::SerializationError(Box::new(err)))?;
             writer.write_all(b"\n").map_err(VantaError::IoError)?;
         }
         writer.flush().map_err(VantaError::IoError)?;
@@ -1766,7 +1766,7 @@ impl VantaEmbedded {
             }
 
             match serde_json::from_str::<VantaMemoryExportLine>(&line)
-                .map_err(|err| VantaError::SerializationError(err.to_string()))
+                .map_err(|err| VantaError::SerializationError(Box::new(err)))
                 .and_then(record_from_export_line)
             {
                 Ok(record) => records.push(record),

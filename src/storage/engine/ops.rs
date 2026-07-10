@@ -101,7 +101,7 @@ impl StorageEngine {
             edges: active_node.edges.clone(),
         };
         let metadata_val = postcard::to_allocvec(&metadata)
-            .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+            .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
@@ -259,7 +259,7 @@ impl StorageEngine {
                 edges: active_node.edges.clone(),
             };
             let metadata_val = postcard::to_allocvec(&metadata)
-                .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+                .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
             kv_ops.push(BackendWriteOp::Put {
                 partition: BackendPartition::Default,
                 key: key.to_vec(),
@@ -388,7 +388,7 @@ impl StorageEngine {
         };
 
         let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
-            .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+            .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
 
         let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
@@ -762,7 +762,7 @@ impl StorageEngine {
         let partition = crate::storage::ops::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
         let val = postcard::to_allocvec(node)
-            .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+            .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
         self.backend.put(partition, &key, &val)?;
 
         let mut vstore = self.vector_store.write();

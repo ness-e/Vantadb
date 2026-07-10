@@ -71,7 +71,7 @@ pub(crate) fn insert_node_to_backend(
         edges: node.edges.clone(),
     };
     let val = postcard::to_allocvec(&metadata)
-        .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
     backend.put(partition, &key, &val)?;
     Ok(())
 }
@@ -90,7 +90,7 @@ pub(crate) fn get_node_from_backend(
         None => return Ok(None),
     };
     let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
-        .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+        .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
     let index_node = match hnsw.nodes.get(&id) {
         Some(n) => n,
         None => return Ok(None),

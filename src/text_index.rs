@@ -538,12 +538,16 @@ pub(crate) fn posting_count(payload: &str) -> u64 {
 }
 
 fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    postcard::to_allocvec(value).map_err(|err| VantaError::SerializationError(err.to_string()))
+    postcard::to_allocvec(value).map_err(|err| VantaError::SerializationError(Box::new(err)))
 }
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
-    let val: T = postcard::from_bytes(bytes)
-        .map_err(|err| VantaError::SerializationError(format!("{label} decode error: {err}")))?;
+    let val: T = postcard::from_bytes(bytes).map_err(|err| {
+        VantaError::SerializationError(Box::new(crate::error::SerdeMsgError::new(
+            format!("{label} decode error: {err}"),
+            err,
+        )))
+    })?;
     Ok(val)
 }
 
