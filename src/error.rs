@@ -1,4 +1,38 @@
+use std::error::Error as StdError;
+use std::fmt;
 use thiserror::Error;
+
+/// A serialization error that preserves both context and the original error.
+///
+/// Unlike `SerializationError(Box<dyn Error>)`, this variant adds a human-readable
+/// message while keeping the underlying error chainable via `.source()`.
+#[derive(Debug)]
+pub struct SerdeMsgError {
+    msg: String,
+    source: Box<dyn StdError + Send + Sync>,
+}
+
+impl SerdeMsgError {
+    /// Wrap a serialization error with additional context.
+    pub fn new(ctx: impl fmt::Display, source: impl StdError + Send + Sync + 'static) -> Self {
+        Self {
+            msg: ctx.to_string(),
+            source: Box::new(source),
+        }
+    }
+}
+
+impl fmt::Display for SerdeMsgError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.msg)
+    }
+}
+
+impl StdError for SerdeMsgError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&*self.source)
+    }
+}
 
 /// Core error type for all VantaDB operations
 #[derive(Error, Debug)]
@@ -35,9 +69,9 @@ pub enum VantaError {
         hint: String,
     },
 
-    /// Serialization or deserialization failure.
+    /// Serialization or deserialization failure with source chaining.
     #[error("Serialization error: {0}")]
-    SerializationError(String),
+    SerializationError(#[source] Box<dyn StdError + Send + Sync>),
 
     /// Wrapped I/O error from the standard library.
     #[error("IO error: {0}")]
@@ -161,10 +195,6 @@ pub enum VantaError {
     /// Error from the storage backend.
     #[error("Backend error: {0}")]
     BackendError(String),
-
-    /// Error during data export.
-    #[error("Export error: {0}")]
-    ExportError(String),
 
     /// Invalid input provided.
     #[error("Invalid input: {0}")]

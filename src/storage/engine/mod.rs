@@ -212,7 +212,7 @@ impl StorageEngine {
             edges: node.edges.clone(),
         };
         let metadata_val = postcard::to_allocvec(&metadata)
-            .map_err(|e| crate::error::VantaError::SerializationError(e.to_string()))?;
+            .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
     }

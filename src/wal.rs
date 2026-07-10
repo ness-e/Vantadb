@@ -372,7 +372,7 @@ impl WalWriter {
         });
 
         let payload = postcard::to_allocvec(record)
-            .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+            .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
 
@@ -412,7 +412,7 @@ impl WalWriter {
 
         for record in records {
             let payload = postcard::to_allocvec(record)
-                .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
             let len = payload.len() as u32;
             let crc = crc32c(&payload);
             buf.extend_from_slice(&len.to_le_bytes());
@@ -578,7 +578,7 @@ impl WalReader {
 
             if is_valid {
                 let record: WalRecord = postcard::from_bytes(&payload)
-                    .map_err(|e| VantaError::SerializationError(e.to_string()))?;
+                    .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {
