@@ -147,6 +147,39 @@ jobs:
         timeout-minutes: 25
         run: cargo nextest run --profile ci-windows --workspace --features "cli,arrow,tls,opentelemetry"
 
+  test-macos:
+    name: Tests (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        with:
+          cache-bin: "false"
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
+        with:
+          tool: nextest
+
+      - name: Cargo check (macOS smoke test)
+        run: cargo check --workspace
+
+      - name: Clippy (macOS)
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run tests (Audit profile)
+        shell: bash
+        timeout-minutes: 25
+        run: cargo nextest run --profile audit --workspace --features "cli,arrow,tls,opentelemetry"
+
   coverage:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
