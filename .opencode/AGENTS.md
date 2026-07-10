@@ -1,5 +1,7 @@
 # VantaDB — AGENTS.md
 
+> **🛡️ Validation Rule:** Si no estás 100% seguro de una respuesta, análisis o decisión técnica, DEBES validar contra internet (`websearch`/`webfetch`). Para herramientas, librerías o APIs, la fuente de verdad es su documentación oficial o GitHub. No confíes en conocimiento interno del modelo si hay duda.
+
 ## CodeGraph
 
 CodeGraph tiene un índice pre-construido del código fuente de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
@@ -389,7 +391,7 @@ web/
 ## Skills Manifest
 
 **Todas las skills están centralizadas en:**
-- `.agents/skills/` (proyecto, 179 skills)
+- `.agents/skills/` (proyecto, 116 skills esenciales)
 - Referencia completa en: `SKILLS-MANIFEST.md` (raíz del proyecto)
 
 **Siempre preferir la copia del proyecto sobre la global.**
@@ -449,11 +451,54 @@ Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.
 4. No saltarse pasos con excusas — las skills tienen tablas anti-racionalización
 5. Skills de diseño/creativo y de ingeniería son complementarias — ambas pueden aplicarse
 
+## Ritual de Inicio de Sesión (MUST DO)
+
+Al empezar cada sesión, ejecutar en orden:
+
+1. **Cargar skills base**:
+   ```
+   skill progreso                 # lee backlog, chequea WIP
+   skill writing-plans            # si la tarea tiene múltiples pasos
+   skill systematic-debugging     # si la tarea es corregir un bug
+   ```
+2. **Revisar estado del repo**:
+   ```bash
+   git status --short             # ¿hay cambios sin commit?
+   git log --oneline -5           # ¿qué se hizo en la última sesión?
+   ```
+3. **Cargar skills adicionales** según el tipo de tarea (ver [Skill Loading Guide](#skill-loading-guide--diseño--creativo))
+4. **Verificar entorno rápido**: solo si la tarea involucra cambios en infraestructura
+   ```bash
+   rustc --version && cargo --version
+   just check                     # feedback rápido
+   ```
+
+Al **finalizar** la sesión:
+```
+skill progreso                   # mueve tareas completadas a docs/progreso/
+just verify                       # fmt + clippy + test + deny (o just verify-quick)
+```
+
 ## Progreso Skill (MUST USE)
 
 Load `progreso` at start and before completing every task:
 - **Start**: `skill progreso` — reads backlog, checks for in-progress work
 - **Complete**: `skill progreso` (Trigger 1) — moves done tasks from `docs/Backlog.md` → `docs/progreso/README.md` BEFORE any summary
+
+## Reference Files
+
+Archivos de referencia externos para no saturar este AGENTS.md. Son auto-contenidos, el agente los consulta solo cuando aplica el contexto.
+
+| Archivo | Cuándo consultar | Cómo editar |
+|---------|------------------|-------------|
+| `docs/references/troubleshooting.md` | Error inesperado de compilación, test, Python SDK, web, git o herramienta en Windows | Agregar nuevo síntoma al final de la sección correspondiente con: síntoma, causa raíz, solución, comando exacto |
+| `docs/references/bug-workflow.md` | Reporte de bug, test failure, comportamiento inesperado — antes de implementar cualquier fix | Modificar pasos si hay un patrón nuevo que documentar. NO cambiar las fases sin discusión |
+| `docs/references/reading-nextest-output.md` | Falla de nextest, SLOW, LEAK, test flaky, o cualquier output de test runner | Agregar ejemplos de output con explicación si encuentras un patrón nuevo |
+
+**Reglas:**
+- NO leer estos archivos si no aplican al contexto actual
+- Si lees un archivo para resolver un issue y la solución no está documentada, AGREGA la entrada faltante
+- Si editas, mantener el mismo formato: tabla de secciones al inicio, bloques de código para comandos
 
 ## Doc Language Split
 
@@ -589,7 +634,7 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 | **CodeGraph** | `codegraph serve --mcp` | Grafo de conocimiento del código (7.3K símbolos). Resuelve símbolos, flujos, blast radius |
 | **Pencil** | `mcp-server-windows-x64.exe` | Editor de archivos `.pen` — diseño UI visual, reemplazo de Figma |
 | **Playwright** | `@playwright/mcp` | Automatización de navegador: navegar, click, screenshot, snapshot, redes |
-| **Recraft** | `@recraft-ai/mcp-recraft-server` | Generación/edición de imágenes por IA (upscale, vectorizar, remover fondo) |
+| ~~**Recraft**~~ | ~~`@recraft-ai/mcp-recraft-server`~~ | ❌ Eliminado — sin API key |
 | **cargo-mcp** | `cargo-mcp serve` | Ejecutar comandos Cargo: `check`, `clippy`, `test`, `build`, `fmt`, `add`, `remove`, `bench`, `run` |
 | **rust-analyzer-mcp** | `rust-analyzer-mcp` | LSP completo: goto def, hover, references, completions, diagnostics, rename, format |
 | ~~**rust-mcp-server**~~ | ~~`rust-mcp-server`~~ | ❌ Deshabilitado — bug MCP handshake en v0.2.4. Redundante: cargo-mcp + rust-analyzer-mcp cubren todo |
@@ -599,5 +644,5 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 - Para preguntas de código → **CodeGraph** (siempre primero, antes de grep/read)
 - Para diseño UI/visual → **Pencil** (archivos `.pen`)
 - Para web scraping/testing → **Playwright**
-- Para generar/editar imágenes → **Recraft** (requiere `RECRAFT_API_KEY`)
+- Para generar/editar imágenes → ~~**Recraft**~~ (❌ sin API key — eliminado)
 - Para tareas Rust → **cargo-mcp** (build/test/clippy/fmt), **rust-analyzer-mcp** (LSP: goto def, hover, diagnostics, completions)
