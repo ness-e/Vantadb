@@ -21,6 +21,10 @@ pub use opfs::OpfsFile;
 /// OPFS-based storage for persisting VantaDB state in the browser.
 pub use opfs::OpfsStorage;
 
+mod idb;
+/// IndexedDB-based storage for browsers without OPFS support.
+pub use idb::IdbStorage;
+
 #[cfg(feature = "opfs")]
 pub mod worker;
 
@@ -298,6 +302,25 @@ impl VantaDB {
         Ok(db)
     }
 
+    /// Open VantaDB with IndexedDB-based persistent storage (fallback when OPFS is unavailable).
+    pub async fn connect_idb(path: &str) -> Result<VantaDB, JsValue> {
+        init_tracing();
+        let wasm_cfg = WasmConfig {
+            storage_path: path.to_string(),
+            ..WasmConfig::default()
+        };
+        let config = build_config(wasm_cfg);
+        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let db = VantaDB {
+            inner,
+            opfs: None,
+            #[cfg(feature = "opfs")]
+            worker: None,
+        };
+        db.load_idb().await?;
+        Ok(db)
+    }
+
     /// Open VantaDB with OPFS persistence via a dedicated Web Worker.
     #[cfg(feature = "opfs")]
     pub async fn connect_worker(path: &str) -> Result<VantaDB, JsValue> {
@@ -386,6 +409,43 @@ impl VantaDB {
         let data = serde_json::to_vec(&state)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         opfs.write_file("db_state.json", &data).await
+    }
+
+    /// Persist all in-memory records to IndexedDB storage.
+    pub async fn save_idb(&self) -> Result<(), JsValue> {
+        let mut state: Vec<VantaMemoryRecord> = Vec::new();
+        let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
+        for ns in &namespaces {
+            let opts = VantaMemoryListOptions {
+                filters: VantaMemoryMetadata::new(),
+                limit: usize::MAX,
+                cursor: None,
+            };
+            let page = self.inner.list(ns, opts).map_err(to_js_err)?;
+            state.extend(page.records);
+        }
+        let data = serde_json::to_vec(&state)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        IdbStorage::write_file("db_state.json", &data).await
+    }
+
+    /// Restore all records from IndexedDB storage into memory.
+    pub async fn load_idb(&self) -> Result<(), JsValue> {
+        let data = match IdbStorage::read_file("db_state.json").await? {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+        let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
+            .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
+        if !records.is_empty() {
+            self.inner.import_records(records).map_err(to_js_err)?;
+        }
+        Ok(())
+    }
+
+    /// Delete persisted state from IndexedDB.
+    pub async fn delete_idb(&self) -> Result<(), JsValue> {
+        IdbStorage::delete_file("db_state.json").await
     }
 
     /// Restore all records from OPFS storage into memory.

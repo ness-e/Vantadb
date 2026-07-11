@@ -1,5 +1,6 @@
 //! HNSW index construction, serialization, and search operations.
 
+pub(crate) mod auto_tune;
 pub(crate) mod core; // tests only
 pub(crate) mod distance;
 pub(crate) mod flat;

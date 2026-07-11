@@ -342,6 +342,7 @@ impl VantaEmbedded {
         }
 
         if hits.is_empty() && !query_vector.is_empty() {
+            crate::index::auto_tune::AutoTune::report_brute_fallback();
             for record in self.records_for_namespace(namespace, filters)? {
                 let Some(vector) = record.vector.as_ref() else {
                     continue;
@@ -368,6 +369,8 @@ impl VantaEmbedded {
                     hit.score = -(-hit.score).max(0.0).sqrt();
                 }
             }
+        } else if !hits.is_empty() {
+            crate::index::auto_tune::AutoTune::report_success();
         }
 
         Ok(hits)
