@@ -243,7 +243,7 @@ fn prop_hnsw_mixed_normalization() {
     let (_dir, db) = setup_db();
 
     // Insertar vectores con distintas magnitudes
-    let raw_vectors = vec![
+    let raw_vectors = [
         vec![1.0, 0.0, 0.0, 0.0],
         vec![2.0, 0.0, 0.0, 0.0],
         vec![0.0, 1.0, 0.0, 0.0],
@@ -259,7 +259,12 @@ fn prop_hnsw_mixed_normalization() {
     }
 
     // Query con vector normalizado
-    let query = vec![0.7071, 0.7071, 0.0, 0.0];
+    let query = vec![
+        std::f32::consts::FRAC_1_SQRT_2,
+        std::f32::consts::FRAC_1_SQRT_2,
+        0.0,
+        0.0,
+    ];
     let hits = db.search_vector(&query, 10).unwrap();
     assert!(
         !hits.is_empty(),
@@ -292,7 +297,7 @@ fn prop_hnsw_mixed_normalization() {
     let close_matches: Vec<&vantadb::VantaSearchHit> =
         hits.iter().filter(|h| h.distance > 0.99).collect();
     assert!(
-        close_matches.len() >= 1,
+        !close_matches.is_empty(),
         "at least one collinear vector should have score near 1.0, got {} close matches",
         close_matches.len()
     );

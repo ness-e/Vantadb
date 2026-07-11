@@ -61,7 +61,7 @@ pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usiz
 }
 
 #[inline(always)]
-#[allow(unused_variables)]
+#[allow(unused_variables, clippy::missing_safety_doc)]
 pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {

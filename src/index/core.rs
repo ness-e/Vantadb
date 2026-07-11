@@ -334,7 +334,7 @@ mod tests {
         assert!(index.validate_index().is_ok(), "clean index must pass");
 
         let first_id = *index.nodes.iter().next().unwrap().key();
-        let second_id = *index.nodes.iter().skip(1).next().unwrap().key();
+        let second_id = *index.nodes.iter().nth(1).unwrap().key();
 
         if let Some(mut node) = index.nodes.get_mut(&first_id) {
             if !node.neighbors.is_empty() && !node.neighbors[0].is_empty() {

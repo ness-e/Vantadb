@@ -25,9 +25,11 @@ async fn js_call(obj: &JsValue, method: &str, args: &js_sys::Array) -> Result<Js
     wasm_bindgen_futures::JsFuture::from(promise).await
 }
 
+/// IndexedDB-based storage for persisting VantaDB state in the browser.
 pub struct IdbStorage;
 
 impl IdbStorage {
+    /// Check if IndexedDB is available in the current environment.
     pub fn is_available() -> bool {
         let global = js_sys::global();
         Reflect::get(&global, &"indexedDB".into())
@@ -35,6 +37,7 @@ impl IdbStorage {
             .is_some_and(|v| !v.is_undefined())
     }
 
+    /// Check if the BroadcastChannel API is available for cross-tab sync.
     pub fn has_broadcast_channel() -> bool {
         let global = js_sys::global();
         Reflect::get(&global, &"BroadcastChannel".into())
@@ -42,6 +45,7 @@ impl IdbStorage {
             .is_some_and(|v| !v.is_undefined())
     }
 
+    /// Read a file from IndexedDB by key. Returns `None` if the key does not exist.
     pub async fn read_file(key: &str) -> Result<Option<Vec<u8>>, JsValue> {
         let s = storage()?;
         let args = js_sys::Array::new();
@@ -59,6 +63,7 @@ impl IdbStorage {
         Ok(Some(vec))
     }
 
+    /// Write a file to IndexedDB. Replaces any existing value for the same key.
     pub async fn write_file(key: &str, data: &[u8]) -> Result<(), JsValue> {
         let s = storage()?;
         let buf = Uint8Array::new_with_length(data.len() as u32);
@@ -107,10 +112,12 @@ impl IdbStorage {
 
 /// Drop-guarded subscription handle. When dropped, the unsubscribe function is called
 /// to prevent leaking the WASM Closure on the JS side.
+#[allow(dead_code)]
 pub struct IdbSubscription {
     unsubscribe: Option<js_sys::Function>,
 }
 
+#[allow(dead_code)]
 impl IdbSubscription {
     /// Create a subscription that listens for cross-tab data changes.
     /// `on_change` receives the changed key string.
