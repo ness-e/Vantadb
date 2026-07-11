@@ -2,7 +2,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static AUTO_TUNE: AutoTune = AutoTune::new();
 
-
 pub struct AutoTune {
     ef_search: AtomicUsize,
     hit_streak: AtomicUsize,
