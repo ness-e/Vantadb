@@ -1067,7 +1067,7 @@ pub fn handle_tools_call(
             let top_k = (raw_top_k as usize).min(config.max_top_k);
 
             let distance_metric = match args["distance_metric"]
-                .and_then(|v| v.as_str())
+                .as_str()
                 .map(|s| s.to_lowercase())
                 .as_deref()
             {
