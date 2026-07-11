@@ -115,9 +115,9 @@ Archivos que violan esta regla:
 
 ### B. 🔗 Wikilinks Rotos / Stale
 Desde `docs/master-index.md`:
-- `[[articles/why_i_built_local_memory_engine_for_ai_agents.md]]` → "(content coming)"
-- `[[articles/sqlite_for_ai_agents.md]]` → "(content coming)"
-- `[[articles/how_hybrid_search_works.md]]` → "(content coming)"
+- ~~`[[articles/why_i_built_local_memory_engine_for_ai_agents.md]]` → "Planned"~~ ✅ Resuelto — ahora apunta a `../web/content/blog/why-i-built-vantadb-local-memory-engine.md`
+- ~~`[[articles/sqlite_for_ai_agents.md]]` → "Planned"~~ ✅ Resuelto — ahora apunta a `../web/content/blog/sqlite-for-ai-agents.md`
+- ~~`[[articles/how_hybrid_search_works.md]]` → "Planned"~~ ✅ Resuelto — ahora apunta a `../web/content/blog/how-hybrid-search-works.md`
 - `web/design/DiseñoNuevo.md` → el archivo real es `web/design/REDESIGN_V2_PLAN.md`
 - `web/brand/BRAND_PLATFORM.md` → `docs/web/brand/` no existe
 

@@ -424,21 +424,19 @@ Q2-Q4 2027:           Posible implementación MVP SQL (si se decide)
 - **Stack**: Markdown + `marked` v18 + `import.meta.glob` (Vite) — build-time static generation
 - **CMS**: Decap CMS v3 configurado (`public/admin/`) — editorial UI opcional
 - **Frontmatter**: YAML con `title`, `date`, `description`, `author`, `tags`
-- **Estado**: Funcional, **1 post existente** (`introducing-vantadb.md`), **3 artículos listos sin publicar**
+- **Estado**: Funcional, **1 post existente** (`introducing-vantadb.md`), **3 artículos publicados**
 
-#### 3 Artículos Listos para Publicar
+#### 3 Artículos Publicados
 
-| Archivo (en `VantaDB/docs/articles/`) | Slug sugerido | Palabras | Tema |
-|--------|----------------|----------|------|
-| `why_i_built_local_memory_engine.md` | `why-i-built-a-local-memory-engine` | ~2,300 | Motivación y arquitectura general |
-| `sqlite_for_ai_agents.md` | `sqlite-for-ai-agents-benchmarks` | ~2,600 | Storage backend y benchmarks |
-| `how_hybrid_search_works.md` | `how-hybrid-search-works-bm25-hnsw-rrf` | ~3,500 | Deep dive en hybrid search |
+| Archivo (en `web/content/blog/`) | Slug | Palabras | Tema |
+|--------|------|----------|------|
+| `why-i-built-vantadb-local-memory-engine.md` | `why-i-built-a-local-memory-engine` | ~2,300 | Motivación y arquitectura general |
+| `sqlite-for-ai-agents.md` | `sqlite-for-ai-agents-benchmarks` | ~2,600 | Storage backend y benchmarks |
+| `how-hybrid-search-works.md` | `how-hybrid-search-works-bm25-hnsw-rrf` | ~3,500 | Deep dive en hybrid search |
 
-#### Recomendaciones
+#### Recomendaciones (Ejecutadas)
 
-1. **Publicar los 3 artículos inmediatamente** — agregar frontmatter faltante (`date`, `description`, `tags`) y copiar a `content/blog/`
-2. **Usar `gray-matter`** (ya instalado) en vez del parser custom
-3. **Agregar syntax highlighting** a los code blocks (`marked-highlight` + `highlight.js`)
+✅ Los 3 artículos fueron publicados en `web/content/blog/` con frontmatter completo, syntax highlighting, y gray-matter.
 4. **Verificar dominio Decap CMS** — `site_domain: vantadb.dev` debe coincidir con deploy real
 
 ---

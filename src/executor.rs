@@ -64,6 +64,21 @@ impl CertitudeMode {
     }
 }
 
+/// Extract line/col from a nom parse error by measuring how much input was consumed.
+fn iql_error_position(input: &str, err: &nom::Err<nom::error::Error<&str>>) -> (usize, usize) {
+    let consumed = match err {
+        nom::Err::Incomplete(_) => input.len(),
+        nom::Err::Error(e) | nom::Err::Failure(e) => input.len() - e.input.len(),
+    };
+    let line = input[..consumed].matches('\n').count() + 1;
+    let col = consumed
+        - input[..consumed]
+            .rfind('\n')
+            .map(|pos| pos + 1)
+            .unwrap_or(0);
+    (line.max(1), col.max(1))
+}
+
 /// Query executor that evaluates logical plans against the storage engine.
 pub struct Executor<'a> {
     /// Reference to the storage engine.
@@ -144,11 +159,14 @@ impl<'a> Executor<'a> {
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),
-                Err(e) => Err(VantaError::IqlParseError {
-                    msg: e.to_string(),
-                    line: 0,
-                    col: 0,
-                }),
+                Err(e) => {
+                    let (line, col) = iql_error_position(trimmed, &e);
+                    Err(VantaError::IqlParseError {
+                        msg: e.to_string(),
+                        line,
+                        col,
+                    })
+                }
             }
         }
     }

@@ -33,7 +33,7 @@ The primary entry point to all documentation is the [[master-index|Master Index]
 | [[architecture/ARCHITECTURE.md\|architecture/]] | Core engine architecture, ADRs, audits |
 | [[operations/CONFIGURATION.md\|operations/]] | CI/CD, benchmarks, configuration, monitoring |
 | [[tutorials/03-migrating-from-chromadb.md\|tutorials/]] | Migration guides (ChromaDB, LanceDB) |
-| [[articles/why_i_built_local_memory_engine.md\|articles/]] | Published technical articles |
+| [[../web/content/blog/why-i-built-vantadb-local-memory-engine.md\|articles/]] | Published technical articles |
 | [[case_studies/rag_edge_device.md\|case_studies/]] | Deployment case studies |
 | [[graphrag/README.md\|graphrag/]] | GraphRAG architecture and design |
 | [[experimental/IQL.md\|experimental/]] | Interactive Query Language and experimental features |

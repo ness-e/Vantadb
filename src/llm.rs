@@ -64,7 +64,7 @@ impl LlmClient {
         };
 
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::Generic(format!(
+            VantaError::generic_error(format!(
                 "Network error communicating with Inference Bridge: {}",
                 e
             ))
@@ -72,14 +72,14 @@ impl LlmClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::Generic(format!(
+            return Err(VantaError::generic_error(format!(
                 "Inference Bridge returned error status: {}",
                 status
             )));
         }
 
         let result: OllamaEmbeddingResponse = response.json().map_err(|e| {
-            VantaError::Generic(format!(
+            VantaError::generic_error(format!(
                 "Invalid response format from Inference Bridge: {}",
                 e
             ))
@@ -155,7 +155,7 @@ impl LlmClient {
         };
 
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::Generic(format!(
+            VantaError::generic_error(format!(
                 "Network error during Semantic Summarization: {}",
                 e
             ))
@@ -163,14 +163,14 @@ impl LlmClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::Generic(format!(
+            return Err(VantaError::generic_error(format!(
                 "Inference Bridge returned error status during summarization: {}",
                 status
             )));
         }
 
         let result: OllamaGenerateResponse = response.json().map_err(|e| {
-            VantaError::Generic(format!(
+            VantaError::generic_error(format!(
                 "Invalid response format from Inference Bridge (summarize): {}",
                 e
             ))

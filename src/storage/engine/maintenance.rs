@@ -454,7 +454,7 @@ impl StorageEngine {
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
         self.ensure_writable()?;
         if !self.supports_checkpoint() {
-            return Err(VantaError::BackendError(format!(
+            return Err(VantaError::backend_error(format!(
                 "Checkpoint (live snapshot) is not supported by the {:?} backend. \
                 Live backups are not available natively. Please use filesystem-level snapshots (e.g., EBS, ZFS, LVM) \
                 or perform a cold backup by safely shutting down the database process and copying the data directory.",

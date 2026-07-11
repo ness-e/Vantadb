@@ -139,9 +139,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     if let Some(Component::RootDir) = components.peek() {
         return Err(VantaError::ValidationError {
             field: "path".into(),
-            reason: format!(
-                "Path '{path}' is absolute — only relative paths are allowed"
-            ),
+            reason: format!("Path '{path}' is absolute — only relative paths are allowed"),
         });
     }
 
@@ -158,9 +156,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
         if component == Component::ParentDir {
             return Err(VantaError::ValidationError {
                 field: "path".into(),
-                reason: format!(
-                    "Path '{path}' contains '..' traversal — rejected for security"
-                ),
+                reason: format!("Path '{path}' contains '..' traversal — rejected for security"),
             });
         }
     }

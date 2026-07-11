@@ -146,7 +146,7 @@ impl WalShipper {
     /// Ship a single batch of records with 3 retries and exponential backoff.
     fn ship_batch(&self, records: &[WalRecord]) -> Result<()> {
         let payload = serde_json::to_vec(records)
-            .map_err(|e| VantaError::WalError(format!("Failed to serialize batch: {}", e)))?;
+            .map_err(|e| VantaError::wal_error(format!("Failed to serialize batch: {}", e)))?;
 
         let checksum = compute_crc32c(&payload);
         let mut last_err = None;
@@ -167,13 +167,13 @@ impl WalShipper {
                     }
                     let status = resp.status();
                     let body = resp.text().unwrap_or_default();
-                    last_err = Some(VantaError::WalError(format!(
+                    last_err = Some(VantaError::wal_error(format!(
                         "Replica returned status {}: {}",
                         status, body
                     )));
                 }
                 Err(e) => {
-                    last_err = Some(VantaError::WalError(format!("Request failed: {}", e)));
+                    last_err = Some(VantaError::wal_error(format!("Request failed: {}", e)));
                 }
             }
             warn!(
@@ -184,9 +184,8 @@ impl WalShipper {
             std::thread::sleep(Duration::from_millis(backoff_ms));
         }
 
-        Err(last_err.unwrap_or_else(|| {
-            VantaError::WalError("WAL shipment failed after 3 retries".to_string())
-        }))
+        Err(last_err
+            .unwrap_or_else(|| VantaError::wal_error("WAL shipment failed after 3 retries")))
     }
 
     /// Discover rotated WAL segments that haven't been shipped yet.
@@ -244,7 +243,7 @@ impl WalShipper {
 
     fn save_marker(&self, marker: &ShipMarker) -> Result<()> {
         let data = serde_json::to_string_pretty(marker)
-            .map_err(|e| VantaError::WalError(format!("Failed to serialize marker: {}", e)))?;
+            .map_err(|e| VantaError::wal_error(format!("Failed to serialize marker: {}", e)))?;
         std::fs::write(&self.marker_path, data)?;
         Ok(())
     }

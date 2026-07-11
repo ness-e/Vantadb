@@ -140,11 +140,9 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[articles/why_i_built_local_memory_engine_for_ai_agents.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | Planned |
-| 2 | [[articles/sqlite_for_ai_agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | Planned |
-| 3 | [[articles/how_hybrid_search_works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | Planned |
-
-> ℹ️ Articles exist as blog posts in `web/content/blog/` — see [[web/README.md\|Web Site Overview]] for published content.
+| 1 | [[../web/content/blog/why-i-built-vantadb-local-memory-engine.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | Published |
+| 2 | [[../web/content/blog/sqlite-for-ai-agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | Published |
+| 3 | [[../web/content/blog/how-hybrid-search-works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | Published |
 
 ---
 

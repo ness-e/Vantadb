@@ -25,7 +25,9 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_governor::{
+    governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorLayer,
+};
 use tracing_subscriber::EnvFilter;
 #[cfg(feature = "opentelemetry")]
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
@@ -127,6 +129,7 @@ pub fn app(state: Arc<ServerState>, rpm: u32) -> Router {
         let governor_config = GovernorConfigBuilder::default()
             .per_millisecond(period_ms)
             .burst_size(burst_size)
+            .key_extractor(SmartIpKeyExtractor)
             .finish()
             .expect("GovernorConfig build failed");
 
@@ -218,6 +221,25 @@ impl AuthState {
     }
 }
 
+/// Resolve the real client IP, checking the `X-Forwarded-For` header first
+/// (for deployments behind a reverse proxy), then falling back to the direct
+/// TCP socket address.
+pub fn client_ip(req: &axum::extract::Request) -> String {
+    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+        if let Ok(ip_str) = forwarded.to_str() {
+            if let Some(ip) = ip_str.split(',').next().map(|s| s.trim()) {
+                if !ip.is_empty() {
+                    return ip.to_string();
+                }
+            }
+        }
+    }
+    req.extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// Axum middleware that validates Bearer tokens and enforces RBAC permissions.
 pub async fn auth_middleware(
     Extension(auth): Extension<AuthState>,
@@ -234,12 +256,8 @@ pub async fn auth_middleware(
         return next.run(req).await;
     };
 
-    // Extract client IP for rate limiting
-    let client_ip = req
-        .extensions()
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|ci| ci.0.to_string())
-        .unwrap_or_else(|| "unknown".to_string());
+    // Extract client IP for rate limiting (respects X-Forwarded-For)
+    let client_ip = client_ip(&req);
 
     // Check rate limiting before processing auth
     if auth.rate_limiter.is_rate_limited(&client_ip) {

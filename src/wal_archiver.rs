@@ -67,7 +67,7 @@ impl WalArchiver {
     /// ordering for PITR recovery.
     pub fn archive_segment(&self, source_path: &Path) -> Result<PathBuf> {
         if !source_path.exists() {
-            return Err(VantaError::WalError(format!(
+            return Err(VantaError::wal_error(format!(
                 "WAL segment not found: {}",
                 source_path.display()
             )));
