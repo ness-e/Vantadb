@@ -6,6 +6,32 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
+# ── Bootstrap MSVC toolchain (Windows only, needed for librocksdb-sys) ──
+$vsBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
+$msvcVer  = Get-ChildItem "$vsBuild\VC\Tools\MSVC\*" -Directory -ErrorAction SilentlyContinue |
+    Select-Object -Last 1 -ExpandProperty Name
+if ($msvcVer) {
+    $paths = @(
+        "$vsBuild\VC\Tools\MSVC\$msvcVer\bin\HostX64\x64"
+        "$vsBuild\VC\Tools\Llvm\x64\bin"
+        "$vsBuild\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin"
+        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64"
+    )
+    foreach ($p in $paths) {
+        $resolved = if ($p -match '\*') { Get-ChildItem $p -ErrorAction SilentlyContinue | Select-Object -Last 1 -ExpandProperty FullName } else { $p }
+        if ($resolved -and (Test-Path $resolved) -and ($env:PATH -notlike "*$resolved*")) {
+            $env:PATH = "$resolved;$env:PATH"
+        }
+    }
+    # Also set INCLUDE/LIB so the `cc` crate finds Windows SDK headers
+    $kitVer = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include\*" -Directory -ErrorAction SilentlyContinue |
+        Where-Object Name -match '^\d+\.\d+\.\d+\.\d+$' | Select-Object -Last 1 -ExpandProperty Name
+    if ($kitVer) {
+        $env:INCLUDE = "$vsBuild\VC\Tools\MSVC\$msvcVer\include;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\ucrt;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\um;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\shared"
+        $env:LIB     = "$vsBuild\VC\Tools\MSVC\$msvcVer\lib\x64;${env:ProgramFiles(x86)}\Windows Kits\10\Lib\$kitVer\ucrt\x64;${env:ProgramFiles(x86)}\Windows Kits\10\Lib\$kitVer\um\x64"
+    }
+}
+
 function Write-Header($Title) {
     Write-Host "`n=== $Title ===" -ForegroundColor Cyan
 }
