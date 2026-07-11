@@ -120,7 +120,7 @@ aliases: []
 | ~~`DX-02`~~ | **Reducir p50 hybrid search de 62ms a <20ms (Python SDK)** — VantaVector zero-copy + owned hot paths implementados | 🟡 2-3d | 🔴 | ✅ |
 | ~~`DX-03`~~ | **Python SDK performance profiling** — Bottlenecks documentados: PyDict set_item, metadata clones, vector copy | 🟡 1-2d | 🔴 | ✅ |
 | ~~`DX-04`~~ | **Zero-copy vectors en PyO3** — `VantaVector` con `__array_interface__` buffer protocol implementado | 🟡 2-3d | 🟠 | ✅ |
-| ~~`—` | Eliminar `OldSerializationError`~~ deprecated del enum | 🟢 1h | 🟡 | ❌ |
+| ~~`—`~~ | ~~**Eliminar `OldSerializationError` deprecated del enum**~~ | ~~🟢 1h~~ | ~~🟡~~ | ✅ |
 
 ### 🏗️ Index & Storage Quality
 

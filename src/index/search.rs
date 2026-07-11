@@ -381,7 +381,9 @@ impl CPIndex {
             None => return Vec::new(),
         };
 
-        let ef_search = self.config.ef_search.max(top_k);
+        let static_ef = self.config.ef_search;
+        let tuned_ef = crate::index::auto_tune::AutoTune::current_ef();
+        let ef_search = static_ef.max(tuned_ef).max(top_k);
         let (effective_metric, query_norm, query_inv_norm) = match self.config.distance_metric {
             DistanceMetric::Cosine => {
                 let norm = f32_l2_norm(query_vec);
