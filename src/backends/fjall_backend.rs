@@ -230,10 +230,9 @@ impl StorageBackend for FjallBackend {
     /// equivalent to RocksDB's `Checkpoint::create_checkpoint`. Returning an
     /// honest error rather than simulating with unsafe file copies.
     fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(VantaError::BackendError(
+        Err(VantaError::backend_error(
             "Checkpoint not supported by FjallBackend: Fjall does not expose a \
-             point-in-time snapshot-to-disk API equivalent to RocksDB checkpoints"
-                .to_string(),
+             point-in-time snapshot-to-disk API equivalent to RocksDB checkpoints",
         ))
     }
 

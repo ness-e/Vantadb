@@ -492,7 +492,7 @@ impl StorageEngine {
             std::collections::HashMap::with_capacity(backend_results.len());
         for (k, v) in backend_results {
             let key_slice: [u8; 16] = k.as_slice().try_into().map_err(|_| {
-                crate::error::VantaError::BackendError(format!(
+                crate::error::VantaError::backend_error(format!(
                     "corrupt backend: key length {} != 16",
                     k.len()
                 ))

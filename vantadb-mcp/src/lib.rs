@@ -1109,9 +1109,12 @@ pub fn handle_tools_call(
             let k = args["k"].as_u64().unwrap_or(5) as usize;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-            let hits = embedded
-                .search_vector(&vector, k)
-                .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+            let hits = match embedded.search_vector(&vector, k) {
+                Ok(hits) => hits,
+                Err(e) => {
+                    return Ok(error_content(format!("Search Error: {}", e)));
+                }
+            };
 
             let mut results = Vec::new();
             for hit in hits {

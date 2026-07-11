@@ -111,7 +111,7 @@ impl WalHeader {
     /// Deserialize a header from bytes, validating magic, CRC, and version.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != Self::SIZE {
-            return Err(VantaError::WalError(format!(
+            return Err(VantaError::wal_error(format!(
                 "Invalid WAL header size: expected {}, got {}",
                 Self::SIZE,
                 bytes.len()
@@ -135,7 +135,7 @@ impl WalHeader {
 
         let computed_crc = header.compute_crc();
         if computed_crc != crc {
-            return Err(VantaError::WalError(format!(
+            return Err(VantaError::wal_error(format!(
                 "WAL header CRC mismatch: stored={:#x}, computed={:#x}",
                 crc, computed_crc
             )));
@@ -250,9 +250,8 @@ impl WalWriter {
                             let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4]
                                 .try_into()
                                 .map_err(|_| {
-                                    VantaError::WalError(
-                                        "CRC bytes slice expected 4 bytes in WAL record"
-                                            .to_string(),
+                                    VantaError::wal_error(
+                                        "CRC bytes slice expected 4 bytes in WAL record",
                                     )
                                 })?;
                             let stored_crc = u32::from_le_bytes(crc_bytes);
@@ -300,9 +299,8 @@ impl WalWriter {
                                             [test_len as usize..test_len as usize + 4]
                                             .try_into()
                                             .map_err(|_| {
-                                                VantaError::WalError(
-                                                    "CRC bytes slice expected 4 bytes in WAL scan-forward"
-                                                        .to_string(),
+                                                VantaError::wal_error(
+                                                    "CRC bytes slice expected 4 bytes in WAL scan-forward",
                                                 )
                                             })?;
                                         let stored_crc = u32::from_le_bytes(crc_bytes);
@@ -500,8 +498,8 @@ impl WalReader {
         let file_len = file.metadata()?.len();
 
         if file_len < WalHeader::SIZE as u64 {
-            return Err(VantaError::WalError(
-                "WAL file is truncated or too small for header".to_string(),
+            return Err(VantaError::wal_error(
+                "WAL file is truncated or too small for header",
             ));
         }
 
@@ -678,7 +676,7 @@ impl WalRecord {
         {
             let computed = compute_crc32c(index_state);
             if computed != *expected {
-                return Err(VantaError::WalError(format!(
+                return Err(VantaError::wal_error(format!(
                     "Checkpoint index checksum mismatch: expected={:#x}, computed={:#x}",
                     expected, computed
                 )));

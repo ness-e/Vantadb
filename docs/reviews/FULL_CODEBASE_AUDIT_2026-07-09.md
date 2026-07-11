@@ -776,7 +776,7 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | ~~Sin SQLite migration guide~~ ✅ | `docs/operations/SQLITE_MIGRATION_GUIDE.md` |
 | ~~Sin DR runbook~~ ✅ | `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` |
 | ~~`.env.example` falta ~15 variables~~ ✅ Resuelto | 22 variables documentadas en `.env.example` y CONFIGURATION.md |
-| `docs/articles/` no existe | Referenciado en master-index pero sin archivos |
+| ~~`docs/articles/` no existe~~ ✅ Resuelto | Referencias actualizadas a `web/content/blog/` donde los artículos realmente existen |
 | ~~master-index.md refs a 3 archivos inexistentes~~ ✅ Resuelto | Limpiado — refs solo persisten en docs de terceros (web/README.md, DOCS_AUDIT_REPORT.md) |
 | ~~SECURITY.md dice ">= 0.2.0"~~ ✅ Resuelto | Ya no contiene ese texto |
 

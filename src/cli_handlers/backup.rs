@@ -69,7 +69,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     }
 
     copy_dir(src, &backup_dir, Some(&backup_dir)).map_err(|e| {
-        crate::error::VantaError::BackupError(format!("Failed to copy database to backup: {e}"))
+        crate::error::VantaError::backup_error(format!("Failed to copy database to backup: {e}"))
     })?;
 
     let spinner = create_spinner("Verifying backup...");
@@ -105,7 +105,7 @@ pub fn cmd_restore(
 ) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.exists() {
-        return Err(crate::error::VantaError::RestoreError(format!(
+        return Err(crate::error::VantaError::restore_error(format!(
             "Backup directory does not exist at '{}'",
             input
         )));
@@ -114,8 +114,8 @@ pub fn cmd_restore(
     let dst = std::path::Path::new(db_path);
 
     if dst.exists() && !force {
-        return Err(crate::error::VantaError::RestoreError(
-            "Destination database directory already exists. Use --force to overwrite.".to_string(),
+        return Err(crate::error::VantaError::restore_error(
+            "Destination database directory already exists. Use --force to overwrite.",
         ));
     }
 
@@ -123,18 +123,18 @@ pub fn cmd_restore(
 
     if dst.exists() && force {
         std::fs::remove_dir_all(dst).map_err(|e| {
-            crate::error::VantaError::RestoreError(format!(
+            crate::error::VantaError::restore_error(format!(
                 "Failed to remove existing database directory: {e}"
             ))
         })?;
     }
 
     std::fs::create_dir_all(dst).map_err(|e| {
-        crate::error::VantaError::RestoreError(format!("Failed to create database directory: {e}"))
+        crate::error::VantaError::restore_error(format!("Failed to create database directory: {e}"))
     })?;
 
     copy_dir(src, dst, None).map_err(|e| {
-        crate::error::VantaError::RestoreError(format!("Failed to restore from backup: {e}"))
+        crate::error::VantaError::restore_error(format!("Failed to restore from backup: {e}"))
     })?;
 
     spinner.set_message("Verifying restored database...");
@@ -143,7 +143,7 @@ pub fn cmd_restore(
         spinner.set_message("Rebuilding indexes...");
         let db = open_embedded(db_path, false)?;
         db.rebuild_index().map_err(|e| {
-            crate::error::VantaError::RestoreError(format!(
+            crate::error::VantaError::restore_error(format!(
                 "Index rebuild after restore failed: {e}"
             ))
         })?;

@@ -152,7 +152,7 @@ impl ShardedWal {
                 continue;
             }
             let mut reader = WalReader::open(&path).map_err(|e| {
-                VantaError::WalError(format!("Failed to open shard {} for recovery: {}", i, e))
+                VantaError::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
             })?;
             let mut current_seq = 0u64;
             while let Some(record) = reader.next_record()? {
