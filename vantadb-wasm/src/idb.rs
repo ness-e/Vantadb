@@ -70,6 +70,7 @@ impl IdbStorage {
         Ok(())
     }
 
+    /// Delete a persisted key-value entry from IndexedDB.
     pub async fn delete_file(key: &str) -> Result<(), JsValue> {
         let s = storage()?;
         let args = js_sys::Array::new();
