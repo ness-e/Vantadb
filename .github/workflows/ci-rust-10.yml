@@ -127,7 +127,7 @@ jobs:
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           cache-bin: "false"
 
@@ -160,7 +160,7 @@ jobs:
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           cache-bin: "false"
 
@@ -189,7 +189,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.94.1
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           shared-key: msrv-check
 
@@ -206,7 +206,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@nightly
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           shared-key: minimal-versions
 
@@ -275,7 +275,7 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
@@ -299,7 +299,7 @@ jobs:
           components: miri
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           shared-key: miri-cache
 
@@ -332,7 +332,7 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
@@ -355,7 +355,7 @@ jobs:
         with:
           components: rust-src
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           shared-key: sanitizer-asan
 
@@ -386,7 +386,7 @@ jobs:
         with:
           components: rust-src
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           shared-key: sanitizer-tsan
 
