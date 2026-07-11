@@ -25,6 +25,7 @@ js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"], optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
+wee_alloc = { version = "0.4", features = ["static_array_backend"] }
 
 [features]
 default = ["tracing-wasm"]
