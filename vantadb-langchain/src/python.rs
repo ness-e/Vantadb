@@ -18,13 +18,14 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 #[pyclass(name = "VantaDBVectorStore")]
 pub struct VantaDBVectorStore {
     engine: VantaEmbedded,
+    namespace: String,
 }
 
 #[pymethods]
 impl VantaDBVectorStore {
     #[new]
     #[pyo3(signature = (db_path, collection = "langchain_store"))]
-    fn new(db_path: &str, collection: &str) -> PyResult<Self> {
+    fn new(db_path: &str, _collection: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
@@ -37,9 +38,10 @@ impl VantaDBVectorStore {
     #[pyo3(signature = (texts, embeddings, metadatas = None, ids = None))]
     fn add_texts(
         &self,
+        py: Python,
         texts: Vec<String>,
         embeddings: Vec<Vec<f32>>,
-        metadatas: Option<Vec<Option<&Bound<'_, PyDict>>>>,
+        metadatas: Option<Vec<Option<Py<PyDict>>>>,
         ids: Option<Vec<Option<String>>>,
     ) -> PyResult<Vec<String>> {
         let namespace = "langchain_store";
@@ -56,9 +58,9 @@ impl VantaDBVectorStore {
             let mut input = VantaMemoryInput::new(namespace, &key, &texts[i]);
             input.vector = Some(embeddings[i].clone());
 
-            if let Some(metas) = metadatas {
+            if let Some(ref metas) = metadatas {
                 if let Some(Some(meta)) = metas.get(i) {
-                    for (k, v) in meta.iter() {
+                    for (k, v) in meta.bind(py).iter() {
                         if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
                             input
                                 .metadata
