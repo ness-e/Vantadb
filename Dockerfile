@@ -74,7 +74,7 @@ RUN groupadd --gid 1001 vantadb && \
     mkdir -p /var/lib/vantadb && \
     chown -R vantadb:vantadb /var/lib/vantadb
 
-COPY --from=builder /build/target/release/${BINARY} /usr/local/bin/vantadb-server
+COPY --from=builder /build/target/ci/${BINARY} /usr/local/bin/vantadb-server
 
 # OCI metadata labels
 LABEL maintainer="VantaDB Team <dev@vantadb.dev>" \
