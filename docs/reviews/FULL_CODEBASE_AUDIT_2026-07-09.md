@@ -904,6 +904,7 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 | `src/storage/engine/maintenance.rs` | SAFETY en 2 unsafe blocks |
 | `web/public/llms.txt` | Añadidos API endpoints, VantaQL types, SDK snippets Python/Rust/TS |
 | `vantadb.rb` | Eliminado (duplicado de `Formula/vantadb.rb`) |
+| `Dockerfile` | COPY path corregido: `target/release/` → `target/ci/` (560415d) |
 | `Cargo.toml` / `Cargo.lock` | lru 0.12.5 → 0.13 (elimina RUSTSEC-2026-0002) |
 
 ### 15.2 Fase 2 — Prioridad 1 (Completada)

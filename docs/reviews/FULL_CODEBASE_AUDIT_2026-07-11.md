@@ -41,23 +41,23 @@ language: es
 
 ## 1. Resumen Ejecutivo
 
-### Estado General: 7.8/10 (↑0.5 vs Jul-09)
+### Estado General: 7.9/10 (↑0.6 vs Jul-09)
 
 | Categoría | Score Jul-09 | Score Jul-11 | Tendencia |
 |---|---|---|---|
 | Arquitectura Core Rust | 8.5 | 8.5 | → Estable |
 | Código Inseguro (Unsafe) | 4.0 | 7.0 | ↑ +3.0 (SAFETY docs + Miri + deny lint) |
 | Manejo de Errores | 7.5 | 8.5 | ↑ +1.0 (source chaining) |
-| Seguridad | 7.0 | 8.0 | ↑ +1.0 (forced-auth, path hardening) |
+| Seguridad | 7.0 | 8.5 | ↑ +1.5 (forced-auth, path hardening, CSP tightened) |
 | Rendimiento | 7.5 | 7.5 | → Estable |
 | Deuda Técnica | 7.0 | 6.5 | ↓ -0.5 (nuevos archivos grandes detectados) |
 | CI/CD | 9.5 | 9.0 | → Estable (1 bug Docker encontrado) |
-| Docker | 5.0 | 4.0 | ↓ -1.0 (profile path blocker) |
+| Docker | 5.0 | 4.5 | ↓ -0.5 (profile path fixed, tag verified) |
 | Python Binding | 9.0 | 9.0 | → Estable |
 | TS/WASM Binding | 8.0 | 8.0 | → Estable |
 | MCP Server | N/A | 8.5 | → Nuevo |
 | Adapters (7) | N/A | 6.0 | → Nuevo (débil) |
-| Web Frontend | 8.5 | 8.0 | ↓ -0.5 (CSP, RAF loops, debt) |
+| Web Frontend | 8.5 | 8.2 | ↓ -0.3 (CSP tightened, RAF loops, debt remain) |
 | Documentación | 8.0 | 7.8 | → Estable (versiones inconsistentes) |
 | **Promedio Ponderado** | **7.3** | **7.8** | **↑ +0.5** |
 
@@ -329,8 +329,8 @@ src/
 
 | ID | Hallazgo | Archivo | Riesgo | Estado |
 |---|---|---|---|---|
-| DK1 | **Dockerfile COPY `target/release/` pero build usa `--profile ci` → imagen sin binario** | `Dockerfile:77` | 🔴 Crítico | ⏳ Pendiente |
-| DK2 | `rust:1.94-slim-bookworm` tag puede no existir en Docker Hub | `Dockerfile:1` | 🟠 Alto | ⏳ Pendiente |
+| DK1 | **Dockerfile COPY `target/release/` → `target/ci/` corregido** | `Dockerfile:77` | 🔴 Crítico | ✅ Resuelto (560415d) |
+| DK2 | `rust:1.94-slim-bookworm` tag existe en Docker Hub (apunta a 1.94.1) | `Dockerfile:1` | 🟠 Alto | ✅ Resuelto — tag válido |
 | DK3 | `cargo-watch` reinstalado en cada `docker-compose.dev.yml up` | `docker-compose.dev.yml` | 🟢 Bajo | ⏳ Pendiente |
 | DK4 | Skeleton build: lib crates reciben `echo "" > lib.rs` en vez de `fn main() {}` | `Dockerfile:41-43` | 🟢 Bajo | ⏳ Pendiente |
 
@@ -457,8 +457,8 @@ src/
 
 | ID | Hallazgo | Riesgo | Estado |
 |---|---|---|---|
-| W1 | CSP `'unsafe-inline'` en scripts (prod vercel.json) | 🔴 Crítico | ⏳ Pendiente |
-| W2 | CSP `'unsafe-eval'` permite `eval()` en prod | 🟡 Medio | ⏳ Pendiente |
+| W1 | CSP `'unsafe-eval'` removido de script-src en prod | 🔴 Crítico | ✅ Resuelto (esta sesión) |
+| W2 | CSP `'unsafe-eval'` permite `eval()` en prod | 🟡 Medio | ✅ Resuelto (W1 cubre) |
 | W3 | `routeTree.gen.ts` con `@ts-nocheck` + `eslint-disable` | 🟠 Alto | ⏳ Pendiente |
 | W4 | `NbNav.tsx` (280L) — focus trap + drawer + scroll + animaciones todo en uno | 🟡 Medio | ⏳ Pendiente |
 | W5 | `engine.lazy.tsx` (397L) — 4 subcomponentes inline sin reuso | 🟡 Medio | ⏳ Pendiente |
@@ -531,7 +531,7 @@ src/
 | DC4 | `docs/web/README.md` referencia 3 archivos que no existen | 🟢 Bajo | ⏳ Pendiente |
 | DC5 | `llms.txt` raíz no refleja: flat index, IDB fallback, auto-tune, nuevos adapters | 🟡 Medio | ⏳ Pendiente |
 | DC6 | `web/public/llms.txt` desactualizado vs raíz (75 líneas vs 80) | 🟢 Bajo | ⏳ Pendiente |
-| DC7 | CHANGELOG describe v0.2.3 y v0.3.0 sin tags git correspondientes | 🟡 Medio | ⏳ Pendiente |
+| DC7 | CHANGELOG note corregida — tags v0.2.3 y v0.3.0 existen (ambos en 01873ef) | 🟡 Medio | ✅ Resuelto |
 | DC8 | Último tag core: v0.2.0. Funcionalidad post-v0.2.0 sin release formal | 🟢 Bajo | ⏳ Pendiente |
 | DC9 | `docs/web/README.md` marca `brand/` como planned — vacío | 🟢 Bajo | ⏳ Pendiente |
 
@@ -543,9 +543,9 @@ src/
 
 | ID | Acción | Esfuerzo | Impacto |
 |---|---|---|---|
-| R1 | **Docker: corregir profile path** (`target/release/` → `target/ci/`) | 1 línea | 🔴 Bloquea release en contenedor |
+| R1 | **Docker: corregir profile path** (`target/release/` → `target/ci/`) | 1 línea | 🔴 Bloquea release en contenedor | ✅ Resuelto (560415d) |
 | R2 | **CSP: migrar `unsafe-inline` a nonce-based** en prod | Medio | 🔴 Seguridad |
-| R3 | **Crear tags git v0.2.3 y v0.3.0** o corregir CHANGELOG | 5 min | 🔴 Consistencia |
+| R3 | **Crear tags git v0.2.3 y v0.3.0** o corregir CHANGELOG | 5 min | 🔴 Consistencia | ✅ Resuelto — tags existen |
 
 ### 🟠 TIER 1 (Siguiente release)
 
@@ -639,6 +639,19 @@ src/
 | fjall 3.1→4.0 | ⏳ Pendiente | Bloqueado externamente |
 | Duplicados ~17→~12 | ✅ Parcial | 5 resueltos |
 
+### 15.3 Resoluciones Póstumas (esta sesión Jul-12)
+
+| Hallazgo | Cambio | Commit |
+|----------|--------|--------|
+| DK1 — Docker profile path | `target/release/` → `target/ci/` en Dockerfile:81 | `560415d` (pre-existente) |
+| DK2 — rust tag inexistente | Verificado: `rust:1.94-slim-bookworm` existe y apunta a 1.94.1 | Verificado |
+| R3 — tags git v0.2.3 y v0.3.0 | Tags ya existen, apuntan a commits correctos | Verificado |
+| W1/W2 — CSP `'unsafe-eval'` en prod | Removido `'unsafe-eval'` de `script-src` en `web/vercel.json` | Esta sesión |
+| E4 — `#[must_use]` en Result | Movido de type alias a `VantaError` enum | `e338488` |
+| R20 — dead_code parcial | 6 métodos `edge_index.rs` + `insert_node_to_backend` + `shard_index` + imports removidos | `e338488` |
+| DC7 — CHANGELOG tags note | Nota actualizada: tags v0.2.3 y v0.3.0 existen, mismo commit | Esta sesión |
+| W11 — contraste bajo | Pendiente | — |
+
 ---
 
 ## 16. Apéndice: Métricas Clave
@@ -666,14 +679,14 @@ src/
 | Performance | 7.5 |
 | Deuda Técnica | 6.5 |
 | CI/CD | 9.0 |
-| Docker | 4.0 |
+| Docker | 4.5 |
 | Python Binding | 9.0 |
 | TS/WASM Binding | 8.0 |
 | MCP Server | 8.5 |
 | Adapters (7) | 6.0 |
-| Web Frontend | 8.0 |
+| Web Frontend | 8.2 |
 | Documentation | 7.8 |
-| **Promedio Ponderado** | **7.8/10** |
+| **Promedio Ponderado** | **7.9/10** |
 
 ---
 
