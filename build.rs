@@ -3,7 +3,6 @@
 //! Generates shell completion scripts automatically during compilation.
 
 #[cfg(feature = "cli")]
-#[allow(dead_code)]
 #[path = "src/cli.rs"]
 mod cli;
 

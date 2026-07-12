@@ -1,10 +1,9 @@
 //! Low-level storage operations: node serialization, backend I/O, partition resolution.
 
-use crate::backend::{BackendPartition, StorageBackend};
+use crate::backend::BackendPartition;
 use crate::error::{Result, VantaError};
 use crate::node::{DiskNodeHeader, UnifiedNode};
 use crate::storage::vfile::VantaFile;
-use std::sync::Arc;
 use zerocopy::IntoBytes;
 
 /// Serialized metadata stored per node in the KV backend.
@@ -53,24 +52,6 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     vstore.write_cursor = (total_needed + 63) & !63;
     vstore.save_cursor()?;
     Ok(offset)
-}
-
-/// Insert a node's metadata into the KV backend under the given column family.
-pub(crate) fn insert_node_to_backend(
-    backend: &Arc<dyn StorageBackend>,
-    node: &UnifiedNode,
-    cf_name: &str,
-) -> Result<()> {
-    let partition = partition_from_cf_name(cf_name)?;
-    let key = node.id.to_le_bytes();
-    let metadata = NodeMetadata {
-        relational: node.relational.clone(),
-        edges: node.edges.clone(),
-    };
-    let val = postcard::to_allocvec(&metadata)
-        .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
-    backend.put(partition, &key, &val)?;
-    Ok(())
 }
 
 /// Reject paths containing `..` components or absolute paths (when relative expected)

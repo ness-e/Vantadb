@@ -1,7 +1,7 @@
 //! Graph-related SDK types: nodes, edges, and input/record views.
 
 use super::super::types::{VantaFields, VantaStorageTier};
-use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use crate::node::{UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
 
 /// Stable graph edge representation for external SDKs.
