@@ -226,7 +226,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
             totalDelay += t.delay ?? 0;
             animate(
               target,
-              { opacity: [0, 1], y: [(t.y ?? 12), 0] },
+              { opacity: [0, 1], y: [t.y ?? 12, 0] },
               { duration: t.dur, delay: totalDelay, ease: [0.05, 0.95, 0.3, 1] },
             );
           }

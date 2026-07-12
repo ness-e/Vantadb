@@ -266,7 +266,9 @@ function PricingPage() {
               <thead>
                 <tr>
                   {comparisonColumns.map((col) => (
-                    <th scope="col" key={col}>{col}</th>
+                    <th scope="col" key={col}>
+                      {col}
+                    </th>
                   ))}
                 </tr>
               </thead>

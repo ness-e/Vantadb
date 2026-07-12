@@ -138,13 +138,13 @@ function IntegrationsPage() {
   };
 
   useAnimationSafe(() => {
-        const parts = connectorsRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = connectorsRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, connectorsRef);
 
   useAnimationSafe(() => {
-        const parts = ecosystemRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = ecosystemRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, ecosystemRef);

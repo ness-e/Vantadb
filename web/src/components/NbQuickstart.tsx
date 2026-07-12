@@ -144,23 +144,27 @@ export function NbQuickstart() {
       const dur = Math.max(0.25, step.cmd.length * 0.03);
 
       const state = { chars: 0 };
-      animate(state, {
-        chars: step.cmd.length,
-      }, {
-        duration: dur,
-        ease: "linear",
-        onUpdate: () => {
-          const revealed = Math.floor(state.chars);
-          el.textContent = step.cmd.slice(0, revealed);
-          el.innerHTML = DOMPurify.sanitize(highlighted(stepIndex, revealed));
-          el.dataset.qsHl = "1";
+      animate(
+        state,
+        {
+          chars: step.cmd.length,
         },
-        onComplete: () => {
-          el.innerHTML = DOMPurify.sanitize(HIGHLIGHTED[stepIndex]);
-          el.dataset.qsHl = "1";
-          onComplete();
+        {
+          duration: dur,
+          ease: "linear",
+          onUpdate: () => {
+            const revealed = Math.floor(state.chars);
+            el.textContent = step.cmd.slice(0, revealed);
+            el.innerHTML = DOMPurify.sanitize(highlighted(stepIndex, revealed));
+            el.dataset.qsHl = "1";
+          },
+          onComplete: () => {
+            el.innerHTML = DOMPurify.sanitize(HIGHLIGHTED[stepIndex]);
+            el.dataset.qsHl = "1";
+            onComplete();
+          },
         },
-      });
+      );
     } else onComplete();
   }, []);
 

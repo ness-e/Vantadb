@@ -15,27 +15,31 @@ export function useTextScramble() {
 
     const state = { progress: 0 };
 
-    animate(state, {
-      progress: 1,
-    }, {
-      duration: duration / 1000,
-      ease: "easeOut",
-      onUpdate: () => {
-        const revealed = Math.floor(state.progress * length);
-        let result = originalText.slice(0, revealed);
-        for (let i = revealed; i < length; i++) {
-          result +=
-            originalText[i] === " "
-              ? " "
-              : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
-        }
-        el.innerText = result;
+    animate(
+      state,
+      {
+        progress: 1,
       },
-      onComplete: () => {
-        el.innerText = originalText;
-        isScrambling.current = false;
+      {
+        duration: duration / 1000,
+        ease: "easeOut",
+        onUpdate: () => {
+          const revealed = Math.floor(state.progress * length);
+          let result = originalText.slice(0, revealed);
+          for (let i = revealed; i < length; i++) {
+            result +=
+              originalText[i] === " "
+                ? " "
+                : GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+          }
+          el.innerText = result;
+        },
+        onComplete: () => {
+          el.innerText = originalText;
+          isScrambling.current = false;
+        },
       },
-    });
+    );
   }, []);
 
   return { scramble };

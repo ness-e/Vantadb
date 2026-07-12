@@ -13,9 +13,7 @@ export function EngineFeatureGrid({ left, right, leftLabel }: EngineFeatureGridP
         <div className="nc-engine-panel-label">{leftLabel}</div>
         {left}
       </div>
-      <div className="nc-engine-part">
-        {right}
-      </div>
+      <div className="nc-engine-part">{right}</div>
     </div>
   );
 }

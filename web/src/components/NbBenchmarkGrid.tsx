@@ -111,17 +111,21 @@ export function NbBenchmarkGrid() {
 
           const state = { val: 0 };
           const { numericTarget: target, suffix, isDecimal } = m;
-          animate(state, {
-            val: target,
-          }, {
-            duration: 0.2,
-            ease: [0.05, 0.95, 0.3, 1],
-            onUpdate: () => {
-              cell.textContent = isDecimal
-                ? `${state.val.toFixed(1)}${suffix}`
-                : `${Math.round(state.val)}${suffix}`;
+          animate(
+            state,
+            {
+              val: target,
             },
-          });
+            {
+              duration: 0.2,
+              ease: [0.05, 0.95, 0.3, 1],
+              onUpdate: () => {
+                cell.textContent = isDecimal
+                  ? `${state.val.toFixed(1)}${suffix}`
+                  : `${Math.round(state.val)}${suffix}`;
+              },
+            },
+          );
         });
       },
       { amount: 0.3 },
@@ -147,8 +151,12 @@ export function NbBenchmarkGrid() {
               <thead>
                 <tr>
                   <th scope="col">Metric</th>
-                  <th scope="col" className="benchmark-col-vanta">VantaDB</th>
-                  <th scope="col" className="benchmark-col-trad">Traditional</th>
+                  <th scope="col" className="benchmark-col-vanta">
+                    VantaDB
+                  </th>
+                  <th scope="col" className="benchmark-col-trad">
+                    Traditional
+                  </th>
                   <th scope="col">Gap</th>
                 </tr>
               </thead>

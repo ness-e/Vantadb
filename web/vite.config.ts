@@ -32,7 +32,6 @@ export default defineConfig({
             return "vendor-react";
           if (id.includes("@tanstack/react-router") || id.includes("@tanstack/react-query"))
             return "vendor-router";
-
         },
       },
     },
