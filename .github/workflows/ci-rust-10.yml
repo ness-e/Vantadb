@@ -14,10 +14,7 @@ on:
       - '.github/workflows/ci-rust-10.yml'
       - 'deny.toml'
       - 'rust-toolchain.toml'
-      - 'vantadb-server/**'
-      - 'vantadb-mcp/**'
-      - 'vantadb-wasm/**'
-      - 'vantadb-letta/**'
+      - 'vantadb-*/**'
       - 'integrations/**'
       - '!web/**'
   pull_request:
@@ -33,10 +30,7 @@ on:
       - '.github/workflows/ci-rust-10.yml'
       - 'deny.toml'
       - 'rust-toolchain.toml'
-      - 'vantadb-server/**'
-      - 'vantadb-mcp/**'
-      - 'vantadb-wasm/**'
-      - 'vantadb-letta/**'
+      - 'vantadb-*/**'
       - 'integrations/**'
       - '!web/**'
   workflow_dispatch:
