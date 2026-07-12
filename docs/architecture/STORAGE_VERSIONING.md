@@ -106,6 +106,22 @@ Switching serialization libraries will change the wire format of:
 
 Without a versioning strategy, a serialization change is a silent breaking change.
 
+### 2.2.1 Zero-copy HNSW Serialization (rkyv) — Future Option
+
+The HNSW index (`CPIndex`) currently serializes via postcard — it deserializes on every checkpoint load. For very large indexes (millions of nodes), switching to **rkyv** with `#[repr(C)]` archive structs would allow direct mmap read without deserialization:
+
+```
+mmap → cast pointer → use in-place (no copy, no parse)
+```
+
+This could reduce startup time and memory pressure at scale. The trade-offs:
+- **Upfront cost:** `repr(C)` layout management, unsafe pointer casts, alignment guarantees
+- **Migration:** Requires a new index format version + rebuild from canonical storage (HNSW is a derived index)
+- **When it matters:** Only when index load time appears in profiles (not a bottleneck today — see `insert_lock` P7)
+- **Prior art:** A reference implementation existed at `src/serialization/rkyv_archives.rs` (removed in Jul-11 audit as dead code). Git log has the full implementation.
+
+**Decision:** Do not pursue until index load time is a measured bottleneck. The reference is in git history.
+
 ### 2.3 No Migration Path
 
 The `vanta-cli migrate` command exists (`src/cli_handlers/migrate.rs`) but only handles the `.vanta.schema` file version. There is:
