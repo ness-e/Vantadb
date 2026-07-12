@@ -61,7 +61,12 @@ pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usiz
 }
 
 #[inline(always)]
-#[allow(unused_variables, clippy::missing_safety_doc)]
+/// # Safety
+///
+/// `mmap_ptr` must point to a valid mmap region, and `offset + len` must be
+/// within that region. The caller must ensure the mapping is not concurrently
+/// unmapped or resized.
+#[allow(unused_variables)]
 pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
     #[cfg(unix)]
     {

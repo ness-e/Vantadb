@@ -360,6 +360,7 @@ impl VantaError {
 }
 
 /// Crate-wide Result alias
+#[must_use]
 pub type Result<T> = std::result::Result<T, VantaError>;
 
 #[cfg(test)]
