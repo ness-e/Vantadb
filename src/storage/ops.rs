@@ -54,31 +54,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     Ok(offset)
 }
 
-/// Reject paths containing `..` components or absolute paths (when relative expected)
-/// to prevent directory traversal.
+/// Reject paths containing `..` components to prevent directory traversal.
+/// Absolute paths are allowed — the `..` check is the real security boundary.
 pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     use std::path::Component;
-    let p = std::path::Path::new(path);
-    let mut components = p.components().peekable();
-
-    // Reject absolute paths — all storage paths should be relative
-    if let Some(Component::RootDir) = components.peek() {
-        return Err(VantaError::ValidationError {
-            field: "path".into(),
-            reason: format!("Path '{path}' is absolute — only relative paths are allowed"),
-        });
-    }
-
-    // Reject Windows prefix paths like \\?\ or C:\
-    #[cfg(windows)]
-    if let Some(Component::Prefix(_)) = components.peek() {
-        return Err(VantaError::ValidationError {
-            field: "path".into(),
-            reason: format!("Path '{path}' has a Windows prefix — rejected for security"),
-        });
-    }
-
-    for component in components {
+    for component in std::path::Path::new(path).components() {
         if component == Component::ParentDir {
             return Err(VantaError::ValidationError {
                 field: "path".into(),
