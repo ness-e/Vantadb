@@ -25,14 +25,17 @@ pub struct VantaDBVectorStore {
 impl VantaDBVectorStore {
     #[new]
     #[pyo3(signature = (db_path, collection = "langchain_store"))]
-    fn new(db_path: &str, _collection: &str) -> PyResult<Self> {
+    fn new(db_path: &str, collection: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
         let engine = VantaEmbedded::open_with_config(config)
             .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
-        Ok(Self { engine })
+        Ok(Self {
+            engine,
+            namespace: collection.to_string(),
+        })
     }
 
     #[pyo3(signature = (texts, embeddings, metadatas = None, ids = None))]
@@ -44,7 +47,7 @@ impl VantaDBVectorStore {
         metadatas: Option<Vec<Option<Py<PyDict>>>>,
         ids: Option<Vec<Option<String>>>,
     ) -> PyResult<Vec<String>> {
-        let namespace = "langchain_store";
+        let namespace = &self.namespace;
         let mut out_ids = Vec::with_capacity(texts.len());
 
         for i in 0..texts.len() {
@@ -88,7 +91,7 @@ impl VantaDBVectorStore {
         k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
-            namespace: "langchain_store".into(),
+            namespace: self.namespace.clone(),
             query_vector: embedding,
             filters: Default::default(),
             text_query: None,
