@@ -216,22 +216,6 @@ impl StorageEngine {
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
     }
-
-    /// Create a fresh index with the same config as an existing one.
-    #[allow(dead_code)]
-    fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
-        crate::storage::archive::fresh_index_like(existing, index_path)
-    }
-
-    /// Rebuild HNSW index by scanning all nodes in the VantaFile.
-    #[allow(dead_code)]
-    fn rebuild_hnsw_from_vstore(
-        hnsw: &mut CPIndex,
-        vstore: &VantaFile,
-        index_path: PathBuf,
-    ) -> Result<IndexRebuildReport> {
-        crate::storage::archive::rebuild_hnsw_from_vstore(hnsw, vstore, index_path)
-    }
 }
 
 impl Drop for StorageEngine {
