@@ -1072,7 +1072,13 @@ pub fn handle_tools_call(
                 .as_deref()
             {
                 Some("euclidean") => vantadb::DistanceMetric::Euclidean,
-                _ => vantadb::DistanceMetric::Cosine,
+                _ => {
+                    tracing::warn!(
+                        "Unknown distance_metric {:?} in search_memory — defaulting to Cosine",
+                        args["distance_metric"]
+                    );
+                    vantadb::DistanceMetric::Cosine
+                }
             };
 
             let explain = args["explain"].as_bool().unwrap_or(false);
