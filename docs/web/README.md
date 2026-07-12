@@ -19,11 +19,6 @@ aliases: []
 ```
 docs/web/
 ├── README.md                          ← Este archivo — índice maestro
-├── brand/                             ← ⏳ Planificado — Identidad de marca y verbal
-│   ├── BRAND_PLATFORM.md              ← ⏳ BMC, purpose, vision, values, archetypes
-│   ├── VERBAL_IDENTITY.md             ← ⏳ Voice, tone, writing principles, glossary
-│   ├── LOGO_USAGE.md                  ← ⏳ Logo especificaciones y usos
-│   └── VISUAL_IDENTITY.md             ← ⏳ Resumen visual ejecutivo (color, tipografía, grid)
 ├── design/                            ← Especificación visual y técnica
 │   ├── TOKEN_SYSTEM.md                ← TODOS los tokens CSS del sistema
 │   ├── COMPONENT_SPEC.md              ← Especificación detallada de cada componente

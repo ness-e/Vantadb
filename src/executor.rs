@@ -3,7 +3,7 @@
 //! Evaluates [`LogicalOperator`] trees against the [`StorageEngine`],
 //! returning materialized [`ExecutionResult`] variants.
 
-use crate::error::{Result, VantaError};
+use crate::error::{ChainedError, Result, VantaError};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::parse_statement;
 use crate::query::{LogicalOperator, LogicalPlan, Statement};
@@ -153,9 +153,9 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            Err(VantaError::IqlError(
-                "LISP queries require the experimental-lisp extension/crate.".to_string(),
-            ))
+            Err(VantaError::IqlError(ChainedError::msg(
+                "LISP queries require the experimental-lisp extension/crate.",
+            )))
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),
@@ -393,10 +393,9 @@ impl<'a> Executor<'a> {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
-                    return Err(VantaError::IqlError(
-                        "Conflict entity scan requires the experimental-governance extension/crate."
-                            .to_string(),
-                    ));
+                    return Err(VantaError::IqlError(ChainedError::msg(
+                        "Conflict entity scan requires the experimental-governance extension/crate.",
+                    )));
                 }
             }
         }

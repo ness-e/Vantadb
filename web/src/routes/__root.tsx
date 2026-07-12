@@ -9,6 +9,7 @@ import {
 import { Suspense, useEffect } from "react";
 import { NbNav } from "../components/NbNav";
 import { animate, inView } from "motion";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import "../styles/nb-nav.css";
 import { NbBackToTop } from "../components/NbBackToTop";
 import { NbFooter } from "../components/NbFooter";
@@ -122,9 +123,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const matches = useMatches();
   const routeId = matches[matches.length - 1]?.routeId;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const routeContent = document.querySelector(".route-content");
     if (routeContent) {

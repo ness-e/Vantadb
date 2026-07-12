@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
 import { inView } from "motion";
+import { useReducedMotion } from "./useReducedMotion";
 
 type AnimationCallback = () => void;
 
@@ -9,6 +10,7 @@ export function useAnimationSafe(
   scope?: RefObject<HTMLElement | null>,
 ): void {
   const calledRef = useRef(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const el = scope?.current;
@@ -17,8 +19,7 @@ export function useAnimationSafe(
       return;
     }
 
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,
@@ -34,5 +35,5 @@ export function useAnimationSafe(
       cleanup?.();
       calledRef.current = false;
     };
-  }, [callback, scope]);
+  }, [callback, scope, reducedMotion]);
 }

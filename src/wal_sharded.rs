@@ -5,28 +5,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-/// A write-ahead log operation for a key-value pair.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub(crate) enum WalOp {
-    /// Insert or update a record.
-    Put {
-        /// Namespace of the record.
-        namespace: String,
-        /// Key of the record.
-        key: String,
-        /// Payload of the record.
-        payload: String,
-    },
-    /// Delete a record by namespace and key.
-    Delete {
-        /// Namespace of the record.
-        namespace: String,
-        /// Key of the record.
-        key: String,
-    },
-}
-
 /// A sharded write-ahead log that distributes writes across multiple WAL files.
 #[allow(dead_code)]
 pub(crate) struct ShardedWal {
@@ -104,13 +82,6 @@ impl ShardedWal {
         (hash as usize) % self.num_shards
     }
 
-    /// Write a record to the shard determined by the key.
-    #[allow(dead_code)]
-    pub fn write(&self, key: &str, record: &WalRecord) -> Result<()> {
-        let idx = self.shard_index(key);
-        self.shards[idx].lock().append(record)
-    }
-
     /// Append a record using round-robin shard distribution.
     /// Used when no specific key is available for shard routing.
     pub fn append(&self, record: &WalRecord) -> Result<()> {
@@ -174,13 +145,6 @@ impl ShardedWal {
         Ok(())
     }
 
-    /// Flush (sync) only the shard determined by the key.
-    #[allow(dead_code)]
-    pub fn flush_shard(&self, key: &str) -> Result<()> {
-        let idx = self.shard_index(key);
-        self.shards[idx].lock().sync()
-    }
-
     /// Rotate all shards (flush, archive, and start fresh WAL files).
     pub fn rotate_all(&self) -> Result<()> {
         for shard in &self.shards {
@@ -193,24 +157,6 @@ impl ShardedWal {
             *shard.lock() = replacement;
         }
         Ok(())
-    }
-
-    /// Return a reference to the shard list.
-    #[allow(dead_code)]
-    pub fn shards(&self) -> &[Arc<Mutex<WalWriter>>] {
-        &self.shards
-    }
-
-    /// Return the number of configured shards.
-    #[allow(dead_code)]
-    pub fn num_shards(&self) -> usize {
-        self.num_shards
-    }
-
-    /// Return the number of shard entries.
-    #[allow(dead_code)]
-    pub fn len(&self) -> usize {
-        self.shards.len()
     }
 
     /// Return the total number of records across all shards.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { animate, inView } from "motion";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import "../styles/architecture.css";
 
 const PIPELINE = [
@@ -14,12 +15,13 @@ const PIPELINE = [
 export function NbArchSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const lineRef = useRef<SVGPathElement>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,

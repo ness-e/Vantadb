@@ -1,7 +1,6 @@
 //! Stable public types for the VantaDB SDK boundary.
 //! All types in this module are serializable and designed for third-party bindings.
 
-use crate::node::DistanceMetric;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -200,49 +199,9 @@ pub struct VantaMemoryListPage {
     pub next_cursor: Option<usize>,
 }
 
-/// Stable vector search request for persistent memory records.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemorySearchRequest {
-    /// Namespace to restrict the search to.
-    pub namespace: String,
-    /// Query vector for similarity search. Empty means vector search is skipped.
-    pub query_vector: Vec<f32>,
-    /// Metadata key-value filters to narrow results.
-    pub filters: VantaMemoryMetadata,
-    /// Optional text query for BM25 lexical search.
-    pub text_query: Option<String>,
-    /// Maximum number of results to return.
-    pub top_k: usize,
-    /// Distance metric for vector similarity. Defaults to Cosine.
-    pub distance_metric: DistanceMetric,
-    /// When true, each result will carry a `VantaSearchExplanation`.
-    pub explain: bool,
-}
-
-impl Default for VantaMemorySearchRequest {
-    fn default() -> Self {
-        Self {
-            namespace: String::new(),
-            query_vector: Vec::new(),
-            filters: Default::default(),
-            text_query: None,
-            top_k: 10,
-            distance_metric: DistanceMetric::Cosine,
-            explain: false,
-        }
-    }
-}
-
-/// Stable vector search hit for persistent memory records.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemorySearchHit {
-    /// The matched memory record.
-    pub record: VantaMemoryRecord,
-    /// Relevance score (BM25, cosine similarity, or RRF fused score).
-    pub score: f32,
-    /// Optional explanation for explain-mode searches.
-    pub explanation: Option<VantaSearchExplanationHit>,
-}
+pub use super::serialization::vector_types::{
+    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit,
+};
 
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -611,80 +570,7 @@ pub struct VantaMemoryExportLine {
     pub expires_at_ms: Option<u64>,
 }
 
-/// Stable graph edge representation for external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaEdgeRecord {
-    /// Target node id this edge points to.
-    pub target: u128,
-    /// Edge label describing the relationship.
-    pub label: String,
-    /// Edge weight for weighted graph algorithms.
-    pub weight: f32,
-}
-
-/// Stable node payload accepted by external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaNodeInput {
-    /// Numeric node identifier.
-    pub id: u128,
-    /// Optional text content stored in the `content` field.
-    pub content: Option<String>,
-    /// Optional embedding vector.
-    pub vector: Option<Vec<f32>>,
-    /// Relational fields key-value pairs.
-    pub fields: VantaFields,
-}
-
-impl VantaNodeInput {
-    /// Create a new node input with the given id.
-    /// Content, vector, and fields default to empty/None.
-    pub fn new(id: u128) -> Self {
-        Self {
-            id,
-            content: None,
-            vector: None,
-            fields: VantaFields::new(),
-        }
-    }
-}
-
-/// Stable node view returned to external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaNodeRecord {
-    /// Numeric node identifier.
-    pub id: u128,
-    /// Relational fields key-value pairs.
-    pub fields: VantaFields,
-    /// Optional embedding vector.
-    pub vector: Option<Vec<f32>>,
-    /// Dimension count of the vector (0 if no vector).
-    pub vector_dimensions: usize,
-    /// Outgoing graph edges.
-    pub edges: Vec<VantaEdgeRecord>,
-    /// Telemetry confidence score (0.0–1.0).
-    pub confidence_score: f32,
-    /// Telemetry importance score.
-    pub importance: f32,
-    /// Number of access hits recorded.
-    pub hits: u32,
-    /// Unix-ms timestamp of last access.
-    pub last_accessed: u64,
-    /// Telemetry epoch counter.
-    pub epoch: u32,
-    /// Storage tier (hot or cold).
-    pub tier: VantaStorageTier,
-    /// Whether the node is alive (not tombstoned).
-    pub is_alive: bool,
-}
-
-/// Stable vector search hit for external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchHit {
-    /// Numeric node identifier of the matched node.
-    pub node_id: u128,
-    /// Distance from the query vector (lower is more similar for cosine/euclidean).
-    pub distance: f32,
-}
+pub use super::serialization::graph_types::{VantaEdgeRecord, VantaNodeInput, VantaNodeRecord};
 
 /// Stable query result enum for external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

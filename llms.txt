@@ -47,17 +47,20 @@ vanta-cli mcp  # Starts MCP server for AI agent integration
 
 ## Features
 - HNSW vector index with CPIndex (DashMap + xxHash + parking_lot)
+- Flat (brute-force) index for exact search
+- HNSW auto-tune: PID loop for dynamic ef_search
 - 3 quantization schemes: RaBitQ (1-bit), TurboQuant (3-bit), SQ8 (8-bit)
 - QuantizationGovernor: auto f32-to-SQ8 based on access frequency
 - ShardedWAL: per-shard sequential recovery mechanism
 - SIMD distance kernels: AVX-512 + portable f32x8
 - MemoryGovernor: watermark-based memory eviction
 - 3 backends: Fjall (default), RocksDB (optional), InMemory
-- 6 SDKs: Python, TypeScript, Rust, WASM, MCP, REST
+- 9 SDKs: Python, TypeScript, Rust, WASM, MCP, REST, LangChain, LlamaIndex, DSPy
 - CLI with 33+ commands and shell completions
 - OpenTelemetry integration (OTLP + Prometheus)
 - FilterBitset multi-tenant filtering
 - RBAC (enterprise crate)
+- WASM/OPFS persistence with IndexedDB fallback
 
 ## Integration Ecosystem
 - Python SDK: pip install vantadb-py

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { animate, inView } from "motion";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import "../styles/benchmark.css";
 
 const METRICS = [
@@ -77,12 +78,13 @@ const METRICS = [
 
 export function NbBenchmarkGrid() {
   const sectionRef = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,
@@ -144,10 +146,10 @@ export function NbBenchmarkGrid() {
             <table className="benchmark-table">
               <thead>
                 <tr>
-                  <th>Metric</th>
-                  <th className="benchmark-col-vanta">VantaDB</th>
-                  <th className="benchmark-col-trad">Traditional</th>
-                  <th>Gap</th>
+                  <th scope="col">Metric</th>
+                  <th scope="col" className="benchmark-col-vanta">VantaDB</th>
+                  <th scope="col" className="benchmark-col-trad">Traditional</th>
+                  <th scope="col">Gap</th>
                 </tr>
               </thead>
               <tbody>

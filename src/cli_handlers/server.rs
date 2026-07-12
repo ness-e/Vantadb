@@ -7,7 +7,7 @@ use crate::cli::Cli;
 use crate::cli::Shell;
 use crate::cli_handlers::fmt::{header_style, info_style};
 use crate::cli_handlers::{create_spinner, open_database, print_info, print_warning, MIB};
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Display database health diagnostics and system status
@@ -188,7 +188,9 @@ pub fn cmd_server(
     #[cfg(feature = "server")]
     {
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            crate::error::VantaError::RuntimeError(format!("Failed to start tokio runtime: {e}"))
+            crate::error::VantaError::RuntimeError(ChainedError::msg(format!(
+                "Failed to start tokio runtime: {e}"
+            )))
         })?;
 
         rt.block_on(cmd_server_http(db_path, port, host, require_auth))
@@ -196,10 +198,9 @@ pub fn cmd_server(
 
     #[cfg(not(feature = "server"))]
     {
-        Err(crate::error::VantaError::CliError(
-            "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server"
-                .to_string(),
-        ))
+        Err(crate::error::VantaError::CliError(ChainedError::msg(
+            "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server",
+        )))
     }
 }
 
@@ -264,53 +265,53 @@ fn cmd_server_mcp(
                 current_exe.set_file_name(&exe_name);
                 if current_exe.exists() {
                     build_cmd(&current_exe).spawn().map_err(|e| {
-                        VantaError::CliError(format!(
+                        VantaError::CliError(ChainedError::msg(format!(
                             "Failed to start vantadb-server from {}: {e}",
                             current_exe.display()
-                        ))
+                        )))
                     })?
                 } else {
-                    return Err(VantaError::CliError(format!(
+                    return Err(VantaError::CliError(ChainedError::msg(format!(
                         "vantadb-server binary not found. \
                          Searched PATH for '{}' and CLI directory for '{}'. \
                          The MCP server requires the vantadb-server binary (compiled with the 'server' feature). \
                          Install it via 'cargo build --bin vantadb-server' or place it alongside this binary.",
                         exe_name,
                         current_exe.display()
-                    )));
+                    ))));
                 }
             } else {
-                return Err(VantaError::CliError(format!(
+                return Err(VantaError::CliError(ChainedError::msg(format!(
                     "vantadb-server binary '{}' not found in PATH. \
                      Current executable path could not be determined. \
                      Ensure vantadb-server is installed and available in PATH.",
                     exe_name
-                )));
+                ))));
             }
         }
         Err(e) => {
-            return Err(VantaError::CliError(format!(
+            return Err(VantaError::CliError(ChainedError::msg(format!(
                 "Failed to spawn vantadb-server process (db_path={}): {e}",
                 db_path
-            )));
+            ))));
         }
     };
 
     let status = child.wait().map_err(|e| {
-        VantaError::CliError(format!(
+        VantaError::CliError(ChainedError::msg(format!(
             "Error waiting for vantadb-server process (db_path={}): {e}",
             db_path
-        ))
+        )))
     })?;
 
     if !status.success() {
         if let Some(code) = status.code() {
             std::process::exit(code);
         } else {
-            return Err(VantaError::CliError(format!(
+            return Err(VantaError::CliError(ChainedError::msg(format!(
                 "vantadb-server terminated by signal (db_path={})",
                 db_path
-            )));
+            ))));
         }
     }
 

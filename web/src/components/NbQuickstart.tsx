@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, inView } from "motion";
+import DOMPurify from "dompurify";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import { NbSection, NbSectionHeader } from "./nb";
 import "../styles/quickstart.css";
 
@@ -96,11 +98,13 @@ export function NbQuickstart() {
   const beamRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
+  const reducedMotion = useReducedMotion();
+
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,
@@ -111,7 +115,7 @@ export function NbQuickstart() {
     );
 
     return () => cleanup?.();
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -119,7 +123,7 @@ export function NbQuickstart() {
     STEPS.forEach((_, i) => {
       const el = codeRefs.current[i];
       if (el) {
-        el.innerHTML = HIGHLIGHTED[i];
+        el.innerHTML = DOMPurify.sanitize(HIGHLIGHTED[i]);
         el.dataset.qsHl = "1";
       }
     });
@@ -148,11 +152,11 @@ export function NbQuickstart() {
         onUpdate: () => {
           const revealed = Math.floor(state.chars);
           el.textContent = step.cmd.slice(0, revealed);
-          el.innerHTML = highlighted(stepIndex, revealed);
+          el.innerHTML = DOMPurify.sanitize(highlighted(stepIndex, revealed));
           el.dataset.qsHl = "1";
         },
         onComplete: () => {
-          el.innerHTML = HIGHLIGHTED[stepIndex];
+          el.innerHTML = DOMPurify.sanitize(HIGHLIGHTED[stepIndex]);
           el.dataset.qsHl = "1";
           onComplete();
         },
@@ -165,7 +169,7 @@ export function NbQuickstart() {
     setActiveStep(i);
     const el = codeRefs.current[i];
     if (el) {
-      el.innerHTML = HIGHLIGHTED[i];
+      el.innerHTML = DOMPurify.sanitize(HIGHLIGHTED[i]);
       el.dataset.qsHl = "1";
     }
   }, []);

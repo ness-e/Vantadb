@@ -20,10 +20,12 @@ class Vantadb < Formula
   on_macos do
     on_intel do
       url "https://github.com/ness-e/Vantadb/releases/download/v#{version}/vantadb-x86_64-apple-darwin.tar.gz"
+      # TODO: replace with actual SHA256 from release tarball
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
     on_arm do
       url "https://github.com/ness-e/Vantadb/releases/download/v#{version}/vantadb-aarch64-apple-darwin.tar.gz"
+      # TODO: replace with actual SHA256 from release tarball
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
   end
@@ -31,10 +33,12 @@ class Vantadb < Formula
   on_linux do
     on_intel do
       url "https://github.com/ness-e/Vantadb/releases/download/v#{version}/vantadb-x86_64-unknown-linux-gnu.tar.gz"
+      # TODO: replace with actual SHA256 from release tarball
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
     on_arm do
       url "https://github.com/ness-e/Vantadb/releases/download/v#{version}/vantadb-aarch64-unknown-linux-gnu.tar.gz"
+      # TODO: replace with actual SHA256 from release tarball
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
   end

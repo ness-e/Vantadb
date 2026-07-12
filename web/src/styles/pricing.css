@@ -104,7 +104,7 @@
 }
 
 .nc-price-feature::before {
-  content: ">";
+  content: "✓";
   position: absolute;
   left: 0;
   font-family: var(--font-mono);

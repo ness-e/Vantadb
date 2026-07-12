@@ -1,4 +1,5 @@
 import { animate, inView } from "motion";
+import { useReducedMotion } from "./useReducedMotion";
 
 type RevealTarget = string | (HTMLElement | null)[];
 
@@ -14,8 +15,8 @@ export function useNbReveal(
   trigger?: HTMLElement | null,
   options: RevealOptions = {},
 ): () => void {
-  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (prefersReduced) return () => {};
+  const reducedMotion = useReducedMotion();
+  if (reducedMotion) return () => {};
 
   const elements =
     typeof target === "string"

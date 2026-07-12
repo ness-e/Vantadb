@@ -9,7 +9,6 @@ pub(crate) struct EdgeIndex {
     edges: DashSet<(u128, u128)>,
 }
 
-#[allow(dead_code)]
 impl EdgeIndex {
     /// Create a new empty edge index.
     pub fn new() -> Self {

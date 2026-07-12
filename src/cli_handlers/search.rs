@@ -4,7 +4,7 @@ use console::Term;
 
 use crate::cli_handlers::fmt::{header_style, info_style, warning_style};
 use crate::cli_handlers::{create_spinner, open_embedded, print_warning};
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Perform semantic or hybrid search across a namespace
@@ -75,7 +75,9 @@ pub fn cmd_search(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(format!("JSON serialization error: {e}"))
+                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                    "JSON serialization error: {e}"
+                )))
             })?
         );
         return Ok(());

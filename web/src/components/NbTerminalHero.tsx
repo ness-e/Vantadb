@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import { NbArrow, NbNoise } from "./nb";
 
 export function NbTerminalHero() {
@@ -7,6 +8,7 @@ export function NbTerminalHero() {
   const waveRef = useRef<SVGPathElement>(null);
   const blipRef = useRef<SVGCircleElement>(null);
   const frameRef = useRef(0);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!waveRef.current || !blipRef.current) return;
@@ -44,14 +46,23 @@ export function NbTerminalHero() {
       frameRef.current = requestAnimationFrame(draw);
     };
 
-    const mm = window.matchMedia("(prefers-reduced-motion: no-preference)");
-    if (mm.matches) draw();
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frameRef.current);
+      } else if (!reducedMotion) {
+        draw();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    if (!reducedMotion) draw();
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(frameRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [reducedMotion]);
 
   const handleCopy = useCallback(async () => {
     try {

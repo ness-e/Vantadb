@@ -502,7 +502,7 @@ pub fn handle_initialize() -> Result<Value, Value> {
 
 // ── Resources handlers ────────────────────────────────────────────────────
 
-/// Handle `resources/list`, returning the available operational-metrics and schema resources.
+/// Handle `resources/list`, returning the available operational-metrics resource.
 pub fn handle_resources_list() -> Result<Value, Value> {
     Ok(json!({
         "resources": [
@@ -511,18 +511,12 @@ pub fn handle_resources_list() -> Result<Value, Value> {
                 "name": "Operational Metrics",
                 "description": "Current operational metrics including memory usage, HNSW statistics, and storage information",
                 "mimeType": "application/json"
-            },
-            {
-                "uri": "schema://",
-                "name": "Database Schema",
-                "description": "Schema information for the VantaDB database including text index version and configuration",
-                "mimeType": "application/json"
             }
         ]
     }))
 }
 
-/// Handle `resources/read`, serving metrics, schema, memory records or namespace listings.
+/// Handle `resources/read`, serving metrics, memory records or namespace listings.
 pub fn handle_resources_read(
     params: &Option<Value>,
     storage: &Arc<StorageEngine>,
@@ -539,16 +533,6 @@ pub fn handle_resources_read(
         let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
         let metrics_val = embedded.operational_metrics();
         let text = serialize_content(&metrics_val);
-        Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
-    } else if uri == "schema://" {
-        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-        let metrics_val = embedded.operational_metrics();
-        let schema_info = json!({
-            "hnsw_nodes_count": metrics_val.hnsw_nodes_count,
-            "hnsw_logical_bytes": metrics_val.hnsw_logical_bytes,
-            "mmap_resident_bytes": metrics_val.mmap_resident_bytes
-        });
-        let text = serialize_content(&schema_info);
         Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
     } else if uri.starts_with("memory://") {
         let path = uri.strip_prefix("memory://").unwrap_or("");
@@ -1071,14 +1055,15 @@ pub fn handle_tools_call(
                 .map(|s| s.to_lowercase())
                 .as_deref()
             {
+                Some("cosine") => vantadb::DistanceMetric::Cosine,
                 Some("euclidean") => vantadb::DistanceMetric::Euclidean,
-                _ => {
-                    tracing::warn!(
-                        "Unknown distance_metric {:?} in search_memory — defaulting to Cosine",
-                        args["distance_metric"]
-                    );
-                    vantadb::DistanceMetric::Cosine
+                Some(other) => {
+                    return Ok(error_content(format!(
+                        "Unknown distance_metric '{}' — supported: cosine, euclidean",
+                        other
+                    )));
                 }
+                None => vantadb::DistanceMetric::Cosine,
             };
 
             let explain = args["explain"].as_bool().unwrap_or(false);
@@ -1140,23 +1125,26 @@ pub fn handle_tools_call(
                 .as_u64()
                 .ok_or_else(|| McpError::invalid_params("Missing 'node_id'").to_json())?;
 
-            if let Ok(Some(node)) = storage.get(node_id.into()) {
-                let mut neighbors = Vec::new();
-                for edge in &node.edges {
-                    if let Ok(Some(target_node)) = storage.get(edge.target) {
-                        neighbors.push(json!({
-                            "rel": edge.label,
-                            "target_id": edge.target,
-                            "target_confidence": target_node.confidence_score,
-                            "target_priority": target_node.importance
-                        }));
+            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            match embedded.get_node(node_id) {
+                Ok(Some(node)) => {
+                    let mut neighbors = Vec::new();
+                    for edge in &node.edges {
+                        if let Ok(Some(target_node)) = embedded.get_node(edge.target) {
+                            neighbors.push(json!({
+                                "rel": edge.label,
+                                "target_id": edge.target,
+                                "target_confidence": target_node.confidence_score,
+                                "target_priority": target_node.importance
+                            }));
+                        }
                     }
+                    Ok(text_content(serialize_content(
+                        &json!({"node": node, "neighbors": neighbors}),
+                    )))
                 }
-                Ok(text_content(serialize_content(
-                    &json!({"node": node, "neighbors": neighbors}),
-                )))
-            } else {
-                Ok(error_content("Node not found"))
+                Ok(None) => Ok(error_content("Node not found")),
+                Err(e) => Ok(error_content(format!("Get Node Error: {}", e))),
             }
         }
 

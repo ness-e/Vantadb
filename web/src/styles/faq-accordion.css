@@ -2,7 +2,7 @@
 .faq-console {
   margin-top: var(--space-2xl);
   border: 2px solid var(--border-strong);
-  background: #080808;
+  background: var(--block-dark-bg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
 }
@@ -13,7 +13,7 @@
   align-items: center;
   gap: 0.375rem;
   padding: 0.5rem 0.75rem;
-  background: #0d0d0d;
+  background: var(--background);
   border-bottom: 2px solid var(--border-strong);
 }
 
@@ -172,7 +172,7 @@
   gap: var(--space-2xs);
   padding: var(--space-sm) var(--space-lg);
   border-top: 2px solid var(--border-strong);
-  background: #0d0d0d;
+  background: var(--background);
 }
 
 .faq-console-footer-prompt {

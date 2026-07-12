@@ -26,7 +26,7 @@ Add the `advanced-tokenizer` feature to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-vantadb = { version = "0.1", features = ["advanced-tokenizer"] }
+vantadb = { version = "0.2.0", features = ["advanced-tokenizer"] }
 ```
 
 ## Usage

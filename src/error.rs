@@ -1,3 +1,5 @@
+//! Core error types for all VantaDB operations — 30 variants with source chaining, retry classification, and recovery hints.
+
 use std::error::Error as StdError;
 use std::fmt;
 use thiserror::Error;
@@ -214,19 +216,19 @@ pub enum VantaError {
 
     /// Error during IQL processing.
     #[error("IQL error: {0}")]
-    IqlError(String),
+    IqlError(ChainedError),
 
     /// Error in CLI command processing.
     #[error("CLI error: {0}")]
-    CliError(String),
+    CliError(ChainedError),
 
     /// Error during search execution.
     #[error("Search error: {0}")]
-    SearchError(String),
+    SearchError(ChainedError),
 
     /// Unexpected runtime error.
     #[error("Runtime error: {0}")]
-    RuntimeError(String),
+    RuntimeError(ChainedError),
 
     /// Error during database restore.
     #[error("Restore error: {0}")]

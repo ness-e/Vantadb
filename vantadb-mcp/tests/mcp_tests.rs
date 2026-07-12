@@ -59,10 +59,6 @@ fn test_mcp_resources_list() {
         uris.contains(&"metrics://"),
         "resources should include metrics:// URI"
     );
-    assert!(
-        uris.contains(&"schema://"),
-        "resources should include schema:// URI"
-    );
 }
 
 #[test]
@@ -79,17 +75,6 @@ fn test_mcp_resources_read() {
     assert!(
         text.contains("hnsw_nodes_count"),
         "metrics response should contain hnsw_nodes_count"
-    );
-
-    // Test schema://
-    let res_schema = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage);
-    assert!(res_schema.is_ok(), "reading schema:// should succeed");
-    let val_schema = res_schema.unwrap();
-    assert_eq!(val_schema["contents"][0]["uri"], "schema://");
-    let schema_text = val_schema["contents"][0]["text"].as_str().unwrap();
-    assert!(
-        schema_text.contains("hnsw_nodes_count"),
-        "schema response should contain hnsw_nodes_count"
     );
 
     // Test invalid URI
@@ -919,22 +904,6 @@ fn test_mcp_search_no_results() {
 }
 
 // ── Resource & Prompt Tests ────────────────────────────────────────────
-
-#[test]
-fn test_mcp_resource_schema() {
-    let (_dir, storage) = setup_storage();
-
-    let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage);
-    assert!(res.is_ok(), "schema:// resource should be readable");
-    let val = res.unwrap();
-    assert_eq!(val["contents"][0]["uri"], "schema://");
-    assert_eq!(val["contents"][0]["mimeType"], "application/json");
-    let text = val["contents"][0]["text"].as_str().unwrap();
-    assert!(
-        text.contains("hnsw_nodes_count"),
-        "schema response should contain hnsw_nodes_count"
-    );
-}
 
 #[test]
 fn test_mcp_resource_invalid() {

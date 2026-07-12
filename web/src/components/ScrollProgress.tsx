@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
-
-const prefersMotion =
-  typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: no-preference)").matches
-    : true;
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
 export function ScrollProgress() {
+  const reducedMotion = useReducedMotion();
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    if (!prefersMotion) return;
+    if (reducedMotion) return;
 
     let frame: number;
     const onScroll = () => {
@@ -28,9 +25,9 @@ export function ScrollProgress() {
       window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [reducedMotion]);
 
-  if (!prefersMotion) return null;
+  if (reducedMotion) return null;
 
   return (
     <div

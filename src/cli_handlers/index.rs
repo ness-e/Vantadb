@@ -7,7 +7,7 @@ use crate::cli_handlers::fmt::{header_style, success_style};
 use crate::cli_handlers::{
     create_spinner, open_embedded, print_error, print_success, print_warning,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Rebuild all database indexes (HNSW, text, derived)
@@ -117,7 +117,9 @@ pub fn cmd_audit_index(
         println!(
             "{}",
             serde_json::to_string_pretty(&report).map_err(|err| {
-                crate::error::VantaError::CliError(format!("failed to encode audit report: {err}"))
+                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                    "failed to encode audit report: {err}"
+                )))
             })?
         );
     } else {

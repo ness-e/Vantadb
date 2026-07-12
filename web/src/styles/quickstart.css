@@ -86,7 +86,7 @@
   align-items: center;
   gap: 0.3rem;
   padding: 0.3rem 0.5rem;
-  background: #0d0d0d;
+  background: var(--background);
   border: 1px solid var(--border);
   margin: -0.25rem -0.25rem 0;
 }

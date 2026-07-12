@@ -13,6 +13,8 @@ All notable changes to the VantaDB engine will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note:** Git tags exist only up to `v0.2.0`. Versions `v0.2.1`, `v0.2.2`, `v0.2.3`, and `v0.3.0` described below have no corresponding tags — create them before the next release.
+
 ## [v0.3.0] — 2026-07-07 (Phase 5: Governance, Encryption, PITR, WASM, Docs)
 
 ### Governance (GOV-01)

@@ -8,7 +8,7 @@ use crate::cli_handlers::{
     create_spinner, dir_size, human_readable_size, open_database, open_embedded, print_info,
     print_success, print_warning,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 fn copy_dir(src: &Path, dst: &Path, skip: Option<&Path>) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
@@ -54,10 +54,10 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     };
 
     if backup_dir.join("vantadb.dat").exists() || backup_dir.join("vantadb.wal").exists() {
-        return Err(crate::error::VantaError::CliError(format!(
+        return Err(crate::error::VantaError::CliError(ChainedError::msg(format!(
             "Backup destination '{}' already contains database files. Choose a different location or remove existing files.",
             backup_dir.display()
-        )));
+        ))));
     }
 
     // Open writable to flush, then drop before copying files

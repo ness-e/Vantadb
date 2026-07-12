@@ -9,7 +9,7 @@ use crate::cli_handlers::{
     create_spinner, open_database, open_embedded, print_error, print_info, print_success,
     print_warning,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Export records to a JSON file, optionally filtered by namespace
@@ -139,9 +139,8 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::VantaError::CliError(format!(
-            "Input file not found: {}",
-            input_path
+        return Err(crate::error::VantaError::CliError(ChainedError::msg(
+            format!("Input file not found: {}", input_path),
         )));
     }
 
