@@ -8,7 +8,7 @@ use super::types::*;
 use crate::backend::BackendPartition;
 #[cfg(debug_assertions)]
 use crate::backend::BackendWriteOp;
-use crate::error::{Result, VantaError};
+use crate::error::{ChainedError, Result, VantaError};
 use crate::index::cosine_sim_f32;
 use crate::node::UnifiedNode;
 use crate::storage::StorageEngine;
@@ -194,9 +194,9 @@ impl VantaEmbedded {
                     continue;
                 }
                 let posting = crate::text_index::decode_posting(&posting_value).map_err(|err| {
-                    VantaError::SearchError(format!(
+                    VantaError::SearchError(ChainedError::msg(format!(
                         "text_query found an unreadable posting; run rebuild_index: {err}"
-                    ))
+                    )))
                 })?;
                 let Some(record_key) =
                     crate::text_index::posting_record_key(namespace, &token, &posting_key)
@@ -217,10 +217,9 @@ impl VantaEmbedded {
                     stats
                 };
                 if doc_stats.node_id != posting.node_id {
-                    return Err(VantaError::SearchError(
-                        "text_query found posting/doc stats mismatch; run rebuild_index"
-                            .to_string(),
-                    ));
+                    return Err(VantaError::SearchError(ChainedError::msg(
+                        "text_query found posting/doc stats mismatch; run rebuild_index",
+                    )));
                 }
 
                 let tf = posting.tf as f32;

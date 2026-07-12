@@ -8,7 +8,7 @@ use crate::cli_handlers::{
     print_success, print_warning, FIELD_CREATED_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD,
     FIELD_UPDATED_AT_MS, FIELD_VERSION,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
 
 #[tracing::instrument]
@@ -37,9 +37,8 @@ pub fn cmd_put(
             Err(e) => {
                 spinner.finish_and_clear();
                 print_error(&format!("Invalid vector format: {}", e));
-                return Err(crate::error::VantaError::CliError(format!(
-                    "Vector must be comma-separated f32 values: {}",
-                    e
+                return Err(crate::error::VantaError::CliError(ChainedError::msg(
+                    format!("Vector must be comma-separated f32 values: {}", e),
                 )));
             }
         }

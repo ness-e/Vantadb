@@ -14,6 +14,7 @@ use std::fs::{File, OpenOptions};
 #[cfg(not(feature = "memmap2"))]
 use std::io::Read;
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::sync::atomic::AtomicBool;
 use zerocopy::{FromBytes, IntoBytes};
 
@@ -159,7 +160,7 @@ use libc;
 /// Atomic flag set by the SIGBUS handler instead of logging directly.
 /// Replaced the previous `warn!()` approach to avoid reentrancy issues
 /// inside a signal handler (async-signal-unsafe functions).
-#[allow(dead_code)]
+#[cfg(unix)]
 static SIGBUS_OCCURRED: AtomicBool = AtomicBool::new(false);
 #[cfg(unix)]
 static SIGBUS_FAULT_ADDR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
@@ -207,41 +208,6 @@ unsafe extern "C" fn sigbus_handler(
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
     }
 }
-
-/// Check if a SIGBUS has occurred and reset the flag.
-#[cfg(unix)]
-#[allow(dead_code)]
-pub fn check_sigbus() -> bool {
-    SIGBUS_OCCURRED.swap(false, Ordering::SeqCst)
-}
-
-/// Get the fault address from the last SIGBUS, if any.
-#[cfg(unix)]
-#[allow(dead_code)]
-pub fn get_sigbus_fault_addr() -> *mut u8 {
-    SIGBUS_FAULT_ADDR.load(Ordering::SeqCst)
-}
-
-/// Stub: SIGBUS is not applicable on non-Unix platforms.
-#[cfg(not(unix))]
-#[allow(dead_code)]
-pub fn check_sigbus() -> bool {
-    false
-}
-
-/// Stub: SIGBUS is not applicable on non-Unix platforms.
-#[cfg(not(unix))]
-#[allow(dead_code)]
-pub fn get_sigbus_fault_addr() -> *mut u8 {
-    std::ptr::null_mut()
-}
-
-/// Magic bytes identifying a VantaFile on disk.
-#[allow(dead_code)]
-pub const VANTA_FILE_MAGIC: &[u8; 8] = b"VNTAFILE";
-/// On-disk VantaFile version number.
-#[allow(dead_code)]
-pub const VANTA_FILE_VERSION: u32 = 1;
 
 /// Returns the number of resident (in-RAM) bytes for the given memory region.
 pub fn get_resident_bytes(addr: *const u8, len: usize) -> Option<u64> {

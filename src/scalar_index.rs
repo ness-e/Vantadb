@@ -54,13 +54,13 @@ impl ScalarIndex {
     }
 
     /// Remove all entries for a given field.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn clear_field(&self, field: &str) {
         self.indexes.remove(field);
     }
 
     /// Return all indexed field names.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn field_names(&self) -> Vec<String> {
         self.indexes.iter().map(|e| e.key().clone()).collect()
     }

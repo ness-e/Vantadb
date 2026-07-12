@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { memo, useEffect, useRef, useState } from "react";
 import { animate, inView } from "motion";
 import { NbCopyCommand, NbSection } from "./nb";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import "../styles/monolith.css";
 
 const BOOT_MESSAGES = [
@@ -23,12 +24,13 @@ export const NbMonolith = memo(function NbMonolith() {
   const [bootIndex, setBootIndex] = useState(0);
   const [bootDone, setBootDone] = useState(false);
   const [progress, setProgress] = useState(0);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,

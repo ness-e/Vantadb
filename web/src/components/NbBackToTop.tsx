@@ -1,13 +1,15 @@
 import { memo, useEffect, useRef } from "react";
 import { animate } from "motion";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
 export const NbBackToTop = memo(function NbBackToTop() {
   const btnRef = useRef<HTMLButtonElement>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!btnRef.current) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const btn = btnRef.current;
     btn.style.opacity = "0";

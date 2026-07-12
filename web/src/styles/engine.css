@@ -251,7 +251,7 @@ input[type="range"].nc-engine-slider-input::-webkit-slider-thumb {
   height: 18px;
   border-radius: 0;
   background: var(--amber);
-  border: 2px solid #000;
+  border: 2px solid var(--background);
   cursor: pointer;
   box-shadow: 0 0 8px rgb(255 85 0 / 30%);
 }
@@ -261,13 +261,13 @@ input[type="range"].nc-engine-slider-input::-moz-range-thumb {
   height: 18px;
   border-radius: 0;
   background: var(--amber);
-  border: 2px solid #000;
+  border: 2px solid var(--background);
   cursor: pointer;
 }
 
 /* ── WAL Crash Recorder ── */
 .nc-engine-recorder {
-  background: #050505;
+  background: var(--block-dark-bg);
   border: 2px solid var(--border-strong);
 }
 

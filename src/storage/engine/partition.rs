@@ -47,14 +47,4 @@ impl StorageEngine {
     ) -> Result<Option<Vec<u8>>> {
         self.backend.get(partition, key)
     }
-
-    /// Retrieve multiple raw values from a partition in a single batch.
-    #[allow(dead_code)]
-    pub(crate) fn get_many_from_partition(
-        &self,
-        partition: BackendPartition,
-        keys: &[&[u8]],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        self.backend.get_many(partition, keys)
-    }
 }

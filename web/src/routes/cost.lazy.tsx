@@ -126,9 +126,9 @@ function CostPage() {
               <table className="nc-cost-provider-table">
                 <thead>
                   <tr>
-                    <th>Component</th>
+                    <th scope="col">Component</th>
                     {PROVIDERS.map((p) => (
-                      <th key={p.name} data-amber={p.total === 0}>
+                      <th scope="col" key={p.name} data-amber={p.total === 0}>
                         {p.name}
                       </th>
                     ))}

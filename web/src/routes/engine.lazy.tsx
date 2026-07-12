@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { EngineBenchmark } from "@/components/EngineBenchmark";
+import { EngineFeatureGrid } from "@/components/EngineFeatureGrid";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp } from "@/lib/motion-utils";
 import "../styles/engine.css";
@@ -338,37 +340,16 @@ function EnginePage() {
             sub="VantaDB query planner optimizes combined metadata filters, HNSW vector similarity, and BM25 full-text queries, synthesizing them into a single-pass execution plan."
           />
 
-          <div className="nc-engine-panel nc-engine-section nc-engine-part">
-            <div className="nc-engine-panel-label">Instrument: Hybrid Fusion</div>
-            <p className="nc-engine-slider-desc">
-              Each query pass is fused through Reciprocal Rank Fusion, giving you the precision of
-              keyword search with the semantic reach of vector embeddings — without managing
-              separate infrastructure.
-            </p>
-
-            <div className="nb-grid nb-grid--cols-2">
-              <div className="nc-engine-gauge">
-                <div className="nc-engine-gauge-value">~1.2ms</div>
-                <span className="nc-engine-gauge-label">P50 Latency</span>
-                <span className="nc-engine-gauge-unit">Lexical BM25 search</span>
-              </div>
-              <div className="nc-engine-gauge">
-                <div className="nc-engine-gauge-value">0.998</div>
-                <span className="nc-engine-gauge-label">Recall@10</span>
-                <span className="nc-engine-gauge-unit">Full-text recall rate</span>
-              </div>
-              <div className="nc-engine-gauge">
-                <div className="nc-engine-gauge-value">M=16</div>
-                <span className="nc-engine-gauge-label">HNSW Connections</span>
-                <span className="nc-engine-gauge-unit">Graph density</span>
-              </div>
-              <div className="nc-engine-gauge">
-                <div className="nc-engine-gauge-value">SQ8</div>
-                <span className="nc-engine-gauge-label">Quantization</span>
-                <span className="nc-engine-gauge-unit">Memory compression</span>
-              </div>
-            </div>
-          </div>
+          <EngineBenchmark
+            panelLabel="Instrument: Hybrid Fusion"
+            description="Each query pass is fused through Reciprocal Rank Fusion, giving you the precision of keyword search with the semantic reach of vector embeddings — without managing separate infrastructure."
+            items={[
+              { value: "~1.2ms", label: "P50 Latency", unit: "Lexical BM25 search" },
+              { value: "0.998", label: "Recall@10", unit: "Full-text recall rate" },
+              { value: "M=16", label: "HNSW Connections", unit: "Graph density" },
+              { value: "SQ8", label: "Quantization", unit: "Memory compression" },
+            ]}
+          />
         </NbSection>
 
         <NbSection ref={graphRef} ariaLabel="Graph topology">
@@ -378,15 +359,11 @@ function EnginePage() {
             sub="Hover nodes to explore in-memory relations. VantaDB stores directed adjacency lists alongside vectors — supporting BFS, DFS, topological sort, and DAG cycle detection for graph-based agent memory."
           />
 
-          <div className="nb-grid nb-grid--cols-2 nc-engine-section">
-            <div className="nc-engine-panel nc-engine-part nc-engine-radar">
-              <div className="nc-engine-panel-label">Live Topology · Hover to traverse</div>
-              <GraphTopology />
-            </div>
-            <div className="nc-engine-part">
-              <RRFWeightsSlider />
-            </div>
-          </div>
+          <EngineFeatureGrid
+            left={<GraphTopology />}
+            right={<RRFWeightsSlider />}
+            leftLabel="Live Topology · Hover to traverse"
+          />
         </NbSection>
 
         <NbSection ref={walRef} ariaLabel="WAL durability">

@@ -9,7 +9,7 @@ use crate::cli_handlers::{
     create_spinner, human_readable_size, memory_node_id, open_database, print_info, print_warning,
     FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
 
 #[tracing::instrument]
@@ -347,7 +347,9 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&result).map_err(|e| {
-                crate::error::VantaError::CliError(format!("JSON serialization error: {e}"))
+                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                    "JSON serialization error: {e}"
+                )))
             })?
         );
         return Ok(());

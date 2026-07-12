@@ -2,7 +2,12 @@
 //!
 //! Builds an [`axum`] application, mounts middleware and API routes,
 //! and binds to the configured address.
+//!
+//! ponytail: 928L but all pieces (handlers, middleware, telemetry, server startup)
+//! flow through `run()` → `app()` → Router. Telemetry is verbose (tracing-subscriber
+//! config) but not complex — not worth splitting.
 
+use crate::error::ChainedError;
 use crate::VantaError;
 use lru::LruCache;
 use std::collections::HashMap;
@@ -691,7 +696,9 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let addr = format!("{}:{}", config.host, config.port);
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
-        return Err(VantaError::CliError("Server exited with errors".into()));
+        return Err(VantaError::CliError(ChainedError::msg(
+            "Server exited with errors",
+        )));
     }
 
     Ok(())

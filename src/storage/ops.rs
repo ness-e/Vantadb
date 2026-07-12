@@ -2,13 +2,10 @@
 
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::error::{Result, VantaError};
-use crate::index::CPIndex;
-use crate::node::{DiskNodeHeader, FilterBitset, UnifiedNode};
+use crate::node::{DiskNodeHeader, UnifiedNode};
 use crate::storage::vfile::VantaFile;
 use std::sync::Arc;
 use zerocopy::IntoBytes;
-
-use crate::storage::engine::FLAG_TOMBSTONE;
 
 /// Serialized metadata stored per node in the KV backend.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -74,58 +71,6 @@ pub(crate) fn insert_node_to_backend(
         .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
     backend.put(partition, &key, &val)?;
     Ok(())
-}
-
-#[allow(dead_code)]
-/// Retrieve a fully reconstructed node from the KV backend and vector store.
-pub(crate) fn get_node_from_backend(
-    backend: &dyn StorageBackend,
-    id: u128,
-    hnsw: &CPIndex,
-    vstore: &VantaFile,
-) -> Result<Option<UnifiedNode>> {
-    let key = id.to_le_bytes();
-    let metadata_res = match backend.get(BackendPartition::Default, &key)? {
-        Some(r) => r,
-        None => return Ok(None),
-    };
-    let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
-        .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
-    let index_node = match hnsw.nodes.get(&id) {
-        Some(n) => n,
-        None => return Ok(None),
-    };
-    let header = match vstore.read_header(index_node.storage_offset) {
-        Some(h) => h,
-        None => return Ok(None),
-    };
-    if (header.flags & FLAG_TOMBSTONE) != 0 {
-        return Ok(None);
-    }
-    let vec_start = header.vector_offset as usize;
-    let vec_end = vec_start + (header.vector_len as usize * 4);
-    if vec_end > vstore.size as usize {
-        return Ok(None);
-    }
-    let vec_bytes = &vstore.mmap_bytes()[vec_start..vec_end];
-    // SAFETY: bounds verified above (`vec_end > vstore.size` guard).
-    let f32_vec: &[f32] = unsafe {
-        std::slice::from_raw_parts(vec_bytes.as_ptr() as *const f32, header.vector_len as usize)
-    };
-    let mut node = UnifiedNode::new(id);
-    node.bitset = FilterBitset::from_u128(header.bitset);
-    node.vector = crate::node::VectorRepresentations::Full(f32_vec.to_vec());
-    node.relational = metadata.relational;
-    node.edges = metadata.edges;
-    node.confidence_score = header.confidence_score;
-    node.importance = header.importance;
-    node.tier = if header.tier == 1 {
-        crate::node::NodeTier::Hot
-    } else {
-        crate::node::NodeTier::Cold
-    };
-    node.flags = crate::node::NodeFlags(header.flags);
-    Ok(Some(node))
 }
 
 /// Reject paths containing `..` components or absolute paths (when relative expected)

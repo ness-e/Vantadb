@@ -2,6 +2,10 @@
 //!
 //! Defines [`VantaConfig`] with typed fields, environment variable parsing,
 //! and per-backend configuration options with fallback defaults.
+//!
+//! ponytail: 1287L but cohesive — enums, structs, Default (env parsing), builder
+//! methods, and hot-reload watcher are all interdependent. Splitting would add
+//! indirection without reducing real complexity. Leave as-is.
 
 use crate::backend::BackendKind;
 #[cfg(feature = "advanced-tokenizer")]

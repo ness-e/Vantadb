@@ -30,7 +30,7 @@
 
 .nc-cl-filter-btn--active {
   background: var(--amber);
-  color: #000;
+  color: var(--black);
   font-weight: var(--weight-bold);
 }
 
@@ -80,7 +80,7 @@
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #000;
+  color: var(--black);
   background: var(--amber);
   width: fit-content;
   padding: var(--space-2xs) var(--space-sm);

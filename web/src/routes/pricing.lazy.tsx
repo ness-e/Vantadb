@@ -1,8 +1,10 @@
-import { createLazyRoute, Link } from "@tanstack/react-router";
+import { createLazyRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { NbSubpageHero } from "@/components/NbSubpageHero";
-import { NbBlockAmber, NbSection, NbSectionHeader } from "@/components/nb";
+import { NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
+import { PricingCard } from "@/components/PricingCard";
+import { PricingCTA } from "@/components/PricingCTA";
 import { useAnimationSafe } from "@/hooks/useAnimationSafe";
 import { fadeUp } from "@/lib/motion-utils";
 import "../styles/pricing.css";
@@ -241,60 +243,13 @@ function PricingPage() {
 
           <div className="nc-price-board nc-price-part">
             {tiers.slice(0, 2).map((tier) => (
-              <div
-                key={tier.name}
-                className={`nc-price-card ${tier.featured ? "nc-price-card--featured" : ""}`}
-              >
-                <div>
-                  <div className="nc-price-name">{tier.name}</div>
-                  <p className="nc-price-tagline">{tier.tagline}</p>
-                </div>
-                <div className="nc-price-row">
-                  <span className="nc-price-value">{tier.price}</span>
-                  <span className="nc-price-period">{tier.period}</span>
-                </div>
-                <ul className="nc-price-features">
-                  {tier.features.map((f) => (
-                    <li key={f} className="nc-price-feature">
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className={`nc-price-cta ${tier.featured ? "nb-btn" : "nb-btn nb-btn--ghost"}`}
-                >
-                  {tier.cta}
-                </Link>
-              </div>
+              <PricingCard key={tier.name} tier={tier} featured={tier.featured} />
             ))}
           </div>
 
           <div className="nc-price-board nc-price-board--tight nc-price-part">
             {tiers.slice(2).map((tier) => (
-              <div key={tier.name} className="nc-price-card">
-                <div>
-                  <div className="nc-price-name">{tier.name}</div>
-                  <p className="nc-price-tagline">{tier.tagline}</p>
-                </div>
-                <div className="nc-price-row">
-                  <span className="nc-price-value">{tier.price}</span>
-                  <span className="nc-price-period">{tier.period}</span>
-                </div>
-                <ul className="nc-price-features">
-                  {tier.features.map((f) => (
-                    <li key={f} className="nc-price-feature">
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to={tier.href.startsWith("/") ? (tier.href as "/") : "/about/contact"}
-                  className="nc-price-cta nb-btn nb-btn--ghost"
-                >
-                  {tier.cta}
-                </Link>
-              </div>
+              <PricingCard key={tier.name} tier={tier} />
             ))}
           </div>
         </NbSection>
@@ -311,7 +266,7 @@ function PricingPage() {
               <thead>
                 <tr>
                   {comparisonColumns.map((col) => (
-                    <th key={col}>{col}</th>
+                    <th scope="col" key={col}>{col}</th>
                   ))}
                 </tr>
               </thead>
@@ -348,17 +303,12 @@ function PricingPage() {
         </NbSection>
 
         <NbSection ariaLabel="Get started">
-          <NbBlockAmber as="div">
-            <div className="nc-price-cta-row">
-              <div>
-                <h2 className="nc-price-cta-heading">Start with Self-Hosted.</h2>
-                <p className="nc-price-cta-sub">Free forever. No signup required.</p>
-              </div>
-              <Link to="/docs" className="nb-btn nb-btn--ghost nc-price-cta-btn">
-                GET STARTED
-              </Link>
-            </div>
-          </NbBlockAmber>
+          <PricingCTA
+            heading="Start with Self-Hosted."
+            sub="Free forever. No signup required."
+            cta="GET STARTED"
+            href="/docs"
+          />
         </NbSection>
       </main>
     </div>

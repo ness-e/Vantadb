@@ -7,7 +7,7 @@ use crate::cli_handlers::fmt::header_style;
 use crate::cli_handlers::{
     confirm_action, create_spinner, print_error, print_info, print_success, print_warning,
 };
-use crate::error::Result;
+use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Print the planned migrations without executing them
@@ -17,9 +17,8 @@ pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
         print_error(&format!("Database directory not found: {}", db_path));
-        return Err(crate::error::VantaError::CliError(format!(
-            "Database path does not exist: {}",
-            db_path
+        return Err(crate::error::VantaError::CliError(ChainedError::msg(
+            format!("Database path does not exist: {}", db_path),
         )));
     }
 
@@ -70,9 +69,8 @@ pub fn cmd_migrate_check(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
         print_error(&format!("Database directory not found: {}", db_path));
-        return Err(crate::error::VantaError::CliError(format!(
-            "Database path does not exist: {}",
-            db_path
+        return Err(crate::error::VantaError::CliError(ChainedError::msg(
+            format!("Database path does not exist: {}", db_path),
         )));
     }
 
@@ -137,9 +135,8 @@ pub fn cmd_migrate(
     let target = std::path::Path::new(target_path);
     if !target.exists() {
         print_error(&format!("Database directory not found: {}", target_path));
-        return Err(crate::error::VantaError::CliError(format!(
-            "Database path does not exist: {}",
-            target_path
+        return Err(crate::error::VantaError::CliError(ChainedError::msg(
+            format!("Database path does not exist: {}", target_path),
         )));
     }
 
@@ -157,9 +154,8 @@ pub fn cmd_migrate(
                     "Unknown format: {}. Valid values: all, vfile, index, wal, schema",
                     format
                 ));
-                return Err(crate::error::VantaError::CliError(format!(
-                    "Unknown format: {}",
-                    format
+                return Err(crate::error::VantaError::CliError(ChainedError::msg(
+                    format!("Unknown format: {}", format),
                 )));
             }
         }

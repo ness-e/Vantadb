@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { memo, useCallback, useEffect, useRef } from "react";
 import { animate, inView } from "motion";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 import "../styles/vector-nebula.css";
 
 interface Particle {
@@ -34,6 +35,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
   const mouseRef = useRef({ x: -1e6, y: -1e6 });
   const frameRef = useRef(0);
   const dimsRef = useRef({ w: 0, h: 0 });
+  const reducedMotion = useReducedMotion();
 
   const initParticles = useCallback((w: number, h: number) => {
     const p: Particle[] = [];
@@ -182,6 +184,15 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
     window.addEventListener("mousemove", onMouse);
     window.addEventListener("mouseleave", onLeave);
 
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(frameRef.current);
+      } else {
+        frameRef.current = requestAnimationFrame(draw);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     frameRef.current = requestAnimationFrame(draw);
 
     return () => {
@@ -189,6 +200,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
       window.removeEventListener("mousemove", onMouse);
       window.removeEventListener("mouseleave", onLeave);
       cancelAnimationFrame(frameRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [draw, initParticles]);
 
@@ -196,7 +208,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
     const el = sectionRef.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion) return;
 
     const cleanup = inView(
       el,

@@ -30,6 +30,10 @@ VantaDB is an open-source embedded vector database that unifies vector search (H
 2. **Three query engines** — vector + full-text + hybrid, RRF fusion
 3. **Zero ops** — No servers, no clusters, no per-vector pricing
 4. **Low-latency** — 1.2ms p50 HNSW vector search latency
+5. **Flat (brute-force) index** — exact search when recall must be 1.0
+6. **Auto-tune** — PID loop dynamically adjusts ef_search for latency/recall balance
+7. **OPFS persistence with IndexedDB fallback** — WASM/browser support out of the box
+8. **Integration adapters** — LangChain, LlamaIndex, CrewAI, DSPy, Haystack, Mem0, LettA, Ollama, OpenAI
 
 ## API (HTTP Server)
 The VantaDB HTTP server exposes a single query endpoint:
