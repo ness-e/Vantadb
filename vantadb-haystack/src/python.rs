@@ -10,11 +10,13 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, Vant
 
 fn err_to_py(e: VantaError) -> PyErr {
     match e {
-        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
-        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
-        VantaError::InvalidArgument(..)
-        | VantaError::CollectionNotEmpty(..)
-        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        VantaError::NotFound { .. } => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::BackendError(_) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidInput(_)
+        | VantaError::SchemaError(_)
+        | VantaError::SerializationError(_) => {
+            pyo3::exceptions::PyValueError::new_err(e.to_string())
+        }
         _ => PyRuntimeError::new_err(format!("{:?}", e)),
     }
 }
