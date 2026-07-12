@@ -164,6 +164,11 @@ jobs:
         with:
           cache-bin: "false"
 
+      - name: Install system dependencies
+        run: |
+          brew update
+          brew install rocksdb llvm
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
         with:
@@ -192,6 +197,11 @@ jobs:
       - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
         with:
           shared-key: msrv-check
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: cargo check (MSRV)
         run: cargo check --workspace
@@ -353,6 +363,7 @@ jobs:
       - name: Install nightly + ASan
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly
           components: rust-src
 
       - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
@@ -384,6 +395,7 @@ jobs:
       - name: Install nightly + TSan
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly
           components: rust-src
 
       - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae

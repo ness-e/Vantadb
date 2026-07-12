@@ -100,6 +100,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         ef_search: 200,
         ml: 1.0 / (16_f64).ln(),
         distance_metric: DistanceMetric::Cosine,
+        flat_threshold: Some(10000),
     };
 
     let raw_vectors = generate_vectors(N_VECTORS, DIMS, SEED);
