@@ -187,10 +187,12 @@ pub(crate) fn install_sigbus_handler() -> Result<()> {
     Ok(())
 }
 
-// SAFETY: This function is used exclusively as a signal handler for SIGBUS,
-// registered via `sigaction`. It only performs async-signal-safe operations
-// (atomic stores on static variables) and never calls into the allocator,
-// libc I/O, or any non-signal-safe function.
+/// # Safety
+///
+/// This function is used exclusively as a signal handler for SIGBUS,
+/// registered via `sigaction`. It only performs async-signal-safe operations
+/// (atomic stores on static variables) and never calls into the allocator,
+/// libc I/O, or any non-signal-safe function.
 #[cfg(unix)]
 unsafe extern "C" fn sigbus_handler(
     _signum: libc::c_int,
@@ -199,7 +201,9 @@ unsafe extern "C" fn sigbus_handler(
 ) {
     SIGBUS_OCCURRED.store(true, Ordering::SeqCst);
     if !siginfo.is_null() {
-        let addr = (*siginfo).si_addr() as *mut u8;
+        // SAFETY: si_addr() is safe to call when siginfo is non-null and
+        // we are inside a SIGBUS signal handler (guaranteed by sigaction registration).
+        let addr = unsafe { (*siginfo).si_addr() as *mut u8 };
         SIGBUS_FAULT_ADDR.store(addr, Ordering::SeqCst);
     }
 }

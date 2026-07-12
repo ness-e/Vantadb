@@ -940,7 +940,7 @@ Usar `[patch]` con git sources para forzar consolidación rompería compatibilid
 
 | # | Acción | Cambios |
 |---|---|---|
-| 3.7 | Migrar GSAP → motion.dev | `package.json`: removidos `gsap`, `@gsap/react`, `@types/gsap`, `split-type`; añadido `motion@12.10.5`. `web/src/utils/motion-utils.ts` (renombrado de `gsap-utils.ts`). `web/src/hooks/useScrollReveal.ts`: 3 animaciones migradas. `AnimatedCounter.tsx`: portado. ScrollTrigger reemplazado por `useInView` + `animate`. `bun.lock` regenerado. |
+| 3.7 | Migrar GSAP → motion.dev | `package.json`: removidos `gsap`, `@gsap/react`, `@types/gsap`, `split-type`; añadido `motion@12.10.5`. `web/src/lib/motion-utils.ts` (renombrado de `gsap-utils.ts`). `web/src/hooks/useScrollReveal.ts`: 3 animaciones migradas. `AnimatedCounter.tsx`: portado. ScrollTrigger reemplazado por `useInView` + `animate`. `bun.lock` regenerado. |
 | 3.8 | tsconfig strictness | `web/tsconfig.json`: `noUnusedLocals: true`, `noUnusedParameters: true`. Limpieza de imports/vars muertos en `FaqAccordion.tsx`, `main.tsx`, etc. |
 | 3.9 | Security headers Vercel | `vercel.json`: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy configurados. |
 

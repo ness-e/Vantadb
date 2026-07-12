@@ -30,6 +30,16 @@ if ($msvcVer) {
         $env:INCLUDE = "$vsBuild\VC\Tools\MSVC\$msvcVer\include;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\ucrt;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\um;${env:ProgramFiles(x86)}\Windows Kits\10\Include\$kitVer\shared"
         $env:LIB     = "$vsBuild\VC\Tools\MSVC\$msvcVer\lib\x64;${env:ProgramFiles(x86)}\Windows Kits\10\Lib\$kitVer\ucrt\x64;${env:ProgramFiles(x86)}\Windows Kits\10\Lib\$kitVer\um\x64"
     }
+    # Point bindgen to libclang.dll (bundled with LLVM, needed by librocksdb-sys build script)
+    $llvmBin = "C:\Program Files\LLVM\bin"
+    if ($env:PATH -notlike "*$llvmBin*") {
+        $env:PATH = "$llvmBin;$env:PATH"
+    }
+    $env:LIBCLANG_PATH = $llvmBin
+    # Force CC/CXX to our BuildTools cl.exe so cc-rs doesn't pick a different VS edition
+    $cl = "$vsBuild\VC\Tools\MSVC\$msvcVer\bin\HostX64\x64\cl.exe"
+    $env:CC  = $cl
+    $env:CXX = $cl
 }
 
 function Write-Header($Title) {

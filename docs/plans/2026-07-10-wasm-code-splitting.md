@@ -55,7 +55,7 @@ Split into **three separate WASM crates**, each loadable independently from Java
 > **Note**: `rebuild_index` (in core) already calls `rebuild_text_index_with_report()` internally on
 > the Rust side — no method changes needed. If the text WASM isn't loaded, the text-index step
 > is a no-op (no text data exists).
-
+>
 > **Note**: `search_vector` (`VantaEmbedded::search_vector` in `src/sdk/api.rs` lines 447–469) is a
 > raw HNSW k-NN helper that bypasses BM25 entirely. It lives in `vantadb-wasm-text` but the
 > underlying HNSW/search logic is always compiled — only the WASM binding is scoped to text.
