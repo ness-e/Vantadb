@@ -65,7 +65,7 @@ runs:
         components: ${{ inputs.components }}
 
     - name: Rust cache
-      uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
       with:
         cache-bin: ${{ inputs.cache-bin }}
 

@@ -127,7 +127,7 @@ jobs:
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           cache-bin: "false"
 
@@ -160,7 +160,7 @@ jobs:
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           cache-bin: "false"
 
@@ -192,16 +192,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - uses: dtolnay/rust-toolchain@1.94.1
-
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: ./.github/actions/rust-setup
         with:
-          shared-key: msrv-check
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          toolchain: 1.94.1
+          install-nextest: false
+          install-llvm-cov: false
 
       - name: cargo check (MSRV)
         run: cargo check --workspace
@@ -214,16 +209,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - uses: dtolnay/rust-toolchain@nightly
-
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: ./.github/actions/rust-setup
         with:
-          shared-key: minimal-versions
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libclang-dev clang librocksdb-dev
+          toolchain: nightly
+          install-nextest: false
+          install-llvm-cov: false
 
       - name: cargo check (minimal-versions)
         run: cargo +nightly check -Zminimal-versions --workspace
@@ -281,11 +271,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
-
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: false
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
@@ -309,7 +299,7 @@ jobs:
           components: miri
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           shared-key: miri-cache
 
@@ -338,11 +328,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
-
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: false
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@c7eb1735f09259a5035e8e5d44b1406b1cddc0fb
@@ -366,7 +356,7 @@ jobs:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           shared-key: sanitizer-asan
 
@@ -398,7 +388,7 @@ jobs:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
         with:
           shared-key: sanitizer-tsan
 

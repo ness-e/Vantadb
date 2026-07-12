@@ -31,9 +31,10 @@ jobs:
         uses: github/codeql-action/init@1ad29ea4a422cce9a242a9fae469541dcd08addc
         with:
           languages: rust
+          build-mode: manual
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@1ad29ea4a422cce9a242a9fae469541dcd08addc
+      - name: Build (workspace multi-crate)
+        run: cargo build --workspace
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@1ad29ea4a422cce9a242a9fae469541dcd08addc

@@ -61,6 +61,13 @@ jobs:
         run: wasm-pack build --release
         working-directory: vantadb-wasm
 
+      - name: Upload WASM build artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
+          if-no-files-found: error
+
       - name: Publish to npm
         working-directory: vantadb-wasm/pkg
         run: >
@@ -85,22 +92,11 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa
+      - name: Download WASM build artifact
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
-          version: latest
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown
-
-      - name: Build WASM package (needed for local dep)
-        run: wasm-pack build --release
-        working-directory: vantadb-wasm
+          name: wasm-pkg
+          path: vantadb-wasm/pkg
 
       - name: Install dependencies
         working-directory: vantadb-ts
