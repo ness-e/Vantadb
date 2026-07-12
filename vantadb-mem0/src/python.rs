@@ -2,13 +2,25 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyModuleMethods};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
 };
 
-/// Parse a Mem0-style filter dict into VantaDB metadata pairs.
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
+
 fn py_dict_to_metadata(
     fields: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<BTreeMap<String, vantadb::sdk::VantaValue>> {
@@ -113,15 +125,12 @@ impl VantaDBStore {
             storage_path: path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
             collection_name: RwLock::new(collection_name.to_string()),
         })
     }
-
-    // ── Mem0 VectorStoreBase interface ──────────────────────────────────
 
     fn create_col(
         &self,
@@ -143,7 +152,7 @@ impl VantaDBStore {
     ) -> PyResult<Vec<String>> {
         let n = vectors.len();
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
-        let mut out_ids = Vec::with_capacity(n);
+        let mut inputs = Vec::with_capacity(n);
 
         for i in 0..n {
             let key = match &ids {
@@ -163,15 +172,20 @@ impl VantaDBStore {
 
             let mut input = VantaMemoryInput::new(&namespace, &key, &payload);
             input.vector = Some(vectors[i].clone());
-
-            let record = self
-                .engine
-                .put(input)
-                .map_err(|e| PyRuntimeError::new_err(format!("Insert error: {:?}", e)))?;
-            out_ids.push(format!("{}:{}", record.namespace, record.key));
+            inputs.push((key, input));
         }
 
-        Ok(out_ids)
+        let engine = self.engine.clone();
+        // GIL RELEASED — batch pure Rust inserts
+        let ids_out = py.detach(move || -> PyResult<Vec<String>> {
+            let mut out = Vec::with_capacity(inputs.len());
+            for (_key, input) in inputs {
+                let record = engine.put(input).map_err(err_to_py)?;
+                out.push(format!("{}:{}", record.namespace, record.key));
+            }
+            Ok(out)
+        })?;
+        Ok(ids_out)
     }
 
     #[pyo3(signature = (query, vectors, top_k = 5, filters = None))]
@@ -201,10 +215,9 @@ impl VantaDBStore {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("Search error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -222,19 +235,23 @@ impl VantaDBStore {
     }
 
     #[pyo3(signature = (vector_id))]
-    fn delete(&self, _py: Python, vector_id: &str) -> PyResult<()> {
+    fn delete(&self, py: Python, vector_id: &str) -> PyResult<()> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let key = vector_id.to_string();
-        self.engine
-            .delete(&namespace, &key)
-            .map_err(|e| PyRuntimeError::new_err(format!("Delete error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust delete
+        py.detach(move || {
+            engine
+                .delete(&namespace, &key)
+                .map_err(|e| PyRuntimeError::new_err(format!("Delete error: {:?}", e)))
+        })?;
         Ok(())
     }
 
     #[pyo3(signature = (vector_id, vector = None, payload = None))]
     fn update(
         &self,
-        _py: Python,
+        py: Python,
         vector_id: &str,
         vector: Option<Vec<Vec<f32>>>,
         payload: Option<&Bound<'_, PyAny>>,
@@ -242,10 +259,9 @@ impl VantaDBStore {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let key = vector_id.to_string();
 
-        let existing = self
-            .engine
-            .get(&namespace, &key)
-            .map_err(|e| PyRuntimeError::new_err(format!("Get before update error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust get
+        let existing = py.detach(move || engine.get(&namespace, &key).map_err(err_to_py))?;
 
         let mut input = match existing {
             Some(record) => VantaMemoryInput::new(&record.namespace, &record.key, &record.payload),
@@ -264,9 +280,9 @@ impl VantaDBStore {
             }
         }
 
-        self.engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("Update error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust put
+        py.detach(move || engine.put(input).map_err(err_to_py))?;
 
         Ok(())
     }
@@ -275,10 +291,9 @@ impl VantaDBStore {
     fn get(&self, py: Python, vector_id: &str) -> PyResult<Option<Py<PyAny>>> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let key = vector_id.to_string();
-        let record = self
-            .engine
-            .get(&namespace, &key)
-            .map_err(|e| PyRuntimeError::new_err(format!("Get error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust get
+        let record = py.detach(move || engine.get(&namespace, &key).map_err(err_to_py))?;
 
         match record {
             Some(record) => {
@@ -292,25 +307,34 @@ impl VantaDBStore {
         }
     }
 
-    fn list_cols(&self, _py: Python) -> PyResult<Vec<String>> {
-        self.engine
-            .list_namespaces()
-            .map_err(|e| PyRuntimeError::new_err(format!("List namespaces error: {:?}", e)))
+    fn list_cols(&self, py: Python) -> PyResult<Vec<String>> {
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list
+        py.detach(move || engine.list_namespaces().map_err(err_to_py))
     }
 
-    fn delete_col(&self, _py: Python) -> PyResult<()> {
+    fn delete_col(&self, py: Python) -> PyResult<()> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
-        let page = self
-            .engine
-            .list(&namespace, VantaMemoryListOptions::default())
-            .map_err(|e| PyRuntimeError::new_err(format!("List for delete_col error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list + batch delete
+        let records = py.detach(move || -> PyResult<Vec<(String, String)>> {
+            let page = engine
+                .list(&namespace, VantaMemoryListOptions::default())
+                .map_err(err_to_py)?;
+            let pairs: Vec<_> = page
+                .records
+                .iter()
+                .map(|r| (r.namespace.clone(), r.key.clone()))
+                .collect();
+            Ok(pairs)
+        })?;
 
-        for record in &page.records {
-            self.engine
-                .delete(&record.namespace, &record.key)
-                .map_err(|e| {
-                    PyRuntimeError::new_err(format!("Delete during delete_col error: {:?}", e))
-                })?;
+        for (ns, key) in &records {
+            let eng = self.engine.clone();
+            let ns = ns.clone();
+            let key = key.clone();
+            // GIL RELEASED — pure Rust delete
+            py.detach(move || eng.delete(&ns, &key).map_err(err_to_py))?;
         }
 
         Ok(())
@@ -335,17 +359,20 @@ impl VantaDBStore {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let limit = top_k.unwrap_or(100) as usize;
 
-        let page = self
-            .engine
-            .list(
-                &namespace,
-                VantaMemoryListOptions {
-                    filters: py_dict_to_metadata(filters)?,
-                    limit,
-                    cursor: None,
-                },
-            )
-            .map_err(|e| PyRuntimeError::new_err(format!("List error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list
+        let page = py.detach(move || {
+            engine
+                .list(
+                    &namespace,
+                    VantaMemoryListOptions {
+                        filters: py_dict_to_metadata(filters)?,
+                        limit,
+                        cursor: None,
+                    },
+                )
+                .map_err(err_to_py)
+        })?;
 
         let mut results = Vec::with_capacity(page.records.len());
         for record in &page.records {

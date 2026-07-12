@@ -1,9 +1,22 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
 
 /// VantaDB retrieval module for DSPy.
 ///
@@ -20,6 +33,7 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 pub struct VantaDBRM {
     engine: VantaEmbedded,
     collection: RwLock<String>,
+    counter: AtomicU64,
 }
 
 #[pymethods]
@@ -31,11 +45,11 @@ impl VantaDBRM {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
             collection: RwLock::new(collection.to_string()),
+            counter: AtomicU64::new(0),
         })
     }
 
@@ -52,10 +66,9 @@ impl VantaDBRM {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("forward error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut passages = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -71,12 +84,14 @@ impl VantaDBRM {
     #[pyo3(signature = (passage, embedding, metadata = None))]
     fn add_passage(
         &self,
+        py: Python,
         passage: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
         let namespace = self.collection.read().unwrap().clone();
-        let key = format!("passage_{}", passage.len());
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("passage_{n}");
         let mut input = VantaMemoryInput::new(&namespace, &key, passage);
         input.vector = Some(embedding);
 
@@ -90,10 +105,9 @@ impl VantaDBRM {
             }
         }
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("add_passage error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }

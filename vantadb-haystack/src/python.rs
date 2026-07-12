@@ -3,34 +3,60 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaValue};
 
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
+
 /// VantaDB DocumentStore for Haystack.
+///
+/// Implements the Haystack ``DocumentStore`` protocol with ``write_documents``,
+/// ``filter_documents``, ``delete_documents``, and ``count_documents``.
+///
+/// Usage::
+///
+///     from vantadb_haystack import VantaDBDocumentStore
+///     store = VantaDBDocumentStore("/tmp/vantadb-haystack")
+///     ids = store.write_documents([{"id": "1", "content": "hello", "embedding": [0.1, 0.2]}])
 #[pyclass(name = "VantaDBDocumentStore")]
 pub struct VantaDBDocumentStore {
     engine: VantaEmbedded,
+    namespace: RwLock<String>,
     doc_counter: AtomicU64,
 }
 
 #[pymethods]
 impl VantaDBDocumentStore {
     #[new]
-    fn new(db_path: &str) -> PyResult<Self> {
+    #[pyo3(signature = (db_path, namespace = "haystack_docs"))]
+    fn new(db_path: &str, namespace: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
+            namespace: RwLock::new(namespace.to_string()),
             doc_counter: AtomicU64::new(0),
         })
     }
 
-    fn write_documents(&self, documents: &Bound<'_, PyList>) -> PyResult<Vec<String>> {
+    fn write_documents(&self, py: Python, documents: &Bound<'_, PyList>) -> PyResult<Vec<String>> {
+        let namespace = self.namespace.read().unwrap().clone();
         let mut ids = Vec::with_capacity(documents.len());
+        let mut inputs = Vec::with_capacity(documents.len());
         for item in documents.iter() {
             let d = item.cast::<PyDict>()?;
             let doc_id: String = d
@@ -55,7 +81,7 @@ impl VantaDBDocumentStore {
                 .and_then(|v| v.extract::<Vec<f32>>().ok())
                 .filter(|v| !v.is_empty());
 
-            let mut input = VantaMemoryInput::new("haystack_docs", &doc_id, &content);
+            let mut input = VantaMemoryInput::new(&namespace, &doc_id, &content);
             input.vector = embedding;
 
             if let Ok(Some(meta)) = d.get_item("metadata") {
@@ -70,12 +96,20 @@ impl VantaDBDocumentStore {
                 }
             }
 
-            self.engine
-                .put(input)
-                .map_err(|e| PyRuntimeError::new_err(format!("write_documents error: {:?}", e)))?;
-            ids.push(doc_id);
+            inputs.push((doc_id, input));
         }
-        Ok(ids)
+
+        let engine = self.engine.clone();
+        // GIL RELEASED — batch pure Rust inserts
+        let results = py.detach(move || {
+            let mut out = Vec::with_capacity(inputs.len());
+            for (doc_id, input) in inputs {
+                let _ = engine.put(input).map_err(err_to_py)?;
+                out.push(doc_id);
+            }
+            Ok::<_, PyErr>(out)
+        })?;
+        Ok(results)
     }
 
     #[pyo3(signature = (filters = None, top_k = 100))]
@@ -85,17 +119,21 @@ impl VantaDBDocumentStore {
         filters: Option<&Bound<'_, PyDict>>,
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
-        let page = self
-            .engine
-            .list(
-                "haystack_docs",
-                VantaMemoryListOptions {
-                    filters: py_dict_to_vanta_metadata(filters),
-                    limit: top_k.max(1) as usize,
-                    cursor: None,
-                },
-            )
-            .map_err(|e| PyRuntimeError::new_err(format!("filter_documents error: {:?}", e)))?;
+        let namespace = self.namespace.read().unwrap().clone();
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list
+        let page = py.detach(move || {
+            engine
+                .list(
+                    &namespace,
+                    VantaMemoryListOptions {
+                        filters: py_dict_to_vanta_metadata(filters),
+                        limit: top_k.max(1) as usize,
+                        cursor: None,
+                    },
+                )
+                .map_err(err_to_py)
+        })?;
 
         let mut results = Vec::with_capacity(page.records.len());
         for rec in &page.records {
@@ -108,20 +146,27 @@ impl VantaDBDocumentStore {
         Ok(results)
     }
 
-    fn delete_documents(&self, document_ids: Vec<String>) -> PyResult<()> {
-        for doc_id in &document_ids {
-            self.engine
-                .delete("haystack_docs", doc_id)
-                .map_err(|e| PyRuntimeError::new_err(format!("delete_documents error: {:?}", e)))?;
-        }
-        Ok(())
+    fn delete_documents(&self, py: Python, document_ids: Vec<String>) -> PyResult<()> {
+        let namespace = self.namespace.read().unwrap().clone();
+        let engine = self.engine.clone();
+        // GIL RELEASED — batch pure Rust deletes
+        py.detach(move || {
+            for doc_id in &document_ids {
+                engine.delete(&namespace, doc_id).map_err(err_to_py)?;
+            }
+            Ok(())
+        })
     }
 
-    fn count_documents(&self) -> PyResult<i64> {
-        let page = self
-            .engine
-            .list("haystack_docs", Default::default())
-            .map_err(|e| PyRuntimeError::new_err(format!("count_documents error: {:?}", e)))?;
+    fn count_documents(&self, py: Python) -> PyResult<i64> {
+        let namespace = self.namespace.read().unwrap().clone();
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust count
+        let page = py.detach(move || {
+            engine
+                .list(&namespace, Default::default())
+                .map_err(err_to_py)
+        })?;
         Ok(page.records.len() as i64)
     }
 }
