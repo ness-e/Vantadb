@@ -1,10 +1,23 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
 };
+
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
 
 fn ns_for(user_id: &str, agent_id: &str) -> String {
     let safe = |s: &str| -> String {
@@ -30,6 +43,7 @@ fn ns_for(user_id: &str, agent_id: &str) -> String {
 #[pyclass(name = "LettaStore")]
 pub struct LettaStore {
     engine: VantaEmbedded,
+    counter: AtomicU64,
 }
 
 #[pymethods]
@@ -41,27 +55,30 @@ impl LettaStore {
             storage_path: path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
-        Ok(Self { engine })
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        Ok(Self {
+            engine,
+            counter: AtomicU64::new(0),
+        })
     }
 
     fn store_memory(
         &self,
+        py: Python,
         user_id: &str,
         agent_id: &str,
         content: &str,
         embedding: Vec<f32>,
     ) -> PyResult<String> {
         let namespace = ns_for(user_id, agent_id);
-        let key = format!("mem_{}", content.len());
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("mem_{n}");
         let mut input = VantaMemoryInput::new(&namespace, &key, content);
         input.vector = Some(embedding);
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("store_memory error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
@@ -85,10 +102,9 @@ impl LettaStore {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("retrieve_memory error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -103,10 +119,13 @@ impl LettaStore {
 
     fn list_memories(&self, py: Python, user_id: &str, agent_id: &str) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = ns_for(user_id, agent_id);
-        let page = self
-            .engine
-            .list(&namespace, VantaMemoryListOptions::default())
-            .map_err(|e| PyRuntimeError::new_err(format!("list_memories error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list
+        let page = py.detach(move || {
+            engine
+                .list(&namespace, VantaMemoryListOptions::default())
+                .map_err(err_to_py)
+        })?;
 
         let mut results = Vec::with_capacity(page.records.len());
         for record in &page.records {
@@ -118,16 +137,18 @@ impl LettaStore {
         Ok(results)
     }
 
-    fn delete_memory(&self, memory_id: &str) -> PyResult<()> {
+    fn delete_memory(&self, py: Python, memory_id: &str) -> PyResult<()> {
         let parts: Vec<&str> = memory_id.split(':').collect();
         if parts.len() != 2 {
             return Err(PyRuntimeError::new_err(format!(
                 "invalid memory_id: {memory_id}, expected namespace:key"
             )));
         }
-        self.engine
-            .delete(parts[0], parts[1])
-            .map_err(|e| PyRuntimeError::new_err(format!("delete_memory error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        let ns = parts[0].to_string();
+        let key = parts[1].to_string();
+        // GIL RELEASED — pure Rust delete
+        py.detach(move || engine.delete(&ns, &key).map_err(err_to_py))?;
         Ok(())
     }
 }

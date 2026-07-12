@@ -1,8 +1,22 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
 
 /// VantaDB memory backend for CrewAI.
 ///
@@ -18,40 +32,48 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 #[pyclass(name = "CrewAIMemory")]
 pub struct CrewAIMemory {
     engine: VantaEmbedded,
+    namespace: RwLock<String>,
+    counter: AtomicU64,
 }
 
 #[pymethods]
 impl CrewAIMemory {
     #[new]
-    fn new(db_path: &str) -> PyResult<Self> {
+    #[pyo3(signature = (db_path, namespace = "crewai_memories"))]
+    fn new(db_path: &str, namespace: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
-        Ok(Self { engine })
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        Ok(Self {
+            engine,
+            namespace: RwLock::new(namespace.to_string()),
+            counter: AtomicU64::new(0),
+        })
     }
 
     fn save(
         &self,
+        py: Python,
         context: &str,
         metadata: &Bound<'_, PyDict>,
         embedding: Vec<f32>,
     ) -> PyResult<String> {
+        let namespace = self.namespace.read().unwrap().clone();
         let meta_str = serde_json::to_string(&py_dict_to_string_map(metadata)).unwrap_or_default();
-        let key = format!("crew_{}", context.len());
-        let mut input = VantaMemoryInput::new("crewai_memories", &key, context);
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("crew_{n}");
+        let mut input = VantaMemoryInput::new(&namespace, &key, context);
         input.vector = Some(embedding);
         input.metadata.insert(
             "metadata_json".into(),
             vantadb::sdk::VantaValue::String(meta_str),
         );
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("save error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
@@ -63,8 +85,9 @@ impl CrewAIMemory {
         top_k: i32,
         threshold: f32,
     ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = self.namespace.read().unwrap().clone();
         let request = VantaMemorySearchRequest {
-            namespace: "crewai_memories".into(),
+            namespace,
             query_vector: query_embedding,
             filters: Default::default(),
             text_query: None,
@@ -73,10 +96,9 @@ impl CrewAIMemory {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("search error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -93,15 +115,22 @@ impl CrewAIMemory {
         Ok(results)
     }
 
-    fn clear(&self) -> PyResult<()> {
-        let page = self
-            .engine
-            .list("crewai_memories", Default::default())
-            .map_err(|e| PyRuntimeError::new_err(format!("list for clear error: {:?}", e)))?;
+    fn clear(&self, py: Python) -> PyResult<()> {
+        let namespace = self.namespace.read().unwrap().clone();
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust list
+        let page = py.detach(move || {
+            engine
+                .list(&namespace, Default::default())
+                .map_err(err_to_py)
+        })?;
+        let engine = self.engine.clone();
         for record in &page.records {
-            self.engine
-                .delete(&record.namespace, &record.key)
-                .map_err(|e| PyRuntimeError::new_err(format!("clear delete error: {:?}", e)))?;
+            let eng = engine.clone();
+            let ns = record.namespace.clone();
+            let key = record.key.clone();
+            // GIL RELEASED — pure Rust delete
+            py.detach(move || eng.delete(&ns, &key).map_err(err_to_py))?;
         }
         Ok(())
     }

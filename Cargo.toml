@@ -544,6 +544,8 @@ members = [
     "vantadb-openai",
     "vantadb-ollama",
     "vantadb-enterprise",
+    "vantadb-langchain",
+    "vantadb-llamaindex",
 ]
 
 [workspace.package]

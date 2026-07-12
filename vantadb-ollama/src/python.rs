@@ -1,32 +1,59 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
+
 /// Ollama local embedding wrapper with VantaDB storage.
+///
+/// Generates embeddings via Ollama's local API and stores/searches them in VantaDB.
+///
+/// Usage::
+///
+///     from vantadb_ollama import VantaDBOllama
+///     store = VantaDBOllama("/tmp/vantadb-ollama")
+///     emb = store.embed(["hello world"])
+///     store.store("hello world", emb[0])
+///     results = store.search(emb[0], top_k=5)
 #[pyclass(name = "VantaDBOllama")]
 pub struct VantaDBOllama {
     engine: VantaEmbedded,
     base_url: String,
     model: String,
+    namespace: RwLock<String>,
+    counter: AtomicU64,
 }
 
 #[pymethods]
 impl VantaDBOllama {
     #[new]
-    #[pyo3(signature = (db_path, base_url = "http://localhost:11434", model = "nomic-embed-text"))]
-    fn new(db_path: &str, base_url: &str, model: &str) -> PyResult<Self> {
+    #[pyo3(signature = (db_path, base_url = "http://localhost:11434", model = "nomic-embed-text", namespace = "ollama_store"))]
+    fn new(db_path: &str, base_url: &str, model: &str, namespace: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
             base_url: base_url.to_string(),
             model: model.to_string(),
+            namespace: RwLock::new(namespace.to_string()),
+            counter: AtomicU64::new(0),
         })
     }
 
@@ -68,8 +95,9 @@ impl VantaDBOllama {
         query_embedding: Vec<f32>,
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = self.namespace.read().unwrap().clone();
         let request = VantaMemorySearchRequest {
-            namespace: "ollama_store".into(),
+            namespace,
             query_vector: query_embedding,
             filters: Default::default(),
             text_query: None,
@@ -78,10 +106,9 @@ impl VantaDBOllama {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("search error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -96,12 +123,15 @@ impl VantaDBOllama {
 
     fn store(
         &self,
+        py: Python,
         text: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
-        let key = format!("ollama_{}", text.len());
-        let mut input = VantaMemoryInput::new("ollama_store", &key, text);
+        let namespace = self.namespace.read().unwrap().clone();
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("ollama_{n}");
+        let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         if let Some(meta) = metadata {
@@ -114,10 +144,9 @@ impl VantaDBOllama {
             }
         }
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("store error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }

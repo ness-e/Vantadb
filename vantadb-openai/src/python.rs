@@ -1,32 +1,59 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
+
 /// OpenAI embedding wrapper with VantaDB storage.
+///
+/// Generates embeddings via OpenAI's API and stores/searches them in VantaDB.
+///
+/// Usage::
+///
+///     from vantadb_openai import VantaDBOpenAI
+///     store = VantaDBOpenAI("/tmp/vantadb-openai", "sk-...")
+///     emb = store.embed(["hello world"])
+///     store.store("hello world", emb[0])
+///     results = store.search(emb[0], top_k=5)
 #[pyclass(name = "VantaDBOpenAI")]
 pub struct VantaDBOpenAI {
     engine: VantaEmbedded,
     api_key: String,
     model: String,
+    namespace: RwLock<String>,
+    counter: AtomicU64,
 }
 
 #[pymethods]
 impl VantaDBOpenAI {
     #[new]
-    #[pyo3(signature = (db_path, api_key, model = "text-embedding-3-small"))]
-    fn new(db_path: &str, api_key: &str, model: &str) -> PyResult<Self> {
+    #[pyo3(signature = (db_path, api_key, model = "text-embedding-3-small", namespace = "openai_store"))]
+    fn new(db_path: &str, api_key: &str, model: &str, namespace: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
             api_key: api_key.to_string(),
             model: model.to_string(),
+            namespace: RwLock::new(namespace.to_string()),
+            counter: AtomicU64::new(0),
         })
     }
 
@@ -77,8 +104,9 @@ impl VantaDBOpenAI {
         query_embedding: Vec<f32>,
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = self.namespace.read().unwrap().clone();
         let request = VantaMemorySearchRequest {
-            namespace: "openai_store".into(),
+            namespace,
             query_vector: query_embedding,
             filters: Default::default(),
             text_query: None,
@@ -87,10 +115,9 @@ impl VantaDBOpenAI {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("search error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -105,12 +132,15 @@ impl VantaDBOpenAI {
 
     fn store(
         &self,
+        py: Python,
         text: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
-        let key = format!("openai_{}", text.len());
-        let mut input = VantaMemoryInput::new("openai_store", &key, text);
+        let namespace = self.namespace.read().unwrap().clone();
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("openai_{n}");
+        let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         if let Some(meta) = metadata {
@@ -123,10 +153,9 @@ impl VantaDBOpenAI {
             }
         }
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("store error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }

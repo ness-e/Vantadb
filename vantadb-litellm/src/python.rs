@@ -1,30 +1,57 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::RwLock;
 use vantadb::config::VantaConfig;
+use vantadb::error::VantaError;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
+fn err_to_py(e: VantaError) -> PyErr {
+    match e {
+        VantaError::NotFound(..) => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
+        VantaError::Storage(..) => pyo3::exceptions::PyIOError::new_err(e.to_string()),
+        VantaError::InvalidArgument(..)
+        | VantaError::CollectionNotEmpty(..)
+        | VantaError::Serialization(..) => pyo3::exceptions::PyValueError::new_err(e.to_string()),
+        _ => PyRuntimeError::new_err(format!("{:?}", e)),
+    }
+}
+
 /// LiteLLM embedding gateway with VantaDB storage.
+///
+/// Uses LiteLLM as a unified embedding provider and stores/searches vectors in VantaDB.
+///
+/// Usage::
+///
+///     from vantadb_litellm import VantaDBLiteLLM
+///     store = VantaDBLiteLLM("/tmp/vantadb-litellm")
+///     emb = store.embed(["hello world"])
+///     store.store("hello world", emb[0])
+///     results = store.search(emb[0], top_k=5)
 #[pyclass(name = "VantaDBLiteLLM")]
 pub struct VantaDBLiteLLM {
     engine: VantaEmbedded,
     api_key: String,
+    namespace: RwLock<String>,
+    counter: AtomicU64,
 }
 
 #[pymethods]
 impl VantaDBLiteLLM {
     #[new]
-    #[pyo3(signature = (db_path, api_key = None))]
-    fn new(db_path: &str, api_key: Option<&str>) -> PyResult<Self> {
+    #[pyo3(signature = (db_path, api_key = None, namespace = "litellm_store"))]
+    fn new(db_path: &str, api_key: Option<&str>, namespace: &str) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config)
-            .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
             api_key: api_key.unwrap_or_default().to_string(),
+            namespace: RwLock::new(namespace.to_string()),
+            counter: AtomicU64::new(0),
         })
     }
 
@@ -68,8 +95,9 @@ impl VantaDBLiteLLM {
         query_embedding: Vec<f32>,
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
+        let namespace = self.namespace.read().unwrap().clone();
         let request = VantaMemorySearchRequest {
-            namespace: "litellm_store".into(),
+            namespace,
             query_vector: query_embedding,
             filters: Default::default(),
             text_query: None,
@@ -78,10 +106,7 @@ impl VantaDBLiteLLM {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("search error: {:?}", e)))?;
+        let hits = self.engine.search(request).map_err(err_to_py)?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
@@ -100,8 +125,10 @@ impl VantaDBLiteLLM {
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<String> {
-        let key = format!("litellm_{}", text.len());
-        let mut input = VantaMemoryInput::new("litellm_store", &key, text);
+        let namespace = self.namespace.read().unwrap().clone();
+        let n = self.counter.fetch_add(1, Ordering::Relaxed);
+        let key = format!("litellm_{n}");
+        let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         if let Some(meta) = metadata {
@@ -114,10 +141,7 @@ impl VantaDBLiteLLM {
             }
         }
 
-        let record = self
-            .engine
-            .put(input)
-            .map_err(|e| PyRuntimeError::new_err(format!("store error: {:?}", e)))?;
+        let record = self.engine.put(input).map_err(err_to_py)?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }

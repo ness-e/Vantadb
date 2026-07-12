@@ -4742,6 +4742,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-langchain"
+version = "0.2.0"
+dependencies = [
+ "pyo3",
+ "vantadb",
+]
+
+[[package]]
 name = "vantadb-letta"
 version = "0.2.0"
 dependencies = [
@@ -4751,6 +4759,14 @@ dependencies = [
 
 [[package]]
 name = "vantadb-litellm"
+version = "0.2.0"
+dependencies = [
+ "pyo3",
+ "vantadb",
+]
+
+[[package]]
+name = "vantadb-llamaindex"
 version = "0.2.0"
 dependencies = [
  "pyo3",
