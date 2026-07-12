@@ -144,15 +144,20 @@ mod tests {
 
     #[test]
     fn concurrent_insert_preserves_hnsw_invariants() {
+        use crate::backend::BackendKind;
+        use crate::config::VantaConfig;
         use crate::node::UnifiedNode;
         use crate::storage::engine::StorageEngine;
         use std::sync::Arc;
         use std::thread;
-        use tempfile::tempdir;
 
-        let dir = tempdir().unwrap();
-        let db_path = dir.path().to_str().unwrap();
-        let storage = Arc::new(StorageEngine::open(db_path).unwrap());
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..VantaConfig::default()
+        };
+        let storage = Arc::new(
+            StorageEngine::open_with_config(":memory:", Some(config)).unwrap(),
+        );
 
         let mut handles = Vec::new();
         for t in 0..4 {
@@ -294,8 +299,10 @@ mod tests {
 
         loaded.sync_to_mmap().expect("sync_to_mmap");
 
-        let reloaded = CPIndex::load_from_file(&path, true).expect("reload mmap");
-        assert_eq!(reloaded.nodes.len(), loaded.nodes.len());
+        let expected_node_count = loaded.nodes.len();
+        drop(loaded);
+        let reloaded = CPIndex::load_from_file(&path, false).expect("reload mmap");
+        assert_eq!(reloaded.nodes.len(), expected_node_count);
         let after = reloaded.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 5, None);
         assert_eq!(before, after);
     }

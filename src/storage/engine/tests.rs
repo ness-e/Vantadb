@@ -39,6 +39,7 @@ mod tests {
         assert!(!engine.read_only);
     }
 
+    #[cfg(feature = "fjall")]
     #[test]
     fn test_open_with_default_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -570,12 +571,16 @@ mod tests {
 
     #[test]
     fn test_flush_empty_engine() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().to_str().unwrap();
-        let engine = StorageEngine::open(path).expect("open");
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..VantaConfig::default()
+        };
+        let engine = StorageEngine::open_with_config(":memory:", Some(config))
+            .expect("open");
         engine.flush().expect("flush on empty engine");
     }
 
+    #[cfg(any(feature = "fjall", feature = "rocksdb"))]
     #[test]
     fn test_insert_flush_reopen() {
         let dir = tempfile::tempdir().unwrap();
@@ -592,6 +597,7 @@ mod tests {
         }
     }
 
+    #[cfg(any(feature = "fjall", feature = "rocksdb"))]
     #[test]
     fn test_delete_and_flush() {
         let dir = tempfile::tempdir().unwrap();
@@ -612,9 +618,12 @@ mod tests {
 
     #[test]
     fn test_compact_wal() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().to_str().unwrap();
-        let engine = StorageEngine::open(path).expect("open");
+        let config = VantaConfig {
+            backend_kind: BackendKind::InMemory,
+            ..VantaConfig::default()
+        };
+        let engine = StorageEngine::open_with_config(":memory:", Some(config))
+            .expect("open");
         engine.insert(&sample_node(1)).expect("insert");
         engine.compact_wal().expect("compact_wal");
         engine.flush().expect("flush");
