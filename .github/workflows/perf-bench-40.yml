@@ -72,7 +72,7 @@ jobs:
 
     - name: Update BENCHMARKS.md dynamically
       run: |
-        .venv/bin/python benchmarks/update_markdown.py
+        .venv/bin/python benchmarks/update_markdown.py || echo "::warning::update_markdown.py failed (non-fatal)"
 
     - name: Upload Benchmark Results Artifact
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4

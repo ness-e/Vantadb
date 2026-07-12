@@ -7,7 +7,7 @@
 //! to WebAssembly targets. It also includes an optional OPFS persistence layer and
 //! a SIMD-accelerated cosine distance helper.
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wee-alloc"))]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -392,12 +392,10 @@ impl VantaDB {
         }
     }
 
-    /// Persist all in-memory records to OPFS storage.
-    pub async fn save(&self) -> Result<(), JsValue> {
-        let opfs = match &self.opfs {
-            Some(o) => o,
-            None => return Ok(()),
-        };
+    /// Collect all in-memory records deduplicated by (namespace, key).
+    fn collect_all_deduped(&self) -> Result<Vec<VantaMemoryRecord>, JsValue> {
+        let mut seen: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
         let mut state: Vec<VantaMemoryRecord> = Vec::new();
         let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
         for ns in &namespaces {
@@ -407,8 +405,22 @@ impl VantaDB {
                 cursor: None,
             };
             let page = self.inner.list(ns, opts).map_err(to_js_err)?;
-            state.extend(page.records);
+            for record in page.records {
+                if seen.insert((record.namespace.clone(), record.key.clone())) {
+                    state.push(record);
+                }
+            }
         }
+        Ok(state)
+    }
+
+    /// Persist all in-memory records to OPFS storage.
+    pub async fn save(&self) -> Result<(), JsValue> {
+        let opfs = match &self.opfs {
+            Some(o) => o,
+            None => return Ok(()),
+        };
+        let state = self.collect_all_deduped()?;
         let data = serde_json::to_vec(&state)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         opfs.write_file("db_state.json", &data).await
@@ -416,17 +428,7 @@ impl VantaDB {
 
     /// Persist all in-memory records to IndexedDB storage.
     pub async fn save_idb(&self) -> Result<(), JsValue> {
-        let mut state: Vec<VantaMemoryRecord> = Vec::new();
-        let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
-        for ns in &namespaces {
-            let opts = VantaMemoryListOptions {
-                filters: VantaMemoryMetadata::new(),
-                limit: usize::MAX,
-                cursor: None,
-            };
-            let page = self.inner.list(ns, opts).map_err(to_js_err)?;
-            state.extend(page.records);
-        }
+        let state = self.collect_all_deduped()?;
         let data = serde_json::to_vec(&state)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         IdbStorage::write_file("db_state.json", &data).await

@@ -25,10 +25,11 @@ js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"], optional = true }
 getrandom = { version = "0.3", features = ["wasm_js"] }
-wee_alloc = { version = "0.4", features = ["static_array_backend"] }
+wee_alloc = { version = "0.4", features = ["static_array_backend"], optional = true }
 
 [features]
 default = ["tracing-wasm"]
+wee-alloc = ["dep:wee_alloc"]
 opfs = ["dep:web-sys"]
 
 [package.metadata.cargo-machete]

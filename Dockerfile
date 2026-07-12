@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # VantaDB Server — multi-stage build with dependency caching & minimal runtime
 # https://vantadb.dev
-ARG RUST_VERSION=1.94
+ARG RUST_VERSION=1.94.0
 ARG BINARY=vantadb-server
 ARG APP_VERSION=0.3.0
 
@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Pre-install cargo-watch for dev hot-reload (avoids re-install on every compose up)
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo install cargo-watch --locked
 
 WORKDIR /build
 

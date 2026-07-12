@@ -1,6 +1,14 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
+// Auto-import idb_bridge.js as an ES module dependency.
+// The module registers globalThis.vantaIdbStorage on load.
+#[wasm_bindgen(module = "/src/idb_bridge.js")]
+extern "C" {
+    #[allow(dead_code)]
+    fn isAvailable() -> bool;
+}
+
 fn storage() -> Result<JsValue, JsValue> {
     let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
     if val.is_undefined() {
@@ -107,46 +115,5 @@ impl IdbStorage {
                 JsValue::from_str("expected string or null from getBroadcastChannel")
             })
         }
-    }
-}
-
-/// Drop-guarded subscription handle. When dropped, the unsubscribe function is called
-/// to prevent leaking the WASM Closure on the JS side.
-#[allow(dead_code)]
-pub struct IdbSubscription {
-    unsubscribe: Option<js_sys::Function>,
-}
-
-#[allow(dead_code)]
-impl IdbSubscription {
-    /// Create a subscription that listens for cross-tab data changes.
-    /// `on_change` receives the changed key string.
-    pub fn new<F>(on_change: F) -> Result<Self, JsValue>
-    where
-        F: Fn(String) + 'static,
-    {
-        let cb = Closure::wrap(Box::new(move |key: JsValue| {
-            if let Some(s) = key.as_string() {
-                on_change(s);
-            }
-        }) as Box<dyn Fn(JsValue)>);
-        let unsubscribe = IdbStorage::subscribe(cb.as_ref().unchecked_ref())?;
-        cb.forget(); // prevent GC — the JS side holds the reference
-        Ok(Self {
-            unsubscribe: Some(unsubscribe),
-        })
-    }
-
-    /// Manually unsubscribe.
-    pub fn unsubscribe(&mut self) {
-        if let Some(f) = self.unsubscribe.take() {
-            let _ = f.call0(&JsValue::null());
-        }
-    }
-}
-
-impl Drop for IdbSubscription {
-    fn drop(&mut self) {
-        self.unsubscribe();
     }
 }

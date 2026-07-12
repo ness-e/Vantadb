@@ -19,12 +19,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          toolchain: stable
-      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae
-        with:
-          shared-key: sbom
+          install-nextest: false
+          install-llvm-cov: false
+          cache-bin: true
       - run: cargo install cargo-cyclonedx --version 0.5.9
       - run: cargo cyclonedx --format json --override-filename sbom
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
