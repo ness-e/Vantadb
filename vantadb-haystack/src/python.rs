@@ -57,7 +57,6 @@ impl VantaDBDocumentStore {
 
     fn write_documents(&self, py: Python, documents: &Bound<'_, PyList>) -> PyResult<Vec<String>> {
         let namespace = self.namespace.read().unwrap().clone();
-        let mut ids = Vec::with_capacity(documents.len());
         let mut inputs = Vec::with_capacity(documents.len());
         for item in documents.iter() {
             let d = item.cast::<PyDict>()?;
@@ -122,6 +121,7 @@ impl VantaDBDocumentStore {
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = self.namespace.read().unwrap().clone();
+        let filters = py_dict_to_vanta_metadata(filters);
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust list
         let page = py.detach(move || {
@@ -129,7 +129,7 @@ impl VantaDBDocumentStore {
                 .list(
                     &namespace,
                     VantaMemoryListOptions {
-                        filters: py_dict_to_vanta_metadata(filters),
+                        filters,
                         limit: top_k.max(1) as usize,
                         cursor: None,
                     },

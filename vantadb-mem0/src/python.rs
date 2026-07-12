@@ -2,7 +2,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyModuleMethods};
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+
 use std::sync::RwLock;
 use vantadb::config::VantaConfig;
 use vantadb::error::VantaError;
@@ -260,10 +260,12 @@ impl VantaDBStore {
     ) -> PyResult<()> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let key = vector_id.to_string();
+        let ns = namespace.clone();
+        let k = key.clone();
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust get
-        let existing = py.detach(move || engine.get(&namespace, &key).map_err(err_to_py))?;
+        let existing = py.detach(move || engine.get(&ns, &k).map_err(err_to_py))?;
 
         let mut input = match existing {
             Some(record) => VantaMemoryInput::new(&record.namespace, &record.key, &record.payload),
@@ -360,6 +362,7 @@ impl VantaDBStore {
     ) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let limit = top_k.unwrap_or(100) as usize;
+        let filters = py_dict_to_metadata(filters)?;
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust list
@@ -368,7 +371,7 @@ impl VantaDBStore {
                 .list(
                     &namespace,
                     VantaMemoryListOptions {
-                        filters: py_dict_to_metadata(filters)?,
+                        filters,
                         limit,
                         cursor: None,
                     },
