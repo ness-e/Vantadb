@@ -128,7 +128,7 @@ impl WalArchiver {
         for seg in &age_expired {
             if let Ok(meta) = std::fs::metadata(seg) {
                 if std::fs::remove_file(seg).is_ok() {
-                    total_size -= total_size.saturating_sub(meta.len());
+                    total_size = total_size.saturating_sub(meta.len());
                     removed += 1;
                     debug!(path = %seg.display(), "Removed age-expired WAL segment");
                 }
