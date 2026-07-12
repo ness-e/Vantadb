@@ -14,7 +14,7 @@ tags: [vantadb, documentation, index, master-index]
 > Index of all documentation, architecture decisions, protocol definitions, and operational references for the VantaDB project.
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
-- **Version**: 0.3.0
+- **Version**: 0.2.0
 - **Last Updated**: 2026-07-10
 - **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros

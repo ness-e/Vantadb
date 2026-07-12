@@ -37,18 +37,14 @@
     "@tanstack/router-plugin": "^1.167.28",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.11",
-    "esbuild": "^0.28.1",
     "marked": "^18.0.5",
     "motion": "^12.42.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "rollup": "^4.62.2",
-    "rollup-plugin-visualizer": "^7.0.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.3.2",
     "tw-animate-css": "^1.3.4",
-    "vite-plugin-wasm": "^3.6.0",
-    "vite-tsconfig-paths": "^6.0.2"
+    "vite-plugin-wasm": "^3.6.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -79,6 +75,9 @@
     "stylelint-config-standard": "^40.0.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
+    "esbuild": "^0.28.1",
+    "rollup": "^4.62.2",
+    "rollup-plugin-visualizer": "^7.0.1",
     "vite": "^8.1.3",
     "vitest": "^4.1.9"
   }
