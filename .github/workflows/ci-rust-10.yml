@@ -17,6 +17,7 @@ on:
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
       - 'vantadb-wasm/**'
+      - 'vantadb-letta/**'
       - 'integrations/**'
       - '!web/**'
   pull_request:
@@ -35,6 +36,7 @@ on:
       - 'vantadb-server/**'
       - 'vantadb-mcp/**'
       - 'vantadb-wasm/**'
+      - 'vantadb-letta/**'
       - 'integrations/**'
       - '!web/**'
   workflow_dispatch:
