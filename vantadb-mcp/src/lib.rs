@@ -1126,7 +1126,7 @@ pub fn handle_tools_call(
                 .ok_or_else(|| McpError::invalid_params("Missing 'node_id'").to_json())?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-            match embedded.get_node(node_id) {
+            match embedded.get_node(node_id.into()) {
                 Ok(Some(node)) => {
                     let mut neighbors = Vec::new();
                     for edge in &node.edges {

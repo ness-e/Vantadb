@@ -86,6 +86,7 @@ impl StdError for ChainedError {
 
 /// Core error type for all VantaDB operations
 #[derive(Error, Debug)]
+#[must_use]
 pub enum VantaError {
     /// A node with the given ID was not found.
     #[error("Node not found: {0}")]
@@ -362,7 +363,6 @@ impl VantaError {
 }
 
 /// Crate-wide Result alias
-#[must_use]
 pub type Result<T> = std::result::Result<T, VantaError>;
 
 #[cfg(test)]

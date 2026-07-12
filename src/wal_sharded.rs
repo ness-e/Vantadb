@@ -71,17 +71,6 @@ impl ShardedWal {
         })
     }
 
-    /// Compute the shard index for a given key using a hash function.
-    fn shard_index(&self, key: &str) -> usize {
-        if self.num_shards <= 1 {
-            return 0;
-        }
-        let hash: u64 = key
-            .bytes()
-            .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
-        (hash as usize) % self.num_shards
-    }
-
     /// Append a record using round-robin shard distribution.
     /// Used when no specific key is available for shard routing.
     pub fn append(&self, record: &WalRecord) -> Result<()> {
