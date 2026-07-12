@@ -44,10 +44,18 @@ function BenchmarksPage() {
           <table className="nc-bm-table">
             <thead>
               <tr>
-                <th scope="col" className="nc-bm-th">Engine</th>
-                <th scope="col" className="nc-bm-th-right">Insert (QPS)</th>
-                <th scope="col" className="nc-bm-th-right">Search (QPS)</th>
-                <th scope="col" className="nc-bm-th-right">p99 Latency (ms)</th>
+                <th scope="col" className="nc-bm-th">
+                  Engine
+                </th>
+                <th scope="col" className="nc-bm-th-right">
+                  Insert (QPS)
+                </th>
+                <th scope="col" className="nc-bm-th-right">
+                  Search (QPS)
+                </th>
+                <th scope="col" className="nc-bm-th-right">
+                  p99 Latency (ms)
+                </th>
               </tr>
             </thead>
             <tbody>

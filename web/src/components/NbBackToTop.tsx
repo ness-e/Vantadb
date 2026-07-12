@@ -25,7 +25,11 @@ export const NbBackToTop = memo(function NbBackToTop() {
 
       anim?.stop();
 
-      if (currentScrollY > 500 && (direction === -1 || currentScrollY + window.innerHeight >= document.documentElement.scrollHeight - 10)) {
+      if (
+        currentScrollY > 500 &&
+        (direction === -1 ||
+          currentScrollY + window.innerHeight >= document.documentElement.scrollHeight - 10)
+      ) {
         anim = animate(
           btn,
           { opacity: 1, y: 0 },

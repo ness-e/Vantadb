@@ -38,6 +38,7 @@ env:
 jobs:
   build-wheels:
     name: Build Python wheel (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'dependabot/')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
 
@@ -61,7 +62,7 @@ jobs:
           df -h /
 
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -74,7 +75,7 @@ jobs:
           toolchain: stable
 
       - name: Rust cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
+        uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc
         with:
           cache-bin: "false"
 
@@ -118,7 +119,7 @@ jobs:
           & "$env:TEMP\.smoke-venv\Scripts\pytest" vantadb-python/tests/test_sdk.py -v
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wheels-${{ matrix.os }}
           path: ./dist/*.whl
@@ -137,7 +138,7 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: wheels-*
           path: ./dist
@@ -164,7 +165,7 @@ jobs:
 
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: wheels-*
           path: ./dist
@@ -176,7 +177,7 @@ jobs:
           subject-path: './dist/*.whl'
 
       - name: Attach wheel artifacts to GitHub Release
-        uses: softprops/action-gh-release@7c4723f7a335432393329f8f1c564994ce50185d
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
         with:
           files: |
             ./dist/*.whl
@@ -196,7 +197,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -245,7 +246,7 @@ jobs:
 
     steps:
       - name: Checkout (for attestation verification)
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1

@@ -295,25 +295,25 @@ function EnginePage() {
   const pipelineRef = useRef<HTMLElement>(null);
 
   useAnimationSafe(() => {
-        const parts = hybridRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = hybridRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, hybridRef);
 
   useAnimationSafe(() => {
-        const parts = graphRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = graphRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, graphRef);
 
   useAnimationSafe(() => {
-        const parts = walRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = walRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, walRef);
 
   useAnimationSafe(() => {
-        const parts = pipelineRef.current?.querySelectorAll<HTMLElement>(".");
+    const parts = pipelineRef.current?.querySelectorAll<HTMLElement>(".");
     if (!parts?.length) return;
     fadeUp(parts, { stagger: 0.2 });
   }, pipelineRef);
