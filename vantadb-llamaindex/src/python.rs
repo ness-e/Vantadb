@@ -18,6 +18,7 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 #[pyclass(name = "VantaDBVectorStore")]
 pub struct VantaDBVectorStore {
     engine: VantaEmbedded,
+    namespace: String,
 }
 
 #[pymethods]
@@ -31,18 +32,22 @@ impl VantaDBVectorStore {
         };
         let engine = VantaEmbedded::open_with_config(config)
             .map_err(|e| PyRuntimeError::new_err(format!("VantaDB open error: {:?}", e)))?;
-        Ok(Self { engine })
+        Ok(Self {
+            engine,
+            namespace: collection.to_string(),
+        })
     }
 
     #[pyo3(signature = (texts, embeddings, metadatas = None, ids = None))]
     fn add(
         &self,
+        py: Python,
         texts: Vec<String>,
         embeddings: Vec<Vec<f32>>,
-        metadatas: Option<Vec<Option<&Bound<'_, PyDict>>>>,
+        metadatas: Option<Vec<Option<Py<PyDict>>>>,
         ids: Option<Vec<Option<String>>>,
     ) -> PyResult<Vec<String>> {
-        let namespace = "llamaindex_store";
+        let namespace = &self.namespace;
         let mut out_ids = Vec::with_capacity(texts.len());
 
         for i in 0..texts.len() {
@@ -56,9 +61,9 @@ impl VantaDBVectorStore {
             let mut input = VantaMemoryInput::new(namespace, &key, &texts[i]);
             input.vector = Some(embeddings[i].clone());
 
-            if let Some(metas) = metadatas {
+            if let Some(ref metas) = metadatas {
                 if let Some(Some(meta)) = metas.get(i) {
-                    for (k, v) in meta.iter() {
+                    for (k, v) in meta.bind(py).iter() {
                         if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
                             input
                                 .metadata
@@ -81,7 +86,7 @@ impl VantaDBVectorStore {
     #[pyo3(signature = (embedding, top_k = 10))]
     fn query(&self, py: Python, embedding: Vec<f32>, top_k: i32) -> PyResult<Vec<Py<PyAny>>> {
         let request = VantaMemorySearchRequest {
-            namespace: "llamaindex_store".into(),
+            namespace: self.namespace.clone(),
             query_vector: embedding,
             filters: Default::default(),
             text_query: None,
