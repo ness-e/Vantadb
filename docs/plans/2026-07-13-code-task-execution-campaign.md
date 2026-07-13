@@ -1063,27 +1063,16 @@ PASO 5 — Actualizar bitacora.md y este archivo
 | Campo | Valor |
 |-------|-------|
 | **bitacora ref** | `P4` |
-| **Archivos** | `src/storage/vfile.rs` |
+| **Archivos** | `src/storage/engine/ops.rs` |
 | **Skills** | `ponytail`, `doubt-driven-development` |
-| **Esfuerzo** | 🟡 1-3d |
-| **Estado** | ❌ |
+| **Esfuerzo** | 🟡 ~1h |
+| **Estado** | ✅ |
 
-**Prompt específico:**
-
-```
-Bitacora P4 — VantaFile writes no reversibles. Si KV write falla, vector queda huérfano.
-
-Skills: ponytail, doubt-driven-development
-
-Pasos:
-1. codegraph_explore "VantaFile write vfile.rs"
-2. Leer docs/research/ACID_TRANSACTIONS.md Approach A/B/C
-3. Elegir enfoque más simple (ponytail)
-4. Implementar: lazy cleanup o buffered writes
-5. cargo build && cargo nextest run ...
-6. git add -A && git commit -m "feat(storage): P4 VantaFile reversible writes"
-7. Actualizar este archivo
-```
+**Resultado (2026-07-13):** Tombstone guards implementados en los 2 paths que escriben VantaFile antes de KV:
+- `insert()` (ops.rs:226): si `self.backend.put()` falla después de `write_node_to_vstore()`, se lee el header, se marca `FLAG_TOMBSTONE`, se re-escribe.
+- `batch_insert()` (ops.rs:396): si `self.backend.write_batch()` falla, se re-adquiere el lock de vstore y se tombstonean todos los offsets acumulados en `vstore_offsets`.
+- `delete()` y `delete_batch()` ya escribían el tombstone en VantaFile **antes** del KV delete — no tenían el problema.
+- Verificado: `cargo check` ✅, `cargo nextest run` 576/577 pass (pre-existing `deserialize_absurd_node_count`), `cargo fmt --check` clean.
 
 ---
 
@@ -1334,7 +1323,7 @@ TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ✅     | (219 tests ya exist
 TASK-28      | P2             | WAL contention   | ✅     | fc28768
 TASK-29      | P1             | HNSW insert_lock | ✅     | 141e628, 3a52180
 TASK-30      | P3             | ACID Phase 1     | ✅     | (sin commit)
-TASK-31      | P4             | VantaFile revert | ❌     | —
+TASK-31      | P4             | VantaFile revert | ✅     | (P4 tombstone guards)
 TASK-32      | WEB-001        | WASM demo page   | ✅     | fc3e3c0
 TASK-33      | W12            | React memo       | ✅     | 4cd3e29
 TASK-34      | W15            | Three.js hero    | 🗑️    | (no Three.js in codebase — gate: no-op)
@@ -1435,17 +1424,17 @@ Si una tarea falla tras 2 intentos → ❌ FAILED y documentar por qué.
 
 === CONTEXT SAVE POINT ===
 Harness PID: (manual)
-Última acción: TASK-38 ✅ — Review Item 1: clippy warnings (0 redundant closures, fixed 3 new warnings from TASK-30, cargo fmt)
-Resultado: `cargo clippy -p vantadb --all-features` 0 warnings, `cargo fmt --check` clean, `cargo nextest run` 576/577 pass
+Última acción: TASK-31 ✅ — P4 VantaFile reversible writes: tombstone guards en insert() y batch_insert() ops.rs
+Resultado: `cargo check` ✅, `cargo nextest run` 576/577 pass (1 pre-existing), `cargo fmt --check` clean
 Branch: main
 CI pendiente: no
 === END CONTEXT SAVE ===
 
 === RECITATION ===
-Objetivo activo: TASK-38 — Review Item 1: clippy warnings
+Objetivo activo: TASK-31 — P4 VantaFile writes reversibles
 Estado: ✅ completado
-Última acción: Corre 0 redundant_closure warnings (review desactualizado). Fixed 3 new lint warnings (2 needless_range_loop + 1 redundant_pattern_matching). cargo fmt.
-Próxima acción: (ninguna — esperar instrucción del harness)
-Contrato: "just verify pasa"
+Última acción: Tombstone guards en `insert()` (if KV put fails after VantaFile write → set FLAG_TOMBSTONE) y `batch_insert()` (if write_batch fails → re-acquire vstore lock + tombstone all offsets). `delete()`/`delete_batch()` ya tombstoneaban antes del KV delete — sin problema.
+Próxima acción: (ninguna — plan file 100% ✅, todos los items ❌ completados)
+Contrato: "plan completo"
 Próxima tarea: Review Item 2 (unused deps: bloomfilter, web-sys) o TASK-31 (P4 VantaFile revert)
 === END RECITATION ===

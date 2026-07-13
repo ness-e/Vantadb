@@ -223,8 +223,18 @@ impl StorageEngine {
         };
         let metadata_val =
             postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
-        self.backend
-            .put(BackendPartition::Default, &key, &metadata_val)?;
+        // P4: if KV backend write fails after VantaFile write, tombstone the entry
+        // to prevent orphan vectors in the vector store.
+        if let Err(e) = self
+            .backend
+            .put(BackendPartition::Default, &key, &metadata_val)
+        {
+            if let Some(mut hdr) = vstore.read_header(storage_offset) {
+                hdr.flags |= FLAG_TOMBSTONE;
+                let _ = vstore.write_header(storage_offset, &hdr);
+            }
+            return Err(e);
+        }
 
         self.try_push_pending_hnsw(PendingHnswOp {
             id: active_node.id,
@@ -297,6 +307,7 @@ impl StorageEngine {
         let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(nodes.len());
         let mut hnsw_entries: Vec<(u128, FilterBitset, VectorRepresentations, u64)> =
             Vec::with_capacity(nodes.len());
+        let mut vstore_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
 
         let mut vstore = self.vector_store.write();
         {
@@ -355,6 +366,7 @@ impl StorageEngine {
             let mut active_node = node.clone();
             active_node.last_accessed = now_ms;
             let storage_offset = Self::write_node_to_vstore(&mut vstore, &active_node)?;
+            vstore_offsets.push(storage_offset);
             hnsw_entries.push((
                 active_node.id,
                 active_node.bitset.clone(),
@@ -382,7 +394,18 @@ impl StorageEngine {
             sharded.batch_append(&wal_records)?;
         }
 
-        self.backend.write_batch(kv_ops)?;
+        // P4: if KV batch write fails after VantaFile writes, tombstone all
+        // entries to prevent orphan vectors in the vector store.
+        if let Err(e) = self.backend.write_batch(kv_ops) {
+            let mut vstore = self.vector_store.write();
+            for &offset in &vstore_offsets {
+                if let Some(mut hdr) = vstore.read_header(offset) {
+                    hdr.flags |= FLAG_TOMBSTONE;
+                    let _ = vstore.write_header(offset, &hdr);
+                }
+            }
+            return Err(e);
+        }
 
         {
             let _guard = self
