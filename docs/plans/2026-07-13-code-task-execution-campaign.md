@@ -863,23 +863,9 @@ Pasos:
 | **Archivos** | MCP server |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ 01873ef |
 
-**Prompt específico:**
-
-```
-Bitacora B14 — get_node_neighbors usa storage.get() directo en vez de StorageEngine.
-
-Skills: ponytail
-
-Pasos:
-1. codegraph_explore "get_node_neighbors mcp"
-2. Leer la tool — verificar patrón
-3. Cambiar storage.get() → StorageEngine.get() (como las otras tools)
-4. cargo build && cargo nextest run ...
-5. git add -A && git commit -m "fix(mcp): B14 get_node_neighbors consistency"
-6. Actualizar este archivo
-```
+**Resultado:** Ya resuelto en commit `01873ef` (audit fixes batch). El código usa `VantaEmbedded::from_engine().get_node()` consistentemente con las otras tools.
 
 ---
 
@@ -891,24 +877,9 @@ Pasos:
 | **Archivos** | MCP server |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ 01873ef |
 
-**Prompt específico:**
-
-```
-Bitacora B15 — schema:// resource duplica metrics://.
-
-Skills: ponytail
-
-Pasos:
-1. codegraph_explore "schema resource mcp metrics resource"
-2. Leer ambos resources
-3. Si son duplicados exactos: eliminar schema://, redirigir a metrics://
-4. Si tienen info diferente: consolidar en metrics://
-5. cargo build
-6. git add -A && git commit -m "refactor(mcp): B15 consolidate schema/metrics resources"
-7. Actualizar este archivo
-```
+**Resultado:** Ya resuelto en commit `01873ef` (audit fixes batch). El resource `schema://` fue eliminado de `handle_resources_list()` y su handler removido de `handle_resources_read()`. Solo queda `metrics://`.
 
 ---
 
@@ -1317,7 +1288,7 @@ TASK-22      | B18            | Homebrew SHA     | ❌     | —
 TASK-23      | B12            | MCP search_fallback| ❌  | —
 TASK-24      | B14            | MCP get_neighbors| ❌     | —
 TASK-25      | B15            | MCP schema dup   | ❌     | —
-TASK-26      | B9             | Async conc. limit| ✅     | B9
+TASK-26      | B9             | Async conc. limit| ✅     | ff0c2f5
 TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ❌     | —
 TASK-28      | P2             | WAL contention   | ❌     | —
 TASK-29      | P1             | HNSW insert_lock | ❌     | —
