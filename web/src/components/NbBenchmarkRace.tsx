@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import "../styles/benchmark-race.css";
 import { NbSection, NbSectionHeader } from "./nb";
 
@@ -32,7 +32,7 @@ const PODIUM = [
   { label: "Chroma", icon: "3rd", color: "var(--muted)" },
 ];
 
-export function NbBenchmarkRace() {
+export const NbBenchmarkRace = memo(function NbBenchmarkRace() {
   const sectionRef = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -51,18 +51,6 @@ export function NbBenchmarkRace() {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (!visible) return;
-    const fills = sectionRef.current?.querySelectorAll<HTMLElement>(".nb-rd-bar-fill");
-    if (!fills?.length) return;
-    const fillArray = Array.from(fills);
-    fillArray.forEach((fill, i) => {
-      const targetWidth = fill.dataset.target ?? "0%";
-      fill.style.transition = `width 0.4s steps(10) ${i * 0.05}s`;
-      fill.style.width = targetWidth;
-    });
-  }, [visible]);
 
   return (
     <NbSection ref={sectionRef} ariaLabel="Benchmarks">
@@ -105,8 +93,7 @@ export function NbBenchmarkRace() {
                       <div className="nb-rd-bar-track">
                         <div
                           className={`nb-rd-bar-fill ${isVanta ? "nb-rd-bar-fill--amber" : "nb-rd-bar-fill--steel"}`}
-                          style={{ width: isVanta ? `${bar.pct}%` : "0%" }}
-                          data-target={`${bar.pct}%`}
+                          style={{ width: visible || isVanta ? `${bar.pct}%` : "0%" }}
                         />
                       </div>
                       <span className="nb-rd-bar-value">
@@ -131,4 +118,4 @@ export function NbBenchmarkRace() {
       </a>
     </NbSection>
   );
-}
+});
