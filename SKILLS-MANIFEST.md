@@ -269,6 +269,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
+| vantadb-full-review | 10 | KEEP | **NUEVA** — Full project review orchestrator. 8 capas: Rust, Python, Web, TS, CI/CD, Docs, Design, Architecture. Corre todos los tools disponibles y produce reporte estructurado. |
 
 ### Content / Writing
 

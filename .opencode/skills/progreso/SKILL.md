@@ -57,28 +57,37 @@ If a new technical capability was added (not just an internal bugfix), add a cro
 
 From the task you just completed: ID (e.g. `TSK-09`), name, date, objective, modified files, result.
 
-### C. Migrate from Backlog → progreso
+### C. Check all task sources
 
-1. Read `docs/Backlog.md` — find the task row with ✅
-2. Read `docs/progreso/README.md`
-3. In `docs/Backlog.md`: **delete** the table row. If the subsection is now empty, remove or merge it.
-4. In `docs/progreso/README.md`: add an entry in **`## Tareas Completadas (Migradas desde Backlog)`** using the format already present in the file:
+Completed tasks may come from 3 sources. Check ALL:
+
+| Source | What to do |
+|--------|-----------|
+| `docs/Backlog.md` | Find the ✅ row, delete it |
+| `docs/bitacora.md` | Mark the issue as resuelto ✅ |
+| `docs/plans/YYYY-MM-DD-*.md` | Update status tracker + recitation |
+
+### D. Migrate to progreso (sin duplicados)
+
+1. Read `docs/progreso/README.md` — buscá el ID de la tarea en todas las secciones.
+2. Si el ID **ya existe** en progreso → skip (no duplicar). Si es información nueva (commit, fecha) → actualizá la entrada existente.
+3. Si el ID **no existe**, agregá entrada en **`## Tareas Completadas`** (sección según fuente) con:
    ```
    ### <ID>: Description
+   - **Fuente:** Backlog / Bitácora / Plan
    - **Fecha:** YYYY-MM-DD
    - **Objetivo:** One-line summary
-   - **Checklist:**
-     - [x] bullet of what was done
+   - **Resultado:** ✅
    - **Ids:** `ID`
    ```
-5. If the task was a significant milestone, also add a note under the **Executive Summary** or **Recent Progress** section.
-6. If the task was a research/discovery, consider adding to `docs/Investigaciones/` instead of or in addition to progreso.
+3. If the task was a significant milestone, also add a note under the **Executive Summary** or **Recent Progress** section.
+4. If the task was a research/discovery, consider adding to `docs/Investigaciones/` instead of or in addition to progreso.
 
-### D. Register in CHANGELOG (user-visible changes only)
+### E. Register in CHANGELOG (user-visible changes only)
 
 Only add to `docs/CHANGELOG.md` if the task introduces a new feature, breaking change, public bugfix, new CLI command, etc. NOT every individual task.
 
-### E. Validate doc coverage
+### F. Validate doc coverage
 
 ```pwsh
 pwsh scripts/validate-docs-coverage.ps1
@@ -86,9 +95,9 @@ pwsh scripts/validate-docs-coverage.ps1
 
 If it reports gaps, document the missing surface before proceeding.
 
-### F. Notify
+### G. Notify
 
-Tell the user that Backlog.md and progreso/README.md were updated and validation passed. Do NOT commit — wait for explicit instruction.
+Tell the user that Backlog.md, bitacora.md, plan file and progreso/README.md were updated and validation passed. Do NOT commit — wait for explicit instruction.
 
 ---
 
@@ -98,7 +107,7 @@ Before generating a new plan:
 
 1. Read `docs/progreso/README.md` — check if the previous task was already migrated.
 2. If not, run **Trigger 1** first to flush it.
-3. Find the task in `docs/Backlog.md`. If status is ❌, change it to 🟡 (or leave it and update after completion).
+3. Find the task in `docs/Backlog.md`, `docs/bitacora.md`, or the active plan file. If status is ❌, change it to 🟡 (or leave it and update after completion).
 4. Proceed with the new work.
 
 ---
