@@ -317,6 +317,11 @@ impl VantaError {
         VantaError::WalError(ChainedError::with_source(ctx, source))
     }
 
+    /// Create a serialization error from an underlying error.
+    pub fn serialization(e: impl StdError + Send + Sync + 'static) -> Self {
+        VantaError::SerializationError(Box::new(e))
+    }
+
     /// Create a generic error.
     pub fn generic_error(msg: impl Into<String>) -> Self {
         VantaError::Generic(ChainedError::msg(msg))
@@ -523,10 +528,7 @@ mod tests {
     #[test]
     fn serde_msg_error_into_vanta_error() {
         let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid utf-8");
-        let e = VantaError::SerializationError(Box::new(SerdeMsgError::new(
-            "text index decode error",
-            inner,
-        )));
+        let e = VantaError::serialization(SerdeMsgError::new("text index decode error", inner));
         assert!(e.to_string().contains("text index decode error"));
         assert!(e.source().is_some());
         let source_msg = e.source().unwrap().to_string();
@@ -536,7 +538,7 @@ mod tests {
     #[test]
     fn serialization_error_source_plain() {
         let inner = postcard::Error::SerdeSerCustom;
-        let e = VantaError::SerializationError(Box::new(inner));
+        let e = VantaError::serialization(inner);
         assert!(e.source().is_some());
     }
 }

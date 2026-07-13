@@ -42,7 +42,7 @@ jobs:
           tool: cargo-fuzz
 
       - name: Build all fuzz targets
-        run: cargo fuzz build
+        run: cargo +nightly fuzz build
 
   fuzz:
     name: Fuzz ${{ matrix.target }}
@@ -83,4 +83,4 @@ jobs:
           tool: cargo-fuzz
 
       - name: Run ${{ matrix.target }}
-        run: cargo fuzz run ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }}
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }}

@@ -649,21 +649,21 @@ FASE 6 — Mantenimiento continuo
 ## Checklist por Workflow
 
 ```
-Workflow            | SHA pinned | Node 22 | Caché  | Timeout OK | Scripts OK | workflow_dispatch
---------------------|------------|---------|--------|------------|------------|------------------
-ci-rust-10.yml      | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-ci-web-11.yml       | [ ]        | [ ]     | [ ]    | [ ]        | N/A        | [✅]
-fuzz-40.yml         | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]
-gate-docs-21.yml    | [ ]        | [ ]     | [✅]?  | N/A        | N/A        | [✅]
-heavy-bench-51.yml  | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-heavy-cert-50.yml   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-perf-bench-40.yml   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-release-adapters-62 | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-release-binaries-63 | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]
-release-npm-61.yml  | [ ]        | [ ]     | [ ]    | [ ]        | N/A        | [✅]
-release-sbom-64.yml | [ ]        | N/A     | [ ]    | N/A        | N/A        | [✅]
-release-wheels-60   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]
-sec-codeql-30.yml   | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]
+| Workflow            | SHA pinned | Node 22 | Caché  | Timeout OK | Scripts OK | workflow_dispatch |
+|---------------------|------------|---------|--------|------------|------------|-------------------|
+| ci-rust-10.yml      | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| ci-web-11.yml       | [ ]        | [ ]     | [ ]    | [ ]        | N/A        | [✅]              |
+| fuzz-40.yml         | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]              |
+| gate-docs-21.yml    | [ ]        | [ ]     | [✅]?  | N/A        | N/A        | [✅]              |
+| heavy-bench-51.yml  | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| heavy-cert-50.yml   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| perf-bench-40.yml   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| release-adapters-62 | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| release-binaries-63 | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]              |
+| release-npm-61.yml  | [ ]        | [ ]     | [ ]    | [ ]        | N/A        | [✅]              |
+| release-sbom-64.yml | [ ]        | N/A     | [ ]    | N/A        | N/A        | [✅]              |
+| release-wheels-60   | [ ]        | N/A     | [ ]    | [ ]        | [?]        | [✅]              |
+| sec-codeql-30.yml   | [ ]        | N/A     | [ ]    | [ ]        | N/A        | [✅]              |
 ```
 
 > **Nota:** `[?]` significa que el workflow referencia scripts externos que deben verificarse.
