@@ -391,7 +391,9 @@ Pasos:
 | **Archivos** | `web/src/routes/blog/introducing-vantadb.md` |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟢 ~30min |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya correcto. License ya dice "Apache 2.0", GitHub link coincide con remote real (`ness-e/Vantadb`).
 
 **Prompt específico:**
 
@@ -419,7 +421,9 @@ Pasos:
 | **Archivos** | `web/vercel.json` |
 | **Skills** | `ponytail`, `security-and-hardening` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** 3/4 headers ya presentes. Bumped HSTS max-age 31536000 → 63072000.
 
 **Prompt específico:**
 
@@ -1316,8 +1320,8 @@ TASK-04      | P9             | magic numbers    | ✅     | (ya hecho)
 TASK-05      | P12            | metrics auth     | ✅     | (ya hecho)
 TASK-06      | P10            | Spanish comments | ✅     | (WIP, sin commit)
 TASK-07      | P7             | error hierarchy  | ✅     | (ya migrado)
-TASK-08      | W16            | blog errors      | ❌     | —
-TASK-09      | W6             | security headers | ❌     | —
+TASK-08      | W16            | blog errors      | ✅     | (ya correcto)
+TASK-09      | W6             | security headers | ✅     | (WIP)
 TASK-10      | W17            | touch targets    | ❌     | —
 TASK-11      | PERF-13        | read_only helper | ❌     | —
 TASK-12      | PERF-14        | init_telemetry   | ❌     | —
