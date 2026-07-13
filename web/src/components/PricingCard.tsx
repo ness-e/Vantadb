@@ -9,6 +9,7 @@ export interface PricingCardTier {
   features: string[];
   cta: string;
   href: string;
+  featured?: boolean;
 }
 
 interface PricingCardProps {
