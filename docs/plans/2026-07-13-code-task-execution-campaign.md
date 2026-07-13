@@ -1330,13 +1330,13 @@ TASK-10      | W17            | touch targets    | ✅     | (WIP, sin push)
 TASK-11      | PERF-13        | read_only helper | ✅     | (ya hecho)
 TASK-12      | PERF-14        | init_telemetry   | ➖     | (WON'T DO — duplicación inevitable)
 TASK-13      | DOC-02         | split insert_hnsw| ➖     | (WON'T DO — 135L, secciones legibles)
-TASK-14      | P6             | dedup patterns   | ❌     | —
+TASK-14      | P6             | dedup patterns   | ✅     | (ya resuelto)
 TASK-15      | T7             | test-threads     | ✅     | (ya hecho)
 TASK-16      | C7             | Dependabot       | ✅     | (ya hecho)
 TASK-17      | NUEVO-15       | code coverage CI | ✅     | (ya implementado)
 TASK-18      | P13            | flat index       | ❌     | —
 TASK-19      | P5             | split serializ.  | ❌     | —
-TASK-20      | W5             | OG branding      | ❌     | —
+TASK-20      | W5             | OG branding      | ✅     | 946d23f
 TASK-21      | W8             | design tokens    | ❌     | —
 TASK-22      | B18            | Homebrew SHA     | ❌     | —
 TASK-23      | B12            | MCP search_fallback| ❌  | —
@@ -1451,8 +1451,9 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
 ---
 
 === RECITATION ===
-Objetivo activo: TASK-14 ❌ — P6 Dedup patterns
-Tasks completadas: TASK-01..TASK-11 (✅), TASK-15..TASK-17 (✅)
+Objetivo activo: TASK-20 ✅ — W5 OG image branding colors
+Tasks completadas: TASK-01..TASK-11 (✅), TASK-14..TASK-16 (✅), TASK-20 (✅)
 Tasks won't-do : TASK-12 (PERF-14 — duplicación inevitable), TASK-13 (DOC-02 — 135L legible)
-Tasks pendientes con trabajo real: TASK-14 (dedup), TASK-18+ (verificar resto)
+Tasks pendientes con trabajo real: TASK-17, TASK-18, TASK-19, TASK-21+
+Próxima tarea: TASK-21 — W8 design system tokens
 === END RECITATION ===
