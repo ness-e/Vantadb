@@ -62,11 +62,12 @@ class VantaDBDocumentStore:
         filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        results = self._db.list_memory(
-            self.namespace,
-            filters=filters or {},
-            limit=10000,
-        )
+        filters = filters or {}
+        doc_id = filters.pop("id", None) if isinstance(filters, dict) else None
+        if doc_id:
+            self._db.delete_memory(self.namespace, str(doc_id))
+            return
+        results = self._db.list_memory(self.namespace, filters=filters, limit=10000)
         for rec in results.records:
             if rec.key:
                 self._db.delete_memory(self.namespace, rec.key)
@@ -75,9 +76,5 @@ class VantaDBDocumentStore:
         self,
         filters: Optional[Dict[str, Any]] = None,
     ) -> int:
-        results = self._db.list_memory(
-            self.namespace,
-            filters=filters or {},
-            limit=1,
-        )
-        return len(self._db.list_memory(self.namespace, limit=10000).records)
+        results = self._db.list_memory(self.namespace, filters=filters or {}, limit=10000)
+        return len(results.records)
