@@ -53,6 +53,12 @@ pub enum WalRecord {
         /// Optional timestamp in milliseconds.
         timestamp: Option<u64>,
     },
+    /// Begin a transaction with the given ID.
+    Begin(u64),
+    /// Commit a transaction with the given ID.
+    Commit(u64),
+    /// Abort a transaction with the given ID.
+    Abort(u64),
 }
 
 // ─── WAL Header ────────────────────────────────────────────
@@ -369,7 +375,7 @@ impl WalWriter {
             )))
         });
 
-        let payload = postcard::to_allocvec(record).map_err(|e| VantaError::serialization(e))?;
+        let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
 
@@ -408,8 +414,7 @@ impl WalWriter {
         let mut buf = Vec::with_capacity(estimated);
 
         for record in records {
-            let payload =
-                postcard::to_allocvec(record).map_err(|e| VantaError::serialization(e))?;
+            let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
             let len = payload.len() as u32;
             let crc = crc32c(&payload);
             buf.extend_from_slice(&len.to_le_bytes());
@@ -575,7 +580,7 @@ impl WalReader {
 
             if is_valid {
                 let record: WalRecord =
-                    postcard::from_bytes(&payload).map_err(|e| VantaError::serialization(e))?;
+                    postcard::from_bytes(&payload).map_err(VantaError::serialization)?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {

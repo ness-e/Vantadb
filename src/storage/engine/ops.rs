@@ -66,7 +66,8 @@ impl StorageEngine {
         } else {
             // non-blocking drain: if the lock is free, flush eagerly;
             // otherwise the next caller that hits the threshold will do it.
-            if let Some(guard) = self.insert_lock.try_lock() {
+            #[allow(clippy::redundant_pattern_matching)]
+            if let Some(_) = self.insert_lock.try_lock() {
                 let ops = {
                     let mut pending = self.pending_hnsw_batch.lock();
                     // could have been drained by another thread — double-check
@@ -90,6 +91,44 @@ impl StorageEngine {
                 }
                 // guard dropped here
             }
+        }
+        Ok(())
+    }
+
+    /// Begin a serialized transaction by appending a `Begin(txn_id)` marker to the WAL.
+    ///
+    /// Phase 1: no buffering — writes go directly to stores as before, but the WAL now
+    /// tracks transaction boundaries so recovery can discard writes from an uncommitted
+    /// or aborted transaction.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn begin_transaction(&self) -> Result<u64> {
+        let txn_id = self
+            .next_txn_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if let Some(ref sharded) = self.wal {
+            sharded.append(&crate::wal::WalRecord::Begin(txn_id))?;
+        }
+        Ok(txn_id)
+    }
+
+    /// Commit a transaction by appending `Commit(txn_id)` to the WAL.
+    ///
+    /// The write set between `Begin` and `Commit` is durable; recovery will replay it.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn commit_transaction(&self, txn_id: u64) -> Result<()> {
+        if let Some(ref sharded) = self.wal {
+            sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
+        }
+        Ok(())
+    }
+
+    /// Abort a transaction by appending `Abort(txn_id)` to the WAL.
+    ///
+    /// Recovery will skip the write set between `Begin` and `Abort`.
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn abort_transaction(&self, txn_id: u64) -> Result<()> {
+        if let Some(ref sharded) = self.wal {
+            sharded.append(&crate::wal::WalRecord::Abort(txn_id))?;
         }
         Ok(())
     }
@@ -182,8 +221,8 @@ impl StorageEngine {
             relational: active_node.relational.clone(),
             edges: active_node.edges.clone(),
         };
-        let metadata_val = postcard::to_allocvec(&metadata)
-            .map_err(|e| crate::error::VantaError::serialization(e))?;
+        let metadata_val =
+            postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
@@ -330,7 +369,7 @@ impl StorageEngine {
                 edges: active_node.edges.clone(),
             };
             let metadata_val = postcard::to_allocvec(&metadata)
-                .map_err(|e| crate::error::VantaError::serialization(e))?;
+                .map_err(crate::error::VantaError::serialization)?;
             kv_ops.push(BackendWriteOp::Put {
                 partition: BackendPartition::Default,
                 key: key.to_vec(),
@@ -458,8 +497,8 @@ impl StorageEngine {
             None => return Ok(None),
         };
 
-        let metadata: NodeMetadata = postcard::from_bytes(&metadata_res)
-            .map_err(|e| crate::error::VantaError::serialization(e))?;
+        let metadata: NodeMetadata =
+            postcard::from_bytes(&metadata_res).map_err(crate::error::VantaError::serialization)?;
 
         let hnsw = self.hnsw.load();
         let index_node = match hnsw.nodes.get(&id) {
@@ -856,8 +895,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         let partition = crate::storage::ops::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
-        let val =
-            postcard::to_allocvec(node).map_err(|e| crate::error::VantaError::serialization(e))?;
+        let val = postcard::to_allocvec(node).map_err(crate::error::VantaError::serialization)?;
         self.backend.put(partition, &key, &val)?;
 
         let mut vstore = self.vector_store.write();

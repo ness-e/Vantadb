@@ -139,14 +139,14 @@ impl VantaEmbedded {
         };
         postcard::from_bytes(&bytes)
             .map(Some)
-            .map_err(|err| VantaError::serialization(err))
+            .map_err(VantaError::serialization)
     }
 
     pub(crate) fn write_derived_index_state(
         engine: &StorageEngine,
         state: &DerivedIndexState,
     ) -> Result<()> {
-        let bytes = postcard::to_allocvec(state).map_err(|err| VantaError::serialization(err))?;
+        let bytes = postcard::to_allocvec(state).map_err(VantaError::serialization)?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             super::DERIVED_INDEX_STATE_KEY,
@@ -164,14 +164,14 @@ impl VantaEmbedded {
         };
         postcard::from_bytes(&bytes)
             .map(Some)
-            .map_err(|err| VantaError::serialization(err))
+            .map_err(VantaError::serialization)
     }
 
     pub(crate) fn write_text_index_state(
         engine: &StorageEngine,
         state: &TextIndexState,
     ) -> Result<()> {
-        let bytes = postcard::to_allocvec(state).map_err(|err| VantaError::serialization(err))?;
+        let bytes = postcard::to_allocvec(state).map_err(VantaError::serialization)?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             super::TEXT_INDEX_STATE_KEY,
@@ -315,7 +315,7 @@ impl VantaEmbedded {
         };
         crate::text_index::decode_term_stats(&bytes)
             .map(Some)
-            .map_err(|err| VantaError::serialization(err))
+            .map_err(VantaError::serialization)
     }
 
     pub(crate) fn load_text_namespace_stats(
@@ -328,7 +328,7 @@ impl VantaEmbedded {
         };
         crate::text_index::decode_namespace_stats(&bytes)
             .map(Some)
-            .map_err(|err| VantaError::serialization(err))
+            .map_err(VantaError::serialization)
     }
 
     pub(crate) fn load_text_doc_stats(
@@ -342,7 +342,7 @@ impl VantaEmbedded {
         };
         crate::text_index::decode_doc_stats(&bytes)
             .map(Some)
-            .map_err(|err| VantaError::serialization(err))
+            .map_err(VantaError::serialization)
     }
 
     pub(crate) fn apply_u64_delta(value: u64, delta: i64) -> u64 {
