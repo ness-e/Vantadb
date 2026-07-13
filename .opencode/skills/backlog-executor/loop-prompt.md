@@ -1,9 +1,9 @@
 Cargá las skills backlog-executor, ponytail (full).
 
 Archivos de referencia (leer al inicio):
-- `docs/plans/2026-07-13-code-task-execution-campaign.md` — plan de ejecución, tareas, estados, recitation
-- `docs/Backlog.md` — backlog general con referencias cruzadas (REC-*, PERF-*, DOC-*, NUEVO-*)
-- `docs/bitacora.md` — bitácora con issues identificados (P*, W*, B*, T*, C*)
+- `docs/plans/2026-07-13-verified-backlog-execution.md` — plan de ejecución, tareas, estados, recitation
+- `docs/Backlog.md` — backlog verificado con IDs (INT-*, VFY-*, NUEVO-*, MKT-*, DEVOPS-*, ENT-*, LEG-*)
+- `docs/bitacora.md` — bitácora consolidada (Jul 13)
 - `.opencode/AGENTS.md` — Skill Loading Guide con tabla de skills por fase, arquitectura, comandos
 
 ── INSTRUCCIONES — UNA ITERACIÓN POR TURNO ──
@@ -112,7 +112,7 @@ Decidí y registrá en el plan file:
    docs/progreso/README.md ANTES de actualizar los archivos. Verificá que no se
    dupliquen entradas existentes (chequear IDs en progreso antes de agregar).
 4. Actualizá los 3 archivos:
-   - `docs/plans/2026-07-13-code-task-execution-campaign.md`: estado, iteraciones, notas, commit
+   - `docs/plans/2026-07-13-verified-backlog-execution.md`: estado, iteraciones, notas, commit
    - `docs/Backlog.md`: marcar tarea como completada si corresponde
    - `docs/bitacora.md`: marcar issue como resuelto si corresponde
 5. **REVISIÓN CADA 10 TAREAS.** Contá las tareas completadas ✅ en el status

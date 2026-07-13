@@ -2,7 +2,7 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-07-04
+last_reviewed: 2026-07-13
 review_interval_days: 90
 language: en
 aliases: [Index, Documentation Index, Master Index]
@@ -15,7 +15,7 @@ tags: [vantadb, documentation, index, master-index]
 
 - **Project**: VantaDB — cross-platform memory layer for AI agents
 - **Version**: 0.2.0
-- **Last Updated**: 2026-07-10
+- **Last Updated**: 2026-07-13
 - **Repository**: `https://github.com/ness-e/Vantadb`
 - **Owner**: Eros
 
@@ -93,7 +93,7 @@ tags: [vantadb, documentation, index, master-index]
 | 7 | [[operations/COMMUNITY_GOVERNANCE.md\|COMMUNITY_GOVERNANCE.md]] | Community guidelines and governance model | Done |
 | 8 | [[operations/DURABILITY_GUARANTEES.md\|DURABILITY_GUARANTEES.md]] | WAL durability and crash guarantees | Done |
 | 9 | [[operations/EDITOR_INTEGRATIONS.md\|EDITOR_INTEGRATIONS.md]] | IDE / editor integration notes | Done |
-| 10 | [[operations/EXECUTIVE_TECHNICAL_AUDIT.md\|EXECUTIVE_TECHNICAL_AUDIT.md]] | Full technical audit report | Done |
+| 10 | [[archive/EXECUTIVE_TECHNICAL_AUDIT.md\|EXECUTIVE_TECHNICAL_AUDIT.md]] | Full technical audit report (Archived) | Archived |
 | 11 | [[operations/EXPERIMENTAL_FEATURES.md\|EXPERIMENTAL_FEATURES.md]] | Feature flags and experimental functionality | Done |
 | 12 | [[operations/FUZZING.md\|FUZZING.md]] | Fuzzing strategy and results | Done |
 | 13 | [[operations/GRAFANA_SETUP.md\|GRAFANA_SETUP.md]] | Grafana dashboard setup for metrics | Done |
@@ -104,7 +104,7 @@ tags: [vantadb, documentation, index, master-index]
 | 18 | [[archive/RELEASE_V0.1.1.md\|RELEASE_V0.1.1.md]] | V0.1.1 release notes and tracking (Archived) | Done |
 | 19 | [[operations/RELIABILITY_GATE.md\|RELIABILITY_GATE.md]] | Reliability gate criteria and sign-off | Done |
 | 20 | [[operations/REPO_CHECKLIST.md\|REPO_CHECKLIST.md]] | Repository setup and maintenance checklist | Done |
-| 21 | [[operations/SHOW_HN_PREP.md\|SHOW_HN_PREP.md]] | Hacker News launch preparation | Done |
+| 21 | [[strategy/SHOW_HN_PREP.md\|SHOW_HN_PREP.md]] | Hacker News launch preparation | Done |
 | 22 | [[archive/TEXT_INDEX_PHASE_1_CLOSEOUT.md\|TEXT_INDEX_PHASE_1_CLOSEOUT.md]] | Text index phase 1 closeout report (Archived) | Done |
 
 ---
@@ -140,9 +140,9 @@ The glossary lives in two complementary locations:
 
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
-| 1 | [[../web/content/blog/why-i-built-vantadb-local-memory-engine.md\|Why I Built a Local Memory Engine for AI Agents]] | Motivation and design philosophy behind VantaDB | Published |
-| 2 | [[../web/content/blog/sqlite-for-ai-agents.md\|SQLite for AI Agents]] | Comparing embedded databases for agent memory | Published |
-| 3 | [[../web/content/blog/how-hybrid-search-works.md\|How Hybrid Search Works in VantaDB]] | Technical deep-dive on BM25 + vector fusion | Published |
+| 1 | Blog: Why I Built VantaDB | Motivation and design philosophy — URL TBD | Draft |
+| 2 | Blog: SQLite for AI Agents | Comparing embedded databases — URL TBD | Draft |
+| 3 | Blog: How Hybrid Search Works | Technical deep-dive on BM25 + vector fusion — URL TBD | Draft |
 
 ---
 
@@ -215,8 +215,10 @@ See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [
 | # | Document | Description | Status |
 |---|----------|-------------|--------|
 | 1 | [[reviews/FINAL-REVIEW.md\|Final Review]] | Skills ecosystem evaluation and cleanup plan | Active |
-| 2 | [[reviews/FULL_CODEBASE_AUDIT_2026-07-09.md\|Codebase Audit]] | Full Rust core + bindings + web audit | Active |
-| 3 | [[reviews/analisis_proyecto.md\|Project Analysis]] | Architecture, security, concurrency, code quality | Active |
+| 2 | [[archive/FULL_CODEBASE_AUDIT_2026-07-09.md\|Codebase Audit (Jul 9)]] | Full Rust core + bindings + web audit (Archived, superseded) | Archived |
+| 3 | [[reviews/FULL_CODEBASE_AUDIT_2026-07-11.md\|Codebase Audit (Jul 11)]] | Updated full codebase audit (replaces Jul 9) | Active |
+| 4 | [[reviews/2026-07-13-full-review.md\|Full Review (Jul 13)]] | Latest comprehensive review | Active |
+| 5 | [[reviews/analisis_proyecto.md\|Project Analysis]] | Architecture, security, concurrency, code quality | Active |
 
 ---
 
@@ -237,12 +239,12 @@ See [[CHANGELOG.md]] for version history, [[Backlog.md]] for active tasks, and [
 | 1 | [[research/VantaDB_RESEARCH_UNIFIED.md\|Unified Research]] | Consolidated cross-agent research report |
 | 2 | [[research/VantaDB_ANALISIS_COMPLETO.md\|Complete Analysis]] | Full project analysis and decisions |
 | 3 | [[research/ACID_TRANSACTIONS.md\|ACID Transactions]] | ACID compliance research |
-| 4 | [[research/DOCS_TOOLS_RESEARCH.md\|Docs Tools Research]] | Documentation tool evaluation (mdBook, Starlight, etc.) |
-| 5 | [[research/DOCS_AUDIT_REPORT.md\|Docs Audit Report]] | Comprehensive documentation audit |
-| 6 | [[research/SIGNED_RELEASES.md\|Signed Releases]] | Sigstore/SLSA release signing research |
-| 7 | [[research/COGNEE_EVALUATION.md\|Cognée Evaluation]] | Evaluation of the Cognée project |
-| 8 | [[research/SQL_ANALYSIS.md\|SQL Analysis]] | SQL-based query language analysis |
-| 9 | [[research/VantaDB_RESEARCH_VALIDADO.md\|Validated Research]] | Validated and cross-checked research findings |
+| 4 | [[research/SIGNED_RELEASES.md\|Signed Releases]] | Sigstore/SLSA release signing research |
+| 5 | [[research/VantaDB_RESEARCH_VALIDADO.md\|Validated Research]] | Validated and cross-checked research findings |
+| 6 | [[archive/DOCS_TOOLS_RESEARCH.md\|Docs Tools Research]] | Documentation tool evaluation (Archived) |
+| 7 | [[archive/DOCS_AUDIT_REPORT.md\|Docs Audit Report]] | Comprehensive documentation audit (Archived) |
+| 8 | [[archive/COGNEE_EVALUATION.md\|Cognée Evaluation]] | Evaluation of the Cognée project (Archived) |
+| 9 | [[archive/SQL_ANALYSIS.md\|SQL Analysis]] | SQL-based query language analysis (Archived) |
 
 ---
 
