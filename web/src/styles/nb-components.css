@@ -1372,8 +1372,8 @@
 }
 
 .nb-modal-close {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 2px solid var(--border-strong);
   background: transparent;
   display: flex;

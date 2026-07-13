@@ -484,7 +484,9 @@ Pasos:
 | **Archivos** | `src/sdk/api.rs` (5 veces repetido) |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado. Helper `check_read_only()` existe en `src/sdk/api.rs:14`, 5 call sites.
 
 **Prompt específico:**
 
@@ -513,7 +515,9 @@ Pasos:
 | **Archivos** | `src/lib.rs` (~160L de if/else repetitivo) |
 | **Skills** | `ponytail`, `code-simplification` |
 | **Esfuerzo** | 🟡 ~1d |
-| **Estado** | ❌ |
+| **Estado** | 🟡 |
+
+**Nota:** Parcialmente hecho. Monolito ~160L ya dividido por feature gate en 3 funciones (`init_telemetry`, `init_telemetry_fmt`, `_init_telemetry_otel`). Pero hay if/else duplicado en cada rama feature-gated (mismas combinaciones `is_json/is_full/is_mcp` repetidas).
 
 **Prompt específico:**
 
@@ -1318,16 +1322,16 @@ TASK-02      | REC-03         | source chaining  | ✅     | (ya migrado)
 TASK-03      | P8             | SAFETY doc       | ✅     | (ya hecho)
 TASK-04      | P9             | magic numbers    | ✅     | (ya hecho)
 TASK-05      | P12            | metrics auth     | ✅     | (ya hecho)
-TASK-06      | P10            | Spanish comments | ✅     | (WIP, sin commit)
+TASK-06      | P10            | Spanish comments | ✅     | 99ef25f
 TASK-07      | P7             | error hierarchy  | ✅     | (ya migrado)
 TASK-08      | W16            | blog errors      | ✅     | (ya correcto)
-TASK-09      | W6             | security headers | ✅     | (WIP)
+TASK-09      | W6             | security headers | ✅     | 41cea48
 TASK-10      | W17            | touch targets    | ❌     | —
-TASK-11      | PERF-13        | read_only helper | ❌     | —
-TASK-12      | PERF-14        | init_telemetry   | ❌     | —
+TASK-11      | PERF-13        | read_only helper | ✅     | (ya hecho)
+TASK-12      | PERF-14        | init_telemetry   | 🟡     | (parcial)
 TASK-13      | DOC-02         | split insert_hnsw| ❌     | —
 TASK-14      | P6             | dedup patterns   | ❌     | —
-TASK-15      | T7             | test-threads     | ❌     | —
+TASK-15      | T7             | test-threads     | ✅     | (ya hecho)
 TASK-16      | C7             | Dependabot       | ❌     | —
 TASK-17      | NUEVO-15       | code coverage CI | ❌     | —
 TASK-18      | P13            | flat index       | ❌     | —
@@ -1447,8 +1451,8 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
 ---
 
 === RECITATION ===
-Objetivo activo: TASK-08 ❌ — W16 Blog factual errors
-Tasks completadas: TASK-01..TASK-07 (todas ✅)
-Estado actual: plan actualizado, Backlog.md actualizado (REC-02 ✅, REC-03 ✅), bitacora.md actualizado (P10 ✅)
-Próxima acción: TASK-08 — fix GitHub link (ness-e/Vantadb → vantadb/vantadb) en web/content/blog/introducing-vantadb.md
+Objetivo activo: TASK-10 ❌ — W17 Touch targets < 44px
+Tasks completadas: TASK-01..TASK-09 (✅), TASK-11 (✅), TASK-15 (✅)
+Tasks parciales: TASK-12 (🟡 init_telemetry split por feature gate, if/else duplicado pendiente)
+Tasks pendientes con trabajo real: TASK-10 (touch targets), TASK-13 (split insert_hnsw), TASK-14 (dedup), TASK-16 (Dependabot), TASK-17+ (verificar)
 === END RECITATION ===
