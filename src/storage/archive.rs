@@ -68,6 +68,9 @@ pub(crate) fn compact_layout(
         .set_len(new_file_size)
         .map_err(VantaError::IoError)?;
 
+    // SAFETY: tmp_file is a valid, open file handle with set_len() called beforehand.
+    // MmapMut::map_mut() requires the underlying file to be writable and have a valid size;
+    // both hold here. The returned mmap is valid for the file's lifetime, which exceeds tmp_mmap.
     let mut tmp_mmap = unsafe {
         MmapOptions::new()
             .map_mut(&tmp_file)
@@ -95,6 +98,9 @@ pub(crate) fn compact_layout(
             if end > new_file_size {
                 drop(tmp_mmap);
                 tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
+                // SAFETY: tmp_file was extended via set_len() before this call, so the
+                // file's size covers the new mapping. The previous mmap was dropped, so
+                // there is no conflicting mapping on the same region.
                 tmp_mmap = unsafe {
                     MmapOptions::new()
                         .map_mut(&tmp_file)

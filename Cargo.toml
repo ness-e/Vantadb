@@ -76,8 +76,6 @@ opentelemetry = { version = "0.32.0", optional = true }
 tracing-opentelemetry = { version = "0.33.0", optional = true }
 tantivy = { version = "0.26", optional = true, features = ["stopwords"] }
 web-time = "1.1.0"
-bloomfilter = { version = "3", optional = true }
-
 # ── Encryption (optional, behind feature = "encryption") ──
 aes-gcm = { version = "0.10", optional = true }
 sha2 = { version = "0.10", optional = true }
@@ -104,7 +102,7 @@ opentelemetry = [
     "dep:opentelemetry-otlp",
     "opentelemetry_sdk/rt-tokio",
 ]
-governance = ["dep:bloomfilter"]
+governance = []
 hot-reload = ["dep:notify"]
 encryption = ["dep:aes-gcm", "dep:sha2"]
 wal-shipping = ["dep:reqwest"]

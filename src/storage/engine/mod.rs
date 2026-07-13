@@ -166,6 +166,8 @@ pub struct StorageEngine {
     pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
+    /// Monotonic transaction ID counter (P3 Phase 1).
+    pub(crate) next_txn_id: AtomicU64,
     /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.
@@ -227,8 +229,8 @@ impl StorageEngine {
             relational: node.relational.clone(),
             edges: node.edges.clone(),
         };
-        let metadata_val = postcard::to_allocvec(&metadata)
-            .map_err(|e| crate::error::VantaError::serialization(e))?;
+        let metadata_val =
+            postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
     }
