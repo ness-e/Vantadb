@@ -79,7 +79,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
             for record in &page.records {
                 let line = crate::sdk::export_line_from_record(record.clone());
                 serde_json::to_writer(&mut writer, &line)
-                    .map_err(|e| crate::error::VantaError::SerializationError(Box::new(e)))?;
+                    .map_err(|e| crate::error::VantaError::serialization(e))?;
                 writer.write_all(b"\n")?;
             }
             let n = page.records.len() as u64;

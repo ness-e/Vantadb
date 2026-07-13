@@ -153,7 +153,7 @@ impl VantaEmbedded {
         for record in records {
             let line = export_line_from_record(record);
             serde_json::to_writer(&mut writer, &line)
-                .map_err(|err| VantaError::SerializationError(Box::new(err)))?;
+                .map_err(|err| VantaError::serialization(err))?;
             writer.write_all(b"\n").map_err(VantaError::IoError)?;
         }
         writer.flush().map_err(VantaError::IoError)?;
@@ -230,7 +230,7 @@ impl VantaEmbedded {
             }
 
             match serde_json::from_str::<super::super::types::VantaMemoryExportLine>(&line)
-                .map_err(|err| VantaError::SerializationError(Box::new(err)))
+                .map_err(|err| VantaError::serialization(err))
                 .and_then(record_from_export_line)
             {
                 Ok(record) => records.push(record),

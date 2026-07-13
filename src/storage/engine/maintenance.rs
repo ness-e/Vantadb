@@ -61,7 +61,7 @@ impl StorageEngine {
 
         if current_wal_seq > 0 {
             let seq_bytes = postcard::to_allocvec(&current_wal_seq)
-                .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
+                .map_err(|e| VantaError::serialization(e))?;
             self.backend.put(
                 BackendPartition::InternalMetadata,
                 b"checkpoint_seq",
@@ -222,8 +222,8 @@ impl StorageEngine {
             relational: persisted.relational.clone(),
             edges: persisted.edges.clone(),
         };
-        let metadata_val = postcard::to_allocvec(&metadata)
-            .map_err(|e| VantaError::SerializationError(Box::new(e)))?;
+        let metadata_val =
+            postcard::to_allocvec(&metadata).map_err(|e| VantaError::serialization(e))?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
