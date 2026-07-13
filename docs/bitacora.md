@@ -154,6 +154,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Investigar:** Unificar a inglés; o decidir política de lenguaje y aplicarla consistentemente.
 - **Fuente:** AP-15 (analisis_proyecto.md)
 - **Esfuerzo:** 1 día
+- **Estado:** ✅ Completado 2026-07-13. 11 comentarios traducidos (8 en `src/wal.rs`, 3 en `src/bin/lock_helper.rs`).
 
 #### P11: No `#![warn(missing_docs)]` en ningún crate
 - **Qué:** Ningún crate del workspace tiene `#![warn(missing_docs)]`.
