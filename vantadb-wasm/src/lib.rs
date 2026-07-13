@@ -7,9 +7,6 @@
 //! to WebAssembly targets. It also includes an optional OPFS persistence layer and
 //! a SIMD-accelerated cosine distance helper.
 
-#[cfg(all(target_arch = "wasm32", feature = "wee-alloc"))]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 use core::sync::atomic::{AtomicBool, Ordering};
 use serde::{Deserialize, Serialize};
 use vantadb::config::VantaConfig;
