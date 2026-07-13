@@ -796,26 +796,16 @@ Pasos:
 | **Archivos** | CSS files en web/ |
 | **Skills** | `ponytail`, `frontend-ui-engineering` |
 | **Esfuerzo** | 🟡 ~2d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
 
-**Prompt específico:**
-
-```
-Bitacora W8 — --white: #000000 (confuso), --amber es naranja, SwissHero.tsx hardcodea
-"#ff5500" en vez de var(--amber), pricing hardcodea #ff3b30 en vez de var(--danger).
-
-Skills: ponytail, frontend-ui-engineering
-
-Pasos:
-1. grep "ff5500\|ff3b30\|--white\|--amber" en web/src/
-2. Renombrar tokens inconsistentes:
-   - --white → --black (si es #000000) o --bg-primary
-   - Reemplazar hardcodes de color con var(--*)
-3. NO cambiar diseño, solo usar variables
-4. Verificar: tailwind build || tsc --noEmit
-5. git add -A && git commit -m "refactor(design): W8 design token consistency"
-6. Actualizar este archivo
-```
+**Resultado:** Todos los problemas reportados ya estaban resueltos o no aplicaban:
+- `--white` ya es `#fff` (correcto, no `#000000`)
+- `--amber: #f50` (naranja `#ff5500`) — naming consistente en todo el codebase
+- `SwissHero.tsx` no existe en el código
+- `#ff3b30` no aparece en ninguna parte del código
+- La única ocurrencia de `#ff5500` está en `<meta name="theme-color">` en `__root.tsx`, que no puede usar CSS variables
+- `tsc --noEmit` pasa limpio
+- No se requirieron cambios de código
 
 ---
 
@@ -1337,7 +1327,7 @@ TASK-17      | NUEVO-15       | code coverage CI | ✅     | (ya implementado)
 TASK-18      | P13            | flat index       | ❌     | —
 TASK-19      | P5             | split serializ.  | ❌     | —
 TASK-20      | W5             | OG branding      | ✅     | 946d23f
-TASK-21      | W8             | design tokens    | ❌     | —
+TASK-21      | W8             | design tokens    | ✅     | (already resolved)
 TASK-22      | B18            | Homebrew SHA     | ❌     | —
 TASK-23      | B12            | MCP search_fallback| ❌  | —
 TASK-24      | B14            | MCP get_neighbors| ❌     | —
