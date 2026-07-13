@@ -8,14 +8,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from vantadb_openai import VantaDBOpenAI
 
 
-class FakeOpenAI:
-    def embeddings(self):
-        return self
-
+class FakeEmbeddings:
     def create(self, **kwargs):
         return type("R", (), {
             "data": [type("D", (), {"embedding": [0.1] * 4})() for _ in kwargs.get("input", [])]
         })()
+
+
+class FakeOpenAI:
+    def __init__(self):
+        self.embeddings = FakeEmbeddings()
 
 
 @pytest.fixture
