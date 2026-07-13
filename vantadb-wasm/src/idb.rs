@@ -1,19 +1,67 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
-// Auto-import idb_bridge.js as an ES module dependency.
-// The module registers globalThis.vantaIdbStorage on load.
-#[wasm_bindgen(module = "/src/idb_bridge.js")]
+// Inline IndexedDB persistence bridge — no external JS import needed.
+#[wasm_bindgen(inline_js = r#"
+(function() {
+    if (typeof globalThis !== "undefined" && globalThis.vantaIdbStorage) return;
+    const DB_NAME = "VantaDB";
+    const STORE_NAME = "state";
+    const listeners = [];
+    let channel = null;
+    function notify(key) { for (let i = 0; i < listeners.length; i++) { try { listeners[i](key); } catch (e) { } } }
+    function openDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+    try { channel = new BroadcastChannel("vantadb-sync"); } catch (e) { }
+    if (channel) { channel.onmessage = (ev) => { if (ev.data && ev.data.type === "data-changed") notify(ev.data.key || "db_state.json"); }; }
+    const storage = {
+        read(key) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, "readonly");
+                const req = tx.objectStore(STORE_NAME).get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => { if (req.error && req.error.name === "NotFoundError") resolve(null); else reject(req.error); };
+            }));
+        },
+        write(key, data) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, "readwrite");
+                tx.objectStore(STORE_NAME).put(data, key);
+                tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
+                tx.onerror = () => reject(tx.error);
+            }));
+        },
+        del(key) {
+            return openDB().then((db) => new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, "readwrite");
+                tx.objectStore(STORE_NAME).delete(key);
+                tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
+                tx.onerror = () => reject(tx.error);
+            }));
+        },
+        subscribe(fn) { listeners.push(fn); return () => { listeners.splice(listeners.indexOf(fn), 1); }; },
+        getBroadcastChannel() { return channel ? "vantadb-sync" : null; },
+    };
+    const g = typeof globalThis !== "undefined" ? globalThis : window;
+    g.vantaIdbStorage = storage;
+})();
+"#)]
 extern "C" {
     #[allow(dead_code)]
-    fn isAvailable() -> bool;
+    fn __vanta_ensure_idb_bridge();
 }
 
 fn storage() -> Result<JsValue, JsValue> {
     let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
     if val.is_undefined() {
         return Err(JsValue::from_str(
-            "vantaIdbStorage not available — import idb_bridge.js",
+            "vantaIdbStorage not available — inline bridge failed to register",
         ));
     }
     Ok(val)

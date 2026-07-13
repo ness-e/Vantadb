@@ -374,8 +374,8 @@ src/
 
 | ID | Hallazgo | Riesgo | Estado |
 |---|---|---|---|
-| WA1 | `wee_alloc` + SIMD incompatibilidad potencial en ciertas configs wasm-pack | 🟠 Alto | ⏳ Pendiente |
-| WA2 | IDB bridge JS externo (`idb_bridge.js`) debe importarse aparte o falla crípticamente | 🟠 Alto | ⏳ Pendiente |
+| WA1 | `wee_alloc` + SIMD incompatibilidad potencial en ciertas configs wasm-pack | 🟢 Resuelto | ✅ Removido — WASM moderno usa alloc nativo |
+| WA2 | IDB bridge JS externo (`idb_bridge.js`) debe importarse aparte o falla crípticamente | 🟢 Resuelto | ✅ Inlineado vía `#[wasm_bindgen(inline_js)]` en `idb.rs`, archivo eliminado |
 | WA3 | `save()` serializa estado completo O(n) sin dedup en cada autosave | 🟡 Medio | ⏳ Pendiente |
 | WA4 | `BroadcastChannel` detectado pero no usado (dead code) | 🟢 Bajo | ⏳ Pendiente |
 | WA5 | `search_semantic` bypass → `VantaEmbedded::search_vector()` (corregido) | ℹ️ Info | ✅ Resuelto (f5143d8) |
@@ -647,6 +647,8 @@ src/
 | DK2 — rust tag inexistente | Verificado: `rust:1.94-slim-bookworm` existe y apunta a 1.94.1 | Verificado |
 | R3 — tags git v0.2.3 y v0.3.0 | Tags ya existen, apuntan a commits correctos | Verificado |
 | W1/W2 — CSP `'unsafe-eval'` en prod | Removido `'unsafe-eval'` de `script-src` en `web/vercel.json` | Esta sesión |
+| WA1 — wee_alloc removido | Dep + feature flag removidos de `Cargo.toml`, `#[global_allocator]` eliminado de `lib.rs` | Esta sesión |
+| WA2 — idb_bridge.js inlineado | JS embebido vía `#[wasm_bindgen(inline_js)]` en `idb.rs`, archivo `idb_bridge.js` eliminado | Esta sesión |
 | E4 — `#[must_use]` en Result | Movido de type alias a `VantaError` enum | `e338488` |
 | R20 — dead_code parcial | 6 métodos `edge_index.rs` + `insert_node_to_backend` + `shard_index` + imports removidos | `e338488` |
 | DC7 — CHANGELOG tags note | Nota actualizada: tags v0.2.3 y v0.3.0 existen, mismo commit | Esta sesión |
