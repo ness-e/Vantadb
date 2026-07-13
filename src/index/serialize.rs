@@ -52,6 +52,18 @@ impl CPIndex {
         w.write_all(&[metric_byte])?;
         pos += 1;
 
+        match self.config.flat_threshold {
+            Some(t) => {
+                w.write_all(&[1])?;
+                w.write_all(&(t as u64).to_le_bytes())?;
+                pos += 9;
+            }
+            None => {
+                w.write_all(&[0])?;
+                pos += 1;
+            }
+        }
+
         match self.get_entry_point() {
             Some(ep) => {
                 w.write_all(&[1])?;
@@ -287,6 +299,15 @@ impl CPIndex {
                 1 => DistanceMetric::Euclidean,
                 _ => DistanceMetric::Cosine,
             };
+        }
+        if version >= 7 && pos < data.len() {
+            let ft_exists = take_bytes(data, &mut pos, 1, "flat_threshold_exists")?[0];
+            if ft_exists == 1 {
+                config.flat_threshold =
+                    Some(read_le_u64(data, &mut pos, "flat_threshold")? as usize);
+            } else {
+                config.flat_threshold = None;
+            }
         }
 
         let ep_exists = take_bytes(data, &mut pos, 1, "ep_exists")?[0];

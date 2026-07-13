@@ -302,12 +302,14 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Investigar:** Corregir en `web/src/routes/blog/introducing-vantadb.md`.
 - **Fuente:** AP-34 (analisis_proyecto.md)
 - **Esfuerzo:** 30 min
+- **Estado:** ✅ Ya correcto. License ya dice "Apache 2.0", GitHub link coincide con remote real `ness-e/Vantadb`.
 
 #### W17: Touch targets <44px (Apple HIG)
 - **Qué:** Hamburger menu 36px, nav-cta ~32px, close button 36px. Mínimo HIG es 44px.
 - **Investigar:** Agregar padding para alcanzar 44px target.
 - **Fuente:** AW-34
 - **Esfuerzo:** 30 min
+- **Estado:** ✅ Completado 2026-07-13. Hamburger 40→44px, drawer close 36→44px, modal close 2.25rem→2.75rem en `nb-nav.css` y `nb-components.css`.
 
 #### W18: Misc web cleanup
 - **Qué:** 404 page usa Tailwind classes inexistentes (`rounded-md`, `bg-primary` — Tailwind v4 cambió naming). Discord/X links son `"#"` placeholders. Emails no clickeables (sin `mailto:`). Blog sin CTAs de conversión. Sin `pendingComponent` en lazy routes. No analytics. TanStack Router over-engineering (~27 rutas para SPA principalmente estática). FaQ solo 4 preguntas. Sin dark mode.
@@ -474,6 +476,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Investigar:** Agregar Dependabot config para actions (grupo semanal).
 - **Fuente:** C6
 - **Esfuerzo:** 1 hora
+- **Estado:** ✅ Ya existe. `.github/dependabot.yml` tiene 4 ecosistemas: cargo, npm, github-actions, docker.
 
 #### C8: release-binaries-63 usa toolchain setup distinto
 - **Qué:** Usa `actions-rust-lang/setup-rust-toolchain` en vez del estándar `dtolnay/rust-toolchain` del resto de workflows.

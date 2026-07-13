@@ -1326,14 +1326,14 @@ TASK-06      | P10            | Spanish comments | ✅     | 99ef25f
 TASK-07      | P7             | error hierarchy  | ✅     | (ya migrado)
 TASK-08      | W16            | blog errors      | ✅     | (ya correcto)
 TASK-09      | W6             | security headers | ✅     | 41cea48
-TASK-10      | W17            | touch targets    | ❌     | —
+TASK-10      | W17            | touch targets    | ✅     | (WIP, sin push)
 TASK-11      | PERF-13        | read_only helper | ✅     | (ya hecho)
-TASK-12      | PERF-14        | init_telemetry   | 🟡     | (parcial)
-TASK-13      | DOC-02         | split insert_hnsw| ❌     | —
+TASK-12      | PERF-14        | init_telemetry   | ➖     | (WON'T DO — duplicación inevitable)
+TASK-13      | DOC-02         | split insert_hnsw| ➖     | (WON'T DO — 135L, secciones legibles)
 TASK-14      | P6             | dedup patterns   | ❌     | —
 TASK-15      | T7             | test-threads     | ✅     | (ya hecho)
-TASK-16      | C7             | Dependabot       | ❌     | —
-TASK-17      | NUEVO-15       | code coverage CI | ❌     | —
+TASK-16      | C7             | Dependabot       | ✅     | (ya hecho)
+TASK-17      | NUEVO-15       | code coverage CI | ✅     | (ya implementado)
 TASK-18      | P13            | flat index       | ❌     | —
 TASK-19      | P5             | split serializ.  | ❌     | —
 TASK-20      | W5             | OG branding      | ❌     | —
@@ -1451,8 +1451,8 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
 ---
 
 === RECITATION ===
-Objetivo activo: TASK-10 ❌ — W17 Touch targets < 44px
-Tasks completadas: TASK-01..TASK-09 (✅), TASK-11 (✅), TASK-15 (✅)
-Tasks parciales: TASK-12 (🟡 init_telemetry split por feature gate, if/else duplicado pendiente)
-Tasks pendientes con trabajo real: TASK-10 (touch targets), TASK-13 (split insert_hnsw), TASK-14 (dedup), TASK-16 (Dependabot), TASK-17+ (verificar)
+Objetivo activo: TASK-14 ❌ — P6 Dedup patterns
+Tasks completadas: TASK-01..TASK-11 (✅), TASK-15..TASK-17 (✅)
+Tasks won't-do : TASK-12 (PERF-14 — duplicación inevitable), TASK-13 (DOC-02 — 135L legible)
+Tasks pendientes con trabajo real: TASK-14 (dedup), TASK-18+ (verificar resto)
 === END RECITATION ===
