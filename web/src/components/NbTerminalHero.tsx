@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import { NbArrow, NbNoise } from "./nb";
 
-export function NbTerminalHero() {
+export const NbTerminalHero = memo(function NbTerminalHero() {
   const [copied, setCopied] = useState(false);
   const scopeRef = useRef<HTMLDivElement>(null);
   const waveRef = useRef<SVGPathElement>(null);
@@ -261,4 +261,4 @@ export function NbTerminalHero() {
       </div>
     </section>
   );
-}
+});
