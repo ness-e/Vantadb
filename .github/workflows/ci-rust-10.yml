@@ -356,8 +356,6 @@ jobs:
           components: rust-src
 
       - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
-        with:
-          shared-key: sanitizer-asan
 
       - name: Install system deps
         run: |
@@ -388,8 +386,6 @@ jobs:
           components: rust-src
 
       - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
-        with:
-          shared-key: sanitizer-tsan
 
       - name: Install system deps
         run: |
