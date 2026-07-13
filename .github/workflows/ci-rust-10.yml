@@ -93,7 +93,7 @@ jobs:
           components: clippy
           install-nextest: true
           install-system-deps: true
-          swap-mb: 6144
+          swap-mb: 8192
 
       - name: Cache benchmark dataset (GloVe 100d)
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
@@ -355,8 +355,6 @@ jobs:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
-
       - name: Install system deps
         run: |
           sudo apt-get update
@@ -384,8 +382,6 @@ jobs:
         with:
           toolchain: nightly
           components: rust-src
-
-      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
 
       - name: Install system deps
         run: |
