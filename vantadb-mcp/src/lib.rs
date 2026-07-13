@@ -1063,7 +1063,10 @@ pub fn handle_tools_call(
                         other
                     )));
                 }
-                None => vantadb::DistanceMetric::Cosine,
+                None => {
+                    warn!("distance_metric not specified in search_memory — defaulting to cosine");
+                    vantadb::DistanceMetric::Cosine
+                }
             };
 
             let explain = args["explain"].as_bool().unwrap_or(false);
