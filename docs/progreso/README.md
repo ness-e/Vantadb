@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-07
+last_reviewed: 2026-07-13
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-10
+> **Last updated:** 2026-07-13
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -1557,5 +1557,25 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | PERF-20 | Storage batch insert | `insert_batch()` + `delete_batch()` agregados con lock único, WAL batch, KV batch, HNSW batch | ✅ |
 
 **Backlog actualizado:** 78 items ❌ + 1 ⏳ = 79 open.
+
+### 2026-07-13 — P1/P2/P3: HNSW micro-batching + WAL contention + ACID Phase 1
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| TASK-28 / P2 | WAL Mutex contention | Removido `#[allow(dead_code)]` stale, fixeado `rotate_all()` para preservar buffer_size/flush_threshold. ShardedWal ya usado en todos los paths de escritura | ✅ `fc28768` |
+| TASK-29 / P1 | HNSW insert_lock micro-batching | `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` usa pending batch (64 ops). `batch_insert()`/`delete()`/`delete_batch()` ya óptimos — no migrados | ✅ `141e628`, `3a52180` |
+| TASK-30 / P3 | ACID Transaction Layer Phase 1 | `Begin/Commit/Abort(u64)` en WalRecord, engine methods, recovery skip_mask descarta writes abortados/no cerrados. VantaFile rollback deferred a P4 | ✅ (sin commit) |
+
+**Verificación:** `cargo check` ✅, `cargo fmt --check` clean, `cargo nextest run --profile audit --workspace --build-jobs 2` → 576/577 pass (pre-existing `deserialize_absurd_node_count`).
+
+### 2026-07-13 — Review Item 1: Clippy warnings cleanup
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| TASK-38 | Review Item 1 — clippy | `cargo clippy --workspace --all-targets --all-features` corre sin `redundant_closure` (review desactualizado). Fixed 3 warnings nuevos (2 `needless_range_loop` + 1 `redundant_pattern_matching`). `cargo fmt` aplicado. | ✅ |
+
+**Verificación:** `cargo clippy -p vantadb --all-features` 0 warnings, `cargo fmt --check` clean, 576/577 tests pass.
+
+
 
 

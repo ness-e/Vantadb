@@ -974,7 +974,18 @@ Pasos:
 | **Archivos** | `src/storage/engine/mod.rs`, `src/storage/engine/ops.rs` |
 | **Skills** | `ponytail`, `doubt-driven-development`, `performance-optimization` |
 | **Esfuerzo** | 🟡 1-2 semanas |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Resultado:**
+- Impl pending batch buffer (64 ops) en `ops.rs`: `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`
+- `insert()`: push → pending batch → flush bajo lock único (64x menos adquisiciones en alta concurrencia)
+- `batch_insert()`: ya óptimo (1 lock para N nodos) — no se tocó
+- `delete()` / `delete_batch()`: mantienen sync (deletes menos frecuentes)
+- `flush()`: drena pending batch antes de checkpoint
+- Maintenance paths (`refresh_index`, `rebuild_vector_index`, `compact_layout_bfs`): ya adquieren lock 1 vez — no migrados
+- Bench concurrente existente en `benches/bench_concurrent.rs` (mixed read-write scenario)
+- Commits: `141e628` (impl), `3a52180` (fix warning)
+- Compila, `cargo fmt --check` limpio, tests pasan (1 pre-existing failure `deserialize_absurd_node_count` — offset bug no relacionado)
 
 **Prompt específico:**
 
@@ -1001,10 +1012,19 @@ Pasos:
 | Campo | Valor |
 |-------|-------|
 | **bitacora ref** | `P3` |
-| **Archivos** | `src/wal.rs`, `src/storage/engine/ops.rs`, `src/storage/vfile.rs` |
+| **Archivos** | `src/wal.rs`, `src/storage/engine/ops.rs`, `src/storage/engine/init.rs`, `src/storage/engine/mod.rs` |
 | **Skills** | `ponytail`, `doubt-driven-development`, `api-and-interface-design`, `spec-driven-development` |
 | **Esfuerzo** | ~2 semanas |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Resultado (2026-07-13):** Phase 1 scope entregado:
+1. `WalRecord::Begin(u64)`, `WalRecord::Commit(u64)`, `WalRecord::Abort(u64)` agregados en `src/wal.rs:57-61`
+2. `StorageEngine.next_txn_id: AtomicU64` contador monótono en `mod.rs:169`
+3. `StorageEngine.begin_transaction() → u64`, `commit_transaction(txn_id)`, `abort_transaction(txn_id)` en `ops.rs:96-131` — cada una escribe su marker WAL
+4. Recovery (`init.rs:418-497`): dos pasadas — 1ª marca records dentro de transacciones abortadas/no cerradas con `skip_mask`, 2ª reproduce solo los no salteados
+5. Match sites actualizados: `src/engine.rs:118-121`, `tests/core/snapshot_certification.rs:684`
+6. Compila, `cargo fmt --check` limpio, tests: 576/577 (1 pre-existing `deserialize_absurd_node_count`)
+7. No commit aún — espera instrucción
 
 **Prompt específico:**
 
@@ -1261,6 +1281,24 @@ Pasos:
 
 ---
 
+### TASK-38: Review 2026-07-13 — Clippy warnings (Review Item 1)
+
+| Campo | Valor |
+|-------|-------|
+| **Review ref** | `🔴 1. 21 redundant closures` |
+| **Archivos** | `src/storage/engine/init.rs`, `src/storage/engine/ops.rs` |
+| **Skills** | `ponytail`, `code-review-and-quality`, `code-simplification` |
+| **Esfuerzo** | 🟢 ~15min |
+| **Estado** | ✅ |
+
+**Resultado (2026-07-13):** `cargo clippy --workspace --all-targets --all-features` corre sin ningún warning de `redundant_closure` — el review estaba desactualizado (contó 21 closures que ya no existen). Se corrigieron 3 warnings **nuevos** introducidos por TASK-30:
+1. `init.rs:431` — `needless_range_loop` → `skip_mask[start..=i].fill(true)`
+2. `init.rs:441` — `needless_range_loop` → `skip_mask[start..].fill(true)`
+3. `ops.rs:69` — `redundant_pattern_matching` (drop order sensible) → `#[allow]` con justificación
+Además se aplicó `cargo fmt` para limpiar formateo pre-existente (REC-02). `cargo clippy -p vantadb --all-features` emite 0 warnings (solo profile warning pre-existente). `cargo nextest run` → 576/577 pass.
+
+---
+
 ## 📊 Status Tracker (ACTUALIZAR EN CADA TAREA)
 
 ```
@@ -1293,9 +1331,9 @@ TASK-24      | B14            | MCP get_neighbors| ✅     | 01873ef (ya hecho)
 TASK-25      | B15            | MCP schema dup   | ✅     | 01873ef (ya hecho)
 TASK-26      | B9             | Async conc. limit| ✅     | ff0c2f5
 TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ✅     | (219 tests ya existentes — plan desactualizado)
-TASK-28      | P2             | WAL contention   | ✅     | (staging, esperando push)
-TASK-29      | P1             | HNSW insert_lock | ❌     | —
-TASK-30      | P3             | ACID Phase 1     | ❌     | —
+TASK-28      | P2             | WAL contention   | ✅     | fc28768
+TASK-29      | P1             | HNSW insert_lock | ✅     | 141e628, 3a52180
+TASK-30      | P3             | ACID Phase 1     | ✅     | (sin commit)
 TASK-31      | P4             | VantaFile revert | ❌     | —
 TASK-32      | WEB-001        | WASM demo page   | ✅     | fc3e3c0
 TASK-33      | W12            | React memo       | ✅     | 4cd3e29
@@ -1303,6 +1341,7 @@ TASK-34      | W15            | Three.js hero    | 🗑️    | (no Three.js in 
 TASK-35      | W14            | DOM mutation     | ✅     | 4cd3e29 (same commit as TASK-33)
 TASK-36      | W13            | animation unify  | ✅     | (solo motion en uso)
 TASK-37      | W9             | SEO gaps         | ✅     | 03b435c
+TASK-38      | Review Item 1  | clippy warnings  | ✅     | (fmt, clippy clean)
 ```
 
 ---
@@ -1396,18 +1435,17 @@ Si una tarea falla tras 2 intentos → ❌ FAILED y documentar por qué.
 
 === CONTEXT SAVE POINT ===
 Harness PID: (manual)
-Última acción: TASK-28 ✅ — P2 WAL contention (remove stale #[allow(dead_code)], fix rotate_all config loss)
-Resultado: cargo check -p vantadb ✅
+Última acción: TASK-38 ✅ — Review Item 1: clippy warnings (0 redundant closures, fixed 3 new warnings from TASK-30, cargo fmt)
+Resultado: `cargo clippy -p vantadb --all-features` 0 warnings, `cargo fmt --check` clean, `cargo nextest run` 576/577 pass
 Branch: main
 CI pendiente: no
 === END CONTEXT SAVE ===
 
 === RECITATION ===
-Objetivo activo: TASK-28 — P2 WAL contention
-Estado: completed (code quality + config fix)
-Última acción: removed `#[allow(dead_code)]` from ShardedWal struct (stale — struct IS used), fixed `rotate_all()` to preserve buffer_size/flush_threshold when reopening shards
-Resultado: cargo check ✅
-Próxima acción: commit + push TASK-28, then start TASK-29 (P1 — HNSW insert_lock) in next session
+Objetivo activo: TASK-38 — Review Item 1: clippy warnings
+Estado: ✅ completado
+Última acción: Corre 0 redundant_closure warnings (review desactualizado). Fixed 3 new lint warnings (2 needless_range_loop + 1 redundant_pattern_matching). cargo fmt.
+Próxima acción: (ninguna — esperar instrucción del harness)
 Contrato: "just verify pasa"
-Próxima tarea si completa: TASK-29 — P1 HNSW insert_lock bottleneck (Rayon micro-batching)
+Próxima tarea: Review Item 2 (unused deps: bloomfilter, web-sys) o TASK-31 (P4 VantaFile revert)
 === END RECITATION ===
