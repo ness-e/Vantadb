@@ -683,6 +683,7 @@ fn wal_replay_recovers_from_known_wal() {
                         WalRecord::Update { id, .. } => *id,
                         WalRecord::Delete { id } => *id,
                         WalRecord::Checkpoint { node_count, .. } => *node_count as u128,
+                        WalRecord::Begin(_) | WalRecord::Commit(_) | WalRecord::Abort(_) => 0,
                     };
                     recovered.push((rec, id));
                     Ok(())

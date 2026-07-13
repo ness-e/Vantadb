@@ -115,7 +115,10 @@ impl InMemoryEngine {
                 WalRecord::Delete { id } => {
                     nodes_map.remove(&id);
                 }
-                WalRecord::Checkpoint { .. } => {}
+                WalRecord::Checkpoint { .. }
+                | WalRecord::Begin(_)
+                | WalRecord::Commit(_)
+                | WalRecord::Abort(_) => {}
             }
             Ok(())
         })?;
