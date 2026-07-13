@@ -45,6 +45,12 @@ jobs:
         with:
           shared-key: release-${{ matrix.target }}
 
+      - name: Install system deps (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+
       - name: Install cross-compilation deps (aarch64-linux)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
