@@ -52,7 +52,9 @@ export function NavDrawer({ open, onClose, header, body, footer }: NavDrawerProp
         aria-label="Navigation menu"
       >
         <div className="nc-drawer-header">{header}</div>
-        <div className="nc-drawer-body" ref={bodyRef}>{body}</div>
+        <div className="nc-drawer-body" ref={bodyRef}>
+          {body}
+        </div>
         <div className="nc-drawer-footer">{footer}</div>
       </div>
     </>

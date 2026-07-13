@@ -15,8 +15,6 @@ export const Route = createLazyRoute("/pricing")({
   pendingComponent: PendingComponent,
 });
 
-
-
 function PricingPage() {
   const plansRef = useRef<HTMLElement>(null);
   const compareRef = useRef<HTMLElement>(null);
