@@ -12,8 +12,16 @@ const GRAPH_NODES = [
 ];
 
 const GRAPH_EDGES: [number, number][] = [
-  [0, 1], [0, 3], [0, 2], [1, 4], [2, 4],
-  [2, 5], [3, 6], [4, 7], [1, 7], [2, 6],
+  [0, 1],
+  [0, 3],
+  [0, 2],
+  [1, 4],
+  [2, 4],
+  [2, 5],
+  [3, 6],
+  [4, 7],
+  [1, 7],
+  [2, 6],
 ];
 
 export function EngineGraphTopology() {

@@ -96,15 +96,69 @@ interface ComparisonRow {
 }
 
 export const comparisonRows: ComparisonRow[] = [
-  { feature: "Deployment", os: "Embedded, single-node", pro: "Managed serverless", biz: "Managed dedicated", ent: "On-prem / Hybrid" },
-  { feature: "Vector limit", os: "Limited by hardware", pro: "1M Vectors (scalable)", biz: "10M Vectors", ent: "Unlimited" },
-  { feature: "Storage limit", os: "Local disk limit", pro: "10 GB", biz: "100 GB", ent: "Unlimited" },
-  { feature: "Query engines", os: "HNSW + BM25 + RRF", pro: "HNSW + BM25 + RRF", biz: "HNSW + BM25 + RRF", ent: "All + Custom hooks" },
-  { feature: "Replication", os: "None", pro: "Automated backup", biz: "Multi-region replica", ent: "Multi-node (WAL-based)" },
-  { feature: "Authentication", os: "None", pro: "API Key", biz: "API Key + Team SSO", ent: "SAML / OIDC + RBAC" },
-  { feature: "Encryption", os: "Optional (user-space)", pro: "At-rest & In-transit", biz: "At-rest & In-transit", ent: "AES-256-GCM (Hardware)" },
-  { feature: "Support", os: "Community (Discord)", pro: "Priority Email", biz: "Priority Slack / SLA", ent: "Dedicated 24/7 SLA" },
-  { feature: "License", os: "Apache 2.0", pro: "Commercial Cloud", biz: "Commercial Cloud", ent: "Enterprise terms" },
+  {
+    feature: "Deployment",
+    os: "Embedded, single-node",
+    pro: "Managed serverless",
+    biz: "Managed dedicated",
+    ent: "On-prem / Hybrid",
+  },
+  {
+    feature: "Vector limit",
+    os: "Limited by hardware",
+    pro: "1M Vectors (scalable)",
+    biz: "10M Vectors",
+    ent: "Unlimited",
+  },
+  {
+    feature: "Storage limit",
+    os: "Local disk limit",
+    pro: "10 GB",
+    biz: "100 GB",
+    ent: "Unlimited",
+  },
+  {
+    feature: "Query engines",
+    os: "HNSW + BM25 + RRF",
+    pro: "HNSW + BM25 + RRF",
+    biz: "HNSW + BM25 + RRF",
+    ent: "All + Custom hooks",
+  },
+  {
+    feature: "Replication",
+    os: "None",
+    pro: "Automated backup",
+    biz: "Multi-region replica",
+    ent: "Multi-node (WAL-based)",
+  },
+  {
+    feature: "Authentication",
+    os: "None",
+    pro: "API Key",
+    biz: "API Key + Team SSO",
+    ent: "SAML / OIDC + RBAC",
+  },
+  {
+    feature: "Encryption",
+    os: "Optional (user-space)",
+    pro: "At-rest & In-transit",
+    biz: "At-rest & In-transit",
+    ent: "AES-256-GCM (Hardware)",
+  },
+  {
+    feature: "Support",
+    os: "Community (Discord)",
+    pro: "Priority Email",
+    biz: "Priority Slack / SLA",
+    ent: "Dedicated 24/7 SLA",
+  },
+  {
+    feature: "License",
+    os: "Apache 2.0",
+    pro: "Commercial Cloud",
+    biz: "Commercial Cloud",
+    ent: "Enterprise terms",
+  },
 ];
 
 export interface FAQItem {
@@ -113,12 +167,36 @@ export interface FAQItem {
 }
 
 export const FAQ_ITEMS: FAQItem[] = [
-  { q: "Is VantaDB really free?", a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits on self-hosted instances." },
-  { q: "Can I use VantaDB commercially?", a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required for local self-hosted deployments." },
-  { q: "What is included in the Cloud plans?", a: "Our cloud plans provide hosted serverless and dedicated instances. By running VantaDB on our managed infrastructure, you get client-server access via HTTPS, automatic scaling, automated backups, and uptime SLAs, without managing local resources." },
-  { q: "Do you offer custom SLAs?", a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA)." },
-  { q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?", a: "VantaDB is embedded — it runs in your process with zero servers. No network hop, no per-vector pricing, no ops team required. While cloud vector databases charge $70-175/mo, VantaDB is free (Apache 2.0) and runs locally." },
-  { q: "Can I migrate from Pinecone/ChromaDB to VantaDB?", a: "Yes. We provide migration guides from ChromaDB and LanceDB in our documentation. The process typically involves exporting your vectors and re-indexing with VantaDB's Python SDK." },
-  { q: "Do you offer a free trial for Cloud plans?", a: "Cloud plans are aspirational and coming in a future release. In the meantime, the self-hosted version is free and fully functional." },
-  { q: "What happens when I exceed 1M vectors in Cloud Pro?", a: "Cloud Pro includes up to 1M vectors. If you need more, you can upgrade to Cloud Business (10M) or Enterprise (unlimited). Self-hosted has no artificial caps — your only limit is your hardware." },
+  {
+    q: "Is VantaDB really free?",
+    a: "Yes. The core engine is Apache 2.0 licensed and free forever. No hidden pricing, no per-query fees, no artificial limits on self-hosted instances.",
+  },
+  {
+    q: "Can I use VantaDB commercially?",
+    a: "Yes. The Apache 2.0 license allows unrestricted use, modification, and distribution. No royalties, no attribution required for local self-hosted deployments.",
+  },
+  {
+    q: "What is included in the Cloud plans?",
+    a: "Our cloud plans provide hosted serverless and dedicated instances. By running VantaDB on our managed infrastructure, you get client-server access via HTTPS, automatic scaling, automated backups, and uptime SLAs, without managing local resources.",
+  },
+  {
+    q: "Do you offer custom SLAs?",
+    a: "Yes, our Enterprise plan includes dedicated support SLAs with up to 24/7/365 availability. We also assist with specialized hardware configuration, on-premises isolation, and security compliance (SOC 2, HIPAA).",
+  },
+  {
+    q: "How is VantaDB different from Pinecone, Weaviate, or Qdrant?",
+    a: "VantaDB is embedded — it runs in your process with zero servers. No network hop, no per-vector pricing, no ops team required. While cloud vector databases charge $70-175/mo, VantaDB is free (Apache 2.0) and runs locally.",
+  },
+  {
+    q: "Can I migrate from Pinecone/ChromaDB to VantaDB?",
+    a: "Yes. We provide migration guides from ChromaDB and LanceDB in our documentation. The process typically involves exporting your vectors and re-indexing with VantaDB's Python SDK.",
+  },
+  {
+    q: "Do you offer a free trial for Cloud plans?",
+    a: "Cloud plans are aspirational and coming in a future release. In the meantime, the self-hosted version is free and fully functional.",
+  },
+  {
+    q: "What happens when I exceed 1M vectors in Cloud Pro?",
+    a: "Cloud Pro includes up to 1M vectors. If you need more, you can upgrade to Cloud Business (10M) or Enterprise (unlimited). Self-hosted has no artificial caps — your only limit is your hardware.",
+  },
 ];
