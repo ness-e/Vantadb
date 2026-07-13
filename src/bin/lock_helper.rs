@@ -16,14 +16,14 @@ fn main() {
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(2000);
 
-    // Intentamos abrir el StorageEngine.
-    // Esto disparará internamente la obtención de .vanta.lock.
+    // Try to open the StorageEngine.
+    // This internally triggers acquisition of .vanta.lock.
     match StorageEngine::open(db_path) {
         Ok(_engine) => {
             println!("LOCK_HELPER: SUCCESS_LOCK");
             let _ = std::io::stdout().flush();
 
-            // Mantenemos el proceso vivo para sostener el lock
+            // Keep the process alive to hold the lock
             thread::sleep(Duration::from_millis(sleep_ms));
 
             println!("LOCK_HELPER: Releasing lock...");

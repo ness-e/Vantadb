@@ -123,6 +123,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      attestations: write
 
     steps:
       - name: Download all dists
