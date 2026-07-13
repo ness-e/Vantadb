@@ -1,6 +1,7 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 
@@ -19,6 +20,7 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
 pub struct VantaDBVectorStore {
     engine: VantaEmbedded,
     namespace: String,
+    counter: AtomicU64,
 }
 
 #[pymethods]
@@ -35,6 +37,7 @@ impl VantaDBVectorStore {
         Ok(Self {
             engine,
             namespace: collection.to_string(),
+            counter: AtomicU64::new(0),
         })
     }
 
@@ -52,11 +55,14 @@ impl VantaDBVectorStore {
 
         for i in 0..texts.len() {
             let key = match &ids {
-                Some(ids) => ids
-                    .get(i)
-                    .and_then(|o| o.clone())
-                    .unwrap_or_else(|| format!("doc_{}_{}", namespace, i)),
-                None => format!("doc_{}_{}", namespace, i),
+                Some(ids) => ids.get(i).and_then(|o| o.clone()).unwrap_or_else(|| {
+                    let n = self.counter.fetch_add(1, Ordering::Relaxed);
+                    format!("doc_{}_{}", namespace, n)
+                }),
+                None => {
+                    let n = self.counter.fetch_add(1, Ordering::Relaxed);
+                    format!("doc_{}_{}", namespace, n)
+                }
             };
             let mut input = VantaMemoryInput::new(namespace, &key, &texts[i]);
             input.vector = Some(embeddings[i].clone());
