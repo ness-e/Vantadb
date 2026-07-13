@@ -49,6 +49,8 @@ impl StorageEngine {
     /// Flush all pending writes: backend, vector store, WAL checkpoint, and vector index.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn flush(&self) -> Result<()> {
+        // Drain pending HNSW mutations before checkpointing
+        self.flush_pending_hnsw()?;
         self.ensure_writable()?;
         self.backend.flush()?;
         self.vector_store.read().flush()?;
