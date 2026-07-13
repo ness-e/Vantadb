@@ -679,22 +679,41 @@ Items evaluados y decididos como no resolver:
 
 ---
 
+---
+
+## Julio 13 — Consolidación Doc + Verificación Cross-Code
+
+**Qué se hizo:** 4 sub-agentes lanzados en paralelo para verificar cada claim del backlog, research docs, reviews, y planes contra el código real.
+
+**Verificaciones:**
+- ~150 claims de estado en backlog verificados contra `codegraph_explore`, `grep`, y lectura directa
+- 9 research docs evaluados (3 ✅ vigentes, 3 ⚠️ parciales, 3 📝 pura investigación)
+- 13 review docs evaluados (5 raw agent output, 3 superseded, 1 consolidado)
+- 12 plan files evaluados (4 archivados por completados/abandonados)
+
+**Archivados (17 archivos → `docs/archive/`):**
+- 5 agent reports (raw data, consolidados en FINAL-REVIEW)
+- 3 superseded audits (EXECUTIVE, WEB, Jul-09)
+- 1 web-audit-report
+- 4 cold research docs (SQL_ANALYSIS, COGNEE, DOCS_TOOLS, DOCS_AUDIT)
+- 4 plan files (fragmentar-index, findings 3.1-3.6, webV2-astro)
+
+**Backlog reescrito:** De 176 items a 48 open items verificados. Se agregaron 12 nuevos items (VFY-001→012) descubiertos durante la verificación cross-code.
+
+**Master-index reparado:** Paths rotos corregidos (operations/ → strategy/ para SHOW_HN_PREP, operations/ → archive/ para EXECUTIVE_TECHNICAL_AUDIT, blog wikilinks rotos eliminados).
+
 ## Archivos Fuente de Referencia
 
 | Dominio | Archivos |
 |---------|----------|
-| **Audit Técnico Completo** | `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md` (755L, ~80 findings) |
-| **Web Audit Crítico** | `docs/reviews/AUDITORIA_COMPLETA_VantaDB_WEB.md` (63 findings únicos) |
-| **Análisis de Proyecto** | `docs/reviews/analisis_proyecto.md` (~50 findings únicos) |
-| **ACID Transactions** | `docs/research/ACID_TRANSACTIONS.md` (14 páginas, 3 enfoques) |
-| **SQL Analysis** | `docs/research/SQL_ANALYSIS.md` (NO implementar SQL) |
-| **Cognee Evaluation** | `docs/research/COGNEE_EVALUATION.md` (24 patrones extractables) |
-| **Signed Releases** | `docs/research/SIGNED_RELEASES.md` (4 fases roadmap) |
-| **Docs Tools** | `docs/research/DOCS_TOOLS_RESEARCH.md` (mdBook vs Starlight) |
-| **Docs Audit** | `docs/research/DOCS_AUDIT_REPORT.md` (18 hallazgos) |
-| **Research Validado** | `docs/research/VantaDB_RESEARCH_VALIDADO.md` (36 correcciones + items) |
-| **Research Unificado** | `docs/research/VantaDB_RESEARCH_UNIFIED.md` (46 items priorizados) |
-| **Análisis Completo** | `docs/research/VantaDB_ANALISIS_COMPLETO.md` (46 items + eliminaciones) |
-| **FINAL-REVIEW (skills)** | `docs/reviews/FINAL-REVIEW.md` (Core 50 skills recomendadas) |
-| **Audit Histórico Jul-09** | `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-09.md` |
-| **Executive Audit** | `docs/reviews/EXECUTIVE_TECHNICAL_AUDIT.md` (5 release blockers) |
+| **Audit Técnico** | `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md` (755L, ~80 findings) |
+| **Full Review Jul 13** | `docs/reviews/2026-07-13-full-review.md` |
+| **Análisis de Proyecto** | `docs/reviews/analisis_proyecto.md` (~50 findings) |
+| **Backlog Activo** | `docs/Backlog.md` (48 items verificados) |
+| **ACID Transactions** | `docs/research/ACID_TRANSACTIONS.md` |
+| **Signed Releases** | `docs/research/SIGNED_RELEASES.md` |
+| **Research Unificado** | `docs/research/VantaDB_RESEARCH_UNIFIED.md` |
+| **Research Validado** | `docs/research/VantaDB_RESEARCH_VALIDADO.md` |
+| **Análisis Completo** | `docs/research/VantaDB_ANALISIS_COMPLETO.md` |
+| **FINAL-REVIEW (skills)** | `docs/reviews/FINAL-REVIEW.md` |
+| **Archivo General** | `docs/archive/` (17 documentos históricos) |
