@@ -1314,7 +1314,7 @@ TASK-02      | REC-03         | source chaining  | ✅     | (ya migrado)
 TASK-03      | P8             | SAFETY doc       | ✅     | (ya hecho)
 TASK-04      | P9             | magic numbers    | ✅     | (ya hecho)
 TASK-05      | P12            | metrics auth     | ✅     | (ya hecho)
-TASK-06      | P10            | Spanish comments | ✅     | (WIP)
+TASK-06      | P10            | Spanish comments | ✅     | (WIP, sin commit)
 TASK-07      | P7             | error hierarchy  | ✅     | (ya migrado)
 TASK-08      | W16            | blog errors      | ❌     | —
 TASK-09      | W6             | security headers | ❌     | —
@@ -1443,8 +1443,8 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
 ---
 
 === RECITATION ===
-Objetivo activo: TASK-06 ❌ — P10 Spanish comments → English
-Tareas ya hechas en codebase: TASK-02 (REC-03), TASK-03 (P8), TASK-04 (P9), TASK-05 (P12), TASK-07 (P7)
-Estado actual: leyendo comentarios en src/wal.rs y src/bin/lock_helper.rs
-Próxima acción: traducir 11 comentarios español → inglés, luego verificar build
+Objetivo activo: TASK-08 ❌ — W16 Blog factual errors
+Tasks completadas: TASK-01..TASK-07 (todas ✅)
+Estado actual: plan actualizado, Backlog.md actualizado (REC-02 ✅, REC-03 ✅), bitacora.md actualizado (P10 ✅)
+Próxima acción: TASK-08 — fix GitHub link (ness-e/Vantadb → vantadb/vantadb) en web/content/blog/introducing-vantadb.md
 === END RECITATION ===

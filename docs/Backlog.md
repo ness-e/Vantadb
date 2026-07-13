@@ -202,8 +202,8 @@ aliases: []
 | ~~`CODE-089`~~ | **`VantaConfig.storage_path` sin efecto en WASM** — Siempre InMemory, path ignorado. Usuarios engañados | `types.rs:142-147` | 🟢 4h | 🟡 | ✅ |
 | ~~`CODE-090`~~ | **`insertNode(id: number)` hace `BigInt(id)` — overflow > 2^53** | `vantadb.ts:210-217` | 🟢 2h | 🟡 | ✅ |
 | ~~`REC-01`~~ | **Test coverage para `SerdeMsgError` + source chaining** — Verificar Display y `error.source()` en `SerializationError` | `src/error.rs` | 🟢 1h | 🟡 | ✅ |
-| `REC-02` | **Helper `VantaError::serialization(e)`** — Reducir boilerplate `VantaError::SerializationError(Box::new(e))` en 20 call sites | `src/error.rs` | 🟢 1h | 🟢 | ❌ |
-| `REC-03` | **Extender source chaining a variantes String restantes (E1)** — `WalError(String)`, `SearchError(String)`, `Generic(String)`, `BackendError(String)` — mismo patrón que 2.4 | `src/error.rs` + call sites | 🟡 1-2d | 🟡 | ❌ |
+| `REC-02` | **Helper `VantaError::serialization(e)`** — Reducir boilerplate `VantaError::SerializationError(Box::new(e))` en 20 call sites | `src/error.rs` | 🟢 1h | 🟢 | ✅ |
+| `REC-03` | **Extender source chaining a variantes String restantes (E1)** — `WalError(String)`, `SearchError(String)`, `Generic(String)`, `BackendError(String)` — mismo patrón que 2.4 | `src/error.rs` + call sites | 🟡 1-2d | 🟡 | ✅ |
 
 ### 🧪 CI/CD Web Quality
 
