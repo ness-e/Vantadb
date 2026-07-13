@@ -21,10 +21,11 @@ class VantaDBOpenAI:
         namespace: str = DEFAULT_NAMESPACE,
         memory_limit_bytes: Optional[int] = None,
         read_only: bool = False,
+        client: Any = None,
     ):
         self.model = model
         self.namespace = namespace
-        self._client = openai.OpenAI(api_key=api_key)
+        self._client = client if client is not None else openai.OpenAI(api_key=api_key)
         self._db = vanta.VantaDB(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
