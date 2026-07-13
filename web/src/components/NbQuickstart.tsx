@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { animate, inView } from "motion";
 import DOMPurify from "dompurify";
 import { useReducedMotion } from "../hooks/useReducedMotion";
+import { highlightPython } from "../lib/syntax-highlight";
 import { NbSection, NbSectionHeader } from "./nb";
 import "../styles/quickstart.css";
 
@@ -33,61 +34,7 @@ const STEPS = [
   },
 ];
 
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function highlight(cmd: string): string {
-  let html = "";
-  let i = 0;
-  while (i < cmd.length) {
-    if (cmd[i] === '"' || cmd[i] === "'") {
-      const q = cmd[i];
-      let j = i + 1;
-      while (j < cmd.length && cmd[j] !== q) {
-        if (cmd[j] === "\\") j++;
-        j++;
-      }
-      if (j < cmd.length) j++;
-      html += `<span class="qs-tok-str">${esc(cmd.slice(i, j))}</span>`;
-      i = j;
-    } else if (/[a-zA-Z_]/.test(cmd[i])) {
-      let j = i;
-      while (j < cmd.length && /\w/.test(cmd[j])) j++;
-      const w = cmd.slice(i, j);
-      const kws = new Set([
-        "import",
-        "from",
-        "def",
-        "return",
-        "if",
-        "not",
-        "and",
-        "or",
-        "True",
-        "False",
-        "None",
-        "as",
-        "for",
-        "in",
-      ]);
-      if (kws.has(w)) html += `<span class="qs-tok-kw">${esc(w)}</span>`;
-      else html += esc(w);
-      i = j;
-    } else if (/\d/.test(cmd[i])) {
-      let j = i;
-      while (j < cmd.length && /[\d.]/.test(cmd[j])) j++;
-      html += `<span class="qs-tok-num">${esc(cmd.slice(i, j))}</span>`;
-      i = j;
-    } else {
-      html += esc(cmd[i]);
-      i++;
-    }
-  }
-  return html;
-}
-
-const HIGHLIGHTED = STEPS.map((s) => highlight(s.cmd));
+const HIGHLIGHTED = STEPS.map((s) => highlightPython(s.cmd));
 
 export function NbQuickstart() {
   const [activeStep, setActiveStep] = useState(0);
@@ -206,8 +153,7 @@ export function NbQuickstart() {
   }, [hasEntered, typeStep]);
 
   function highlighted(stepIndex: number, upTo: number): string {
-    const raw = STEPS[stepIndex].cmd;
-    return highlight(raw.slice(0, upTo));
+    return highlightPython(STEPS[stepIndex].cmd.slice(0, upTo));
   }
 
   return (

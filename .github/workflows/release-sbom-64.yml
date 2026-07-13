@@ -24,7 +24,8 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
           cache-bin: true
-      - run: cargo install cargo-cyclonedx
+      - run: # ponytail: cargo-cyclonedx compila 5-10 min desde source; si es lento, usar taiki-e/install-action
+        run: cargo install cargo-cyclonedx
       - run: cargo cyclonedx --format json --override-filename sbom
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

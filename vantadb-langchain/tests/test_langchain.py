@@ -34,3 +34,10 @@ class TestVantaDBVectorStore:
         store.delete(ids)
         results = store.similarity_search_by_vector([0.1] * 128, k=5)
         assert len(results) == 0
+
+    def test_unique_keys_across_calls(self, tmp_path):
+        store = VantaDBVectorStore(str(tmp_path))
+        embedding = [0.1] * 128
+        ids1 = store.add_texts(["first"], [embedding])
+        ids2 = store.add_texts(["second"], [embedding])
+        assert ids1[0] != ids2[0], "keys must be unique across calls"

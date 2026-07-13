@@ -31,7 +31,7 @@ jobs:
         uses: github/codeql-action/init@e5d2f324924c57b6cabef9bdd7a1c85d62a89be2
         with:
           languages: rust
-          build-mode: manual
+          build-mode: none
 
       - name: Build (workspace multi-crate)
         run: cargo build --workspace
