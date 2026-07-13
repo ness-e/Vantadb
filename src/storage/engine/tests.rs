@@ -575,8 +575,7 @@ mod tests {
             backend_kind: BackendKind::InMemory,
             ..VantaConfig::default()
         };
-        let engine = StorageEngine::open_with_config(":memory:", Some(config))
-            .expect("open");
+        let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
         engine.flush().expect("flush on empty engine");
     }
 
@@ -622,8 +621,7 @@ mod tests {
             backend_kind: BackendKind::InMemory,
             ..VantaConfig::default()
         };
-        let engine = StorageEngine::open_with_config(":memory:", Some(config))
-            .expect("open");
+        let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
         engine.insert(&sample_node(1)).expect("insert");
         engine.compact_wal().expect("compact_wal");
         engine.flush().expect("flush");
