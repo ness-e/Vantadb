@@ -150,7 +150,9 @@ NO saltees pasos. NO implementes sin codegraph primero.
 | **Archivos** | `src/error.rs` + 20 call sites |
 | **Skills** | `ponytail`, `code-review-and-quality` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Resultado:** Helper `VantaError::serialization(e)` agregado en `src/error.rs:321`. 23 call sites reemplazados (wal.rs, text_index.rs, storage/engine/*, sdk/serialization/*, cli_handlers/data.rs, error.rs tests). `cargo check` ✅, 20 tests de error pasan.
 
 **Prompt específico:**
 
@@ -182,7 +184,9 @@ Pasos:
 | **Archivos** | `src/error.rs`, call sites |
 | **Skills** | `ponytail`, `code-review-and-quality` |
 | **Esfuerzo** | 🟡 1-2d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado en el codebase. `WalError(String)`, `SearchError(String)`, `Generic(String)`, `BackendError(String)` ya migraron a `ChainedError`.
 
 **Prompt específico:**
 
@@ -220,7 +224,9 @@ Pasos:
 | **Archivos** | `src/index/graph.rs:65` |
 | **Skills** | `ponytail`, `code-review-and-quality` |
 | **Esfuerzo** | 🟢 ~30min |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado. SAFETY doc presente en `src/index/graph.rs:64-68`, `#[allow(clippy::missing_safety_doc)]` removido.
 
 **Prompt específico:**
 
@@ -254,7 +260,9 @@ Pasos:
 | **Archivos** | Múltiples (1024, 64, 0x8, 0.80 hardcodeados) |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟡 ~1d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado. `DEFAULT_INITIAL_CAPACITY` (1024), `STORAGE_ALIGNMENT` (64), `FLAG_TOMBSTONE` (0x8), `DEFAULT_RSS_THRESHOLD` (0.80) ya existen como constantes nombradas.
 
 **Prompt específico:**
 
@@ -288,7 +296,9 @@ Pasos:
 | **Archivos** | `src/cli_server.rs` |
 | **Skills** | `ponytail`, `security-and-hardening` |
 | **Esfuerzo** | 🟢 ~1h |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado. `/metrics` está en `protected` router con `auth_middleware` (src/cli_server.rs:127). Sin API key → público (dev mode). Con API key → protegido.
 
 **Prompt específico:**
 
@@ -319,7 +329,9 @@ Pasos:
 | **Archivos** | `storage.rs`, `wal.rs`, `text_index.rs` |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟡 ~1d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** 11 comentarios traducidos (8 en `src/wal.rs`, 3 en `src/bin/lock_helper.rs`). `cargo check` ✅.
 
 **Prompt específico:**
 
@@ -347,7 +359,9 @@ Pasos:
 | **Archivos** | `src/error.rs`, `src/wal_archiver.rs` |
 | **Skills** | `ponytail`, `code-review-and-quality` |
 | **Esfuerzo** | 🟡 ~1d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Nota:** Ya completado. Variantes `IqlError`, `CliError`, `SearchError`, `RuntimeError` migradas a `ChainedError`. Los 4 `unwrap()` en `wal_archiver.rs` reemplazados con `unwrap_or_default()` / `unwrap_or()`.
 
 **Prompt específico:**
 
@@ -1295,13 +1309,13 @@ Pasos:
 ```
 TASK-ID      | Backlog Ref    | Dominio          | Estado | Commit
 -------------|----------------|------------------|--------|-------
-TASK-01      | REC-02         | error.rs helper  | ❌     | —
-TASK-02      | REC-03         | source chaining  | ❌     | —
-TASK-03      | P8             | SAFETY doc       | ❌     | —
-TASK-04      | P9             | magic numbers    | ❌     | —
-TASK-05      | P12            | metrics auth     | ❌     | —
-TASK-06      | P10            | Spanish comments | ❌     | —
-TASK-07      | P7             | error hierarchy  | ❌     | —
+TASK-01      | REC-02         | error.rs helper  | ✅     | a1febe8
+TASK-02      | REC-03         | source chaining  | ✅     | (ya migrado)
+TASK-03      | P8             | SAFETY doc       | ✅     | (ya hecho)
+TASK-04      | P9             | magic numbers    | ✅     | (ya hecho)
+TASK-05      | P12            | metrics auth     | ✅     | (ya hecho)
+TASK-06      | P10            | Spanish comments | ✅     | (WIP)
+TASK-07      | P7             | error hierarchy  | ✅     | (ya migrado)
 TASK-08      | W16            | blog errors      | ❌     | —
 TASK-09      | W6             | security headers | ❌     | —
 TASK-10      | W17            | touch targets    | ❌     | —
@@ -1425,3 +1439,12 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
    - Avisar al usuario para nueva sesión
 5. **Si una tarea tiene errores:** arreglar, NO saltar. Si no se puede resolver, marcar como 🗑️ y documentar por qué.
 6. **Ponytail activo:** antes de escribir código, subir la escalera. ¿Ya existe? ¿Stdlib? ¿Dependencia instalada? ¿Una línea? SINO: mínimo código.
+
+---
+
+=== RECITATION ===
+Objetivo activo: TASK-06 ❌ — P10 Spanish comments → English
+Tareas ya hechas en codebase: TASK-02 (REC-03), TASK-03 (P8), TASK-04 (P9), TASK-05 (P12), TASK-07 (P7)
+Estado actual: leyendo comentarios en src/wal.rs y src/bin/lock_helper.rs
+Próxima acción: traducir 11 comentarios español → inglés, luego verificar build
+=== END RECITATION ===

@@ -761,13 +761,13 @@ mod tests {
         let _ = std::fs::remove_file(&dir);
 
         {
-            // Escribir un WAL sin firma válida (versión 0 o archivo genérico)
+            // Write a WAL without a valid signature (version 0 or generic file)
             let mut file = File::create(&dir).unwrap();
             file.write_all(b"NOT_A_VALID_MAGIC_BYTES_123456").unwrap();
         }
 
         {
-            // Intentar abrir el WAL debe lanzar error IncompatibleFormat
+            // Opening the WAL must yield an IncompatibleFormat error
             let r = WalReader::open(&dir);
             assert!(r.is_err());
             match r.err().unwrap() {
@@ -792,7 +792,7 @@ mod tests {
             std::env::temp_dir().join(format!("vanta_test_wal_healing_{}", rand::random::<u32>()));
         let _ = std::fs::remove_file(&dir);
 
-        // 1. Escribir 3 registros válidos + checkpoint
+        // 1. Write 3 valid records + checkpoint
         {
             let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
             w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
@@ -803,7 +803,7 @@ mod tests {
             assert_eq!(w.record_count(), 4);
         }
 
-        // 2. Corromper el WAL agregando basura trunca al final
+        // 2. Corrupt the WAL by appending truncated garbage at the end
         {
             let mut file = OpenOptions::new().append(true).open(&dir).unwrap();
             file.write_all(
@@ -812,19 +812,19 @@ mod tests {
             .unwrap();
         }
 
-        // 3. Abrir el WAL de nuevo con WalWriter
+        // 3. Re-open the WAL with WalWriter
         {
             let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
-            // Debe haber truncado la basura y cargado la cantidad correcta de registros (4)
+            // Must have truncated garbage and loaded the correct record count (4)
             assert_eq!(w.record_count(), 4);
 
-            // Intentar escribir un nuevo registro
+            // Try to write a new record
             w.append(&WalRecord::Insert(UnifiedNode::new(4))).unwrap();
             w.sync().unwrap();
             assert_eq!(w.record_count(), 5);
         }
 
-        // 4. Leer con WalReader y verificar integridad
+        // 4. Read with WalReader and verify integrity
         {
             let mut r = WalReader::open(&dir).unwrap();
             let mut records = Vec::new();
