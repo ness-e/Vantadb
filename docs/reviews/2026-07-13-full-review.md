@@ -59,21 +59,21 @@
 
 1. [x] **21 redundant closures en clippy** — `src/sdk/serialization/impl_*.rs`, `src/storage/engine/*.rs` + varias ubicaciones — Reemplazar `|e| Foo::bar(e)` con `Foo::bar` en todos los casos. Son triviales de arreglar y bloquean -D warnings.
 **Resultado:** 0 redundant_closure warnings en `cargo clippy --workspace --all-targets --all-features` — el review estaba desactualizado. Se corrigieron 3 warnings nuevos de TASK-30. ✅
-2. [ ] **Dependencia no usada: `bloomfilter`** — `Cargo.toml` — Remover (feature `governance` la usa, pero el crate no se importa directamente). Verificar si `governance` realmente necesita `bloomfilter` como dep separada.
-3. [ ] **Dependencia no usada: `web-sys`** — `vantadb-wasm/Cargo.toml` — Remover si no se usa directamente.
+2. [x] **Dependencia no usada: `bloomfilter`** — `Cargo.toml` — Removida en commit `9946b70`. Feature `governance` quedó como `governance = []`.
+3. [x] **Dependencia no usada: `web-sys`** — `vantadb-wasm/Cargo.toml` — Removida junto con feature `opfs` en commit `9946b70`.
 
 ### 🟡 Altos (arreglar esta iteración)
 
 4. [ ] **Cobertura de tests no cuantificada** — Todo el workspace — No hay job de coverage configurado. Agregar `tarpaulin` o `cargo-llvm-cov` a CI y establecer threshold ≥80%.
 5. [ ] **Archivos >1000L candidatos a split** — Varios (38 archivos >500L, ~10 >1000L) — Priorizar: `vantadb-python/src/lib.rs` (1978L), `vantadb-mcp/src/lib.rs` (1309L), `src/config.rs` (1291L), `src/sdk/search.rs` (1163L).
-6. [ ] **`unsafe` blocks sin SAFETY docs formales** — 27+ bloques en 6+ archivos — Agregar `// SAFETY:` comments a cada bloque unsafe documentando invariantes.
-7. [ ] **WASM `opt-level` no configurado** — `vantadb-wasm/Cargo.toml` — Agregar `opt-level = "s"` y `lto = true` para reducir tamaño WASM.
+6. [x] **`unsafe` blocks sin SAFETY docs formales** — 27+ bloques en 6+ archivos — Agregados `// SAFETY:` comments a los 4 bloques que faltaban (2 en `metrics/core/mod.rs`, 2 en `storage/archive.rs`) en commit `9946b70`. Los otros 35+ ya tenían SAFETY docs.
+7. [x] **WASM `opt-level` no configurado** — `vantadb-wasm/Cargo.toml` — Agregado `[profile.release]` con `opt-level = "s"` y `lto = true` en commit `9946b70`.
 
 ### 🔵 Medios (backlog)
 
-8. [ ] **Single `React.memo`** — `web/src/components/VantaDBLogo.tsx:69` — Solo 1 componente memoizado. Evaluar `React.memo` en `NbVectorNebula`, `NbTerminalHero`, `NbNav`.
+8. [x] **Single `React.memo`** — Verificado: `NbVectorNebula` y `NbNav` ya tenían `memo`. Se agregó `React.memo` al único que faltaba, `NbTerminalHero`, en commit `6afec11`.
 9. [ ] **OG image única** — `web/public/og/default.svg` — Solo 1 SVG. Agregar variantes por sección (engine, docs, blog).
-10. [ ] **Font loading sin `font-display`** — Fuentes vía CDN sin `@font-face` en CSS. Agregar `font-display: swap` para mejorar CLS.
+10. [x] **Font loading sin `font-display`** — Las 3 fuentes (`Space Grotesk`, `Outfit`, `JetBrains Mono`) se sirven localmente via `@fontsource-variable/*` que ya incluye `font-display: swap` en sus `@font-face`. No hay CDN externa. Sin cambio necesario.
 11. [ ] **Sin bundle analyzer en CI** — `vite.config.ts` tiene `rollup-plugin-visualizer` pero solo con flag `ANALYZE`. Integrar a CI para monitorear tamaño.
 12. [ ] **Python SDK async ausente** — `vantadb-python/src/lib.rs` — No hay soporte async. Considerar `tokio` runtime para operaciones concurrentes.
 
