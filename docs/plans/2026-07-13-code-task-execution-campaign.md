@@ -704,27 +704,17 @@ Pasos:
 | **Archivos** | `src/index/core.rs`, `src/config.rs` |
 | **Skills** | `ponytail`, `doubt-driven-development`, `performance-optimization` |
 | **Esfuerzo** | 🟡 ~2d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
 
-**Prompt específico:**
-
-```
-Bitacora P13 — Para datasets <10K vectors, brute-force search es 10-100x más rápido que HNSW.
-
-Skills: ponytail, doubt-driven-development, performance-optimization
-
-Pasos:
-1. codegraph_explore "search StorageEngine core.rs"
-2. Entender el pipeline de búsqueda actual (HNSW siempre)
-3. Implementar threshold automático:
-   a. Si cardinalidad < N (default 10000), usar brute-force linear scan
-   b. Si >= N, usar HNSW normal
-4. Configurable via VantaConfig
-5. Test básico: search en dataset pequeño usa flat path
-6. cargo build && cargo nextest run ... && cargo clippy ...
-7. git add -A && git commit -m "perf: P13 flat index threshold for small datasets"
-8. Actualizar este archivo y bitacora.md
-```
+**Resultado:** Ya implementado end-to-end:
+- `HnswConfig.flat_threshold` (src/index/graph.rs:208, default `Some(10000)`)
+- `use_flat_search()` check + routing en `search_nearest()` (src/index/search.rs:352-377)
+- `flat_search()` brute-force linear scan (src/index/flat.rs:4-56)
+- `VantaConfig.flat_threshold` con env var `VANTADB_FLAT_THRESHOLD` (src/config.rs:309, 542)
+- Builder `with_flat_threshold()` (src/config.rs:747)
+- Wiring VantaConfig → HnswConfig en engine init (src/storage/engine/init.rs:319-320)
+- Tests: `test_with_flat_threshold`, integración en benches y tests de certificación
+- No se requirieron cambios de código.
 
 ---
 
@@ -1280,14 +1270,14 @@ TASK-14      | P6             | dedup patterns   | ✅     | (ya resuelto)
 TASK-15      | T7             | test-threads     | ✅     | (ya hecho)
 TASK-16      | C7             | Dependabot       | ✅     | (ya hecho)
 TASK-17      | NUEVO-15       | code coverage CI | ✅     | (ya implementado)
-TASK-18      | P13            | flat index       | ❌     | —
+TASK-18      | P13            | flat index       | ✅     | (ya implementado)
 TASK-19      | P5             | split serializ.  | ❌     | —
 TASK-20      | W5             | OG branding      | ✅     | 946d23f
 TASK-21      | W8             | design tokens    | ✅     | b2db5fb
 TASK-22      | B18            | Homebrew SHA     | ❌     | —
-TASK-23      | B12            | MCP search_fallback| ❌  | —
-TASK-24      | B14            | MCP get_neighbors| ❌     | —
-TASK-25      | B15            | MCP schema dup   | ❌     | —
+TASK-23      | B12            | MCP search_fallback| ✅  | 051948f
+TASK-24      | B14            | MCP get_neighbors| ✅     | 01873ef (ya hecho)
+TASK-25      | B15            | MCP schema dup   | ✅     | 01873ef (ya hecho)
 TASK-26      | B9             | Async conc. limit| ✅     | ff0c2f5
 TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ❌     | —
 TASK-28      | P2             | WAL contention   | ❌     | —
@@ -1295,9 +1285,9 @@ TASK-29      | P1             | HNSW insert_lock | ❌     | —
 TASK-30      | P3             | ACID Phase 1     | ❌     | —
 TASK-31      | P4             | VantaFile revert | ❌     | —
 TASK-32      | WEB-001        | WASM demo page   | ❌     | —
-TASK-33      | W12            | React memo       | ❌     | —
-TASK-34      | W15            | Three.js hero    | ❌     | —
-TASK-35      | W14            | DOM mutation     | ❌     | —
+TASK-33      | W12            | React memo       | ✅     | 4cd3e29
+TASK-34      | W15            | Three.js hero    | 🗑️    | (no Three.js in codebase — gate: no-op)
+TASK-35      | W14            | DOM mutation     | ✅     | 4cd3e29 (same commit as TASK-33)
 TASK-36      | W13            | animation unify  | ❌     | —
 TASK-37      | W9             | SEO gaps         | ❌     | —
 ```
@@ -1391,10 +1381,18 @@ Si una tarea falla tras 2 intentos → ❌ FAILED y documentar por qué.
 
 ---
 
+=== CONTEXT SAVE POINT ===
+Harness PID: (manual)
+Última acción: TASK-33 ✅ + TASK-34 🗑️ + TASK-35 ✅
+Resultado: npx tsc --noEmit ✅
+Branch: main (ahead of origin by 10 commits)
+CI pendiente: no
+=== END CONTEXT SAVE ===
+
 === RECITATION ===
-Objetivo activo: TASK-27 — B16 TS SDK 50+ tests
+Objetivo activo: TASK-36 — W13 animation bundling
 Estado: ❌ PENDIENTE
-Última acción: Recitation de campaña anterior
-Próxima acción: codegraph_explore "packages/" para mapear archivos TS SDK
-Contrato: "npx vitest run pasa, 50+ tests, tsc --noEmit"
+Última acción: TASK-33 (memoization) + TASK-34 (gate: no Three.js) + TASK-35 (DOM mutation) completadas
+Próxima acción: Leer web/package.json y grep usos de motion/animejs/gsap
+Contrato: "npx tsc --noEmit pasa, bundle size mejora"
 === END RECITATION ===
