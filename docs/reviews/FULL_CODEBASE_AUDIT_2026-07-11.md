@@ -3,7 +3,7 @@ title: "VantaDB — Auditoría Completa del Codebase 2026-07-11"
 type: review
 status: active
 tags: [vantadb, audit, codebase, full-audit]
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-13
 language: es
 ---
 
@@ -262,9 +262,9 @@ src/
 
 | ID | Hallazgo | Archivo | Líneas | Riesgo |
 |---|---|---|---|---|
-| D11 | `engine.lazy.tsx` con 4 subcomponentes inline | `web/src/routes/engine.lazy.tsx` | 397 | 🟡 Medio |
-| D12 | `pricing.lazy.tsx` con datos + render mezclados | `web/src/routes/pricing.lazy.tsx` | 348 | 🟡 Medio |
-| D13 | `NbNav.tsx` mezcla focus trap + drawer + scroll | `web/src/components/NbNav.tsx` | 280 | 🟡 Medio |
+| D11 | `engine.lazy.tsx` con 4 subcomponentes inline | `web/src/routes/engine.lazy.tsx` | 142 (↓270) | ✅ Resuelto (2026-07-13) |
+| D12 | `pricing.lazy.tsx` con datos + render mezclados | `web/src/routes/pricing.lazy.tsx` | 139 (↓209) | ✅ Resuelto (2026-07-13) |
+| D13 | `NbNav.tsx` mezcla focus trap + drawer + scroll | `web/src/components/NbNav.tsx` | 224 (↓56) | ✅ Resuelto (2026-07-13) |
 | D14 | `NbQuickstart.tsx` highlight engine + typing + beam | `web/src/components/NbQuickstart.tsx` | 256 | 🟡 Medio |
 | D15 | `routeTree.gen.ts` con `@ts-nocheck` (640 líneas sin type-check) | `web/src/routeTree.gen.ts` | 640 | 🟠 Alto |
 
@@ -460,9 +460,9 @@ src/
 | W1 | CSP `'unsafe-eval'` removido de script-src en prod | 🔴 Crítico | ✅ Resuelto (esta sesión) |
 | W2 | CSP `'unsafe-eval'` permite `eval()` en prod | 🟡 Medio | ✅ Resuelto (W1 cubre) |
 | W3 | `routeTree.gen.ts` con `@ts-nocheck` + `eslint-disable` | 🟠 Alto | ⏳ Pendiente |
-| W4 | `NbNav.tsx` (280L) — focus trap + drawer + scroll + animaciones todo en uno | 🟡 Medio | ⏳ Pendiente |
-| W5 | `engine.lazy.tsx` (397L) — 4 subcomponentes inline sin reuso | 🟡 Medio | ⏳ Pendiente |
-| W6 | `pricing.lazy.tsx` (348L) — datos + render mezclados | 🟡 Medio | ⏳ Pendiente |
+| W4 | `NbNav.tsx` (280L→224L) — focus trap extraído a `useFocusTrap`, drawer a `NavDrawer` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
+| W5 | `engine.lazy.tsx` (412L→142L) — 4 subcomponentes extraídos a `Engine*` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
+| W6 | `pricing.lazy.tsx` (348L→139L) — datos extraídos a `data/pricing.ts` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
 | W7 | RAF loops sin pausa en background (NbVectorNebula, NbTerminalHero) | 🟡 Medio | ⏳ Pendiente |
 | W8 | 6+ componentes duplican `matchMedia("prefers-reduced-motion")` | 🟢 Bajo | ⏳ Pendiente |
 | W9 | 18 CSS globales innecesarios en index.css | 🟢 Bajo | ⏳ Pendiente |
@@ -555,9 +555,9 @@ src/
 | R5 | Hacer `idb_bridge.js` auto-importable (o embeker) | Medio |
 | R6 | Fragmentar `sdk/serialization.rs` (1827L) | 2 días |
 | R7 | Fragmentar `metrics/core.rs` (1604L) | 1 día |
-| R8 | Implementar LangChain + LlamaIndex adapters | 2 días |
-| R9 | Extraer subcomponentes de `engine.lazy.tsx` (397L) y `pricing.lazy.tsx` (348L) | 1 día |
-| R10 | Extraer `NbNav.tsx` (280L) → `NavDrawer` + `FocusTrap` | 1 día |
+| R8 | Implementar LangChain + LlamaIndex adapters | 2 días | ✅ Implementados previamente (259L + 216L, con tests) |
+| R9 | Extraer subcomponentes de `engine.lazy.tsx` (397L→142L) y `pricing.lazy.tsx` (348L→139L) | 1 día | ✅ Resuelto (2026-07-13) |
+| R10 | Extraer `NbNav.tsx` (280L→224L) → `NavDrawer` + `useFocusTrap` | 1 día | ✅ Resuelto (2026-07-13) |
 
 ### 🟡 TIER 2 (Post-lanzamiento)
 
@@ -653,6 +653,9 @@ src/
 | R20 — dead_code parcial | 6 métodos `edge_index.rs` + `insert_node_to_backend` + `shard_index` + imports removidos | `e338488` |
 | DC7 — CHANGELOG tags note | Nota actualizada: tags v0.2.3 y v0.3.0 existen, mismo commit | Esta sesión |
 | W11 — contraste bajo | Pendiente | — |
+| R9 / W5+W6 / D11+D12 | engine.lazy.tsx (412L→142L): 4 subcomponentes extraídos a `Engine*`; pricing.lazy.tsx (318L→139L): datos a `data/pricing.ts` | `412ab40` |
+| R10 / W4 / D13 | NbNav.tsx (298L→224L): focus trap a `useFocusTrap` hook, drawer a `NavDrawer` component | `412ab40` |
+| AD1 / R8 | LangChain + LlamaIndex adapters ya implementados (259L + 216L, con tests) | Pre-existente |
 
 ---
 
