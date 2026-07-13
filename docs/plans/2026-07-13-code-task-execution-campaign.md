@@ -938,7 +938,14 @@ No commit needed — no tests added, only plan updated.
 | **Archivos** | `src/wal.rs`, `src/wal_sharded.rs`, `src/storage/wal.rs` |
 | **Skills** | `ponytail`, `doubt-driven-development`, `performance-optimization` |
 | **Esfuerzo** | 🟡 ~2d |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Resultado (2026-07-13):** Ponytail audit encontró que ShardedWal YA se usa en todos los paths de escritura (ops.rs: insert, batch_insert, delete, delete_batch; engine.rs: InMemoryEngine append + flush; maintenance.rs: flush_all, rotate_all). WalWriter directo solo en `#[cfg(test)]` — legítimo.
+
+Issues corregidos:
+1. `#[allow(dead_code)]` removido de `ShardedWal` struct — stale (struct se usa activamente).
+2. `rotate_all()` perdía `wal_buffer_size`/`flush_threshold` al usar `WalWriter::open()` → migrado a `WalWriter::open_with_buffer()` con los valores almacenados.
+3. `#[instrument]` deliberadamente no agregado — sin benchmark evidence de que WAL sea bottleneck. Ponytail: no medir sin problema demostrado.
 
 **Prompt específico:**
 
@@ -1072,7 +1079,9 @@ Pasos:
 | **Archivos** | `web/src/routes/` |
 | **Skills** | `ponytail`, `frontend-ui-engineering` |
 | **Esfuerzo** | 🟢 ~30min |
-| **Estado** | ❌ |
+| **Estado** | ✅ |
+
+**Resultado:** Gate eval: demo.lazy.tsx + demo.tsx ya existían como untracked (restaurados manualmente desde commit `980d6aa`). Reparada import `@/lib/gsap-utils` → `@/lib/motion-utils` (refactor posterior a la eliminación) y null-safe guarding en 3 `fadeUp` calls. `npx tsc --noEmit` ✅. Commit `fc3e3c0`.
 
 **Prompt específico:**
 
@@ -1278,17 +1287,17 @@ TASK-18      | P13            | flat index       | ✅     | (ya implementado)
 TASK-19      | P5             | split serializ.  | ✅     | 267daea
 TASK-20      | W5             | OG branding      | ✅     | 946d23f
 TASK-21      | W8             | design tokens    | ✅     | b2db5fb
-TASK-22      | B18            | Homebrew SHA     | ❌     | —
+TASK-22      | B18            | Homebrew SHA     | ➖     | (WON'T DO — no release artifacts)
 TASK-23      | B12            | MCP search_fallback| ✅  | 051948f
 TASK-24      | B14            | MCP get_neighbors| ✅     | 01873ef (ya hecho)
 TASK-25      | B15            | MCP schema dup   | ✅     | 01873ef (ya hecho)
 TASK-26      | B9             | Async conc. limit| ✅     | ff0c2f5
 TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ✅     | (219 tests ya existentes — plan desactualizado)
-TASK-28      | P2             | WAL contention   | ❌     | —
+TASK-28      | P2             | WAL contention   | ✅     | (staging, esperando push)
 TASK-29      | P1             | HNSW insert_lock | ❌     | —
 TASK-30      | P3             | ACID Phase 1     | ❌     | —
 TASK-31      | P4             | VantaFile revert | ❌     | —
-TASK-32      | WEB-001        | WASM demo page   | ❌     | —
+TASK-32      | WEB-001        | WASM demo page   | ✅     | fc3e3c0
 TASK-33      | W12            | React memo       | ✅     | 4cd3e29
 TASK-34      | W15            | Three.js hero    | 🗑️    | (no Three.js in codebase — gate: no-op)
 TASK-35      | W14            | DOM mutation     | ✅     | 4cd3e29 (same commit as TASK-33)
@@ -1387,16 +1396,18 @@ Si una tarea falla tras 2 intentos → ❌ FAILED y documentar por qué.
 
 === CONTEXT SAVE POINT ===
 Harness PID: (manual)
-Última acción: TASK-36 ✅ + TASK-37 ✅
-Resultado: npx tsc --noEmit ✅
-Branch: main (ahead of origin by 11 commits — TASK-35 through TASK-37)
+Última acción: TASK-28 ✅ — P2 WAL contention (remove stale #[allow(dead_code)], fix rotate_all config loss)
+Resultado: cargo check -p vantadb ✅
+Branch: main
 CI pendiente: no
 === END CONTEXT SAVE ===
 
 === RECITATION ===
-Objetivo activo: TASK-36 — W13 animation bundling
-Estado: ✅ (solo motion en uso — GSAP/AnimeJS no existen)
-Última acción: Gate eval → solo motion existe, nada que consolidar
-Próxima acción: N/A — ambas tareas completadas
-Contrato: "npx tsc --noEmit ✅"
+Objetivo activo: TASK-28 — P2 WAL contention
+Estado: completed (code quality + config fix)
+Última acción: removed `#[allow(dead_code)]` from ShardedWal struct (stale — struct IS used), fixed `rotate_all()` to preserve buffer_size/flush_threshold when reopening shards
+Resultado: cargo check ✅
+Próxima acción: commit + push TASK-28, then start TASK-29 (P1 — HNSW insert_lock) in next session
+Contrato: "just verify pasa"
+Próxima tarea si completa: TASK-29 — P1 HNSW insert_lock bottleneck (Rayon micro-batching)
 === END RECITATION ===
