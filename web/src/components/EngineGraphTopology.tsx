@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 
 const GRAPH_NODES = [
   { x: 160, y: 90, label: "agent:main", size: 14 },
@@ -24,7 +24,7 @@ const GRAPH_EDGES: [number, number][] = [
   [2, 6],
 ];
 
-export function EngineGraphTopology() {
+export const EngineGraphTopology = memo(function EngineGraphTopology() {
   const [activeNode, setActiveNode] = useState<number | null>(null);
 
   const isEdgeHighlighted = (a: number, b: number) => {
@@ -96,4 +96,4 @@ export function EngineGraphTopology() {
       ))}
     </svg>
   );
-}
+});
