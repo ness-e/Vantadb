@@ -155,9 +155,7 @@ mod tests {
             backend_kind: BackendKind::InMemory,
             ..VantaConfig::default()
         };
-        let storage = Arc::new(
-            StorageEngine::open_with_config(":memory:", Some(config)).unwrap(),
-        );
+        let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).unwrap());
 
         let mut handles = Vec::new();
         for t in 0..4 {
