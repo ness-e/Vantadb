@@ -7,11 +7,93 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::node::{FieldValue, FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{EvictionReason, FLAG_TOMBSTONE};
+use crate::storage::engine::{EvictionReason, PendingHnswOp, FLAG_TOMBSTONE, HNSW_BATCH_SIZE};
 use crate::storage::ops::NodeMetadata;
 use crate::wal::WalRecord;
 
 impl StorageEngine {
+    /// Drain the pending HNSW mutation batch and apply all operations
+    /// under a single `insert_lock` acquisition (P1 — Rayon micro-batching).
+    ///
+    /// Returns `Ok(true)` if any ops were flushed.
+    #[tracing::instrument(skip(self), level = "trace", err)]
+    pub fn flush_pending_hnsw(&self) -> Result<bool> {
+        let ops = {
+            let mut pending = self.pending_hnsw_batch.lock();
+            if pending.is_empty() {
+                return Ok(false);
+            }
+            std::mem::take(&mut *pending)
+        };
+
+        let _guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ))
+            .ok_or_else(|| crate::error::VantaError::Timeout {
+                operation: "acquire insert_lock in flush_pending_hnsw".into(),
+                duration_ms: self.config.insert_lock_timeout_ms,
+            })?;
+        let hnsw = self.hnsw.load();
+        for op in &ops {
+            if op.is_delete {
+                hnsw.nodes.remove(&op.id);
+            } else {
+                hnsw.add(
+                    op.id,
+                    op.bitset.clone(),
+                    op.vector.clone(),
+                    op.storage_offset,
+                );
+            }
+        }
+        Ok(true)
+    }
+
+    /// Push a single HNSW mutation to the pending batch and attempt a
+    /// non-blocking drain. Under high concurrency, ops from multiple
+    /// `insert()` / `delete()` calls accumulate in the batch and are
+    /// flushed atomically under one lock acquisition.
+    fn try_push_pending_hnsw(&self, op: PendingHnswOp) -> Result<()> {
+        let needs_flush = {
+            let mut pending = self.pending_hnsw_batch.lock();
+            pending.push(op);
+            pending.len() >= HNSW_BATCH_SIZE
+        };
+        if needs_flush {
+            self.flush_pending_hnsw()?;
+        } else {
+            // non-blocking drain: if the lock is free, flush eagerly;
+            // otherwise the next caller that hits the threshold will do it.
+            if let Some(guard) = self.insert_lock.try_lock() {
+                let ops = {
+                    let mut pending = self.pending_hnsw_batch.lock();
+                    // could have been drained by another thread — double-check
+                    if pending.is_empty() {
+                        return Ok(());
+                    }
+                    std::mem::take(&mut *pending)
+                };
+                let hnsw = self.hnsw.load();
+                for op in &ops {
+                    if op.is_delete {
+                        hnsw.nodes.remove(&op.id);
+                    } else {
+                        hnsw.add(
+                            op.id,
+                            op.bitset.clone(),
+                            op.vector.clone(),
+                            op.storage_offset,
+                        );
+                    }
+                }
+                // guard dropped here
+            }
+        }
+        Ok(())
+    }
+
     /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert(&self, node: &UnifiedNode) -> Result<()> {
@@ -105,24 +187,13 @@ impl StorageEngine {
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
-        {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in update_node".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
-            let hnsw = self.hnsw.load();
-            hnsw.add(
-                active_node.id,
-                active_node.bitset.clone(),
-                active_node.vector.clone(),
-                storage_offset,
-            );
-        }
+        self.try_push_pending_hnsw(PendingHnswOp {
+            id: active_node.id,
+            bitset: active_node.bitset.clone(),
+            vector: active_node.vector.clone(),
+            storage_offset,
+            is_delete: false,
+        })?;
 
         if active_node.tier == crate::node::NodeTier::Hot {
             let mut cache = self.volatile_cache.write();

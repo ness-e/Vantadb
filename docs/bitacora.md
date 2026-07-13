@@ -78,10 +78,11 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 #### P1: HNSW insert_lock bottleneck
 - **Qué:** `StorageEngine.insert_lock` es `parking_lot::Mutex<()>` único que serializa TODAS las mutaciones HNSW (insert, delete, delete_batch). Busca y delete también lo adquieren ahora (verificado en `ops.rs`), pero sigue siendo un bottleneck de writer único.
 - **Por qué:** Bajo carga de inserción continua, throughput está limitado a ~1 core. Server DBs usan particionamiento HNSW.
-- **Investigar:** (1) Rayon micro-batching (UNI-17) — agrupar N inserts, ejecutar batch HNSW bajo un solo lock acquire; (2) HNSW particionado por namespace; (3) benchmark actual de throughput para establecer baseline.
+- **Solución:** (1) Rayon micro-batching (UNI-17) — pending batch de hasta 64 ops, flush bajo `insert_lock` único; (2) HNSW particionado por namespace (futuro).
 - **Archivos:** `src/storage/engine/mod.rs:148`, `src/storage/engine/ops.rs`
 - **Fuente:** FULL_CODEBASE_AUDIT P7, UNI-17
 - **Esfuerzo estimado:** 1-2 semanas
+- **Estado:** 🔨 En progreso (2026-07-13). Implementado pending batch en `ops.rs`: `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` usa pending batch. `batch_insert()` ya era óptimo (1 lock para N nodos). `delete()` y `delete_batch()` mantienen sync (deletes menos frecuentes). `flush()` drena pending batch. Compila, falta benchmark baseline.
 
 #### P2: WAL Mutex contention
 - **Qué:** `Mutex<Option<WalWriter>>` en WAL tradicional serializa writes. ShardedWal (`wal_sharded.rs`) reduce contención pero cada shard tiene su propio WalWriter. El init usa ShardedWal (`src/storage/wal.rs`), pero hay paths legacy que usan WalWriter directo.
@@ -90,6 +91,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Archivos:** `src/wal.rs:172`, `src/storage/wal.rs`, `src/wal_sharded.rs`
 - **Fuente:** AP-08 (analisis_proyecto.md), FULL_CODEBASE_AUDIT P5
 - **Esfuerzo:** 2 días
+- **Estado:** ✅ Resuelto 2026-07-13. ShardedWal ya usado en TODOS los paths de escritura (ops.rs: insert, batch_insert, delete, delete_batch; engine.rs InMemoryEngine; maintenance.rs). WalWriter directo solo en tests — legítimo. Se removió `#[allow(dead_code)]` stale, se fixeó `rotate_all()` para preservar buffer_size/flush_threshold configurados. Commit `fc28768`.
 
 #### P3: ACID Transaction Layer — Phase 1 (WAL Transaction Records)
 - **Qué:** No hay Begin/Commit/Abort en WAL. Cada write se "commitea" implícitamente. Si `write_node_to_vstore` éxito pero `write_batch` (KV) falla, orphan vector queda en VantaFile sin rollback. Similar para HNSW.

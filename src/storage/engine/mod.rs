@@ -26,7 +26,7 @@ use crate::backend::StorageBackend;
 use crate::config::VantaConfig;
 use crate::error::Result;
 use crate::index::CPIndex;
-use crate::node::UnifiedNode;
+use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::vfile::{engine_mmap_resident_bytes, VantaFile};
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -116,6 +116,19 @@ pub struct QuantizationMaintenanceReport {
     pub promoted: u64,
 }
 
+/// A pending HNSW mutation awaiting batch flush.
+#[derive(Clone)]
+pub(crate) struct PendingHnswOp {
+    pub id: u128,
+    pub bitset: FilterBitset,
+    pub vector: VectorRepresentations,
+    pub storage_offset: u64,
+    pub is_delete: bool,
+}
+
+/// Default batch size for HNSW micro-batching.
+pub(crate) const HNSW_BATCH_SIZE: usize = 64;
+
 /// Report returned by explicit ANN index rebuild operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexRebuildReport {
@@ -146,6 +159,9 @@ pub struct StorageEngine {
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     pub(crate) insert_lock: parking_lot::Mutex<()>,
+    /// Pending HNSW mutations awaiting batch flush under a single
+    /// `insert_lock` acquisition (Rayon micro-batching, P1).
+    pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,
     /// Volatile LRU cache for hot (frequently accessed) nodes.
     pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
