@@ -30,7 +30,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
         with:
@@ -63,7 +63,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
         with:
