@@ -26,6 +26,8 @@ export const Route = createFileRoute("/latency")({
           name: "VantaDB — Sub-Millisecond Latency",
           description:
             "Rust Core 1.2ms p50 (Python SDK ~39.74ms p50) in-process latency vs 200ms+ for cloud vector databases. VantaDB eliminates network round-trips.",
+          url: "https://vantadb.dev/latency",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

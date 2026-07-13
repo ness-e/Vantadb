@@ -26,6 +26,8 @@ export const Route = createFileRoute("/architecture")({
           name: "VantaDB — Engine Architecture & Limits",
           description:
             "Behind the FFI: stable boundary FFI bindings, Fjall storage layers, concurrency models and hardware limits.",
+          url: "https://vantadb.dev/architecture",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

@@ -23,6 +23,9 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
           name: "VantaDB",
+          url: "https://vantadb.dev",
+          image: "https://vantadb.dev/og/default.svg",
+          softwareVersion: "0.2.0",
           applicationCategory: "DatabaseApplication",
           operatingSystem: "Linux, macOS, Windows",
           description:

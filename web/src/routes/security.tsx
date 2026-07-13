@@ -26,6 +26,8 @@ export const Route = createFileRoute("/security")({
           name: "VantaDB Security Posture",
           description:
             "Security is a first-class citizen. Learn how VantaDB protects agent memory.",
+          url: "https://vantadb.dev/security",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

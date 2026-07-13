@@ -33,8 +33,11 @@ export const Route = createFileRoute("/why-vantadb")({
               },
             },
           ],
+          url: "https://vantadb.dev/why-vantadb",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],
   }),
 });
+

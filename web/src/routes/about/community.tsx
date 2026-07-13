@@ -26,6 +26,8 @@ export const Route = createFileRoute("/about/community")({
           name: "VantaDB — Community",
           description:
             "Join the VantaDB community. Contribute on GitHub, discuss on Discord, ask questions, and help shape the future of embedded AI data infrastructure.",
+          url: "https://vantadb.dev/about/community",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

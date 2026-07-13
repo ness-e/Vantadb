@@ -26,6 +26,8 @@ export const Route = createFileRoute("/config")({
           name: "VantaDB — Zero Configuration: Schema-Free",
           description:
             "No YAML files, no .env secrets, no migration scripts. VantaDB requires zero configuration — just pip install and connect.",
+          url: "https://vantadb.dev/config",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

@@ -32,6 +32,8 @@ export const Route = createFileRoute("/pricing")({
             priceCurrency: "USD",
             availability: "https://schema.org/InStock",
           },
+          url: "https://vantadb.dev/pricing",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

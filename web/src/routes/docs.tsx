@@ -26,6 +26,8 @@ export const Route = createFileRoute("/docs")({
           name: "VantaDB — Documentation",
           description:
             "Get started with VantaDB: embedded database for AI agents. Installation, quickstart, SDK reference, and guides.",
+          url: "https://vantadb.dev/docs",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],
