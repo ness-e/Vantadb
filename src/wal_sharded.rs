@@ -6,7 +6,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 /// A sharded write-ahead log that distributes writes across multiple WAL files.
-#[allow(dead_code)]
 pub(crate) struct ShardedWal {
     shards: Vec<Arc<Mutex<WalWriter>>>,
     num_shards: usize,
@@ -141,7 +140,12 @@ impl ShardedWal {
                 let mut guard = shard.lock();
                 let path = guard.path().to_path_buf();
                 guard.sync()?;
-                WalWriter::open(&path, self.sync_mode)?
+                WalWriter::open_with_buffer(
+                    &path,
+                    self.sync_mode,
+                    self.wal_buffer_size,
+                    self.flush_threshold,
+                )?
             };
             *shard.lock() = replacement;
         }
