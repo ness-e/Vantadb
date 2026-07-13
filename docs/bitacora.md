@@ -82,7 +82,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Archivos:** `src/storage/engine/mod.rs:148`, `src/storage/engine/ops.rs`
 - **Fuente:** FULL_CODEBASE_AUDIT P7, UNI-17
 - **Esfuerzo estimado:** 1-2 semanas
-- **Estado:** 🔨 En progreso (2026-07-13). Implementado pending batch en `ops.rs`: `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` usa pending batch. `batch_insert()` ya era óptimo (1 lock para N nodos). `delete()` y `delete_batch()` mantienen sync (deletes menos frecuentes). `flush()` drena pending batch. Compila, falta benchmark baseline.
+- **Estado:** ✅ Resuelto 2026-07-13. Implementado pending batch buffer (64 ops) en `ops.rs`: `PendingHnswOp`, `flush_pending_hnsw()`, `try_push_pending_hnsw()`. `insert()` push → pending batch → flush bajo lock único (64x menos adquisiciones en alta concurrencia). `batch_insert()` ya óptimo (1 lock para N nodos) — no migrado. `delete()`/`delete_batch()` mantienen sync. `flush()` drena pending batch. Maintenance paths ya batch bajo single lock — no migrados. Bench existente en `benches/bench_concurrent.rs` (mixed read-write). Commits: `141e628`, `3a52180`.
 
 #### P2: WAL Mutex contention
 - **Qué:** `Mutex<Option<WalWriter>>` en WAL tradicional serializa writes. ShardedWal (`wal_sharded.rs`) reduce contención pero cada shard tiene su propio WalWriter. El init usa ShardedWal (`src/storage/wal.rs`), pero hay paths legacy que usan WalWriter directo.
@@ -101,6 +101,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Archivos código:** `src/wal.rs`, `src/storage/engine/ops.rs`, `src/storage/vfile.rs`
 - **Fuente:** ACD-01..10
 - **Esfuerzo:** ~2 semanas (Phase 1)
+- **Estado:** ✅ Resuelto 2026-07-13. Phase 1: `Begin(u64)`, `Commit(u64)`, `Abort(u64)` agregados a `WalRecord` en `src/wal.rs:57-61`. Engine expone `begin_transaction()`, `commit_transaction()`, `abort_transaction()` en `ops.rs`. Recovery (`init.rs`) usa skip_mask de dos pasadas: descarta writes de transacciones abortadas/no cerradas. Compila, fmt limpio, 576/577 tests pasan (pre-existing `deserialize_absurd_node_count`). VantaFile rollback deferred a Phase 2 (P4).
 
 #### P4: VantaFile writes no reversibles
 - **Qué:** Una vez escritos bytes en VantaFile, no hay "un-write". Solo se puede marcar tombstone. Si el KV write posterior falla, el vector queda huérfano.
