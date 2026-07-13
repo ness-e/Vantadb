@@ -2,6 +2,12 @@ class Vantadb < Formula
   desc "VantaDB: an embedded persistent memory and vector retrieval engine for local-first AI applications"
   homepage "https://vantadb.dev"
   license "Apache-2.0"
+  # ponytail: SHA256 placeholders — no binary tarballs exist in any release yet
+  # (v0.2.0+ releases only have per-platform individual binaries + source archives).
+  # Before first `brew install`, the release pipeline must produce
+  # vantadb-{x86_64-apple-darwin,aarch64-apple-darwin,...}.tar.gz artifacts OR
+  # this formula must be rewritten for the actual artifact layout.
+  #
   # Set VERSION before release:
   #   export VERSION=x.y.z
   #   sed -i "s/RELEASE_VERSION/$VERSION/" Formula/vantadb.rb

@@ -163,7 +163,7 @@ jobs:
         with:
           swap-mb: 4096
       - name: Run memory & concurrency heavy tests
-        timeout-minutes: 75
+        timeout-minutes: 45
         run: >
           cargo test --release
           --test memory_brutality
@@ -172,6 +172,12 @@ jobs:
           --test memory_api
           --test memory_telemetry
           --test edge_cases
+          --
+          --test-threads=1
+      - name: Run fuzz proptest
+        timeout-minutes: 30
+        run: >
+          cargo test --release
           --test fuzz_proptest
           --
           --test-threads=1
