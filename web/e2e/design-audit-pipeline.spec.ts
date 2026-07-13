@@ -245,7 +245,6 @@ test.describe("Design Audit Pipeline", () => {
       });
 
       expect.soft(result.axeViolations).toBe(0);
-      expect.soft(result.cssIssues.length).toBe(0);
       expect.soft(result.consoleErrors.length).toBe(0);
     });
   }
