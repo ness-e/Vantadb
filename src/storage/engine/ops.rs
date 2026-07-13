@@ -598,9 +598,12 @@ impl StorageEngine {
             sharded.append(&crate::wal::WalRecord::Delete { id })?;
         }
 
-        let hnsw = self.hnsw.load();
-        let offset = hnsw.nodes.get(&id).map(|n| n.storage_offset);
+        let offset = {
+            let hnsw = self.hnsw.load();
+            hnsw.nodes.get(&id).map(|n| n.storage_offset)
+        };
 
+        // PERF-23: vector store tombstone
         if let Some(offset) = offset {
             let mut vstore = self.vector_store.write();
             if let Some(mut header) = vstore.read_header(offset) {
@@ -609,12 +612,24 @@ impl StorageEngine {
             }
         }
 
-        hnsw.nodes.remove(&id);
+        {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in delete".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
+            let hnsw = self.hnsw.load();
+            hnsw.nodes.remove(&id);
 
-        // PERF-23: If we just removed the entry point, promote a replacement
-        if hnsw.entry_point.load(Ordering::Relaxed) == id {
-            let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-            hnsw.entry_point.store(new_ep, Ordering::Relaxed);
+            // PERF-23: If we just removed the entry point, promote a replacement
+            if hnsw.entry_point.load(Ordering::Relaxed) == id {
+                let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
+                hnsw.entry_point.store(new_ep, Ordering::Relaxed);
+            }
         }
 
         self.volatile_cache.write().remove(&id);
@@ -682,6 +697,15 @@ impl StorageEngine {
 
         // Phase 3: HNSW node removal + vector store tombstone marking
         {
+            let _guard = self
+                .insert_lock
+                .try_lock_for(std::time::Duration::from_millis(
+                    self.config.insert_lock_timeout_ms,
+                ))
+                .ok_or_else(|| crate::error::VantaError::Timeout {
+                    operation: "acquire insert_lock in delete_batch".into(),
+                    duration_ms: self.config.insert_lock_timeout_ms,
+                })?;
             let hnsw = self.hnsw.load();
             {
                 let mut vstore = self.vector_store.write();

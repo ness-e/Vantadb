@@ -21,7 +21,7 @@ class FakeOpenAI:
 @pytest.fixture
 def store(monkeypatch):
     path = os.path.join(tempfile.mkdtemp(), "test_oa")
-    monkeypatch.setattr("vantadb_openai.vectorstore.openai", type("o", (), {"OpenAI": staticmethod(lambda **kw: FakeOpenAI())})())
+    monkeypatch.setattr("vantadb_openai.vectorstore.openai.OpenAI", lambda **kw: FakeOpenAI())
     s = VantaDBOpenAI(api_key="sk-test", db_path=path, namespace="test_oa")
     yield s
 
