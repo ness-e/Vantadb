@@ -1576,6 +1576,13 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `cargo clippy -p vantadb --all-features` 0 warnings, `cargo fmt --check` clean, 576/577 tests pass.
 
+### 2026-07-13 — P4: VantaFile reversible writes
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| TASK-31 / P4 | VantaFile writes reversibles | `insert()`: si KV put falla tras VantaFile write → tombstone. `batch_insert()`: si write_batch falla → re-acquire vstore lock + tombstone offsets. `delete()`/`delete_batch()` ya tombstoneaban antes del KV delete — no afectados | ✅ |
+
+**Verificación:** `cargo check` ✅, `cargo nextest run` 576/577 pass (1 pre-existing), `cargo fmt --check` clean.
 
 
 

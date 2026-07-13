@@ -109,6 +109,7 @@ Todos los items extraídos de `docs/research/` (9 archivos) y `docs/reviews/` (1
 - **Investigar:** (1) Approach A: lazy cleanup al inicio de próxima escritura (detectar orphans recorriendo VantaFile); (2) Approach B: buffered writes con VantaFile append-only y GC periódico; (3) Approach C: journal posicional reversible. Ver ACD_TRANSACTIONS.md para análisis detallado.
 - **Fuente:** ACD-06, ACD-10
 - **Esfuerzo:** 1-3 días (según enfoque)
+- **Estado:** ✅ Resuelto 2026-07-13. `insert()` y `batch_insert()` en `ops.rs` ahora tombstones el entry de VantaFile si el KV write falla, previniendo vectores huérfanos. `delete()` y `delete_batch()` ya tombstoneaban antes del KV delete, por lo que no tenían el problema. `cargo check` + `cargo nextest` 576/577 pass (1 pre-existing) + `cargo fmt --check` limpio.
 
 #### P5: Fragmentar archivos monolíticos del core
 - **Qué:** 6 archivos >700 líneas sin fragmentar, dificultan mantenimiento y review.
