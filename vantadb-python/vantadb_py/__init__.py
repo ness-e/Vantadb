@@ -41,7 +41,7 @@ class AsyncVantaDB:
 
     async def _run(self, fn, *args, **kwargs):
         async with self._sem:
-            return await self._run(partial(fn, *args, **kwargs))
+            return await asyncio.to_thread(partial(fn, *args, **kwargs))
 
     async def __aenter__(self):
         return self
@@ -65,7 +65,7 @@ class AsyncVantaDB:
         distance_metric: str | None = None,
         explain: bool = False,
     ):
-        return         await self._run(
+        return await self._run(
             self._sync.search_memory,
             namespace,
             query_vector,
@@ -77,7 +77,7 @@ class AsyncVantaDB:
         )
 
     async def get_memory(self, namespace: str, key: str):
-        return         await self._run(self._sync.get_memory, namespace, key)
+        return await self._run(self._sync.get_memory, namespace, key)
 
     async def list_memory(
         self,
@@ -87,7 +87,7 @@ class AsyncVantaDB:
         limit: int = 100,
         cursor: int | None = None,
     ):
-        return         await self._run(
+        return await self._run(
             self._sync.list_memory,
             namespace,
             filters,
@@ -107,24 +107,24 @@ class AsyncVantaDB:
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
     ):
-        return         await self._run(
+        return await self._run(
             self._sync.put, namespace, key, payload, metadata, vector, ttl_ms
         )
 
     async def delete_memory(self, namespace: str, key: str) -> bool:
-        return         await self._run(self._sync.delete_memory, namespace, key)
+        return await self._run(self._sync.delete_memory, namespace, key)
 
     async def compact_wal(self):
-        return         await self._run(self._sync.compact_wal)
+        return await self._run(self._sync.compact_wal)
 
     async def purge_expired(self) -> int:
-        return         await self._run(self._sync.purge_expired)
+        return await self._run(self._sync.purge_expired)
 
     async def flush(self):
-        return         await self._run(self._sync.flush)
+        return await self._run(self._sync.flush)
 
     async def close(self):
-        return         await self._run(self._sync.close)
+        return await self._run(self._sync.close)
 
     async def insert(self, id, content, vector, fields=None):
         return await self._run(
@@ -228,7 +228,7 @@ class AsyncVantaDB:
         top_k: int = 10,
         distance_metric: str | None = None,
     ):
-        return         await self._run(
+        return await self._run(
             self._sync.explain_memory_search,
             namespace,
             query_vector,

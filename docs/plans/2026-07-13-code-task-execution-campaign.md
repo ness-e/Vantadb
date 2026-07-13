@@ -9,29 +9,37 @@
 
 ## 🔄 Master Execution Loop (LEER ANTES DE EMPEZAR)
 
-Cada tarea sigue EXACTAMENTE este loop. No saltarse pasos.
+**ARQUITECTURA:** El loop vive en el **harness externo** (`harness-executor.ps1`).
+El agente ejecuta EXACTAMENTE UNA acción por turno y devuelve el control.
+
+No intentes loopear — OpenCode es reactivo por turnos.
 
 ```
-LOOP POR TAREA:
-╔══════════════════════════════════════════════════════════════╗
-║ 1. LEER este archivo → identificar próxima tarea ❌        ║
-║ 2. LEER docs/Backlog.md (estado actual de esa tarea)        ║
-║ 3. SKILLS: cargar skills que aplican según fase (ver abajo) ║
-║ 4. CODEGRAPH: codegraph_explore "nombres de archivos"       ║
-║    - Callers: qué módulos llaman a lo que voy a cambiar     ║
-║    - Callees: de qué dependen esos archivos                 ║
-║    - Blast radius: ¿se rompen interfaces? ¿cambia API pub?  ║
-║ 5. IMPLEMENTAR: siguiendo las skills cargadas               ║
-║ 6. VERIFICAR: cargo build && cargo nextest run ...          ║
-║ 7. ACTUALIZAR este archivo: tarea → ✅                     ║
-║ 8. ACTUALIZAR Backlog.md: tarea → ✅                        ║
-║ 9. GIT: git add -A && git commit -m "fix/task(ID): ..."     ║
-║ 10. REPETIR → siguiente tarea ❌                            ║
-╚══════════════════════════════════════════════════════════════╝
+FLUJO DEL HARNESS:
+╔═══════════════════════════════════════════════════════════════════╗
+║ while (queden tareas ❌) {                                       ║
+║   1. Leer plan file → próxima tarea ❌                          ║
+║   2. Invocar `opencode run iter-prompt.md`                      ║
+║      → El agente hace UNA iteración (ver abajo)                 ║
+║      → Actualiza plan file + escribe RECITATION                 ║
+║      → Se detiene (yield)                                       ║
+║   3. Leer plan file → verificar progreso                        ║
+║   4. Stall detection: ¿misma tarea 2 veces sin cambio?          ║
+║   5. Si ok → siguiente iteración                                ║
+║ }                                                               ║
+╚═══════════════════════════════════════════════════════════════════╝
 
-Si cargo build falla → arreglar errores, repetir paso 5-6 hasta que pase.
-Si nextest falla → arreglar tests, repetir paso 5-6 hasta que pase.
-Si clippy da error → `cargo clippy --fix` o arreglar manual, repetir.
+ITERACIÓN DEL AGENTE (por invocación):
+╔══════════════════════════════════════════════════════════════╗
+║ 1. LEER plan file → recitation o próxima tarea ❌          ║
+║ 2. SKILLS: cargar según fase (ver tabla abajo)             ║
+║ 3. CODEGRAPH: codegraph_explore "archivos"                 ║
+║ 4. EJECUTAR UNA ACCIÓN: gate / codegraph / code / verify  ║
+║ 5. VERIFICAR: cargo check / nextest / tsc (mecánico)      ║
+║ 6. ACTUALIZAR plan file: estado, iteración, notas         ║
+║ 7. ESCRIBIR RECITATION BLOCK                               ║
+║ 8. YIELD — detenerse, no seguir                           ║
+╚══════════════════════════════════════════════════════════════╝
 ```
 
 ### Skills por Fase (del AGENTS.md — Skill Loading Guide — Ingeniería)
@@ -61,65 +69,57 @@ NO simplificar: validación en trust boundaries, data loss, seguridad, accesibil
 
 ---
 
-## ⚠️ Context Management (CUANDO LLEGUES A ~70% o ~170K TOKENS)
+## ⚠️ Context Management
 
-Cuando el contexto se acerque al límite o después de ~3-4 tareas:
+**No aplica para contexto de sesión.** En el modelo harness-driven, cada
+invocación del agente arranca con contexto fresco. El plan file es el estado.
 
-```
-1. ACTUALIZAR este archivo: última tarea → ✅, tabla de iteraciones
-2. AGREGAR SAVE POINT (ver abajo) con recitation block
-3. HACER COMMIT: git add -A && git commit -m "checkpoint: [N] tareas"
-4. AVISAR: "Contexto lleno. Continuar con: <próxima tarea>"
-5. RETURN — nueva sesión, pegar PROMPT DE INICIO (abajo)
-```
+El contexto que importa es el **plan file**: mantenerlo limpio y con la
+recitation actualizada después de cada acción del agente.
 
-### Context Preservation Protocol
+### Save Point (para handoff entre sesiones del harness)
 
-| Señal | Acción |
-|-------|--------|
-| ~70% tokens ocupados | Compactar activamente (resumir iteraciones pasadas, descartar tool outputs) |
-| ~85% tokens ocupados | Ejecutar save point + avisar al usuario |
-| Tool output >3000 tokens | Offload: resumen de 1 línea + pointer a archivo de log |
-
-### Save Point (para handoff entre sesiones)
+El harness puede interrumpirse (ctrl+c, reboot, etc.). El plan file debe
+tener suficiente información para retomar:
 
 ```
 === CONTEXT SAVE POINT ===
-Fecha: 2026-07-13
-Tokens aprox: ~XK / 200K
+Harness PID: <PID>
+Última acción: TASK-N — implementar X
+Resultado: cargo check ✅
 Branch: fix/code-xxx
-CI pendiente: no (último run: ✅)
-Próxima tarea: TASK-N — <nombre>
-
-Decisiones registradas:
-- [decisión breve]
-
+CI pendiente: no
 === END CONTEXT SAVE ===
 ```
 
-### Recitation Block (anti-goal-drift — al final del archivo, después de cada acción)
+Para retomar: `.\harness-executor.ps1 -PlanFile docs\plans\...`
+
+### Recitation Block (anti-goal-drift — lo escribe el agente después de cada acción)
 
 ```
 === RECITATION ===
-Objetivo activo: TASK-N — <nombre>
-Estado actual: <implementado / verificando / CI>
-Próxima acción: <próximo paso concreto>
-Contrato del loop: "just verify pasa y CI workflow es green"
-Próxima tarea: TASK-M — <nombre>
+Objetivo activo: TASK-N — <ID>
+Estado: <implementado / verificando / CI / ❌ PENDIENTE>
+Última acción: <qué se acaba de hacer>
+Próxima acción: <el PRÓXIMO paso concreto — muy específico>
+Contrato: "just verify pasa y CI workflow es green"
 === END RECITATION ===
 ```
 
-### PROMPT DE INICIO (para pegar en nueva sesión)
+**El harness parsea la recitation para decidir si seguir.** Debe tener el formato exacto.
 
-```
-Cargá las skills ponytail, writing-plans, code-review-and-quality y doubt-driven-development.
-Luego leé docs/plans/2026-07-13-code-task-execution-campaign.md.
-Buscá el último save point o recitation block.
-Identificá la próxima tarea ❌ y ejecutá el Master Execution Loop.
-Antes de cada tarea: codegraph_explore para mapear blast radius.
-cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo nextest run --profile audit --workspace --build-jobs 2
+### Cómo arrancar
 
-NO saltees pasos. NO implementes sin codegraph primero.
+```powershell
+# Opción 1: PowerShell Harness (recomendada)
+.\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-code-task-execution-campaign.md
+
+# Opción 2: opencode-loop (plugin)
+# oc plugin install opencode-loop
+# /loop-goal "Cargá backlog-executor. Ejecutá el plan file una tarea a la vez."
+
+# Opción 3: Una iteración manual
+# Cargá backlog-executor y ejecutá el Prompt 1 de la skill
 ```
 
 ---
@@ -849,24 +849,9 @@ Pasos:
 | **Archivos** | MCP server |
 | **Skills** | `ponytail` |
 | **Esfuerzo** | 🟢 ~30min |
-| **Estado** | ❌ |
+| **Estado** | ✅ 051948f |
 
-**Prompt específico:**
-
-```
-Bitacora B12 — search_memory usa Cosine como default sin advertir al caller.
-
-Skills: ponytail
-
-Pasos:
-1. codegraph_explore "search_memory mcp"
-2. Leer la tool search_memory
-3. Agregar warning log cuando distance_metric no se especifica
-4. O cambiar default a None → error explícito "distance_metric required"
-5. cargo build && cargo nextest run ...
-6. git add -A && git commit -m "fix(mcp): B12 search_memory fallback warning"
-7. Actualizar este archivo
-```
+**Resultado:** Añadido `warn!` cuando `distance_metric` es `None` en `search_memory` de MCP. Antes: silencioso. Ahora: `"distance_metric not specified in search_memory — defaulting to cosine"`.
 
 ---
 
@@ -1327,12 +1312,12 @@ TASK-17      | NUEVO-15       | code coverage CI | ✅     | (ya implementado)
 TASK-18      | P13            | flat index       | ❌     | —
 TASK-19      | P5             | split serializ.  | ❌     | —
 TASK-20      | W5             | OG branding      | ✅     | 946d23f
-TASK-21      | W8             | design tokens    | ✅     | (already resolved)
+TASK-21      | W8             | design tokens    | ✅     | b2db5fb
 TASK-22      | B18            | Homebrew SHA     | ❌     | —
 TASK-23      | B12            | MCP search_fallback| ❌  | —
 TASK-24      | B14            | MCP get_neighbors| ❌     | —
 TASK-25      | B15            | MCP schema dup   | ❌     | —
-TASK-26      | B9             | Async conc. limit| ❌     | —
+TASK-26      | B9             | Async conc. limit| ✅     | B9
 TASK-27      | B16/NUEVO-09   | TS SDK 50+ tests | ❌     | —
 TASK-28      | P2             | WAL contention   | ❌     | —
 TASK-29      | P1             | HNSW insert_lock | ❌     | —
@@ -1418,32 +1403,27 @@ Siempre pregunta a codegraph antes de editar. Te dice qué módulos dependen de 
 
 ---
 
-## 📝 Instrucciones de Uso para el Agente
+## 📝 Instrucciones de Uso para el Agente (UNA ITERACIÓN)
 
-1. **Al iniciar:** leer este archivo COMPLETO. Identificar próxima tarea ❌.
-2. **Loop:** seguir el Master Execution Loop al pie de la letra.
-3. **Cada tarea:**
-   - Leer el prompt específico de la tarea
-   - Cargar las skills indicadas
-   - codegraph_explore primero
-   - Implementar
-   - Verificar (build + tests + clippy)
-   - Actualizar este archivo (marcar ✅)
-   - Actualizar Backlog.md o bitacora.md
-   - Commit
-4. **Cada ~3-4 tareas** o si el contexto llega a ~180K:
-   - Actualizar este archivo
-   - Commit "checkpoint"
-   - Avisar al usuario para nueva sesión
-5. **Si una tarea tiene errores:** arreglar, NO saltar. Si no se puede resolver, marcar como 🗑️ y documentar por qué.
-6. **Ponytail activo:** antes de escribir código, subir la escalera. ¿Ya existe? ¿Stdlib? ¿Dependencia instalada? ¿Una línea? SINO: mínimo código.
+**ARQUITECTURA:** No loopees. El harness externo maneja las iteraciones.
+Ejecutás EXACTAMENTE UNA acción por invocación.
+
+1. Leer este archivo COMPLETO → recitation block + próxima tarea ❌.
+2. Determiná la próxima acción CONCRETA (gate / codegraph / code / verify / commit).
+3. Ejecutá SOLO esa acción.
+4. Actualizá este archivo: estado, iteraciones, notas.
+5. **Escribí el bloque RECITATION al final.**
+6. Detenete. No sigas.
+7. Ponytail activo: ¿ya existe? ¿Stdlib? ¿Una línea? SINO: mínimo código.
+
+Si una tarea falla tras 2 intentos → ❌ FAILED y documentar por qué.
 
 ---
 
 === RECITATION ===
-Objetivo activo: TASK-20 ✅ — W5 OG image branding colors
-Tasks completadas: TASK-01..TASK-11 (✅), TASK-14..TASK-16 (✅), TASK-20 (✅)
-Tasks won't-do : TASK-12 (PERF-14 — duplicación inevitable), TASK-13 (DOC-02 — 135L legible)
-Tasks pendientes con trabajo real: TASK-17, TASK-18, TASK-19, TASK-21+
-Próxima tarea: TASK-21 — W8 design system tokens
+Objetivo activo: TASK-27 — B16 TS SDK 50+ tests
+Estado: ❌ PENDIENTE
+Última acción: Recitation de campaña anterior
+Próxima acción: codegraph_explore "packages/" para mapear archivos TS SDK
+Contrato: "npx vitest run pasa, 50+ tests, tsc --noEmit"
 === END RECITATION ===

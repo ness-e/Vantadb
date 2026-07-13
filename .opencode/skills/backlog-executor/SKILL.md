@@ -1,66 +1,112 @@
 ---
 name: backlog-executor
 description: >
-  Autonomous task execution loop for backlog-driven development.
-  One task per iteration: triage → eval gate → implement → verify → commit → update → next.
-  Includes context preservation protocol, stall detection, budget management,
-  and the recitation pattern to survive long sessions without goal drift.
+  Task execution harness for backlog-driven development.
+  Harness-driven (no loop en prompt): externo ejecuta una iteración por turno.
+  Cada iteración: triage → eval gate → implement → verify → commit → update.
+  Incluye context preservation, stall detection, budget management, recitation.
 compatibility: opencode
 ---
 
-# Backlog Executor Skill — Loop Engineering for Task Execution
+# Backlog Executor — Harness-Driven Task Execution
 
-> Basado en investigación de patrones de loop engineering (2025-2026):
-> Ralph Loop, ReAct, Plan-Execute-Verify, Anthropic Harness Design,
-> Addy Osmani / Boris Cherny / Steve Kinney — loop engineering.
-> Ver referencias completas en sección 10.
+> **Arquitectura:** Harness externo (PowerShell script o opencode-loop plugin) maneja
+> el while loop. El agente ejecuta EXACTAMENTE UNA acción atómica por turno.
+>
+> Esto no es opcional: OpenCode opera por turnos (Request-Response). Un LLM no puede
+> mantener un loop nativo. Todo framework converge en el mismo while — la diferencia
+> está en el harness alrededor del loop. (Steve Kinney, "Anatomy of an Agent Loop")
+>
+> Ver referencias en sección 10.
 
 ---
 
-## Core Loop Architecture
+## Core Loop Architecture (Vista General)
 
-Cada tarea ejecuta un ciclo **Plan → Act → Verify**, donde la verificación es
-**mecánica** (código, no opinión del modelo):
+El loop completo:
 
 ```
-      ┌──────────────────────────────────────────────────────┐
-      │                    PLAN                              │
-      │  Leer plan file → código existente → blast radius   │
-      └─────────────┬────────────────────────────────────────┘
-                    │
-                    ▼
-      ┌──────────────────────────────────────────────────────┐
-      │                    ACT                               │
-      │  Implementar cambio atómico (~100 líneas max)        │
-      └─────────────┬────────────────────────────────────────┘
-                    │
-                    ▼
-      ┌──────────────────────────────────────────────────────┐
-      │                    VERIFY                            │
-      │  just verify / nextest / typecheck / lint — CODIGO   │
-      │  (nunca auto-reporte del modelo)                     │
-      └─────────────┬────────────────────────────────────────┘
-                    │
-           ┌────────┴────────┐
-           ▼                 ▼
-         PASA              FALLA
-           │                 │
-           ▼                 ▼
-      ┌─────────┐    ┌──────────────────┐
-      │ COMMIT  │    │ RETRY LADDER     │
-      │ push +  │    │ 1. con feedback  │
-      │ CI      │    │ 2. contexto limpio│
-      └─────────┘    │ 3. nueva estrategia│
-           │         │ 4. escalar humano │
-           ▼         └──────────────────┘
-       SIGUIENTE
-       TAREA
+  HARNESS (externo)                         AGENTE (por turno)
+  ┌────────────────────┐                    ┌──────────────────┐
+  │ while (tasks > 0)  │──── llama ────────▶│ Leer plan file   │
+  │                    │                    │ Hacer 1 acción   │
+  │ 1. task = next()   │◀─── devuelve ──────│ Escribir estado  │
+  │ 2. invoke opencode │                    │ Yield (stop)     │
+  │ 3. leer resultado  │                    └──────────────────┘
+  │ 4. detectar stall  │
+  │ 5. loop o break    │
+  └────────────────────┘
 ```
 
-### El Contrato del Loop
+Cada invocación del agente ejecuta **una iteración del loop interno**:
 
-Cada tarea necesita un **contrato observable** antes de empezar: una definición
-de "completado" que código pueda verificar mecánicamente.
+```
+       ┌──────────────────────────────────────┐
+       │  PLAN: leer plan file, blast radius  │
+       └─────────────┬────────────────────────┘
+                     ▼
+       ┌──────────────────────────────────────┐
+       │  ACT: ~100 líneas de código máximo   │
+       └─────────────┬────────────────────────┘
+                     ▼
+       ┌──────────────────────────────────────┐
+       │  VERIFY: comando mecánico real       │
+       │  (cargo check, nextest, tsc, etc.)   │
+       └─────────────┬────────────────────────┘
+                     │
+            ┌────────┴────────┐
+            ▼                 ▼
+          PASA              FALLA
+            │                 │
+            ▼                 ▼
+       ┌─────────┐    ┌──────────────┐
+       │ COMMIT  │    │ RETRY LADDER │
+       │ update  │    │ 1-4 escalones│
+       └─────────┘    └──────────────┘
+            │                 │
+            ▼                 ▼
+       Yield al harness → SIGUIENTE ITERACIÓN
+```
+
+---
+
+## Cómo se usa (3 formas)
+
+### Forma 1: PowerShell Harness (recomendada, sin dependencias)
+
+```powershell
+.\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-campaign.md
+```
+
+El script:
+1. Lee el plan file, encuentra próxima tarea ❌
+2. Invoca `opencode run` con el prompt de una iteración
+3. Espera a que termine
+4. Lee el plan file actualizado
+5. Detecta stalls (misma tarea sin progreso 2 veces)
+6. Repite o termina
+
+### Forma 2: opencode-loop plugin
+
+Requiere: `oc plugin install opencode-loop`
+
+```bash
+# Goal Mode: el plugin verifica avance real
+/loop-goal "implementar todas las tareas ❌ en docs/plans/campaign.md"
+```
+
+El plugin monitorea idle events y re-inyecta el prompt cuando el agente termina.
+
+### Forma 3: Manual (una iteración a la vez)
+
+Invocar el Prompt 1 manualmente, una vez por tarea/iteración.
+
+---
+
+## 1. Contrato por Tarea
+
+Cada tarea necesita un **contrato observable** escrito en el plan file ANTES de
+empezar: una definición de "completado" que código pueda verificar mecánicamente.
 
 | ❌ Contrato vago | ✅ Contrato verificable |
 |-----------------|------------------------|
@@ -68,62 +114,56 @@ de "completado" que código pueda verificar mecánicamente.
 | "Mejorar la web" | "npm run typecheck 0 errors, npm run lint 0 errors, vitest run --pass" |
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
 
-**El contrato se escribe en el plan file antes de empezar a implementar.**
-
 ---
 
-## 1. Task Triage & Evaluation Gate
+## 2. Task Triage & Evaluation Gate
 
-Antes de implementar nada, cada tarea debe pasar por esta evaluación. El resultado
-se registra en el plan file y determina si se ejecuta, aplaza o descarta.
-
-### Gate Checklist
+Antes de implementar, cada tarea pasa por este gate. El resultado se registra
+en el plan file.
 
 ```
 Tarea: [ID] — [Nombre]
 Archivos: [paths]
 
 [ ] 1. ¿RELEVANCIA — Sigue siendo necesaria?
-       codegraph_explore "código a modificar" para verificar estado actual
-       → Si el bug ya no existe o la feature ya está implementada → ❌ SKIP
+       codegraph_explore "código a modificar"
+       → Si el bug ya no existe → ❌ SKIP
 
-[ ] 2. ¿IMPACTO REAL — A quién afecta?
-       → Data integrity, seguridad, CI, usuarios, release blocker?
-       → Si es cosmético sin queja de usuario → 🟡 DEFER
+[ ] 2. ¿IMPACTO REAL?
+       → Data integrity, seguridad, CI, usuarios?
+       → Cosmético sin queja → 🟡 DEFER
 
-[ ] 3. ¿COSTO/BENEFICIO — Justifica el esfuerzo?
-       → Esfuerzo estimado vs. impacto real
+[ ] 3. ¿COSTO/BENEFICIO?
        → Si impacto << esfuerzo → 🟡 DEFER o ❌ SKIP
 
-[ ] 4. ¿DEPENDENCIAS — Todo lo necesario está listo?
-       → ¿Hay tareas bloqueantes sin completar?
+[ ] 4. ¿DEPENDENCIAS?
+       → ¿Tareas bloqueantes sin completar?
        → Si depende de algo no hecho → 🔴 BLOQUEADO
 
-[ ] 5. ¿RIESGO — Puede romper algo existente?
-       → ¿Requiere migración? ¿Cambia API pública? ¿Afecta serialización?
+[ ] 5. ¿RIESGO?
+       → ¿Migración? ¿API pública? ¿Serialización?
        → Alto riesgo → cargar `doubt-driven-development`
 
-[ ] 6. ¿SCOPE — Es código puro o mezcla tipos?
-       → Si mezcla código + infra + CI + docs, separar en sub-tareas
+[ ] 6. ¿SCOPE?
+       → Si mezcla código + infra + CI + docs, separar
 
-Resultado: ✅ DO | 🟡 DEFER (cuándo retomar) | ❌ SKIP (por qué) | 🔴 BLOQUEADO (dependencia)
+Resultado: ✅ DO | 🟡 DEFER | ❌ SKIP | 🔴 BLOQUEADO
 ```
 
 ---
 
-## 2. Campaign Plan File Format
+## 3. Campaign Plan File Format
 
-El archivo de plan vive en `docs/plans/YYYY-MM-DD-<campaign>.md` y es la
-**fuente de verdad del estado**. Se lee antes de cada acción y se escribe
+El plan file en `docs/plans/YYYY-MM-DD-<campaign>.md` es la **fuente de verdad
+del estado**. El harness lo lee antes de cada invocación y el agente lo escribe
 después de cada acción.
 
 ```markdown
 # Plan de Ejecución: [Nombre]
 
 > **Inicio:** YYYY-MM-DDTHH:MM
-> **Fuente:** docs/Backlog.md / docs/bitacora.md
 > **Estado:** ⏳ EN PROGRESO | ✅ COMPLETADO | ❌ ABORTADO
-> **Contrato del loop:** [condición única que detiene el loop]
+> **Harness PID:** [PID del harness ejecutando]
 
 ## Tasks
 
@@ -131,508 +171,416 @@ después de cada acción.
 
 - **Fuente:** Backlog.md línea N
 - **Esfuerzo:** 🟢 1h | 🟡 1d | 🔴 2-3d
-- **Prioridad original:** 🔴 | 🟠 | 🟡 | 🟢
+- **Prioridad:** 🔴 | 🟠 | 🟡 | 🟢
 - **Archivos clave:** `path/to/file.rs`
-- **Gate Result:** ✅ DO | 🟡 DEFER: razón | ❌ SKIP: razón | 🔴 BLOQUEADO: dependencia
-- **Contrato:** "qué significa 'completado' en términos verificables"
+- **Gate Result:** ✅ DO | 🟡 DEFER | ❌ SKIP | 🔴 BLOQUEADO
+- **Contrato:** "qué significa 'completado'"
 - **Estado:** ⬜ PENDING | ⏳ IN PROGRESS | ✅ COMPLETED | ❌ FAILED
-- **Branch:** `fix/code-xxx-descripcion`
+- **Branch:** `fix/code-xxx`
 - **Commit:** `abc1234`
 
   **Iteraciones:**
-  | # | Acción | Resultado | Tokens |
-  |---|--------|-----------|--------|
-  | 1 | Implementar fix | cargo nextest pasa ✅ | ~8K |
-  | 2 | CI run | ✅ pasa | ~2K |
-  | 3 | — | — | — |
+  | # | Acción | Resultado | Herramienta |
+  |---|--------|-----------|-------------|
+  | 1 | Implementar | cargo check ✅ | codegraph |
+  | 2 | — | — | — |
 
   **Notas:**
-  - Contexto aprendido durante implementación
-  - Problemas encontrados y cómo se resolvieron
-  - Decisiones tomadas (para futuros ADRs)
+  - Contexto aprendido, decisiones, problemas
 
   **Check post-CI:**
-  - [ ] GitHub workflow principal pasa
-  - [ ] No se rompieron otros workflows
+  - [ ] GitHub workflow pasa
   - [ ] `skill progreso` ejecutado
-
----
-
-### Task 2: ...
 ```
 
-### Recitation Pattern (Anti-Goal-Drift)
+### Recitation Block
 
-Cada vez que el plan file se actualiza (después de cada acción), se **reescribe**
-el objetivo al final del archivo para combatir el "lost in the middle" del
-contexto del modelo:
+Se escribe al final del plan file después de CADA acción del agente:
 
 ```
 === RECITATION ===
-Objetivo activo: Task 1 — Implementar CODE-012
-Estado actual: Implementación completa, esperando CI
-Próxima acción: Monitorear CI run #12345
-Contrato del loop: "just verify pasa y CI workflow es green"
-Próxima tarea si esta completa: Task 2 — CODE-015
+Objetivo activo: Task N — [ID]
+Estado: [implementado / verificando / CI]
+Última acción: [qué se hizo]
+Resultado: [✅ pasa / ❌ falla]
+Próxima acción concreta: [el siguiente comando o paso]
+Contrato: "just verify pasa y CI workflow es green"
+Próxima tarea si completa: Task N+1 — [ID]
 === END RECITATION ===
 ```
 
+**Regla:** el harness parsea la recitation para decidir qué hacer después.
+Si la recitation no existe o está corrupta, el harness aborta (no reintenta).
+
 ---
 
-## 3. Execution Loop (por tarea)
+## 4. Execution Loop — UNA Iteración por Invocación
 
-Para cada tarea en estado `⬜ PENDING`:
+**IMPORTANTE:** OpenCode es reactivo por turnos. NO intentes procesar más de
+una iteración o tarea por invocación. Cada mensaje del agente ejecuta
+exactamente UN paso y devuelve el control.
 
-### Fase 0: Cargar Skills
+### Preparación del Harness (se ejecuta una vez al arrancar)
 
-| Fase | Skills |
-|------|--------|
-| **TRIAGE** | `brainstorming` (ambiguo), `interview-me` (faltan requisitos), `idea-refine` |
-| **DEFINE** | `spec-driven-development`, `writing-plans` |
-| **PLAN** | `planning-and-task-breakdown` |
-| **BUILD** | `incremental-implementation`, `test-driven-development`, `doubt-driven-development` (stakes altos) |
-| **BUILD (Rust)** | `source-driven-development` |
-| **BUILD (Frontend)** | `frontend-ui-engineering` |
-| **VERIFY** | `debugging-and-error-recovery`, `browser-testing-with-devtools` (web) |
-| **REVIEW** | `code-review-and-quality`, `code-simplification`, `security-and-hardening`, `performance-optimization` |
-| **SHIP** | `git-workflow-and-versioning`, `ci-cd-and-automation`, `documentation-and-adrs` |
-
-**Siempre:** `skill progreso` al inicio y al completar cada tarea.
-**Siempre:** Ponytail `full` activo durante BUILD (escalera de eficiencia).
-
-### Fase 1: Leer Estado + Recitation
-
-```markdown
-1. Leer docs/plans/<campaign-file>.md
-2. Buscar última recitation o tarea ⏳/⬜ PENDING
-3. Si hay WIP (⏳), retomar desde Fase 3
-4. Leer fuente original (Backlog.md) para contexto completo
+```powershell
+# harness-executor.ps1 hace esto:
+# 1. Validar que el plan file existe y tiene tasks
+# 2. Verificar que no hay cambios sin commit en el repo
+# 3. Identificar el task runner (cargo, npm, just, etc.)
+# 4. Arrancar el while loop
 ```
 
-### Fase 2: Blast Radius + Contexto
+### Fases por Iteración de Agente
+
+Cada invocación del agente ejecuta estas fases EN ORDEN y se detiene:
+
+#### Fase 0: Skills
+
+| Fase | Skills a cargar |
+|------|----------------|
+| Antes de implementar | `writing-plans`, `incremental-implementation`, `ponytail` (full) |
+| Si es bug | `systematic-debugging` |
+| Si es API pública | `api-and-interface-design` |
+| Si es frontend | `frontend-ui-engineering` |
+| Para verificar | `code-review-and-quality` |
+| Al completar | `git-workflow-and-versioning` |
+
+**Siempre:** `skill progreso` al inicio de cada nueva tarea.
+
+#### Fase 1: Leer Plan File + Recitation
+
+```
+1. Leer docs/plans/<campaign>.md COMPLETO
+2. Buscar:
+   a. Recitation block → saber dónde se quedó
+   b. Si no hay recitation: buscar primer ⬜ PENDING o ⏳ IN PROGRESS
+3. Si la tarea actual está ⏳ → retomar desde Fase 3
+4. Si la tarea actual está ⬜ PENDING → ejecutar Fase 2
+```
+
+#### Fase 2: Blast Radius + Contexto
 
 ```
 skill systematic-debugging     # si es bug
-codegraph_explore "query sobre archivos a modificar"
+codegraph_explore "query"
 
-Responder:
-- Callers: qué módulos llaman a estos archivos
-- Callees: de qué dependen
-- Blast radius: ¿contratos rotos? ¿cambia API pública?
-  ¿performance? ¿serialización? ¿seguridad? ¿migración necesaria?
+Identificar:
+- Callers: qué módulos usan estos archivos
+- Callees: dependencias de estos archivos
+- Blast radius: ¿API pública? ¿serialización? ¿migración?
 ```
 
-### Fase 3: Implementar (Plan → Act → Verify Loop Interno)
-
-Cada iteración interna sigue:
+#### Fase 3: Implementar (Plan → Act → Verify)
 
 ```
-LOOP:
-  1. PLAN: decidir el cambio atómico (~100 líneas)
-  2. ACT: editar código
-  3. VERIFY: verificación MECÁNICA (no auto-reporte)
-     - Rust:  cargo check (o parcial con -p <crate>)
-     - Web:   npm run typecheck
-     - Tests: cargo nextest run <test_name>
-  4. Si VERIFY pasa → OK, salir del loop interno
-  5. Si VERIFY falla → aplicar RETRY LADDER (ver sección 6)
+PLAN:
+  - Decidir el cambio atómico (~100 líneas)
+  - Ponytail ladder: stdlib > reusar > dependency > desde cero
+
+ACT:
+  - Editar el/los archivos
+
+VERIFY:
+  - Mecánico, no auto-reporte
+  - Rust:  cargo check -p <crate> (rápido)
+  - Web:   npm run typecheck
+  - Tests: cargo nextest run <test_name> (si aplica)
+
+Stall Detection:
+  Si el mismo error (archivo+línea+mensaje) aparece 2 veces → escalar al escalón 2
 ```
 
-**Stall Detection Interna:** Si dos iteraciones consecutivas producen el mismo
-error (mismo archivo, misma línea, mismo mensaje), NO reintentar — escalar.
-
-### Fase 4: Pre-Commit Gate
+#### Fase 4: Pre-Commit Gate
 
 ```
-[ ] ¿Código mínimo que funciona? (Ponytail ladder aplicada)
+[ ] ¿Ponytail ladder aplicada? (mínimo código que funciona)
 [ ] ¿Tests pasan? (just verify local)
 [ ] ¿Documentación afectada actualizada?
 [ ] ¿Commit message sigue Conventional Commits?
 [ ] ¿Cambio atómico (~100 líneas)?
 ```
 
-### Fase 5: Commit + Push
+#### Fase 5: Commit (si pasa verify)
 
 ```bash
-git add -p                    # revisar cada cambio
-git commit -m "tipo(scope): descripción breve"
-git up                        # push -u origin HEAD
+git add -p
+git commit -m "tipo(scope): ID — descripción breve"
 ```
 
-### Fase 6: Monitoreo CI
+#### Fase 6: Actualizar Plan File + Recitation
 
-```bash
-# Esperar al workflow principal
-RUN_ID=$(gh run list --branch $(git branch --show-current) --limit 1 \
-  --json databaseId --jq '.[0].databaseId')
-gh run watch $RUN_ID
+| Evento | Campo a actualizar |
+|--------|-------------------|
+| Gate evaluado | `Gate Result:`, `Estado: ⏳ IN PROGRESS` |
+| Iteración hecha | Agregar fila en tabla de iteraciones |
+| Commit hecho | `Commit: abc1234`, `Estado: ✅ COMPLETED` |
+| Falla permanente | `Estado: ❌ FAILED`, notas del error |
 
-# Si falla:
-if [ "$(gh run view $RUN_ID --json conclusion --jq '.conclusion')" = "failure" ]; then
-  gh run view $RUN_ID --log-failed > logs/${RUN_ID}-failed.log
-  # Extraer errores clave
-  echo "=== ERRORES ==="
-  rg -i "error\[|error:|FAILED|test.*FAILED" logs/${RUN_ID}-failed.log | head -10
-fi
-```
+**SIEMPRE:** Reescribir el bloque RECITATION al final del archivo.
 
-### Fase 7: Actualizar Plan File + Recitation
+#### Fase 7: Yield
 
-| Acción | Actualizar |
-|--------|-----------|
-| Gate eval hecho | `Gate Result:`, `Gate Reason:` |
-| Empezar implementación | `Estado: ⏳ IN PROGRESS`, crear branch |
-| Iteración completada | Agregar fila en tabla de iteraciones |
-| Commit hecho | `Commit: abc1234` |
-| CI pasa | `Estado: ✅ COMPLETED`, checklist post-CI |
-| CI falla | `Estado: ❌ FAILED`, notas + error |
-| Pendiente de próxima sesión | **Recitation block** al final del archivo |
-
-**Después de cada actualización**, agregar o refrescar el bloque de recitation.
+Después de actualizar el plan file, el agente se detiene. El harness externo
+lee el plan file, detecta si hay más tareas, y decide si invocar de nuevo.
 
 ---
 
-## 4. Context Preservation Protocol
-
-La muerte por contexto es el failure mode #1 de loops largos.
-Investigación de 2026 muestra que el 67.6% de los tokens en un loop largo
-son resultados de herramientas (tool outputs), no razonamiento del modelo.
-
-### Cuándo ejecutar
-
-| Señal | Acción |
-|-------|--------|
-| ~70% del contexto ocupado | Compactar activamente |
-| ~85% del contexto ocupado | Ejecutar protocolo + preparar handoff |
-| Tool call devuelve >5000 tokens | Offload a sub-agente o pointer |
-
-### Técnicas de Preservación
-
-#### A. Offloading de Tool Outputs
-
-Cuando una herramienta devuelve muchos tokens (>3000), no los pases completos
-al contexto. En vez de:
+## 5. Escalation Ladder (Retry Strategy)
 
 ```
-Resultado de grep: [5000 líneas de código]
+ESCALÓN 1: Retry con feedback
+  - Mismo enfoque, con el error específico como input
+  -> Fix: ~80% de errores
+
+ESCALÓN 2: Contexto fresco
+  - Resumir lo aprendido (~200 tokens)
+  - Arrancar con resumen + error
+  -> Fix: contexto contaminado
+
+ESCALÓN 3: Estrategia diferente
+  - Approach materialmente distinto
+  -> Fix: approach original no funcionaba
+
+ESCALÓN 4: Escalar a humano
+  - Documentar qué se intentó y qué falló
+  - Commit del WIP a la branch
+  - Marcar ❌ FAILED
+  - Seguir con la siguiente tarea
 ```
 
-Pon:
+**El harness detecta stall.** Si ve 2 iteraciones consecutivas con el mismo
+error (misma tarea, mismo resultado de verify), NOTIFICA al usuario y pregunta
+si abortar.
 
-```
-Resultado de grep: resumen: "se encontraron 42 matches en 15 archivos.
-Archivos clave: src/core.rs (líneas 120-145 con patrón X)
-Ver detalle: grep guardado en logs/grep-result-001.log"
-```
+---
 
-#### B. Compaction Selectivo
+## 6. Budget Management
 
-Cuando el contexto está ~70% lleno:
+| Budget | Default | Acción al alcanzarlo |
+|--------|---------|---------------------|
+| **Iteraciones por tarea** | 5 | El harness marca ❌ FAILED y sigue |
+| **Stall consecutivo** | 2 iguales | Harness pausa, pregunta al usuario |
+| **Tokens por invocación** | N/A (contexto fresco cada turno) | OpenCode maneja internamente |
 
-```
-1. Resumir las iteraciones pasadas (no borrar, comprimir)
-2. Mantener: la recitation actual, errores activos, decisiones
-3. Descartar: stack traces viejos, tool outputs ya procesados,
-   logs de compilación exitosa, intentos fallidos ya descartados
-```
+El harness lleva el ledger en la tabla de iteraciones del plan file.
 
-#### C. Recitation Pattern (contra goal drift)
+---
 
-Cada actualización del plan file incluye un bloque de recitation al final.
-Esto empuja el objetivo actual al final del contexto (donde la atención del
-modelo es más fuerte).
+## 7. Context Preservation
 
-```
-=== RECITATION ===
-Objetivo activo: Task 1 — CODE-012
-Estado actual: Implementación completa, esperando CI
-Próxima acción: Monitorear CI run #12345
-Contrato del loop: "just verify pasa y CI workflow es green"
-Próxima tarea: Task 2 — CODE-015
-=== END RECITATION ===
-```
+En un modelo por-turnos, el contexto se resetea en cada invocación. El plan file
+es el único estado persistente.
 
-#### D. Save Point (handoff entre sesiones)
+### Técnicas
 
-Cuando el contexto está ~85% lleno o después de cada tarea (lo que ocurra
-primero), escribir un save point al final del plan file:
+1. **Recitation block** al final del plan file (ver sección 3)
+2. **Save point** cuando se completa una tarea:
 
 ```
 === CONTEXT SAVE POINT ===
 Fecha: YYYY-MM-DDTHH:MM
-Tokens aprox usados: ~140K / 200K
+Branch: fix/code-xxx
+CI pendiente: no
+Próxima tarea: TASK-N — <nombre>
 
-Estado del workspace:
-- Cambios sin commit: (ninguno | archivos X,Y,Z)
-- Branch actual: <nombre>
-- CI pendiente: no (último run: ✅ / ❌)
+Decisiones:
+- Se eligió X sobre Y porque [razón breve]
 
-Próxima sesión:
-1. Leer docs/plans/<campaign-file>.md
-2. Buscar último ⏳ o próximo ⬜ PENDING
-3. Cargar skills correspondientes a la fase
-4. Continuar desde Fase 1 del Execution Loop
-
-Decisiones registradas:
-- Se eligió enfoque X sobre Y porque [razón breve]
-- Se difirió [algo] para no expandir scope
-
-Problemas conocidos sin resolver:
-- [issue 1]
-- [issue 2]
+Problemas conocidos:
+- [issue]
 === END CONTEXT SAVE ===
 ```
 
-**Al retomar:** leer plan file, encontrar última recitation o save point,
-continuar desde la tarea ⏳ correspondiente.
+3. **Compaction en el plan file**: Resumir iteraciones viejas, mantener la
+   recitation actual, errores activos, y decisiones.
 
 ---
 
-## 5. Ciclo Completo: El Prompt Reutilizable
+## 8. Probes de Integridad del Harness
 
-Este es el prompt para arrancar UNA campaña completa:
+El harness ejecuta estas verificaciones:
 
-### Prompt 0: Iniciar Campaña (TRIAGE + GATE)
-
-```
-Cargá las skills brainstorming, writing-plans, idea-refine, y ponytail (full).
-
-Tengo una lista de tareas para evaluar. Necesito que para CADA tarea apliques
-el Task Triage & Evaluation Gate del skill backlog-executor y determines:
-
-✅ DO — hacer ahora
-🟡 DEFER — posponer (razón + condición para retomar)
-❌ SKIP — no hacer (razón)
-🔴 BLOQUEADO — depende de algo no listo
-
-Reglas:
-1. Si el bug ya no existe o la feature ya está implementada → SKIP
-2. Si es cosmético sin queja de usuario → DEFER
-3. Si el esfuerzo supera al impacto → DEFER o SKIP
-4. Si depende de algo no completado → BLOQUEADO (anotar dependencia)
-5. La prioridad original en el backlog es sugerencia, no orden
-
-Después del gate, creá docs/plans/YYYY-MM-DD-<campaign>.md con:
-- Solo tareas ✅ DO
-- Gate result y gate reason para cada una
-- Estado inicial ⬜ PENDING
-- Tareas ordenadas por prioridad real (no orden original)
-- Tasks bloqueadas listadas por separado
-- Cada tarea con su contrato verificable
-
-Fuente de tareas: <ruta-al-backlog>
-```
-
-### Prompt 1: Ejecutar una Tarea Individual
-
-```
-Cargá las skills <skills-según-fase> y ponytail (full).
-
-Tarea: <ID> — <Nombre>
-Plan file: docs/plans/<campaign-file>.md
-
-ANTES:
-1. Leé el plan file completo
-2. Si hay cambios sin commit, preguntá antes de continuar
-3. Si la tarea ya está ⏳, retomá donde se dejó
-
-PASOS (backlog-executor Execution Loop):
-
-1. BLAST RADIUS:
-   codegraph_explore "query sobre archivos"
-   Identificar: callers, callees, implicaciones
-
-2. IMPLEMENTAR (Plan → Act → Verify loop interno):
-   - Bug? → systematic-debugging primero
-   - Feature? → spec-driven-development
-   - Ponytail ladder: stdlib > reutilizar > dependency > desde cero
-   - VERIFY: just verify (mecánico, no opinión)
-   - Stall detection: mismo error 2× seguidas = escalar
-
-3. PRE-COMMIT GATE:
-   ¿Mínimo cambio? ¿Tests? ¿Docs? ¿Conventional Commit?
-
-4. COMMIT + PUSH:
-   git add -p && git commit -m "tipo(scope): descripción"
-   git up
-
-5. CI MONITOR:
-   gh run watch <run_id>
-   Si falla: gh run view <run_id> --log-failed > log.txt
-   2 intentos de fix, después ❌ FAILED
-
-6. ACTUALIZAR PLAN:
-   - Commit SHA, estado, iteraciones, notas
-   - Recitation block al final
-   - Si contexto >70%, compactar
-
-DESPUÉS DE CADA ACCIÓN → actualizar plan file. Sin excepción.
-```
-
-### Prompt 2: Loop Automático (Todas las Tareas)
-
-```
-Cargá las skills writing-plans, incremental-implementation, progreso, y ponytail (full).
-
-Plan file: docs/plans/<campaign-file>.md
-
-INSTRUCCIONES:
-
-1. Leé el plan file. Identificá todas las tareas ⬜ PENDING o la ⏳ si hay WIP.
-
-2. Para cada tarea, en orden:
-   a. Ejecutá el Execution Loop del backlog-executor skill (fases 1-7)
-   b. skill progreso (migrar backlog)
-   c. Actualizá el plan file + recitation
-   d. Si contexto > ~70% → compactar
-   e. Si contexto > ~85% → Context Preservation Protocol + avisar
-
-3. Si una tarea falla (❌ FAILED después de escalation ladder):
-   - Documentá por qué
-   - NO te detengas — seguí con la siguiente
-   - Al final, listá todas las fallidas
-
-4. REPETÍ hasta que no queden tareas pendientes.
-
-5. AL FINAL:
-   - Resumí: N ✅ completadas, N ❌ fallidas, N 🟡 deferidas
-   - skill progreso (batch final)
-   - Push final si hay cambios pendientes
-   - Marcá el plan file como Estado: ✅ COMPLETADO
-
-REGLAS DE ORO:
-- Sin excepción: después de CADA acción → actualizar plan file + recitation
-- Si el contexto se llena → Context Preservation Protocol + aviso
-- Si un CI falla → 2 intentos de fix, si sigue → ❌ FAILED
-- No cambiar scope — si encuentras algo extra, anotalo en Notas pero no lo implementes
-```
-
----
-
-## 6. Escalation Ladder (Retry Strategy)
-
-Cuando un paso falla, no reintentar ciegamente. Subir la escalera:
-
-```
-ESCALÓN 1: Retry con feedback
-  - Mismo enfoque, pero con el error específico como input
-  - Fix: la mayoría de errores transitorios
-
-ESCALÓN 2: Contexto fresco
-  - Resumir lo aprendido (máximo 200 tokens)
-  - Descartar el contexto contaminado
-  - Arrancar con el resumen + el error
-  - Fix: contextos contaminados con stack traces largos
-
-ESCALÓN 3: Estrategia diferente
-  - El plan step debe proponer un approach materialmente distinto
-  - NO más de lo mismo con distinto nombre
-  - Fix: el approach original no funcionaba
-
-ESCALÓN 4: Escalar a humano
-  - Escribir: qué se intentó, qué falló, por qué se cree que no funcionará
-  - Commit del WIP a la branch (no perder el trabajo)
-  - Marcar tarea como ❌ FAILED
-  - Seguir con la siguiente tarea
-```
-
-**Stall Detection:** Si dos iteraciones consecutivas en el escalón 1 producen
-exactamente el mismo error (mismo mensaje, mismo archivo), pasar directamente
-al escalón 2 o 3. No quemar tokens en reintentos idénticos.
-
----
-
-## 7. Budget Management
-
-El loop necesita techos en **tres dimensiones**, no solo una:
-
-| Budget | Default | Qué pasa al alcanzarlo |
-|--------|---------|------------------------|
-| **Iteraciones** | 25 por tarea | Última llamada: "sintetizá tu mejor respuesta con lo que hay" |
-| **Tokens** | Sin límite fijo | ~170K tokens → ejecutar Context Preservation Protocol |
-| **Pasos sin progreso** | 3 intentos idénticos | Escalar directamente a escalón 3 o 4 |
-
-Implementación: el archivo de plan lleva la tabla de iteraciones por tarea,
-que funciona como ledger para detectar estancamiento.
-
----
-
-## 8. Recovery & Error Handling
-
-| Situación | Acción |
-|-----------|--------|
-| **Compilación falla** | `rust-analyzer-mcp diagnostics` para error exacto. Arreglar. Si el fix cambia el approach, actualizar plan file. |
-| **Tests existentes se rompen** | El cambio tiene un bug. Revertir y re-evaluar approach. |
-| **CI falla post-push** | `gh run view <id> --log-failed > log.txt`. Error del cambio → arreglar. Infraestructura (toolchain, cache, timeout) → anotar y continuar. |
-| **Stall detectado** (mismo error 2×) | Saltar al escalón 2 o 3. No reintentar con el mismo contexto. |
-| **Contexto >85%** | Ejecutar Context Preservation Protocol y avisar al usuario. |
-| **Merge conflict** | `git pull --rebase`, resolver, reintentar push. |
-| **git push rechazado** (branch out of sync) | `git pull --rebase`, resolver conflictos, reintentar. |
-| **Tarea depende de otra no hecha** | Marcar `🔴 BLOQUEADO`, mover al final, continuar con tareas independientes. |
-| **Bug más crítico descubierto durante ejecución** | Anotar como nueva tarea en el plan. NO implementar — completar la actual primero. |
-| **Task imposible** (3 intentos, escalera completa) | `❌ FAILED`, documentar causa raíz, seguir a la siguiente. |
+| Check | Falla | Acción |
+|-------|-------|--------|
+| Plan file no existe | ❌ | `Write-Error "Plan file not found"` |
+| Plan file sin tasks ❌ | ✅ | Mostrar "todas completadas", exit 0 |
+| Recitation corrupta | ❌ | Abortar, pedir revisión manual |
+| Misma tarea 2× sin progreso | ⚠️ | Preguntar al usuario |
+| Harness PID en plan file | ℹ️ | Prevenir doble ejecución |
+| git status sucio al empezar | ⚠️ | Preguntar si commitear o stash |
 
 ---
 
 ## 9. Completion & Finalization
 
-Cuando todas las tareas del plan estén procesadas:
+Cuando el harness detecta que todas las tasks están ✅ o ❌:
 
-```markdown
-1. Ejecutar skill progreso (migrar backlog — batch final)
-2. Ejecutar ponytail-review (over-engineering residual)
-3. Verificar plan file actualizado
-4. Push final
-5. Marcar plan file como Estado: ✅ COMPLETADO
+1. Ejecutar `skill progreso` (migrar backlog)
+2. Verificar plan file actualizado
+3. Push final: `git add -A && git commit -m "campaign: complete" && git up`
+4. Marcar plan file como `Estado: ✅ COMPLETADO`
 
 Resumen final:
-- Total: N
-  ✅ Completadas: N
-  ❌ Fallidas: N
-  🟡 Deferidas: N
-  ❌ Skipped: N
-  🔴 Bloqueadas: N
-- Workflows CI afectados: [lista de verificación]
+```
+Total: N
+✅ Completadas: N
+❌ Fallidas: N
+🟡 Deferidas: N
+❌ Skipped: N
+🔴 Bloqueadas: N
 ```
 
 ---
 
-## 10. Referencias de Loop Engineering (Investigación 2026)
+## 10. Referencias de Loop Engineering
 
 | Fuente | Concepto clave |
 |--------|---------------|
-| Steve Kinney, "Anatomy of an Agent Loop" (2026) | Todo framework converge en el mismo `while`. La diferencia está en el harness alrededor del loop. |
-| Addy Osmani, "Loop Engineering" (2026) | Verificación mecánica, stall detection, plan/act/verify shape. |
-| Boris Cherny, Claude Code Lead @ Scale (2026) | "I don't prompt anymore. I have loops running that prompt Claude." Sub-agentes, `/goal`, `/loop`. |
+| Steve Kinney, "Anatomy of an Agent Loop" (2026) | Todo framework converge en el mismo `while`. La diferencia está en el harness. |
+| Addy Osmani, "Loop Engineering" (2026) | Verificación mecánica, stall detection, plan/act/verify. |
+| Boris Cherny, Claude Code Lead (2026) | "I don't prompt anymore. I have loops running that prompt Claude." |
+| Anthropic, "Harness Design for Long-Running Apps" (2025) | Context resets, plan/execute/review, durable artifacts. |
 | Anthropic, "Building Effective AI Agents" (2024) | Workflows vs agents. "Start with a single loop." |
-| Anthropic, "Harness Design for Long-Running Apps" (2025) | Context resets, plan/execute/review structure, durable artifacts. |
-| Manus, "Recitation Pattern" (2025) | `todo.md` rewrite for goal preservation at end of context. |
-| Loop Engineering Guide, Loop Context Tool (2026) | Circuit breaker con 4 ejes (iterations, stagnation, no-progress, tokens). |
-| Anthropic, "Context Engineering Guide" (2025) | Sub-agent isolation, compaction at 80%, tool output offloading. |
-| StackOne, "Agent Suicide by Context" (2026) | 67.6% tokens son tool outputs. Sub-agents y code mode como defensa. |
-| Oracle Developers, "The Agent Loop Decoded" (2026) | 3 niveles de loop: Level 1 (tools), Level 2 (memory), Level 3 (harness). |
+| Manus, "Recitation Pattern" (2025) | todo.md rewrite for goal preservation at end of context. |
+| redreamality, "Agent Harness Pattern" (2026) | 5 layers: context, streaming, recovery, termination, state. |
+| niv0, "Claude Code from Scratch" (2026) | 23-phase reproduction of Claude Code harness. |
+| d3vr, "OCLoop" (2026) | OpenCode loop harness with dashboard, plan-based iteration. |
+| ByBrawe, "opencode-loop" (2026) | `/loop` and `/loop-goal` plugin for OpenCode TUI. |
+| Loop Engineering Guide (2026) | Circuit breaker: iterations, stagnation, no-progress, tokens. |
+| StackOne, "Agent Suicide by Context" (2026) | 67.6% tokens son tool outputs. Sub-agents como defensa. |
+| Inngest Blog, "Agent Loop Architecture" (2026) | Loop + skill + orchestrator. Durable execution. |
+| Oracle Developers (2026) | 3 niveles: Level 1 (tools), Level 2 (memory), Level 3 (harness). |
 
 ---
 
-## Apéndice A: Guía Rápida de Herramientas (VantaDB)
+## 11. Prompt Templates
+
+### Prompt 0: Iniciar Campaña (TRIAGE + GATE + CREAR PLAN)
+
+```
+Cargá las skills brainstorming, writing-plans, idea-refine, y ponytail (full).
+
+Tengo tareas para evaluar desde <ruta-backlog>. Aplicá el Task Triage Gate
+del backlog-executor para CADA tarea: ✅ DO, 🟡 DEFER, ❌ SKIP, 🔴 BLOQUEADO.
+
+Reglas:
+1. Bug ya inexistente o feature ya implementada → SKIP
+2. Cosmético sin queja de usuario → DEFER
+3. Esfuerzo >> impacto → DEFER o SKIP
+4. Dependencia no lista → BLOQUEADO
+5. Prioridad original es sugerencia, no orden
+
+Después del gate, creá docs/plans/YYYY-MM-DD-<campaign>.md con:
+- Solo tareas ✅ DO, ordenadas por prioridad real
+- Gate result y contract para cada una
+- Estado inicial ⬜ PENDING
+```
+
+### Prompt 1: Ejecutar UNA Iteración (uso con harness)
+
+**Este es el prompt que el harness inyecta en cada `opencode run`:**
+
+```
+Cargá las skills writing-plans, incremental-implementation, ponytail (full).
+
+Plan file: <ruta-al-plan-file>
+
+INSTRUCCIONES DE UNA SOLA ITERACIÓN:
+
+Operás en un entorno por turnos. Procesás EXACTAMENTE UNA iteración
+y te detenés. No intentes continuar ni loopear.
+
+1. Leé el plan file COMPLETO.
+2. Buscá la recitation block o la primera tarea ⬜ PENDING / ⏳ IN PROGRESS.
+3. Determiná la PRÓXIMA ACCIÓN CONCRETA:
+   a. ¿Gate no evaluado? → Evaluar gate
+   b. ¿Blast radius no hecho? → codegraph_explore
+   c. ¿Código no escrito? → Implementar (~100 líneas)
+   d. ¿Verify no corrido? → Ejecutar comando mecánico
+   e. ¿Verify pasa? → Commit + actualizar plan
+   f. ¿Verify falla? → Aplicar escalón 1 de retry
+4. Ejecutá SOLO esa acción.
+5. Actualizá el plan file: estado, iteraciones, notas.
+6. **ESCRIBÍ EL RECITATION BLOCK al final del archivo.**
+7. Detenete. No sigas a la siguiente tarea.
+
+REGLAS:
+- Sin excepción: después de CADA acción → actualizar plan file + recitation
+- Ponytail activo: stdlib > reusar > dependency > desde cero
+- Si verify falla 2 veces con mismo error → marcar ❌ FAILED, escribir por qué
+- No cambies scope. Si encuentras algo extra, anotalo pero no lo implementes
+```
+
+### Prompt 2: Arrancar el Harness (para el usuario)
+
+```
+# Abrir PowerShell como administrador NO es necesario.
+# Ejecutar desde la raíz del proyecto:
+
+.\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-code-task-execution-campaign.md
+
+# Alternativa con opencode-loop (si está instalado):
+/loop-goal "implementar todas las tareas ❌ del plan file docs/plans/campaign.md"
+```
+
+---
+
+## Apéndice A: Harness PowerShell
+
+Ver `harness-executor.ps1` en la raíz del proyecto.
+
+```powershell
+# Uso básico
+.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md
+
+# Con modo debug (no ejecuta opencode, solo muestra qué haría)
+.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -DryRun
+
+# Con intervalo entre iteraciones (segundos)
+.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -Interval 30
+```
+
+---
+
+## Apéndice B: Integración con opencode-loop
+
+Si instalaste el plugin `opencode-loop`:
+
+```bash
+oc plugin install opencode-loop
+```
+
+Usar Goal Mode para ejecución autónoma:
+
+```
+/loop-goal "Cargá backlog-executor. Ejecutá el plan file docs/plans/campaign.md una tarea a la vez. Después de cada tarea, actualizá el plan file y escribí la recitation. No avances a la siguiente tarea sin haber completado la actual (verified, committed, plan updated)."
+```
+
+El plugin monitorea idle events y re-inyecta el prompt automáticamente.
+
+---
+
+## Apéndice C: Troubleshooting
+
+| Síntoma | Causa | Solución |
+|---------|-------|----------|
+| El agente hace 2+ tareas en un turno | Ignoró la regla "una iteración" | Usar el harness, no el prompt directo |
+| El harness no detecta progreso | Recitation block faltante o corrupto | Verificar que el agente escribió `=== RECITATION ===` |
+| opencode-loop no arranca | Plugin no instalado | `oc plugin install opencode-loop` |
+| El agente se detiene a mitad de verify | Tool output muy grande | Verificar que el comando verify no excede límites de tool output |
+| Misma tarea reprocesada infinitamente | Harness stall detection mal configurado | Verificar que `$stallThreshold` es >= 2 |
+
+---
+
+## Apéndice D: Comandos Rápidos (VantaDB)
 
 | Comando | Propósito |
 |---------|-----------|
-| `just verify` | Pre-flight: fmt + clippy + test + deny |
-| `just check` | `cargo check --workspace` (rápido pre-verify) |
-| `cargo check -p vantadb` | Solo crate core (mucho más rápido que workspace) |
-| `cargo nextest run --profile audit -p <crate>` | Tests específicos |
+| `cargo check -p vantadb` | Build rápido, solo crate core |
+| `cargo nextest run --profile audit --workspace --build-jobs 2` | Tests completos |
+| `cargo fmt --check` | Formato |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Lints |
+| `just verify` | Pre-flight completo |
 | `codegraph_explore "query"` | Blast radius antes de editar |
 | `rust-analyzer-mcp rust_analyzer_diagnostics file_path` | Errores de compilación |
-| `cargo-mcp cargo_clippy` | Lints |
-| `gh run watch <id>` | Monitorear CI |
 | `skill progreso` | Migrar backlog → progreso |
-
-### Rust Build Optimization
-
-```bash
-# Más rápido que workspace completo
-cargo check -p vantadb
-cargo check -p vantadb --no-default-features -F "fjall,cli"
-cargo check -p vantadb -p vantadb-server -p vantadb-mcp
-```
