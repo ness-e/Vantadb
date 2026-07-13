@@ -26,6 +26,8 @@ export const Route = createFileRoute("/cost")({
           name: "VantaDB — Infrastructure Cost: Zero Runtime",
           description:
             "Eliminate $200+/mo infrastructure costs. VantaDB runs in-process with zero cloud dependencies and no per-query pricing.",
+          url: "https://vantadb.dev/cost",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

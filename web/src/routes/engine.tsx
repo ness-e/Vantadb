@@ -26,6 +26,8 @@ export const Route = createFileRoute("/engine")({
           name: "VantaDB Engine",
           applicationCategory: "DeveloperApplication",
           browserRequirements: "Requires JavaScript",
+          url: "https://vantadb.dev/engine",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

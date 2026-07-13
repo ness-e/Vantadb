@@ -26,6 +26,8 @@ export const Route = createFileRoute("/product/benchmarks")({
           name: "VantaDB — Benchmarks & Performance Metrics",
           description:
             "Performance benchmarks for VantaDB: HNSW vector search, BM25 full-text, hybrid RRF queries, WAL durability, and competitive analysis.",
+          url: "https://vantadb.dev/product/benchmarks",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

@@ -26,6 +26,8 @@ export const Route = createFileRoute("/use-cases")({
           name: "VantaDB — Persistent Memory Use Cases",
           description:
             "8 production patterns for AI agent memory, local-first RAG, codebase intelligence, multi-agent orchestration, semantic search, edge IoT, healthcare RAG, and financial document processing.",
+          url: "https://vantadb.dev/use-cases",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

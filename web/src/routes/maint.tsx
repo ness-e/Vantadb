@@ -26,6 +26,8 @@ export const Route = createFileRoute("/maint")({
           name: "VantaDB — Zero Maintenance Operations",
           description:
             "No daemons to monitor, no clusters to scale, no patches to schedule. VantaDB runs as an embedded library — your app IS the database server.",
+          url: "https://vantadb.dev/maint",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

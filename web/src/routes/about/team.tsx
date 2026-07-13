@@ -29,6 +29,8 @@ export const Route = createFileRoute("/about/team")({
           name: "VantaDB Team — The People Behind the Database",
           description:
             "Meet the team building VantaDB — open-source embedded vector database for AI agents.",
+          url: "https://vantadb.dev/about/team",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

@@ -26,6 +26,8 @@ export const Route = createFileRoute("/changelog")({
           name: "VantaDB — Changelog",
           description:
             "Release notes for VantaDB. Track new features, performance improvements, bug fixes, and breaking changes across versions.",
+          url: "https://vantadb.dev/changelog",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

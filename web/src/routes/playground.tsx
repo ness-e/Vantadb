@@ -26,6 +26,8 @@ export const Route = createFileRoute("/playground")({
           name: "VantaDB Playground",
           applicationCategory: "DeveloperApplication",
           browserRequirements: "Requires JavaScript",
+          url: "https://vantadb.dev/playground",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

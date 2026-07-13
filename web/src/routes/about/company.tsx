@@ -24,6 +24,8 @@ export const Route = createFileRoute("/about/company")({
           "@context": "https://schema.org",
           "@type": "AboutPage",
           name: "About VantaDB — Company",
+          url: "https://vantadb.dev/about/company",
+          image: "https://vantadb.dev/og/default.svg",
         }),
       },
     ],

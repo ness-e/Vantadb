@@ -92,6 +92,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@type": "SoftwareApplication",
           name: "VantaDB",
           url: "https://vantadb.dev",
+          image: "https://vantadb.dev/og/default.svg",
           applicationCategory: "DatabaseApplication",
           operatingSystem: "Linux, macOS, Windows",
           softwareVersion: "0.2.0",
