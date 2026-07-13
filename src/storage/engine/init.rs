@@ -97,6 +97,7 @@ impl StorageEngine {
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             volatile_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),
+            next_txn_id: std::sync::atomic::AtomicU64::new(1),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
             vector_store: parking_lot::RwLock::new(vector_store),
@@ -415,7 +416,33 @@ impl StorageEngine {
                     }
                 }
                 pending.sort_by_key(|tr| tr.global_seq);
-                for tr in pending {
+                let mut skip_mask = vec![false; pending.len()];
+                let mut txn_start: Option<usize> = None;
+                for (i, tr) in pending.iter().enumerate() {
+                    match &tr.record {
+                        crate::wal::WalRecord::Begin(_) => {
+                            txn_start = Some(i);
+                        }
+                        crate::wal::WalRecord::Commit(_) => {
+                            txn_start = None;
+                        }
+                        crate::wal::WalRecord::Abort(_) => {
+                            if let Some(start) = txn_start {
+                                skip_mask[start..=i].fill(true);
+                            }
+                            txn_start = None;
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(start) = txn_start {
+                    skip_mask[start..].fill(true);
+                }
+
+                for (i, tr) in pending.into_iter().enumerate() {
+                    if skip_mask[i] {
+                        continue;
+                    }
                     wal_records_replayed += 1;
                     match tr.record {
                         crate::wal::WalRecord::Insert(node) => {
@@ -456,6 +483,9 @@ impl StorageEngine {
                             let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                         }
                         crate::wal::WalRecord::Checkpoint { .. } => {}
+                        crate::wal::WalRecord::Begin(_)
+                        | crate::wal::WalRecord::Commit(_)
+                        | crate::wal::WalRecord::Abort(_) => {}
                     }
                 }
                 wal_replay_ms = wal_replay_started.elapsed().as_millis() as u64;
