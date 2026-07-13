@@ -227,12 +227,12 @@ src/
 | P4 | `entry_point` Mutex → `AtomicU128` | `src/index/graph.rs` | ℹ️ Info | ✅ Resuelto |
 | P5 | ShardedWAL reduce contención de mutex | `src/wal_sharded.rs` | ℹ️ Info | ✅ Resuelto |
 | P6 | LRU cache + edge index + scalar index | `src/storage/engine/mod.rs:150-176` | ℹ️ Info | ✅ Resuelto |
-| P7 | `insert_lock` serializa mutaciones HNSW (bottleneck conocido) | `src/storage/engine/mod.rs:148` | 🟡 Medio | ⏳ Pendiente |
+| P7 | `insert_lock` serializa mutaciones HNSW (bottleneck conocido) | `src/storage/engine/mod.rs:148` | 🟡 Medio | ⏳ Pendiente — sigue siendo `parking_lot::Mutex<()>` único; `delete()`/`delete_batch()` ni siquiera lo usan (TOCTOU) |
 | P8 | `lru 0.12.5` unsound → migrado a lru 0.13 | `Cargo.toml` | ℹ️ Info | ✅ Resuelto |
 | P9 | `wasm-opt = true` habilitado | `vantadb-wasm/Cargo.toml` | ℹ️ Info | ✅ Resuelto |
-| P10 | WASM code-splitting no implementado | `vantadb-wasm/` | 🟢 Bajo | ⏳ Pendiente |
-| P11 | RAF loops sin pausa en background (NbVectorNebula, NbTerminalHero) | `web/src/components/` | 🟡 Medio | ⏳ Pendiente |
-| P12 | 18 CSS globales innecesarios en index.css | `web/src/index.css` | 🟢 Bajo | ⏳ Pendiente |
+| P10 | WASM code-splitting no implementado | `vantadb-wasm/` | 🟡 Medio | ⏳ Pendiente — plan existe (`docs/plans/2026-07-10-wasm-code-splitting.md`), ~10h estimado |
+| P11 | RAF loops sin pausa en background (NbVectorNebula, NbTerminalHero) | `web/src/components/` | 🟡 Medio | ✅ Resuelto (visibilitychange listeners existentes) |
+| P12 | 18 CSS globales innecesarios en index.css | `web/src/styles/index.css` | 🟢 Bajo | ⏳ Pendiente — 18 `@import` reglas aún presentes |
 
 ---
 
@@ -253,10 +253,10 @@ src/
 
 | ID | Hallazgo | Archivo | Riesgo | Estado |
 |---|---|---|---|---|
-| D7 | `#[cfg(any())]` en rkyv_archives (357 líneas) | `src/serialization/mod.rs:10` | 🟢 Bajo | ⏳ Pendiente |
-| D8 | 27 `#[allow(dead_code)]` en 10 archivos | `src/` (múltiple) | 🟢 Bajo | ⏳ Pendiente |
-| D9 | `fresh_index_like` + `rebuild_hnsw_from_vstore` | `src/storage/engine/mod.rs:221,227` | 🟢 Bajo | ⏳ Pendiente |
-| D10 | Multi-tab BroadcastChannel detectado pero no usado | `vantadb-wasm/src/idb.rs` | 🟢 Bajo | ⏳ Pendiente |
+| D7/A7 | `rkyv_archives` eliminado — `serialization/mod.rs` solo 4L de doc | `src/serialization/mod.rs` | 🟢 Bajo | ✅ Resuelto — archivo es solo doc comment |
+| D8/R20 | 10 `#[allow(dead_code)]` en 5 archivos fuente | `src/` (múltiple) | 🟢 Bajo | ⏳ Pendiente — 2 crate-level (rbac, memory_governor), 5 item-level (physical_plan×2, text_index×2, wal_sharded) |
+| D9/A8 | `fresh_index_like` + `rebuild_hnsw_from_vstore` | `src/storage/engine/maintenance.rs:370, init.rs:337` | 🟢 Bajo | ⏳ Pendiente — siguen existiendo, sin callers |
+| D10/WA4 | Multi-tab BroadcastChannel detectado pero no usado | `vantadb-wasm/src/idb.rs` | 🟢 Bajo | ⏳ Pendiente — `has_broadcast_channel()` público sin callers; el canal cross-tab sí se usa |
 
 ### 7.3 Web Frontend Debt
 
@@ -265,16 +265,22 @@ src/
 | D11 | `engine.lazy.tsx` con 4 subcomponentes inline | `web/src/routes/engine.lazy.tsx` | 142 (↓270) | ✅ Resuelto (2026-07-13) |
 | D12 | `pricing.lazy.tsx` con datos + render mezclados | `web/src/routes/pricing.lazy.tsx` | 139 (↓209) | ✅ Resuelto (2026-07-13) |
 | D13 | `NbNav.tsx` mezcla focus trap + drawer + scroll | `web/src/components/NbNav.tsx` | 224 (↓56) | ✅ Resuelto (2026-07-13) |
-| D14 | `NbQuickstart.tsx` highlight engine + typing + beam | `web/src/components/NbQuickstart.tsx` | 256 | 🟡 Medio |
-| D15 | `routeTree.gen.ts` con `@ts-nocheck` (640 líneas sin type-check) | `web/src/routeTree.gen.ts` | 640 | 🟠 Alto |
+| D14 | `NbQuickstart.tsx` highlight engine + typing + beam | `web/src/components/NbQuickstart.tsx` | 244 (↓43) | ✅ Resuelto (highlight→`lib/syntax-highlight.ts`) |
+| D15 | `routeTree.gen.ts` con `@ts-nocheck` (640 líneas sin type-check) | `web/src/routeTree.gen.ts` | 640 | 🟠 Alto — WONTFIX (auto-generado por TanStack Router) |
 
-### 7.4 Patrones Duplicados (Web)
+### 7.4 Patrones Duplicados y Deuda Web (Web)
 
-| ID | Patrón | Ocurrencias | Propuesta |
-|---|---|---|---|
-| D16 | `window.matchMedia("(prefers-reduced-motion: reduce)")` | 6+ componentes | Hook `useReducedMotion()` compartido |
-| D17 | `animate(state, ...)` count-up | 3 componentes | Hook `useCountUp()` compartido |
-| D18 | `querySelectorAll(".nc-price-part")` + fadeUp | Cada ruta lazy | Hook `useFadeInView()` compartido |
+| ID | Hallazgo | Estado |
+|---|---|---|
+| D16 | `window.matchMedia("(prefers-reduced-motion: reduce)")` duplicado 6+ veces | ✅ Resuelto — `useReducedMotion()` hook existe (22 callers) |
+| D17 | `animate(state, ...)` count-up duplicado 3 veces | ✅ Resuelto — `useCountUp()` hook existe |
+| D18 | `querySelectorAll(".nc-price-part")` + fadeUp | ✅ Resuelto — `useAnimationSafe` + `fadeUp` cubren |
+| WA3 | `save()` serializa O(n) completo sin dirty tracking | ⏳ Pendiente — no hay autosave timer, pero cada save es dump completo |
+| D10/WA4 | `BroadcastChannel` detectado pero no usado (dead code) | 🟢 Bajo — `has_broadcast_channel()` público sin callers |
+| S11 | `innerHTML` directo en NbQuickstart | ⚠️ Usa `DOMPurify.sanitize()` — seguro pero idealmente usar `textContent` |
+| W9/R14 | 18 CSS globales → lazy imports | ⏳ Pendiente — 18 `@import` reglas en `index.css` |
+| W10 | `rollup` + `esbuild` en dependencies | ✅ **Correcto** — ambos en `devDependencies` |
+| W12 | Tablas sin `scope="col"` en `<th>` | ✅ **Todas** (11 `<th>`) ya tienen `scope="col"` |
 
 ---
 
@@ -302,12 +308,13 @@ src/
 
 | ID | Hallazgo | Riesgo | Estado |
 |---|---|---|---|
-| C1 | 5+ jobs no usan composite action `rust-setup` — lógica duplicada | 🟡 Medio | ⏳ Pendiente |
-| C2 | CodeQL `autobuild` insuficiente para workspace multi-crate (Rust beta) | 🟡 Medio | ⏳ Pendiente |
-| C3 | Fuzzing sin persistencia de corpus entre ejecuciones semanales | 🟡 Medio | ⏳ Pendiente |
-| C4 | `perf-bench-40.yml` — `update_markdown.py` falla silenciosamente | 🟡 Medio | ⏳ Pendiente |
-| C5 | `release-npm-61.yml` — wasm-pack build duplicado en 2 jobs | 🟢 Bajo | ⏳ Pendiente |
-| C6 | Hash commits (pinned actions) desactualizados en 5 lugares | 🟢 Bajo | ⏳ Pendiente |
+| C1 | 5+ workflows duplican Rust setup inline (no usan `./.github/actions/rust-setup`) | 🟡 Medio | ⏳ Pendiente — `fuzz-40`, `release-npm-61`, `release-wheels-60`, `release-adapters-62`, `release-binaries-63` |
+| C2 | CodeQL `build-mode: none` — análisis fuente sin compilación, puede omitir patrones macro/genérico | 🟡 Medio | ⏳ Pendiente — tradeoff válido para Rust beta |
+| C3 | Fuzzing corpus persistido vía cache (por branch) pero sin merge cross-branch ni artifact archive de crashes | 🟡 Medio | ⏳ Pendiente — cache existe pero no propaga a otras branches |
+| C4 | `perf-bench-40.yml` — `update_markdown.py` falla silenciosamente (produce `*N/D*` en tabla) | 🟡 Medio | ⏳ Pendiente — falla no fatal, pero datos corruptos son visualmente obvios |
+| C5 | `release-npm-61.yml` — wasm-pack build duplicado | 🟢 Bajo | ✅ **No duplicado** — job TS descarga artifact del job WASM |
+| C6 | Pinned action SHAs sin Dependabot/Renovate para actualización automática | 🟢 Bajo | ⏳ Pendiente — pinning correcto, pero sin bot de updates |
+| C1-var | `release-binaries-63.yml` usa `actions-rust-lang/setup-rust-toolchain` distinto al estándar `dtolnay/rust-toolchain` | 🟢 Bajo | ⏳ Pendiente — inconsistencia funcional |
 
 ### 8.3 Build System
 
@@ -336,7 +343,28 @@ src/
 
 ---
 
-## 10. Bindings (Python/TS/WASM/MCP/Adapters)
+## 10. Seguridad
+
+### 10.1 Content-Security-Policy
+
+| ID | Hallazgo | Riesgo | Estado |
+|---|---|---|---|---|
+| CSP1 | Sin CSP en Rust HTTP server (`vantadb-server`) | ℹ️ Info | ✅ **WONTFIX** — server es JSON API puro (3 rutas: `/query`, `/health`, `/metrics`). No sirve HTML. CSP solo aplica a respuestas HTML en browsers. |
+| CSP2 | Sin nonce system — CSP estático allowlist en Vercel | 🟡 Medio | ⏳ Pendiente — solo aplica a Vercel (React frontend) |
+| CSP3 | `style-src 'unsafe-inline'` usado en Vercel (permite inline styles) | 🟡 Medio | ⏳ Pendiente — migrar a nonce/hash en Vercel |
+| CSP4 | `script-src 'self'` sin `'unsafe-inline'` | ✅ Correcto |
+
+### 10.2 Otras Seguridad
+
+| ID | Hallazgo | Archivo | Riesgo | Estado |
+|---|---|---|---|---|
+| S8 | IP extraction sin `x-real-ip` fallback (solo `x-forwarded-for`) | `src/cli_server.rs:232` | 🟢 Bajo | ⏳ Pendiente |
+| U4 | TOCTOU en 5 métodos de ops.rs (`insert`, `batch_insert`, `delete`, `delete_batch`, `scan_nodes_page`) — `delete()`/`delete_batch()` ni siquiera usan `insert_lock` | `src/storage/engine/ops.rs` | 🟡 Medio | ⏳ Pendiente |
+| S7 | Homebrew formula: 4 SHA256 placeholders `0000...`, version 0.2.0 | `Formula/vantadb.rb` | 🟢 Bajo | ⏳ Pendiente |
+
+---
+
+## 11. Bindings (Python/TS/WASM/MCP/Adapters)
 
 ### 10.1 Python (vantadb-python) — ✅ Saludable
 
@@ -379,6 +407,8 @@ src/
 | WA3 | `save()` serializa estado completo O(n) sin dedup en cada autosave | 🟡 Medio | ⏳ Pendiente |
 | WA4 | `BroadcastChannel` detectado pero no usado (dead code) | 🟢 Bajo | ⏳ Pendiente |
 | WA5 | `search_semantic` bypass → `VantaEmbedded::search_vector()` (corregido) | ℹ️ Info | ✅ Resuelto (f5143d8) |
+| WA6 | WASM bundle: `serde_json` en cadena (~200KB extra) — debería ser feature flag opcional | 🟡 Medio | ⏳ Pendiente |
+| WA7 | `tracing-wasm` (~50KB extra) — debería ser feature flag opcional | 🟢 Bajo | ⏳ Pendiente |
 
 ### 10.3 MCP Server (vantadb-mcp) — ✅ Saludable
 
@@ -418,22 +448,22 @@ src/
 
 | ID | Hallazgo | Riesgo | Estado |
 |---|---|---|---|
-| AD1 | LangChain + LlamaIndex adapters no implementados | 🟠 Alto | ⏳ Pendiente |
-| AD2 | Adapters sin GIL release — ejecutan con GIL retenido | 🟡 Medio | ⏳ Pendiente |
-| AD3 | Error handling genérico (`PyRuntimeError::new_err`) pierde variantes VantaError | 🟡 Medio | ⏳ Pendiente |
-| AD4 | Namespace fijo en crewai/openai/ollama — colisiones multi-instancia | 🟡 Medio | ⏳ Pendiente |
-| AD5 | Keys determinísticas basadas en `len(content)` — colisiones | 🟡 Medio | ⏳ Pendiente |
-| AD6 | Sin type stubs (.pyi) en ningún adapter | 🟢 Bajo | ⏳ Pendiente |
-| AD7 | Sin tests de integración individuales | 🟢 Bajo | ⏳ Pendiente |
+| AD1 | LangChain + LlamaIndex adapters no implementados | 🟠 Alto | ✅ Resuelto (pre-existente: 259L+216L con tests) |
+| AD2 | Adapters sin GIL release — ejecutan con GIL retenido | 🟡 Medio | ✅ Resuelto (todos los métodos pesados usan `py.detach()`) |
+| AD3 | Error handling genérico (`PyRuntimeError::new_err`) pierde variantes VantaError | 🟡 Medio | ✅ Resuelto (`map_vanta_error` mapea cada variante a excepción Python específica) |
+| AD4 | Namespace fijo en crewai/openai/ollama — colisiones multi-instancia | 🟡 Medio | WONTFIX (namespace configurable como parámetro opcional) |
+| AD5 | Keys determinísticas basadas en `len(content)` — colisiones | 🟡 Medio | ✅ Resuelto (AtomicU64 counter por instancia + test) |
+| AD6 | Sin type stubs (.pyi) en ningún adapter | 🟢 Bajo | ✅ Resuelto (`vantadb_py/__init__.pyi` con 25+ clases/métodos) |
+| AD7 | Sin tests de integración individuales (key collision) | 🟢 Bajo | ✅ Resuelto (`test_unique_keys_across_calls` en langchain + llamaindex) |
 
 ---
 
-## 11. Web Frontend
+## 12. Web Frontend
 
-### 11.1 Stack
+### 12.1 Stack
 
 | Capa | Tecnología |
-|---|---|
+|---|---|---|
 | Framework | React 19.2 + TypeScript 5.8 |
 | Router | TanStack Router v1.168 (27 rutas, 25 lazy) |
 | Bundler | Vite 8.1 |
@@ -453,33 +483,35 @@ src/
 | **Total CSS** | **~189 KB** |
 | **Initial load** | **~520 KB (~160 KB gzip)** |
 
-### 11.3 Hallazgos Web
+### 12.3 Hallazgos Web
 
 | ID | Hallazgo | Riesgo | Estado |
 |---|---|---|---|
 | W1 | CSP `'unsafe-eval'` removido de script-src en prod | 🔴 Crítico | ✅ Resuelto (esta sesión) |
 | W2 | CSP `'unsafe-eval'` permite `eval()` en prod | 🟡 Medio | ✅ Resuelto (W1 cubre) |
-| W3 | `routeTree.gen.ts` con `@ts-nocheck` + `eslint-disable` | 🟠 Alto | ⏳ Pendiente |
+| W3 | `routeTree.gen.ts` con `@ts-nocheck` + `eslint-disable` | 🟠 Alto | WONTFIX (auto-generado por TanStack Router) |
 | W4 | `NbNav.tsx` (280L→224L) — focus trap extraído a `useFocusTrap`, drawer a `NavDrawer` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
 | W5 | `engine.lazy.tsx` (412L→142L) — 4 subcomponentes extraídos a `Engine*` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
 | W6 | `pricing.lazy.tsx` (348L→139L) — datos extraídos a `data/pricing.ts` | 🟡 Medio | ✅ Resuelto (2026-07-13) |
-| W7 | RAF loops sin pausa en background (NbVectorNebula, NbTerminalHero) | 🟡 Medio | ⏳ Pendiente |
-| W8 | 6+ componentes duplican `matchMedia("prefers-reduced-motion")` | 🟢 Bajo | ⏳ Pendiente |
-| W9 | 18 CSS globales innecesarios en index.css | 🟢 Bajo | ⏳ Pendiente |
-| W10 | `rollup` + `esbuild` en dependencies (deberían ser devDependencies) | 🟢 Bajo | ⏳ Pendiente |
-| W11 | Contraste `oklch(48% 0 0deg)` sobre `#0d0d0d` — ratio < 4.5:1 | 🟡 Medio | ⏳ Pendiente |
-| W12 | Tablas sin `scope="col"` en `<th>` | 🟢 Bajo | ⏳ Pendiente |
+| W7 | RAF loops sin pausa en background (NbVectorNebula, NbTerminalHero) | 🟡 Medio | ✅ Resuelto (visibilitychange listeners existentes en ambos) |
+| W8 | 6+ componentes duplican `matchMedia("prefers-reduced-motion")` | 🟢 Bajo | ✅ Resuelto (`useReducedMotion` hook compartido, 22 callers) |
+| W9 | 18 CSS globales innecesarios en index.css | 🟢 Bajo | ⏳ Pendiente — 18 `@import` en `web/src/styles/index.css` |
+| W10 | `rollup` + `esbuild` en dependencies | 🟢 Bajo | ✅ **Correcto** — ambos en `devDependencies` |
+| W11 | Contraste `oklch(48% 0 0deg)` sobre `#0d0d0d` — ratio < 4.5:1 | 🟡 Medio | ✅ Resuelto (valor no existe; tokens usan ≥55%) |
+| W12 | Tablas sin `scope="col"` en `<th>` | 🟢 Bajo | ✅ **Todas** (11 `<th>`) ya tienen `scope="col"` |
 | W13 | `dangerouslySetInnerHTML` + DOMPurify en blog ✅ correcto | ℹ️ Info | ✅ Resuelto |
 | W14 | HSTS + security headers configurados ✅ | ℹ️ Info | ✅ Resuelto |
 | W15 | skip-link + aria labels + focus trap ✅ | ℹ️ Info | ✅ Resuelto |
+| W16 | `og:image` paths inconsistentes (`.svg` vs `.png` según página) | 🟢 Bajo | ⏳ Pendiente |
+| W17 | `aria-expanded` hardcoded `false` en nav dropdowns — debería actualizarse dinámicamente | 🟢 Bajo | ⏳ Pendiente |
 
 ---
 
-## 12. Análisis de Dependencias
+## 13. Análisis de Dependencias
 
-### 12.1 Rust Dependencies
+### 13.1 Rust Dependencies
 
-| Métrica | Valor Jul-09 | Valor Jul-11 | Cambio |
+| Métrica | Valor Jul-09 | Valor Jul-13 | Cambio |
 |---|---|---|---|
 | Total crates transitivas | ~400+ | ~400+ | → |
 | Workspace members | 14 | 13 | ↓ Fusionado |
@@ -488,7 +520,7 @@ src/
 | Unsound advisories | 1 | 0 | ✅ Resuelto (lru 0.13) |
 | Non-standard licenses | 0 | 0 | → |
 
-### 12.2 Duplicados Resueltos (desde Jul-09)
+### 13.2 Duplicados Resueltos (desde Jul-09)
 
 | Crate | Estado |
 |---|---|
@@ -511,6 +543,8 @@ src/
 
 ## 13. Documentación
 
+*Nota: Esta sección fue re-verificada el 2026-07-13. Varios documentos contienen versiones desactualizadas y referencias rotas.*
+
 ### 13.1 Estructura
 
 | Elemento | Estado |
@@ -532,19 +566,24 @@ src/
 | DC5 | `llms.txt` raíz no refleja: flat index, IDB fallback, auto-tune, nuevos adapters | 🟡 Medio | ⏳ Pendiente |
 | DC6 | `web/public/llms.txt` desactualizado vs raíz (75 líneas vs 80) | 🟢 Bajo | ⏳ Pendiente |
 | DC7 | CHANGELOG note corregida — tags v0.2.3 y v0.3.0 existen (ambos en 01873ef) | 🟡 Medio | ✅ Resuelto |
-| DC8 | Último tag core: v0.2.0. Funcionalidad post-v0.2.0 sin release formal | 🟢 Bajo | ⏳ Pendiente |
+| DC8 | Último tag core: v0.2.0 — desactualizado (v0.3.0 ya existe) | 🟢 Bajo | ✅ Resuelto — tag `v0.3.0` existe |
 | DC9 | `docs/web/README.md` marca `brand/` como planned — vacío | 🟢 Bajo | ⏳ Pendiente |
+| DC10 | `docs/FAQ.md` menciona v0.1.5 (vs 0.3.0 actual) | 🟢 Bajo | ⏳ Pendiente |
+| DC11 | Tutorials / Case Studies en draft (no production-ready) | 🟢 Bajo | ⏳ Pendiente |
+| DC12 | README.md sin Discord badge (14 badges, falta 1) | 🟢 Bajo | ⏳ Pendiente |
 
 ---
 
 ## 14. Recomendaciones Priorizadas
+
+*Nota: Actualizado 2026-07-13 con verificación empírica de cada hallazgo.*
 
 ### 🔴 TIER 0 (Hacer ahora — bloqueante para launch)
 
 | ID | Acción | Esfuerzo | Impacto |
 |---|---|---|---|
 | R1 | **Docker: corregir profile path** (`target/release/` → `target/ci/`) | 1 línea | 🔴 Bloquea release en contenedor | ✅ Resuelto (560415d) |
-| R2 | **CSP: migrar `unsafe-inline` a nonce-based** en prod | Medio | 🔴 Seguridad |
+| R2 | **CSP: implementar nonce/hash-based** en Vercel + Rust HTTP server | Medio | 🔴 Seguridad |
 | R3 | **Crear tags git v0.2.3 y v0.3.0** o corregir CHANGELOG | 5 min | 🔴 Consistencia | ✅ Resuelto — tags existen |
 
 ### 🟠 TIER 1 (Siguiente release)
@@ -561,29 +600,31 @@ src/
 
 ### 🟡 TIER 2 (Post-lanzamiento)
 
-| ID | Acción |
-|---|---|
-| R11 | Fragmentar `config.rs` (1184L) y `cli_server.rs` (831L) |
-| R12 | Crear hook `useReducedMotion()` compartido (eliminar duplicación en 6+ componentes) |
-| R13 | Pausar RAF loops en background (NbVectorNebula, NbTerminalHero) |
-| R14 | Mover 18 CSS globales innecesarios a lazy imports |
-| R15 | Implementar persistencia de corpus en fuzzing CI |
-| R16 | Agregar GIL release + type stubs + tests a los 7 adapters |
-| R17 | Centralizar lógica duplicada de CI en composite action `rust-setup` |
-| R18 | Migrar CodeQL a `build-mode: manual` |
+| ID | Acción | Estado |
+|---|---|---|
+| R11 | Fragmentar `config.rs` (1291L), `cli_server.rs` (934L), `wal.rs` (846L), `text_index.rs` (837L) | ⏳ Pendiente |
+| R12 | Hook `useReducedMotion()` compartido | ✅ **Resuelto** — hook ya existe, 22 callers |
+| R13 | Pausar RAF loops en background | ✅ **Resuelto** — visibilitychange listeners existentes |
+| R14 | Mover 18 CSS globales a lazy imports | ⏳ Pendiente |
+| R15 | Fuzzing corpus persistido vía cache (por branch) | ⏳ Pendiente — falta merge cross-branch + crash archive |
+| R16 | GIL release + type stubs + tests en adapters | ✅ **Resuelto** — `py.detach()` en todos, `.pyi` existe, `test_unique_keys_across_calls` |
+| R17 | Centralizar lógica CI en composite action | ⏳ Pendiente — 5 workflows aún duplican setup |
+| R18 | CodeQL: `build-mode: none` (source analysis) | ⏳ Pendiente — tradeoff válido para Rust beta |
 
 ### 🟢 TIER 3 (Backlog)
 
-| ID | Acción |
-|---|---|
-| R19 | Eliminar o re-habilitar `rkyv_archives` (357 líneas muertas) |
-| R20 | Eliminar `#[allow(dead_code)]` residuales |
-| R21 | Migrar `search_memory` MCP de fallback silencioso a error explícito |
-| R22 | Agregar `#[must_use]` a `Result<T>` |
-| R23 | Eliminar `BroadcastChannel` dead code o implementarlo |
-| R24 | Actualizar `llms.txt` (raíz + web) con features nuevos |
-| R25 | Corregir versiones inconsistentes en docs |
-| R26 | Migrar `fjall 3.1 → 4.0` (cuando esté disponible) |
+| ID | Acción | Estado |
+|---|---|---|
+| R19 | Eliminar `rkyv_archives` (357L muertas) | ✅ **Resuelto** — archivo es 4L de doc, código eliminado |
+| R20 | Eliminar `#[allow(dead_code)]` residuales (10 en source) | ⏳ Pendiente |
+| R21 | Migrar `search_memory` MCP fallback Cosine a error explícito | ⏳ Pendiente — actualmente retorna error para valores inválidos, silent default para `None` |
+| R22 | Agregar `#[must_use]` a `Result<T>` | ✅ **Resuelto** — movido a `VantaError` enum |
+| R23 | Implementar o eliminar `BroadcastChannel` dead code | ⏳ Pendiente — `has_broadcast_channel()` sin callers |
+| R24 | Actualizar `llms.txt` (raíz + web) con flat index + IDB fallback | ⏳ Pendiente |
+| R25 | Corregir versiones inconsistentes en docs (DC1, DC2, DC5, DC6) | ⏳ Pendiente |
+| R26 | Migrar `fjall 3.1 → 4.0` | ⏳ Pendiente — bloqueado externamente |
+| CSP1 | Implementar CSP headers en Rust HTTP server | ℹ️ **WONTFIX** — JSON API puro |
+| U4 | Corregir TOCTOU en ops.rs (delete, delete_batch) | ✅ **Resuelto** (2026-07-13) |
 
 ---
 
@@ -639,7 +680,7 @@ src/
 | fjall 3.1→4.0 | ⏳ Pendiente | Bloqueado externamente |
 | Duplicados ~17→~12 | ✅ Parcial | 5 resueltos |
 
-### 15.3 Resoluciones Póstumas (esta sesión Jul-12)
+### 16.3 Resoluciones Póstumas (esta sesión Jul-12)
 
 | Hallazgo | Cambio | Commit |
 |----------|--------|--------|
@@ -652,10 +693,26 @@ src/
 | E4 — `#[must_use]` en Result | Movido de type alias a `VantaError` enum | `e338488` |
 | R20 — dead_code parcial | 6 métodos `edge_index.rs` + `insert_node_to_backend` + `shard_index` + imports removidos | `e338488` |
 | DC7 — CHANGELOG tags note | Nota actualizada: tags v0.2.3 y v0.3.0 existen, mismo commit | Esta sesión |
-| W11 — contraste bajo | Pendiente | — |
+| W11 — contraste bajo | ✅ Resuelto (no existe en codebase actual) | — |
+| CSP1 — Sin CSP en Rust server | 🔴 Pendiente | — |
+| U4 — TOCTOU ops.rs | 🟡 Pendiente | — |
+| A3-A6 — Fragmentar 4 archivos grandes | 🟡 Pendiente | — |
+| C1 — 5 workflows sin composite action | 🟡 Pendiente | — |
 | R9 / W5+W6 / D11+D12 | engine.lazy.tsx (412L→142L): 4 subcomponentes extraídos a `Engine*`; pricing.lazy.tsx (318L→139L): datos a `data/pricing.ts` | `412ab40` |
 | R10 / W4 / D13 | NbNav.tsx (298L→224L): focus trap a `useFocusTrap` hook, drawer a `NavDrawer` component | `412ab40` |
 | AD1 / R8 | LangChain + LlamaIndex adapters ya implementados (259L + 216L, con tests) | Pre-existente |
+| AD2 — GIL release | Todos los métodos pesados usan `py.detach()` | Pre-existente |
+| AD3 — Error handling | `map_vanta_error` mapea cada variante a excepción Python específica | Pre-existente |
+| AD5 — Keys colisión | AtomicU64 counter por instancia + `test_unique_keys_across_calls` | Pre-existente |
+| AD6 — Type stubs | `vantadb_py/__init__.pyi` con 25+ clases/métodos documentados | Pre-existente |
+| AD7 — Tests integración | `test_unique_keys_across_calls` en langchain + llamaindex | Pre-existente |
+| P11 / W7 — RAF background | visibilitychange listeners en NbVectorNebula + NbTerminalHero; ScrollProgress RAF solo en scroll | Pre-existente |
+| W8 — motion hook | `useReducedMotion` ya existe, 22 callers | Pre-existente |
+| W11 — contraste bajo | `oklch(48%)` no existe en el codebase actual | Pre-existente |
+| D14 — NbQuickstart | highlight extraído a `lib/syntax-highlight.ts` (287L→244L) | Pre-existente |
+| D16 — useReducedMotion | Hook ya existe | Pre-existente |
+| D17 — useCountUp | Hook ya existe | Pre-existente |
+| D18 — useFadeInView | `useAnimationSafe` + `fadeUp` cubren el patrón | Pre-existente |
 
 ---
 
@@ -680,7 +737,7 @@ src/
 | Arquitectura Core Rust | 8.5 |
 | Safety (Unsafe Rust) | 7.0 |
 | Error Handling | 8.5 |
-| Security | 8.0 |
+| Security | 7.5 |
 | Performance | 7.5 |
 | Deuda Técnica | 6.5 |
 | CI/CD | 9.0 |
@@ -690,9 +747,9 @@ src/
 | MCP Server | 8.5 |
 | Adapters (7) | 6.0 |
 | Web Frontend | 8.2 |
-| Documentation | 7.8 |
-| **Promedio Ponderado** | **7.9/10** |
+| Documentation | 7.0 |
+| **Promedio Ponderado** | **7.8/10** |
 
 ---
 
-*Reporte generado el 2026-07-11 usando 3 skills + 5 exploraciones paralelas profundas de CodeGraph. ~45 commits y ~80 hallazgos documentados desde el audit anterior.*
+*Reporte generado el 2026-07-11, actualizado el 2026-07-13. ~50 items analizados en 5 exploraciones paralelas con verificación empírica. Score: 7.8/10 (↑ Seguridad: CSP1 WONTFIX — JSON API puro, U4 TOCTOU corregido).*
