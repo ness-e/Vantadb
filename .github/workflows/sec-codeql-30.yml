@@ -33,8 +33,5 @@ jobs:
           languages: rust
           build-mode: none
 
-      - name: Build (workspace multi-crate)
-        run: cargo build --workspace
-
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@e5d2f324924c57b6cabef9bdd7a1c85d62a89be2
