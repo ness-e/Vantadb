@@ -2,13 +2,13 @@
 title: "General Progress of VantaDB Project"
 status: active
 tags: [vantadb, progress, documentation]
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-14
 aliases: []
 ---
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-13
+> **Last updated:** 2026-07-14
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -847,6 +847,34 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - `.github/workflows/release.yml` — pagefile/swap in CI/CD Windows/macOS
 - `.github/workflows/python_wheels.yml` — pagefile/swap in CI/CD Windows/macOS
 ## Tareas Completadas (Migradas desde Backlog)
+
+### REV-001: CI Rust TSan ABI mismatch
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Remove `-Zsanitizer=thread` flag incompatible with Rust 1.94.1; fix YAML indent error in `msrv` job
+- **Resultado:** ✅ CI workflow validates (yamllint). Commit `35873e6`.
+- **Ids:** `REV-001`
+
+### REV-002: CI Web 21 ESLint errors
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Fix 19 prettier errors (auto-fix) + 3 react-hooks/exhaustive-deps warnings
+- **Resultado:** ✅ `npm run lint` — 0 errors, 0 warnings. Commit `35873e6`.
+- **Ids:** `REV-002`
+
+### DRV-099: Haystack protocolo Document real
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** `write_documents` accepts both `dict` and `Document`; `filter_documents` returns real `Document` instances with typed meta conversion
+- **Resultado:** ✅ `cargo check -p vantadb-haystack` passes, 9/9 Python tests pass. Commit `7fb0a1f`.
+- **Ids:** `DRV-099`
+
+### DRV-102: Langchain missing GIL release
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Release GIL in `add_texts`, `similarity_search_by_vector`, `delete` using pyo3 0.29 `detach()` API
+- **Resultado:** ✅ `cargo check -p vantadb-langchain` passes, `cargo build` passes. Commit `3cc6888`.
+- **Ids:** `DRV-102`
 
 ### WEB-15/WEB-16: Homepage Visual Refinements (text-align, font-weight, Nav background)
 - **Fecha:** 2026-07-02

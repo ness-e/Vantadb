@@ -64,9 +64,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Prioridad:** 🔴
 - **Archivos clave:** `vantadb-langchain/src/python.rs:82-85,109-112,126-133`
 - **Gate Result:** ✅ DO
-- **Gate Justificación:** GIL no liberado en `add_texts`, `similarity_search_by_vector`, `delete`. Bloquea Python threads. Contraste: los otros 7 adapters sí lo hacen.
+- **Gate Justificación:** GIL no liberado en `add_texts`, `similarity_search_by_vector`, `delete`. Bloquea Python threads.
 - **Contrato:** "`cargo check -p vantadb-langchain` pasa, tests pasan"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `3cc6888`
+- **Notas:** PyO3 0.29 cambió API: `allow_threads` → `detach(self, f)` que consume el token Python. Los métodos se reestructuraron en fases: prepare (GIL) → detach (bloqueante) → post (GIL renovado via `Python::attach`). Colateral: `__init__.py` expone `__version__`.
 
 ### Task 5: DRV-109 — LlamaIndex missing GIL release (all methods)
 
@@ -1100,11 +1102,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 3 — DRV-099 Haystack protocolo Document real
+Objetivo activo: Task 4 — DRV-102 Langchain missing GIL release
 Estado: completed
-Última acción: updated write_documents to accept dict + Document objects; filter_documents returns Document instances; updated .pyi stubs and tests
-Resultado: ✅ cargo check -p vantadb-haystack passes, 9/9 Python tests pass
-Próxima acción: Task 4 — DRV-102 Langchain missing GIL release
-Contrato: "cargo check -p vantadb-haystack pasa, Python tests pasan"
-Próxima tarea si completa: Task 4 — DRV-102 Langchain missing GIL release
+Última acción: wrapped add_texts, similarity_search_by_vector, delete in py.detach() (pyo3 0.29 API); fixed __init__.py __version__ export
+Resultado: ✅ cargo check -p vantadb-langchain passes, cargo build passes, commit 3cc6888
+Próxima acción: Task 5 — DRV-109 LlamaIndex missing GIL release (byte-for-byte identical code)
+Contrato: "cargo check -p vantadb-langchain pasa, tests pasan"
+Próxima tarea si completa: Task 5 — DRV-109 LlamaIndex missing GIL release
 === END RECITATION ===
