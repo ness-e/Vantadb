@@ -42,7 +42,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** CI web roto impide releases. 14 errors + 7 warnings conocidos y localizados.
 - **Contrato:** "`npm run lint` 0 errors, 0 warnings"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ FIXED
+- **Notas:** 19 prettier errors auto-fixed via `--fix`. 3 react-hooks/exhaustive-deps warnings fixed by adding `reducedMotion` to dep arrays. Commit `35873e6`.
 
 ### Task 3: DRV-099 — Haystack protocolo Document real
 
@@ -53,7 +54,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Integración rota con Haystack real. Métodos aceptan/retornan dicts en vez de `haystack.dataclasses.Document`. No es compatible con pipelines.
 - **Contrato:** "`cargo check -p vantadb-haystack` pasa, Python tests pasan"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ FIXED
+- **Notas:** write_documents now accepts both dict and haystack.dataclasses.Document objects. filter_documents returns Document instances. Fixed meta extraction for both paths. Updated .pyi stubs.
 
 ### Task 4: DRV-102 — Langchain missing GIL release (all methods)
 
@@ -1098,11 +1100,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 1 — REV-001 CI Rust TSan ABI mismatch
+Objetivo activo: Task 3 — DRV-099 Haystack protocolo Document real
 Estado: completed
-Última acción: edit `.github/workflows/ci-rust-10.yml` — removed sanitizer flags from TSan job; fixed YAML indentation error in msrv job
-Resultado: ✅ YAML syntax valid, no errors
-Próxima acción: proceed to Task 2 — REV-002 CI Web 21 ESLint errors (`web/src/routes/demo.lazy.tsx`, `web/src/routes/why-vantadb.tsx`)
-Contrato: "cargo nextest run --profile audit --workspace --build-jobs 2 pasa en CI"
-Próxima tarea si completa: Task 2 — REV-002 CI Web 21 ESLint errors
+Última acción: updated write_documents to accept dict + Document objects; filter_documents returns Document instances; updated .pyi stubs and tests
+Resultado: ✅ cargo check -p vantadb-haystack passes, 9/9 Python tests pass
+Próxima acción: Task 4 — DRV-102 Langchain missing GIL release
+Contrato: "cargo check -p vantadb-haystack pasa, Python tests pasan"
+Próxima tarea si completa: Task 4 — DRV-102 Langchain missing GIL release
 === END RECITATION ===
