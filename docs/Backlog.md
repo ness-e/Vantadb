@@ -87,7 +87,7 @@ last_reviewed: 2026-07-13
 | `WEB-02` | **Corregir claims falsos en landing** — Benchmarks web (50x vs real 40x), mención "SQL support", "auto-embeddings", "cloud tiers" sin infraestructura | bitacora W1–W4 | 🟡 2-3d | 🔴 | ❌ |
 | `WEB-03` | **Async WAL batching fsyncs** — Recomendado en PERFORMANCE_TUNING.md para alta throughput | `docs/operations/PERFORMANCE_TUNING.md:264` | 🟡 2-3d | 🟡 | ❌ |
 | `WEB-04` | **Storage format versioning (draft→implement)** — STORAGE_VERSIONING.md Phases 1-3, sin migration path para VantaFile/HNSW/WAL | `docs/architecture/STORAGE_VERSIONING.md` | 🟠 3-5d | 🔵 | ❌ |
-| `DEVOPS-13` | **Pin all workflow actions a SHA + Node 22** — 11 workflows sin SHA pinning, Node 20 deprecated | bitacora C1, plan repair campaign | 🟡 1-2d | 🟡 | ❌ |
+| `DEVOPS-13` | **Pin all workflow actions a SHA + Node 22** — 11 workflows sin SHA pinning, Node 20 deprecated | bitacora C1, plan repair campaign | 🟡 1-2d | 🟡 | ✅ |
 | `DEVOPS-14` | **Extract composite action para Rust setup** — 5+ workflows duplican inline | bitacora C1 | 🟢 4h | 🟡 | ❌ |
 | `DEVOPS-15` | **Mover features heavies fuera de default + consolidar deps duplicadas** — Optimización compilación workspace | `docs/Investigaciones/cargo-check-optimizacion.md` T5/T7 | 🟡 1-2d | 🟡 | ❌ |
 | `TEST-11` | **Frontend tests (Vitest + Playwright)** + cross-browser WASM testing | bitacora T1/T4 | 🟡 2-3d | 🟡 | ❌ |
@@ -146,8 +146,8 @@ last_reviewed: 2026-07-13
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-006` | **Race condition en `delete()`: write lock dropped antes de index cleanup** — `drop(nodes)` libera `nodes.write()` L241, luego actualiza `edge_index` y `scalar_index` sin protección. Ventana donde un `insert` concurrente con mismo ID target puede interleaver, corrompiendo índices | `src/engine.rs:235-248` | 🟢 30min | 🔴 | ❌ |
-| `DRV-007` | **Data race en `filter_field()`: accede `scalar_index` sin lock** — No adquiere el `nodes` RwLock. Mutaciones concurrentes (insert/update/delete) acceden a `scalar_index` bajo `nodes.write()`, pero `filter_field` no. Comportamiento indefinido | `src/engine.rs:354` | 🟢 30min | 🟡 | ❌ |
+| `DRV-006` | **Race condition en `delete()`: write lock dropped antes de index cleanup** — `drop(nodes)` libera `nodes.write()` L241, luego actualiza `edge_index` y `scalar_index` sin protección. Ventana donde un `insert` concurrente con mismo ID target puede interleaver, corrompiendo índices | `src/engine.rs:235-248` | 🟢 30min | 🔴 | ✅ |
+| `DRV-007` | **Data race en `filter_field()`: accede `scalar_index` sin lock** — No adquiere el `nodes` RwLock. Mutaciones concurrentes (insert/update/delete) acceden a `scalar_index` bajo `nodes.write()`, pero `filter_field` no. Comportamiento indefinido | `src/engine.rs:354` | 🟢 30min | 🟡 | ✅ |
 | `DRV-008` | **Duplicate scoring pipeline en `vector_search()` y `hybrid_search()`** — ~25 líneas idénticas (sort_by, truncate, collect, QueryResult build). DRY violation entre L288-305 y L399-413 | `src/engine.rs:288-305,399-413` | 🟢 1h | 🔵 | ❌ |
 | `DRV-009` | **`node_count()` O(n) full scan bajo read lock** — itera todos los nodos vivos cada vez. 1M nodos → 1M iteraciones por cada `node_count()`. Sin contador cacheado | `src/engine.rs:424-426` | 🟢 1h | ⚪ | ❌ |
 | `DRV-010` | **63 `unwrap()` en tests** — Todos en `#[cfg(test)]`, aceptable para test helpers. Solo documentar como deuda de estilo | `src/engine.rs:460-932` | 🟢 N/A | ℹ️ | ❌ |
