@@ -10,7 +10,7 @@ export default async function middleware(request: Request): Promise<Response | u
     "default-src 'self'",
     "script-src 'self' 'nonce-" + nonce + "'",
     "style-src-attr 'unsafe-inline'",
-    "style-src-elem 'self'",
+    "style-src-elem 'self' 'nonce-" + nonce + "'",
     "img-src 'self' data: https:",
     "connect-src 'self' https:",
     "font-src 'self' data:",
