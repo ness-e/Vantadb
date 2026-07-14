@@ -301,6 +301,15 @@ Automated audit of 44 findings executed and resolved in full on the same day. Ea
 
 **Documentación completa:** `docs/progreso/backlog-2026-07-07.md`
 
+### 2026-07-14 — REV-011: Decompose insert_hnsw 177L monolithic function
+
+- **REV-011 (✅ completado):** Extracted `connect_layer_neighbors()` from `insert_hnsw` in `src/index/graph.rs:595-619`. The 3-level nested loop for bidirectional neighbor connection is now a named private method. `insert_hnsw` reduced from ~135→112 lines. No behavioral change.
+- **Hallazgos colaterales:** 2 errores pre-existentes en `src/sdk/serialization/impl_index.rs` (private fn access to `impl_text_index.rs` methods). No relacionados con REV-011.
+
+### 2026-07-14 — REV-009: Optimize workspace compilation with default-members
+
+- **REV-009 (✅ completado):** Removed `--workspace` from all 9 `cargo check/clippy/nextest` invocations in `ci-rust-10.yml` (they now use `default-members`). Added `[workspace] default-members = [...]` to `Cargo.toml` listing only 5 core packages, excluding 12 adapter crates from development rebuilds.
+
 ### 2026-07-08 — WASM Demo + Quick Wins (NUEVO-03/04) + Demo Route
 
 - **WASM-03 (completado):** Ruta `/demo` creada con chat interactivo (Transformers.js + mock embedder + fallback in-memory). Fixes: `vector: [vector]` double-wrap, `@wasm` alias resuelto copiando `pkg/` a `web/src/wasm/`, `vite-plugin-wasm` configurado, `cssMinify: "esbuild"` para compatibilidad Tailwind v4. Demo completamente funcional.
@@ -1583,6 +1592,71 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | TASK-31 / P4 | VantaFile writes reversibles | `insert()`: si KV put falla tras VantaFile write → tombstone. `batch_insert()`: si write_batch falla → re-acquire vstore lock + tombstone offsets. `delete()`/`delete_batch()` ya tombstoneaban antes del KV delete — no afectados | ✅ |
 
 **Verificación:** `cargo check` ✅, `cargo nextest run` 576/577 pass (1 pre-existing), `cargo fmt --check` clean.
+
+### 2026-07-14 — REV-003: Coverage threshold gate in CI (CII Silver)
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-003 | Coverage gate >=80% | Added `Enforce coverage threshold (>=80%)` step to `ci-rust-10.yml` coverage job. Uses `cargo llvm-cov report --json` + python3 to parse line coverage and fail if <80%. | ✅ |
+
+**Verificación:** YAML syntax valid. Existing coverage job was already present; added enforcement gate for CII Silver ≥80% requirement.
+
+### 2026-07-14 — REV-004: tantivy rlib fix in vantadb-openai
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-004 | Fix tantivy rlib not found | Added `"rlib"` to `vantadb-openai/Cargo.toml` `crate-type`. Test binaries need `rlib` to link against `vantadb_openai`; `cdylib`-only causes "tantivy rlib not found" in CI. | ✅ |
+
+**Verificación:** `cargo check -p vantadb-openai` ✅, `cargo nextest run --no-run -p vantadb-openai` ✅.
+
+### 2026-07-14 — REV-005: Fix 6x no-explicit-any + prettier in web frontend
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-005 | Fix ESLint/prettier in demo.lazy.tsx + why-vantadb.tsx | Added `HitResult` + `VantaDemoDB` types; changed `catch (err: any)` → `catch (err: unknown)` with `instanceof Error` narrowing; ran `eslint --fix` for prettier. 0 remaining violations. | ✅ |
+
+**Verificación:** `npx eslint` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
+
+### 2026-07-14 — REV-016: Audit vantadb-enterprise premature abstraction
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-016 | Audit `vantadb-enterprise` premature abstraction | Every module is speculative — all 7 `.rs` files are either TODO stubs or data structures with zero callers. Cargo.toml defines 4 features (`encryption`, `audit-log`, `rbac`, `replication`) that no `#[cfg]` gate references. No integration into main `vantadb` crate. Recommend deleting entire crate (~267 lines); real enterprise features should be built on demand. | ✅ |
+
+**Verificación:** Manual audit per ponytail-audit method. Full report: `docs/reviews/REV-016-vantadb-enterprise-audit.md`.
+
+### 2026-07-14 — REV-015: Fix remaining 2x no-explicit-any in demo.lazy.tsx
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-015 | Remove remaining `any` types in demo.lazy.tsx | Replaced `Promise<any>` with typed `Promise<HFExtractor>`, typed dynamic import as `{ pipeline: PipelineFn }`, removed both `eslint-disable-next-line` comments. | ✅ |
+
+**Verificación:** `npx eslint src/routes/demo.lazy.tsx` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
+
+### 2026-07-14 — REV-008: Update actions/checkout + setup-node to v4
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-008 | Update deprecated actions/checkout@v3 + setup-node@v3 to v4 | Replaced `actions/checkout@v3` SHA with `@v4` (42 occurrences) and `actions/setup-node@v3` SHA with `@v4` (5 occurrences) across 13 workflow files. Runner uses Node 24; v4 uses Node 20 for compatibility. | ✅ |
+
+**Verificación:** `grep` confirms 0 remaining old SHA references, 53 `@v4` references in project workflows.
+
+### 2026-07-14 — REV-006: Workspace-level clippy in CI
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-006 | Workspace-level clippy across all adapters | Removed duplicate `[profile.release]` from `vantadb-wasm/Cargo.toml` (workspace already had `[profile.release.package.vantadb-wasm]`); added `--all-targets --all-features` to Windows and macOS clippy jobs in `ci-rust-10.yml` for consistency with Linux. | ✅ |
+
+**Verificación:** Profile warning eliminated (`cargo check -p vantadb-wasm` has no profile warning). All 3 OS clippy jobs now use uniform `--workspace --all-targets --all-features -- -D warnings`.
+
+### 2026-07-14 — REV-007: reducedMotion in useEffect deps (3 components)
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-007 | Add `reducedMotion` to `useEffect` deps | NbMonolith.tsx: `[]` → `[reducedMotion]`; NbVectorNebula.tsx: `[]` → `[reducedMotion]`; `__root.tsx`: `[routeId]` → `[routeId, reducedMotion]`. Prevents stale closure on accessibility preference changes. | ✅ |
+
+**Verificación:** `npx eslint` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
+
 
 
 
