@@ -11,7 +11,7 @@ last_reviewed: 2026-07-13
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 88 (66 previos + 22 del docs-audit Jul 13)
+> **Total open items:** 91 (66 previos + 22 del docs-audit Jul 13 + 3 del full review Jul 13)
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -24,10 +24,10 @@ last_reviewed: 2026-07-13
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado | Verificación |
 |----|-------|----------|-----------|--------|-------------|
-| `INT-01` | **LangChain adapter → PyPI** | 🟡 1-2d | 🔴 | ❌ | Código existe en `vantadb-langchain/` + `integrations/langchain/`, no publicado |
-| `INT-02` | **LlamaIndex adapter → PyPI** | 🟡 1-2d | 🔴 | ❌ | Código existe en `vantadb-llamaindex/` + `integrations/llamaindex/`, no publicado |
-| `DEVOPS-05` | Pipeline CI unificado para publicar los 10 adapters a PyPI | 🟡 1-2d | 🔴 | ❌ | No existe pipeline integrado |
-| `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ❌ | Código listo, `package.json` presente, no publicado |
+| `INT-01` | **LangChain adapter → PyPI** | 🟡 1-2d | 🔴 | ✅ | Código existe, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. Push tag `adapters-v0.3.0` para publicar. |
+| `INT-02` | **LlamaIndex adapter → PyPI** | 🟡 1-2d | 🔴 | ✅ | Código existe, CI configurado (`release-adapters-62.yml`), 5/5 tests pasan. Push tag `adapters-v0.3.0` para publicar. |
+| `DEVOPS-05` | Pipeline CI unificado para publicar los 9 adapters a PyPI | 🟡 1-2d | 🔴 | ✅ | `release-adapters-62.yml` existente: test → build → TestPyPI (dispatch) → PyPI (tag `adapters-v*`). Los 9 adapters en `integrations/` build correctos. |
+| `REL-02` | **Publicar `vantadb-ts` en npm** (WASM build) | 🟡 1-2d | 🔴 | ⏳ | 3 cambios aplicados: (1) `impl_text_index.rs` visibility fix (`fn` → `pub(crate)` en 2 métodos), (2) `wasm-opt = false` en `vantadb-wasm/Cargo.toml` (toolchain local no soporta bulk-memory), (3) CI `release-npm-61.yml` fix: `ts-v*` tag ahora ejecuta `publish-wasm`. Build WASM ✅, Build TS ✅, npm dry-run ✅. Tests: ⚠️ 80/219 fail (pre-existing WASM panics `unreachable!` en Node.js, pasan 113, 26 skip — bug no relacionado a REL-02). npm names `vantadb` + `vantadb-wasm` disponibles. |
 
 ### 🌐 Web & Landing
 
@@ -115,7 +115,18 @@ last_reviewed: 2026-07-13
 
 ### 🔍 Hallazgos del Full Review (2026-07-13)
 
-> Items descubiertos durante `vantadb-full-review`. Referencia: `docs/reviews/2026-07-13-full-review.md`.
+> Items descubiertos durante `vantadb-full-review`. Referencia: `docs/reviews/PROJECT_FULL_REVIEW_2026-07-13.md`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `RC1-RC4` | **23 `.expect("RwLock/Mutex poisoned")` en governance/ + vector/governor.rs** — Ya resuelto: helpers `RwLockExt`/`MutexExt` existen en `src/sync_ext.rs`, governance/ ya los usa. No requiere acción | `src/sync_ext.rs`, `src/governance/*`, `src/vector/governor.rs` | 🟢 N/A | ✅ | ✅ |
+| `RC5` | **Mejorar mensaje de `Aes256Gcm::new_from_slice().expect()`** — Mensaje genérico, incluir razón técnica en panic | `src/crypto.rs:104` | 🟢 15min | 🟡 | ❌ |
+| `RC6` | **Evaluar propagar `CryptoError` desde `encrypt()` vs mantener expect** — 45+ call sites vía `EncryptionStream`. Decidir si vale la ruptura | `src/crypto.rs:126` | 🟡 1d | 🟡 | ❌ |
+| `RC7` | **`.expect("GovernorConfig build failed")`** — Startup path fatal, abort intencional. **Ponytail: keep as-is** | `src/cli_server.rs:139` | 🟢 N/A | ℹ️ | — |
+| `RC8` | **`auth_middleware` .expect("keys")** — Middleware debe devolver 401 en vez de panic cuando el invariante se viola | `src/cli_server.rs:758` | 🟢 2h | 🟡 | ❌ |
+| `RC9` | **SystemTime::duration_since** — Ya tiene `.unwrap_or_default()` en L32. **Ya resuelto** | `src/binary_header.rs:32` | 🟢 N/A | ✅ | ✅ |
+| `RC10` | **`.expect("reqwest blocking client")`** — Startup-only, fatal abort aceptable. **Ponytail: keep as-is** | `src/wal_shipping.rs:78` | 🟢 N/A | ℹ️ | — |
+| `RC11` | **`ClientEngine::default().expect()`** — Sin engine = sin bindings, abort intencional. **Ponytail: keep as-is** | `src/python.rs:21` | 🟢 N/A | ℹ️ | — |
 
 ### 🔍 Hallazgos del Review Deep — SDK (DRV)
 
@@ -211,6 +222,153 @@ last_reviewed: 2026-07-13
 | `DRV-037` | **`types.test.ts` usa types incorrectos que tsc no detecta** — `created_at_ms: 1000` (number) vs type `string`, `node_id: 42` (number) vs type `string`. Pasa porque `tsconfig` excluye `__tests__/`. Si se incluyeran tests en el typecheck, romperían compilación | `vantadb-ts/src/__tests__/types.test.ts:11-14` | 🟢 15min | ⚪ | ❌ |
 | `DRV-038` | **TypeScript numeric fields tipados como `string` inconsistentes con otros SDKs** — `created_at_ms`, `updated_at_ms`, `version`, `node_id` son `string` en TS pero `u64` en Rust/Python. El bridge WASM convierte a string para JSON, pero obliga a conversión `Number()` en el consumidor TS | `vantadb-ts/src/types.ts:28-31` | 🟢 1h | ℹ️ | ❌ |
 | `DRV-039` | **No ESLint config presente** — `vantadb-ts/` no tiene `.eslintrc.*`. Sin linting estático de TS. Tests usan `any` (dx04.test.ts, load.test.ts) sin detección | `vantadb-ts/` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-040` | **`unsafe` en simd.rs sin `// SAFETY:` comment** — L34-77: bloque `unsafe` con `v128_load` requiere punteros alineados a 16 bytes. `Vec<f32>` garantiza alineación, pero sin SAFETY docs el invariante no es verificable en code review. 1 bloque unsafe (L34) sin documentación | `vantadb-wasm/src/simd.rs:34-77` | 🟢 30min | 🟡 | ❌ |
+| `DRV-041` | **`worker.rs` Promise constructor con inline JS string** — L201-209: `js_sys::Function::new_no_args` con string JS crudo + `arguments[0]`/`arguments[1]`. El callback `_reject` nunca se invoca: el Promise cuelga para siempre si el mensaje nunca llega. Response parsing vía `serde_json::from_str` (L229) agrega round-trip JSON innecesario vs `serde_wasm_bindgen::from_value` | `vantadb-wasm/src/worker.rs:201-229` | 🟢 2h | 🔵 | ❌ |
+| `DRV-042` | **Test duplicación entre `lib.rs` mod tests y `tests/wasm_tests.rs`** — ~15 tests idénticos (put/get, delete, batch, capabilities, flush/compact, list_namespaces, search_without_results, large_metadata, concurrent_put_get) repartidos en 207L de tests en `lib.rs` + 751L en `wasm_tests.rs`. Mantenimiento duplicado | `vantadb-wasm/src/lib.rs:901-1107`, `vantadb-wasm/tests/wasm_tests.rs` | 🟢 1h | ⚪ | ❌ |
+| `DRV-043` | **Core crate compilation errors bloquean `cargo check -p vantadb-wasm`** — `ensure_text_index_current_with` y `adjust_text_index_state_after_replace` son privados en `impl_text_index.rs` pero llamados desde `impl_index.rs`. 2 errores E0624. No afecta al wasm module per se, pero impide CI check del wasm crate | `vantadb/src/sdk/serialization/impl_index.rs:20,210` | 🟢 30min | 🟡 | ❌ |
+
+### 🔍 Hallazgos del Review Deep — Server Binary (DRV)
+
+> Items descubiertos durante `review-deep` del módulo `vantadb-server` (Wave 0). Binary wrapper thin crate (78L source, 4 files) — toda la lógica del servidor HTTP vive en `vantadb::cli_server`. Referencia: `.opencode/skills/review-deep/`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-044` | **MCP shutdown via `std::process::exit(0)` antes de que `run_stdio_server` reciba señal de parada** — `main.rs:46-55`: SIGTERM handler flushes storage y llama `exit(0)`, matando el proceso inmediatamente. `vantadb_mcp::run_stdio_server(storage)` (L57) nunca recibe señal de shutdown; in-flight JSON-RPC requests en stdin se pierden sin respuesta. Fix: usar `CancellationToken` para señalizar `run_stdio_server` primero, luego `return` de main en vez de `exit(0)` | `vantadb-server/src/main.rs:46-57` | 🟢 2h | 🔵 | ❌ |
+| `DRV-045` | **Test setup factory duplicado en 3 test files** — `tests/server.rs::build_context`, `tests/e2e.rs::build_e2e_context`, `tests/benchmarks.rs::setup_bench` implementan el mismo patrón (tempdir + StorageEngine + ServerState) con ~15L cada uno. Algunos retornan `TestContext` struct, otros tuplas `(TempDir, Arc<ServerState>)`. Refactor a helper compartido reduciría ~40L de duplicación | `vantadb-server/tests/server.rs:26-39, tests/e2e.rs:52-66, tests/benchmarks.rs:23-55` | 🟢 30min | ⚪ | ❌ |
+
+### 🔍 Hallazgos del Review Deep — MCP Protocol Interface (DRV)
+
+> Items descubiertos durante `review-deep` del módulo `vantadb-mcp` (Wave 0). Custom MCP protocol sobre stdio sin librería externa. 1 source file `src/lib.rs` (1309L) + 1 test file `tests/mcp_tests.rs` (956L). `cargo fmt` OK; `cargo check` bloqueado por 2 errores de visibilidad en `vantadb::sdk::serialization` (DRV-043). Web research no disponible (timeouts). Referencia: `.opencode/skills/review-deep/`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-046` | **Blocking stdio I/O en tokio runtime impide graceful shutdown** — `run_stdio_server` (async fn) ejecuta `stdin.lock().lines()` sincrónicamente en el worker de tokio, bloqueando la ejecución de otras tareas async (incluyendo el handler de SIGINT). Ctrl+C termina el proceso via señal OS sin ejecutar shutdown graceful ni responder in-flight JSON-RPC requests. Fix: `spawn_blocking` para el loop de I/O o `tokio::io::AsyncBufReadExt::lines()` | `vantadb-mcp/src/lib.rs:320-384` | 🟢 2h | 🟡 | ❌ |
+| `DRV-047` | **Hardcoded validation limits en handle_resources_read** — Líneas 549,553,575 usan literales `256` y `512` en vez de `config.max_namespace_length` / `config.max_key_length`. Consistencia: otros handlers usan `config.*`. Bajo impacto porque los default coinciden | `vantadb-mcp/src/lib.rs:549,553,575` | 🟢 15min | ⚪ | ❌ |
+| `DRV-048` | **JSON-RPC 2.0 spec — versión no-2.0 descartada silenciosamente** — L359-363: si `req.jsonrpc != "2.0"`, se loggea warning y se hace `continue` sin enviar respuesta de error. La especificación (§7) dice que el servidor DEBE responder con un error de tipo invalid-request (-32600). El cliente nunca sabe que su request fue rechazado | `vantadb-mcp/src/lib.rs:359-363` | 🟢 30min | 🔵 | ❌ |
+| `DRV-049` | **collection_delete no atómico** — Fetch all records via `collect_all_records`, luego delete one-by-one. Si el proceso crashea a mitad, el namespace queda parcialmente borrado. Sin transacción ni batch delete | `vantadb-mcp/src/lib.rs:1269-1305` | 🟢 1h | 🔵 | ❌ |
+| `DRV-050` | **inject_context construye LISP query via string interpolation** — Naive escaping (`content.replace('\\', "\\\\").replace('"', "\\\"")`) antes de interpolación en query LISP via `format!`. No escapa paréntesis, newlines u otros metacaracteres LISP. Potencial injection vector si content no es confiable | `vantadb-mcp/src/lib.rs:1154-1187` | 🟢 1h | 🟡 | ❌ |
+| `DRV-051` | **search_semantic N+1 query pattern** — Por cada hit de HNSW, llama `embedded.get_node()` individualmente (L1114-1122). Para top_k=1000, 1000 queries separadas. Optimización: batch get | `vantadb-mcp/src/lib.rs:1114-1122` | 🟢 1h | ⚪ | ❌ |
+| `DRV-052` | **McpMetrics trackeadas pero nunca reportadas** — Struct `McpMetrics` (requests_total, errors_total, active_requests) solo se loggea una vez en shutdown. Sin endpoint `/metrics`, sin log periódico. Datos operacionales no visibles en runtime | `vantadb-mcp/src/lib.rs:161-166,386-390` | 🟢 1h | ℹ️ | ❌ |
+| `DRV-053` | ❌ **DESCARTADO** — Duplicado de DRV-047 | — | — | — | — |
+| `DRV-054` | **read_axioms hardcoded como JSON literal** — 4 axioms definidos inline en L1191-1198 como array JSON hardcoded. Si los axioms se actualizan en el metadata module/database, la copia MCP deriva. DRV: leer del metadata module o storage | `vantadb-mcp/src/lib.rs:1190-1198` | 🟢 30min | 🔵 | ❌ |
+| `DRV-055` | **Test test_mcp_invalid_json testea serde_json no MCP** — L697-701: `serde_json::from_str::<Value>(malformed)` verifica que serde_json rechace JSON inválido. Esto testea la librería third-party, no la lógica del MCP server. La porción McpError y handle_tools_call(None) del test es válida | `vantadb-mcp/tests/mcp_tests.rs:697-721` | 🟢 15min | ⚪ | ❌ |
+| `DRV-056` | **stdout write errors silenciosamente ignorados** — `write_json` y el main loop usan `let _ = writeln!(...)` y `let _ = stdout.flush()`, ignorando errores de I/O. Si stdout se cierra (proceso padre termina), los errores se tragan sin feedback | `vantadb-mcp/src/lib.rs:394-399,378-383` | 🟢 30min | ⚪ | ❌ |
+
+### 🔍 Hallazgos del Review Deep — OpenAI Adapter (DRV)
+
+> Items descubiertos durante `review-deep` del módulo `vantadb-openai` (Wave 0, DEPTH=quick). Thin PyO3 wrapper crate (10L lib.rs + 170L python.rs + 32L tests). 1 Python class `VantaDBOpenAI` con 4 métodos. `cargo fmt` OK; `cargo check` bloqueado por 2 errores de visibilidad en `vantadb::sdk::serialization` (DRV-043). Referencia: `.opencode/skills/review-deep/`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-057` | **OpenAI client recreado en cada llamada `embed()`** — Sin caching: `openai.OpenAI(api_key=...)` se instancia en cada llamada (L63-69). El cliente interno maneja connection pooling + TLS; recrearlo por request evita reuso de conexión y añade handshake TLS por llamada. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-openai/src/python.rs:63-69` | 🟢 1h | 🔵 | ❌ |
+| `DRV-058` | **Metadata no-string values silenciosamente ignorados** — L149-155: `v.extract::<String>()` descarta bool/int/float. `if let (Ok(key), Ok(val))` silencia el error. Usuario pasa `metadata={"count": 5}` y el valor desaparece sin warning | `vantadb-openai/src/python.rs:149-155` | 🟢 30min | 🔵 | ❌ |
+| `DRV-059` | **RwLock<String> namespace con overhead concurrente innecesario** — `RwLock` en L39 sugiere mutabilidad, pero nunca se escribe (0 `.write()` calls). Únicas operaciones: 2 `.read().unwrap().clone()`. Podría ser `String` plano, ahorrando 2 allocs + lock acquisition por operación | `vantadb-openai/src/python.rs:39,109,142` | 🟢 15min | ⚪ | ❌ |
+| `DRV-060` | **Sin método para cambiar namespace runtime** — RwLock sugiere que namespace sería mutable, pero no hay setter expuesto. YAGNI candidate o feature incompleta | `vantadb-openai/src/python.rs:43-163` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-061` | **Test coverage mínima: 5 tests/32L** — Sin tests para: error de API key inválida, network timeout, results vacíos, metadatos edge cases, delete/update operations. Solo happy path | `vantadb-openai/tests/test_openai.py:1-32` | 🟢 1h | ⚪ | ❌ |
+
+### 🔍 Hallazgos del Review Deep — Ollama Adapter (DRV)
+
+> Items descubiertos durante `review-deep` del módulo `vantadb-ollama` (Wave 0, DEPTH=quick). Thin PyO3 wrapper crate (10L lib.rs + 161L python.rs + 32L tests). 1 Python class `VantaDBOllama` con 4 métodos. `cargo fmt` OK; `cargo check` bloqueado por 2 errores de visibilidad en `vantadb::sdk::serialization` (DRV-043). Comparte estructura y patrones con `vantadb-openai`. Referencia: `.opencode/skills/review-deep/`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-062` | **Ollama client recreado en cada llamada `embed()`** — Sin caching: `ollama.Client(host=...)` se instancia en cada llamada (L63-70). El cliente interno maneja connection pooling; recrearlo evita reuso de conexión. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-ollama/src/python.rs:63-70` | 🟢 1h | 🔵 | ❌ |
+| `DRV-063` | **Metadata no-string values silenciosamente ignorados** — L141: `v.extract::<String>()` descarta bool/int/float igual que en DRV-058. Bug duplicado por copy-paste del adapter openai | `vantadb-ollama/src/python.rs:139-145` | 🟢 30min | 🔵 | ❌ |
+| `DRV-064` | **embed() llama API secuencialmente por texto** — L73-90: cada texto hace una llamada RPC individual. Ollama soporta `client.embed(model=..., input=[...])` para batch embedding. N textos = N RPCs vs 1 batch | `vantadb-ollama/src/python.rs:73-90` | 🟢 1h | ⚪ | ❌ |
+| `DRV-065` | **RwLock<String> namespace con overhead concurrente innecesario** — Ídem DRV-059. Nunca escrito, solo 2 `.read().unwrap().clone()`. Podría ser `String` plano | `vantadb-ollama/src/python.rs:39,100,133` | 🟢 15min | ⚪ | ❌ |
+| `DRV-066` | **Sin método para cambiar namespace runtime** — Ídem DRV-060. YAGNI candidate o feature incompleta | `vantadb-ollama/src/python.rs:43-154` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-067` | **Test coverage mínima: 5 tests/32L** — Ídem DRV-061. Sin tests para error paths, delete, edge cases | `vantadb-ollama/tests/test_ollama.py:1-32` | 🟢 1h | ⚪ | ❌ |
+
+### 🔍 Hallazgos del Review Deep — LiteLLM Adapter (DRV)
+
+> Items descubiertos durante `review-deep` del módulo `vantadb-litellm` (Wave 0, DEPTH=quick). Thin PyO3 wrapper crate (156L python.rs + 31L tests). 1 Python class `VantaDBLiteLLM`. `cargo fmt` OK. **Regresión: no libera GIL en search/store, a diferencia de openai/ollama**. Referencia: `.opencode/skills/review-deep/`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-068` | **GIL no liberado en search()** — `search()` recibe `py: Python` (L96) pero no usa `py.detach()` para la búsqueda vectorial (L111). openai/ollama sí lo hacen. Bloquea GIL durante `engine.search()` impidiendo ejecución concurrente de Python threads | `vantadb-litellm/src/python.rs:94-122` | 🟢 15min | 🔵 | ❌ |
+| `DRV-069` | **store() sin parámetro py — no puede liberar GIL** — `fn store(&self, text: &str, ...)` (L124) no acepta `py: Python`, a diferencia de openai/ollama que sí lo hacen y usan `py.detach()` para GIL release. Para liberar GIL necesita cambio de firma + caller update | `vantadb-litellm/src/python.rs:124-148` | 🟢 30min | 🔵 | ❌ |
+| `DRV-070` | **Metadata no-string values silenciosamente ignorados** — L138: `v.extract::<String>()` descarta bool/int/float, igual que DRV-058/063. Tercera copia del mismo bug | `vantadb-litellm/src/python.rs:136-142` | 🟢 30min | 🔵 | ❌ |
+| `DRV-071` | **RwLock<String> namespace con overhead concurrente innecesario** — Ídem DRV-059/065. Nunca escrito, solo 2 `.read().unwrap().clone()` | `vantadb-litellm/src/python.rs:38,100,130` | 🟢 15min | ⚪ | ❌ |
+| `DRV-072` | **Sin método para cambiar namespace runtime** — Ídem DRV-060/066 | `vantadb-litellm/src/python.rs:43-148` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-073` | **Test coverage mínima: 4 tests/31L** — Ni siquiera test de store con metadata. Sin tests para error paths | `vantadb-litellm/tests/test_litellm.py:1-31` | 🟢 1h | ⚪ | ❌ |
+
+### vantadb-mem0 (quick — 5 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-074` | **`delete_col()` solo pagina 1 — data loss** — `VantaMemoryListOptions::default()` tiene limit=100 (L326). Si collection tiene >100 registros, los de páginas posteriores sobreviven al delete. No es atómico ni completo | `vantadb-mem0/src/python.rs:324-344` | 🟡 2h | 🟠 | ❌ |
+| `DRV-075` | **`search()` ignora text_query** — `let _ = query;` (L202) descarta el texto de búsqueda de Mem0. Solo vector search, sin hybrid/text-reranking. Gap de feature | `vantadb-mem0/src/python.rs:201-202` | 🟢 30min | ⚪ | ❌ |
+| `DRV-076` | **`update()` TOCTOU entre get() y put()** — Dos `py.detach()` separados (L268, L289) permiten modificación concurrente entre lectura y escritura del registro | `vantadb-mem0/src/python.rs:254-291` | 🟢 1h | ⚪ | ❌ |
+| `DRV-077` | **Collection name sanitización lazy/late** — `create_col()` guarda el raw name (L144), sanitización solo ocurre al usar como namespace. Namespace efectivo ≠ collection_name si contiene chars inválidos | `vantadb-mem0/src/python.rs:88-93,137-146` | 🟢 30min | ⚪ | ❌ |
+| `DRV-078` | **Test coverage: 8 tests/60L** — Sin tests para: `delete_col()` multi-page, `update()` con vector, `create_col()`, `list_cols()`, `reset()`, edge cases (empty vectors, empty strings) | `vantadb-mem0/tests/test_mem0.py:1-60` | 🟢 1h | ⚪ | ❌ |
+
+### vantadb-letta (quick — 6 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-079` | **`list_memories` solo pagina 1 — truncación** — `VantaMemoryListOptions::default()` (L128) limit=100. Si user/agent tiene >100 memorias, las extra no aparecen. Mismo patrón que DRV-074 | `vantadb-letta/src/python.rs:122-139` | 🟡 2h | 🔵 | ❌ |
+| `DRV-080` | **`retrieve_memory` expone distancia VantaDB raw** — `hit.score` (L116) pasa distancia Cosine (0→2, 0=idéntico) directa. Consumidores Letta esperan score 0-1. Sin normalización vs `vanta_distance_to_mem0_score` en mem0 | `vantadb-letta/src/python.rs:111-118` | 🟢 30min | ⚪ | ❌ |
+| `DRV-081` | **`AtomicU64 counter` reset en restart** — Counter inicializado en 0 (L64). Tras cerrar/reabrir store, nuevos inserts pueden colisionar con memorias existentes. Para agentes efímeros, impacto bajo | `vantadb-letta/src/python.rs:64,76-77` | 🟢 30min | ⚪ | ❌ |
+| `DRV-082` | **Test coverage: 5 tests/42L** — Sin tests para: retrieve vacío, múltiples agentes, invalid memory_id, memory_id con `:` extra, payloads grandes | `vantadb-letta/tests/test_letta.py:1-42` | 🟢 1h | ⚪ | ❌ |
+| `DRV-083` | **`store_memory` sin dedup** — Mismo user/agent/content almacenado dos veces → dos entradas separadas. Sin idempotencia | `vantadb-letta/src/python.rs:67-85` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-084` | **No `delete_col` ni `reset`** — No hay API para limpiar todas las memorias de un user/agent. Letta consumers no pueden resetear estado | `vantadb-letta/src/python.rs:42-163` | 🟢 1h | ℹ️ | ❌ |
+
+### vantadb-crewai (quick — 6 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-085` | **`clear()` solo pagina 1 — data loss** — `Default::default()` limit=100 (L126). Si namespace tiene >100 records, el resto sobrevive al clear. Mismo bug que DRV-074/079 | `vantadb-crewai/src/python.rs:120-138` | 🟡 2h | 🔵 | ❌ |
+| `DRV-086` | **Metadata no-string values silenciosamente ignorados** — `py_dict_to_string_map` (L144): `v.extract::<String>()` descarta Bool/Int/Float. Mismo bug que DRV-058/063/070. A diferencia de openai/ollama/litellm, metadata se serializa a JSON con serde_json, pero los valores no-string se pierden antes | `vantadb-crewai/src/python.rs:141-148` | 🟢 30min | 🔵 | ❌ |
+| `DRV-087` | **RwLock\<String\> namespace con overhead innecesario** — 0 `.write()` calls, solo 3 `.read().unwrap().clone()` (L65, L90, L121). Dead lock. Mismo que DRV-059/065/071 | `vantadb-crewai/src/python.rs:37,65,90,121` | 🟢 15min | ⚪ | ❌ |
+| `DRV-088` | **serde_json dependency extra** — Único adapter que añade serde_json para convertir BTreeMap<String,String> a String. Podría ser format!/join sin dependencia | `vantadb-crewai/Cargo.toml:20` | 🟢 15min | ⚪ | ❌ |
+| `DRV-089` | **Test coverage: 5 tests/35L** — Sin tests para: metadata con non-string values, empty embedding, threshold filtering, clear con >100 records | `vantadb-crewai/tests/test_crewai.py:1-35` | 🟢 1h | ⚪ | ❌ |
+| `DRV-090` | **search() threshold filtering post-GIL** — Score normalization (L107) ocurre tras `py.detach()`, después de recibir todos los hits. Para top_k=1000 con threshold alto, se traen 1000 results para posiblemente devolver 0 | `vantadb-crewai/src/python.rs:105-116` | 🟢 1h | ⚪ | ❌ |
+
+### vantadb-dspy (quick — 5 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-091` | **RwLock\<String\> collection dead overhead** — `collection` nunca escrito (0 `.write()`), solo 2 `.read().unwrap().clone()`. Mismo patrón que DRV-059/065/071/087 | `vantadb-dspy/src/python.rs:37,60,94` | 🟢 15min | ⚪ | ❌ |
+| `DRV-092` | **Metadata no-string values silenciosamente ignorados** — `add_passage()` L102: `v.extract::<String>()` descarta Bool/Int/Float. Mismo bug que DRV-058/063/070/086 (pero superficie menor — DSPy raramente usa metadata rica) | `vantadb-dspy/src/python.rs:100-107` | 🟢 30min | ⚪ | ❌ |
+| `DRV-093` | **forward() expone distancia VantaDB raw** — `hit.score` (L79) pasa Cosine distance (0→2) directa. Sin normalización como crewai. Mismo que DRV-080 | `vantadb-dspy/src/python.rs:76-81` | 🟢 30min | ⚪ | ❌ |
+| `DRV-094` | **AtomicU64 counter reset en restart** — Mismo que DRV-081. Counter en 0 al abrir store; nuevos inserts pueden colisionar con existentes | `vantadb-dspy/src/python.rs:38,95-96` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-095` | **Test coverage: 6 tests/39L** — Cubre init, add+forward, metadata, empty forward. Sin tests para: múltiples passages, metadata con non-string, large payloads | `vantadb-dspy/tests/test_dspy.py:1-39` | 🟢 1h | ⚪ | ❌ |
+
+### vantadb-haystack (quick — 6 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-096` | **RwLock\<String\> namespace dead overhead** — `namespace` nunca escrito (0 `.write()`), solo 5 `.read().unwrap().clone()` (L59/123/152/164). Dead lock. Mismo que DRV-059/065/071/087/091 | `vantadb-haystack/src/python.rs:37,59,123,152,164` | 🟢 15min | ⚪ | ❌ |
+| `DRV-097` | **count_documents() truncates at 100** — Usa `Default::default()` como VantaMemoryListOptions, que tiene `limit: Some(100)`. Si namespace tiene >100 docs, `page.records.len()` devuelve 100. Mismo bug que DRV-074/079/085. Carga además todos los records en memoria solo para contar | `vantadb-haystack/src/python.rs:167-171` | 🟢 1h | 🔵 | ❌ |
+| `DRV-098` | **Metadata no-string values silenciosamente ignorados en write_documents** — `write_documents` L92: `entry.1.extract::<String>()` descarta Bool/Int/Float. Pero `py_dict_to_vanta_metadata` (usado por `filter_documents`) maneja los 4 tipos correctamente (L181-189). Inconsistencia intra-archivo: metadata no-string se pierde al escribir pero se parsea al filtrar. Documentos escritos con metadata no-string no son encontrables por filtro | `vantadb-haystack/src/python.rs:88-98` | 🟢 30min | 🔵 | ❌ |
+| `DRV-099` | **No implementa protocolo Haystack Document real** — Métodos aceptan/retornan `list[dict]` en vez de `list[haystack.dataclasses.Document]`. No maneja `DuplicatePolicy`. No retorna `int` de `write_documents`. No es compatible con pipelines Haystack reales sin conversión manual. La .pyi solo declara dicts — no importa `haystack` en absoluto | `vantadb-haystack/src/python.rs:42-173`, `vantadb-haystack/vantadb_haystack.pyi:1-8` | 🟡 4h | 🔴 | ❌ |
+| `DRV-100` | **Test coverage: 7 tests/48L** — Cubre init (2), write+filter, metadata write, count, delete. Sin tests para: filter con filtros reales, empty results, count >100 docs, metadata no-string, auto-generated IDs, error paths (path inválido, namespace vacío) | `vantadb-haystack/tests/test_haystack.py:1-48` | 🟢 1h | ⚪ | ❌ |
+| `DRV-101` | **AtomicU64 doc_counter no persistido** — Counter se reinicia a 0 al abrir store. Nuevos inserts pueden generar IDs que colisionan con docs existentes (mismo que DRV-081/094) | `vantadb-haystack/src/python.rs:38,68-70` | 🟢 30min | ℹ️ | ❌ |
+
+### vantadb-langchain (quick — 7 findings)
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-102` | **Missing GIL release en TODOS los métodos** — `add_texts` (L82-85), `similarity_search_by_vector` (L109-112), `delete` (L126-133) corren sin `py.detach()`/`py.allow_threads()`. Parámetro `py: Python` se recibe en 2/3 métodos pero nunca se usa. Contraste: los otros 7 adapters (haystack, dspy, crewai, mem0, letta, openai, ollama, litellm) usan `py.detach()` correctamente | `vantadb-langchain/src/python.rs:82-85,109-112,126-133` | 🟢 1h | 🔴 | ❌ |
+| `DRV-103` | **Metadata no-string values silenciosamente ignorados** — `v.extract::<String>()` (L73) descarta Bool/Int/Float. Mismo bug que DRV-058/063/070/086/092/098 | `vantadb-langchain/src/python.rs:70-78` | 🟢 30min | 🔵 | ❌ |
+| `DRV-104` | **similarity_search_by_vector no retorna metadata** — Solo id/text/score (L116-120). Metadata almacenada via `add_texts` se pierde en la respuesta. LangChain espera metadata para filtering en pipeline | `vantadb-langchain/src/python.rs:114-121` | 🟢 30min | 🔵 | ❌ |
+| `DRV-105` | **delete() silenciosamente no-op en IDs malformados** — `id.split(':')` (L127) con `parts.len() != 2` (L128) ignora el delete sin error ni warning. Si un ID externo no tiene formato `namespace:key`, el delete falla silenciosamente | `vantadb-langchain/src/python.rs:125-133` | 🟢 30min | 🔵 | ❌ |
+| `DRV-106` | **from_texts class method no implementado pese a docstring** — Docstring (L11) afirma implementar VectorStore protocol incluyendo `from_texts`, pero el método no existe en código. LangChain usa `from_texts` como entry point principal para crear stores | `vantadb-langchain/src/python.rs:11` | 🟡 2h | 🟡 | ❌ |
+| `DRV-107` | **Test coverage: 5 tests/43L** — Cubre init, add+search, metadata, delete, unique keys. Sin tests para: delete con IDs malformados, empty texts/embeddings, metadata no-string, metadata return en search, large payloads, error paths | `vantadb-langchain/tests/test_langchain.py:1-43` | 🟢 1h | ⚪ | ❌ |
+| `DRV-108` | **AtomicU64 counter no persistido** — Counter se reinicia a 0 al abrir store (mismo que DRV-081/094/101) | `vantadb-langchain/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
+
+### vantadb-llamaindex (quick — 6 findings)
+
+Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hallazgos duplican DRV-102→108. Solo cambian nombres de métodos (`add`/`query` vs `add_texts`/`similarity_search_by_vector`).
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `DRV-109` | **Missing GIL release en TODOS los métodos** — `add` (L82-85), `query` (L104-107), `delete` (L124-126) corren sin `py.detach()`. Mismo bug que DRV-102 | `vantadb-llamaindex/src/python.rs:82-85,104-107,124-126` | 🟢 1h | 🔴 | ❌ |
+| `DRV-110` | **Metadata no-string values silenciosamente ignorados** — `v.extract::<String>()` (L73). Mismo bug que DRV-103 | `vantadb-llamaindex/src/python.rs:70-78` | 🟢 30min | 🔵 | ❌ |
+| `DRV-111` | **query() no retorna metadata** — Solo id/text/score (L112-114). Metadata almacenada via `add` se pierde. Mismo bug que DRV-104 | `vantadb-llamaindex/src/python.rs:109-116` | 🟢 30min | 🔵 | ❌ |
+| `DRV-112` | **delete() silenciosamente no-op en IDs malformados** — `split(':')` con `parts.len() != 2` ignora error. Mismo bug que DRV-105 | `vantadb-llamaindex/src/python.rs:120-128` | 🟢 30min | 🔵 | ❌ |
+| `DRV-113` | **Test coverage: 5 tests/43L** — Idéntico a langchain. Sin tests para: delete con IDs malformados, empty, metadata return, no-string metadata | `vantadb-llamaindex/tests/test_llamaindex.py:1-43` | 🟢 1h | ⚪ | ❌ |
+| `DRV-114` | **AtomicU64 counter no persistido** — Mismo que DRV-108 | `vantadb-llamaindex/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
@@ -230,8 +388,8 @@ last_reviewed: 2026-07-13
 | `REV-014` | **24 stale dependabot branches** — No auto-delete después de merge | `origin/dependabot/*` → H05-DIRECTION-001 | 🟢 30min | 🔵 | ❌ |
 | `REV-015` | **6 `any` types sin justificación** — `demo.lazy.tsx` usa `any` sin `eslint-disable` ni type alias | `web/src/routes/demo.lazy.tsx` → H03-CLARITY-001 | 🟢 1h | 🟡 | ✅ |
 | `REV-016` | **`vantadb-enterprise` abstracción prematura** — Crate existe pero features no definidos públicamente | `vantadb-enterprise/` → H08-ARCH-003 | 🟢 2h | 🔵 | ✅ |
-| `REV-017` | **`why-vantadb.tsx` prettier error** — Trailing newline rompe formateo | `web/src/routes/why-vantadb.tsx:43` → H03-CODE-003 | 🟢 5min | 🟢 | ❌ |
-| `REV-018` | **`NbToast.tsx` react-refresh warning** — Archivo exporta más que solo componentes | `web/src/components/nb/NbToast.tsx:15` → H03-CODE-004 | 🟢 5min | 🟢 | ❌ |
+| `REV-017` | **`why-vantadb.tsx` prettier error** — Trailing newline rompe formateo | `web/src/routes/why-vantadb.tsx:43` → H03-CODE-003 | 🟢 5min | 🟢 | ✅ |
+| `REV-018` | **`NbToast.tsx` react-refresh warning** — Archivo exporta más que solo componentes | `web/src/components/nb/NbToast.tsx:15` → H03-CODE-004 | 🟢 5min | 🟢 | ✅ |
 
 ### WASM & Performance
 
@@ -336,7 +494,7 @@ Jul 18-25  TIER 1 (🟠 35+ items):
                ─ Docs: MKT-14 (case studies), TSK-106 (Discussions)
                ─ NUEVO-01/07/08/10: README, migrations, learning, benchmarks
                ─ Launch: LEG-01, MKT-03/04/05/10/15/16
-               ─ Code health: VFY-001→012, **REV-003→018**, **DRV-001→005**, **DRV-022→026**
+                ─ Code health: VFY-001→012, **REV-003→018**, **DRV-001→045**, **DRV-046→056**, **DRV-057→061**, **DRV-062→067**, **DRV-068→073**, **DRV-074→078**, **DRV-079→084**, **DRV-085→090**, **DRV-091→095**, **DRV-096→101**, **DRV-102→108**, **DRV-109→114**
                ─ WASM: NUEVO-11→15
                ─ Docs-audit: SEC-14, WEB-03/04, DEVOPS-13/14/15, TEST-11/12, DOC-20
 Ago+       TIER 2-4:
