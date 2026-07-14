@@ -141,7 +141,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Performance: TLS handshake + connection pool se recrean por request. Cachear `Py<PyAny>` del cliente elimina overhead.
 - **Contrato:** "`cargo check -p vantadb-openai` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 11: DRV-058 — OpenAI metadata no-string ignorado
 
@@ -1105,11 +1105,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 9 — DRV-007 Data race en filter_field() (scalar_index sin lock)
+Objetivo activo: Task 10 — DRV-057 OpenAI client recreado en cada embed()
 Estado: completed
-Última acción: added `let _nodes = self.nodes.read()` before `self.scalar_index.lookup()` in `InMemoryEngine::filter_field`
-Resultado: ✅ cargo check -p vantadb clean, clippy --all-targets -D warnings clean (zero warnings)
-Próxima acción: Task 10 — DRV-057 OpenAI client recreado en cada embed()
-Contrato: "cargo check -p vantadb pasa"
-Próxima tarea si completa: Task 10 — DRV-057
+Última acción: added `client: Py<PyAny>` field, removed `api_key`, moved client creation to `new()`, cached client used in `embed()`
+Resultado: ✅ cargo check -p vantadb-openai clean, clippy clean (crate only, 0 new warnings)
+Próxima acción: Task 11 — DRV-058 OpenAI metadata no-string ignorado
+Contrato: "cargo check -p vantadb-openai pasa"
+Próxima tarea si completa: Task 11 — DRV-058
 === END RECITATION ===
