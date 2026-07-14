@@ -3,6 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use twox_hash::XxHash64;
 
+use crate::sync_ext::RwLockExt;
+
 const BLOOM_SEEDS: [u64; 3] = [
     0xdead_beef_dead_beef,
     0xcafe_babe_cafe_babe,
@@ -139,7 +141,7 @@ impl AdmissionFilter {
     /// Add a record ID to the filter.
     pub fn block_record(&self, id: u64) {
         let positions = self.hash_positions(id);
-        let mut bits = self.bits.write().expect("RwLock poisoned");
+        let mut bits = self.bits.lock_rwlock_mut();
         for pos in &positions {
             bits[pos / 64] |= 1u64 << (pos % 64);
         }
@@ -160,7 +162,7 @@ impl AdmissionFilter {
     /// Check whether a record ID is blocked.
     pub fn is_blocked(&self, id: u64) -> bool {
         let positions = self.hash_positions(id);
-        let bits = self.bits.read().expect("RwLock poisoned");
+        let bits = self.bits.lock_rwlock();
         let test_count = self.test_count.fetch_add(1, Ordering::Relaxed);
 
         for pos in &positions {
@@ -228,7 +230,7 @@ impl AdmissionFilter {
 
     /// Manually trigger a reset of the bloom filter.
     pub fn reset_filter(&self) {
-        let mut bits = self.bits.write().expect("RwLock poisoned");
+        let mut bits = self.bits.lock_rwlock_mut();
         self.reset_filter_internal(&mut bits);
     }
 

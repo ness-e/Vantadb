@@ -3,6 +3,8 @@ use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
 use web_time::{Duration, Instant};
 
+use crate::sync_ext::RwLockExt;
+
 use super::admission::AdmissionFilter;
 use super::conflict::ConflictResolver;
 use super::consistency::ConsistencyBuffer;
@@ -86,7 +88,7 @@ impl MaintenanceWorker {
 
             let now = Instant::now();
             let inactive = {
-                let last = *last_activity.read().expect("RwLock poisoned");
+                let last = *last_activity.lock_rwlock();
                 now.duration_since(last) >= inactivity
             };
 
@@ -100,13 +102,13 @@ impl MaintenanceWorker {
             thread::sleep(interval);
         });
 
-        *self.handle.write().expect("RwLock poisoned") = Some(handle);
+        *self.handle.lock_rwlock_mut() = Some(handle);
     }
 
     /// Stop the background maintenance thread.
     pub fn stop(&self) {
         self.running.store(false, Ordering::SeqCst);
-        if let Some(handle) = self.handle.write().expect("RwLock poisoned").take() {
+        if let Some(handle) = self.handle.lock_rwlock_mut().take() {
             let _ = handle.join();
         }
     }
@@ -125,7 +127,7 @@ impl MaintenanceWorker {
 
     /// Get current health status.
     pub fn health(&self) -> HealthStatus {
-        self.health.read().expect("RwLock poisoned").clone()
+        self.health.lock_rwlock().clone()
     }
 
     fn run_maintenance_cycle(

@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
+use crate::sync_ext::MutexExt;
+
 /// Access tracking entry for a single node
 #[derive(Debug, Clone)]
 struct AccessEntry {
@@ -89,7 +91,7 @@ impl QuantizationGovernor {
             return;
         }
         let current_tick = self.tick.load(Ordering::Relaxed);
-        let mut map = self.access_map.lock().expect("governor lock poisoned");
+        let mut map = self.access_map.lock_mutex();
         match map.get_mut(&node_id) {
             Some(entry) => {
                 entry.hits += 1;
@@ -106,7 +108,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return QuantizationAction::None;
         }
-        let map = self.access_map.lock().expect("governor lock poisoned");
+        let map = self.access_map.lock_mutex();
         let current_tick = self.tick.load(Ordering::Relaxed);
 
         match map.get(&node_id) {
@@ -142,7 +144,7 @@ impl QuantizationGovernor {
 
     /// Reset tracking for a node (after a quantization action).
     pub fn reset(&self, node_id: u128) {
-        let mut map = self.access_map.lock().expect("governor lock poisoned");
+        let mut map = self.access_map.lock_mutex();
         map.remove(&node_id);
     }
 
@@ -155,7 +157,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return Vec::new();
         }
-        let map = self.access_map.lock().expect("governor lock poisoned");
+        let map = self.access_map.lock_mutex();
         let current_tick = self.tick.load(Ordering::Relaxed);
         let mut actions = Vec::new();
 

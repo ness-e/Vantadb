@@ -4,6 +4,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use web_time::{SystemTime, UNIX_EPOCH};
 
+use crate::sync_ext::RwLockExt;
+
 const MAX_CONFLICT_BACKOFF: u32 = 64;
 
 /// A version vector mapping origin → version counter.
@@ -230,7 +232,7 @@ impl ConflictResolver {
     /// Backpressure-based friction computation.
     /// Higher collision count → lower friction → harder to pass (GOV-02 fix).
     fn compute_friction(&self, incumbent_origin: &str, challenger_origin: &str) -> f64 {
-        let backoff = self.conflict_backoff.read().expect("RwLock poisoned");
+        let backoff = self.conflict_backoff.lock_rwlock();
         let inc_collisions = backoff
             .get(&(hash_str(incumbent_origin) as u64))
             .copied()
@@ -248,7 +250,7 @@ impl ConflictResolver {
     /// Exponential backoff for repeated conflicts (GOV-07 fix).
     /// Returns number of backoff levels (starts at 1, doubles per conflict).
     fn compute_backoff(&self, node_id: u64) -> u32 {
-        let mut backoff = self.conflict_backoff.write().expect("RwLock poisoned");
+        let mut backoff = self.conflict_backoff.lock_rwlock_mut();
         let count = backoff.entry(node_id).or_insert(0);
         *count = (*count + 1).min(MAX_CONFLICT_BACKOFF);
         *count
@@ -281,13 +283,13 @@ impl ConflictResolver {
 
     /// Reset backoff for a given node (called on successful resolution).
     pub fn reset_backoff(&self, node_id: u64) {
-        let mut backoff = self.conflict_backoff.write().expect("RwLock poisoned");
+        let mut backoff = self.conflict_backoff.lock_rwlock_mut();
         backoff.remove(&node_id);
     }
 
     /// Garbage-collect old entries from the conflict log.
     pub fn gc_conflict_log(&self, max_age_nanos: u128) -> usize {
-        let mut log = self.conflict_log.write().expect("RwLock poisoned");
+        let mut log = self.conflict_log.lock_rwlock_mut();
         let cutoff = now_nanos().saturating_sub(max_age_nanos);
         let before = log.len();
         log.retain(|r| r.timestamp >= cutoff);
@@ -308,7 +310,7 @@ impl ConflictResolver {
             resolution: resolution.to_string(),
             nonce: self.generate_nonce(),
         };
-        let mut log = self.conflict_log.write().expect("RwLock poisoned");
+        let mut log = self.conflict_log.lock_rwlock_mut();
         if log.len() >= self.max_log_entries {
             log.remove(0);
         }
@@ -317,15 +319,12 @@ impl ConflictResolver {
 
     /// Returns a snapshot of the conflict log for audit.
     pub fn conflict_log(&self) -> Vec<ConflictRecord> {
-        self.conflict_log.read().expect("RwLock poisoned").clone()
+        self.conflict_log.lock_rwlock().clone()
     }
 
     /// Current backoff levels for all tracked nodes.
     pub fn backoff_levels(&self) -> HashMap<u64, u32> {
-        self.conflict_backoff
-            .read()
-            .expect("RwLock poisoned")
-            .clone()
+        self.conflict_backoff.lock_rwlock().clone()
     }
 }
 
