@@ -141,11 +141,7 @@ function NbFgIcon({ id }: { id: string }) {
 export function NbFeatureGrid() {
   return (
     <NbSection ariaLabel="Features">
-      <NbSectionHeader
-        monoLabel="[CAPABILITIES]"
-        headline="HNSW + BM25 — one engine."
-        sub=""
-      />
+      <NbSectionHeader monoLabel="[CAPABILITIES]" headline="HNSW + BM25 — one engine." sub="" />
 
       <div className="nb-fg-grid">
         {FEATURES.map((feat) => (

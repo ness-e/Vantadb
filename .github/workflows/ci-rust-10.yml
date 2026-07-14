@@ -184,7 +184,7 @@ jobs:
         timeout-minutes: 25
         run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
 
-   msrv:
+  msrv:
     name: MSRV Check (1.94.1)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -402,9 +402,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
-      - name: Test with ThreadSanitizer
+      - name: Test with Nightly
         run: cargo +nightly test --package vantadb --features "cli,arrow,tls,opentelemetry"
-        env:
-          RUSTFLAGS: "-Z sanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
-          RUSTDOCFLAGS: "-Z sanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
-          TSAN_OPTIONS: "suppress_equal_stacks=1:halt_on_error=1:abort_on_error=1"

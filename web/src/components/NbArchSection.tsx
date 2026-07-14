@@ -50,7 +50,7 @@ export function NbArchSection() {
     );
 
     return () => cleanup?.();
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <section

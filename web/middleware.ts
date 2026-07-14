@@ -1,11 +1,11 @@
 export const config = {
-  matcher: '/(.*)',
-}
+  matcher: "/(.*)",
+};
 
 export default async function middleware(request: Request): Promise<Response | undefined> {
-  if (!request.headers.get('accept')?.includes('text/html')) return
+  if (!request.headers.get("accept")?.includes("text/html")) return;
 
-  const nonce = crypto.randomUUID()
+  const nonce = crypto.randomUUID();
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'nonce-" + nonce + "'",
@@ -15,21 +15,21 @@ export default async function middleware(request: Request): Promise<Response | u
     "connect-src 'self' https:",
     "font-src 'self' data:",
     "frame-ancestors 'none'",
-  ].join('; ')
+  ].join("; ");
 
-  const response = await fetch(new URL('/', request.url).href)
-  const html = await response.text()
+  const response = await fetch(new URL("/", request.url).href);
+  const html = await response.text();
   const patched = html.replace(
-    '</head>',
-    '<meta name="csp-nonce" content="' + nonce + '">\n  </head>'
-  )
+    "</head>",
+    '<meta name="csp-nonce" content="' + nonce + '">\n  </head>',
+  );
 
-  const headers = new Headers(response.headers)
-  headers.set('Content-Security-Policy', csp)
+  const headers = new Headers(response.headers);
+  headers.set("Content-Security-Policy", csp);
 
   return new Response(patched, {
     status: response.status,
     statusText: response.statusText,
     headers,
-  })
+  });
 }

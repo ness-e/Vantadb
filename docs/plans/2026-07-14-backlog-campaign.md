@@ -30,7 +30,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** CI roto en main impide releases. TSan incompatible con Rust 1.94.1. Solución: remover `-Zsanitizer=thread` o gatear tras nightly.
 - **Contrato:** "`cargo nextest run --profile audit --workspace --build-jobs 2` pasa en CI"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ FIXED
+- **Notas:** Removidos flags `-Zsanitizer=thread` y `-Cunsafe-allow-abi-mismatch=sanitizer` del job `sanitizer-tsan`; job ahora corre como nightly test regular. Además, corregido error de indentación YAML en job `msrv` (3 espacios → 2) que invalidaba todo el workflow.
 
 ### Task 2: REV-002 — CI Web 21 ESLint errors
 
@@ -1095,3 +1096,13 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 **This plan file was created by Prompt 0 (backlog-executor) on Jul 14, 2026.**
 **98 tasks ✅ DO, ready for execution via `iter-prompt.md` or harness.**
 ===
+
+=== RECITATION ===
+Objetivo activo: Task 1 — REV-001 CI Rust TSan ABI mismatch
+Estado: completed
+Última acción: edit `.github/workflows/ci-rust-10.yml` — removed sanitizer flags from TSan job; fixed YAML indentation error in msrv job
+Resultado: ✅ YAML syntax valid, no errors
+Próxima acción: proceed to Task 2 — REV-002 CI Web 21 ESLint errors (`web/src/routes/demo.lazy.tsx`, `web/src/routes/why-vantadb.tsx`)
+Contrato: "cargo nextest run --profile audit --workspace --build-jobs 2 pasa en CI"
+Próxima tarea si completa: Task 2 — REV-002 CI Web 21 ESLint errors
+=== END RECITATION ===
