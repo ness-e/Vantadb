@@ -890,6 +890,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ No-op — no `.github/workflows/` files exist in this repository
 - **Ids:** `DEVOPS-13`
 
+### DRV-058: OpenAI metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Handle bool/int/float metadata values in store() instead of silently dropping non-string values
+- **Resultado:** ✅ `cargo check -p vantadb-openai` clean, clippy clean.
+- **Ids:** `DRV-058`
+
 ### DRV-057: OpenAI client recreado en cada embed()
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14
