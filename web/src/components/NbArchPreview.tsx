@@ -13,7 +13,7 @@ const LAYERS = [
   {
     id: "query",
     label: "QUERY ENGINE",
-    items: "SQL · HNSW · BM25",
+    items: "HNSW · BM25",
     detail:
       "Triple-index architecture. HNSW for ANN, BM25 for FTS, intelligent router fusing scores into ranked results.",
   },
@@ -22,7 +22,7 @@ const LAYERS = [
     label: "OPTIMIZER",
     items: "Cost-based planner",
     detail:
-      "Cost-based planning across vector, text, SQL predicates. Auto-selects index vs sequential scan.",
+      "Cost-based planning across vector and text predicates. Auto-selects index vs sequential scan.",
   },
   {
     id: "wal",

@@ -15,7 +15,7 @@ const FEATURES = [
   {
     id: "converged",
     title: "Converged Engine",
-    desc: "SQL, vectors, and full-text search — one engine.",
+    desc: "Vectors and full-text search — one engine.",
     w: 3,
   },
   { id: "embed", title: "Embed Anywhere", desc: "2MB binary. One file. Any platform.", w: 2 },
@@ -143,7 +143,7 @@ export function NbFeatureGrid() {
     <NbSection ariaLabel="Features">
       <NbSectionHeader
         monoLabel="[CAPABILITIES]"
-        headline="HNSW + BM25 + SQL — one engine."
+        headline="HNSW + BM25 — one engine."
         sub=""
       />
 
