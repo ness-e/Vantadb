@@ -1,0 +1,15 @@
+{
+  "module": "vantadb-governance",
+  "duration": "1 ciclo loop",
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 2,
+    "low": 0,
+    "info": 3
+  },
+  "fixed_now": 0,
+  "to_backlog": 5,
+  "discarded": 0,
+  "research_urls": 0
+}

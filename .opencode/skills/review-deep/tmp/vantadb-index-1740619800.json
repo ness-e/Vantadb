@@ -1,0 +1,15 @@
+{
+  "module": "vantadb-index",
+  "duration": "~8min",
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "info": 1
+  },
+  "fixed_now": 0,
+  "to_backlog": 1,
+  "discarded": 0,
+  "research_urls": 0
+}

@@ -1,0 +1,24 @@
+{
+  "module": "vantadb-python",
+  "wave": 0,
+  "review_date": "2026-07-14",
+  "loc": { "lib_rs": 1978, "types_rs": 267, "tests": 832, "total": 3077 },
+  "files": 5,
+  "findings": {
+    "total": 7,
+    "bloqueantes": 0,
+    "altos": 0,
+    "medios": 1,
+    "bajos": 2,
+    "info": 4,
+    "positivos": 1
+  },
+  "ids": ["DRV-027","DRV-028","DRV-029","DRV-030","DRV-031","DRV-032","DRV-033"],
+  "health": {
+    "api_design": { "score": 7, "issues": ["4 clippy::too_many_arguments","put_batch dual API 130L"] },
+    "rust_hygiene": { "score": 10, "issues": [] },
+    "gil_safety": { "score": 10, "issues": [] },
+    "maintainability": { "score": 5, "issues": ["god module 1978L","19 converter boilerplate functions"] }
+  },
+  "summary": "Excellent Rust hygiene (no unsafe, no unwrap, correct GIL release everywhere). Main debt is god-module lib.rs with 90 functions and 19 near-identical report-to-PyDict converters. LRU cache is hand-rolled O(n). Overall solid bindings with structural debt."
+}

@@ -1,0 +1,14 @@
+{
+  "module": "vantadb-sdk",
+  "wave": 0,
+  "files": 15,
+  "total_lines": 4923,
+  "api_surface": 26,
+  "findings": { "critical": 0, "high": 0, "medium": 3, "low": 1, "info": 0 },
+  "fixed_now": 0,
+  "to_backlog": 5,
+  "discarded": 2,
+  "research_urls": 0,
+  "competitor_gaps": 0,
+  "next_module": "vantadb-engine"
+}

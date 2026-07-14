@@ -1,0 +1,24 @@
+{
+  "module": "vantadb-ts",
+  "wave": 0,
+  "review_date": "2026-07-14",
+  "loc": { "src": 1337, "tests": 1537, "total": 2874 },
+  "files": { "src": 4, "tests": 6 },
+  "findings": {
+    "total": 6,
+    "bloqueantes": 0,
+    "altos": 0,
+    "medios": 1,
+    "bajos": 1,
+    "info": 2,
+    "observaciones": 2
+  },
+  "ids": ["DRV-034","DRV-035","DRV-036","DRV-037","DRV-038","DRV-039"],
+  "health": {
+    "api_design": { "score": 8, "issues": ["30 try-catch boilerplate","_mapRecord partial validation"] },
+    "type_safety": { "score": 7, "issues": ["metadata format mismatch test vs type","tests excluded from tsc","numeric fields as string"] },
+    "documentation": { "score": 8, "issues": ["types.ts lacks JSDoc"] },
+    "test_quality": { "score": 7, "issues": ["metadata not verified on round-trip","some any in test catch blocks"] }
+  },
+  "summary": "Clean TypeScript SDK with good JSDoc coverage on public API. Main issue: metadata serialization format mismatch between test usage ({String: 'test'}) and defined type ({type:'String',value:'test'}) — tests pass but metadata may not round-trip correctly through WASM bridge. No ESLint config. 30+ repetitive try-catch blocks. Tests excluded from tsc --noEmit."
+}

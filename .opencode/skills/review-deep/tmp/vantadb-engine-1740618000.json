@@ -1,0 +1,15 @@
+{
+  "module": "vantadb-engine",
+  "duration": "~15min",
+  "findings": {
+    "critical": 1,
+    "high": 1,
+    "medium": 1,
+    "low": 1,
+    "info": 1
+  },
+  "fixed_now": 0,
+  "to_backlog": 5,
+  "discarded": 0,
+  "research_urls": 0
+}
