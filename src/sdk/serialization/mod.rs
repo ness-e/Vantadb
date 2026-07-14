@@ -34,6 +34,7 @@ pub mod graph_types;
 pub(crate) mod impl_export;
 pub(crate) mod impl_index;
 pub(crate) mod impl_rebuild;
+pub(crate) mod impl_text_index;
 pub mod vector_types;
 
 pub(crate) fn now_ms() -> u64 {
