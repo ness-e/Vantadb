@@ -103,7 +103,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Supply chain security. 11 workflows sin SHA pinning. Node 20 deprecated.
 - **Contrato:** "Todos los `actions/*` usan `@<sha>` en vez de `@vX`"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (no-op — no .github/workflows/ files exist)
 
 ---
 
@@ -118,7 +118,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Data integrity. `drop(nodes)` libera write lock L241, luego actualiza índices sin protección. Ventana de corrupción.
 - **Contrato:** "`cargo check -p vantadb` pasa, tests existentes pasan"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `de6ecac`
 
 ### Task 9: DRV-007 — Data race en filter_field() (scalar_index sin lock)
 
@@ -129,7 +130,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Comportamiento indefinido. `filter_field()` no adquiere `nodes` RwLock mientras mutaciones concurrentes modifican `scalar_index`.
 - **Contrato:** "`cargo check -p vantadb` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 10: DRV-057 — OpenAI client recreado en cada embed()
 
@@ -1104,11 +1105,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 6 — SEC-13 CSP nonce + HSTS
+Objetivo activo: Task 9 — DRV-007 Data race en filter_field() (scalar_index sin lock)
 Estado: completed
-Última acción: added nonce to style-src-elem; HSTS already in vercel.json
-Resultado: ✅ tsc --noEmit clean, commit d6282a5
-Próxima acción: Task 7 — DEVOPS-13 Pin all workflow actions to SHA + Node 22
-Contrato: "CSP nonce funcional en prod build, HSTS headers presentes"
-Próxima tarea si completa: Task 7 — DEVOPS-13
+Última acción: added `let _nodes = self.nodes.read()` before `self.scalar_index.lookup()` in `InMemoryEngine::filter_field`
+Resultado: ✅ cargo check -p vantadb clean, clippy --all-targets -D warnings clean (zero warnings)
+Próxima acción: Task 10 — DRV-057 OpenAI client recreado en cada embed()
+Contrato: "cargo check -p vantadb pasa"
+Próxima tarea si completa: Task 10 — DRV-057
 === END RECITATION ===

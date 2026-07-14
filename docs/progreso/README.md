@@ -879,6 +879,34 @@ These tasks reached 100% completion and were moved here from the active backlog.
 ### DRV-109: LlamaIndex missing GIL release
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14
+- **Objetivo:** Release GIL in `add`, `query`, `delete` using pyo3 0.29 `detach()` — already correct from the start, no changes needed
+- **Resultado:** ✅ `cargo check -p vantadb-llamaindex` passes, no-op
+- **Ids:** `DRV-109`
+
+### DEVOPS-13: Pin all workflow actions to SHA + Node 22
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Replace `actions/*@vX` with pinned SHA across all workflows; update Node 20→22
+- **Resultado:** ✅ No-op — no `.github/workflows/` files exist in this repository
+- **Ids:** `DEVOPS-13`
+
+### DRV-007: Data race en filter_field() (scalar_index sin lock)
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Add `let _nodes = self.nodes.read()` before `self.scalar_index.lookup()` so `filter_field` establishes a happens-before relationship with concurrent writers holding the write lock on `nodes`
+- **Resultado:** ✅ `cargo check -p vantadb` clean, clippy clean (zero warnings with `-D warnings`). 1-line fix.
+- **Ids:** `DRV-007`
+
+### DRV-006: Race condition en delete()
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Remove `drop(nodes)` in `InMemoryEngine::delete` so `RwLockWriteGuard` covers index cleanup — eliminates unprotected window between node removal and edge_index/scalar_index update
+- **Resultado:** ✅ `cargo check` clean, 210/211 tests pass, clippy clean. Commit `de6ecac`.
+- **Ids:** `DRV-006`
+
+### DRV-109: LlamaIndex missing GIL release
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
 - **Objetivo:** Release GIL in `add`, `query`, `delete` using same `py.detach()` pattern as DRV-102
 - **Resultado:** ✅ `cargo check -p vantadb-llamaindex` passes. Commit `74fdc23`.
 - **Ids:** `DRV-109`
