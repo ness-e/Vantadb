@@ -4690,15 +4690,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vantadb-enterprise"
-version = "0.2.0"
-dependencies = [
- "serde",
- "serde_json",
- "vantadb",
-]
-
-[[package]]
 name = "vantadb-haystack"
 version = "0.2.0"
 dependencies = [
