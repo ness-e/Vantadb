@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing;
 
 impl VantaEmbedded {
-    fn ensure_text_index_current_with(
+    pub(crate) fn ensure_text_index_current_with(
         &self,
         engine: &Arc<StorageEngine>,
         nodes: &[UnifiedNode],
@@ -390,7 +390,7 @@ impl VantaEmbedded {
         }
     }
 
-    fn adjust_text_index_state_after_replace(
+    pub(crate) fn adjust_text_index_state_after_replace(
         engine: &StorageEngine,
         previous: Option<&super::VantaMemoryRecord>,
         current: Option<&super::VantaMemoryRecord>,
