@@ -32,8 +32,8 @@ impl StorageEngine {
 
     /// Update the last-query timestamp to the current system time.
     pub fn touch_activity(&self) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
         self.last_query_timestamp

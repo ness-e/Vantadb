@@ -33,6 +33,7 @@ pub mod simd;
 
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
+#[serde(default)]
 struct WasmConfig {
     storage_path: String,
     read_only: bool,
@@ -250,7 +251,7 @@ impl VantaDB {
     /// Create a new VantaDB instance from an optional WASM config object.
     #[wasm_bindgen(constructor)]
     pub fn new(config_val: Option<JsValue>) -> Result<VantaDB, JsValue> {
-        init_tracing();
+        init();
         let wasm_cfg = match config_val {
             Some(val) => from_js::<WasmConfig>(val)?,
             None => WasmConfig::default(),
@@ -267,7 +268,7 @@ impl VantaDB {
 
     /// Open VantaDB at the given storage path.
     pub fn open(path: &str) -> Result<VantaDB, JsValue> {
-        init_tracing();
+        init();
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
             ..WasmConfig::default()
@@ -284,7 +285,7 @@ impl VantaDB {
 
     /// Open VantaDB with OPFS-based persistent storage in the browser.
     pub async fn connect_persistent(path: &str) -> Result<VantaDB, JsValue> {
-        init_tracing();
+        init();
         let opfs = OpfsStorage::open(path).await.ok();
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
@@ -304,7 +305,7 @@ impl VantaDB {
 
     /// Open VantaDB with IndexedDB-based persistent storage (fallback when OPFS is unavailable).
     pub async fn connect_idb(path: &str) -> Result<VantaDB, JsValue> {
-        init_tracing();
+        init();
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
             ..WasmConfig::default()
@@ -324,7 +325,7 @@ impl VantaDB {
     /// Open VantaDB with OPFS persistence via a dedicated Web Worker.
     #[cfg(feature = "opfs")]
     pub async fn connect_worker(path: &str) -> Result<VantaDB, JsValue> {
-        init_tracing();
+        init();
         let worker_proxy = {
             let global = js_sys::global();
             let spawn_fn =
@@ -829,8 +830,9 @@ impl VantaDB {
 
 static TRACING_INIT: AtomicBool = AtomicBool::new(false);
 
-fn init_tracing() {
+fn init() {
     if !TRACING_INIT.swap(true, Ordering::Relaxed) {
+        console_error_panic_hook::set_once();
         #[cfg(feature = "tracing-wasm")]
         tracing_wasm::set_as_global_default();
     }

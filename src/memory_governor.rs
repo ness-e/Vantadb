@@ -86,8 +86,8 @@ impl MemoryGovernor {
     pub fn finish_eviction(&self) {
         self.eviction_running.store(false, Ordering::Release);
         self.last_eviction_ms.store(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
+            web_time::SystemTime::now()
+                .duration_since(web_time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
             Ordering::Relaxed,

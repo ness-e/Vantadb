@@ -85,7 +85,7 @@ describe("VantaDB WASM Integration", () => {
     const node = await db.getNode(1);
     expect(node).not.toBeNull();
     expect(node!.edges.length).toBe(1);
-    expect(node!.edges[0].target).toBe(2);
+    expect(node!.edges[0].target).toBe(2n);
 
     const bfs = await db.graphBfs([1], 5);
     expect(bfs).toBeDefined();

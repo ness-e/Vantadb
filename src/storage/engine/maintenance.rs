@@ -116,6 +116,9 @@ impl StorageEngine {
     }
 
     fn save_vector_index(&self) -> Result<()> {
+        if self.wal.is_none() {
+            return Ok(()); // ponytail: ephemeral in-memory mode, nothing to persist
+        }
         let index_path = self.data_dir.join("vector_index.bin");
         let current = self.hnsw.load();
 
