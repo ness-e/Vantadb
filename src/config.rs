@@ -139,7 +139,7 @@ impl Default for HotReloadConfig {
             batch_size: None,
             wal_buffer_size: None,
             flush_threshold: None,
-            insert_lock_timeout_ms: 2000,
+            insert_lock_timeout_ms: 5000,
             sync_mode: SyncMode::Periodic,
         }
     }
@@ -444,7 +444,7 @@ impl Default for VantaConfig {
             },
             sync_mode: SyncMode::default(),
             insert_lock_timeout_ms: {
-                let v = parse_env_or("VANTADB_INSERT_LOCK_TIMEOUT_MS", 2000u64);
+                let v = parse_env_or("VANTADB_INSERT_LOCK_TIMEOUT_MS", 5000u64);
                 debug!(val = v, "VANTADB_INSERT_LOCK_TIMEOUT_MS");
                 v
             },
@@ -1039,7 +1039,7 @@ mod tests {
         assert_eq!(cfg.tls_cert_path, None);
         assert_eq!(cfg.tls_key_path, None);
         assert_eq!(cfg.log_format, LogFormat::Compact);
-        assert_eq!(cfg.insert_lock_timeout_ms, 2000);
+        assert_eq!(cfg.insert_lock_timeout_ms, 5000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
     }
