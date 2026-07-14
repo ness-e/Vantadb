@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhyVantadbRouteImport } from './routes/why-vantadb'
 import { Route as UseCasesRouteImport } from './routes/use-cases'
 import { Route as StorageRouteImport } from './routes/storage'
+import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PlaygroundRouteImport } from './routes/playground'
@@ -25,6 +26,7 @@ import { Route as DemoRouteImport } from './routes/demo'
 import { Route as CostRouteImport } from './routes/cost'
 import { Route as ConfigRouteImport } from './routes/config'
 import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as CaseStudiesRouteImport } from './routes/case-studies'
 import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
@@ -54,6 +56,11 @@ const StorageRoute = StorageRouteImport.update({
   path: '/storage',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/storage.lazy').then((d) => d.Route))
+const ShowcaseRoute = ShowcaseRouteImport.update({
+  id: '/showcase',
+  path: '/showcase',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/showcase.lazy').then((d) => d.Route))
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
@@ -119,6 +126,11 @@ const ChangelogRoute = ChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/changelog.lazy').then((d) => d.Route))
+const CaseStudiesRoute = CaseStudiesRouteImport.update({
+  id: '/case-studies',
+  path: '/case-studies',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/case-studies.lazy').then((d) => d.Route))
 const ArchitectureRoute = ArchitectureRouteImport.update({
   id: '/architecture',
   path: '/architecture',
@@ -198,6 +210,7 @@ const AboutCommunityRoute = AboutCommunityRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -211,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
+  '/showcase': typeof ShowcaseRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/why-vantadb': typeof WhyVantadbRoute
@@ -229,6 +243,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -242,6 +257,7 @@ export interface FileRoutesByTo {
   '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
+  '/showcase': typeof ShowcaseRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/why-vantadb': typeof WhyVantadbRoute
@@ -261,6 +277,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -274,6 +291,7 @@ export interface FileRoutesById {
   '/playground': typeof PlaygroundRoute
   '/pricing': typeof PricingRoute
   '/security': typeof SecurityRoute
+  '/showcase': typeof ShowcaseRoute
   '/storage': typeof StorageRoute
   '/use-cases': typeof UseCasesRoute
   '/why-vantadb': typeof WhyVantadbRoute
@@ -294,6 +312,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/architecture'
+    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -307,6 +326,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/pricing'
     | '/security'
+    | '/showcase'
     | '/storage'
     | '/use-cases'
     | '/why-vantadb'
@@ -325,6 +345,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/architecture'
+    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -338,6 +359,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/pricing'
     | '/security'
+    | '/showcase'
     | '/storage'
     | '/use-cases'
     | '/why-vantadb'
@@ -356,6 +378,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/architecture'
+    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -369,6 +392,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/pricing'
     | '/security'
+    | '/showcase'
     | '/storage'
     | '/use-cases'
     | '/why-vantadb'
@@ -388,6 +412,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArchitectureRoute: typeof ArchitectureRoute
+  CaseStudiesRoute: typeof CaseStudiesRoute
   ChangelogRoute: typeof ChangelogRoute
   ConfigRoute: typeof ConfigRoute
   CostRoute: typeof CostRoute
@@ -401,6 +426,7 @@ export interface RootRouteChildren {
   PlaygroundRoute: typeof PlaygroundRoute
   PricingRoute: typeof PricingRoute
   SecurityRoute: typeof SecurityRoute
+  ShowcaseRoute: typeof ShowcaseRoute
   StorageRoute: typeof StorageRoute
   UseCasesRoute: typeof UseCasesRoute
   WhyVantadbRoute: typeof WhyVantadbRoute
@@ -438,6 +464,13 @@ declare module '@tanstack/react-router' {
       path: '/storage'
       fullPath: '/storage'
       preLoaderRoute: typeof StorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/showcase': {
+      id: '/showcase'
+      path: '/showcase'
+      fullPath: '/showcase'
+      preLoaderRoute: typeof ShowcaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/security': {
@@ -529,6 +562,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/case-studies': {
+      id: '/case-studies'
+      path: '/case-studies'
+      fullPath: '/case-studies'
+      preLoaderRoute: typeof CaseStudiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/architecture': {
@@ -628,6 +668,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArchitectureRoute: ArchitectureRoute,
+  CaseStudiesRoute: CaseStudiesRoute,
   ChangelogRoute: ChangelogRoute,
   ConfigRoute: ConfigRoute,
   CostRoute: CostRoute,
@@ -641,6 +682,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlaygroundRoute: PlaygroundRoute,
   PricingRoute: PricingRoute,
   SecurityRoute: SecurityRoute,
+  ShowcaseRoute: ShowcaseRoute,
   StorageRoute: StorageRoute,
   UseCasesRoute: UseCasesRoute,
   WhyVantadbRoute: WhyVantadbRoute,
