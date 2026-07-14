@@ -592,34 +592,44 @@ impl CPIndex {
                 n.neighbors[layer] = selected_neighbors.clone();
             }
 
-            for &neighbor_id in &selected_neighbors {
-                let (needs_shrink, current_neighbors) = {
-                    if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
-                        if layer < neighbor_node.neighbors.len() {
-                            if !neighbor_node.neighbors[layer].contains(&id) {
-                                neighbor_node.neighbors[layer].push(id);
-                            }
+            self.connect_layer_neighbors(id, &selected_neighbors, layer, m_max);
+        }
 
-                            if neighbor_node.neighbors[layer].len() > m_max {
-                                (true, neighbor_node.neighbors[layer].clone())
-                            } else {
-                                (false, NeighborVec::new())
-                            }
+        self.update_metadata(level, id);
+    }
+
+    fn connect_layer_neighbors(
+        &self,
+        id: u128,
+        selected_neighbors: &NeighborVec,
+        layer: usize,
+        m_max: usize,
+    ) {
+        for &neighbor_id in selected_neighbors {
+            let (needs_shrink, current_neighbors) = {
+                if let Some(mut neighbor_node) = self.nodes.get_mut(&neighbor_id) {
+                    if layer < neighbor_node.neighbors.len() {
+                        if !neighbor_node.neighbors[layer].contains(&id) {
+                            neighbor_node.neighbors[layer].push(id);
+                        }
+
+                        if neighbor_node.neighbors[layer].len() > m_max {
+                            (true, neighbor_node.neighbors[layer].clone())
                         } else {
                             (false, NeighborVec::new())
                         }
                     } else {
                         (false, NeighborVec::new())
                     }
-                };
-
-                if needs_shrink {
-                    self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
+                } else {
+                    (false, NeighborVec::new())
                 }
+            };
+
+            if needs_shrink {
+                self.shrink_neighbors(neighbor_id, m_max, &current_neighbors, layer);
             }
         }
-
-        self.update_metadata(level, id);
     }
 
     #[inline]
