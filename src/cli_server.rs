@@ -753,9 +753,12 @@ pub async fn build_tls13_config(
         ));
     }
 
-    let key = keys
-        .pop()
-        .expect("keys has exactly one element after guard");
+    let key = keys.pop().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "expected exactly one private key",
+        )
+    })?;
 
     // Include TLSv1.2 alongside TLSv1.3 for compatibility with legacy HTTP
     // clients (e.g. older curl, Java 8, Python <3.7) that do not support

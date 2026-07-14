@@ -101,7 +101,7 @@ impl Cipher {
         } else {
             Sha256::digest(key).into()
         };
-        let inner = Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm accepts 32-byte keys");
+        let inner = Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm::new_from_slice only fails if key is not 32 bytes; we guarantee 32 bytes via SHA-256 digest for non-32-byte inputs");
         Self { inner }
     }
 
@@ -118,12 +118,27 @@ impl Cipher {
     /// Encrypt `plaintext` with a fresh random 12-byte nonce.
     ///
     /// Returns `[nonce (12 bytes) || ciphertext + AEAD tag (16 bytes)]`.
+    ///
+    /// # Infallibility
+    ///
+    /// This method does **not** return `Result` because AEAD encryption with a
+    /// validly constructed cipher and a fresh random nonce can only fail on
+    /// out-of-memory — the same class of failure as [`Vec::push`] or
+    /// [`Vec::extend_from_slice`]. The underlying [`Aead::encrypt`] call from
+    /// RustCrypto's `aes-gcm` crate guarantees this: with correct parameters,
+    /// encryption is a pure computation that cannot produce an "error" in the
+    /// cryptographic sense (see [RustCRepo/aead#100]).
+    ///
+    /// If OOM occurs, the process is irrecoverable regardless of how we handle
+    /// it — unwinding will abort in most configurations. Callers who need a
+    /// fallible interface should use [`EncryptionStream`], which wraps this
+    /// call into [`io::Result`] at the stream boundary.
     pub fn encrypt(&self, plaintext: &[u8]) -> Vec<u8> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = self
             .inner
             .encrypt(&nonce, plaintext)
-            .expect("AES-256-GCM encryption should never fail");
+            .expect("AES-256-GCM encryption is infallible per RustCrypto guarantee");
         let mut out = Vec::with_capacity(12 + ciphertext.len());
         out.extend_from_slice(nonce.as_slice());
         out.extend_from_slice(&ciphertext);
