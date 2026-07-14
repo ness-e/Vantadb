@@ -189,3 +189,6 @@ clippy_output.txt
 
 langchain-vantadb/
 llama-index-vector-stores-vantadb/
+
+# Review-deep temporary scorecards
+.opencode/skills/review-deep/tmp/
