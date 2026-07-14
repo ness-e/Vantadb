@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use parking_lot::RwLock;
+use parking_lot::{FairMutex, RwLock};
 
 pub use crate::backend::BackendPartition;
 use crate::backend::StorageBackend;
@@ -158,7 +158,7 @@ pub struct StorageEngine {
     pub hnsw: ArcSwap<CPIndex>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
-    pub(crate) insert_lock: parking_lot::Mutex<()>,
+    pub(crate) insert_lock: FairMutex<()>,
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
     pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,

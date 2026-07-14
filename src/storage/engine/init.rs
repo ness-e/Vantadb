@@ -93,7 +93,7 @@ impl StorageEngine {
             config: config.clone(),
             read_only: config.read_only,
             hnsw: arc_swap::ArcSwap::from_pointee(hnsw),
-            insert_lock: parking_lot::Mutex::new(()),
+            insert_lock: parking_lot::FairMutex::new(()),
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             volatile_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),
