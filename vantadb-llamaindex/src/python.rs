@@ -53,6 +53,8 @@ impl VantaDBVectorStore {
         let namespace = &self.namespace;
         let mut out_ids = Vec::with_capacity(texts.len());
 
+        let mut inputs: Vec<VantaMemoryInput> = Vec::with_capacity(texts.len());
+
         for i in 0..texts.len() {
             let key = match &ids {
                 Some(ids) => ids.get(i).and_then(|o| o.clone()).unwrap_or_else(|| {
@@ -79,11 +81,25 @@ impl VantaDBVectorStore {
                 }
             }
 
-            let record = self
-                .engine
-                .put(input)
-                .map_err(|e| PyRuntimeError::new_err(format!("add error: {:?}", e)))?;
-            out_ids.push(format!("{}:{}", record.namespace, record.key));
+            inputs.push(input);
+        }
+
+        let results: Vec<Result<String, String>> = py.detach(|| {
+            let mut results = Vec::with_capacity(inputs.len());
+            for input in inputs {
+                match self.engine.put(input) {
+                    Ok(record) => results.push(Ok(format!("{}:{}", record.namespace, record.key))),
+                    Err(e) => results.push(Err(format!("add error: {:?}", e))),
+                }
+            }
+            results
+        });
+
+        for r in results {
+            match r {
+                Ok(id) => out_ids.push(id),
+                Err(e) => return Err(PyRuntimeError::new_err(e)),
+            }
         }
 
         Ok(out_ids)
@@ -101,32 +117,48 @@ impl VantaDBVectorStore {
             explain: false,
         };
 
-        let hits = self
-            .engine
-            .search(request)
-            .map_err(|e| PyRuntimeError::new_err(format!("query error: {:?}", e)))?;
+        let hits: Vec<(String, String, f32)> = py
+            .detach(|| match self.engine.search(request) {
+                Ok(hits) => Ok(hits
+                    .into_iter()
+                    .map(|hit| {
+                        (
+                            format!("{}:{}", hit.record.namespace, hit.record.key),
+                            hit.record.payload,
+                            hit.score,
+                        )
+                    })
+                    .collect()),
+                Err(e) => Err(format!("query error: {:?}", e)),
+            })
+            .map_err(PyRuntimeError::new_err)?;
 
-        let mut results = Vec::with_capacity(hits.len());
-        for hit in hits {
-            let d = PyDict::new(py);
-            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
-            d.set_item("text", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
-            results.push(d.unbind().into());
-        }
-        Ok(results)
+        Python::attach(|py| {
+            let mut results = Vec::with_capacity(hits.len());
+            for (id, text, score) in hits {
+                let d = PyDict::new(py);
+                d.set_item("id", &id)?;
+                d.set_item("text", &text)?;
+                d.set_item("score", score)?;
+                results.push(d.unbind().into());
+            }
+            Ok(results)
+        })
     }
 
-    fn delete(&self, ids: Vec<String>) -> PyResult<()> {
-        for id in &ids {
-            let parts: Vec<&str> = id.split(':').collect();
-            if parts.len() == 2 {
-                self.engine
-                    .delete(parts[0], parts[1])
-                    .map_err(|e| PyRuntimeError::new_err(format!("delete error: {:?}", e)))?;
+    fn delete(&self, py: Python, ids: Vec<String>) -> PyResult<()> {
+        py.detach(|| {
+            for id in &ids {
+                let parts: Vec<&str> = id.split(':').collect();
+                if parts.len() == 2 {
+                    self.engine
+                        .delete(parts[0], parts[1])
+                        .map_err(|e| format!("delete error: {:?}", e))?;
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        })
+        .map_err(|e: String| PyRuntimeError::new_err(e))
     }
 }
 
