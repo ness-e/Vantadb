@@ -883,6 +883,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `cargo check -p vantadb-llamaindex` passes. Commit `74fdc23`.
 - **Ids:** `DRV-109`
 
+### SEC-13: CSP nonce + HSTS headers
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Add nonce to `style-src-elem` CSP directive; HSTS already configured in vercel.json
+- **Resultado:** ✅ `npx tsc --noEmit` clean. Commit `d6282a5`.
+- **Ids:** `SEC-13`
+
 ### WEB-15/WEB-16: Homepage Visual Refinements (text-align, font-weight, Nav background)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Fix text-align from center to left on 9 elements, set H1 font-weight to 700, update Nav background to warm paper (`--surface-glass`).

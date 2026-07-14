@@ -91,7 +91,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Seguridad: `style-src 'unsafe-inline'` + sin HSTS + `/metrics` público sin auth. Bloqueante de release.
 - **Contrato:** "CSP nonce funcional en prod build, HSTS headers presentes"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `d6282a5`
 
 ### Task 7: DEVOPS-13 — Pin all workflow actions to SHA + Node 22
 
@@ -1103,11 +1104,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 5 — DRV-109 LlamaIndex missing GIL release
+Objetivo activo: Task 6 — SEC-13 CSP nonce + HSTS
 Estado: completed
-Última acción: same detach() pattern as DRV-102 on add, query, delete
-Resultado: ✅ cargo check -p vantadb-llamaindex passes, commit 74fdc23
-Próxima acción: Task 6 — SEC-13 CSP unsafe-inline + HSTS + nonce system
-Contrato: "cargo check -p vantadb-llamaindex pasa, tests pasan"
-Próxima tarea si completa: Task 6 — SEC-13 CSP
+Última acción: added nonce to style-src-elem; HSTS already in vercel.json
+Resultado: ✅ tsc --noEmit clean, commit d6282a5
+Próxima acción: Task 7 — DEVOPS-13 Pin all workflow actions to SHA + Node 22
+Contrato: "CSP nonce funcional en prod build, HSTS headers presentes"
+Próxima tarea si completa: Task 7 — DEVOPS-13
 === END RECITATION ===
