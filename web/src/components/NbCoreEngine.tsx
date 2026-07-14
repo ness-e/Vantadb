@@ -35,7 +35,7 @@ const BLOCKS = [
   {
     id: "query",
     label: "QUERY ENGINE",
-    desc: "SQL + RRF fusion planner",
+    desc: "RRF fusion planner",
     pins: ["REQ", "RSP", "BUSY", "IRQ"],
     x: 330,
     y: 260,
