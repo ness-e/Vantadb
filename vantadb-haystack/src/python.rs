@@ -1,6 +1,6 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods};
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModuleMethods};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
@@ -59,44 +59,72 @@ impl VantaDBDocumentStore {
         let namespace = self.namespace.read().unwrap().clone();
         let mut inputs = Vec::with_capacity(documents.len());
         for item in documents.iter() {
-            let d = item.cast::<PyDict>()?;
-            let doc_id: String = d
-                .get_item("id")
-                .ok()
-                .flatten()
-                .and_then(|v| v.extract::<String>().ok())
-                .unwrap_or_else(|| {
-                    let n = self.doc_counter.fetch_add(1, Ordering::SeqCst);
-                    format!("doc_{n}")
-                });
-            let content: String = d
-                .get_item("content")
-                .ok()
-                .flatten()
-                .and_then(|v| v.extract::<String>().ok())
-                .unwrap_or_default();
-            let embedding: Option<Vec<f32>> = d
-                .get_item("embedding")
-                .ok()
-                .flatten()
-                .and_then(|v| v.extract::<Vec<f32>>().ok())
-                .filter(|v| !v.is_empty());
+            let (doc_id, content, embedding, meta) = if let Ok(d) = item.cast::<PyDict>() {
+                let doc_id: String = d
+                    .get_item("id")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| v.extract::<String>().ok())
+                    .unwrap_or_else(|| {
+                        let n = self.doc_counter.fetch_add(1, Ordering::SeqCst);
+                        format!("doc_{n}")
+                    });
+                let content: String = d
+                    .get_item("content")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| v.extract::<String>().ok())
+                    .unwrap_or_default();
+                let embedding: Option<Vec<f32>> = d
+                    .get_item("embedding")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| v.extract::<Vec<f32>>().ok())
+                    .filter(|v| !v.is_empty());
+                let meta: BTreeMap<String, VantaValue> =
+                    if let Some(m) = d.get_item("metadata").ok().flatten() {
+                        if let Ok(dict) = m.cast::<PyDict>() {
+                            py_dict_to_vanta_metadata(dict)
+                        } else {
+                            BTreeMap::new()
+                        }
+                    } else {
+                        BTreeMap::new()
+                    };
+                (doc_id, content, embedding, meta)
+            } else {
+                let doc_id: String = item
+                    .getattr("id")
+                    .and_then(|v| v.extract::<String>())
+                    .unwrap_or_else(|_| {
+                        let n = self.doc_counter.fetch_add(1, Ordering::SeqCst);
+                        format!("doc_{n}")
+                    });
+                let content: String = item
+                    .getattr("content")
+                    .and_then(|v| v.extract::<String>())
+                    .unwrap_or_default();
+                let embedding: Option<Vec<f32>> = item
+                    .getattr("embedding")
+                    .ok()
+                    .and_then(|v| v.extract::<Vec<f32>>().ok())
+                    .filter(|v| !v.is_empty());
+                let meta: BTreeMap<String, VantaValue> = if let Some(m) = item.getattr("meta").ok()
+                {
+                    if let Ok(dict) = m.cast::<PyDict>() {
+                        py_dict_to_vanta_metadata(dict)
+                    } else {
+                        BTreeMap::new()
+                    }
+                } else {
+                    BTreeMap::new()
+                };
+                (doc_id, content, embedding, meta)
+            };
 
             let mut input = VantaMemoryInput::new(&namespace, &doc_id, &content);
             input.vector = embedding;
-
-            if let Ok(Some(meta)) = d.get_item("metadata") {
-                if let Ok(mdict) = meta.cast::<PyDict>() {
-                    for entry in mdict.iter() {
-                        if let (Ok(key), Ok(val)) =
-                            (entry.0.extract::<String>(), entry.1.extract::<String>())
-                        {
-                            input.metadata.insert(key, VantaValue::String(val));
-                        }
-                    }
-                }
-            }
-
+            input.metadata = meta;
             inputs.push((doc_id, input));
         }
 
@@ -121,7 +149,9 @@ impl VantaDBDocumentStore {
         top_k: i32,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = self.namespace.read().unwrap().clone();
-        let filters = py_dict_to_vanta_metadata(filters);
+        let filters = filters
+            .map(|d| py_dict_to_vanta_metadata(d))
+            .unwrap_or_default();
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust list
         let page = py.detach(move || {
@@ -137,13 +167,28 @@ impl VantaDBDocumentStore {
                 .map_err(err_to_py)
         })?;
 
+        let document_cls = py.import("haystack.dataclasses")?.getattr("Document")?;
+
         let mut results = Vec::with_capacity(page.records.len());
         for rec in &page.records {
-            let d = PyDict::new(py);
-            d.set_item("id", &rec.key)?;
-            d.set_item("content", &rec.payload)?;
-            d.set_item("embedding", rec.vector.clone())?;
-            results.push(d.unbind().into());
+            let meta = PyDict::new(py);
+            for (k, v) in &rec.metadata {
+                match v {
+                    VantaValue::String(s) => meta.set_item(k.as_str(), s.as_str())?,
+                    VantaValue::Int(i) => meta.set_item(k.as_str(), *i)?,
+                    VantaValue::Float(f) => meta.set_item(k.as_str(), *f)?,
+                    VantaValue::Bool(b) => meta.set_item(k.as_str(), *b)?,
+                    VantaValue::DateTime(dt) => meta.set_item(k.as_str(), dt.to_rfc3339())?,
+                    VantaValue::Null => meta.set_item(k.as_str(), py.None())?,
+                    _ => meta.set_item(k.as_str(), format!("{:?}", v))?,
+                };
+            }
+            let doc = document_cls.call1((&rec.key, &rec.payload))?;
+            if let Some(vec) = &rec.vector {
+                doc.setattr("embedding", vec)?;
+            }
+            doc.setattr("meta", meta)?;
+            results.push(doc.unbind().into());
         }
         Ok(results)
     }
@@ -173,20 +218,18 @@ impl VantaDBDocumentStore {
     }
 }
 
-fn py_dict_to_vanta_metadata(dict: Option<&Bound<'_, PyDict>>) -> BTreeMap<String, VantaValue> {
+fn py_dict_to_vanta_metadata(dict: &Bound<'_, PyDict>) -> BTreeMap<String, VantaValue> {
     let mut map = BTreeMap::new();
-    if let Some(d) = dict {
-        for (k, v) in d.iter() {
-            if let Ok(key) = k.extract::<String>() {
-                if let Ok(s) = v.extract::<String>() {
-                    map.insert(key, VantaValue::String(s));
-                } else if let Ok(i) = v.extract::<i64>() {
-                    map.insert(key, VantaValue::Int(i));
-                } else if let Ok(f) = v.extract::<f64>() {
-                    map.insert(key, VantaValue::Float(f));
-                } else if let Ok(b) = v.extract::<bool>() {
-                    map.insert(key, VantaValue::Bool(b));
-                }
+    for (k, v) in dict.iter() {
+        if let Ok(key) = k.extract::<String>() {
+            if let Ok(s) = v.extract::<String>() {
+                map.insert(key, VantaValue::String(s));
+            } else if let Ok(i) = v.extract::<i64>() {
+                map.insert(key, VantaValue::Int(i));
+            } else if let Ok(f) = v.extract::<f64>() {
+                map.insert(key, VantaValue::Float(f));
+            } else if let Ok(b) = v.extract::<bool>() {
+                map.insert(key, VantaValue::Bool(b));
             }
         }
     }
