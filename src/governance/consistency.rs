@@ -3,6 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use web_time::{Duration, Instant};
 
+use crate::sync_ext::RwLockExt;
+
 /// State of a pending consistency record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordState {
@@ -81,7 +83,7 @@ impl<T: Clone> ConsistencyBuffer<T> {
         node_id: u64,
         candidates: Vec<CandidateEntry<T>>,
     ) -> Result<(), BufferFull<T>> {
-        let mut buffer = self.buffer.write().expect("RwLock poisoned");
+        let mut buffer = self.buffer.lock_rwlock_mut();
 
         if buffer.len() >= self.max_size {
             self.rejected_full_count.fetch_add(1, Ordering::Relaxed);
@@ -112,20 +114,20 @@ impl<T: Clone> ConsistencyBuffer<T> {
 
     /// Read a pending record by node ID.
     pub fn get(&self, node_id: &u64) -> Option<PendingRecord<T>> {
-        let buffer = self.buffer.read().expect("RwLock poisoned");
+        let buffer = self.buffer.lock_rwlock();
         self.pending_reads.fetch_add(1, Ordering::Relaxed);
         buffer.get(node_id).cloned()
     }
 
     /// Remove a record from the buffer.
     pub fn remove(&self, node_id: &u64) -> Option<PendingRecord<T>> {
-        let mut buffer = self.buffer.write().expect("RwLock poisoned");
+        let mut buffer = self.buffer.lock_rwlock_mut();
         buffer.remove(node_id)
     }
 
     /// Touch a record to update its deadline.
     pub fn touch(&self, node_id: &u64, extension: Duration) -> bool {
-        let mut buffer = self.buffer.write().expect("RwLock poisoned");
+        let mut buffer = self.buffer.lock_rwlock_mut();
         if let Some(record) = buffer.get_mut(node_id) {
             record.last_touched = Instant::now();
             record.deadline = Instant::now() + extension;
@@ -137,7 +139,7 @@ impl<T: Clone> ConsistencyBuffer<T> {
 
     /// Expire entries past their TTL deadline. Returns tombstoned node IDs.
     pub fn expire_entries(&self) -> Vec<u64> {
-        let mut buffer = self.buffer.write().expect("RwLock poisoned");
+        let mut buffer = self.buffer.lock_rwlock_mut();
         let now = Instant::now();
         let mut tombstones = Vec::new();
 
@@ -156,7 +158,7 @@ impl<T: Clone> ConsistencyBuffer<T> {
     /// Check if flush is needed (time or count threshold).
     pub fn should_flush(&self) -> bool {
         let buffer_len = {
-            let buffer = self.buffer.read().expect("RwLock poisoned");
+            let buffer = self.buffer.lock_rwlock();
             buffer.len()
         };
 
@@ -164,14 +166,14 @@ impl<T: Clone> ConsistencyBuffer<T> {
             return true;
         }
 
-        let last_flush = *self.last_flush.read().expect("RwLock poisoned");
+        let last_flush = *self.last_flush.lock_rwlock();
         last_flush.elapsed() >= self.flush_interval
     }
 
     /// Flush all records, picking the highest-confidence candidate as winner
     /// and tombstoning the rest. All candidates are recorded in the result.
     pub fn flush_all(&self) -> FlushResult<T> {
-        let mut buffer = self.buffer.write().expect("RwLock poisoned");
+        let mut buffer = self.buffer.lock_rwlock_mut();
         let now = Instant::now();
         let mut result = FlushResult {
             accepted: Vec::new(),
@@ -218,7 +220,7 @@ impl<T: Clone> ConsistencyBuffer<T> {
 
     /// Number of pending records.
     pub fn len(&self) -> usize {
-        self.buffer.read().expect("RwLock poisoned").len()
+        self.buffer.lock_rwlock().len()
     }
 
     /// Whether the buffer is empty.

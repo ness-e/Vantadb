@@ -56,6 +56,7 @@ pub mod query;
 pub(crate) mod rbac;
 pub mod sdk;
 pub mod serialization;
+pub mod sync_ext;
 
 pub(crate) mod scalar_index;
 /// Storage schema versioning and compatibility checks.
