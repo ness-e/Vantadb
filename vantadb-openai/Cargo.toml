@@ -9,7 +9,7 @@ publish = false
 
 [lib]
 name = "vantadb_openai"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["python"]
