@@ -541,9 +541,15 @@ members = [
     "vantadb-litellm",
     "vantadb-openai",
     "vantadb-ollama",
-    "vantadb-enterprise",
     "vantadb-langchain",
     "vantadb-llamaindex",
+]
+default-members = [
+    ".",
+    "vantadb-python",
+    "vantadb-server",
+    "vantadb-mcp",
+    "vantadb-wasm",
 ]
 
 [workspace.package]

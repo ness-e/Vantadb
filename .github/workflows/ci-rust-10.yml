@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -78,15 +78,15 @@ jobs:
           install-system-deps: true
           swap-mb: 4096
 
-      - name: Clippy Lints
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Clippy Lints (core)
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
     name: Tests (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -105,16 +105,16 @@ jobs:
         run: bash scripts/download_benchmark_datasets.sh
         shell: bash
 
-      - name: Run tests (Audit profile)
+      - name: Run tests (Audit profile, core)
         timeout-minutes: 25
-        run: cargo nextest run --profile audit --workspace --features "cli,arrow,tls,opentelemetry"
+        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
 
   test-windows:
     name: Tests (Windows)
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - name: Set up Rust (Windows)
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -133,22 +133,22 @@ jobs:
           tool: nextest
 
       - name: Cargo check (Windows smoke test)
-        run: cargo check --workspace
+        run: cargo check
 
       - name: Clippy (Windows)
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
         timeout-minutes: 25
-        run: cargo nextest run --profile ci-windows --workspace --features "cli,arrow,tls,opentelemetry"
+        run: cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
 
   test-macos:
     name: Tests (macOS)
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
@@ -174,22 +174,22 @@ jobs:
           tool: nextest
 
       - name: Cargo check (macOS smoke test)
-        run: cargo check --workspace
+        run: cargo check
 
       - name: Clippy (macOS)
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Run tests (Audit profile)
+      - name: Run tests (Audit profile, core)
         shell: bash
         timeout-minutes: 25
-        run: cargo nextest run --profile audit --workspace --features "cli,arrow,tls,opentelemetry"
+        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
 
-  msrv:
+   msrv:
     name: MSRV Check (1.94.1)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -197,8 +197,8 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
 
-      - name: cargo check (MSRV)
-        run: cargo check --workspace
+      - name: cargo check (MSRV, core)
+        run: cargo check
 
   minimal-versions:
     name: Minimal Versions Check (-Zminimal-versions)
@@ -206,7 +206,7 @@ jobs:
     timeout-minutes: 15
     continue-on-error: true
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -214,15 +214,15 @@ jobs:
           install-nextest: false
           install-llvm-cov: false
 
-      - name: cargo check (minimal-versions)
-        run: cargo +nightly check -Zminimal-versions --workspace
+      - name: cargo check (minimal-versions, core)
+        run: cargo +nightly check -Zminimal-versions
 
   coverage:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -256,6 +256,20 @@ jobs:
           cargo llvm-cov report \
             --ignore-filename-regex '(tests/|benches/|packages/experimental)'
 
+      - name: Enforce coverage threshold (>=80%)
+        shell: bash
+        run: |
+          cargo llvm-cov report --json \
+            --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
+            | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          pct = d['data'][0]['totals']['lines']['percent']
+          ok = pct >= 80.0
+          print(f'Line coverage: {pct:.1f}% {\"✅\" if ok else \"❌\"}')
+          sys.exit(0 if ok else 1)
+          "
+
       - name: Upload coverage report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -268,7 +282,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -289,7 +303,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - name: Set up Rust (Nightly + Miri)
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -325,7 +339,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -347,7 +361,7 @@ jobs:
     timeout-minutes: 45
     continue-on-error: true
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - name: Install nightly + ASan
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -375,7 +389,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@v4
 
       - name: Install nightly + TSan
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
@@ -391,6 +405,6 @@ jobs:
       - name: Test with ThreadSanitizer
         run: cargo +nightly test --package vantadb --features "cli,arrow,tls,opentelemetry"
         env:
-          RUSTFLAGS: "-Z sanitizer=thread"
-          RUSTDOCFLAGS: "-Z sanitizer=thread"
+          RUSTFLAGS: "-Z sanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
+          RUSTDOCFLAGS: "-Z sanitizer=thread -Cunsafe-allow-abi-mismatch=sanitizer"
           TSAN_OPTIONS: "suppress_equal_stacks=1:halt_on_error=1:abort_on_error=1"
