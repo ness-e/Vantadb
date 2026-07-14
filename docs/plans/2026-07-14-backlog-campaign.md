@@ -79,7 +79,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo bug que DRV-102 (código byte-for-byte idéntico a langchain). GIL no liberado.
 - **Contrato:** "`cargo check -p vantadb-llamaindex` pasa, tests pasan"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `74fdc23`
 
 ### Task 6: SEC-13 — CSP unsafe-inline + HSTS + nonce system
 
@@ -1102,11 +1103,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 4 — DRV-102 Langchain missing GIL release
+Objetivo activo: Task 5 — DRV-109 LlamaIndex missing GIL release
 Estado: completed
-Última acción: wrapped add_texts, similarity_search_by_vector, delete in py.detach() (pyo3 0.29 API); fixed __init__.py __version__ export
-Resultado: ✅ cargo check -p vantadb-langchain passes, cargo build passes, commit 3cc6888
-Próxima acción: Task 5 — DRV-109 LlamaIndex missing GIL release (byte-for-byte identical code)
-Contrato: "cargo check -p vantadb-langchain pasa, tests pasan"
-Próxima tarea si completa: Task 5 — DRV-109 LlamaIndex missing GIL release
+Última acción: same detach() pattern as DRV-102 on add, query, delete
+Resultado: ✅ cargo check -p vantadb-llamaindex passes, commit 74fdc23
+Próxima acción: Task 6 — SEC-13 CSP unsafe-inline + HSTS + nonce system
+Contrato: "cargo check -p vantadb-llamaindex pasa, tests pasan"
+Próxima tarea si completa: Task 6 — SEC-13 CSP
 === END RECITATION ===

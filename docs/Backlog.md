@@ -363,7 +363,7 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-109` | **Missing GIL release en TODOS los métodos** — `add` (L82-85), `query` (L104-107), `delete` (L124-126) corren sin `py.detach()`. Mismo bug que DRV-102 | `vantadb-llamaindex/src/python.rs:82-85,104-107,124-126` | 🟢 1h | 🔴 | ❌ |
+| `DRV-109` | **Missing GIL release en TODOS los métodos** — `add` (L82-85), `query` (L104-107), `delete` (L124-126) corren sin `py.detach()`. Mismo bug que DRV-102 | `vantadb-llamaindex/src/python.rs:82-85,104-107,124-126` | 🟢 1h | 🔴 | ✅ |
 | `DRV-110` | **Metadata no-string values silenciosamente ignorados** — `v.extract::<String>()` (L73). Mismo bug que DRV-103 | `vantadb-llamaindex/src/python.rs:70-78` | 🟢 30min | 🔵 | ❌ |
 | `DRV-111` | **query() no retorna metadata** — Solo id/text/score (L112-114). Metadata almacenada via `add` se pierde. Mismo bug que DRV-104 | `vantadb-llamaindex/src/python.rs:109-116` | 🟢 30min | 🔵 | ❌ |
 | `DRV-112` | **delete() silenciosamente no-op en IDs malformados** — `split(':')` con `parts.len() != 2` ignora error. Mismo bug que DRV-105 | `vantadb-llamaindex/src/python.rs:120-128` | 🟢 30min | 🔵 | ❌ |
