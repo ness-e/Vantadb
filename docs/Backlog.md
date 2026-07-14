@@ -11,7 +11,8 @@ last_reviewed: 2026-07-13
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 48 (verified against code)
+> **Total open items:** 88 (66 previos + 22 del docs-audit Jul 13)
+> **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
 
@@ -75,6 +76,24 @@ last_reviewed: 2026-07-13
 |----|-------|----------|-----------|--------|
 | `MKT-17` | Página de comparación competitiva interactiva | 🟡 2-3d | 🟢 | ❌ |
 
+### 🚨 Hallazgos de Docs Audit (nuevos)
+
+> Items verificados como pendientes en docs/ pero no trackeados previamente. Referencia: `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`.
+
+| ID | Tarea | Origen | Esfuerzo | Prioridad | Estado |
+|----|-------|--------|----------|-----------|--------|
+| `SEC-13` | **CSP unsafe-inline en prod + HSTS + nonce system** — Sin nonce, `style-src 'unsafe-inline'`, `/metrics` endpoint público sin auth | bitacora P12, CSP2/CSP3, W6 | 🟡 1-2d | 🔴 | ❌ |
+| `SEC-14` | **Evaluar migrar bincode → postcard/rkyv** — Crate no mantenido desde 2021, propuesto en STORAGE_VERSIONING.md | `docs/architecture/STORAGE_VERSIONING.md:100` | 🟡 1d | 🟠 | ❌ |
+| `WEB-02` | **Corregir claims falsos en landing** — Benchmarks web (50x vs real 40x), mención "SQL support", "auto-embeddings", "cloud tiers" sin infraestructura | bitacora W1–W4 | 🟡 2-3d | 🔴 | ❌ |
+| `WEB-03` | **Async WAL batching fsyncs** — Recomendado en PERFORMANCE_TUNING.md para alta throughput | `docs/operations/PERFORMANCE_TUNING.md:264` | 🟡 2-3d | 🟡 | ❌ |
+| `WEB-04` | **Storage format versioning (draft→implement)** — STORAGE_VERSIONING.md Phases 1-3, sin migration path para VantaFile/HNSW/WAL | `docs/architecture/STORAGE_VERSIONING.md` | 🟠 3-5d | 🔵 | ❌ |
+| `DEVOPS-13` | **Pin all workflow actions a SHA + Node 22** — 11 workflows sin SHA pinning, Node 20 deprecated | bitacora C1, plan repair campaign | 🟡 1-2d | 🟡 | ❌ |
+| `DEVOPS-14` | **Extract composite action para Rust setup** — 5+ workflows duplican inline | bitacora C1 | 🟢 4h | 🟡 | ❌ |
+| `DEVOPS-15` | **Mover features heavies fuera de default + consolidar deps duplicadas** — Optimización compilación workspace | `docs/Investigaciones/cargo-check-optimizacion.md` T5/T7 | 🟡 1-2d | 🟡 | ❌ |
+| `TEST-11` | **Frontend tests (Vitest + Playwright)** + cross-browser WASM testing | bitacora T1/T4 | 🟡 2-3d | 🟡 | ❌ |
+| `TEST-12` | **Security testing: fuzzing expand + regression/snapshot suite** — Solo parser fuzzed, sin regression gates | bitacora T2/T3 | 🟡 2-3d | 🟡 | ❌ |
+| `DOC-20` | **mdBook adoption for docs site** — Docs fragmentados, sin search unificado, sin versioning | bitacora D1, D6 | 🟡 2-3d | 🟡 | ❌ |
+
 ### 🧪 Issues Técnicos Verificados (Nuevos)
 
 > Items descubiertos durante la verificación cross-code del backlog. No estaban registrados previamente.
@@ -94,6 +113,31 @@ last_reviewed: 2026-07-13
 | `VFY-011` | **ACID Phase 3: Snapshot isolation / MVCC** | — | 🟠 3-5d | 🔵 | ❌ |
 | `VFY-012` | **DEVOPS-03: musllinux target gap** — Algunos targets sin soporte | CI config | 🟢 4h | 🟢 | ❌ |
 
+### 🔍 Hallazgos del Full Review (2026-07-13)
+
+> Items descubiertos durante `vantadb-full-review`. Referencia: `docs/reviews/2026-07-13-full-review.md`.
+
+| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+|----|-------|---------|----------|-----------|--------|
+| `REV-001` | **CI: Rust fails on main — TSan ABI mismatch** — `-Zsanitizer=thread` incompatible con toolchain 1.94.1 | `.github/workflows/ci-rust-10.yml` → H05-ERROR-001 | 🟢 2h | 🔴 | ❌ |
+| `REV-002` | **CI: Web fails on main — 21 lint issues** — 14 ESLint errors + 7 warnings rompen build | `.github/workflows/ci-web-11.yml` → H05-ERROR-002 | 🟢 2h | 🔴 | ❌ |
+| `REV-003` | **No code coverage measurement** — CII Silver requiere ≥80%, sin herramienta configurada | CI config → H05-MISSING-001 | 🟡 1d | 🔴 | ❌ |
+| `REV-004` | **`tantivy` rlib not found** — Test builds de `vantadb-openai` fallan por dependencia faltante | `vantadb-openai/Cargo.toml` → H08-ARCH-001 | 🟡 1d | 🟡 | ❌ |
+| `REV-005` | **14 ESLint errors en web frontend** — 6x `no-explicit-any`, 8x prettier en `demo.lazy.tsx` + `why-vantadb.tsx` | `web/src/routes/demo.lazy.tsx`, `web/src/routes/why-vantadb.tsx` → H03-CODE-001 | 🟢 1h | 🟡 | ❌ |
+| `REV-006` | **No workspace-level clippy en CI** — Solo `-p vantadb`, adapters excluded | `.github/workflows/ci-rust-10.yml` → H05-MISSING-002 | 🟢 2h | 🟡 | ❌ |
+| `REV-007` | **`reducedMotion` missing from useEffect deps** — Stale closure risk en 3 componentes | `NbMonolith.tsx:61`, `NbVectorNebula.tsx:239`, `__root.tsx:181` → H03-CODE-002 | 🟢 30min | 🟡 | ❌ |
+| `REV-008` | **Node 20 actions deprecated** — `actions/checkout` y `setup-node` usan Node 20, runner usa Node 24 | `.github/workflows/*.yml` → H05-CODE-005 | 🟢 30min | 🟡 | ❌ |
+| `REV-009` | **19 workspace crates compilation overhead** — Adaptadores (10 crates) dependen de pyo3, rebuild en cascada | `Cargo.toml` → H08-ARCH-002 | 🟡 2-3d | 🟡 | ❌ |
+| `REV-010` | **`serialization.rs` god module 1827L** — Candidato a split, documentado pero no ejecutado | `src/sdk/serialization/mod.rs` → H08-PATTERN-001 | 🟡 1d | 🟡 | ❌ |
+| `REV-011` | **`insert_hnsw` monolithic 177L** — Función sin descomponer en sub-operaciones | `src/index/core.rs` → H08-PATTERN-002 | 🟡 4h | 🟡 | ❌ |
+| `REV-012` | **HNSW `insert_lock` contention** — Micro-batching implementado (P1), posible bottleneck bajo alta concurrencia | `src/index/graph.rs` → H08-ALGO-001 | 🟡 1-2d | 🟡 | ❌ |
+| `REV-013` | **`spin 0.9.8` yanked dependency** — Usado transitivamente vía fjall/flume, monitoreado | `deny.toml` → H08-LOGIC-001 | 🟢 1h | 🟡 | ❌ |
+| `REV-014` | **24 stale dependabot branches** — No auto-delete después de merge | `origin/dependabot/*` → H05-DIRECTION-001 | 🟢 30min | 🔵 | ❌ |
+| `REV-015` | **6 `any` types sin justificación** — `demo.lazy.tsx` usa `any` sin `eslint-disable` ni type alias | `web/src/routes/demo.lazy.tsx` → H03-CLARITY-001 | 🟢 1h | 🟡 | ❌ |
+| `REV-016` | **`vantadb-enterprise` abstracción prematura** — Crate existe pero features no definidos públicamente | `vantadb-enterprise/` → H08-ARCH-003 | 🟢 2h | 🔵 | ❌ |
+| `REV-017` | **`why-vantadb.tsx` prettier error** — Trailing newline rompe formateo | `web/src/routes/why-vantadb.tsx:43` → H03-CODE-003 | 🟢 5min | 🟢 | ❌ |
+| `REV-018` | **`NbToast.tsx` react-refresh warning** — Archivo exporta más que solo componentes | `web/src/components/nb/NbToast.tsx:15` → H03-CODE-004 | 🟢 5min | 🟢 | ❌ |
+
 ### WASM & Performance
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
@@ -111,6 +155,11 @@ last_reviewed: 2026-07-13
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
+| `CLI-01` | **CLI polish: backup/restore/doctor/stats/inspect/REPL/TUI** — Phase 4.E del roadmap, no implementado | 🟡 3-5d | 🟡 | ❌ |
+| `DEVOPS-HOMEBREW` | **Homebrew formula** — Phase 4.F, no existe | 🟢 4h | 🟡 | ❌ |
+| `DEVOPS-PY313` | **Python 3.13 wheels en CI matrix** — Phase 4.F, no configurado | 🟢 2h | 🟡 | ❌ |
+| `DEVEX-DEMO` | **Demo app (Rust + Python)** — Phase 4.G, no existe | 🟡 2-3d | 🟡 | ❌ |
+| `DEVEX-EXAMPLES` | **Rust examples en `docs/examples/`** — Phase 4.G, no existe | 🟢 4-6h | 🟡 | ❌ |
 | `NUEVO-16` | **Product Quantization (PQ) 96x** — compresión para datasets >RAM | Alto | 🔵 | ❌ |
 | `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers | Muy alto | 🔵 | ❌ |
 | `NUEVO-18` | **Sparse vectors nativos** — hybrid search real | Alto | 🔵 | ❌ |
@@ -122,7 +171,17 @@ last_reviewed: 2026-07-13
 
 ---
 
-## TIER 3 — 🔵 Post-Lanzamiento
+## TIER 3 — 🟢 Comunidad y Operaciones
+
+| ID | Tarea | Esfuerzo | Prioridad | Estado |
+|----|-------|----------|-----------|--------|
+| `COM-02` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** — ~10 items operacionales de `docs/discord/todo.md` | 🟡 2-3d | 🟢 | ❌ |
+| `COM-03` | **Discord: AutoMod (spam, mass-mention, invites), stickers/emojis, forums seed** | 🟢 4-6h | 🟢 | ❌ |
+| `COM-04` | **Discord: ticketing system, stage channel, Server Discovery, Canny.io roadmap, cross-promotion** | 🟢 4-6h | 🟢 | ❌ |
+
+---
+
+## TIER 4 — 🔵 Post-Lanzamiento
 
 | ID | Tarea | Esfuerzo | Prioridad | Estado |
 |----|-------|----------|-----------|--------|
@@ -170,20 +229,26 @@ De ~150 claims de estado en el backlog anterior, todos fueron verificados contra
 ## 📈 Timeline Consolidado
 
 ```
-Jul 14-18  TIER 0 (🔴 4 items):
+Jul 14-18  TIER 0 (🔴 6+ items):
                ─ INT-01/02: LangChain + LlamaIndex → PyPI
                ─ DEVOPS-05: Pipeline CI unificado
                ─ REL-02: vantadb-ts → npm
                ─ MKT-13: Link WASM demo en hero ⏳
-Jul 18-25  TIER 1 (🟠 15+ items):
+               ─ **REV-001/002: Fix CI (TSan + ESLint)**
+               ─ **SEC-13: CSP unsafe-inline + HSTS + nonce** ← docs-audit
+               ─ **WEB-02: Fix false claims landing** ← docs-audit
+Jul 18-25  TIER 1 (🟠 35+ items):
                ─ Docs: MKT-14 (case studies), TSK-106 (Discussions)
                ─ NUEVO-01/07/08/10: README, migrations, learning, benchmarks
                ─ Launch: LEG-01, MKT-03/04/05/10/15/16
-               ─ Code health: VFY-001→012
+               ─ Code health: VFY-001→012, **REV-003→018**
                ─ WASM: NUEVO-11→15
-Ago+       TIER 2-3 (🔵 items):
+               ─ Docs-audit: SEC-14, WEB-03/04, DEVOPS-13/14/15, TEST-11/12, DOC-20
+Ago+       TIER 2-4:
+               ─ CLI-01, DEVOPS-HOMEBREW, DEVOPS-PY313, DEVEX-DEMO, DEVEX-EXAMPLES
                ─ NUEVO-16/17/18: PQ, LSM, sparse vectors
                ─ Enterprise: ENT-04, BIZ-01
+               ─ COM-02/03/04: Discord setup
                ─ Publishing: crates.io, WEB-001
 ```
 
@@ -205,3 +270,6 @@ Ago+       TIER 2-3 (🔵 items):
 - [ ] Docs actualizados si aplica
 - [ ] Tarea movida a `progreso/README.md`
 - [ ] Changelog actualizado si es cambio visible al usuario
+
+---
+**Fuente de REV-001→018:** `docs/reviews/2026-07-13-full-review.md` — generado por `vantadb-full-review` skill.
