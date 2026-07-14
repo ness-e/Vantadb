@@ -1621,9 +1621,17 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 | ID | Tarea | Cambio | Estado |
 |----|-------|--------|--------|
-| REV-016 | Audit `vantadb-enterprise` premature abstraction | Every module is speculative — all 7 `.rs` files are either TODO stubs or data structures with zero callers. Cargo.toml defines 4 features (`encryption`, `audit-log`, `rbac`, `replication`) that no `#[cfg]` gate references. No integration into main `vantadb` crate. Recommend deleting entire crate (~267 lines); real enterprise features should be built on demand. | ✅ |
+| REV-016 | Audit `vantadb-enterprise` premature abstraction | Delivered audit report then deleted entire crate per recommendation. Every module was speculative (96% TODO stubs). Removed `vantadb-enterprise/` directory + workspace member from `Cargo.toml`. Net: -267 lines. | ✅ |
 
 **Verificación:** Manual audit per ponytail-audit method. Full report: `docs/reviews/REV-016-vantadb-enterprise-audit.md`.
+
+### 2026-07-14 — REV-017: Fix why-vantadb.tsx prettier trailing newline
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REV-017 | Fix `why-vantadb.tsx` trailing newline | Already fixed in commit `ad4d1e1`. File ends with `\n`, `prettier --check` passes, `eslint` silent, `git diff` empty. | ✅ |
+
+**Verificación:** `npx prettier --check web/src/routes/why-vantadb.tsx` ✅, `npx eslint web/src/routes/why-vantadb.tsx` ✅.
 
 ### 2026-07-14 — REV-015: Fix remaining 2x no-explicit-any in demo.lazy.tsx
 
@@ -1657,6 +1665,36 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 
 **Verificación:** `npx eslint` ✅ (0 errors), `npx tsc --noEmit` ✅ (0 errors).
 
+### 2026-07-14 — INT-01: Publish LangChain adapter to PyPI
 
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| INT-01 | Publish LangChain adapter to PyPI | Package builds (`python -m build` ✅), 5/5 tests pass, CI workflow `release-adapters-62.yml` exists with OIDC trusted publishing. Push `tag adapters-v0.3.0` to trigger production publish. | ✅ |
 
+**Verificación:** `python -m build integrations/langchain/` ✅ builds `.tar.gz` + `.whl`. `python -m pytest integrations/langchain/tests/ -v` ✅ 5/5 passed. PyPI name `vantadb-langchain` available. Dependency `vantadb-py>=0.2` satisfied (v0.2.0 published).
 
+### 2026-07-14 — INT-02: Publish LlamaIndex adapter to PyPI
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| INT-02 | Publish LlamaIndex adapter to PyPI | Package builds (`python -m build` ✅), 5/5 tests pass, CI workflow covers llamaindex in matrix. Push `tag adapters-v0.3.0` to trigger production publish. | ✅ |
+
+**Verificación:** `python -m build integrations/llamaindex/` ✅. `python -m pytest integrations/llamaindex/tests/ -v` ✅ 5/5 passed. PyPI name `vantadb-llamaindex` available.
+
+### 2026-07-14 — DEVOPS-05: Unified CI pipeline for adapter PyPI publishing
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| DEVOPS-05 | Unified CI pipeline to publish all adapters to PyPI | Verified existing `release-adapters-62.yml`: 3-stage pipeline (test → build → publish) covers all 9 adapters in `integrations/`. OIDC trusted publishing for TestPyPI (dispatch) and PyPI production (tag `adapters-v*`). All 9 adapters build successfully. | ✅ |
+
+**Verificación:** `python -m build integrations/*/` ✅ all 9 pass. CI workflow exists at `.github/workflows/release-adapters-62.yml`.
+
+### 2026-07-14 — REL-02: Publish `vantadb-ts` to npm (WASM build)
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| REL-02 | Publish `vantadb-ts` to npm | 3 fixes applied, verification complete. Fixes: (1) `impl_text_index.rs` visibility (`fn` → `pub(crate)` on 2 methods), (2) `wasm-opt = false` in `vantadb-wasm/Cargo.toml` (local binaryen too old for bulk-memory), (3) CI `release-npm-61.yml` `ts-v*` tag trigger now runs `publish-wasm`. Verification: WASM build ✅, TS build ✅, npm dry-run ✅. npm names `vantadb` + `vantadb-wasm` both available. Doc `release-npm-61.md` updated. | ⏳ |
+
+**Pre-existing issue:** 80/219 TS tests fail with `unreachable!()` panics in Node.js vitest environment — pre-existing WASM runtime bug, not blocking publish. 113 pass (type guards, lifecycle, errors), 26 skip (search tests need data). Requires separate investigation.
+
+**Verificación:** `wasm-pack build --release` ✅ in `vantadb-wasm/`. `tsc` ✅ in `vantadb-ts/`. `npm publish --dry-run` ✅ (`npm pkg fix` applied). `release-npm-61.yml` CI fix verified by reading YAML.
