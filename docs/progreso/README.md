@@ -876,6 +876,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `cargo check -p vantadb-langchain` passes, `cargo build` passes. Commit `3cc6888`.
 - **Ids:** `DRV-102`
 
+### DRV-109: LlamaIndex missing GIL release
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Release GIL in `add`, `query`, `delete` using same `py.detach()` pattern as DRV-102
+- **Resultado:** ✅ `cargo check -p vantadb-llamaindex` passes. Commit `74fdc23`.
+- **Ids:** `DRV-109`
+
 ### WEB-15/WEB-16: Homepage Visual Refinements (text-align, font-weight, Nav background)
 - **Fecha:** 2026-07-02
 - **Objetivo:** Fix text-align from center to left on 9 elements, set H1 font-weight to 700, update Nav background to warm paper (`--surface-glass`).
