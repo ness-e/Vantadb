@@ -178,7 +178,7 @@ function RootComponent() {
     return () => {
       cleanups.forEach((c) => c());
     };
-  }, [routeId]);
+  }, [routeId, reducedMotion]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -236,7 +236,7 @@ export const NbVectorNebula = memo(function NbVectorNebula() {
     );
 
     return () => cleanup?.();
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <section ref={sectionRef} className="nb-nebula" aria-label="Closing statement">

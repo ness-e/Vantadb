@@ -1,8 +1,15 @@
 import { createLazyRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PipelineFn = (task: string, model: string, options?: { quantized?: boolean }) => Promise<any>;
+type HFExtractor = (
+  text: string,
+  options: { pooling: "mean"; normalize: true },
+) => Promise<{ data: Float32Array }>;
+type PipelineFn = (
+  task: string,
+  model: string,
+  options?: { quantized?: boolean },
+) => Promise<HFExtractor>;
 import { NbSubpageHero } from "@/components/NbSubpageHero";
 import { NbSection, NbSectionHeader } from "@/components/nb";
 import { PendingComponent } from "@/components/PendingComponent";
@@ -20,6 +27,16 @@ const SIMILARITY_THRESHOLD = 0.65;
 
 type Memory = { key: string; payload: string; score: number };
 type Msg = { role: "user" | "agent" | "system"; content: string; memories?: Memory[] };
+type HitResult = { score: number; record: { key: string; payload: string } };
+interface VantaDemoDB {
+  put(opts: { namespace: string; key: string; payload: string; vector: number[] }): void;
+  search(opts: {
+    namespace: string;
+    query_vector: number[];
+    top_k: number;
+    distance_metric: string;
+  }): HitResult[];
+}
 
 function escapeHtml(s: string) {
   const d = document.createElement("div");
@@ -52,7 +69,7 @@ function DemoPage() {
   const [statusText, setStatusText] = useState("Loading WASM…");
   const [dbReady, setDbReady] = useState(false);
 
-  const dbRef = useRef<any>(null);
+  const dbRef = useRef<VantaDemoDB | null>(null);
   const embedRef = useRef<((text: string) => Promise<number[]>) | null>(null);
 
   const addMsg = useCallback((msg: Msg) => {
@@ -99,8 +116,9 @@ function DemoPage() {
         let usingMock = false;
         try {
           const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0";
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mod: any = await import(/* @vite-ignore */ TRANSFORMERS_URL);
+          const mod = (await import(/* @vite-ignore */ TRANSFORMERS_URL)) as {
+            pipeline: PipelineFn;
+          };
           const pipeline = mod.pipeline as PipelineFn;
           const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
             quantized: true,
@@ -115,7 +133,7 @@ function DemoPage() {
             const dim = 384;
             let hash = 0;
             for (let i = 0; i < text.length; i++) {
-              hash = ((hash << 5) - hash) + text.charCodeAt(i);
+              hash = (hash << 5) - hash + text.charCodeAt(i);
               hash |= 0;
             }
             const seed = Math.abs(hash);
@@ -136,7 +154,7 @@ function DemoPage() {
         if (cancelled) return;
 
         pushStatus("loading", "Opening database…");
-        let db: any;
+        let db: VantaDemoDB;
         let persistent = false;
         try {
           db = await VantaDB.connect_persistent("vanta-demo");
@@ -160,16 +178,19 @@ function DemoPage() {
           },
         ]);
         pushStatus("ready", usingMock ? "Ready (mock embedder)" : "Ready");
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          pushStatus("error", `Init failed: ${err.message || err}`);
-          setMessages([{ role: "system", content: `Failed to initialize: ${err.message || err}` }]);
+          const msg = err instanceof Error ? err.message : String(err);
+          pushStatus("error", `Init failed: ${msg}`);
+          setMessages([{ role: "system", content: `Failed to initialize: ${msg}` }]);
         }
       }
     }
 
     void boot();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [pushStatus]);
 
   const handleSend = useCallback(async () => {
@@ -196,13 +217,14 @@ function DemoPage() {
         distance_metric: "Cosine",
       });
       const memories: Memory[] = (hits ?? [])
-        .filter((h: any) => h.score > SIMILARITY_THRESHOLD)
-        .map((h: any) => ({ key: h.record.key, payload: h.record.payload, score: h.score }));
+        .filter((h: HitResult) => h.score > SIMILARITY_THRESHOLD)
+        .map((h: HitResult) => ({ key: h.record.key, payload: h.record.payload, score: h.score }));
 
       addMsg({ role: "agent", content: generateResponse(text, memories), memories });
       pushStatus("ready", "Memory saved");
-    } catch (err: any) {
-      addMsg({ role: "system", content: `Error: ${err.message || err}` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addMsg({ role: "system", content: `Error: ${msg}` });
       pushStatus("error", "Error");
     } finally {
       setBusy(false);
@@ -225,7 +247,13 @@ function DemoPage() {
   return (
     <main className="demo-page" ref={sectionRef}>
       <NbSubpageHero
-        title={<span>Try VantaDB<br />in Your Browser</span>}
+        title={
+          <span>
+            Try VantaDB
+            <br />
+            in Your Browser
+          </span>
+        }
         sub="AI-powered vector memory running entirely client-side via WebAssembly. No server, no install."
       />
 
@@ -273,7 +301,16 @@ function DemoPage() {
               disabled={!dbReady || busy || !input.trim()}
               aria-label="Send"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
@@ -311,8 +348,14 @@ console.log(hits.map(h => h.record.payload));
         </div>
         <div ref={infoRef} className="demo-connection-info">
           <span className="check">✓</span> Data persists via OPFS
-          <span className="check" style={{ marginLeft: "1rem" }}>✓</span> All-in-browser, zero server
-          <span className="check" style={{ marginLeft: "1rem" }}>✓</span> BM25 + HNSW hybrid search
+          <span className="check" style={{ marginLeft: "1rem" }}>
+            ✓
+          </span>{" "}
+          All-in-browser, zero server
+          <span className="check" style={{ marginLeft: "1rem" }}>
+            ✓
+          </span>{" "}
+          BM25 + HNSW hybrid search
         </div>
       </NbSection>
     </main>
