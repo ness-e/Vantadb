@@ -49,7 +49,7 @@ export const NbBackToTop = memo(function NbBackToTop() {
       window.removeEventListener("scroll", onScroll);
       anim?.stop();
     };
-  }, []);
+  }, [reducedMotion]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });

@@ -14,7 +14,13 @@ function ShowcasePage() {
     <div className="nb-page">
       <NbSubpageHero
         pattern="p07"
-        title={<span>Community<br />Showcase</span>}
+        title={
+          <span>
+            Community
+            <br />
+            Showcase
+          </span>
+        }
         sub="See what the community is building with VantaDB — AI agents, RAG pipelines, edge applications, and more."
       />
 
@@ -28,7 +34,12 @@ function ShowcasePage() {
         <div className="nc-showcase-empty">
           <p className="nc-showcase-empty-text">
             No projects showcased yet. Built something with VantaDB?{" "}
-            <a href="https://github.com/ness-e/Vantadb/discussions" className="nb-link" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://github.com/ness-e/Vantadb/discussions"
+              className="nb-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Share it with us
             </a>{" "}
             and we'll feature it here.

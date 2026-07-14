@@ -13,7 +13,11 @@ interface EngineBenchmarkProps {
   items: BenchmarkItem[];
 }
 
-export const EngineBenchmark = memo(function EngineBenchmark({ panelLabel, description, items }: EngineBenchmarkProps) {
+export const EngineBenchmark = memo(function EngineBenchmark({
+  panelLabel,
+  description,
+  items,
+}: EngineBenchmarkProps) {
   return (
     <div className="nc-engine-panel nc-engine-section nc-engine-part">
       <div className="nc-engine-panel-label">{panelLabel}</div>

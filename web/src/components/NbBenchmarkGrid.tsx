@@ -132,7 +132,7 @@ export function NbBenchmarkGrid() {
     );
 
     return () => cleanup?.();
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <section className="nb-section" ref={sectionRef} aria-label="Benchmark comparison">

@@ -14,7 +14,13 @@ function CaseStudiesPage() {
     <div className="nb-page">
       <NbSubpageHero
         pattern="p05"
-        title={<span>Case<br />Studies</span>}
+        title={
+          <span>
+            Case
+            <br />
+            Studies
+          </span>
+        }
         sub="Real-world stories of teams using VantaDB for AI agents, local RAG, edge AI, and more."
       />
 
@@ -28,7 +34,12 @@ function CaseStudiesPage() {
         <div className="nc-cs-empty">
           <p className="nc-cs-empty-text">
             Have a story to share?{" "}
-            <a href="https://github.com/ness-e/Vantadb/discussions" className="nb-link" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://github.com/ness-e/Vantadb/discussions"
+              className="nb-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Tell us about it
             </a>
             .
