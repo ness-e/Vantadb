@@ -152,7 +152,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Bug: metadata bool/int/float se pierden sin warning. Impacto directo en usuarios.
 - **Contrato:** "`cargo check -p vantadb-openai` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 12: DRV-062 — Ollama client recreado en cada embed()
 
@@ -1105,11 +1105,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 10 — DRV-057 OpenAI client recreado en cada embed()
+Objetivo activo: Task 11 — DRV-058 OpenAI metadata no-string ignorado
 Estado: completed
-Última acción: added `client: Py<PyAny>` field, removed `api_key`, moved client creation to `new()`, cached client used in `embed()`
-Resultado: ✅ cargo check -p vantadb-openai clean, clippy clean (crate only, 0 new warnings)
-Próxima acción: Task 11 — DRV-058 OpenAI metadata no-string ignorado
+Última acción: replaced single extract::<String>() with cascade: String → Bool → Int → Float using or_else chain
+Resultado: ✅ cargo check -p vantadb-openai clean, clippy clean
+Próxima acción: Task 12 — DRV-062 Ollama client recreado en cada embed()
 Contrato: "cargo check -p vantadb-openai pasa"
-Próxima tarea si completa: Task 11 — DRV-058
+Próxima tarea si completa: Task 12 — DRV-062
 === END RECITATION ===
