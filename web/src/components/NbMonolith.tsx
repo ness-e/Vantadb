@@ -58,7 +58,7 @@ export const NbMonolith = memo(function NbMonolith() {
     );
 
     return () => cleanup?.();
-  }, []);
+  }, [reducedMotion]);
 
   // Boot sequence timer
   useEffect(() => {

@@ -40,4 +40,3 @@ export const Route = createFileRoute("/why-vantadb")({
     ],
   }),
 });
-
