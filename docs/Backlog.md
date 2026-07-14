@@ -82,7 +82,7 @@ last_reviewed: 2026-07-13
 
 | ID | Tarea | Origen | Esfuerzo | Prioridad | Estado |
 |----|-------|--------|----------|-----------|--------|
-| `SEC-13` | **CSP unsafe-inline en prod + HSTS + nonce system** — Sin nonce, `style-src 'unsafe-inline'`, `/metrics` endpoint público sin auth | bitacora P12, CSP2/CSP3, W6 | 🟡 1-2d | 🔴 | ❌ |
+| `SEC-13` | **CSP unsafe-inline en prod + HSTS + nonce system** — Sin nonce, `style-src 'unsafe-inline'`, `/metrics` endpoint público sin auth | bitacora P12, CSP2/CSP3, W6 | 🟡 1-2d | 🔴 | ✅ |
 | `SEC-14` | **Evaluar migrar bincode → postcard/rkyv** — Crate no mantenido desde 2021, propuesto en STORAGE_VERSIONING.md | `docs/architecture/STORAGE_VERSIONING.md:100` | 🟡 1d | 🟠 | ❌ |
 | `WEB-02` | **Corregir claims falsos en landing** — Benchmarks web (50x vs real 40x), mención "SQL support", "auto-embeddings", "cloud tiers" sin infraestructura | bitacora W1–W4 | 🟡 2-3d | 🔴 | ❌ |
 | `WEB-03` | **Async WAL batching fsyncs** — Recomendado en PERFORMANCE_TUNING.md para alta throughput | `docs/operations/PERFORMANCE_TUNING.md:264` | 🟡 2-3d | 🟡 | ❌ |
