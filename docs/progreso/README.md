@@ -890,6 +890,13 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ No-op — no `.github/workflows/` files exist in this repository
 - **Ids:** `DEVOPS-13`
 
+### DRV-057: OpenAI client recreado en cada embed()
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Cache `Py<PyAny>` OpenAI client in struct field instead of recreating per `embed()` call — eliminates TLS handshake + connection pool churn
+- **Resultado:** ✅ `cargo check -p vantadb-openai` clean, clippy clean.
+- **Ids:** `DRV-057`
+
 ### DRV-007: Data race en filter_field() (scalar_index sin lock)
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14

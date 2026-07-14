@@ -34,7 +34,7 @@ fn err_to_py(e: VantaError) -> PyErr {
 #[pyclass(name = "VantaDBOpenAI")]
 pub struct VantaDBOpenAI {
     engine: VantaEmbedded,
-    api_key: String,
+    client: Py<PyAny>,
     model: String,
     namespace: RwLock<String>,
     counter: AtomicU64,
@@ -44,15 +44,29 @@ pub struct VantaDBOpenAI {
 impl VantaDBOpenAI {
     #[new]
     #[pyo3(signature = (db_path, api_key, model = "text-embedding-3-small", namespace = "openai_store"))]
-    fn new(db_path: &str, api_key: &str, model: &str, namespace: &str) -> PyResult<Self> {
+    fn new(
+        py: Python,
+        db_path: &str,
+        api_key: &str,
+        model: &str,
+        namespace: &str,
+    ) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        let openai_mod = pyo3::types::PyModule::import(py, "openai")
+            .map_err(|e| PyRuntimeError::new_err(format!("openai import error: {:?}", e)))?;
+        let client_kwargs = PyDict::new(py);
+        client_kwargs.set_item("api_key", api_key)?;
+        let client = openai_mod
+            .getattr("OpenAI")
+            .and_then(|cls| cls.call((), Some(&client_kwargs)))
+            .map_err(|e| PyRuntimeError::new_err(format!("OpenAI client error: {:?}", e)))?;
         Ok(Self {
             engine,
-            api_key: api_key.to_string(),
+            client: client.unbind(),
             model: model.to_string(),
             namespace: RwLock::new(namespace.to_string()),
             counter: AtomicU64::new(0),
@@ -60,15 +74,7 @@ impl VantaDBOpenAI {
     }
 
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
-        let openai_mod = pyo3::types::PyModule::import(py, "openai")
-            .map_err(|e| PyRuntimeError::new_err(format!("openai import error: {:?}", e)))?;
-        let client_kwargs = PyDict::new(py);
-        client_kwargs.set_item("api_key", &self.api_key)?;
-        let client = openai_mod
-            .getattr("OpenAI")
-            .and_then(|cls| cls.call((), Some(&client_kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("OpenAI client error: {:?}", e)))?;
-
+        let client = self.client.bind(py);
         let kwargs = PyDict::new(py);
         kwargs.set_item("model", &self.model)?;
         kwargs.set_item("input", texts)?;
