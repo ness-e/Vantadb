@@ -1,0 +1,12 @@
+.nc-showcase-empty {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2xl) 0;
+}
+
+.nc-showcase-empty-text {
+  max-width: 480px;
+  text-align: center;
+  color: var(--steel);
+  line-height: 1.6;
+}

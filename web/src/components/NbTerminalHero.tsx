@@ -144,6 +144,7 @@ export const NbTerminalHero = memo(function NbTerminalHero() {
               </svg>
             </button>
             <NbArrow href="/docs">READ DOCS</NbArrow>
+            <NbArrow href="/demo">TRY DEMO</NbArrow>
           </div>
 
           {/* Status line */}
