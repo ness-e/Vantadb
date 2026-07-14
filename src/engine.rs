@@ -238,11 +238,7 @@ impl InMemoryEngine {
         if nodes.remove(&id).is_none() {
             return Err(VantaError::NodeNotFound(id));
         }
-        drop(nodes);
-
-        // PERF-07: cascade — remove all edges referencing this node
         self.edge_index.remove_all_for_node(id);
-        // PERF-08: remove node from scalar index
         self.scalar_index.remove_node(id);
 
         Ok(())
