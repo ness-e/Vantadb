@@ -30,5 +30,6 @@ export { NbSection } from "./NbSection";
 export { NbSectionHeader } from "./NbSectionHeader";
 export { NbSplitFlap } from "./NbSplitFlap";
 export { NbTabs } from "./NbTabs";
-export { NbToastContainer, toast } from "./NbToast";
+export { toast } from "./NbToast.store";
+export { NbToastContainer } from "./NbToast";
 export { NbToggle } from "./NbToggle";
