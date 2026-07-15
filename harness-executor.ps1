@@ -1,15 +1,13 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  Harness externo para backlog-executor. Ejecuta tareas de un plan file
-  una por una, invocando OpenCode en cada iteración.
+  Harness externo para campaign-executor. Ejecuta tareas de un plan file
+  una por una (o en paralelo), invocando OpenCode en cada iteración.
 
 .DESCRIPTION
-  Lee docs/plans/<campaign>.md, encuentra la próxima tarea ❌,
-  invoca `opencode run` con el prompt de una iteración,
-  espera a que termine, verifica progreso, y repite.
-
-  El loop vive ACÁ (en el script), no en el prompt del LLM.
+  Lee docs/plans/<campaign>.md, encuentra la próxima tarea ⬜ PENDING,
+  invoca `opencode run` con el prompt de iter.md, espera que termine,
+  verifica progreso, y repite.
 
 .PARAMETER PlanFile
   Ruta al plan file (docs/plans/YYYY-MM-DD-<campaign>.md).
@@ -20,18 +18,26 @@
 .PARAMETER StallThreshold
   Intentos consecutivos sin progreso antes de preguntar (default: 2).
 
+.PARAMETER SingleTask
+  Ejecutar solo una tarea específica (ej: "DRV-068"). Omite el resto.
+
+.PARAMETER Timeout
+  Timeout por iteración en segundos (default: 300 = 5 min, 0 = sin límite).
+
+.PARAMETER Parallel
+  Ejecuta tareas independientes en paralelo (waves concurrentes).
+
+.PARAMETER Yes
+  Auto-responde sí a todas las confirmaciones (git dirty, stall, PID conflict).
+  Permite ejecución no-interactiva desde el chat con `opencode run`.
+
 .PARAMETER DryRun
   No ejecuta opencode, solo muestra qué haría.
 
-.PARAMETER OpenCodePrompt
-  Ruta al archivo de prompt para cada iteración.
-  Default: .opencode/skills/backlog-executor/iter-prompt.md
-
 .EXAMPLE
   .\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-plan.md
-
-.EXAMPLE
-  .\harness-executor.ps1 -PlanFile docs\plans\plan.md -Interval 10
+  .\harness-executor.ps1 -PlanFile docs\plans\plan.md -Interval 10 -SingleTask DRV-068
+  .\harness-executor.ps1 -PlanFile docs\plans\plan.md -Parallel
 #>
 
 param(
@@ -40,13 +46,16 @@ param(
 
   [int]$Interval = 5,
   [int]$StallThreshold = 2,
+  [string]$SingleTask = "",
+  [int]$Timeout = 900,
+  [switch]$Parallel,
   [switch]$DryRun,
-  [string]$OpenCodePrompt = ""
+  [switch]$Yes
 )
 
 $ErrorActionPreference = "Stop"
 $planFile = Resolve-Path $PlanFile -ErrorAction Stop
-$projectRoot = Split-Path $planFile -Parent | Split-Path -Parent
+$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $planFileName = Split-Path $planFile -Leaf
 
 if (-not (Test-Path $planFile)) {
@@ -54,32 +63,67 @@ if (-not (Test-Path $planFile)) {
   exit 1
 }
 
+# ---- double PID detection ----
+$thisPid = $PID
+$planContent = Get-Content $planFile -Raw
+$pidMatch = [regex]::Match($planContent, 'Harness PID:\s*(\d+)')
+if ($pidMatch.Success) {
+  $existingPid = [int]$pidMatch.Groups[1].Value
+  $existingProcess = Get-Process -Id $existingPid -ErrorAction SilentlyContinue
+  if ($existingProcess) {
+    Write-Warning "⚠️  Harness ya ejecutándose con PID $existingPid ($($existingProcess.ProcessName))."
+    Write-Warning "   Solo un harness a la vez está permitido."
+    if ($Yes) {
+      $existingProcess.Kill()
+      Write-Host "  → Proceso $existingPid matado (-Yes)." -ForegroundColor Yellow
+    } else {
+      $answer = Read-Host "¿Matar el proceso existente y continuar? (s/N)"
+      if ($answer -eq 's') {
+        $existingProcess.Kill()
+        Write-Host "  → Proceso $existingPid matado." -ForegroundColor Yellow
+      } else {
+        exit 6
+      }
+    }
+  }
+}
+
+# ---- git check ----
+$gitStatus = git -C $projectRoot status --porcelain 2>$null
+if ($gitStatus) {
+  Write-Host "⚠️  Working tree has uncommitted changes:" -ForegroundColor Yellow
+  $gitStatus | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+  if (-not $Yes) {
+    Write-Host "  ¿Continuar de todas formas? (s/N) " -ForegroundColor Yellow -NoNewline
+    $answer = Read-Host
+    if ($answer -ne 's') { exit 4 }
+  }
+}
+
 # ---- helpers ----
 
-function Get-NextTask {
+function Get-PlanTasks {
   param([string]$Path)
   $content = Get-Content $Path -Raw
-  if (-not $content) { return $null }
-
-  # Buscar primera tarea en ❌ o ⬜ PENDING
-  $taskMatch = [regex]::Match($content, '(?s)(### Task \d+:.+?)(?=### Task|\z)')
-  if (-not $taskMatch.Success) { return $null }
-
   $tasks = @()
   $matches = [regex]::Matches($content, '(?s)(### Task \d+:[^\n]*\n.*?)(?=### Task|\z)')
   foreach ($m in $matches) {
     $block = $m.Groups[1].Value
-    if ($block -match 'Estado:\s*[❌⬜]') {
-      $idMatch = [regex]::Match($block, '### Task (\d+):')
-      $tasks += [PSCustomObject]@{
-        Id       = if ($idMatch.Success) { $idMatch.Groups[1].Value } else { "?" }
-        Block    = $block
-        Raw      = $m.Groups[1].Value
-      }
+    $idMatch = [regex]::Match($block, '### Task (\d+):\s*(.+)')
+    $nameMatch = [regex]::Match($block, '### Task \d+:\s*(.+)')
+    $stateMatch = [regex]::Match($block, 'Estado:\s*([⬜⏳✅❌])')
+    $fileMatch = [regex]::Match($block, 'Task file:\s*`?([^`\n]+)')
+    $depMatch = [regex]::Match($block, 'Dependencias?:?\s*(.+)')
+    $tasks += [PSCustomObject]@{
+      Id        = if ($idMatch.Success) { $idMatch.Groups[1].Value } else { "?" }
+      Name      = if ($nameMatch.Success) { $nameMatch.Groups[1].Value.Trim() } else { "?" }
+      State     = if ($stateMatch.Success) { $stateMatch.Groups[1].Value } else { "⬜" }
+      TaskFile  = if ($fileMatch.Success) { $fileMatch.Groups[1].Value.Trim() } else { $null }
+      Deps      = if ($depMatch.Success) { $depMatch.Groups[1].Value.Trim() } else { "" }
+      Block     = $block
     }
   }
-  if ($tasks.Count -eq 0) { return $null }
-  return $tasks[0]
+  return $tasks
 }
 
 function Get-Recitation {
@@ -95,31 +139,98 @@ function Get-StatusLine {
   $content = Get-Content $Path -Raw
   $match = [regex]::Match($content, '(✅ COMPLETADO|❌ ABORTADO|⏳ EN PROGRESO)')
   if ($match.Success) { return $match.Value }
-  # Contar estados en las tasks
   $completed = [regex]::Matches($content, 'Estado:\s*✅').Count
-  $failed = [regex]::Matches($content, 'Estado:\s*❌ FAILED').Count
-  $pending = [regex]::Matches($content, 'Estado:\s*[❌⬜]').Count
+  $failed = [regex]::Matches($content, 'Estado:\s*❌').Count
+  $pending = [regex]::Matches($content, 'Estado:\s*[⬜⏳]').Count
   $total = $completed + $failed + $pending
   return "$completed/$total ✅ ($failed ❌, $pending pendientes)"
 }
 
-function Get-TaskCount {
+function Get-TaskCounts {
   param([string]$Path)
   $content = Get-Content $Path -Raw
-  $pending = [regex]::Matches($content, 'Estado:\s*[❌⬜]').Count
-  return $pending
+  $do = [regex]::Matches($content, '✅ DO').Count
+  $defer = [regex]::Matches($content, '🟡 DEFER').Count
+  $skip = [regex]::Matches($content, '❌ SKIP').Count
+  $bloqueado = [regex]::Matches($content, '🔴 BLOQUEADO').Count
+  return @{ DO = $do; DEFER = $defer; SKIP = $skip; BLOQUEADO = $bloqueado }
 }
 
-# ---- main loop ----
+function Sync-LastSynced {
+  param([string]$PlanPath)
+  $now = Get-Date -Format "yyyy-MM-ddTHH:mm"
+  $content = Get-Content $PlanPath -Raw
+  if ($content -match 'last-synced:\s*') {
+    $content = $content -replace 'last-synced:\s*\S+', "last-synced: $now"
+  }
+  Set-Content $PlanPath $content
+
+  $tasks = Get-PlanTasks $PlanPath
+  foreach ($t in $tasks) {
+    if ($t.TaskFile) {
+      $tf = Join-Path $projectRoot $t.TaskFile
+      if (Test-Path $tf) {
+        $tc = Get-Content $tf -Raw
+        if ($tc -match 'last-synced:\s*') {
+          $tc = $tc -replace 'last-synced:\s*\S+', "last-synced: $now"
+          Set-Content $tf $tc
+        }
+      }
+    }
+  }
+}
+
+function Invoke-OpenCodeIteration {
+  param([string]$PromptBody, [int]$TimeoutSec, [switch]$DryRun)
+  if ($DryRun) {
+    Write-Host "  [DRY RUN]" -ForegroundColor Magenta
+    return $true
+  }
+
+  $tempPrompt = Join-Path $env:TEMP "campaign-iter-$(Get-Random).md"
+  Set-Content $tempPrompt $PromptBody
+
+  try {
+    $opencodeCmd = (Get-Command -Name "opencode" -ErrorAction Stop).Source -replace '\.ps1$', '.cmd'
+
+    Write-Host "  ── opencode run ──────────────────────────────────" -ForegroundColor Cyan
+    $ps = Start-Process -FilePath $opencodeCmd -ArgumentList "run `"$tempPrompt`"" -NoNewWindow -PassThru
+
+    if ($TimeoutSec -gt 0) {
+      $waited = $ps.WaitForExit($TimeoutSec * 1000)
+      if (-not $waited) {
+        Write-Host "`n  ❌ Timeout ($TimeoutSec s). Matando..." -ForegroundColor Red
+        $ps.Kill()
+        return $false
+      }
+    } else {
+      $ps.WaitForExit()
+    }
+    Write-Host "  ─────────────────────────────────────────────────" -ForegroundColor Cyan
+
+    return $ps.ExitCode -eq 0
+  }
+  catch {
+    Write-Host "  ⚠️ Error: $_" -ForegroundColor Yellow
+    return $false
+  }
+  finally {
+    Remove-Item $tempPrompt -Force -ErrorAction SilentlyContinue
+  }
+}
+
+# ---- main ----
 
 Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Backlog Executor Harness" -ForegroundColor Cyan
+Write-Host "║  Campaign Executor Harness" -ForegroundColor Cyan
+Write-Host "║  PID: $PID" -ForegroundColor Cyan
 Write-Host "║  Plan: $planFileName" -ForegroundColor Cyan
+if ($SingleTask) { Write-Host "║  SingleTask: $SingleTask" -ForegroundColor Cyan }
+if ($Parallel) { Write-Host "║  Mode: PARALLEL" -ForegroundColor Cyan }
 Write-Host "║  Init: $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host ""
 
-# Escribir PID en el plan file para detectar doble ejecución
+# Escribir PID en el plan file
 $pidLine = "> **Harness PID:** $PID (`$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))"
 $currentContent = Get-Content $planFile -Raw
 if ($currentContent -notmatch 'Harness PID') {
@@ -129,133 +240,169 @@ if ($currentContent -notmatch 'Harness PID') {
 
 $iteration = 0
 $stallCount = @{}
-$taskStartStates = @{}
+$taskLastState = @{}
+$stats = @{ completed = 0; failed = 0; pending = 0 }
 
 while ($true) {
   $iteration++
-  $pendingCount = Get-TaskCount $planFile
+  $allTasks = Get-PlanTasks $planFile
+  $pendingTasks = $allTasks | Where-Object { $_.State -match '[⬜⏳]' }
+
+  if ($SingleTask) {
+    $pendingTasks = $pendingTasks | Where-Object { $_.Id -eq $SingleTask -or $_.Name -match $SingleTask }
+  }
 
   Write-Host ""
-  Write-Host "═══ Iteración $iteration | $pendingCount tareas pendientes ═══" -ForegroundColor Yellow
+  Write-Host "═══ Iteración $iteration | $($pendingTasks.Count) pendientes ═══" -ForegroundColor Yellow
 
-  if ($pendingCount -eq 0) {
-    Write-Host ""
-    Write-Host "✅ No quedan tareas pendientes. Completando campaña..." -ForegroundColor Green
-    # Marcar plan como completado
+  if ($pendingTasks.Count -eq 0) {
+    Write-Host "✅ No quedan tareas pendientes." -ForegroundColor Green
     $content = Get-Content $planFile -Raw
     $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}✅ COMPLETADO'
     Set-Content $planFile $content
-    Write-Host "✅ Campaña completada: $planFileName" -ForegroundColor Green
+
+    # Resumen final con desglose
+    $counts = Get-TaskCounts $planFile
+    $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*✅').Count
+    $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*❌').Count
+    $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*[⬜⏳]').Count
+    Write-Host ""
+    Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Green
+    Write-Host "║  Resumen Final" -ForegroundColor Green
+    Write-Host "║  ✅ Completadas: $completed" -ForegroundColor Green
+    Write-Host "║  ❌ Fallidas:    $failed" -ForegroundColor Red
+    Write-Host "║  ⬜ Pendientes:  $pending" -ForegroundColor Yellow
+    Write-Host "║  ────────────────────────────" -ForegroundColor Gray
+    Write-Host "║  Gate: $($counts.DO) DO · $($counts.DEFER) DEFER · $($counts.SKIP) SKIP · $($counts.BLOQUEADO) BLOQUEADO" -ForegroundColor Gray
+    Write-Host "║  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Gray
+    Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Green
     break
   }
 
-  $nextTask = Get-NextTask $planFile
-  if (-not $nextTask) {
-    Write-Host "⚠️ No se encontró próxima tarea. Estado: $(Get-StatusLine $planFile)" -ForegroundColor Yellow
-    break
+  # ---- MODO PARALELO ----
+  if ($Parallel -and $pendingTasks.Count -gt 1) {
+    Write-Host "  → Modo paralelo: $($pendingTasks.Count) tareas pendientes" -ForegroundColor Cyan
+    $batch = $pendingTasks | Select-Object -First 4
+    $jobs = @()
+
+    foreach ($t in $batch) {
+      $promptPath = Join-Path $projectRoot ".opencode" "prompts" "iter.md"
+      $promptTemplate = Get-Content $promptPath -Raw
+      $promptBody = $promptTemplate -replace '{{PLAN_FILE}}', $planFile
+      $promptBody = $promptBody -replace '{{SINGLE_TASK}}', $t.Id
+      $promptBody = $promptBody -replace '{{TASK_BASE}}', '.opencode/skills/campaign-executor/tasks/'
+
+      $promptFile = Join-Path $env:TEMP "campaign-par-$(Get-Random).md"
+      Set-Content $promptFile $promptBody
+
+      $j = Start-Job -ScriptBlock {
+        param($pf, $to, $taskId)
+        $env:CARGO_TARGET_DIR = "$env:TEMP\cargo-target-$taskId"
+        $r = opencode run $pf 2>&1 | Out-String
+        Remove-Item $pf -Force -ErrorAction SilentlyContinue
+        return $r
+      } -ArgumentList $promptFile, $Timeout, $t.Id
+
+      $jobs += @{ Job = $j; Task = $t }
+    }
+
+    Write-Host "  → Esperando $($jobs.Count) jobs paralelos..." -ForegroundColor Cyan
+    $jobs | ForEach-Object { $_.Job | Wait-Job -Timeout $Timeout | Out-Null }
+    $jobs | ForEach-Object {
+      $out = Receive-Job -Job $_.Job
+      Write-Host "  → TASK-$($_.Task.Id): $($_.Job.State)" -ForegroundColor DarkGray
+    }
+    continue
   }
 
+  # ---- MODO SECUENCIAL ----
+  $nextTask = $pendingTasks[0]
   $taskId = "TASK-$($nextTask.Id)"
 
-  Write-Host "  → Próxima: $taskId" -ForegroundColor Cyan
-  Write-Host "  → Estado general: $(Get-StatusLine $planFile)" -ForegroundColor Gray
+  Write-Host "  → Próxima: $taskId ($($nextTask.Name))" -ForegroundColor Cyan
+  Write-Host "  → Estado: $(Get-StatusLine $planFile)" -ForegroundColor Gray
 
-  # Detectar stall
-  if (-not $taskStartStates.ContainsKey($taskId)) {
-    $taskStartStates[$taskId] = $nextTask.Raw
+  # Detectar stall (compara solo estado, no bloque completo)
+  $currentState = $nextTask.State
+  if (-not $taskLastState.ContainsKey($taskId)) {
+    $taskLastState[$taskId] = $currentState
     $stallCount[$taskId] = 0
-  } elseif ($taskStartStates[$taskId] -eq $nextTask.Raw) {
+  } elseif ($taskLastState[$taskId] -eq $currentState) {
     $stallCount[$taskId]++
-    Write-Host "  ⚠️ Stall detection: intento $($stallCount[$taskId]) igual" -ForegroundColor Yellow
-
+    Write-Host "  ⚠️ Stall: intento $($stallCount[$taskId]) sin cambios de estado" -ForegroundColor Yellow
     if ($stallCount[$taskId] -ge $StallThreshold) {
-      Write-Host "  ❌ Stall detectado ($taskId no progresa tras $StallThreshold intentos)" -ForegroundColor Red
-      Write-Host ""
-      Write-Host "¿Abortar campaña? (s/N)" -ForegroundColor Red
-      $answer = Read-Host
-      if ($answer -eq 's') {
-        Write-Host "❌ Campaña abortada por stall." -ForegroundColor Red
+      if ($Yes) {
+        Write-Host "  → Stall, abortando (-Yes)." -ForegroundColor Red
         $content = Get-Content $planFile -Raw
         $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
         Set-Content $planFile $content
         exit 2
       }
-      # Reset stall counter si el usuario quiere seguir
+      Write-Host "  ❌ Stall ($StallThreshold intentos). ¿Abortar? (s/N) " -ForegroundColor Red -NoNewline
+      if ((Read-Host) -eq 's') {
+        $content = Get-Content $planFile -Raw
+        $content = $content -replace '(Estado:\s*)⏳ EN PROGRESO', '${1}❌ ABORTADO'
+        Set-Content $planFile $content
+        exit 2
+      }
       $stallCount[$taskId] = 0
-      $taskStartStates[$taskId] = $nextTask.Raw
+      $taskLastState[$taskId] = $currentState
     }
   } else {
-    # El bloque cambió → hubo progreso
-    $taskStartStates[$taskId] = $nextTask.Raw
+    $taskLastState[$taskId] = $currentState
     $stallCount[$taskId] = 0
   }
 
-  # Construir prompt para el agente
-  $promptPath = if ($OpenCodePrompt) {
-    $OpenCodePrompt
-  } else {
-    Join-Path $projectRoot ".opencode" "skills" "backlog-executor" "iter-prompt.md"
+  Sync-LastSynced $planFile
+
+  $promptPath = Join-Path $projectRoot ".opencode" "prompts" "iter.md"
+  if (-not (Test-Path $promptPath)) {
+    Write-Error "Prompt not found: $promptPath"
+    exit 1
   }
 
-  $promptBody = @"
-Cargá las skills writing-plans, incremental-implementation, ponytail (full), code-review-and-quality.
+  $counts = Get-TaskCounts $planFile
+  $completed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*✅').Count
+  $failed = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*❌').Count
+  $pending = [regex]::Matches((Get-Content $planFile -Raw), 'Estado:\s*[⬜⏳]').Count
+  $summaryLine = "Resumen: $completed/$($counts.DO) ✅ · $failed ❌ · $pending pendientes"
 
-Plan file: $planFile
-
-INSTRUCCIONES — UNA SOLA ITERACIÓN:
-
-1. Leé el plan file COMPLETO.
-2. Identificá la próxima acción concreta para la tarea activa.
-3. Ejecutá SOLO esa acción (gate, codegraph, implementar, verify, commit, o update).
-4. Actualizá el plan file con el resultado.
-5. **ESCRIBÍ EL BLOQUE RECITATION al final.**
-6. Detenete. No avances a la siguiente tarea.
-
-REGLAS:
-- Ponytail activo: stdlib > reusar > dependency > desde cero
-- Verify: mecánico (cargo check, nextest, tsc), nunca auto-reporte
-- Si verify falla 2 veces con mismo error → marcar ❌ FAILED, escribir notas
-- No cambies scope. Anotalo si encuentras algo extra, no lo implementes
-"@
+  $promptTemplate = Get-Content $promptPath -Raw
+  $promptBody = $promptTemplate -replace '{{PLAN_FILE}}', $planFile
+  $promptBody = $promptBody -replace '{{SINGLE_TASK}}', $SingleTask
+  $promptBody = $promptBody -replace '{{SUMMARY}}', $summaryLine
+  $promptBody = $promptBody -replace '{{TASK_BASE}}', '.opencode/skills/campaign-executor/tasks/'
 
   if ($DryRun) {
-    Write-Host ""
-    Write-Host "  [DRY RUN] Inyectaría este prompt en OpenCode:" -ForegroundColor Magenta
-    Write-Host $promptBody -ForegroundColor DarkGray
-    Write-Host "  [DRY RUN] Luego esperaría $Interval segundos." -ForegroundColor Magenta
+    Write-Host "`n  [DRY RUN]" -ForegroundColor Magenta
   } else {
     Write-Host "  → Ejecutando opencode..." -ForegroundColor Cyan
+    $ok = Invoke-OpenCodeIteration -PromptBody $promptBody -TimeoutSec $Timeout -DryRun:$DryRun
 
-    $tempPrompt = Join-Path $env:TEMP "backlog-iter-$(Get-Random).md"
-    Set-Content $tempPrompt $promptBody
-
-    try {
-      $result = opencode run $tempPrompt 2>&1
-      Write-Host "  → OpenCode terminó. Código de salida: $LASTEXITCODE" -ForegroundColor Gray
-
-      # Mostrar resumen del resultado
+    if ($ok) {
       $recitation = Get-Recitation $planFile
-      if ($recitation) {
-        Write-Host "  → Recitation: $recitation" -ForegroundColor DarkGray
+      if (-not $recitation) {
+        if ($Yes) {
+          Write-Host "  → Recitation no encontrada, continuando (-Yes)." -ForegroundColor Yellow
+        } else {
+          Write-Host "  ⚠️ Recitation no encontrada. ¿Continuar? (s/N) " -ForegroundColor Yellow -NoNewline
+          if ((Read-Host) -ne 's') { exit 3 }
+        }
+      } elseif ($recitation -notmatch '[✅❌]') {
+        if ($Yes) {
+          Write-Host "  → Recitation sin ✅/❌, continuando (-Yes)." -ForegroundColor Yellow
+        } else {
+          Write-Host "  ⚠️ Recitation sin ✅/❌. ¿Continuar? (s/N) " -ForegroundColor Yellow -NoNewline
+          if ((Read-Host) -ne 's') { exit 3 }
+        }
+      } else {
+        Write-Host "  → Recitation ok" -ForegroundColor DarkGray
       }
-    }
-    catch {
-      Write-Host "  ⚠️ Error ejecutando opencode: $_" -ForegroundColor Yellow
-    }
-    finally {
-      if (Test-Path $tempPrompt) { Remove-Item $tempPrompt -Force }
     }
   }
 
-  if ($Interval -gt 0 -and (Get-TaskCount $planFile) -gt 0) {
-    Write-Host "  → Esperando $Interval segundos..." -ForegroundColor DarkGray
+  if ($Interval -gt 0 -and (Get-PlanTasks $planFile | Where-Object { $_.State -match '[⬜⏳]' }).Count -gt 0) {
+    Write-Host "  → Esperando $Interval s..." -ForegroundColor DarkGray
     Start-Sleep -Seconds $Interval
   }
 }
-
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Resumen Final" -ForegroundColor Cyan
-Write-Host "║  $(Get-StatusLine $planFile)" -ForegroundColor Cyan
-Write-Host "║  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Cyan
