@@ -108,9 +108,9 @@ impl VantaDBLiteLLM {
             explain: false,
         };
 
-        let hits: Vec<vantadb::sdk::VantaMemorySearchHit> = py
-            .detach(|| self.engine.search(request))
-            .map_err(|e: VantaError| PyRuntimeError::new_err(format!("search error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust search
+        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {

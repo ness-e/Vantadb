@@ -36,26 +36,34 @@ impl ResourceGovernor {
         }
     }
 
-    /// Request allocation before executing an expensive step
+    /// Request allocation before executing an expensive step.
+    ///
+    /// Uses a CAS loop to atomically check-and-reserve so two concurrent
+    /// threads cannot both pass the OOM guard and over-allocate 2×.
     pub fn request_allocation(&self, bytes: usize) -> Result<AllocationStatus> {
-        let previous = ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
-        let new_total = previous + bytes;
+        loop {
+            let current = ALLOCATED_BYTES.load(Ordering::Relaxed);
+            let new_total = current + bytes;
 
-        if new_total > self.max_memory_bytes {
-            ALLOCATED_BYTES.fetch_sub(bytes, Ordering::SeqCst);
-            return Err(VantaError::ResourceLimit(
-                "OOM Guard triggered: query exceeds soft memory limit.".to_string(),
-            ));
+            if new_total > self.max_memory_bytes {
+                return Err(VantaError::ResourceLimit(
+                    "OOM Guard triggered: query exceeds soft memory limit.".to_string(),
+                ));
+            }
+
+            if ALLOCATED_BYTES
+                .compare_exchange_weak(current, new_total, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                let pressure_threshold = (self.max_memory_bytes as f64 * 0.9) as usize;
+                let status = if new_total > pressure_threshold {
+                    AllocationStatus::GrantedWithPressure
+                } else {
+                    AllocationStatus::Granted
+                };
+                return Ok(status);
+            }
         }
-
-        let pressure_threshold = (self.max_memory_bytes as f64 * 0.9) as usize;
-        let status = if new_total > pressure_threshold {
-            AllocationStatus::GrantedWithPressure
-        } else {
-            AllocationStatus::Granted
-        };
-
-        Ok(status)
     }
 
     /// Free allocation
