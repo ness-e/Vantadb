@@ -1,43 +1,71 @@
 ---
-description: "Unified VantaDB audit pipeline — all skills, all tools, all phases"
+description: "Audit pipeline unificado: CLI checks + 8 skills de review en subagentes paralelos + reporte unificado"
 ---
 
 # /audit — VantaDB Audit Pipeline
 
-Audita el proyecto completo en un pipeline de fases secuenciales. Como `/pipeline` pero para revisión.
+Pipeline de auditoría completo. Unifica CLI checks (`just` 5 comandos) + 8 skills de review en subagentes paralelos + reporte estructurado.
 
-## Usage
+Cargá las skills `vanta-design-orchestrator`, `progreso`, `ponytail` (full) primero.
+Usá `prompts/audit-full.md` para ejecución completa.
 
-| Comando | Qué hace |
-|---------|----------|
-| `/audit` | Pipeline completo — fases 1 a 8 |
-| `/audit quick` | Solo fase 1 (checks CLI) — ~2min |
-| `/audit certify` | Pre-push gate: fases 1 → 2 → 3 → 4 → 8 |
-| `/audit review` | Revisión profunda: fases 4 → 5 → 6 → 7 |
+## Router: detectar modo según el argumento
 
-## Architecture
+- **Sin argumento o `full`** → pipeline completo: fases 0→1→2→3→4→5→6→7→8
+- **`quick`** → solo Phase 1 (CLI checks via `just verify`), ~2min
+- **`certify`** → pre-push gate: fases 0→1→2→3→4→8
+- **`review`** → revisión profunda sin CLI: fases 0→4→5→6→7
+
+## Fases
+
+| Fase | Ejecución | Skills | Depende de |
+|------|-----------|--------|------------|
+| **0. Pre-check** | directo | — | — |
+| **1. CLI Mechanical** | directo | `just verify`, `just audit-cargo`, `just machete`, `just size` | — |
+| **2. Security** | sub-agente | `security-and-hardening` | Phase 1 ✅ |
+| **3. Performance** | sub-agente | `performance-optimization` | Phase 1 ✅ |
+| **4. Code Review** | sub-agente | `code-review-and-quality`, `ponytail-review` | Phase 1 ✅ |
+| **5. Root Cause** | sub-agente | `systematic-debugging` | failures previos |
+| **6. Deep Module** | sub-agente | `review-deep` | Waves 1-3 |
+| **7. Full ISO** | sub-agente | `vantadb-full-review` | Waves 1-3 |
+| **8. Certify** | sub-agente | `vantadb-certify` + `just certify` | Todas |
+
+## Wave Execution Plan
 
 ```
-/audit
-  │
-  ├─ Phase 0: Pre-check (git diff, estado del repo)
-  ├─ Phase 1: CLI Mechanical  ← audit-all.ps1
-  ├─ Phase 2: Security        ← +skill security-and-hardening
-  ├─ Phase 3: Performance     ← +skill performance-optimization + cargo bloat
-  ├─ Phase 4: Code Review     ← +skill code-review-and-quality + ponytail-review
-  ├─ Phase 5: Root Cause      ← +skill systematic-debugging (si hay issues)
-  ├─ Phase 6: Deep Module     ← +skill review-deep (per-module loop)
-  ├─ Phase 7: Full ISO        ← +skill vantadb-full-review
-  ├─ Phase 8: Certify         ← +skill vantadb-certify + nocturnal_suite
-  │
-  └─ Report → docs/audit-reports/audit-<fecha>.md
+Wave 1: Phase 0 + Phase 1          (directo, blocking)
+Wave 2: Phase 2 | Phase 3 | Phase 4 (paralelo, 3 sub-agentes)
+Wave 3: Phase 5                      (condicional, si hay failures)
+Wave 4: Phase 6 | Phase 7            (paralelo, 2 sub-agentes)
+Wave 5: Phase 8                      (blocking, última)
 ```
 
-## Implementation
+Skills en Wave 2 son independientes entre sí → spawn 3 sub-agentes en paralelo via `task` tool.
+Skills en Wave 4 son independientes entre sí → spawn 2 sub-agentes en paralelo.
 
-1. Cargá `skill vantadb-audit` al inicio
-2. Seguí las fases secuencialmente según el modo
-3. Cada fase: mostrá "Phase N: [nombre]" → ejecutá → ✅/❌
-4. Skills review cargadas con `skill <nombre>` — pueden vetar
-5. Si CLI falla (Phase 1), abortar inmediatamente
-6. Al final: reporte en `docs/audit-reports/` con timestamp
+## Modos vs Fases Matrix
+
+| Fase | quick | certify | review | full |
+|------|-------|---------|--------|------|
+| 0. Pre-check | — | ✅ | ✅ | ✅ |
+| 1. CLI | ✅ | ✅ | — | ✅ |
+| 2. Security | — | ✅ | — | ✅ |
+| 3. Performance | — | ✅ | — | ✅ |
+| 4. Code Review | — | ✅ | ✅ | ✅ |
+| 5. Root Cause | — | — | ✅ | ✅ |
+| 6. Deep Module | — | — | ✅ | ✅ |
+| 7. Full ISO | — | — | — | ✅ |
+| 8. Certify | — | ✅ | — | ✅ |
+
+## Quick Reference
+
+| Comando | Qué hace | Fases | ~Dur |
+|---------|----------|-------|------|
+| `/audit` | Pipeline completo | 0→1→2→3→4→5→6→7→8 | 30min |
+| `/audit quick` | Solo CLI checks | 1 | 2min |
+| `/audit certify` | Pre-push gate | 0→1→2→3→4→8 | 15min |
+| `/audit review` | Deep review | 0→4→5→6→7 | 20min |
+
+## Output
+
+Al finalizar: `docs/audit-reports/audit-<mode>-<timestamp>.md` con findings priorizados, scoreboard, y veredicto.
