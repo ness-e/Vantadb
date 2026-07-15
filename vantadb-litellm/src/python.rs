@@ -125,6 +125,7 @@ impl VantaDBLiteLLM {
 
     fn store(
         &self,
+        py: Python,
         text: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
@@ -145,7 +146,9 @@ impl VantaDBLiteLLM {
             }
         }
 
-        let record = self.engine.put(input).map_err(err_to_py)?;
+        let record = py
+            .detach(|| self.engine.put(input))
+            .map_err(|e: VantaError| PyRuntimeError::new_err(format!("store error: {:?}", e)))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }
