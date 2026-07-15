@@ -29,6 +29,7 @@ const navGroups = [
       { path: "/product/benchmarks", label: "Benchmarks" },
       { path: "/playground", label: "Playground" },
       { path: "/changelog", label: "Changelog" },
+      { path: "/case-studies", label: "Case Studies" },
       { path: "/blog", label: "Blog" },
     ],
   },

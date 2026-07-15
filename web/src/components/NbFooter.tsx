@@ -73,6 +73,9 @@ export const NbFooter = memo(function NbFooter() {
           <Link to="/blog" className="sc-link">
             Blog
           </Link>
+          <Link to="/case-studies" className="sc-link">
+            Case Studies
+          </Link>
         </div>
 
         <div className="sc-col">

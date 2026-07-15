@@ -26,15 +26,16 @@ import { Route as DemoRouteImport } from './routes/demo'
 import { Route as CostRouteImport } from './routes/cost'
 import { Route as ConfigRouteImport } from './routes/config'
 import { Route as ChangelogRouteImport } from './routes/changelog'
-import { Route as CaseStudiesRouteImport } from './routes/case-studies'
 import { Route as ArchitectureRouteImport } from './routes/architecture'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CaseStudiesIndexRouteImport } from './routes/case-studies/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as SolutionsLocalRagRouteImport } from './routes/solutions/local-rag'
 import { Route as SolutionsAiIdeToolingRouteImport } from './routes/solutions/ai-ide-tooling'
 import { Route as SolutionsAiAgentsRouteImport } from './routes/solutions/ai-agents'
 import { Route as ProductBenchmarksRouteImport } from './routes/product/benchmarks'
+import { Route as CaseStudiesSlugRouteImport } from './routes/case-studies/$slug'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as AboutTeamRouteImport } from './routes/about/team'
 import { Route as AboutContactRouteImport } from './routes/about/contact'
@@ -126,11 +127,6 @@ const ChangelogRoute = ChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/changelog.lazy').then((d) => d.Route))
-const CaseStudiesRoute = CaseStudiesRouteImport.update({
-  id: '/case-studies',
-  path: '/case-studies',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/case-studies.lazy').then((d) => d.Route))
 const ArchitectureRoute = ArchitectureRouteImport.update({
   id: '/architecture',
   path: '/architecture',
@@ -141,6 +137,13 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+const CaseStudiesIndexRoute = CaseStudiesIndexRouteImport.update({
+  id: '/case-studies/',
+  path: '/case-studies/',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/case-studies/index.lazy').then((d) => d.Route),
+)
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/blog/',
   path: '/blog/',
@@ -179,6 +182,13 @@ const ProductBenchmarksRoute = ProductBenchmarksRouteImport.update({
 } as any).lazy(() =>
   import('./routes/product/benchmarks.lazy').then((d) => d.Route),
 )
+const CaseStudiesSlugRoute = CaseStudiesSlugRouteImport.update({
+  id: '/case-studies/$slug',
+  path: '/case-studies/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/case-studies/$slug.lazy').then((d) => d.Route),
+)
 const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
@@ -210,7 +220,6 @@ const AboutCommunityRoute = AboutCommunityRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
-  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -233,17 +242,18 @@ export interface FileRoutesByFullPath {
   '/about/contact': typeof AboutContactRoute
   '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/case-studies/$slug': typeof CaseStudiesSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
   '/about/': typeof AboutIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/case-studies/': typeof CaseStudiesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
-  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -266,18 +276,19 @@ export interface FileRoutesByTo {
   '/about/contact': typeof AboutContactRoute
   '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/case-studies/$slug': typeof CaseStudiesSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
   '/about': typeof AboutIndexRoute
   '/blog': typeof BlogIndexRoute
+  '/case-studies': typeof CaseStudiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/architecture': typeof ArchitectureRoute
-  '/case-studies': typeof CaseStudiesRoute
   '/changelog': typeof ChangelogRoute
   '/config': typeof ConfigRoute
   '/cost': typeof CostRoute
@@ -300,19 +311,20 @@ export interface FileRoutesById {
   '/about/contact': typeof AboutContactRoute
   '/about/team': typeof AboutTeamRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/case-studies/$slug': typeof CaseStudiesSlugRoute
   '/product/benchmarks': typeof ProductBenchmarksRoute
   '/solutions/ai-agents': typeof SolutionsAiAgentsRoute
   '/solutions/ai-ide-tooling': typeof SolutionsAiIdeToolingRoute
   '/solutions/local-rag': typeof SolutionsLocalRagRoute
   '/about/': typeof AboutIndexRoute
   '/blog/': typeof BlogIndexRoute
+  '/case-studies/': typeof CaseStudiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/architecture'
-    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -335,17 +347,18 @@ export interface FileRouteTypes {
     | '/about/contact'
     | '/about/team'
     | '/blog/$slug'
+    | '/case-studies/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
     | '/about/'
     | '/blog/'
+    | '/case-studies/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/architecture'
-    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -368,17 +381,18 @@ export interface FileRouteTypes {
     | '/about/contact'
     | '/about/team'
     | '/blog/$slug'
+    | '/case-studies/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
     | '/about'
     | '/blog'
+    | '/case-studies'
   id:
     | '__root__'
     | '/'
     | '/architecture'
-    | '/case-studies'
     | '/changelog'
     | '/config'
     | '/cost'
@@ -401,18 +415,19 @@ export interface FileRouteTypes {
     | '/about/contact'
     | '/about/team'
     | '/blog/$slug'
+    | '/case-studies/$slug'
     | '/product/benchmarks'
     | '/solutions/ai-agents'
     | '/solutions/ai-ide-tooling'
     | '/solutions/local-rag'
     | '/about/'
     | '/blog/'
+    | '/case-studies/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArchitectureRoute: typeof ArchitectureRoute
-  CaseStudiesRoute: typeof CaseStudiesRoute
   ChangelogRoute: typeof ChangelogRoute
   ConfigRoute: typeof ConfigRoute
   CostRoute: typeof CostRoute
@@ -435,12 +450,14 @@ export interface RootRouteChildren {
   AboutContactRoute: typeof AboutContactRoute
   AboutTeamRoute: typeof AboutTeamRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  CaseStudiesSlugRoute: typeof CaseStudiesSlugRoute
   ProductBenchmarksRoute: typeof ProductBenchmarksRoute
   SolutionsAiAgentsRoute: typeof SolutionsAiAgentsRoute
   SolutionsAiIdeToolingRoute: typeof SolutionsAiIdeToolingRoute
   SolutionsLocalRagRoute: typeof SolutionsLocalRagRoute
   AboutIndexRoute: typeof AboutIndexRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  CaseStudiesIndexRoute: typeof CaseStudiesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -564,13 +581,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/case-studies': {
-      id: '/case-studies'
-      path: '/case-studies'
-      fullPath: '/case-studies'
-      preLoaderRoute: typeof CaseStudiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/architecture': {
       id: '/architecture'
       path: '/architecture'
@@ -583,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/case-studies/': {
+      id: '/case-studies/'
+      path: '/case-studies'
+      fullPath: '/case-studies/'
+      preLoaderRoute: typeof CaseStudiesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/': {
@@ -627,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductBenchmarksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/case-studies/$slug': {
+      id: '/case-studies/$slug'
+      path: '/case-studies/$slug'
+      fullPath: '/case-studies/$slug'
+      preLoaderRoute: typeof CaseStudiesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/$slug': {
       id: '/blog/$slug'
       path: '/blog/$slug'
@@ -668,7 +692,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArchitectureRoute: ArchitectureRoute,
-  CaseStudiesRoute: CaseStudiesRoute,
   ChangelogRoute: ChangelogRoute,
   ConfigRoute: ConfigRoute,
   CostRoute: CostRoute,
@@ -691,12 +714,14 @@ const rootRouteChildren: RootRouteChildren = {
   AboutContactRoute: AboutContactRoute,
   AboutTeamRoute: AboutTeamRoute,
   BlogSlugRoute: BlogSlugRoute,
+  CaseStudiesSlugRoute: CaseStudiesSlugRoute,
   ProductBenchmarksRoute: ProductBenchmarksRoute,
   SolutionsAiAgentsRoute: SolutionsAiAgentsRoute,
   SolutionsAiIdeToolingRoute: SolutionsAiIdeToolingRoute,
   SolutionsLocalRagRoute: SolutionsLocalRagRoute,
   AboutIndexRoute: AboutIndexRoute,
   BlogIndexRoute: BlogIndexRoute,
+  CaseStudiesIndexRoute: CaseStudiesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
