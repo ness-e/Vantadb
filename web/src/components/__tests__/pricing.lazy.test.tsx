@@ -51,29 +51,24 @@ describe("PricingPage", () => {
     expect(screen.getByTestId("hero-num")).toHaveTextContent("p11");
   });
 
-  it("renders all four pricing tiers", () => {
+  it("renders both pricing tiers", () => {
     expect(screen.getAllByText("Self-Hosted").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Cloud Pro").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Cloud Business").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Enterprise").length).toBeGreaterThanOrEqual(1);
   });
 
   it("displays pricing amounts", () => {
     expect(screen.getByText("$0")).toBeInTheDocument();
-    expect(screen.getByText("$29")).toBeInTheDocument();
-    expect(screen.getByText("$149")).toBeInTheDocument();
     expect(screen.getByText("Custom")).toBeInTheDocument();
   });
 
   it("shows CTA buttons for each tier", () => {
     expect(screen.getByText("Get Started")).toBeInTheDocument();
-    expect(screen.getAllByText("Join Waitlist")).toHaveLength(2);
     expect(screen.getByText("Contact Sales")).toBeInTheDocument();
   });
 
   it("renders FAQ section with questions", () => {
     expect(screen.getByText("Is VantaDB really free?")).toBeInTheDocument();
     expect(screen.getByText("Can I use VantaDB commercially?")).toBeInTheDocument();
-    expect(screen.getByText("What is included in the Cloud plans?")).toBeInTheDocument();
+    expect(screen.getByText("Do you offer custom SLAs?")).toBeInTheDocument();
   });
 });

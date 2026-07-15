@@ -7,8 +7,6 @@ const CATEGORIES = [
     color: "var(--amber)",
     items: [
       { name: "Pydantic AI", port: "A1" },
-      { name: "LangChain", port: "A2" },
-      { name: "LlamaIndex", port: "A3" },
     ],
   },
   {
