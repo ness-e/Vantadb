@@ -156,7 +156,37 @@ Callers | Callees | Implicaciones
 - Task N-1: ID
 
 ## Notas
+
+## Context Save Point
+- **Fecha:** ISO
+- **Branch:** nombre
+- **CI pendiente:** sí/no
+- **Decisiones:** X sobre Y porque [razón breve]
+- **Problemas conocidos:** [ninguno | lista]
+- **Próxima tarea:** TASK-N+1
 ```
+
+## Compaction (mantenimiento periódico)
+
+Cada 5 tareas completadas (o al alcanzar ~50 iteraciones en el plan file),
+compactá el plan file:
+1. Resumir iteraciones viejas en una tabla consolidada
+2. Mantener solo la recitation actual + errores activos
+3. Archivar decisiones pasadas en el task file correspondiente
+4. Verificar que last-synced esté al día en todos los archivos
+5. Anotar "Compaction N/5: OK" al inicio del plan file
+
+## Probes de integridad (antes de cada tarea)
+
+El pipeline verifica antes de arrancar cualquier tarea:
+- Plan file existe y tiene al menos una task
+- Recitation block (si existe) es parseable
+- Última tarea procesada ≠ misma tarea dos veces sin progreso
+- Plan file no tiene PID de harness activo de otra sesión
+- Git status está limpio (o los cambios son del pipeline actual)
+- `campaign_stalled_tasks` (MCP) no reporta bloqueos previos sin resolver
+
+Si alguna probe falla → pausar y preguntar al usuario.
 
 ## Recitation block
 
@@ -254,9 +284,17 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 | **Evaluator-optimizer** | Lilian Weng: agent self-review | iter.md MODO CIERRE |
 | **State machine guardrails** | Statewright (415⭐) | iter.md State Machine C0 |
 | **Self-Harness propose-evaluate-accept** | Self-Harness (Anthropic) | iter.md Self-Harness Gate |
-| **Parallel orchestrator workers** | Anthropic: building effective agents | harness -Parallel |
+| **Parallel orchestrator workers** | Anthropic: building effective agents | pipeline-run.md waves |
 | **Auto-type discovery** | TaskWeaver (9k⭐) | iter.md MODO DISCOVERY |
 | **Ponytail (shortest path)** | awesome-harness-engineering | RULES.md, iter.md |
+| **Zero-code planning** | task-executor hybrid-prompt | iter.md MODO DISCOVERY step 4 |
+| **Revisión cada N tareas** | backlog-executor loop-prompt | pipeline-run.md step 5.f |
+| **Context Save Point** | backlog-executor §7 | task file format, iter.md Cierre |
+| **FAIL_MODE triple (stop/skip/parallel)** | task-executor batch-prompt | pipeline-run.md |
+| **Parallel DAG + waves** | task-executor batch-prompt §1.5 | pipeline-run.md step 6 |
+| **Probes de integridad** | backlog-executor §8 | SKILL.md, pipeline-run.md step 3 |
+| **Compaction periódica** | backlog-executor §7 | SKILL.md |
+| **Prompt Templates** | backlog-executor §11 | commands/campaign.md Apéndice
 
 ### Referencias locales clonadas
 
