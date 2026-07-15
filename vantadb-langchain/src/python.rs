@@ -1,9 +1,10 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest, VantaValue};
 
 /// VantaDB vector store for LangChain.
 ///
@@ -138,7 +139,7 @@ impl VantaDBVectorStore {
         };
 
         // Phase 1: search with GIL released
-        let hits: Vec<(String, String, f32)> = py
+        let hits: Vec<(String, String, f32, BTreeMap<String, VantaValue>)> = py
             .detach(|| match self.engine.search(request) {
                 Ok(hits) => Ok(hits
                     .into_iter()
@@ -147,6 +148,7 @@ impl VantaDBVectorStore {
                             format!("{}:{}", hit.record.namespace, hit.record.key),
                             hit.record.payload,
                             hit.score,
+                            hit.record.metadata,
                         )
                     })
                     .collect()),
@@ -157,11 +159,22 @@ impl VantaDBVectorStore {
         // Phase 2: convert results with fresh GIL token
         Python::attach(|py| {
             let mut results = Vec::with_capacity(hits.len());
-            for (id, text, score) in hits {
+            for (id, text, score, metadata) in hits {
                 let d = PyDict::new(py);
                 d.set_item("id", &id)?;
                 d.set_item("text", &text)?;
                 d.set_item("score", score)?;
+                let meta_dict = PyDict::new(py);
+                for (k, v) in &metadata {
+                    match v {
+                        VantaValue::String(val) => meta_dict.set_item(k, val)?,
+                        VantaValue::Int(val) => meta_dict.set_item(k, val)?,
+                        VantaValue::Float(val) => meta_dict.set_item(k, val)?,
+                        VantaValue::Bool(val) => meta_dict.set_item(k, val)?,
+                        _ => {}
+                    }
+                }
+                d.set_item("metadata", meta_dict)?;
                 results.push(d.unbind().into());
             }
             Ok(results)
