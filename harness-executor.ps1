@@ -193,8 +193,8 @@ function Invoke-OpenCodeIteration {
   try {
     $opencodeCmd = (Get-Command -Name "opencode" -ErrorAction Stop).Source -replace '\.ps1$', '.cmd'
 
-    Write-Host "  ── opencode run ──────────────────────────────────" -ForegroundColor Cyan
-    $ps = Start-Process -FilePath $opencodeCmd -ArgumentList "run `"$tempPrompt`"" -NoNewWindow -PassThru
+    Write-Host "  ── opencode run (deepseek-v4-flash-free) ─────────" -ForegroundColor Cyan
+    $ps = Start-Process -FilePath $opencodeCmd -ArgumentList "run -m deepseek-v4-flash-free --auto --title `"Harness: $taskId`" `"$tempPrompt`"" -NoNewWindow -PassThru
 
     if ($TimeoutSec -gt 0) {
       $waited = $ps.WaitForExit($TimeoutSec * 1000)
@@ -298,7 +298,7 @@ while ($true) {
       $j = Start-Job -ScriptBlock {
         param($pf, $to, $taskId)
         $env:CARGO_TARGET_DIR = "$env:TEMP\cargo-target-$taskId"
-        $r = opencode run $pf 2>&1 | Out-String
+        $r = opencode run -m deepseek-v4-flash-free --auto --title "Harness: TASK-$($taskId)" $pf 2>&1 | Out-String
         Remove-Item $pf -Force -ErrorAction SilentlyContinue
         return $r
       } -ArgumentList $promptFile, $Timeout, $t.Id

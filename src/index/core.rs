@@ -310,7 +310,7 @@ mod tests {
         let max_layer = 8;
         let config = 5 * 8;
         let metric_byte = 1;
-        let flat_threshold = 1;
+        let flat_threshold = 9;
         let ep_exists = 1;
         let ep_id = 16;
         header_size + max_layer + config + metric_byte + flat_threshold + ep_exists + ep_id

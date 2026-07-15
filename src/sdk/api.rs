@@ -1,13 +1,16 @@
 use super::builder::VantaEmbedded;
 use super::serialization::{
     memory_node_id, memory_record_from_node, memory_record_to_node_owned, now_ms, validate_key,
-    validate_metadata, validate_namespace, FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE,
+    validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+    FIELD_VERSION,
 };
 use super::types::*;
-use crate::backend::BackendPartition;
+use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Result, VantaError};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
+use std::collections::BTreeMap;
 use tracing;
 
 impl VantaEmbedded {
@@ -353,7 +356,7 @@ impl VantaEmbedded {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         let now = now_ms();
-        let mut to_delete: Vec<(String, String, u128)> = Vec::new();
+        let mut to_delete: Vec<VantaMemoryRecord> = Vec::new();
 
         for node in engine.scan_nodes()? {
             if !node.is_alive() {
@@ -372,14 +375,51 @@ impl VantaEmbedded {
                 _ => continue,
             };
             if now > expires {
-                to_delete.push((namespace, key, node.id));
+                let payload = match node.get_field(FIELD_PAYLOAD) {
+                    Some(crate::node::FieldValue::String(p)) => p.clone(),
+                    _ => String::new(),
+                };
+                let created_at_ms = match node.get_field(FIELD_CREATED_AT_MS) {
+                    Some(crate::node::FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                    _ => 0,
+                };
+                let updated_at_ms = match node.get_field(FIELD_UPDATED_AT_MS) {
+                    Some(crate::node::FieldValue::Int(ms)) if *ms >= 0 => *ms as u64,
+                    _ => 0,
+                };
+                let version = match node.get_field(FIELD_VERSION) {
+                    Some(crate::node::FieldValue::Int(v)) if *v >= 0 => *v as u64,
+                    _ => 0,
+                };
+                let mut metadata = VantaFields::new();
+                for (fk, fv) in &node.relational {
+                    if !fk.starts_with("__vanta_") {
+                        metadata.insert(fk.clone(), fv.clone().into());
+                    }
+                }
+                let vector = match &node.vector {
+                    VectorRepresentations::Full(v) => Some(v.clone()),
+                    _ => None,
+                };
+                to_delete.push(VantaMemoryRecord {
+                    namespace,
+                    key,
+                    payload,
+                    metadata,
+                    created_at_ms,
+                    updated_at_ms,
+                    version,
+                    node_id: node.id,
+                    vector,
+                    expires_at_ms: Some(expires),
+                });
             }
         }
 
         let count = to_delete.len() as u64;
-        for (_, _, node_id) in &to_delete {
-            engine.delete(*node_id, "purge_expired")?;
-            self.replace_derived_indexes(&engine, None, None)?;
+        for record in &to_delete {
+            engine.delete(record.node_id, "purge_expired")?;
+            self.replace_derived_indexes(&engine, Some(record), None)?;
         }
 
         Ok(count)
