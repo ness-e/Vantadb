@@ -1327,10 +1327,17 @@ pub fn handle_tools_call(
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
+            let txn_id = storage.begin_transaction().map_err(|e| {
+                McpError::internal_error(format!("Failed to begin transaction: {}", e)).to_json()
+            })?;
+
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             let records = match collect_all_records(&embedded, namespace, config) {
                 Ok(r) => r,
-                Err(e) => return Ok(error_content(format!("Collection delete error: {}", e))),
+                Err(e) => {
+                    let _ = storage.commit_transaction(txn_id);
+                    return Ok(error_content(format!("Collection delete error: {}", e)));
+                }
             };
 
             let total = records.len();
@@ -1344,6 +1351,10 @@ pub fn handle_tools_call(
                     warn!(error = %e, key = %record.key, "Failed to delete record during collection_delete");
                 }
             }
+
+            storage.commit_transaction(txn_id).map_err(|e| {
+                McpError::internal_error(format!("Failed to commit transaction: {}", e)).to_json()
+            })?;
 
             let records_removed = total - failures;
 
