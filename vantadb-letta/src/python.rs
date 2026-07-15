@@ -5,7 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
 use vantadb::error::VantaError;
 use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
+    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryRecord,
+    VantaMemorySearchRequest,
 };
 
 fn err_to_py(e: VantaError) -> PyErr {
@@ -122,15 +123,27 @@ impl LettaStore {
     fn list_memories(&self, py: Python, user_id: &str, agent_id: &str) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = ns_for(user_id, agent_id);
         let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust list
-        let page = py.detach(move || {
-            engine
-                .list(&namespace, VantaMemoryListOptions::default())
-                .map_err(err_to_py)
+        // GIL RELEASED — paginate through ALL pages (not just first 100)
+        let all_records = py.detach(move || -> PyResult<Vec<VantaMemoryRecord>> {
+            let mut all_records = Vec::new();
+            let mut cursor = None;
+            loop {
+                let opts = VantaMemoryListOptions {
+                    cursor,
+                    ..Default::default()
+                };
+                let page = engine.list(&namespace, opts).map_err(err_to_py)?;
+                all_records.extend(page.records);
+                cursor = page.next_cursor;
+                if cursor.is_none() {
+                    break;
+                }
+            }
+            Ok(all_records)
         })?;
 
-        let mut results = Vec::with_capacity(page.records.len());
-        for record in &page.records {
+        let mut results = Vec::with_capacity(all_records.len());
+        for record in &all_records {
             let d = PyDict::new(py);
             d.set_item("id", format!("{}:{}", record.namespace, record.key))?;
             d.set_item("content", &record.payload)?;

@@ -207,13 +207,26 @@ impl VantaDBDocumentStore {
     fn count_documents(&self, py: Python) -> PyResult<i64> {
         let namespace = self.namespace.read().unwrap().clone();
         let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust count
-        let page = py.detach(move || {
-            engine
-                .list(&namespace, Default::default())
-                .map_err(err_to_py)
+        // GIL RELEASED — paginate through ALL pages for accurate count
+        let count = py.detach(move || -> PyResult<i64> {
+            let mut total: i64 = 0;
+            let mut cursor = None;
+            loop {
+                let opts = VantaMemoryListOptions {
+                    filters: BTreeMap::new(),
+                    limit: 1000,
+                    cursor,
+                };
+                let page = engine.list(&namespace, opts).map_err(err_to_py)?;
+                total += page.records.len() as i64;
+                cursor = page.next_cursor;
+                if cursor.is_none() {
+                    break;
+                }
+            }
+            Ok(total)
         })?;
-        Ok(page.records.len() as i64)
+        Ok(count)
     }
 }
 

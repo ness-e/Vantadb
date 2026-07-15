@@ -5,7 +5,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use vantadb::config::VantaConfig;
 use vantadb::error::VantaError;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::sdk::{
+    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
+};
 
 fn err_to_py(e: VantaError) -> PyErr {
     match e {
@@ -120,17 +122,30 @@ impl CrewAIMemory {
     fn clear(&self, py: Python) -> PyResult<()> {
         let namespace = self.namespace.read().unwrap().clone();
         let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust list
-        let page = py.detach(move || {
-            engine
-                .list(&namespace, Default::default())
-                .map_err(err_to_py)
+        // GIL RELEASED — paginate through ALL pages (not just first 100)
+        let records = py.detach(move || -> PyResult<Vec<(String, String)>> {
+            let mut all_pairs = Vec::new();
+            let mut cursor = None;
+            loop {
+                let opts = VantaMemoryListOptions {
+                    cursor,
+                    ..Default::default()
+                };
+                let page = engine.list(&namespace, opts).map_err(err_to_py)?;
+                for r in &page.records {
+                    all_pairs.push((r.namespace.clone(), r.key.clone()));
+                }
+                cursor = page.next_cursor;
+                if cursor.is_none() {
+                    break;
+                }
+            }
+            Ok(all_pairs)
         })?;
-        let engine = self.engine.clone();
-        for record in &page.records {
-            let eng = engine.clone();
-            let ns = record.namespace.clone();
-            let key = record.key.clone();
+        for (ns, key) in &records {
+            let eng = self.engine.clone();
+            let ns = ns.clone();
+            let key = key.clone();
             // GIL RELEASED — pure Rust delete
             py.detach(move || eng.delete(&ns, &key).map_err(err_to_py))?;
         }

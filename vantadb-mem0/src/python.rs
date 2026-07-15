@@ -320,17 +320,25 @@ impl VantaDBStore {
     fn delete_col(&self, py: Python) -> PyResult<()> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust list + batch delete
+        // GIL RELEASED — paginate through ALL pages (not just first 100)
         let records = py.detach(move || -> PyResult<Vec<(String, String)>> {
-            let page = engine
-                .list(&namespace, VantaMemoryListOptions::default())
-                .map_err(err_to_py)?;
-            let pairs: Vec<_> = page
-                .records
-                .iter()
-                .map(|r| (r.namespace.clone(), r.key.clone()))
-                .collect();
-            Ok(pairs)
+            let mut all_pairs = Vec::new();
+            let mut cursor = None;
+            loop {
+                let opts = VantaMemoryListOptions {
+                    cursor,
+                    ..Default::default()
+                };
+                let page = engine.list(&namespace, opts).map_err(err_to_py)?;
+                for r in &page.records {
+                    all_pairs.push((r.namespace.clone(), r.key.clone()));
+                }
+                cursor = page.next_cursor;
+                if cursor.is_none() {
+                    break;
+                }
+            }
+            Ok(all_pairs)
         })?;
 
         for (ns, key) in &records {
