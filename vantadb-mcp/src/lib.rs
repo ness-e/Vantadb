@@ -252,6 +252,8 @@ fn escape_iql_string(s: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
+            '(' => out.push_str("\\("),
+            ')' => out.push_str("\\)"),
             c if c.is_control() => {
                 out.push_str(&format!("\\x{:02x}", c as u8));
             }

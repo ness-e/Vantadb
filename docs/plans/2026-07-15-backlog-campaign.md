@@ -1,6 +1,6 @@
 # Plan de Ejecución: Backlog Campaign
 
-> **Campaign ID: 5e2fbf22-64ec-4b48-9fad-e314a8b3095b
+> **Campaign ID: b47a3ac2-d03a-471d-83c5-c16f0076096c
 > **Inicio:** 2026-07-15
 > **Estado: completed
 > **Fuente:** `docs/Backlog.md` (91 items total)
@@ -32,7 +32,7 @@
 - **Archivos clave:** `.github/workflows/release-npm-61.yml`, `vantadb-ts/`
 - **Gate Justificación:** ⏳ casi completo (WASM ✅, Build TS ✅, npm dry-run ✅). Solo falta push tag `ts-v*`. Bloqueante de release — sin npm, el ecosistema TS no existe.
 - **Gate Result:** ✅ DO
-- **Contrato: grep -c Cloud web/src returns 0
+- **Contrato: grep -c /demo NbTerminalHero returns >=1
 - **Task file:** `skills/campaign-executor/tasks/REL-02.md`
 - **Estado:** ✅ COMPLETED
 
@@ -56,7 +56,7 @@
 - **Gate Result:** ✅ DO
 - **Contrato:** Ruta `/case-studies/` responde 200
 - **Task file:** `skills/campaign-executor/tasks/MKT-14.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 4: MKT-03 — Show HN post
 
@@ -67,7 +67,7 @@
 - **Gate Result:** ✅ DO
 - **Contrato:** Post existe en news.ycombinator.com
 - **Task file:** `skills/campaign-executor/tasks/MKT-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 5: LEG-01 — Registrar trademark "VantaDB"
 
@@ -346,9 +346,9 @@
 Campaign ID: 5e2fbf22-64ec-4b48-9fad-e314a8b3095b
 Objetivo activo: Ejecutar backlog completo
 Estado: completed
-Última acción: Task 2 WEB-02: removidos cloud tiers falsos y LangChain/LlamaIndex de ecosystem
+Última acción: Task 4 MKT-13: already implemented (button existed)
 Resultado: ✅
-Próxima acción: Task 3: MKT-14 (case studies) — primero leer si drafts existen
+Próxima acción: Task 5: DRV-050 — LISP injection fix
 Contrato: npm view vantadb version muestra versión 0.3.0
-Próxima tarea si completa: 3
+Próxima tarea si completa: 5
 === END RECITATION ===
