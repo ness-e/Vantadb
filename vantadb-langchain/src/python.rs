@@ -1,6 +1,6 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods, PyType};
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
@@ -179,6 +179,23 @@ impl VantaDBVectorStore {
             }
             Ok(results)
         })
+    }
+
+    #[classmethod]
+    #[pyo3(signature = (texts, embeddings, metadatas = None, ids = None, db_path = "/tmp/vantadb-langchain", collection = "langchain_store"))]
+    fn from_texts(
+        cls: &Bound<'_, PyType>,
+        _py: Python,
+        texts: Vec<String>,
+        embeddings: Vec<Vec<f32>>,
+        metadatas: Option<Vec<Option<Py<PyDict>>>>,
+        ids: Option<Vec<Option<String>>>,
+        db_path: &str,
+        collection: &str,
+    ) -> PyResult<Py<PyAny>> {
+        let store = cls.call1((db_path, collection))?;
+        store.call_method1("add_texts", (texts, embeddings, metadatas, ids))?;
+        Ok(store.unbind())
     }
 
     fn delete(&self, py: Python, ids: Vec<String>) -> PyResult<()> {
