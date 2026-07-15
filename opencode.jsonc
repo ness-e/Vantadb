@@ -1,6 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs"],
+  "plugin": [
+    "C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs",
+    "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\.opencode\\plugins\\campaign_compaction.ts"
+  ],
   "mcp": {
     "codegraph": {
       "type": "local",

@@ -1,0 +1,265 @@
+Cargá las skills campaign-executor, progreso, ponytail (full).
+
+Plan file: {{PLAN_FILE}}
+Single task: {{SINGLE_TASK}} (vacío = todas las tareas)
+{{SUMMARY}}
+
+## INSTRUCCIONES — UNA SOLA ITERACIÓN
+
+Operás en un entorno por turnos. Procesás EXACTAMENTE UNA iteración
+y te detenés. No intentes continuar ni loopear.
+
+**Reglas de contexto:**
+- **Map-Reduce determinista:** código fuente → CodeGraph (determinista, 0 tokens,
+  0 alucinación). `codegraph_explore` devuelve source verbatim + call paths + blast
+  radius en una llamada. NO leas archivos .rs, .ts, .py directamente como contexto.
+  Prosa no indexada (plan files, skills) → sub-agentes via `task` tool. Cada
+  sub-agente lee un archivo y devuelve resumen enfocado en 3-5 líneas. Stale cache:
+  si codegraph muestra "edited since last sync", leé SOLO esos archivos.
+- Preferir `edit` con oldString/newString sobre reescribir archivos completos
+- No cargar MCPs que no uses para esta tarea
+- **No prosa defensiva:** no expliques código ni justifiques decisiones en comentarios.
+  Si hay un problema, expresalo modificando código o tests.
+- **No cambiar scope:** si encontrás algo extra (bug no relacionado, feature faltante),
+  anotalo en Notas del task file, no lo implementes
+
+### Paso 1: Leer estado actual
+
+1. Leé el plan file COMPLETO.
+2. Buscá la recitation block.
+3. Si hay recitation → la tarea activa es la que dice.
+4. Si no hay recitation → buscá la primera tarea ⬜ PENDING o ⏳ IN PROGRESS.
+5. Si `{{SINGLE_TASK}}` no está vacío → ignorá cualquier otra tarea, procesá solo esa.
+
+### Paso 2: Determinar próxima acción
+
+| Si el task file... | Entonces... |
+|-------------------|-------------|
+| No existe | **MODO DISCOVERY:** codegraph_explore → blast radius → detectar tipo de tarea → crear task file con steps atómicos. Actualizá plan file: Estado → ⏳ IN PROGRESS. |
+| Existe y tiene steps ⬜ PENDING | **MODO EJECUCIÓN:** ejecutá el próximo step pendiente del task file. State machine: PLAN → ACT → VERIFY. |
+| Existe y todos los steps ✅ | **MODO CIERRE:** verificación full → evaluator-optimizer → self-harness gate → pre-commit → commit → skill progreso. State machine: REVIEW → ACCEPT → CLOSE. |
+
+### Paso 3: Ejecutar (MODO DISCOVERY)
+
+```
+skill progreso
+
+1. Auto-detectar tipo de tarea según archivos involucrados:
+
+   | Archivos | Tipo | Skills a cargar | Checks |
+   |----------|------|-----------------|--------|
+   | `src/**` (Rust core) | Rust | source-driven-development, doubt-driven-development | cargo check, nextest, fmt, clippy |
+   | `web/src/**` | Frontend | frontend-ui-engineering | npx tsc --noEmit, npm run lint |
+   | `vantadb-python/**` | Python SDK | source-driven-development | pytest |
+   | `vantadb-ts/**` | TypeScript SDK | source-driven-development | npx tsc, npm test |
+   | `docs/**` | Documentation | writing-guidelines, writing-plans | scripts/validate-docs-coverage |
+   | Mixto | Multiple | TODOS aplicables | TODOS los checks |
+
+2. Auto-estimar turns necesarios:
+   | Esfuerzo | Turns estimados |
+   |----------|----------------|
+   | 🟢 Bajo | 5-10 |
+   | 🟡 Medio | 15-30 |
+   | 🔴 Alto | 30-60 |
+
+3. codegraph_explore "símbolos/archivos de la tarea"
+
+4. Web research si hay ambigüedad (API externa, patrón no familiar):
+   MetaSearchMCP.search_web("consulta") + Argus.extract_content(url)
+   → Documentar en Investigation Notes del task file
+
+5. Documentar en el task file:
+   - CALLERS: qué módulos llaman
+   - CALLEES: de qué depende
+   - IMPLICACIONES: contratos, API, performance, migración
+   - RIESGO: alto / medio / bajo
+   - Contrato verificable (NO vago — ver tabla abajo)
+   - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, etc.)
+   - Descomponer en steps atómicos (cada uno: archivo + acción + verify)
+
+6. Escribir task file en {{TASK_BASE}}<ID>.md
+   Agregar last-synced en ambos archivos (plan + task).
+```
+
+### Paso 3: Ejecutar (MODO EJECUCIÓN) — State Machine
+
+Cada paso sigue esta state machine. No se permite saltar estados.
+
+```
+Estados válidos (C0 — Statewright pattern):
+
+  PLAN     → ACT
+  ACT      → VERIFY
+  VERIFY   → PLAN      (falló → reintentar)
+  VERIFY   → STALL     (3 same-error → bloqueo)
+  VERIFY   → COLLATERAL (pasó → errores colaterales)
+  COLLATERAL → RESEARCH (ambigüedad → investigar)
+  RESEARCH → ACT       (investigado → implementar)
+  COLLATERAL → EVALUATE (sin errores → evaluar)
+  EVALUATE → REVIEW    (auto-evaluación pasa → revisión)
+  EVALUATE → ACT       (auto-evaluación falla → re-implementar)
+  REVIEW   → VERIFY    (review encuentra issues → re-verificar)
+  REVIEW   → ACCEPT    (review pasa → aceptar)
+  ACCEPT   → CLOSE     (aceptado → commit)
+
+Transiciones inválidas (NO permitidas):
+  PLAN → EVALUATE      ❌ no implementado
+  ACT  → ACCEPT        ❌ no verificado
+  ACT  → CLOSE         ❌ no revisado
+  ACT  → REVIEW        ❌ no evaluado
+```
+
+```
+PLAN:
+  - Leer el próximo step del task file
+  - Decidir el cambio atómico (~100 líneas máx)
+  - Ponytail ladder: ya existe > stdlib > dependency > mínimo código
+
+ACT:
+  - Editar archivos (preferir edit con oldString/newString)
+
+VERIFY:
+  - Comando mecánico real, nunca auto-reporte
+  - Rust: cargo check -p <crate>
+  - Web: npx tsc --noEmit
+  - Tests: cargo nextest run <test_name>
+
+  Agente de Diagnóstico (si verify falla):
+    No pasar el error crudo al implementador. Procesá el error del compilador/
+    test/lint, identificá la causa raíz (archivo, línea, mensaje), y sintetizá
+    una instrucción técnica precisa:
+    "El compilador falló en la línea 45: error de lifetime. Reestructurá la
+    función para evitar devolver una referencia local."
+    Recién ahí → retry.
+
+Retry ladder (4 escalones):
+  1ª falla → corregir con feedback del error procesado (Agente de Diagnóstico)
+  2ª falla mismo error (archivo+línea+mensaje) → contexto fresco:
+     resumir lo aprendido (~200 tokens), arrancar con resumen + error
+  3ª falla mismo error → estrategia materialmente distinta
+  4ª falla mismo error → escalar a humano:
+     documentar qué se intentó, commit del WIP, marcar ❌ FAILED, seguir
+
+Stagnation Detection (gate previo a errores colaterales):
+  - ¿3+ iteraciones con el mismo error?
+  - ¿5+ iteraciones sin cambiar de step?
+  - ¿Mismos archivos tocados en últimas 3 iteraciones?
+  Si ALGUNA → marcar ❌ FAILED y preguntar al usuario
+```
+
+### Paso 3: Ejecutar (MODO CIERRE)
+
+```
+1. Verificación full del contrato:
+   - cargo build --workspace (o warm cache si Windows da page file error)
+   - cargo nextest run --profile audit --workspace --build-jobs 2
+   - cargo fmt --check
+   - cargo clippy --workspace --all-targets --all-features -- -D warnings
+   - (si frontend) npx tsc --noEmit
+   - Si el código contiene `unsafe` o concurrencia:
+     Si nightly disponible: cargo +nightly miri test (UB detection)
+     Marcar para ThreadSanitizer / AddressSanitizer en CI
+   - Si el componente es crítico (parser, serializador, WAL):
+     Marcar para fuzzing en CI
+     Escribir test de propiedad básico (quickcheck/proptest)
+
+2. Pivotaje cognitivo (auto-revisión):
+   "Detené la implementación. Ahora asumí el rol de Ingeniero de Sistemas
+   Senior ultra-crítico. Encontrá 1-3 problemas de seguridad, memoria,
+   ineficiencia o errores lógicos ocultos en el código que acabas de
+   escribir. Corregilos de inmediato."
+
+3. Evaluator-optimizer: auto-crítica 3 ejes:
+   a) CORRECTITUD: ¿edge cases cubiertos? ¿input vacío? ¿límites? ¿nulls?
+      ¿colecciones vacías? ¿acceso concurrente?
+   b) SIMPLICIDAD: revisar con ponytail ladder. ¿algo se puede acortar?
+      ¿stdlib lo hace? ¿dependency ya instalada lo cubre?
+   c) CONSISTENCIA: ¿sigue el mismo patrón que el código existente?
+      ¿misma convención de nombres? ¿mismo estilo de error handling?
+   codegraph_explore post-implement para verificar impacto completo.
+   Máximo 2 iteraciones de evaluator-optimizer. Si en la 3ra sigue sin
+   pasar → bloquear.
+
+4. Errores colaterales (encontrados durante verify/review):
+   Para cada error colateral:
+     - Anotarlo
+     - 🟢 RÁPIDO (<30min, mismo archivo): arreglar y commitear junto
+     - 🟡 LENTO (>30min, módulo diferente): crear entrada en Backlog.md
+     - NO perder foco de la tarea principal
+
+5. Self-Harness Gate (propose → evaluate → accept):
+   1. PROPOSE: leer git diff, resumir en 3 líneas: qué cambió, por qué,
+      qué contrato cumple
+   2. EVALUATE (4 condiciones booleanas):
+      [ ] ¿SATISFACE el contrato? (sí/no — booleano, sin matices)
+      [ ] ¿ROMPE algo fuera del blast radius? (codegraph_explore check)
+      [ ] ¿INTRODUCE deuda técnica nueva? (ponytail-review)
+      [ ] ¿ESTÁ documentado si cambió API pública?
+   3. ACCEPT: todas ✅ → continuar
+      REJECT: alguna ❌ → volver a MODO EJECUCIÓN con lista de issues
+   4. Si 2 rejections consecutivas → bloquear, escalar a humano
+
+6. Pre-commit gate:
+   [ ] Definition of Done aplicado (línea base)
+   [ ] Security checklist (si toca datos/auth) — ver security-check-list.md
+   [ ] Performance checklist (si es camino crítico) — ver performance-checklist.md
+   [ ] Testing checklist (si es lógica nueva) — ver testing-patterns.md
+   [ ] Ponytail ladder aplicada
+   [ ] Tests pasan
+   [ ] Documentación afectada actualizada
+
+7. git add -p + git commit con mensaje Conventional Commits:
+    tipo(scope): ID — descripción breve
+
+    Blast radius: [módulos afectados]
+    Skills: [skills usadas]
+    Contrato: [condición cumplida]
+    Errores colaterales: [ninguno | lista con destino]
+
+8. skill progreso (Trigger 1)
+```
+
+### Paso 4: Actualizar estado
+
+Después de la acción, actualizá SIEMPRE:
+
+**Plan file:**
+- Iteración agregada a la tabla
+- Estado de la tarea (⏳ IN PROGRESS / ✅ COMPLETED / ❌ FAILED)
+- Branch y Commit si corresponde
+- `last-synced` actualizado
+
+**Task file (si existe):**
+- Step marcado como ✅ o ❌
+- `last-synced` actualizado
+
+### Paso 5: Recitation
+
+Al final del plan file, escribí:
+
+```
+=== RECITATION ===
+Objetivo activo: TASK-N — ID
+Estado: discovery / plan / act / verify / stall / research /
+        collateral / evaluate / review / accept / completed / failed
+Última acción: qué se acaba de hacer
+Resultado: ✅ pasa / ❌ falla (con error)
+State: ESTADO_ACTUAL (desde: ESTADO_ANTERIOR)
+Próxima acción: el PRÓXIMO paso concreto (archivo + comando)
+Contrato: "condición verificable"
+Próxima tarea si completa: TASK-N+1 — ID
+last-synced: YYYY-MM-DDTHH:MM
+=== END RECITATION ===
+```
+
+### Paso 6: STOP
+
+No sigas a la siguiente tarea ni iteración.
+
+### Apéndice: Tabla de contratos
+
+| ❌ Vago | ✅ Verificable |
+|---------|----------------|
+| "Arreglar el bug de memoria" | "tests/test_memory.rs pasa, cargo machete 0 warnings, cargo nextest run pasa" |
+| "Mejorar la web" | "npx tsc --noEmit 0 errors, npm run lint 0 errors" |
+| "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
