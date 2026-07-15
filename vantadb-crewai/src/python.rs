@@ -97,12 +97,21 @@ impl CrewAIMemory {
         threshold: f32,
     ) -> PyResult<Vec<Py<PyAny>>> {
         let namespace = self.namespace.read().unwrap().clone();
+        // ponytail: heuristic top_k scale so threshold post-filter
+        // has enough candidates. Replace with native engine threshold
+        // if VantaMemorySearchRequest gains a min_score field.
+        let engine_top_k = if threshold > 0.0 {
+            let scale = (1.0 / (1.0 - threshold).clamp(0.01, 1.0)).min(10.0);
+            ((top_k as f32) * scale).ceil() as usize
+        } else {
+            top_k as usize
+        };
         let request = VantaMemorySearchRequest {
             namespace,
             query_vector: query_embedding,
             filters: Default::default(),
             text_query: None,
-            top_k: top_k as usize,
+            top_k: engine_top_k,
             distance_metric: vantadb::DistanceMetric::Cosine,
             explain: false,
         };
@@ -123,6 +132,7 @@ impl CrewAIMemory {
             d.set_item("score", score)?;
             results.push(d.unbind().into());
         }
+        results.truncate(top_k as usize);
         Ok(results)
     }
 
