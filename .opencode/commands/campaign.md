@@ -75,7 +75,7 @@ Ejecuta TODAS las tareas automáticamente usando sub-agentes. Cada sub-agente pr
 
 **Alternativa (chat, una tarea a la vez):**
 ```
-/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo `.opencode/prompts/pipeline-full.md`"
+/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo `.opencode/task-system/prompts/pipeline-full.md`"
 ```
 Cada iteración procesa UNA TAREA COMPLETA (discovery → implementación → verify → commit → skill progreso).
 Requiere re-ejecutar `/loop-goal` manualmente para cada tarea.
@@ -89,7 +89,7 @@ Mostrá AMBOS métodos:
 
 **Chat (paso a paso, con auto-skill-loading):**
 ```
-/loop-goal "Ejecutá UNA iteración de campaña siguiendo `.opencode/prompts/iter-loop-tools.md`"
+/loop-goal "Ejecutá UNA iteración de campaña siguiendo `.opencode/task-system/prompts/iter-loop-tools.md`"
 ```
 Usa `campaign_get_next_task`/`campaign_update_task_state`/`campaign_verify_cmd` (MCP)
 + `campaign_load_skills`/`campaign_detect_task_type` para carga automática de skills.
@@ -112,7 +112,7 @@ Después de la acción correspondiente, mostrá el comando exacto para lo que si
 
 | Después de... | Mostrar... |
 |--------------|------------|
-| Crear plan | `/pipeline run` *(chat, backlog completo sin parar, recomendado)* o `/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo \`.opencode/prompts/pipeline-full.md\`"` *(chat, una tarea por vez)* o `.\harness-executor.ps1 -PlanFile ... -Interval 10` *(terminal)* |
+| Crear plan | `/pipeline run` *(chat, backlog completo sin parar, recomendado)* o `/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo \`.opencode/task-system/prompts/pipeline-full.md\`"` *(chat, una tarea por vez)* o `.\harness-executor.ps1 -PlanFile ... -Interval 10` *(terminal)* |
 | Definir tarea | Task file creado. Para ejecutar: `/pipeline run` *(backlog completo)* o `/pipeline task <ID>` *(solo esta tarea)* o `.\harness-executor.ps1 -PlanFile ... -SingleTask <ID>` |
 | Ejecutar pipeline | `/pipeline run` *(backlog completo sin parar, recomendado)* o `/loop-goal "...pipeline-full.md"` *(una tarea por vez)* o `.\harness-executor.ps1` *(terminal)* |
 | Cualquier modo | **También disponible:** `/pipeline plan`, `/pipeline task <ID>`, `/pipeline run` — comandos unificados con los mismos 3 modos. `/pipeline run` ejecuta backlog completo sin parar usando sub-agentes, sin necesidad de re-ejecutar `/loop-goal` manualmente. |
@@ -124,8 +124,8 @@ Después de la acción correspondiente, mostrá el comando exacto para lo que si
 | # | Propósito | Prompt / Comando |
 |---|-----------|-----------------|
 | 0 | **Iniciar campaña** (triage + gate + crear plan) | `/campaign docs/Backlog.md` → aplica triage gate, crea `docs/plans/<fecha>-<nombre>.md` con solo ✅ DO |
-| 1 | **Una iteración** (paso a paso con MCP) | `/loop-goal "Ejecutá UNA iteración siguiendo \`.opencode/prompts/iter-loop-tools.md\`"` |
-| 2 | **Una tarea completa** (discovery → impl → verify → commit) | `/pipeline task <ID>` o `/loop-goal "Ejecutá UNA TAREA siguiendo \`.opencode/prompts/pipeline-full.md\`"` |
+| 1 | **Una iteración** (paso a paso con MCP) | `/loop-goal "Ejecutá UNA iteración siguiendo \`.opencode/task-system/prompts/iter-loop-tools.md\`"` |
+| 2 | **Una tarea completa** (discovery → impl → verify → commit) | `/pipeline task <ID>` o `/loop-goal "Ejecutá UNA TAREA siguiendo \`.opencode/task-system/prompts/pipeline-full.md\`"` |
 | 3 | **Backlog completo** (sub-agentes, auto) | `/pipeline run` — ejecuta todas las tareas, contexto fresco por tarea |
 | 4 | **FAIL_MODE=skip** (no parar en fallos) | `/pipeline run` con FAIL_MODE=skip (editar variable en pipeline-run.md) |
 | 5 | **FAIL_MODE=parallel** (waves paralelas) | `/pipeline run` con FAIL_MODE=parallel (editar variable en pipeline-run.md) |

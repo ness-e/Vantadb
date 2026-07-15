@@ -65,41 +65,49 @@ skill progreso
    Devuelve: type, skills, checks, estimate.
    Cargá los skills devueltos con `skill <nombre>`.
 
-2. Auto-estimar turns con `campaign_detect_task_type`:
+2. Clasificar workflow:
+   Llamá `campaign_classify_workflow` con taskName + descripción de la tarea.
+   Devuelve el workflow template matching (bug-fix, feature-add, refactor, research).
+   Usá los estados del workflow como state machine específica para esta tarea.
+   Si no hay template matching → usar C0 genérica de iter.md como fallback.
+
+3. Auto-estimar turns con `campaign_detect_task_type`:
    El MCP devuelve estimate: { turns, label }
 
-3. codegraph_explore "símbolos/archivos de la tarea"
+4. codegraph_explore "símbolos/archivos de la tarea"
 
-4. Zero-code planning: antes de escribir código o crear el task file, describí
+5. Zero-code planning: antes de escribir código o crear el task file, describí
    la solución en ≤3 viñetas de pseudocódigo. Sin tocar archivos todavía.
    Identificá: qué archivos cambiar, qué funciones modificar, qué firma tendrá,
    qué tests escribir. Si hay ambigüedad → web research antes de continuar.
    Validá que el enfoque es correcto antes de comprometerte.
 
-5. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
+6. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
    que apunte al próximo step.
 
-6. Web research si hay ambigüedad (API externa, patrón no familiar):
+7. Web research si hay ambigüedad (API externa, patrón no familiar):
    MetaSearchMCP.search_web("consulta") + Argus.extract_content(url)
    → Documentar en Investigation Notes del task file
 
-7. Documentar en el task file:
+8. Documentar en el task file:
    - CALLERS: qué módulos llaman
    - CALLEES: de qué depende
    - IMPLICACIONES: contratos, API, performance, migración
    - RIESGO: alto / medio / bajo
    - Contrato verificable (NO vago — ver tabla abajo)
    - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, etc.)
-   - Solución planeada (de step 4: zero-code planning)
+   - Solución planeada (de step 5: zero-code planning)
    - Descomponer en steps atómicos (cada uno: archivo + acción + verify)
 
-8. Escribir task file en {{TASK_BASE}}<ID>.md
+9. Escribir task file en {{TASK_BASE}}<ID>.md
    Agregar last-synced en ambos archivos (plan + task).
 ```
 
 ### Paso 3: Ejecutar (MODO EJECUCIÓN) — State Machine
 
 Cada paso sigue esta state machine. No se permite saltar estados.
+En cada estado, consultá `campaign_get_state_allowed_tools` para saber qué tools
+están permitidas. No uses tools denegadas para el estado actual.
 
 ```
 Estados válidos (C0 — Statewright pattern):
@@ -123,16 +131,39 @@ Transiciones inválidas (NO permitidas):
   ACT  → ACCEPT        ❌ no verificado
   ACT  → CLOSE         ❌ no revisado
   ACT  → REVIEW        ❌ no evaluado
+
+Per-state tool enforcement — antes de cada tool call, verificá con `campaign_validate_action`:
+
+  | Estado | Tools permitidas | Tools denegadas |
+  |--------|-----------------|-----------------|
+  | PLAN   | read, grep, glob, codegraph_explore, campaign_*, skill, bash, websearch, webfetch, argus_*, metasearchmcp_* | edit, write, campaign_verify_cmd, cargo-mcp_*, rust-analyzer-mcp_* |
+  | ACT    | edit, write, bash, campaign_*, read, grep, glob, codegraph_explore, skill, cargo-mcp_*, rust-analyzer-mcp_* | (ninguna) |
+  | VERIFY | bash, campaign_verify_cmd, cargo-mcp_*, campaign_*, read, grep | edit, write |
+  | COLLATERAL | bash, read, grep, glob, codegraph_explore, campaign_* | edit, write |
+  | RESEARCH | read, grep, glob, codegraph_explore, websearch, webfetch, argus_*, metasearchmcp_*, campaign_* | edit, write, bash |
+  | EVALUATE | read, grep, codegraph_explore, campaign_* | edit, write, bash |
+  | REVIEW | read, grep, codegraph_explore, campaign_*, skill | edit, write, bash |
+  | ACCEPT | campaign_*, skill, read, bash | edit, write |
+  | CLOSE  | bash, campaign_*, skill, read | edit, write |
+  | STALL  | campaign_*, read | edit, write, bash, cargo-mcp_* |
+
+  Usá `campaign_validate_action state=<ESTADO> toolName=<TOOL>` para verificar
+  antes de llamar tools que puedan estar en el límite. Si una tool está denegada,
+  NO la llames — cambiá de estado primero vía `campaign_update_task_state`.
+
 ```
 
 ```
 PLAN:
   - Leer el próximo step del task file
+  - Consultar memoria: `campaign_memory_read lessons` y `decisions` para contexto
   - Decidir el cambio atómico (~100 líneas máx)
   - Ponytail ladder: ya existe > stdlib > dependency > mínimo código
 
 ACT:
   - Editar archivos (preferir edit con oldString/newString)
+  - Para comandos destructivos (rm, format, DDL, scripts generados):
+    usar `campaign_run_sandboxed` para ejecutar en staging aislado
 
 VERIFY:
   - Comando mecánico real, nunca auto-reporte
@@ -148,13 +179,17 @@ VERIFY:
     función para evitar devolver una referencia local."
     Recién ahí → retry.
 
-Retry ladder (4 escalones):
-  1ª falla → corregir con feedback del error procesado (Agente de Diagnóstico)
-  2ª falla mismo error (archivo+línea+mensaje) → contexto fresco:
-     resumir lo aprendido (~200 tokens), arrancar con resumen + error
-  3ª falla mismo error → estrategia materialmente distinta
-  4ª falla mismo error → escalar a humano:
-     documentar qué se intentó, commit del WIP, marcar ❌ FAILED, seguir
+MoM ladder — cada escalón usa un modelo más potente (cambia vía `campaign_mom_escalate`):
+
+  | Escalón | Modelo | Costo | Acción |
+  |---------|--------|-------|--------|
+  | 1ª falla | haiku (tier 0) | low | corregir con feedback del error (Agente de Diagnóstico) |
+  | 2ª falla mismo error | sonnet/gpt-4o (tier 1) | medium | contexto fresco + resumen ~200 tokens |
+  | 3ª falla mismo error | deepseek-v4 (tier 2) | high | estrategia materialmente distinta |
+  | 4ª falla mismo error | humano (tier 3) | human | documentar intentos, commit WIP, ❌ FAILED |
+
+  En cada falla: llamá `campaign_mom_escalate` con `currentModel` + `retryCount` para
+  obtener el próximo modelo. No reintentes con el mismo modelo más de una vez.
 
 Stagnation Detection (gate previo a errores colaterales):
   - ¿3+ iteraciones con el mismo error?
@@ -163,16 +198,22 @@ Stagnation Detection (gate previo a errores colaterales):
   Si ALGUNA → llamá `campaign_update_task_state` (MCP) con `"failed"`, anotá
   la causa en recitation, y detenete. Si necesitás revisar tareas estancadas
   usá `campaign_stalled_tasks` (MCP).
-```
+
+Fork/Join — tareas independientes en paralelo vía sub-agentes:
+  - CIERRE steps que NO dependen entre sí → fork a sub-agentes
+  - Grupo 1 (independiente): cargo fmt --check, cargo machete
+  - Grupo 2 (depende de build): cargo nextest, cargo clippy
+  - Usá `task` tool para spawn sub-agentes; join all antes de avanzar
+  - Máximo 3 sub-agentes simultáneos (RAM en Windows)
+  ```
 
 ### Paso 3: Ejecutar (MODO CIERRE)
 
 ```
-1. Verificación full del contrato:
-   - cargo build --workspace (o warm cache si Windows da page file error)
-   - cargo nextest run --profile audit --workspace --build-jobs 2
-   - cargo fmt --check
-   - cargo clippy --workspace --all-targets --all-features -- -D warnings
+1. Verificación full del contrato (fork/join — correr grupos independientes en paralelo):
+   - **Grupo 1 (inmediato, sin deps):** cargo fmt --check, cargo machete
+   - **Build (dependencia):** cargo build --workspace (o warm cache si Windows da page file error)
+   - **Grupo 2 (post-build):** cargo nextest + cargo clippy, fork a sub-agentes
    - (si frontend) npx tsc --noEmit
    - Si el código contiene `unsafe` o concurrencia:
      Si nightly disponible: cargo +nightly miri test (UB detection)
@@ -208,8 +249,9 @@ Stagnation Detection (gate previo a errores colaterales):
 5. Self-Harness Gate (propose → evaluate → accept):
    1. PROPOSE: leer git diff, resumir en 3 líneas: qué cambió, por qué,
       qué contrato cumple
-   2. EVALUATE (4 condiciones booleanas):
+    2. EVALUATE (5 condiciones booleanas):
       [ ] ¿SATISFACE el contrato? (sí/no — booleano, sin matices)
+      [ ] ¿OUTPUT validado? (campaign_validate_output para shell/cmd/paths antes de write)
       [ ] ¿ROMPE algo fuera del blast radius? (codegraph_explore check)
       [ ] ¿INTRODUCE deuda técnica nueva? (ponytail-review)
       [ ] ¿ESTÁ documentado si cambió API pública?
@@ -218,7 +260,7 @@ Stagnation Detection (gate previo a errores colaterales):
    4. Si 2 rejections consecutivas → bloquear, escalar a humano
 
 6. Pre-commit gate:
-   [ ] Definition of Done aplicado (línea base)
+   [ ] Definition of Done aplicado (DoD v1 baseline — ver RULES.md §6)
    [ ] Security checklist (si toca datos/auth) — ver security-check-list.md
    [ ] Performance checklist (si es camino crítico) — ver performance-checklist.md
    [ ] Testing checklist (si es lógica nueva) — ver testing-patterns.md

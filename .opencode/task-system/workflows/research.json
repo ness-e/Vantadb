@@ -1,0 +1,90 @@
+{
+  "definition": {
+    "id": "vantadb-research",
+    "initial": "scoping",
+    "dod_version": 1,
+    "meta": {
+      "task_type": "research",
+      "danger_level": "safe",
+      "capture_output": true,
+      "autonomous": true,
+      "orchestration": "plugin",
+      "task_description": "Research the given topic thoroughly using web search, source extraction, and structured synthesis."
+    },
+    "states": {
+      "scoping": {
+        "allowed_tools": ["Read", "Grep", "Glob", "Bash"],
+        "instructions": "Break the research question into 3-5 specific sub-queries. List them clearly. Do NOT search yet. The campaign executor tracks scope in the recitation block.",
+        "max_iterations": 3,
+        "thinking_level": "medium",
+        "on": {
+          "QUERIES_READY": "searching",
+          "FAIL": "failed"
+        }
+      },
+      "searching": {
+        "disallowed_tools": ["Edit", "Write"],
+        "instructions": "Execute each sub-query via web search. Collect URLs and snippets into filesystem memory for persistence across phases. Do NOT synthesize yet — just gather raw results.",
+        "max_iterations": 15,
+        "thinking_level": "low",
+        "on": {
+          "SOURCES_COLLECTED": "extracting",
+          "FAIL": "failed"
+        }
+      },
+      "extracting": {
+        "disallowed_tools": ["Edit", "Write"],
+        "instructions": "Fetch the top 5-10 most relevant URLs. Extract key facts, quotes, and data points. Record source URL for each fact. Store extracted data in filesystem memory for the synthesizing phase.",
+        "max_iterations": 12,
+        "thinking_level": "medium",
+        "on": {
+          "EXTRACTED": "synthesizing",
+          "FAIL": "failed"
+        }
+      },
+      "synthesizing": {
+        "allowed_tools": ["Read", "Write", "Edit", "Bash"],
+        "instructions": "Synthesize all extracted data into a structured answer. Use tables where appropriate. Cite sources inline. Flag gaps or conflicting information. Write the final output. The campaign executor's verification gate will audit citations.",
+        "max_iterations": 5,
+        "thinking_level": "high",
+        "on": {
+          "DONE": "verifying",
+          "FAIL": "failed"
+        }
+      },
+      "verifying": {
+        "allowed_tools": ["Read", "Bash"],
+        "instructions": "Review the synthesis for accuracy. Verify that every claim has a cited source. Check for hallucinated facts. If gaps found, note them explicitly. The verification gate blocks completion until all claims are sourced.",
+        "max_iterations": 3,
+        "thinking_level": "medium",
+        "on": {
+          "VERIFIED": "review",
+          "GAPS_FOUND": "searching",
+          "FAIL": "failed"
+        }
+      },
+      "review": {
+        "allowed_tools": ["read", "grep", "bash"],
+        "instructions": "Auto-crítica del output de research: ¿citas verificables? ¿sin afirmaciones sin fuente? ¿contradicciones resueltas? ¿formato estructurado? codegraph_explore no aplica para research.",
+        "max_iterations": 2,
+        "on": { "REVIEW_PASS": "accept", "ISSUES_FOUND": "synthesizing", "FAIL": "failed" }
+      },
+      "accept": {
+        "allowed_tools": ["read", "bash"],
+        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: todas las afirmaciones citadas ✅, sin alucinaciones ✅, formato estructurado ✅, gaps documentados ✅, fuentes verificables ✅. V2+: +ponytail-review, +no secrets. V3+: +citas con URL verificada. Si todas ✅ → ACCEPTED.",
+        "max_iterations": 2,
+        "on": { "ACCEPTED": "close", "REJECTED": "synthesizing", "FAIL": "failed" }
+      },
+      "close": {
+        "allowed_tools": ["bash", "write"],
+        "instructions": "Guardar output final en docs/research/. skill progreso (Trigger 1). Context Save Point.",
+        "max_iterations": 2,
+        "on": { "CLOSED": "completed", "FAIL": "failed" }
+      },
+      "completed": { "type": "final" },
+      "failed": { "type": "final" }
+    },
+    "guards": {}
+  },
+  "upstream_servers": []
+}

@@ -1,0 +1,68 @@
+{
+  "definition": {
+    "id": "vantadb-nine-second-saloon",
+    "initial": "diagnose",
+    "dod_version": 1,
+    "states": {
+      "diagnose": {
+        "allowed_tools": ["Read", "Bash", "Grep"],
+        "instructions": "Read the task description. Use the campaign executor to check service status and read logs. Identify the root cause. Do NOT modify anything — destructive tools are structurally blocked at this phase. The platform API is available for read-only actions.",
+        "max_iterations": 8,
+        "safe_next": "investigate",
+        "on": { "DIAGNOSED": "investigate", "FAIL": "failed" }
+      },
+      "investigate": {
+        "allowed_tools": ["Read", "Bash", "Grep"],
+        "instructions": "Investigate the root cause further. Check environment variables, test connections. Still read-only — do NOT modify anything. The campaign executor recitation block preserves investigation state across iterations.",
+        "max_iterations": 6,
+        "on": { "ROOT_CAUSE_FOUND": "propose_fix", "FAIL": "failed" }
+      },
+      "propose_fix": {
+        "allowed_tools": ["Read"],
+        "instructions": "Propose the fix. Describe exactly what you will change and why. Do NOT execute the fix yet. Write your proposal as text output. The approval gate will require human sign-off before execution.",
+        "max_iterations": 3,
+        "on": { "FIX_PROPOSED": "approve_fix", "FAIL": "failed" }
+      },
+      "approve_fix": {
+        "allowed_tools": ["Read"],
+        "instructions": "RATCHETED DOD v1: auto-verificar seguro/específico/reversible/sin-efectos-colaterales. Si cumple → APPROVED. Si no → REJECTED.",
+        "max_iterations": 2,
+        "on": { "APPROVED": "execute_fix", "REJECTED": "propose_fix", "FAIL": "failed" }
+      },
+      "execute_fix": {
+        "allowed_tools": ["Read", "Bash"],
+        "instructions": "Execute the approved fix. Do NOT use destructive commands. The verification gate will confirm the fix works before completing.",
+        "max_iterations": 4,
+        "on": { "FIX_APPLIED": "verify", "FAIL": "failed" }
+      },
+      "verify": {
+        "allowed_tools": ["Read", "Bash"],
+        "instructions": "Verify the fix worked. Test the connection, check service status, review logs. The campaign executor's verification gate blocks completion until the fix is confirmed working.",
+        "max_iterations": 4,
+        "on": { "VERIFIED": "review", "VERIFICATION_FAILED": "propose_fix", "FAIL": "failed" }
+      },
+      "review": {
+        "allowed_tools": ["read", "grep", "bash"],
+        "instructions": "Evaluator-optimizer: auto-crítica del fix. ¿Correctitud? ¿Simplicidad? ¿Consistencia? ¿efectos secundarios? Máximo 2 iteraciones.",
+        "max_iterations": 2,
+        "on": { "REVIEW_PASS": "accept", "ISSUES_FOUND": "execute_fix", "FAIL": "failed" }
+      },
+      "accept": {
+        "allowed_tools": ["read", "bash"],
+        "instructions": "RATCHETED DOD v${dod_version}. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets, +conventional-commit validado. Leer dod_version del workflow. Si todas ✅ → ACCEPTED.",
+        "max_iterations": 2,
+        "on": { "ACCEPTED": "close", "REJECTED": "execute_fix", "FAIL": "failed" }
+      },
+      "close": {
+        "allowed_tools": ["bash"],
+        "instructions": "git add -p + git commit con Conventional Commits. skill progreso (Trigger 1). Context Save Point.",
+        "max_iterations": 2,
+        "on": { "CLOSED": "completed", "FAIL": "failed" }
+      },
+      "completed": { "type": "final" },
+      "failed": { "type": "final" }
+    },
+    "guards": {}
+  },
+  "upstream_servers": []
+}
