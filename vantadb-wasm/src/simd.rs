@@ -31,6 +31,13 @@ fn simd_impl(a: &[f32], b: &[f32]) -> f32 {
     let simd_len = len / 4 * 4;
     let mut i = 0;
 
+    // SAFETY:
+    // - v128_load reads 16 bytes at `a[i..i+4]` / `b[i..i+4]` which are in-bounds since
+    //   we iterate only up to `simd_len` (largest multiple of 4 ≤ len), and both slices
+    //   are guaranteed to have `len` elements by the assert_eq at the call site.
+    // - The source slices are &[f32], guaranteeing 4-byte minimum alignment. WASM v128.load
+    //   tolerates unaligned addresses on all major engines (V8, SpiderMonkey, Wasmtime).
+    // - f32x4_splat/add/mul/extract_lane operate on the initialized register values.
     unsafe {
         let mut dot = f32x4_splat(0.0);
         let mut na = f32x4_splat(0.0);

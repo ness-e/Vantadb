@@ -52,7 +52,7 @@ fn bytes_to_mb(bytes: u64) -> f64 {
 
 #[cfg(feature = "sysinfo")]
 fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySample {
-    sys.refresh_process(pid);
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
     match sys.process(pid) {
         Some(process) => ProcessMemorySample {
             used_bytes: process.memory(),
@@ -214,6 +214,8 @@ impl TerminalReporter {
 pub struct VantaHarness {
     #[cfg(feature = "sysinfo")]
     sys: System,
+    #[cfg(feature = "sysinfo")]
+    pid: sysinfo::Pid,
     _start_time: Instant,
     start_memory: ProcessMemorySample,
     test_name: String,
@@ -235,6 +237,7 @@ impl VantaHarness {
             let start_memory = sample_process_memory(&mut sys, pid);
             return Self {
                 sys,
+                pid,
                 _start_time,
                 start_memory,
                 test_name,

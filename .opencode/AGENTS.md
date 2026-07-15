@@ -50,8 +50,8 @@ codegraph_callers "VantaEmbedded::connect"
 
 | Script | Qué hace |
 |--------|----------|
-| `dev-tools/verify.ps1` | Pre-flight completa (fmt → clippy → nextest → Python) — incluye `codegraph affected` al inicio |
-| `dev-tools/verify_changed.ps1` | **Quick verify**: usa `codegraph affected` para testear solo archivos impactados. Ideal para iteración rápida |
+| `dev-tools/verify.ps1` | Pre-flight completa (fmt → check → clippy → audit → deny → nextest) |
+| `dev-tools/verify_changed.ps1` | **Quick verify**: fmt → check → clippy solo en `vantadb` core. ~30s |
 | `.git/hooks/pre-commit` | Muestra preview no-blocking de tests afectados por staged changes |
 | `.git/hooks/pre-push` | Corre `verify.ps1` completo antes de cada push |
 
@@ -570,13 +570,10 @@ Technical docs stay in English. Never duplicate technical content in Spanish.
 ## Pre-Flight Checks
 
 ```bash
-:: Order matters — stop on first failure
-cargo fmt --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo nextest run --profile audit --workspace --build-jobs 2
-scripts/validate-docs-coverage.ps1   # final step before marking done
+:: Full check (6 steps, ~2-5min)
+dev-tools/verify.ps1
 
-:: Quick local verify (CodeGraph-optimized, ~30s)
+:: Quick check (3 steps, ~30s)
 dev-tools/verify_changed.ps1
 ```
 

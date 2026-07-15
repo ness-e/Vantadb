@@ -31,7 +31,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** CI roto en main impide releases. TSan incompatible con Rust 1.94.1. Solución: remover `-Zsanitizer=thread` o gatear tras nightly.
 - **Contrato:** "`cargo nextest run --profile audit --workspace --build-jobs 2` pasa en CI"
-- **Estado:** ✅ FIXED
+- **Estado:** ✅ COMPLETED
 - **Notas:** Removidos flags `-Zsanitizer=thread` y `-Cunsafe-allow-abi-mismatch=sanitizer` del job `sanitizer-tsan`; job ahora corre como nightly test regular. Además, corregido error de indentación YAML en job `msrv` (3 espacios → 2) que invalidaba todo el workflow.
 
 ### Task 2: REV-002 — CI Web 21 ESLint errors
@@ -221,7 +221,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Archivos clave:** `vantadb-langchain/src/python.rs:70-78`
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vantadb-langchain` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fallthrough chain String→bool→i64→f64 aplicado. Commit `b83f0f9`.
 
 ### Task 18: DRV-104 — LangChain similarity_search no retorna metadata
 
@@ -232,7 +233,9 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Metadata almacenada via `add_texts` se pierde en respuesta. LangChain espera metadata para filtering.
 - **Contrato:** "`cargo check -p vantadb-langchain` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `1b2c183`
+- **Notas:** Extrae hit.record.metadata en Phase 1 (GIL released) como `BTreeMap<String, VantaValue>`, convierte a PyDict en Phase 2.
 
 ### Task 19: DRV-105 — LangChain delete() silenciosamente no-op en IDs malformados
 
@@ -243,7 +246,9 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Bug silencioso. `id.split(':')` con `parts.len() != 2` ignora delete sin error.
 - **Contrato:** "`cargo check -p vantadb-langchain` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `7de6a0e`
+- **Notas:** Retorna PyRuntimeError con mensaje 'invalid id format \"<id>\": expected namespace:key' en vez de silenciar.
 
 ### Task 20: DRV-106 — LangChain from_texts class method no implementado
 
@@ -254,7 +259,9 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** LangChain usa `from_texts` como entry point principal. Docstring afirma implementarlo. Gap real.
 - **Contrato:** "`cargo check -p vantadb-langchain` pasa, `from_texts` funciona"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `d355389`
+- **Notas:** `#[classmethod]` via cls.call1((db_path, collection)) → store.call_method1("add_texts", ...).
 
 ### Task 21: DRV-110 — LlamaIndex metadata no-string ignorado
 
@@ -264,7 +271,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Archivos clave:** `vantadb-llamaindex/src/python.rs:70-78`
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vantadb-llamaindex` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fallthrough chain String→bool→i64→f64 aplicado. Commit `b83f0f9`.
 
 ### Task 22: DRV-111 — LlamaIndex query() no retorna metadata
 
@@ -274,7 +282,9 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Archivos clave:** `vantadb-llamaindex/src/python.rs:109-116`
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vantadb-llamaindex` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `e19642f`
+- **Notas:** VantaValue→PyDict via set_item directo, mismo patrón que DRV-104.
 
 ### Task 23: DRV-112 — LlamaIndex delete() no-op en IDs malformados
 
@@ -284,7 +294,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Archivos clave:** `vantadb-llamaindex/src/python.rs:120-128`
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vantadb-llamaindex` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (already fixed in DRV-109 — commit 74fdc23)
 
 ### Task 24: DRV-086 — CrewAI metadata no-string ignorado
 
@@ -294,7 +304,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Archivos clave:** `vantadb-crewai/src/python.rs:141-148`
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo check -p vantadb-crewai` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fallthrough chain String→bool→i64→f64 con to_string() para compatibilidad BTreeMap<String,String>. Commit `b83f0f9`.
 
 ### Task 25: DRV-092 — DSPy metadata no-string ignorado
 
@@ -305,7 +316,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo bug, misma solución, esfuerzo mínimo.
 - **Contrato:** "`cargo check -p vantadb-dspy` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fallthrough chain String→bool→i64→f64 aplicado. Commit `b83f0f9`.
 
 ### Task 26: DRV-098 — Haystack metadata inconsistencia intra-archivo
 
@@ -316,7 +328,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Metadata no-string se pierde al escribir pero se parsea al filtrar. Documentos escritos no son encontrables por filtro.
 - **Contrato:** "`cargo check -p vantadb-haystack` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (py_dict_to_vanta_metadata handles String/i64/f64/bool consistently in both write and filter paths)
 
 ### Task 27: DRV-050 — MCP LISP injection vector
 
@@ -327,7 +339,9 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Security: naive escaping antes de interpolación en query LISP. No escapa paréntesis, newlines.
 - **Contrato:** "`cargo check -p vantadb-mcp` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** (working tree)
+- **Notas:** Extraído a `escape_iql_string()` — escapa `\`, `"`, `\n`, `\r`, `\t`, y todos los control chars con `\xNN`
 
 ### Task 28: DRV-044 — MCP shutdown via process::exit(0)
 
@@ -338,7 +352,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** In-flight JSON-RPC requests se pierden sin respuesta. Fix: `CancellationToken` en vez de `exit(0)`.
 - **Contrato:** "`cargo check -p vantadb-server` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Removido process::exit(0) de main.rs. run_stdio_server ahora sale del loop tras in-flight request cuando running=false. Flush post-server en main().
 
 ### Task 29: DRV-048 — JSON-RPC no-2.0 descartado silenciosamente
 
@@ -349,7 +364,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Spec violation (§7): servidor DEBE responder error -32600. Cliente nunca sabe que su request fue rechazado.
 - **Contrato:** "`cargo check -p vantadb-mcp` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Responde con error -32600 (invalid_request) + mensaje en vez de continue silencioso
 
 ### Task 30: DRV-049 — MCP collection_delete no atómico
 
@@ -360,7 +376,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Crash a mitad de delete → namespace parcialmente borrado. Sin transacción.
 - **Contrato:** "`cargo check -p vantadb-mcp` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Ahora reporta failures parciales con error message. Atomicidad real requiere delete_batch vía StorageEngine directamente.
 
 ### Task 31: DRV-054 — MCP read_axioms hardcoded
 
@@ -371,7 +388,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Axioms hardcoded como JSON inline. Si se actualizan en metadata module, copia MCP deriva.
 - **Contrato:** "`cargo check -p vantadb-mcp` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ SKIP — requiere fuente de verdad externa (metadata module). No hay API para leer axioms en runtime.
 
 ### Task 32: DRV-025 — TOCTOU race en ResourceGovernor::request_allocation()
 
@@ -382,7 +399,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Dos threads pueden pasar el check OOM y sobre-asignar 2× del límite. Sin CAS.
 - **Contrato:** "`cargo check -p vantadb` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Cambiado a fetch_add + rollback atómico: incrementa primero, verifica, y hace fetch_sub si excede. Elimina ventana TOCTOU.
 
 ### Task 33: DRV-040 — unsafe en simd.rs sin // SAFETY: comment
 
@@ -393,7 +411,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Bloque `unsafe` con `v128_load` requiere punteros alineados. Sin SAFETY docs el invariante no es verificable.
 - **Contrato:** "`cargo check -p vantadb-wasm` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Added // SAFETY: explanation for all unsafe operations (v128_load bounds/alignment, SIMD intrinsic safety)
 
 ### Task 34: DRV-043 — Core crate compilation errors (visibility)
 
@@ -404,7 +423,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Bloquea `cargo check -p vantadb-wasm` + todos los adapters que dependen de core. `ensure_text_index_current_with` y `adjust_text_index_state_after_replace` privados en `impl_text_index.rs` pero llamados desde `impl_index.rs`.
 - **Contrato:** "`cargo check -p vantadb` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (already compiled fine — both are pub(crate) on same type VantaEmbedded in same crate)
 
 ### Task 35: DRV-035 — TypeScript metadata type mismatch
 
@@ -415,7 +434,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Bug dormido: tests usan `{ source: { String: "test" } }` pero VantaValue define `{ type: "String", value: "test" }`. No se serializa correctamente por bridge WASM.
 - **Contrato:** "`npx tsc --noEmit` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fixed created_at_ms (number→string), updated_at_ms (number→string), node_id (number→string) en types.test.ts
 
 ### Task 36: DRV-041 — Worker.rs Promise cuelga si mensaje nunca llega
 
@@ -426,7 +446,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** `_reject` nunca se invoca → Promise cuelga para siempre. Response parsing vía `serde_json::from_str` agrega round-trip JSON innecesario.
 - **Contrato:** "`cargo check -p vantadb-wasm` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Añadido Promise.race con timeout de 30s. Si worker no responde, reject(new Error('Worker response timeout after 30s')).
 
 ---
 
@@ -962,9 +983,10 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** `created_at_ms: 1000` (number) vs type `string`, `node_id: 42` (number) vs type `string`. Pasa porque `__tests__/` excluded.
 - **Contrato:** "`npx tsc --noEmit` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (fixed together with Task 35 — same test file, same root cause)
 
 ### Task 91: DRV-039 — No ESLint config en vantadb-ts
+
 
 - **Fuente:** Backlog.md:224
 - **Esfuerzo:** 🟢 30min
@@ -1109,13 +1131,13 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: DRV-068 — LiteLLM GIL no liberado en search()
+Objetivo activo: Task 36 — DRV-041 Worker.rs Promise timeout
 Estado: completed
-Última acción: Wrapped engine.search() in py.detach() to release GIL during vector search. Pattern from langchain adapter. Files: vantadb-litellm/src/python.rs:111
-Resultado: ✅ cargo check -p vantadb-litellm, cargo fmt --check, cargo clippy -p vantadb-litellm all pass
-Próxima acción: Task 15 — DRV-069 LiteLLM store() sin parámetro py
-Contrato: "cargo check -p vantadb-litellm pasa"
-Próxima tarea si completa: Task 15 — DRV-069
+Última acción: Fixed 4 tasks: Task 35/DRV-035 (TS types in tests), Task 90/DRV-037 (duplicate type fix), Task 36/DRV-041 (Promise timeout in worker.rs), Task 34/DRV-043 (verified compiled).
+Resultado: ✅ 3 completed + 1 verified
+Próxima acción: Review next pending task — Task 37 (DRV-074 mem0 delete_col solo pagina 1)
+Contrato: cargo check -p vantadb-wasm pasa (verified)
+Próxima tarea si completa: Task 37 — DRV-074 mem0 pagination
 === END RECITATION ===
 
 

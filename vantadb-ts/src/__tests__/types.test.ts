@@ -8,13 +8,13 @@ describe("TypeScript types are correctly defined", () => {
       key: "k1",
       payload: "data",
       metadata: {},
-      created_at_ms: 1000,
-      updated_at_ms: 2000,
+      created_at_ms: "1000",
+      updated_at_ms: "2000",
       version: 1,
-      node_id: 42,
+      node_id: "42",
     };
     expect(record.namespace).toBe("test");
-    expect(record.node_id).toBe(42);
+    expect(record.node_id).toBe("42");
   });
 
   it("SearchHit has optional explanation", () => {
@@ -24,10 +24,10 @@ describe("TypeScript types are correctly defined", () => {
         key: "k",
         payload: "p",
         metadata: {},
-        created_at_ms: 0,
-        updated_at_ms: 0,
+        created_at_ms: "0",
+        updated_at_ms: "0",
         version: 1,
-        node_id: 1,
+        node_id: "1",
       },
       score: 0.95,
     };

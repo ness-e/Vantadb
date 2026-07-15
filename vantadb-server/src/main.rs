@@ -41,20 +41,14 @@ async fn main() {
         // Init telemetry after storage is open (needs config for log_format)
         vantadb::cli_server::init_telemetry(true, Some(config.log_format));
 
-        // Install SIGTERM handler for MCP mode
-        let storage_clone = storage.clone();
-        tokio::spawn(async move {
-            vantadb::cli_server::wait_for_shutdown_signal().await;
-            tracing::info!("Shutdown signal received, flushing storage...");
-            if let Err(e) = storage_clone.flush() {
-                tracing::error!("Flush failed: {e}");
-            } else {
-                tracing::info!("Storage flushed");
-            }
-            std::process::exit(0);
-        });
+        vantadb_mcp::run_stdio_server(storage.clone()).await;
 
-        vantadb_mcp::run_stdio_server(storage).await;
+        tracing::info!("MCP server exited, flushing storage...");
+        if let Err(e) = storage.flush() {
+            tracing::error!("Flush failed: {e}");
+        } else {
+            tracing::info!("Storage flushed");
+        }
     } else {
         if let Err(e) = vantadb::cli_server::run(config).await {
             eprintln!("Server error: {e}");

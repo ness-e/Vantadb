@@ -188,6 +188,10 @@ impl VantaDBVectorStore {
                     self.engine
                         .delete(parts[0], parts[1])
                         .map_err(|e| format!("delete error: {:?}", e))?;
+                } else {
+                    return Err(format!(
+                        "invalid id format \"{id}\": expected namespace:key"
+                    ));
                 }
             }
             Ok(())
