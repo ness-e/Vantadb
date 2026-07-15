@@ -49,6 +49,7 @@ pub enum BackendPartition {
 impl BackendPartition {
     /// Returns the RocksDB column family name for this partition.
     /// Used only by `RocksDbBackend` internally.
+    #[cfg(feature = "rocksdb")]
     pub(crate) fn cf_name(&self) -> &'static str {
         match self {
             BackendPartition::Default => "default",
@@ -206,6 +207,7 @@ mod tests {
         assert_eq!(BackendPartition::Default, BackendPartition::Default);
     }
 
+    #[cfg(feature = "rocksdb")]
     #[test]
     fn test_backend_partition_cf_names() {
         assert_eq!(BackendPartition::Default.cf_name(), "default");
@@ -230,6 +232,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "rocksdb")]
     #[test]
     fn test_backend_partition_all_unique() {
         let names: std::collections::HashSet<&str> = [

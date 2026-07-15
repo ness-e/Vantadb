@@ -138,10 +138,17 @@ impl VantaDBLiteLLM {
 
         if let Some(meta) = metadata {
             for (k, v) in meta.iter() {
-                if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
-                    input
-                        .metadata
-                        .insert(key, vantadb::sdk::VantaValue::String(val));
+                if let Ok(key) = k.extract::<String>() {
+                    let val = v
+                        .extract::<String>()
+                        .ok()
+                        .map(vantadb::sdk::VantaValue::String)
+                        .or_else(|| v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool))
+                        .or_else(|| v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int))
+                        .or_else(|| v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float));
+                    if let Some(val) = val {
+                        input.metadata.insert(key, val);
+                    }
                 }
             }
         }

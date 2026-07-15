@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, Write};
 use std::time::Instant;
+#[cfg(feature = "sysinfo")]
 use sysinfo::System;
 
 pub mod sift_loader;
@@ -49,6 +50,7 @@ fn bytes_to_mb(bytes: u64) -> f64 {
     bytes as f64 / (1024.0 * 1024.0)
 }
 
+#[cfg(feature = "sysinfo")]
 fn sample_process_memory(sys: &mut System, pid: sysinfo::Pid) -> ProcessMemorySample {
     sys.refresh_process(pid);
     match sys.process(pid) {
@@ -210,8 +212,8 @@ impl TerminalReporter {
 // ─── VantaHarness (Reporting & Metrics) ──────────────────────────
 
 pub struct VantaHarness {
+    #[cfg(feature = "sysinfo")]
     sys: System,
-    pid: sysinfo::Pid,
     _start_time: Instant,
     start_memory: ProcessMemorySample,
     test_name: String,
@@ -222,17 +224,28 @@ impl VantaHarness {
     const REPORT_FILE_ENV: &'static str = "VANTA_CERT_REPORT";
 
     pub fn new(test_name: &str) -> Self {
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        let pid = sysinfo::get_current_pid().expect("Failed to get PID");
-        let start_memory = sample_process_memory(&mut sys, pid);
+        let _start_time = Instant::now();
+        let test_name = test_name.to_string();
 
+        #[cfg(feature = "sysinfo")]
+        {
+            let mut sys = System::new_all();
+            sys.refresh_all();
+            let pid = sysinfo::get_current_pid().expect("Failed to get PID");
+            let start_memory = sample_process_memory(&mut sys, pid);
+            return Self {
+                sys,
+                _start_time,
+                start_memory,
+                test_name,
+            };
+        }
+
+        #[cfg(not(feature = "sysinfo"))]
         Self {
-            sys,
-            pid,
-            _start_time: Instant::now(),
-            start_memory,
-            test_name: test_name.to_string(),
+            _start_time,
+            start_memory: ProcessMemorySample::default(),
+            test_name,
         }
     }
 
@@ -245,7 +258,16 @@ impl VantaHarness {
         let result = f();
         let duration = t0.elapsed();
 
-        let end_memory = sample_process_memory(&mut self.sys, self.pid);
+        let end_memory = {
+            #[cfg(feature = "sysinfo")]
+            {
+                sample_process_memory(&mut self.sys, self.pid)
+            }
+            #[cfg(not(feature = "sysinfo"))]
+            {
+                ProcessMemorySample::default()
+            }
+        };
 
         let metric = TestMetric {
             schema_version: 1,
@@ -263,7 +285,11 @@ impl VantaHarness {
                     .saturating_sub(self.start_memory.virtual_bytes),
             ),
             process_virtual_memory_current_mb: bytes_to_mb(end_memory.virtual_bytes),
-            memory_source: "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string(),
+            memory_source: if cfg!(feature = "sysinfo") {
+                "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string()
+            } else {
+                "unavailable (sysinfo feature disabled)".to_string()
+            },
             memory_confidence: "process_only".to_string(),
             timestamp: chrono::Local::now().to_rfc3339(),
         };
@@ -284,7 +310,16 @@ impl VantaHarness {
         let result = f().await;
         let duration = t0.elapsed();
 
-        let end_memory = sample_process_memory(&mut self.sys, self.pid);
+        let end_memory = {
+            #[cfg(feature = "sysinfo")]
+            {
+                sample_process_memory(&mut self.sys, self.pid)
+            }
+            #[cfg(not(feature = "sysinfo"))]
+            {
+                ProcessMemorySample::default()
+            }
+        };
 
         let metric = TestMetric {
             schema_version: 1,
@@ -302,7 +337,11 @@ impl VantaHarness {
                     .saturating_sub(self.start_memory.virtual_bytes),
             ),
             process_virtual_memory_current_mb: bytes_to_mb(end_memory.virtual_bytes),
-            memory_source: "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string(),
+            memory_source: if cfg!(feature = "sysinfo") {
+                "sysinfo::Process::{memory,virtual_memory} (bytes)".to_string()
+            } else {
+                "unavailable (sysinfo feature disabled)".to_string()
+            },
             memory_confidence: "process_only".to_string(),
             timestamp: chrono::Local::now().to_rfc3339(),
         };
@@ -540,10 +579,19 @@ impl VantaSession {
             bar.set_message(format!("Running: {}", name));
         });
 
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        let pid = sysinfo::get_current_pid().unwrap();
-        let start_memory = sample_process_memory(&mut sys, pid);
+        let start_memory = {
+            #[cfg(feature = "sysinfo")]
+            {
+                let mut sys = System::new_all();
+                sys.refresh_all();
+                let pid = sysinfo::get_current_pid().unwrap();
+                sample_process_memory(&mut sys, pid)
+            }
+            #[cfg(not(feature = "sysinfo"))]
+            {
+                ProcessMemorySample::default()
+            }
+        };
 
         Self {
             name: name.to_string(),
@@ -574,9 +622,18 @@ impl VantaSession {
 
     pub fn finish(self, success: bool) {
         let duration = self.start_time.elapsed();
-        let mut sys = System::new_all();
-        let pid = sysinfo::get_current_pid().unwrap();
-        let end_memory = sample_process_memory(&mut sys, pid);
+        let end_memory = {
+            #[cfg(feature = "sysinfo")]
+            {
+                let mut sys = System::new_all();
+                let pid = sysinfo::get_current_pid().unwrap();
+                sample_process_memory(&mut sys, pid)
+            }
+            #[cfg(not(feature = "sysinfo"))]
+            {
+                ProcessMemorySample::default()
+            }
+        };
         let mem_delta = bytes_to_mb(
             end_memory
                 .used_bytes
