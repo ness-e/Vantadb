@@ -109,8 +109,7 @@ impl VantaDBDocumentStore {
                     .ok()
                     .and_then(|v| v.extract::<Vec<f32>>().ok())
                     .filter(|v| !v.is_empty());
-                let meta: BTreeMap<String, VantaValue> = if let Some(m) = item.getattr("meta").ok()
-                {
+                let meta: BTreeMap<String, VantaValue> = if let Ok(m) = item.getattr("meta") {
                     if let Ok(dict) = m.cast::<PyDict>() {
                         py_dict_to_vanta_metadata(dict)
                     } else {
