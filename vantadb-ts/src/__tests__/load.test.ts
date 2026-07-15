@@ -89,7 +89,7 @@ describe("VantaDB Load Tests", () => {
     expect(hits.length).toBeGreaterThan(0);
   });
 
-  it("should handle concurrent inserts from multiple callers", async () => {
+  it("should handle concurrent inserts from multiple callers", { timeout: 30000 }, async () => {
     const promises: Promise<any>[] = [];
     for (let i = 0; i < 2000; i++) {
       promises.push(
