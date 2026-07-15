@@ -272,8 +272,8 @@ last_reviewed: 2026-07-13
 
 | ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
 |----|-------|---------|----------|-----------|--------|
-| `DRV-062` | **Ollama client recreado en cada llamada `embed()`** — Sin caching: `ollama.Client(host=...)` se instancia en cada llamada (L63-70). El cliente interno maneja connection pooling; recrearlo evita reuso de conexión. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-ollama/src/python.rs:63-70` | 🟢 1h | 🔵 | ❌ |
-| `DRV-063` | **Metadata no-string values silenciosamente ignorados** — L141: `v.extract::<String>()` descarta bool/int/float igual que en DRV-058. Bug duplicado por copy-paste del adapter openai | `vantadb-ollama/src/python.rs:139-145` | 🟢 30min | 🔵 | ❌ |
+| `DRV-062` | **Ollama client recreado en cada llamada `embed()`** — Sin caching: `ollama.Client(host=...)` se instancia en cada llamada (L63-70). El cliente interno maneja connection pooling; recrearlo evita reuso de conexión. Fix: cachear `Py<PyAny>` del cliente en el struct | `vantadb-ollama/src/python.rs:63-70` | 🟢 1h | 🔵 | ✅ |
+| `DRV-063` | **Metadata no-string values silenciosamente ignorados** — L141: `v.extract::<String>()` descarta bool/int/float igual que en DRV-058. Bug duplicado por copy-paste del adapter openai | `vantadb-ollama/src/python.rs:139-145` | 🟢 30min | 🔵 | ✅ |
 | `DRV-064` | **embed() llama API secuencialmente por texto** — L73-90: cada texto hace una llamada RPC individual. Ollama soporta `client.embed(model=..., input=[...])` para batch embedding. N textos = N RPCs vs 1 batch | `vantadb-ollama/src/python.rs:73-90` | 🟢 1h | ⚪ | ❌ |
 | `DRV-065` | **RwLock<String> namespace con overhead concurrente innecesario** — Ídem DRV-059. Nunca escrito, solo 2 `.read().unwrap().clone()`. Podría ser `String` plano | `vantadb-ollama/src/python.rs:39,100,133` | 🟢 15min | ⚪ | ❌ |
 | `DRV-066` | **Sin método para cambiar namespace runtime** — Ídem DRV-060. YAGNI candidate o feature incompleta | `vantadb-ollama/src/python.rs:43-154` | 🟢 30min | ℹ️ | ❌ |
