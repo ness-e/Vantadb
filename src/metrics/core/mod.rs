@@ -417,10 +417,10 @@ fn _get_rss_virt() -> (u64, u64) {
     #[cfg(feature = "sysinfo")]
     {
         tracing::warn!("Native memory telemetry failed. Falling back to sysinfo.");
-        use sysinfo::{Pid, System};
+        use sysinfo::{Pid, ProcessesToUpdate, System};
         let pid = Pid::from_u32(std::process::id());
         let mut sys = System::new();
-        sys.refresh_process(pid);
+        sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
         if let Some(proc) = sys.process(pid) {
             return (proc.memory(), proc.virtual_memory());
         }

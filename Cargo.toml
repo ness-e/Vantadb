@@ -1,6 +1,6 @@
 [package]
 name = "vantadb"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.94.1"
 description = "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications."
@@ -47,7 +47,7 @@ serde_json = "1.0"
 prometheus = { version = "0.14", optional = true }
 pyo3 = { version = "0.29", features = ["extension-module", "chrono"], optional = true }
 wide = ">=1.2, <2"
-sysinfo = { version = "0.30", optional = true }
+sysinfo = { version = "0.38", optional = true }
 memmap2 = { version = "0.9", optional = true }
 fs2 = { version = "0.4", optional = true }
 
@@ -115,6 +115,7 @@ server = [
     "dep:tower-http",
 ]
 tls = ["dep:axum-server", "dep:rustls"]
+sysinfo = ["dep:sysinfo"]
 
 [dependencies.mimalloc]
 version = "0.1"
