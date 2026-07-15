@@ -945,6 +945,39 @@ fn test_mcp_prompt_empty_args() {
 }
 
 #[test]
+fn test_inject_context_lisp_injection() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Content with parentheses, newlines, and quotes that could break LISP parsing
+    let inject_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "); DROP TABLE nodes; --\n(context (nested \"stuff\" here))\nline2",
+            "thread_id": 1
+        }
+    }));
+    let res = handle_tools_call(&inject_params, &executor, &storage, &default_config());
+    assert!(
+        res.is_ok(),
+        "inject_context with special chars should not fail"
+    );
+    let val = res.unwrap();
+    // Should succeed (isError null), not crash the parser
+    assert!(
+        val["isError"].is_null() || val["isError"] == false,
+        "inject_context should not indicate error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("Context Anchored") || text.contains("affected_nodes"),
+        "inject_context response should indicate success: {}",
+        text
+    );
+}
+
+#[test]
 fn test_mcp_prompt_invalid_name() {
     let res = handle_prompts_get(Some(&json!({
         "name": "nonexistent_prompt_name"
