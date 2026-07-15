@@ -7,10 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::io::{self, BufRead, Write};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tracing::{debug, error, info, span, warn, Level};
 use vantadb::executor::{ExecutionResult, Executor};
 use vantadb::metadata;
@@ -335,21 +335,21 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         "MCP stdio server started"
     );
 
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
+    let mut stdout = tokio::io::stdout();
+    let mut lines = BufReader::new(tokio::io::stdin()).lines();
 
-    for line in stdin.lock().lines() {
-        if !running.load(Ordering::SeqCst) {
-            info!("Shutdown flag set, draining remaining requests");
-        }
-
-        let line = match line {
-            Ok(l) => l,
+    loop {
+        let line = match lines.next_line().await {
+            Ok(Some(l)) => l,
+            Ok(None) => break,
             Err(e) => {
                 error!(error = %e, "stdin read error");
                 break;
             }
         };
+        if !running.load(Ordering::SeqCst) {
+            info!("Shutdown flag set, draining remaining requests");
+        }
 
         if line.trim().is_empty() {
             continue;
@@ -369,7 +369,8 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                         "id": Value::Null,
                         "error": McpError::parse_error(e.to_string()).to_json()
                     }),
-                );
+                )
+                .await;
                 continue;
             }
         };
@@ -390,8 +391,9 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
                 ),
             };
             if let Ok(out) = serde_json::to_string(&response) {
-                let _ = writeln!(stdout, "{}", out);
-                let _ = stdout.flush();
+                let _ = stdout.write_all(out.as_bytes()).await;
+                let _ = stdout.write_all(b"\n").await;
+                let _ = stdout.flush().await;
             }
             continue;
         }
@@ -415,8 +417,9 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         }
 
         if let Ok(out) = serde_json::to_string(&response) {
-            let _ = writeln!(stdout, "{}", out);
-            let _ = stdout.flush();
+            let _ = stdout.write_all(out.as_bytes()).await;
+            let _ = stdout.write_all(b"\n").await;
+            let _ = stdout.flush().await;
         } else {
             error!("Failed to serialize JSON-RPC response body");
         }
@@ -430,10 +433,11 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
 }
 
 /// Write a JSON value to stdout, swallowing I/O errors.
-fn write_json(stdout: &mut io::Stdout, value: &Value) {
+async fn write_json(stdout: &mut tokio::io::Stdout, value: &Value) {
     if let Ok(out) = serde_json::to_string(value) {
-        let _ = writeln!(stdout, "{}", out);
-        let _ = stdout.flush();
+        let _ = stdout.write_all(out.as_bytes()).await;
+        let _ = stdout.write_all(b"\n").await;
+        let _ = stdout.flush().await;
     }
 }
 
@@ -482,6 +486,7 @@ async fn dispatch_request(
             let sem = semaphore.clone();
             let storage_ctx = storage.clone();
             let params_ctx = req.params.clone();
+            let config_ctx = config.clone();
 
             let _permit = sem
                 .acquire_owned()
@@ -492,7 +497,7 @@ async fn dispatch_request(
                 config.request_timeout,
                 tokio::task::spawn_blocking(move || {
                     let _p = _permit;
-                    handle_resources_read(&params_ctx, &storage_ctx)
+                    handle_resources_read(&params_ctx, &storage_ctx, &config_ctx)
                 }),
             )
             .await
@@ -559,6 +564,7 @@ pub fn handle_resources_list() -> Result<Value, Value> {
 pub fn handle_resources_read(
     params: &Option<Value>,
     storage: &Arc<StorageEngine>,
+    config: &McpConfig,
 ) -> Result<Value, Value> {
     let p = params
         .as_ref()
@@ -585,10 +591,10 @@ pub fn handle_resources_read(
         let namespace = parts[0];
         let key = parts[1];
 
-        if let Err(e) = validate_identifier(namespace, "namespace", 256) {
+        if let Err(e) = validate_identifier(namespace, "namespace", config.max_namespace_length) {
             return e.into_err();
         }
-        if let Err(e) = validate_identifier(key, "key", 512) {
+        if let Err(e) = validate_identifier(key, "key", config.max_key_length) {
             return e.into_err();
         }
 
@@ -611,7 +617,7 @@ pub fn handle_resources_read(
             )
             .into_err();
         }
-        if let Err(e) = validate_identifier(namespace, "namespace", 256) {
+        if let Err(e) = validate_identifier(namespace, "namespace", config.max_namespace_length) {
             return e.into_err();
         }
 

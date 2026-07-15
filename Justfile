@@ -2,6 +2,8 @@
 # Install: `cargo install just`
 # Usage:   `just check` `just test` `just watch` `just verify`
 
+set shell := ["pwsh", "-NoProfile", "-Command"]
+
 cargo := "cargo"
 nextest_args := "--workspace"
 
@@ -52,8 +54,8 @@ verify-quick:
 deny:
     {{cargo}} deny check
 
-# Audit advisories only
-audit:
+# Cargo audit advisories only (use `just audit security` for the unified pipeline)
+audit-cargo:
     {{cargo}} audit
 
 # Watch for changes (check + test)
@@ -109,11 +111,26 @@ changelog:
     git-cliff -o docs/CHANGELOG.md
 
 # Full CI suite (what CI runs)
-ci: fmt clippy test deny audit
+ci: fmt clippy test deny audit-cargo
 
 # Heavy certification suite (runs locally)
 certify:
     pwsh -NoProfile -File dev-tools/nocturnal_suite.ps1
+
+# Unified audit — CLI backend for /audit command Phase 1
+# Usage: just audit-quick | audit-ci | audit-lint | audit-security | audit-perf | audit-full
+audit-quick:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode quick
+audit-ci:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode ci
+audit-full:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode full
+audit-lint:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode lint
+audit-security:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode security
+audit-perf:
+    pwsh -NoProfile -File dev-tools/audit-all.ps1 -Mode perf
 
 # Documentation coverage check
 docs:

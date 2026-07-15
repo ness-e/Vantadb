@@ -18,7 +18,8 @@ use crate::node::{DistanceMetric, FilterBitset, SendPtr, VectorRepresentations};
 impl CPIndex {
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
-        self.serialize_to_writer(&mut buf).unwrap();
+        self.serialize_to_writer(&mut buf)
+            .expect("Vec::write cannot fail");
         buf
     }
 

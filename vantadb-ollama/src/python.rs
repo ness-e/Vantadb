@@ -75,26 +75,24 @@ impl VantaDBOllama {
 
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
         let client = self.client.bind(py);
-        let mut result = Vec::with_capacity(texts.len());
-        for text in &texts {
-            let kwargs = PyDict::new(py);
-            kwargs.set_item("model", &self.model)?;
-            kwargs.set_item("prompt", text)?;
-            let response = client
-                .getattr("embeddings")
-                .and_then(|func| func.call((), Some(&kwargs)))
-                .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {:?}", e)))?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("model", &self.model)?;
+        kwargs.set_item("input", texts)?;
+        let response = client
+            .getattr("embed")
+            .and_then(|func| func.call((), Some(&kwargs)))
+            .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {:?}", e)))?;
 
-            let emb: Vec<f32> = response
-                .get_item("embedding")
-                .and_then(|v| v.extract::<Vec<f64>>())
-                .map_err(|e| PyRuntimeError::new_err(format!("missing embedding: {:?}", e)))?
-                .into_iter()
-                .map(|x| x as f32)
-                .collect();
-            result.push(emb);
-        }
-        Ok(result)
+        response
+            .get_item("embeddings")
+            .and_then(|v| v.extract::<Vec<Vec<f64>>>())
+            .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {:?}", e)))
+            .map(|embeddings| {
+                embeddings
+                    .into_iter()
+                    .map(|emb| emb.into_iter().map(|x| x as f32).collect())
+                    .collect()
+            })
     }
 
     fn search(

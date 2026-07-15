@@ -269,8 +269,8 @@ impl ConflictResolver {
 
             match (ours_val, theirs_val, base_val) {
                 (Some(o), Some(t), _) if o == t => result.push(o.clone()),
-                (Some(o), Some(_), Some(b)) if o == b => result.push(theirs_val.unwrap().clone()),
-                (Some(_), Some(t), Some(b)) if t == b => result.push(ours_val.unwrap().clone()),
+                (Some(o), Some(t), Some(b)) if o == b => result.push(t.clone()),
+                (Some(o), Some(t), Some(b)) if t == b => result.push(o.clone()),
                 (Some(o), Some(_), _) => result.push(o.clone()),
                 (Some(o), None, _) => result.push(o.clone()),
                 (None, Some(t), _) => result.push(t.clone()),

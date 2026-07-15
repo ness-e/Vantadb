@@ -91,7 +91,7 @@ Mostrá AMBOS métodos:
 ```
 /loop-goal "Ejecutá UNA iteración de campaña siguiendo `.opencode/prompts/iter-loop-tools.md`"
 ```
-Usa `campaign_get_task`/`campaign_update_task`/`campaign_verify` — no lee el plan file completo.
+Usa `campaign_get_next_task`/`campaign_update_task_state`/`campaign_verify_cmd` (MCP) — no lee el plan file completo.
 Cada iteración procesa UN PASO (no una tarea completa). Útil para depuración.
 
 **Fallback (harness PowerShell, para terminal dedicada):**

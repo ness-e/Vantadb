@@ -1,8 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    "C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs",
-    "C:\\Users\\Eros\\VantaDB Proyect\\VantaDB\\.opencode\\plugins\\campaign_compaction.ts"
+    "C:\\Users\\Eros\\.agents\\ponytail\\.opencode\\plugins\\ponytail.mjs"
   ],
   "mcp": {
     "codegraph": {
@@ -41,6 +40,15 @@
       "enabled": true,
       "type": "local",
       "description": "14 providers, extracción 12-step, dead URL recovery, RRF fusion."
+    },
+    "campaign": {
+      "command": [
+        "node",
+        ".opencode/mcp/campaign-server.mjs"
+      ],
+      "enabled": true,
+      "type": "local",
+      "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
     }
   }
 }

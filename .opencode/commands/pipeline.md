@@ -82,6 +82,9 @@ Usá `prompts/pipeline-run.md` con el plan file correspondiente.
 
 Detectá el estado actual:
 
+0. **Primero: buscá checkpoint** `docs/pipeline-state.json`
+   - Si existe y tiene `inProgress` → mostrá "Pipeline en pausa en task {inProgress}. Usá `/pipeline run` para continuar."
+   - Si existe y no hay `inProgress` pero hay completed/failed → mostrá resumen y recomendá `/pipeline run`
 1. Buscá plan files en `docs/plans/`
 2. Si hay un plan file ⏳ EN PROGRESO:
    - Leé el resumen (completados/pendientes/failed)

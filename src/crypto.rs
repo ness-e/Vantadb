@@ -101,7 +101,7 @@ impl Cipher {
         } else {
             Sha256::digest(key).into()
         };
-        let inner = Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm::new_from_slice only fails if key is not 32 bytes; we guarantee 32 bytes via SHA-256 digest for non-32-byte inputs");
+        let inner = Aes256Gcm::new_from_slice(&key_bytes).expect("Aes256Gcm::new_from_slice failed — key is not 32 bytes; SHA-256 digest guarantees 32-byte output, this indicates a logic bug in key normalization");
         Self { inner }
     }
 

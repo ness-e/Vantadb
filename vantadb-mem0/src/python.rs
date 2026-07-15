@@ -130,7 +130,7 @@ impl VantaDBStore {
         let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
         Ok(Self {
             engine,
-            collection_name: RwLock::new(collection_name.to_string()),
+            collection_name: RwLock::new(mem0_namespace_from_collection(collection_name)),
         })
     }
 
@@ -141,7 +141,7 @@ impl VantaDBStore {
         _vector_size: i32,
         _distance: &str,
     ) -> PyResult<()> {
-        *self.collection_name.write().unwrap() = name.to_string();
+        *self.collection_name.write().unwrap() = mem0_namespace_from_collection(name);
         Ok(())
     }
 
@@ -199,7 +199,6 @@ impl VantaDBStore {
         top_k: i32,
         filters: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Vec<Py<PyAny>>> {
-        let _ = query;
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let metadata_filters = py_dict_to_metadata(filters)?;
 
@@ -211,7 +210,7 @@ impl VantaDBStore {
             namespace,
             query_vector: vectors[0].clone(),
             filters: metadata_filters,
-            text_query: None,
+            text_query: Some(query.to_string()),
             top_k: top_k as usize,
             distance_metric: vantadb::DistanceMetric::Cosine,
             explain: false,
