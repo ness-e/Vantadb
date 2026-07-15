@@ -41,11 +41,7 @@ export const tiers: PricingCardTier[] = [
   },
 ];
 
-export const comparisonColumns = [
-  "Feature",
-  "Self-Hosted",
-  "Enterprise",
-];
+export const comparisonColumns = ["Feature", "Self-Hosted", "Enterprise"];
 
 interface ComparisonRow {
   feature: string;

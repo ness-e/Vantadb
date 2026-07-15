@@ -5,9 +5,7 @@ const CATEGORIES = [
   {
     label: "FRAMEWORK",
     color: "var(--amber)",
-    items: [
-      { name: "Pydantic AI", port: "A1" },
-    ],
+    items: [{ name: "Pydantic AI", port: "A1" }],
   },
   {
     label: "AGENTS",
