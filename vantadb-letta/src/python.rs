@@ -114,7 +114,8 @@ impl LettaStore {
             let d = PyDict::new(py);
             d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
             d.set_item("content", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
+            let normalized: f32 = 1.0 - (hit.score / 2.0);
+            d.set_item("score", normalized)?;
             results.push(d.unbind().into());
         }
         Ok(results)
