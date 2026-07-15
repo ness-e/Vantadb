@@ -247,30 +247,7 @@ impl WalWriter {
                     }
                     let len = u32::from_le_bytes(len_buf) as u64;
 
-                    let mut is_valid = false;
-                    // FMEA-03: Avoid OOM by limiting max corruption-scan size to 10MB
-                    if len > 0 && len <= 10_000_000 && current_offset + 4 + len + 4 <= file_len {
-                        let mut record_bytes = vec![0u8; len as usize + 4];
-                        if file_handle.read_exact(&mut record_bytes).is_ok() {
-                            let payload = &record_bytes[0..len as usize];
-                            let crc_bytes: [u8; 4] = record_bytes[len as usize..len as usize + 4]
-                                .try_into()
-                                .map_err(|_| {
-                                    VantaError::wal_error(
-                                        "CRC bytes slice expected 4 bytes in WAL record",
-                                    )
-                                })?;
-                            let stored_crc = u32::from_le_bytes(crc_bytes);
-                            let computed_crc = crc32c(payload);
-
-                            if stored_crc == computed_crc {
-                                // FMEA-02: Validate structural deserialization to avoid accidental CRC collisions
-                                if postcard::from_bytes::<WalRecord>(payload).is_ok() {
-                                    is_valid = true;
-                                }
-                            }
-                        }
-                    }
+                    let is_valid = check_record_at(&mut file_handle, current_offset, file_len);
 
                     if is_valid {
                         record_count += 1;
@@ -284,54 +261,17 @@ impl WalWriter {
                             "Corrupt record detected in WAL. Entering Scan-Forward mode to locate next valid transaction..."
                         );
 
-                        let mut found_next = false;
-                        let mut scan_pos = current_offset + 1;
-
-                        while scan_pos + 8 <= file_len {
-                            if file_handle.seek(SeekFrom::Start(scan_pos)).is_err() {
-                                break;
-                            }
-                            let mut test_len_buf = [0u8; 4];
-                            if file_handle.read_exact(&mut test_len_buf).is_ok() {
-                                let test_len = u32::from_le_bytes(test_len_buf) as u64;
-                                if test_len > 0
-                                    && test_len <= 10_000_000
-                                    && scan_pos + 4 + test_len + 4 <= file_len
-                                {
-                                    let mut test_bytes = vec![0u8; test_len as usize + 4];
-                                    if file_handle.read_exact(&mut test_bytes).is_ok() {
-                                        let payload = &test_bytes[0..test_len as usize];
-                                        let crc_bytes: [u8; 4] = test_bytes
-                                            [test_len as usize..test_len as usize + 4]
-                                            .try_into()
-                                            .map_err(|_| {
-                                                VantaError::wal_error(
-                                                    "CRC bytes slice expected 4 bytes in WAL scan-forward",
-                                                )
-                                            })?;
-                                        let stored_crc = u32::from_le_bytes(crc_bytes);
-                                        let computed_crc = crc32c(payload);
-
-                                        if stored_crc == computed_crc
-                                            && postcard::from_bytes::<WalRecord>(payload).is_ok()
-                                        {
-                                            warn!(
-                                                path = %path.display(),
-                                                skipped_corrupt_bytes = scan_pos - current_offset,
-                                                recovered_offset = scan_pos,
-                                                "Successfully bypassed corrupt segment and recovered next transaction."
-                                            );
-                                            current_offset = scan_pos;
-                                            found_next = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            scan_pos += 1;
-                        }
-
-                        if !found_next {
+                        if let Some(found) =
+                            scan_forward_valid(&mut file_handle, file_len, current_offset)
+                        {
+                            warn!(
+                                path = %path.display(),
+                                skipped_corrupt_bytes = found - current_offset,
+                                recovered_offset = found,
+                                "Successfully bypassed corrupt segment and recovered next transaction."
+                            );
+                            current_offset = found;
+                        } else {
                             // No more valid records in the file. Corruption is tail/truncated.
                             break;
                         }
@@ -487,6 +427,55 @@ impl WalWriter {
     }
 }
 
+// ─── Scan-Forward Helpers ─────────────────────────────────
+
+/// Check whether a valid WAL record exists at `pos` in the given reader.
+/// Validates bounds, CRC32C, and postcard deserialization. Returns `false` on any I/O error.
+fn check_record_at<R: Read + Seek>(reader: &mut R, pos: u64, file_len: u64) -> bool {
+    if pos + 8 > file_len {
+        return false;
+    }
+    if reader.seek(SeekFrom::Start(pos)).is_err() {
+        return false;
+    }
+    let mut len_buf = [0u8; 4];
+    if reader.read_exact(&mut len_buf).is_err() {
+        return false;
+    }
+    let len = u32::from_le_bytes(len_buf) as u64;
+    if len == 0 || len > 10_000_000 || pos + 4 + len + 4 > file_len {
+        return false;
+    }
+    let mut record_bytes = vec![0u8; len as usize + 4];
+    if reader.read_exact(&mut record_bytes).is_err() {
+        return false;
+    }
+    let payload = &record_bytes[0..len as usize];
+    let crc_bytes: [u8; 4] = match record_bytes[len as usize..len as usize + 4].try_into() {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    let stored_crc = u32::from_le_bytes(crc_bytes);
+    let computed_crc = crc32c(payload);
+    stored_crc == computed_crc && postcard::from_bytes::<WalRecord>(payload).is_ok()
+}
+
+/// Scan forward byte-by-byte from `start_pos` to find the next valid WAL record.
+fn scan_forward_valid<R: Read + Seek>(
+    reader: &mut R,
+    file_len: u64,
+    start_pos: u64,
+) -> Option<u64> {
+    let mut scan_pos = start_pos + 1;
+    while scan_pos + 8 <= file_len {
+        if check_record_at(reader, scan_pos, file_len) {
+            return Some(scan_pos);
+        }
+        scan_pos += 1;
+    }
+    None
+}
+
 // ─── WAL Reader ────────────────────────────────────────────
 
 /// Sequential WAL reader for crash recovery.
@@ -590,46 +579,14 @@ impl WalReader {
                     "WalReader detected corrupt record. Scanning forward to recover next valid transaction..."
                 );
 
-                let mut scan_pos = current_pos + 1;
-                let mut found_next = false;
-
-                while scan_pos + 8 <= file_len {
-                    if self.reader.seek(SeekFrom::Start(scan_pos)).is_ok() {
-                        let mut test_len_buf = [0u8; 4];
-                        if self.reader.read_exact(&mut test_len_buf).is_ok() {
-                            let test_len = u32::from_le_bytes(test_len_buf) as u64;
-                            if test_len > 0
-                                && test_len <= 10_000_000
-                                && scan_pos + 4 + test_len + 4 <= file_len
-                            {
-                                let mut test_payload = vec![0u8; test_len as usize];
-                                if self.reader.read_exact(&mut test_payload).is_ok() {
-                                    let mut test_crc_buf = [0u8; 4];
-                                    if self.reader.read_exact(&mut test_crc_buf).is_ok() {
-                                        let stored_crc = u32::from_le_bytes(test_crc_buf);
-                                        let computed_crc = crc32c(&test_payload);
-                                        if stored_crc == computed_crc
-                                            && postcard::from_bytes::<WalRecord>(&test_payload)
-                                                .is_ok()
-                                        {
-                                            warn!(
-                                                corrupt_bytes_skipped = scan_pos - current_pos,
-                                                recovered_offset = scan_pos,
-                                                "WalReader successfully bypassed corrupt bytes and resumed recovery."
-                                            );
-                                            self.reader.seek(SeekFrom::Start(scan_pos))?;
-                                            found_next = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    scan_pos += 1;
-                }
-
-                if !found_next {
+                if let Some(found) = scan_forward_valid(&mut self.reader, file_len, current_pos) {
+                    warn!(
+                        corrupt_bytes_skipped = found - current_pos,
+                        recovered_offset = found,
+                        "WalReader successfully bypassed corrupt bytes and resumed recovery."
+                    );
+                    self.reader.seek(SeekFrom::Start(found))?;
+                } else {
                     // No more valid records in the entire file, actual end of stream
                     return Ok(None);
                 }
