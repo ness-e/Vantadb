@@ -80,6 +80,8 @@ pub struct InMemoryEngine {
     edge_index: EdgeIndex,
     /// Secondary scalar indexes for O(1) field lookups (PERF-08).
     scalar_index: ScalarIndex,
+    /// Cached alive node count (avoids O(n) full scan — DRV-009).
+    node_count: AtomicU64,
 }
 
 impl InMemoryEngine {
@@ -91,6 +93,7 @@ impl InMemoryEngine {
             next_id: AtomicU64::new(1),
             edge_index: EdgeIndex::new(),
             scalar_index: ScalarIndex::new(),
+            node_count: AtomicU64::new(0),
         }
     }
 
@@ -135,12 +138,15 @@ impl InMemoryEngine {
             }
         }
 
+        let alive_count = nodes_map.values().filter(|n| n.is_alive()).count() as u64;
+
         Ok(Self {
             nodes: RwLock::new(nodes_map),
             wal: Some(sharded),
             next_id: AtomicU64::new((max_id + 1) as u64),
             edge_index,
             scalar_index,
+            node_count: AtomicU64::new(alive_count),
         })
     }
 
@@ -182,6 +188,7 @@ impl InMemoryEngine {
         }
 
         nodes.insert(id, node);
+        self.node_count.fetch_add(1, Ordering::Release);
         Ok(id)
     }
 
@@ -238,6 +245,7 @@ impl InMemoryEngine {
         if nodes.remove(&id).is_none() {
             return Err(VantaError::NodeNotFound(id));
         }
+        self.node_count.fetch_sub(1, Ordering::Release);
         self.edge_index.remove_all_for_node(id);
         self.scalar_index.remove_node(id);
 
@@ -417,20 +425,22 @@ impl InMemoryEngine {
         Ok(())
     }
 
-    /// Total number of alive nodes
+    /// Total number of alive nodes (cached atomic, no full scan — DRV-009).
     pub fn node_count(&self) -> usize {
-        self.nodes.read().values().filter(|n| n.is_alive()).count()
+        self.node_count.load(Ordering::Acquire) as usize
     }
 
     /// Get engine statistics
     pub fn stats(&self) -> EngineStats {
         let nodes = self.nodes.read();
-        let mut stats = EngineStats::default();
+        let mut stats = EngineStats {
+            node_count: self.node_count() as u64,
+            ..Default::default()
+        };
         for node in nodes.values() {
             if !node.is_alive() {
                 continue;
             }
-            stats.node_count += 1;
             stats.edge_count += node.edges.len() as u64;
             if !node.vector.is_none() {
                 stats.vector_count += 1;
