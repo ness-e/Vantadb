@@ -25,7 +25,7 @@ pub const FIELD_VERSION: &str = "__vanta_version";
 /// Internal field name storing the optional Unix-ms expiry deadline.
 pub const FIELD_EXPIRES_AT_MS: &str = "__vanta_expires_at_ms";
 const EXPORT_SCHEMA_VERSION: u32 = 1;
-const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
+pub(crate) const DERIVED_INDEX_SCHEMA_VERSION: u32 = 1;
 pub(crate) const DERIVED_INDEX_STATE_KEY: &[u8] = b"derived_index_state";
 pub(crate) const TEXT_INDEX_STATE_KEY: &[u8] = b"text_index_state";
 
