@@ -1,6 +1,6 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
+use pyo3::types::{PyBool, PyDict, PyDictMethods, PyFloat, PyInt, PyModuleMethods};
 use std::sync::atomic::{AtomicU64, Ordering};
 use vantadb::config::VantaConfig;
 use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
@@ -73,19 +73,23 @@ impl VantaDBVectorStore {
                 if let Some(Some(meta)) = metas.get(i) {
                     for (k, v) in meta.bind(py).iter() {
                         if let Ok(key) = k.extract::<String>() {
-                            let val = v
-                                .extract::<String>()
-                                .ok()
-                                .map(vantadb::sdk::VantaValue::String)
-                                .or_else(|| {
-                                    v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool)
-                                })
-                                .or_else(|| {
-                                    v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int)
-                                })
-                                .or_else(|| {
-                                    v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float)
-                                });
+                            let val = if v.is_instance_of::<PyBool>() {
+                                v.extract::<bool>()
+                                    .ok()
+                                    .map(|b| vantadb::sdk::VantaValue::String(b.to_string()))
+                            } else if v.is_instance_of::<PyInt>() {
+                                v.extract::<i64>()
+                                    .ok()
+                                    .map(|n| vantadb::sdk::VantaValue::String(n.to_string()))
+                            } else if v.is_instance_of::<PyFloat>() {
+                                v.extract::<f64>()
+                                    .ok()
+                                    .map(|f| vantadb::sdk::VantaValue::String(f.to_string()))
+                            } else {
+                                v.extract::<String>()
+                                    .ok()
+                                    .map(vantadb::sdk::VantaValue::String)
+                            };
                             if let Some(val) = val {
                                 input.metadata.insert(key, val);
                             }
