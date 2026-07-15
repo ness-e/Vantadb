@@ -13,6 +13,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
+use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
 /// Probe a TCP address until it accepts a connection, or panic after timeout.
