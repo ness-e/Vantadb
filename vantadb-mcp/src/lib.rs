@@ -379,24 +379,18 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
 
         if req.jsonrpc != "2.0" {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
-            warn!("Invalid jsonrpc version: {:?}", req.jsonrpc);
-            let response = RpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id: req.id,
-                result: None,
-                error: Some(
-                    McpError::invalid_request(format!(
-                        "Invalid JSON-RPC version: {:?}",
-                        req.jsonrpc
-                    ))
-                    .to_json(),
-                ),
-            };
-            if let Ok(out) = serde_json::to_string(&response) {
-                let _ = stdout.write_all(out.as_bytes()).await;
-                let _ = stdout.write_all(b"\n").await;
-                let _ = stdout.flush().await;
-            }
+            warn!(jsonrpc = %req.jsonrpc, "Invalid JSON-RPC version, expected 2.0");
+            write_json(
+                &mut stdout,
+                &json!({
+                    "jsonrpc": "2.0",
+                    "id": req.id,
+                    "error": McpError::invalid_request(format!(
+                        "Invalid JSON-RPC version: {}, expected 2.0", req.jsonrpc
+                    )).to_json()
+                }),
+            )
+            .await;
             continue;
         }
 
