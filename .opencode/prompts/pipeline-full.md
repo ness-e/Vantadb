@@ -3,42 +3,44 @@ Cargá las skills campaign-executor, progreso, ponytail (full).
 INSTRUCCIONES — UNA TAREA COMPLETA POR ITERACIÓN:
 
 Operás en un entorno por turnos. Procesás EXACTAMENTE UNA TAREA COMPLETA
-por iteración y te detenés. No intentes continuar ni loopear. El loop externo lo maneja `/loop-goal`.
+por invocación y te detenés. El loop externo lo maneja el agente que te invocó
+(/pipeline run via sub-agentes, o /loop-goal si usás el approach manual).
 
 Las reglas detalladas están en `skills/campaign-executor/SKILL.md` (339L)
 y `skills/campaign-executor/RULES.md` (167L). Seguilas exactamente.
 
-## Flujo pipeline (una tarea completa por iteración)
+## Flujo
 
-### 1. OBTENER SIGUIENTE TAREA
+### 1. LEER plan file directamente
 
-Llamá a `campaign_get_task` (sin args — detecta automáticamente el plan más reciente).
+Usá `campaign_get_next_task` (MCP) para obtener la tarea, o leé el plan file si ya lo tenés. Si se te pasó el plan file por
+argumento, leelo con Read tool. Si no, buscá el más reciente en `docs/plans/`.
 
-Casos:
-- `hasTask == false` → **campaña completada**. Ejecutá `skill progreso` y detenete. No hay más que hacer.
-- Error → informalo y detenete.
-- Task devuelta → tenés `id`, `name`, `files`, `contract`, `state`, `summary`, `recitation`.
+Buscá la tarea con el ID que te pasaron. Si está ⬜ PENDING o ⏳ IN PROGRESS,
+ejecutala. Si está ✅ o ❌, informalo y detenete.
 
 ### 2. EJECUTAR TAREA COMPLETA SEGÚN ESTADO
 
-#### ⬜ PENDING → Discovery + Implementación + Cierre
+#### ⬜ PENDING
 
-**Discovery (task definition):**
+**Discovery:**
 - Auto-detectá tipo (Rust/Frontend/Python/TS/Docs/Mixto) según `Archivos clave`
-- Cargá skills adicionales según tipo (RULES.md §10):
+- Cargá skills adicionales según tipo:
   - Rust → `source-driven-development`
   - Frontend → `frontend-ui-engineering`
   - Bug reportado → `systematic-debugging`
   - API pública → `api-and-interface-design`
+  - **Security-sensitive → `doubt-driven-development`**
+  - **Lógica nueva/compleja → `test-driven-development`**
 - `codegraph_explore` para blast radius (nombrando los `Archivos clave` de la task)
 - Web research (MetaSearchMCP/Argus) si hay ambigüedad en APIs externas
-- Descomponé en steps atómicos usando template de `skills/campaign-executor/templates/task-definition.md`
+- Descomponé en steps atómicos
 - Creá task file en `.opencode/skills/campaign-executor/tasks/<ID>.md`
 
 **Implementación:**
-- Llamá `campaign_update_task` con `"in-progress"` y recitation
+- Llamá `campaign_update_task_state` con `"in-progress"` y recitation
 - State machine: PLAN → ACT → VERIFY por cada step (~100 líneas por step)
-- Si verify falla: retry ladder (RULES.md §9):
+- Si verify falla: retry ladder:
   1. Retry con feedback procesado
   2. Contexto fresco (~200 tokens resumen)
   3. Estrategia materialmente distinta
@@ -46,43 +48,44 @@ Casos:
 - Evaluator-Optimizer: correctitud, simplicidad, consistencia
 - Self-Harness Gate: propose → evaluate → accept
 - Pre-commit Gate: Definition of Done + checklists por tipo
-- Budget: máx 5 iteraciones por tarea (de estas iteraciones de loop, no steps)
+- **Pre-commit: skill code-review-and-quality** antes del commit final
+- Budget: máx 5 iteraciones por tarea
 
 **Cierre:**
 - Verify full:
-  1. `campaign_verify command="cargo fmt --check"`
-  2. `campaign_verify command="cargo clippy --workspace --all-targets --all-features -- -D warnings"`
-  3. `campaign_verify command="cargo nextest run --profile audit --workspace --build-jobs 2"`
-  4. `campaign_verify command="scripts/validate-docs-coverage.ps1"`
+  1. `campaign_verify_cmd command="cargo fmt --check"`
+  2. `campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"`
+  3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
+  4. `campaign_verify_cmd command="scripts/validate-docs-coverage.ps1"`
 - Si todo pasa: `git add -A && git commit -m "feat: <ID> — <name>"`
-- Llamá `campaign_update_task` con `"completed"` y recitation
-- Auto-mejora (RULES.md §10): evaluá qué fue más difícil de lo esperado
+- Llamá `campaign_update_task_state` con `"completed"` y recitation
+- Auto-mejora: evaluá qué fue más difícil de lo esperado
 
 **Progreso:**
-- Ejecutá `skill progreso` — mueve la tarea de docs/Backlog.md → docs/progreso/README.md
+- Ejecutá `skill progreso`
 
-#### ⏳ IN PROGRESS → Continuar hasta completar
+#### ⏳ IN PROGRESS
 
-- Leé la recitation de `campaign_get_task` para saber dónde quedó
+- Leé la recitation del plan file para saber dónde quedó
 - Continuá con el próximo step (PLAN → ACT → VERIFY)
 - Si verify falla: retry ladder (mismo que arriba)
 - Errores colaterales: rápido (<30min) se arregla, lento se difiere a Backlog
 - Budget: 5 iteraciones máximas por tarea, 2 stalls consecutivos → ❌ FAILED
 
 **Cuando el último step esté completo + verificado + commiteado:**
-- Llamá `campaign_update_task` con `"completed"` y recitation
+- Llamá `campaign_update_task_state` con `"completed"` y recitation
 - Ejecutá `skill progreso`
 
 #### ❌ FAILED
 
 - Anotá por qué falló y qué se intentó (los 4 escalones si aplica)
-- Llamá `campaign_update_task` con `"failed"`
+- Llamá `campaign_update_task_state` con `"failed"`
 - Ejecutá `skill progreso` para registrar en docs/progreso/
 - Detenete. No sigas a la siguiente tarea.
 
 ### 3. ACTUALIZAR RECITATION
 
-Después de cada acción, llamá `campaign_update_task` con:
+Después de cada acción, llamá `campaign_update_task_state` con:
 - `taskId`: ID de la tarea
 - `newState`: `"completed"` | `"failed"` | `"in-progress"`
 - `recitation`:
@@ -98,12 +101,13 @@ Sync el task file si aplica.
 ### 4. HANDOFF
 
 Después de completar una tarea, dejá la recitation apuntando a la siguiente tarea.
-El `/loop-goal` externo recogerá la próxima iteración.
+El agente que te invocó recogerá la próxima iteración.
 
 ### 5. EJECUCIÓN MULTI-TAREA
 
-Si el usuario quiere ejecutar MÁS de una tarea, usá `/pipeline run` que llama este
-mismo prompt por cada tarea vía sub-agentes. No intentes loopear vos mismo.
+Si el usuario quiere ejecutar MÁS de una tarea, usá `/pipeline run` que invoca
+este mismo prompt por cada tarea vía sub-agentes con contexto fresco. No intentes
+loope vos mismo.
 
 ```
 /pipeline run [plan]
@@ -113,12 +117,13 @@ mismo prompt por cada tarea vía sub-agentes. No intentes loopear vos mismo.
 
 | Modo | Comando | Qué hace |
 |------|---------|----------|
-| Una tarea | `/pipeline task ID` o `/loop-goal "..."` | Este prompt: una tarea completa |
-| Todas | `/pipeline run` | Usa sub-agentes, llama a este prompt por tarea |
+| Una tarea | `/pipeline task ID` o `/loop-goal "./prompts/pipeline-full.md"` | Este prompt: una tarea completa |
+| Todas | `/pipeline run` | Usa sub-agentes, invoca este prompt por tarea |
 | Plan | `/pipeline plan backlog.md` | Crea plan desde backlog |
+| Interactivo | `/pipeline` | Detecta estado y sugiere próximo paso |
 
 REGLAS (del campaign-executor RULES.md):
-- NO leas el plan file directamente — usá `campaign_get_task`
+- Usá `campaign_get_next_task` (MCP) o leé el plan file directamente
 - El contrato es ley — si no se cumple, la tarea no está completa
 - Verificación mecánica, nunca auto-reporte
 - Si verify falla 2 veces con mismo error → ❌ FAILED

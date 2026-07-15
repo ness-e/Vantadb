@@ -64,9 +64,10 @@ fn test_mcp_resources_list() {
 #[test]
 fn test_mcp_resources_read() {
     let (_dir, storage) = setup_storage();
+    let cfg = vantadb_mcp::McpConfig::default();
 
     // Test metrics://
-    let res_metrics = handle_resources_read(&Some(json!({"uri": "metrics://"})), &storage);
+    let res_metrics = handle_resources_read(&Some(json!({"uri": "metrics://"})), &storage, &cfg);
     assert!(res_metrics.is_ok(), "reading metrics:// should succeed");
     let val_metrics = res_metrics.unwrap();
     assert_eq!(val_metrics["contents"][0]["uri"], "metrics://");
@@ -78,7 +79,7 @@ fn test_mcp_resources_read() {
     );
 
     // Test invalid URI
-    let res_invalid = handle_resources_read(&Some(json!({"uri": "invalid://"})), &storage);
+    let res_invalid = handle_resources_read(&Some(json!({"uri": "invalid://"})), &storage, &cfg);
     assert!(
         res_invalid.is_err(),
         "reading invalid URI should return an error"
@@ -908,8 +909,9 @@ fn test_mcp_search_no_results() {
 #[test]
 fn test_mcp_resource_invalid() {
     let (_dir, storage) = setup_storage();
+    let cfg = vantadb_mcp::McpConfig::default();
 
-    let res = handle_resources_read(&Some(json!({"uri": "nonexistent://resource"})), &storage);
+    let res = handle_resources_read(&Some(json!({"uri": "nonexistent://resource"})), &storage, &cfg);
     assert!(
         res.is_err(),
         "non-existent resource URI should return error"

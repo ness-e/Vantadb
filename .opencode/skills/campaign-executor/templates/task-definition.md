@@ -1,42 +1,34 @@
----
-id: "{{ID}}"
-name: "{{NAME}}"
-created: "{{DATE}}"
-module: "{{MODULE}}"
-status: "definition"
-estimate: "{{ESTIMATE}} turns"
----
+# TASK-ID: Descripción
 
-# {{ID}}: {{NAME}}
-
-## Contract
-```
-Verifiable condition when this task is complete.
-```
-
-## Atomic Steps
-1. **Step 1** — description
-2. **Step 2** — description
-3. **Step 3** — description
-
-## Skills
-- `source-driven-development`
-- `ponytail full`
-
-## Checks
-- `cargo build`
-- `cargo nextest run --profile audit --workspace --build-jobs 2`
+## Metadata
+- **Plan file:** 
+- **Creado:** 
+- **last-synced:** 
+- **Estado:** ⬜ PENDING
 
 ## Blast Radius
-- **Files:** `path/to/file.rs:1-100`
-- **Modules upstream:** (dependen de esto)
-- **Modules downstream:** (de lo que esto depende)
-- **API changes:** none/internal/public
+Callers | Callees | Implicaciones
 
-## Investigation Notes
-- CodeGraph findings
-- Web research (if needed)
-- Design decisions
+## Contrato
+Comando verificable
 
-## AGENTS.md Updates
-- Learning to persist after completion
+## Herramientas
+- cargo-mcp, rust-analyzer-mcp, codegraph
+
+## Steps
+### Step 1: [Nombre]
+- **Archivos:** `path`
+- **Acción:** 
+- **Verify:** 
+- **Estado:** ⬜ PENDING
+
+### Step 2: [Nombre]
+- **Archivos:** `path`
+- **Acción:** 
+- **Verify:** 
+- **Estado:** ⬜ PENDING
+
+## Dependencias
+- Task N-1: ID
+
+## Notas

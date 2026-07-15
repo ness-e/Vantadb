@@ -1139,7 +1139,6 @@ impl VantaDB {
 
     /// Put or update a namespace-scoped persistent memory record.
 
-    /// Put or update a namespace-scoped persistent memory record.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None))]
     fn put(

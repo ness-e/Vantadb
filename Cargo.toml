@@ -81,7 +81,7 @@ aes-gcm = { version = "0.10", optional = true }
 sha2 = { version = "0.10", optional = true }
 
 [features]
-default = ["cli", "arrow", "rocksdb", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]
+default = ["cli", "arrow", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]
 async-ingestion = ["dep:tokio", "tokio/sync", "tokio/macros", "tokio/rt"]
 async-io = ["dep:tokio", "tokio/fs", "tokio/io-util"]
 arrow = ["dep:arrow"]
