@@ -134,7 +134,7 @@ impl VantaEmbedded {
                 }
                 #[cfg(not(feature = "rayon"))]
                 {
-                    chunk.to_vec().into_iter()
+                    chunk.iter().cloned()
                 }
             }
             .map(|input| {

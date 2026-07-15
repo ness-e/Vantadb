@@ -34,7 +34,7 @@ fn err_to_py(e: VantaError) -> PyErr {
 #[pyclass(name = "VantaDBOllama")]
 pub struct VantaDBOllama {
     engine: VantaEmbedded,
-    base_url: String,
+    client: Py<PyAny>,
     model: String,
     namespace: RwLock<String>,
     counter: AtomicU64,
@@ -44,15 +44,29 @@ pub struct VantaDBOllama {
 impl VantaDBOllama {
     #[new]
     #[pyo3(signature = (db_path, base_url = "http://localhost:11434", model = "nomic-embed-text", namespace = "ollama_store"))]
-    fn new(db_path: &str, base_url: &str, model: &str, namespace: &str) -> PyResult<Self> {
+    fn new(
+        py: Python,
+        db_path: &str,
+        base_url: &str,
+        model: &str,
+        namespace: &str,
+    ) -> PyResult<Self> {
         let config = VantaConfig {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
+            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {:?}", e)))?;
+        let client_kwargs = PyDict::new(py);
+        client_kwargs.set_item("host", base_url)?;
+        let client = ollama_mod
+            .getattr("Client")
+            .and_then(|cls| cls.call((), Some(&client_kwargs)))
+            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {:?}", e)))?;
         Ok(Self {
             engine,
-            base_url: base_url.to_string(),
+            client: client.unbind(),
             model: model.to_string(),
             namespace: RwLock::new(namespace.to_string()),
             counter: AtomicU64::new(0),
@@ -60,15 +74,7 @@ impl VantaDBOllama {
     }
 
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
-        let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
-            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {:?}", e)))?;
-        let client_kwargs = PyDict::new(py);
-        client_kwargs.set_item("host", &self.base_url)?;
-        let client = ollama_mod
-            .getattr("Client")
-            .and_then(|cls| cls.call((), Some(&client_kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {:?}", e)))?;
-
+        let client = self.client.bind(py);
         let mut result = Vec::with_capacity(texts.len());
         for text in &texts {
             let kwargs = PyDict::new(py);
@@ -138,10 +144,17 @@ impl VantaDBOllama {
 
         if let Some(meta) = metadata {
             for (k, v) in meta.iter() {
-                if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
-                    input
-                        .metadata
-                        .insert(key, vantadb::sdk::VantaValue::String(val));
+                if let Ok(key) = k.extract::<String>() {
+                    let val = v
+                        .extract::<String>()
+                        .ok()
+                        .map(vantadb::sdk::VantaValue::String)
+                        .or_else(|| v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool))
+                        .or_else(|| v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int))
+                        .or_else(|| v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float));
+                    if let Some(val) = val {
+                        input.metadata.insert(key, val);
+                    }
                 }
             }
         }
