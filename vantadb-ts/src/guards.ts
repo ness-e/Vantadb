@@ -58,10 +58,12 @@ const VALID_VANTA_TYPES = [
 export function isValidVantaValue(v: unknown): v is VantaValue {
   if (v === null || typeof v !== "object") return false;
   const obj = v as Record<string, unknown>;
-  if (typeof obj.type !== "string") return false;
-  if (!(VALID_VANTA_TYPES as readonly string[]).includes(obj.type)) return false;
-  if (obj.type === "Null") return !("value" in obj) || obj.value === undefined;
-  return "value" in obj;
+  const keys = Object.keys(obj);
+  if (keys.length !== 1) return false;
+  const type = keys[0];
+  if (!(VALID_VANTA_TYPES as readonly string[]).includes(type)) return false;
+  if (type === "Null") return obj[type] === null || obj[type] === undefined;
+  return true;
 }
 
 export function isVantaMetadata(m: unknown): m is VantaMetadata {

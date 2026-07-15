@@ -116,31 +116,31 @@ describe("Type guards: isNodeRecord", () => {
 
 describe("Type guards: isValidVantaValue", () => {
   it("accepts String", () => {
-    expect(isValidVantaValue({ type: "String", value: "hello" })).toBe(true);
+    expect(isValidVantaValue({ String: "hello" })).toBe(true);
   });
 
   it("accepts Int", () => {
-    expect(isValidVantaValue({ type: "Int", value: 42 })).toBe(true);
+    expect(isValidVantaValue({ Int: 42 })).toBe(true);
   });
 
   it("accepts Float", () => {
-    expect(isValidVantaValue({ type: "Float", value: 3.14 })).toBe(true);
+    expect(isValidVantaValue({ Float: 3.14 })).toBe(true);
   });
 
   it("accepts Bool", () => {
-    expect(isValidVantaValue({ type: "Bool", value: true })).toBe(true);
+    expect(isValidVantaValue({ Bool: true })).toBe(true);
   });
 
   it("accepts Null", () => {
-    expect(isValidVantaValue({ type: "Null" })).toBe(true);
+    expect(isValidVantaValue({ Null: null })).toBe(true);
   });
 
   it("accepts ListString", () => {
-    expect(isValidVantaValue({ type: "ListString", value: ["a", "b"] })).toBe(true);
+    expect(isValidVantaValue({ ListString: ["a", "b"] })).toBe(true);
   });
 
   it("rejects unknown type", () => {
-    expect(isValidVantaValue({ type: "Unknown", value: 1 })).toBe(false);
+    expect(isValidVantaValue({ Unknown: "foo" })).toBe(false);
   });
 
   it("rejects null", () => expect(isValidVantaValue(null)).toBe(false));
@@ -148,18 +148,18 @@ describe("Type guards: isValidVantaValue", () => {
   it("rejects non-object", () => expect(isValidVantaValue("string")).toBe(false));
 
   it("rejects Null with extra value", () => {
-    expect(isValidVantaValue({ type: "Null", value: 1 })).toBe(false);
+    expect(isValidVantaValue({ Null: 1 })).toBe(false);
   });
 });
 
 describe("Type guards: isVantaMetadata", () => {
   it("accepts valid metadata", () => {
-    const m = { name: { type: "String", value: "test" } };
+    const m = { name: { String: "test" } };
     expect(isVantaMetadata(m)).toBe(true);
   });
 
   it("rejects invalid metadata value", () => {
-    const m = { name: { type: "Invalid", value: "test" } };
+    const m = { name: { Invalid: "test" } };
     expect(isVantaMetadata(m)).toBe(false);
   });
 });
