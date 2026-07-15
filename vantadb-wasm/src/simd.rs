@@ -35,8 +35,11 @@ fn simd_impl(a: &[f32], b: &[f32]) -> f32 {
     // - v128_load reads 16 bytes at `a[i..i+4]` / `b[i..i+4]` which are in-bounds since
     //   we iterate only up to `simd_len` (largest multiple of 4 ≤ len), and both slices
     //   are guaranteed to have `len` elements by the assert_eq at the call site.
-    // - The source slices are &[f32], guaranteeing 4-byte minimum alignment. WASM v128.load
-    //   tolerates unaligned addresses on all major engines (V8, SpiderMonkey, Wasmtime).
+    // - `as_ptr().add(i) as *const v128` creates a `*const v128` from an `*const f32`.
+    //   `v128` is 16-byte-aligned in Rust's type system, and `Vec<f32>` provides only
+    //   4-byte alignment. However, the WASM `v128.load` instruction tolerates unaligned
+    //   addresses on all major engines (V8, SpiderMonkey, Wasmtime), so the cast is safe
+    //   in practice on the `wasm32` target regardless of the actual runtime alignment.
     // - f32x4_splat/add/mul/extract_lane operate on the initialized register values.
     unsafe {
         let mut dot = f32x4_splat(0.0);
