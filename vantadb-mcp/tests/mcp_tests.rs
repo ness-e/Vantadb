@@ -911,7 +911,11 @@ fn test_mcp_resource_invalid() {
     let (_dir, storage) = setup_storage();
     let cfg = vantadb_mcp::McpConfig::default();
 
-    let res = handle_resources_read(&Some(json!({"uri": "nonexistent://resource"})), &storage, &cfg);
+    let res = handle_resources_read(
+        &Some(json!({"uri": "nonexistent://resource"})),
+        &storage,
+        &cfg,
+    );
     assert!(
         res.is_err(),
         "non-existent resource URI should return error"

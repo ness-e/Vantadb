@@ -1,16 +1,10 @@
 //! Dynamic quantization governor that tracks access frequency and transitions
 //! cold f32 vectors to SQ8 to save memory.
 
-/// Dynamic quantization governor
-///
-/// Tracks node access frequency and automatically transitions
-/// cold f32 vectors to SQ8 to save memory, promoting back
-/// to f32 when access frequency increases.
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
 
-use crate::sync_ext::MutexExt;
+use parking_lot::Mutex;
 
 /// Access tracking entry for a single node
 #[derive(Debug, Clone)]
@@ -91,7 +85,7 @@ impl QuantizationGovernor {
             return;
         }
         let current_tick = self.tick.load(Ordering::Relaxed);
-        let mut map = self.access_map.lock_mutex();
+        let mut map = self.access_map.lock();
         match map.get_mut(&node_id) {
             Some(entry) => {
                 entry.hits += 1;
@@ -108,7 +102,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return QuantizationAction::None;
         }
-        let map = self.access_map.lock_mutex();
+        let map = self.access_map.lock();
         let current_tick = self.tick.load(Ordering::Relaxed);
 
         match map.get(&node_id) {
@@ -144,7 +138,7 @@ impl QuantizationGovernor {
 
     /// Reset tracking for a node (after a quantization action).
     pub fn reset(&self, node_id: u128) {
-        let mut map = self.access_map.lock_mutex();
+        let mut map = self.access_map.lock();
         map.remove(&node_id);
     }
 
@@ -157,7 +151,7 @@ impl QuantizationGovernor {
         if !self.config.enabled {
             return Vec::new();
         }
-        let map = self.access_map.lock_mutex();
+        let map = self.access_map.lock();
         let current_tick = self.tick.load(Ordering::Relaxed);
         let mut actions = Vec::new();
 
@@ -210,7 +204,7 @@ mod tests {
         let gov = QuantizationGovernor::new(QuantizationConfig::default());
         gov.record_access(42);
         gov.record_access(42);
-        let map = gov.access_map.lock().unwrap();
+        let map = gov.access_map.lock();
         assert_eq!(map.get(&42).unwrap().hits, 2);
     }
 
@@ -243,7 +237,7 @@ mod tests {
         let gov = QuantizationGovernor::new(QuantizationConfig::default());
         gov.record_access(7);
         gov.reset(7);
-        let map = gov.access_map.lock().unwrap();
+        let map = gov.access_map.lock();
         assert!(map.get(&7).is_none());
     }
 

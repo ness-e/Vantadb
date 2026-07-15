@@ -25,13 +25,10 @@ y `skills/campaign-executor/RULES.md` (167L) — seguilas exactamente.
 
 2. DETERMINÁ la acción según el estado de la tarea, siguiendo las fases del campaign-executor:
 
-   a. **⬜ PENDING sin task definition** → MODO DISCOVERY (Fase 1):
-      - Auto-detectá tipo de tarea (Rust/Frontend/Python/TS/Docs/Mixto) según `Archivos clave`
-      - Cargá skills adicionales según tipo (RULES.md §10):
-        * Rust → `source-driven-development`
-        * Frontend → `frontend-ui-engineering`
-        * Bug reportado → `systematic-debugging`
-        * API pública → `api-and-interface-design`
+    a. **⬜ PENDING sin task definition** → MODO DISCOVERY (Fase 1):
+      - Llamá `campaign_detect_task_type` (MCP) con los `Archivos clave` para auto-detectar
+        tipo (Rust/Frontend/Python/TS/Docs/Mixto) + skills a cargar + comandos verify
+      - Cargá skills devueltos con `skill <nombre>`
       - codegraph_explore para blast radius (nombrando los `Archivos clave` de la task)
       - Web research (MetaSearchMCP/Argus) si hay ambigüedad en APIs externas
       - Descomponé en steps atómicos usando el template de `skills/campaign-executor/templates/task-definition.md`

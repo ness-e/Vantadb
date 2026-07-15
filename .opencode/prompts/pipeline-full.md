@@ -1,5 +1,12 @@
 Cargá las skills campaign-executor, progreso, ponytail (full).
 
+Paso 0 — Auto-cargar skills según tipo de tarea:
+   Llamá `campaign_get_next_task` (MCP) para obtener la tarea activa.
+   Con los `Archivos clave`, llamá `campaign_load_skills` (MCP) que devuelve
+   skills + checks exactos. Ejecutá `skill <nombre>` para CADA skill.
+   Si es bug → además `systematic-debugging`. Si es lógica nueva →
+   `test-driven-development`. Si es security-sensitive → `doubt-driven-development`.
+
 INSTRUCCIONES — UNA TAREA COMPLETA POR ITERACIÓN:
 
 Operás en un entorno por turnos. Procesás EXACTAMENTE UNA TAREA COMPLETA
@@ -24,14 +31,11 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 #### ⬜ PENDING
 
 **Discovery:**
-- Auto-detectá tipo (Rust/Frontend/Python/TS/Docs/Mixto) según `Archivos clave`
-- Cargá skills adicionales según tipo:
-  - Rust → `source-driven-development`
-  - Frontend → `frontend-ui-engineering`
-  - Bug reportado → `systematic-debugging`
-  - API pública → `api-and-interface-design`
-  - **Security-sensitive → `doubt-driven-development`**
-  - **Lógica nueva/compleja → `test-driven-development`**
+- Llamá `campaign_detect_task_type` (MCP) con `Archivos clave` → type, skills, checks
+- Cargá skills devueltos con `skill <nombre>`
+- Si es bug → además `systematic-debugging`
+- Si es security-sensitive → `doubt-driven-development`
+- Si es lógica nueva/compleja → `test-driven-development`
 - `codegraph_explore` para blast radius (nombrando los `Archivos clave` de la task)
 - Web research (MetaSearchMCP/Argus) si hay ambigüedad en APIs externas
 - Descomponé en steps atómicos
