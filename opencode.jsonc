@@ -44,7 +44,7 @@
     "campaign": {
       "command": [
         "node",
-        ".opencode/mcp/campaign-server.mjs"
+        ".opencode/task-system/mcp/campaign-server.mjs"
       ],
       "enabled": true,
       "type": "local",

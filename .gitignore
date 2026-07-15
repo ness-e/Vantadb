@@ -192,3 +192,15 @@ llama-index-vector-stores-vantadb/
 
 # Review-deep temporary scorecards
 .opencode/skills/review-deep/tmp/
+
+# Campaign executor runtime traces
+traces/
+.opencode/task-system/traces/*.jsonl
+
+# Campaign executor session artifacts
+.opencode/task-system/traces/active-model.json
+.opencode/task-system/traces/metrics.json
+.opencode/task-system/memory/
+
+# Campaign executor budget state (auto-generated)
+.opencode/task-system/mcp/*.budget.json

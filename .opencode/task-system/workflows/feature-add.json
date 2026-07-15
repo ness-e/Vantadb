@@ -1,0 +1,48 @@
+{
+  "definition": {
+    "id": "feature-add",
+    "initial": "spec",
+    "dod_version": 1,
+    "states": {
+      "spec": {
+        "allowed_tools": ["read", "grep", "glob", "codegraph_explore", "bash"],
+        "instructions": "Understand existing code patterns via codegraph_explore. Define API boundary: what types, traits, function signatures. Do NOT code yet.",
+        "max_iterations": 3,
+        "on": { "SPEC_READY": "implement", "FAIL": "failed" }
+      },
+      "implement": {
+        "allowed_tools": ["read", "grep", "edit", "write", "bash", "codegraph_explore"],
+        "instructions": "Implement incrementally (~100 lines). Verify compiles after each chunk. Follow existing patterns in neighboring files.",
+        "max_iterations": 10,
+        "on": { "DONE": "verify", "FAIL": "failed" }
+      },
+      "verify": {
+        "allowed_tools": ["bash", "read", "grep"],
+        "allowed_commands": ["cargo check", "cargo nextest", "cargo fmt", "cargo clippy"],
+        "instructions": "Run verification. If tests fail → IMPLEMENT. If compilation errors → IMPLEMENT.",
+        "max_iterations": 3,
+        "on": { "VERIFIED": "review", "FAIL": "implement", "BLOCKED": "failed" }
+      },
+      "review": {
+        "allowed_tools": ["read", "grep", "glob", "codegraph_explore", "bash"],
+        "instructions": "Evaluator-optimizer: auto-crítica 3 ejes (correctitud, simplicidad, consistencia). Verificar edge cases, ponytail ladder aplicada, codegraph_explore post-implement para verificar blast radius. Máximo 2 iteraciones.",
+        "max_iterations": 2,
+        "on": { "REVIEW_PASS": "accept", "ISSUES_FOUND": "implement", "FAIL": "failed" }
+      },
+      "accept": {
+        "allowed_tools": ["read", "bash"],
+        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.",
+        "max_iterations": 2,
+        "on": { "ACCEPTED": "close", "REJECTED": "implement", "FAIL": "failed" }
+      },
+      "close": {
+        "allowed_tools": ["bash"],
+        "instructions": "git add -p + git commit con Conventional Commits. skill progreso (Trigger 1). Context Save Point.",
+        "max_iterations": 2,
+        "on": { "CLOSED": "completed", "FAIL": "failed" }
+      },
+      "completed": { "type": "final" },
+      "failed": { "type": "final" }
+    }
+  }
+}

@@ -43,19 +43,26 @@ estancadas.
    c. Auto-cargá skills para el sub-agente:
       Llamá `campaign_load_skills` (MCP) con los archivos clave para obtener
       los skills exactos a cargar. Incluilos en el prompt del sub-agente.
-   d. Spawn UN sub-agente via `task` tool:
-      Prompt mínimo (inline, no leas pipeline-full.md):
-      "Ejecutá UNA TAREA COMPLETA:
-       Task ID: {id}
-       Archivos: {archivos clave}
-       Contrato: {contract}
-       Descripción: {name}
+    d. RESEARCH ISOLATION: Si la tarea requiere leer muchos archivos (3+)
+       o documentación extensa, spawné PRIMERO un sub-agente de research:
+       Prompt: "research-agent.md (lee {archivos clave} o la documentación necesaria,
+       devolvé solo un Digest en el formato especificado)"
+       → Guardá el digest en memoria o pasalo al sub-agente siguiente
+    e. Spawn UN sub-agente via `task` tool:
+       Prompt mínimo (inline, no leas pipeline-full.md):
+       "Ejecutá UNA TAREA COMPLETA:
+        Task ID: {id}
+        Archivos: {archivos clave}
+        Contrato: {contract}
+        Descripción: {name}
        Context Save: sí (escribe ## Context Save al final del task file)
 
-       Skills a cargar: {skills de campaign_load_skills}
+        Research Digest: {si hay digest del paso research, incluílo aquí}
 
-       Flujo:
-       1. Cargá skills con skill <nombre> (TODOS los listados)
+        Skills a cargar: {skills de campaign_load_skills}
+
+        Flujo:
+        1. Cargá skills con skill <nombre> (TODOS los listados)
        2. codegraph_explore para blast radius (nombrá los archivos clave)
        3. Zero-code planning: describí solución en ≤3 viñetas primero
        4. Si es bug → systematic-debugging

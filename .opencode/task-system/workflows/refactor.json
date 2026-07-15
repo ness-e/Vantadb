@@ -1,0 +1,54 @@
+{
+  "definition": {
+    "id": "refactor",
+    "initial": "audit",
+    "dod_version": 1,
+    "states": {
+      "audit": {
+        "allowed_tools": ["read", "grep", "glob", "codegraph_explore", "bash"],
+        "instructions": "Map blast radius with codegraph_explore: what calls this, what it calls, all impls. List every file that changes. Do NOT edit yet.",
+        "max_iterations": 3,
+        "on": { "AUDIT_READY": "migrate", "FAIL": "failed" }
+      },
+      "migrate": {
+        "allowed_tools": ["read", "grep", "edit", "write", "bash"],
+        "instructions": "One call site at a time. After each file, verify compiles (cargo check -p vantadb). No test changes yet.",
+        "max_iterations": 15,
+        "on": { "DONE": "cleanup", "FAIL": "failed" }
+      },
+      "cleanup": {
+        "allowed_tools": ["read", "edit", "bash", "grep"],
+        "instructions": "Remove dead code, old types, deprecated exports. cargo machete for unused deps. cargo fmt.",
+        "max_iterations": 3,
+        "on": { "CLEAN": "verify", "FAIL": "migrate" }
+      },
+      "verify": {
+        "allowed_tools": ["bash", "read", "grep"],
+        "allowed_commands": ["cargo check", "cargo nextest", "cargo fmt", "cargo clippy"],
+        "instructions": "Full verification. If tests fail → diagnose and fix. Verify no public API broke.",
+        "max_iterations": 3,
+        "on": { "VERIFIED": "review", "FAIL": "migrate", "BLOCKED": "failed" }
+      },
+      "review": {
+        "allowed_tools": ["read", "grep", "glob", "codegraph_explore", "bash"],
+        "instructions": "Evaluator-optimizer: auto-crítica 3 ejes (correctitud, simplicidad, consistencia). Verificar edge cases, ponytail ladder aplicada, codegraph_explore post-implement para verificar blast radius. Máximo 2 iteraciones.",
+        "max_iterations": 2,
+        "on": { "REVIEW_PASS": "accept", "ISSUES_FOUND": "migrate", "FAIL": "failed" }
+      },
+      "accept": {
+        "allowed_tools": ["read", "bash"],
+        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.",
+        "max_iterations": 2,
+        "on": { "ACCEPTED": "close", "REJECTED": "migrate", "FAIL": "failed" }
+      },
+      "close": {
+        "allowed_tools": ["bash"],
+        "instructions": "git add -p + git commit con Conventional Commits. skill progreso (Trigger 1). Context Save Point.",
+        "max_iterations": 2,
+        "on": { "CLOSED": "completed", "FAIL": "failed" }
+      },
+      "completed": { "type": "final" },
+      "failed": { "type": "final" }
+    }
+  }
+}

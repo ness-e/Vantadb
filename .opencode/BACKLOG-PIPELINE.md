@@ -164,7 +164,7 @@ last-synced: 2026-07-14T16:00
 
 ## Archivos clave
 
-Viejos (legacy): `.opencode/legacy/` — backup completo de la versión anterior
+Viejos (legacy): `.opencode/task-system/legacy/` — backup completo de la versión anterior
 Nuevos: `prompts/plan.md`, `prompts/task.md`, `prompts/iter.md`
 Unified skill: `skills/campaign-executor/`
 Entry: `commands/campaign.md`

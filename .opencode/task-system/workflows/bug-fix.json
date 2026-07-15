@@ -1,0 +1,62 @@
+{
+  "definition": {
+    "id": "vantadb-bug-fix",
+    "initial": "localizing",
+    "dod_version": 1,
+    "states": {
+      "localizing": {
+        "allowed_tools": ["Read", "Grep", "Glob", "Bash"],
+        "instructions": "PROGRAMMATIC: Use the campaign executor to grep + extract relevant code sections. Recitation block captures the file/line scope of the bug.",
+        "max_iterations": 3,
+        "on": { "LOCALIZED": "planning", "FAIL": "failed" }
+      },
+      "planning": {
+        "allowed_tools": ["Read", "Grep", "Glob", "Bash"],
+        "instructions": "Read relevant files and plan your fix. Do NOT edit anything yet. The verification gate will validate the plan before implementation.",
+        "max_iterations": 5,
+        "safe_next": "implementing",
+        "on": { "PLAN_READY": "implementing", "FAIL": "failed" }
+      },
+      "implementing": {
+        "allowed_tools": ["Read", "Grep", "Edit", "Write", "Bash"],
+        "instructions": "Implement the fix. Make targeted, minimal edits. Use the campaign executor's verification gate before transitioning to testing.",
+        "max_iterations": 8,
+        "safe_next": "testing",
+        "on": { "DONE": "testing", "FAIL": "failed" }
+      },
+      "testing": {
+        "allowed_tools": ["Read", "Bash"],
+        "allowed_commands": ["*test*", "*cargo*", "*pytest*", "*nextest*"],
+        "instructions": "Run the tests via the campaign executor. If they fail, use TESTS_FAIL to go back and fix. Only use FAIL for unrecoverable errors. The verification gate blocks completion until all tests pass.",
+        "max_iterations": 3,
+        "on": {
+          "TESTS_PASS": "review",
+          "TESTS_FAIL": "implementing",
+          "FAIL": "failed"
+        }
+      },
+      "review": {
+        "allowed_tools": ["Read", "Grep", "Glob", "Bash"],
+        "instructions": "Evaluator-optimizer: auto-crítica 3 ejes (correctitud, simplicidad, consistencia). Verificar edge cases, ponytail ladder aplicada, codegraph_explore post-implement para verificar blast radius. Máximo 2 iteraciones.",
+        "max_iterations": 2,
+        "on": { "REVIEW_PASS": "accept", "ISSUES_FOUND": "implementing", "FAIL": "failed" }
+      },
+      "accept": {
+        "allowed_tools": ["Read", "Bash"],
+        "instructions": "RATCHETED DOD v${dod_version}. Leer dod_version del workflow. V1: contrato ✅, output validado ✅, blast radius verificado ✅, deuda técnica identificada ✅, documentación actualizada ✅. V2+: +ponytail-review sin findings, +test-coverage. V3+: +no secrets en diff, +conventional-commit validado. Si todas ✅ → ACCEPTED.",
+        "max_iterations": 2,
+        "on": { "ACCEPTED": "close", "REJECTED": "implementing", "FAIL": "failed" }
+      },
+      "close": {
+        "allowed_tools": ["Bash"],
+        "instructions": "git add -p + git commit con Conventional Commits. skill progreso (Trigger 1). Context Save Point.",
+        "max_iterations": 2,
+        "on": { "CLOSED": "completed", "FAIL": "failed" }
+      },
+      "completed": { "type": "final" },
+      "failed": { "type": "final" }
+    },
+    "guards": {}
+  },
+  "upstream_servers": []
+}

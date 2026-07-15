@@ -24,11 +24,11 @@ HARNESS (PowerShell)                AGENTE (por turno)
 
 | Componente | Ubicación | Propósito |
 |------------|-----------|-----------|
-| **plan.md** | `.opencode/prompts/plan.md` | Crear plan de campaña desde backlog |
-| **task.md** | `.opencode/prompts/task.md` | Definir tarea individual a profundidad |
-| **iter.md** | `.opencode/prompts/iter.md` | Prompt único del harness (1 iteración) |
+| **plan.md** | `.opencode/task-system/prompts/plan.md` | Crear plan de campaña desde backlog |
+| **task.md** | `.opencode/task-system/prompts/task.md` | Definir tarea individual a profundidad |
+| **iter.md** | `.opencode/task-system/prompts/iter.md` | Prompt único del harness (1 iteración) |
 | **campaign.md** | `.opencode/commands/campaign.md` | Entry point: backlog / task ID / run |
-| **harness-executor.ps1** | raíz del proyecto | Loop PowerShell (timeout, git check, sync) |
+| **harness-executor.ps1** | `.opencode/task-system/legacy/harness-executor.ps1` | Loop PowerShell (timeout, git check, sync) |
 | **Plan file** | `docs/plans/<fecha>-<nombre>.md` | Orquestación: qué tasks, en qué estado |
 | **Task file** | `skills/campaign-executor/tasks/<ID>.md` | Profundidad: steps atómicos, blast radius |
 | **RULES.md** | `skills/campaign-executor/RULES.md` | North star + reglas invariantes del sistema |
@@ -45,14 +45,14 @@ HARNESS (PowerShell)                AGENTE (por turno)
 ### Fase 0: Crear plan
 
 1. Usuario invoca `/campaign docs/Backlog.md`
-2. `campaign.md` carga `prompts/plan.md`
+2. `campaign.md` carga `.opencode/task-system/prompts/plan.md`
 3. El agente aplica triage gate a cada tarea
 4. Crea `docs/plans/<fecha>-<nombre>.md` con todas las ✅ DO
 5. Muestra comando para arrancar el harness
 
 ### Fase 1: Discovery (por tarea, una vez)
 
-1. Harness encuentra tarea ⬜ PENDING, inyecta `prompts/iter.md`
+1. Harness encuentra tarea ⬜ PENDING, inyecta `.opencode/task-system/prompts/iter.md`
 2. Agente detecta que el task file no existe
 3. Auto-detecta tipo de tarea (Rust / Frontend / Python / ...)
 4. `codegraph_explore` para blast radius
@@ -82,7 +82,7 @@ State machine por step:
                                     ↓ pasa  → ACCEPT → CLOSE
 ```
 
-1. Harness re-inyecta `prompts/iter.md`
+1. Harness re-inyecta `.opencode/task-system/prompts/iter.md`
 2. Agente lee el próximo step del task file
 3. PLAN → ACT → VERIFY (con Agente de Diagnóstico si falla)
 4. Retry ladder: 1 retry → 2 fresh context → 3 different strategy → 4 escalate
@@ -215,13 +215,16 @@ last-synced: YYYY-MM-DDTHH:MM
 
 ## Budget management
 
+Los límites se enforcean en runtime vía `campaign_budget_consume` y `campaign_verify_cmd` (que consume automáticamente). Estado persistido en `docs/plans/<plan>.budget.json`.
+
 | Control | Default | Hard Limit | Comportamiento |
 |---------|---------|------------|----------------|
-| Iteraciones por tarea | 5 | 10 | Al alcanzar → ❌ FAILED |
-| Sub-agentes totales (FAIL_MODE parallel) | 20 | 40 | HARD STOP + reporte parcial |
-| Consecutive fails | 3 | 5 | FAIL_MODE pasa a "stop" forzosamente |
+| Iteraciones por tarea | 5 | `$BUDGET_LIMITS.maxIterations` (10) | Al alcanzar → ❌ FAILED |
+| Sub-agentes totales | 20 | `$BUDGET_LIMITS.maxSubAgents` (40) | HARD STOP + reporte parcial |
+| Consecutive fails | 3 | `$BUDGET_LIMITS.maxConsecutiveFails` (5) | FAIL_MODE pasa a "stop" |
+| Tool calls por tarea | 8 | `$BUDGET_LIMITS.maxToolCalls` (15) | `campaign_verify_cmd` rechaza |
+| Duración por tarea | 60min | `$BUDGET_LIMITS.maxDurationMinutes` (120) | Budget expired → ❌ |
 | NO_PROGRESS_LIMIT (stagnation) | 3 | 5 | `campaign_stalled_tasks` + pausa |
-| Tool calls por sub-agente | 8 | 15 | Timeout + kill |
 | Contexto inicial | < 20% (~40k tokens) | — | Si excede → usar sub-agentes |
 
 ## Ejecución paralela

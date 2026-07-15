@@ -81,11 +81,11 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 
 ```
 RULES.md / VISION.md          ← north star (este archivo, no se modifica)
-prompts/plan.md               ← crear plan desde backlog (triage gate)
-prompts/task.md               ← definir tarea a profundidad
-prompts/iter.md               ← ejecutar una iteración del harness
-commands/campaign.md          ← entry point: backlog | task ID | run
-harness-executor.ps1          ← loop externo PowerShell
+.opencode/task-system/prompts/plan.md               ← crear plan desde backlog (triage gate)
+.opencode/task-system/prompts/task.md               ← definir tarea a profundidad
+.opencode/task-system/prompts/iter.md               ← ejecutar una iteración del harness
+.opencode/commands/campaign.md                      ← entry point: backlog | task ID | run
+.opencode/task-system/legacy/harness-executor.ps1    ← loop externo PowerShell
 SKILL.md                      ← referencia completa del skill
 .tasks/<ID>.md               ← auto-generated task definitions
 .agents/references/           ← repos clonados (awesome-harness-engineering, statewright, ...)
@@ -132,11 +132,26 @@ Nunca auto-reportar "anda". Siempre ejecutar un comando real:
 
 Estas verificaciones NO se saltan bajo ninguna circunstancia:
 
+0. **Output Validation (LLM05)**: Antes de escribir cualquier archivo que contenga shell commands, SQL, Python code, HTML o file paths, validar con `campaign_validate_output` MCP tool. Output del agente NO es confiable — sanitizar antes de write.
 1. `cargo clippy --all-targets -- -D warnings` — cero advertencias
 2. `cargo fmt --check` — formato correcto
 3. `cargo nextest run --profile audit --workspace --build-jobs 2` — tests pasan
 4. Si el diff contiene `unsafe` → `cargo +nightly miri test` (detección de UB)
 5. Si el componente es crítico (parser, serializador, WAL, protocolo de red) → marcar para fuzzing + quickcheck/proptest en CI
+
+### 6. Versioned DoD Thresholds (ratchet — solo sube, nunca baja)
+
+Current: **DoD v1** (baseline)
+Next: bump `NEXT_DOD_VERSION` en este archivo cuando se cumplan todas las condiciones de la versión actual.
+
+| Versión | Nuevos checks (suman a los anteriores) |
+|---------|----------------------------------------|
+| v1 (baseline) | Capa determinista (0-5) + Pre-commit gate (7 items) |
+| v2 (coverage) | `cargo nextest run --coverage` mínimo 70% en módulos nuevos. Security checklist obligatorio (no condicional). |
+| v3 (hardening) | Fuzzing obligatorio en todo parser/serializer. `cargo audit` sin warnings. Miri en todo `unsafe`. |
+| v4 (enterprise) | `cargo deny check` sin advisories. 90% coverage mín. Review externo obligatorio antes de merge. |
+
+Regla: **No se puede saltar una versión.** Si NEXT_DOD_VERSION = v2, todos los checks de v1 + v2 aplican. Para pasar a v3, v2 debe estar estable por 5 tareas consecutivas.
 
 ### 5. Ponytail ladder
 
@@ -182,6 +197,29 @@ actual.
 | Review | code-review-and-quality, doubt-driven-development |
 | Docs | writing-guidelines |
 | Siempre | campaign-executor, progreso, ponytail (full) |
+
+## Apéndice A: HarnessCard (CAR Decomposition)
+
+| Capa | Dimensión | Implementación |
+|------|-----------|----------------|
+| **Control** | State machine | C0 en iter.md: 10 estados, guards, per-state tool enforcement |
+| | Budgets | 15 tool calls, 40 sub-agents, 5 fails, 120min por tarea |
+| | DoD | 4 versiones ratcheted (v1 baseline → v4 enterprise) |
+| | Capa determinista | 6 barreras infranqueables (clippy, fmt, tests, miri, fuzz, output validation) |
+| | MoM ladder | 4 tiers (haiku → sonnet/gpt-4o → deepseek-v4 → humano) |
+| | Pre-commit gate | 7 checks: DoD, security, perf, testing, ponytail, tests, docs |
+| | Stagnation detection | 3 mismo error, 5 sin cambiar step → FAILED |
+| **Agency** | Step ordering | Task file con steps atómicos, zero-code planning antes de código |
+| | File edits | ~100 líneas/commit, edit con oldString/newString |
+| | Verify strategy | Mecánico (cargo, npx), Agente de Diagnóstico en falla |
+| | Sub-agent spawning | `task` tool para research isolation, fork/join paralelo |
+| | Self-Harness Gate | Propose → Evaluate (5 condiciones) → Accept/Reject |
+| **Runtime** | Execution | MCP server (campaign-* tools), cargo-mcp, rust-analyzer-mcp |
+| | Sub-agents | `task` tool, research isolation pattern, fork/join groups |
+| | Sandbox | `campaign_run_sandboxed` vía PowerShell aislado |
+| | Memory | `memory/lessons.md`, `memory/decisions.md` + `campaign_memory_read/write` |
+| | Tracing | JSONL events a `traces/<campaign-id>.jsonl` via tracer.mjs |
+| | Plan files | `docs/plans/<plan>.md` + `docs/plans/<plan>.budget.json` |
 
 ### Rule 11 — Session lifecycle
 
