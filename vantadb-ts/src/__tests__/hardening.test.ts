@@ -89,11 +89,15 @@ describe("Type guards edge cases", () => {
   });
 
   it("isValidVantaValue rejects Null with extra value", () => {
-    expect(isValidVantaValue({ type: "Null", value: 1 })).toBe(false);
+    expect(isValidVantaValue({ Null: 1 })).toBe(false);
   });
 
-  it("isValidVantaValue rejects missing type", () => {
+  it("isValidVantaValue rejects empty object", () => {
     expect(isValidVantaValue({})).toBe(false);
+  });
+
+  it("isValidVantaValue rejects multi-key object", () => {
+    expect(isValidVantaValue({ String: "a", Int: 1 })).toBe(false);
   });
 
   it("isVantaMetadata rejects non-object values", () => {

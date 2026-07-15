@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord } from "../types.js";
+import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord, VantaValue } from "../types.js";
 
 describe("TypeScript types are correctly defined", () => {
   it("MemoryRecord type has all required fields", () => {
@@ -68,17 +68,17 @@ describe("TypeScript types are correctly defined", () => {
   });
 
   it("VantaValue variants work as discriminated union", () => {
-    const stringVal = { type: "String" as const, value: "hello" };
-    const intVal = { type: "Int" as const, value: 42 };
-    const floatVal = { type: "Float" as const, value: 3.14 };
-    const boolVal = { type: "Bool" as const, value: true };
-    const nullVal = { type: "Null" as const };
+    const stringVal: VantaValue = { String: "hello" };
+    const intVal: VantaValue = { Int: 42 };
+    const floatVal: VantaValue = { Float: 3.14 };
+    const boolVal: VantaValue = { Bool: true };
+    const nullVal: VantaValue = { Null: null };
 
-    expect(stringVal.value).toBe("hello");
-    expect(intVal.value).toBe(42);
-    expect(floatVal.value).toBe(3.14);
-    expect(boolVal.value).toBe(true);
-    expect(nullVal.type).toBe("Null");
+    expect(stringVal.String).toBe("hello");
+    expect(intVal.Int).toBe(42);
+    expect(floatVal.Float).toBe(3.14);
+    expect(boolVal.Bool).toBe(true);
+    expect(nullVal.Null).toBeNull();
   });
 });
 

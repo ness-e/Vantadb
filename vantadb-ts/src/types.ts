@@ -1,13 +1,13 @@
 export type VantaValue =
-  | { type: "String"; value: string }
-  | { type: "Int"; value: number }
-  | { type: "Float"; value: number }
-  | { type: "Bool"; value: boolean }
-  | { type: "Null" }
-  | { type: "ListString"; value: string[] }
-  | { type: "ListInt"; value: number[] }
-  | { type: "ListFloat"; value: number[] }
-  | { type: "ListBool"; value: boolean[] };
+  | { String: string }
+  | { Int: number }
+  | { Float: number }
+  | { Bool: boolean }
+  | { Null: null }
+  | { ListString: string[] }
+  | { ListInt: number[] }
+  | { ListFloat: number[] }
+  | { ListBool: boolean[] };
 
 export type VantaMetadata = Record<string, VantaValue>;
 
