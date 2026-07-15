@@ -84,6 +84,28 @@ pub struct InMemoryEngine {
     node_count: AtomicU64,
 }
 
+fn build_query_result_from_scored(
+    scored: &mut Vec<(u128, f32)>,
+    nodes: &HashMap<u128, UnifiedNode>,
+    top_k: usize,
+    source_type: SourceType,
+) -> QueryResult {
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(top_k);
+
+    let result_nodes: Vec<UnifiedNode> = scored
+        .iter()
+        .filter_map(|(id, _)| nodes.get(id).cloned())
+        .collect();
+
+    QueryResult {
+        nodes: result_nodes,
+        is_partial: false,
+        exhaustivity: 1.0,
+        source_type,
+    }
+}
+
 impl InMemoryEngine {
     /// Create engine (in-memory only, no persistence)
     pub fn new() -> Self {
@@ -289,24 +311,12 @@ impl InMemoryEngine {
             })
             .collect();
 
-        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(top_k);
-
-        let result_nodes: Vec<UnifiedNode> = scored
-            .iter()
-            .filter_map(|(id, _)| nodes.get(id).cloned())
-            .collect();
-
-        QueryResult {
-            nodes: result_nodes,
-            is_partial: false,
-            exhaustivity: 1.0, // brute-force = exhaustive
-            source_type: if bitset_filter.is_some() {
-                SourceType::Hybrid
-            } else {
-                SourceType::VectorSearch
-            },
-        }
+        let source_type = if bitset_filter.is_some() {
+            SourceType::Hybrid
+        } else {
+            SourceType::VectorSearch
+        };
+        build_query_result_from_scored(&mut scored, &*nodes, top_k, source_type)
     }
 
     /// BFS graph traversal from start, following edges with matching label.
@@ -401,20 +411,7 @@ impl InMemoryEngine {
             })
             .collect();
 
-        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(top_k);
-
-        let result_nodes = scored
-            .iter()
-            .filter_map(|(id, _)| nodes.get(id).cloned())
-            .collect();
-
-        QueryResult {
-            nodes: result_nodes,
-            is_partial: false,
-            exhaustivity: 1.0,
-            source_type: SourceType::Hybrid,
-        }
+        build_query_result_from_scored(&mut scored, &*nodes, top_k, SourceType::Hybrid)
     }
 
     /// Flush WAL to disk

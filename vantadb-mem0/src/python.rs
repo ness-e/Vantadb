@@ -259,33 +259,29 @@ impl VantaDBStore {
     ) -> PyResult<()> {
         let namespace = mem0_namespace_from_collection(&self.collection_name.read().unwrap());
         let key = vector_id.to_string();
-        let ns = namespace.clone();
-        let k = key.clone();
+        let payload_text = payload.and_then(|p| p.extract::<String>().ok());
 
         let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust get
-        let existing = py.detach(move || engine.get(&ns, &k).map_err(err_to_py))?;
-
-        let mut input = match existing {
-            Some(record) => VantaMemoryInput::new(&record.namespace, &record.key, &record.payload),
-            None => VantaMemoryInput::new(&namespace, &key, ""),
-        };
-
-        if let Some(vec_list) = vector {
-            if !vec_list.is_empty() {
-                input.vector = Some(vec_list[0].clone());
+        // GIL RELEASED — single detach: atomic get+modify+put
+        py.detach(move || -> PyResult<()> {
+            let existing = engine.get(&namespace, &key).map_err(err_to_py)?;
+            let mut input = match existing {
+                Some(record) => {
+                    VantaMemoryInput::new(&record.namespace, &record.key, &record.payload)
+                }
+                None => VantaMemoryInput::new(&namespace, &key, ""),
+            };
+            if let Some(ref vec_list) = vector {
+                if !vec_list.is_empty() {
+                    input.vector = Some(vec_list[0].clone());
+                }
             }
-        }
-
-        if let Some(p) = payload {
-            if let Ok(s) = p.extract::<String>() {
-                input.payload = s;
+            if let Some(ref s) = payload_text {
+                input.payload = s.clone();
             }
-        }
-
-        let engine = self.engine.clone();
-        // GIL RELEASED — pure Rust put
-        py.detach(move || engine.put(input).map_err(err_to_py))?;
+            engine.put(input).map_err(err_to_py)?;
+            Ok(())
+        })?;
 
         Ok(())
     }
