@@ -130,7 +130,14 @@ impl VantaDBVectorStore {
             explain: false,
         };
 
-        let hits: Vec<(String, String, f32)> = py
+        use std::collections::BTreeMap;
+
+        let hits: Vec<(
+            String,
+            String,
+            f32,
+            BTreeMap<String, vantadb::sdk::VantaValue>,
+        )> = py
             .detach(|| match self.engine.search(request) {
                 Ok(hits) => Ok(hits
                     .into_iter()
@@ -139,6 +146,7 @@ impl VantaDBVectorStore {
                             format!("{}:{}", hit.record.namespace, hit.record.key),
                             hit.record.payload,
                             hit.score,
+                            hit.record.metadata,
                         )
                     })
                     .collect()),
@@ -148,11 +156,24 @@ impl VantaDBVectorStore {
 
         Python::attach(|py| {
             let mut results = Vec::with_capacity(hits.len());
-            for (id, text, score) in hits {
+            for (id, text, score, metadata) in hits {
                 let d = PyDict::new(py);
                 d.set_item("id", &id)?;
                 d.set_item("text", &text)?;
                 d.set_item("score", score)?;
+                if !metadata.is_empty() {
+                    let meta = PyDict::new(py);
+                    for (k, v) in &metadata {
+                        match v {
+                            vantadb::sdk::VantaValue::String(s) => meta.set_item(k, s)?,
+                            vantadb::sdk::VantaValue::Int(n) => meta.set_item(k, n)?,
+                            vantadb::sdk::VantaValue::Float(f) => meta.set_item(k, f)?,
+                            vantadb::sdk::VantaValue::Bool(b) => meta.set_item(k, b)?,
+                            _ => {}
+                        }
+                    }
+                    d.set_item("metadata", meta)?;
+                }
                 results.push(d.unbind().into());
             }
             Ok(results)
