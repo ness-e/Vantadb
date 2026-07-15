@@ -417,10 +417,176 @@ impl VantaEmbedded {
         }
 
         let count = to_delete.len() as u64;
+        if count == 0 {
+            return Ok(0);
+        }
+
+        let mut all_ops = Vec::new();
+        let mut total_payload_entries = 0u64;
+        let mut total_posting = 0u64;
+        let mut doc_stats_delta: i64 = 0;
+        let mut term_deltas: BTreeMap<(String, String), i64> = BTreeMap::new();
+        let mut namespace_deltas: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+
         for record in &to_delete {
             engine.delete(record.node_id, "purge_expired")?;
-            self.replace_derived_indexes(&engine, Some(record), None)?;
+            all_ops.extend(Self::derived_delete_ops(record)?);
+            total_payload_entries += record.metadata.len() as u64;
+
+            let terms = crate::text_index::record_terms(&record.payload);
+            all_ops.extend(crate::text_index::posting_delete_ops(
+                &record.namespace,
+                &record.key,
+                &record.payload,
+            ));
+            all_ops.push(crate::text_index::doc_stats_delete_op(
+                &record.namespace,
+                &record.key,
+            ));
+            doc_stats_delta -= 1;
+            total_posting += crate::text_index::posting_count(&record.payload);
+
+            for token in terms.token_counts.keys() {
+                *term_deltas
+                    .entry((record.namespace.clone(), token.clone()))
+                    .or_default() -= 1;
+            }
+            let ns_delta = namespace_deltas
+                .entry(record.namespace.clone())
+                .or_insert((0, 0));
+            ns_delta.0 -= 1;
+            ns_delta.1 -= i64::from(terms.doc_len);
         }
+
+        let mut term_stats_delta: i64 = 0;
+        for ((namespace, token), delta) in term_deltas {
+            if delta == 0 {
+                continue;
+            }
+            let existing = Self::load_text_term_stats(&engine, &namespace, &token)?
+                .map(|stats| stats.df)
+                .unwrap_or(0);
+            let next = Self::checked_stats_value(existing as i128 + delta as i128, "df")?;
+            match (existing == 0, next == 0) {
+                (true, false) => term_stats_delta += 1,
+                (false, true) => term_stats_delta -= 1,
+                _ => {}
+            }
+            if next == 0 {
+                all_ops.push(crate::text_index::term_stats_delete_op(&namespace, &token));
+            } else {
+                all_ops.push(crate::text_index::term_stats_put_op(
+                    &namespace, &token, next,
+                )?);
+            }
+        }
+
+        let mut namespace_stats_delta: i64 = 0;
+        for (namespace, (doc_delta, len_delta)) in namespace_deltas {
+            if doc_delta == 0 && len_delta == 0 {
+                continue;
+            }
+            let existing = Self::load_text_namespace_stats(&engine, &namespace)?.unwrap_or(
+                crate::text_index::TextNamespaceStats {
+                    doc_count: 0,
+                    total_doc_len: 0,
+                },
+            );
+            let next_doc_count = Self::checked_stats_value(
+                existing.doc_count as i128 + doc_delta as i128,
+                "doc_count",
+            )?;
+            let next_total_doc_len = Self::checked_stats_value(
+                existing.total_doc_len as i128 + len_delta as i128,
+                "total_doc_len",
+            )?;
+            match (existing.doc_count == 0, next_doc_count == 0) {
+                (true, false) => namespace_stats_delta += 1,
+                (false, true) => namespace_stats_delta -= 1,
+                _ => {}
+            }
+            if next_doc_count == 0 {
+                all_ops.push(crate::text_index::namespace_stats_delete_op(&namespace));
+            } else {
+                all_ops.push(crate::text_index::namespace_stats_put_op(
+                    &namespace,
+                    &crate::text_index::TextNamespaceStats {
+                        doc_count: next_doc_count,
+                        total_doc_len: next_total_doc_len,
+                    },
+                )?);
+            }
+        }
+
+        for op in &all_ops {
+            match op {
+                BackendWriteOp::Put {
+                    partition: BackendPartition::TextIndex,
+                    key,
+                    value,
+                } => {
+                    if crate::text_index::is_term_stats_key(key) {
+                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
+                            if let Ok(stats) = crate::text_index::decode_term_stats(value) {
+                                let mut cache = engine.text_stats_cache.write();
+                                cache.insert((ns, token), stats);
+                            }
+                        }
+                    } else if crate::text_index::is_namespace_stats_key(key) {
+                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
+                            if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
+                                let mut cache = engine.text_ns_cache.write();
+                                cache.insert(ns, stats);
+                            }
+                        }
+                    }
+                }
+                BackendWriteOp::Delete {
+                    partition: BackendPartition::TextIndex,
+                    key,
+                } => {
+                    if crate::text_index::is_term_stats_key(key) {
+                        if let Some((ns, token)) = Self::parse_term_stats_key(key) {
+                            let mut cache = engine.text_stats_cache.write();
+                            cache.remove(&(ns, token));
+                        }
+                    } else if crate::text_index::is_namespace_stats_key(key) {
+                        if let Some(ns) = Self::parse_namespace_stats_key(key) {
+                            let mut cache = engine.text_ns_cache.write();
+                            cache.remove(&ns);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        engine.write_backend_batch(all_ops)?;
+
+        if let Some(mut state) = Self::load_derived_index_state(&engine)? {
+            if state.schema_version == DERIVED_INDEX_SCHEMA_VERSION {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.namespace_entries = state.namespace_entries.saturating_sub(count);
+                state.payload_entries = state.payload_entries.saturating_sub(total_payload_entries);
+                Self::write_derived_index_state(&engine, &state)?;
+            }
+        }
+
+        if let Some(mut state) = Self::load_text_index_state(&engine)? {
+            if Self::text_index_state_matches_spec(&state) {
+                state.record_count = state.record_count.saturating_sub(count);
+                state.posting_entries = state.posting_entries.saturating_sub(total_posting);
+                state.doc_stats_entries =
+                    Self::apply_u64_delta(state.doc_stats_entries, doc_stats_delta);
+                state.term_stats_entries =
+                    Self::apply_u64_delta(state.term_stats_entries, term_stats_delta);
+                state.namespace_stats_entries =
+                    Self::apply_u64_delta(state.namespace_stats_entries, namespace_stats_delta);
+                Self::write_text_index_state(&engine, &state)?;
+            }
+        }
+
+        crate::metrics::record_text_postings_written(total_posting);
 
         Ok(count)
     }
