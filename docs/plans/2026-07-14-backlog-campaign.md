@@ -462,9 +462,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Si collection >100 records, los de páginas posteriores sobreviven al delete. No atómico.
 - **Contrato:** "`cargo check -p vantadb-mem0` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fixed pagination — loop via cursor until next_cursor is None (was single page with default limit=100)
 
 ### Task 38: DRV-079 — Letta list_memories solo pagina 1 (truncación)
+
 
 - **Fuente:** Backlog.md:309
 - **Esfuerzo:** 🟡 2h
@@ -473,9 +475,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo patrón que DRV-074. Si user/agent >100 memorias, extra no aparecen.
 - **Contrato:** "`cargo check -p vantadb-letta` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fixed pagination — loop via cursor until next_cursor is None
 
 ### Task 39: DRV-085 — CrewAI clear() solo pagina 1 (data loss)
+
 
 - **Fuente:** Backlog.md:320
 - **Esfuerzo:** 🟡 2h
@@ -484,9 +488,11 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo bug que DRV-074/079.
 - **Contrato:** "`cargo check -p vantadb-crewai` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fixed pagination — loop via cursor until next_cursor is None
 
 ### Task 40: DRV-097 — Haystack count_documents() truncates at 100
+
 
 - **Fuente:** Backlog.md:342
 - **Esfuerzo:** 🟢 1h
@@ -495,7 +501,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Usa `Default::default()` con `limit: Some(100)`. Si namespace >100 docs, devuelve 100. Same bug.
 - **Contrato:** "`cargo check -p vantadb-haystack` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Notas:** Fixed — loop via cursor until next_cursor is None. Uses explicit VantaMemoryListOptions instead of Default::default().
 
 ### Task 41: VFY-001 — TS SDK catch {} silencia errores
 
@@ -506,7 +513,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** 4+ bloques catch vacíos tragan errores.
 - **Contrato:** "`npx tsc --noEmit` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (already fixed — all catch blocks in vantadb.ts use wrapWasmError)
 
 ### Task 42: VFY-002 — TS get_nns_by_id spawn por llamada
 
@@ -517,9 +524,10 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Sin batching, spawn overhead en cada llamada.
 - **Contrato:** "`npx tsc --noEmit` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (function get_nns_by_id no longer exists; search/search_vector delegates directly to WASM)
 
 ### Task 43: VFY-003 — Python reindex_hnsw_from_text riesgo OOM
+
 
 - **Fuente:** Backlog.md:105
 - **Esfuerzo:** 🟡 1d
@@ -528,7 +536,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Sin batch processing, dataset grande → OOM.
 - **Contrato:** "`cargo check -p vantadb-python` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ SKIP (function `reindex_hnsw_from_text` does not exist in codebase — feature not implemented)
 
 ### Task 44: VFY-004 — flat.rs O(n²) en filter
 
@@ -550,7 +558,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** 3 de 10+ métricas mapeadas.
 - **Contrato:** "`npx tsc --noEmit` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (OperationalMetrics already has all fields mapped — interface is complete)
 
 ### Task 46: VFY-006 — add_node escribe lock durante toda inserción
 
