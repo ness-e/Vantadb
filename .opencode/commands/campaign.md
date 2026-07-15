@@ -9,6 +9,7 @@ Si no se especificó entrada, usá `docs/Backlog.md` en modo plan.
 
 ## Router: detectar modo según el argumento
 
+- Si el argumento es `pipeline` → **MODO PIPELINE**: mostrá el comando exacto para arrancar `/loop-goal` con el prompt `prompts/pipeline-full.md`. Este modo ejecuta UNA TAREA COMPLETA por iteración (discovery → impl → verify → commit → progreso).
 - Si el argumento es `run` → **MODO EJECUCIÓN**: mostrá el comando para arrancar el harness sobre el plan file más reciente.
 - Si el argumento empieza con `task ` → **MODO TAREA**: extraé el ID después de `task ` y ejecutá el prompt de `prompts/task.md` para definir esa tarea a profundidad.
 - Si el argumento es una ruta de archivo o está vacío → **MODO PLAN**: ejecutá el prompt de `prompts/plan.md` para crear un plan desde ese backlog.
@@ -62,16 +63,36 @@ Después de encontrar la tarea:
 
 ---
 
-## MODO EJECUCIÓN — Arrancar ejecución
+## MODO PIPELINE — Ejecución completa (una tarea por iteración)
+
+Modo principal. Ideal para ejecutar el backlog completo tarea por tarea.
+
+**Recomendado (chat, backlog completo sin parar):**
+```
+/pipeline run
+```
+Ejecuta TODAS las tareas automáticamente usando sub-agentes. Cada sub-agente procesa una tarea completa con contexto fresco. No requiere re-ejecutar manualmente.
+
+**Alternativa (chat, una tarea a la vez):**
+```
+/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo `.opencode/prompts/pipeline-full.md`"
+```
+Cada iteración procesa UNA TAREA COMPLETA (discovery → implementación → verify → commit → skill progreso).
+Requiere re-ejecutar `/loop-goal` manualmente para cada tarea.
+
+Al terminar todas las tareas, ejecuta `skill progreso` y reporta campaña completada.
+
+## MODO EJECUCIÓN — Arrancar ejecución (legacy, paso a paso)
 
 Buscá el plan file más reciente en `docs/plans/` con Estado ⏳ EN PROGRESO.
 Mostrá AMBOS métodos:
 
-**Recomendado (vía custom tools, en el chat):**
+**Chat (paso a paso, iter-loop-tools legacy):**
 ```
 /loop-goal "Ejecutá UNA iteración de campaña siguiendo `.opencode/prompts/iter-loop-tools.md`"
 ```
 Usa `campaign_get_task`/`campaign_update_task`/`campaign_verify` — no lee el plan file completo.
+Cada iteración procesa UN PASO (no una tarea completa). Útil para depuración.
 
 **Fallback (harness PowerShell, para terminal dedicada):**
 ```
@@ -89,6 +110,7 @@ Después de la acción correspondiente, mostrá el comando exacto para lo que si
 
 | Después de... | Mostrar... |
 |--------------|------------|
-| Crear plan | `/loop-goal "Ejecutá UNA iteración de campaña siguiendo \`.opencode/prompts/iter-loop-tools.md\`"` *(chat, recomendado)* o `.\harness-executor.ps1 -PlanFile ... -Interval 10` *(terminal)* |
-| Definir tarea | Task file creado. Para ejecutar: `/loop-goal "..."` o `.\harness-executor.ps1 -PlanFile ... -SingleTask <ID>` |
-| Ejecutar tools loop | Monitoréalo en el chat. Si algo falla: revisá `campaign_verify` output, corregí, y repetí el `/loop-goal`. |
+| Crear plan | `/pipeline run` *(chat, backlog completo sin parar, recomendado)* o `/loop-goal "Ejecutá UNA TAREA COMPLETA siguiendo \`.opencode/prompts/pipeline-full.md\`"` *(chat, una tarea por vez)* o `.\harness-executor.ps1 -PlanFile ... -Interval 10` *(terminal)* |
+| Definir tarea | Task file creado. Para ejecutar: `/pipeline run` *(backlog completo)* o `/pipeline task <ID>` *(solo esta tarea)* o `.\harness-executor.ps1 -PlanFile ... -SingleTask <ID>` |
+| Ejecutar pipeline | `/pipeline run` *(backlog completo sin parar, recomendado)* o `/loop-goal "...pipeline-full.md"` *(una tarea por vez)* o `.\harness-executor.ps1` *(terminal)* |
+| Cualquier modo | **También disponible:** `/pipeline plan`, `/pipeline task <ID>`, `/pipeline run` — comandos unificados con los mismos 3 modos. `/pipeline run` ejecuta backlog completo sin parar usando sub-agentes, sin necesidad de re-ejecutar `/loop-goal` manualmente. |

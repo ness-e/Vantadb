@@ -54,10 +54,11 @@ y `skills/campaign-executor/RULES.md` (167L) — seguilas exactamente.
         3. `campaign_verify command="cargo nextest run --profile audit --workspace --build-jobs 2"`
       - Si todo pasa: `git add -A && git commit -m "feat: <id> — <name>"`
       - Llamá `campaign_update_task` con `"completed"` y recitation completa
-      - Auto-mejora (RULES.md §10): evaluá qué fue más difícil de lo esperado
-      - Ejecutá `skill progreso`
+       - Auto-mejora (RULES.md §10): evaluá qué fue más difícil de lo esperado
+       - Ejecutá `skill progreso` — mueve la tarea de docs/Backlog.md → docs/progreso/README.md
+       - **IMPORTANTE:** skill progreso se ejecuta SIEMPRE, en CADA tarea, sin excepción
 
-   d. **❌ FAILED** → Anotá por qué falló y qué se intentó (los 4 escalones si aplica), llamá `campaign_update_task` con `"failed"`, y detenete. No sigas a la siguiente tarea.
+   d. **❌ FAILED** → Anotá por qué falló y qué se intentó (los 4 escalones si aplica), llamá `campaign_update_task` con `"failed"`, ejecutá `skill progreso`, y detenete. No sigas a la siguiente tarea.
 
 3. ACTUALIZÁ el estado llamando a `campaign_update_task` con:
    - `taskId`: el ID de la tarea

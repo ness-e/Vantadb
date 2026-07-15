@@ -37,6 +37,7 @@ jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
+sysinfo = []
 
 
 [dependencies.mimalloc]

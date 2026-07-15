@@ -876,6 +876,62 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ `cargo check -p vantadb-langchain` passes, `cargo build` passes. Commit `3cc6888`.
 - **Ids:** `DRV-102`
 
+### DRV-103: LangChain metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Fallthrough chain String→bool→i64→f64 for non-string metadata values in add_texts
+- **Resultado:** ✅ cargo fmt, check, clippy pasan. Commit `b83f0f9`.
+- **Ids:** `DRV-103`
+
+### DRV-110: LlamaIndex metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Mismo fallthrough chain String→bool→i64→f64 para LlamaIndex
+- **Resultado:** ✅ cargo fmt, check, clippy pasan. Commit `b83f0f9`.
+- **Ids:** `DRV-110`
+
+### DRV-086: CrewAI metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Fallthrough chain con to_string() para compatibilidad BTreeMap<String,String>
+- **Resultado:** ✅ cargo fmt, check, clippy pasan. Commit `b83f0f9`.
+- **Ids:** `DRV-086`
+
+### DRV-092: DSPy metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Fallthrough chain String→bool→i64→f64 para DSPy
+- **Resultado:** ✅ cargo fmt, check, clippy pasan. Commit `b83f0f9`.
+- **Ids:** `DRV-092`
+
+### DRV-104: LangChain similarity_search no retorna metadata
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-15
+- **Objetivo:** Extraer hit.record.metadata como BTreeMap<String,VantaValue> en Phase 1 (GIL released), convertir a PyDict en Phase 2 (GIL fresco)
+- **Resultado:** ✅ cargo fmt, check, clippy pasan. Commit `1b2c183`.
+- **Ids:** `DRV-104`
+
+### DRV-105: LangChain delete() silenciosamente no-op en IDs malformados
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-15
+- **Objetivo:** Retornar PyRuntimeError cuando id.split(':') produce formato inválido en vez de silenciar la operación
+- **Resultado:** ✅ cargo fmt, check pasan. Commit `7de6a0e`.
+- **Ids:** `DRV-105`
+
+### DRV-106: LangChain from_texts class method
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-15
+- **Objetivo:** Implementar from_texts como #[classmethod] PyO3 que crea store, llama add_texts, retorna instancia
+- **Resultado:** ✅ cargo fmt, check pasan. Commit `d355389`.
+- **Ids:** `DRV-106`
+
+### DRV-111: LlamaIndex query() retorna metadata
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-15
+- **Objetivo:** Agregar hit.record.metadata al result dict
+- **Resultado:** ✅ cargo fmt, check pasan. Commit `e19642f`.
+- **Ids:** `DRV-111`
+
 ### DRV-109: LlamaIndex missing GIL release
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14

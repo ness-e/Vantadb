@@ -221,8 +221,21 @@ impl OpfsWorkerProxy {
         let post_fn = get_fn(&self.worker, "postMessage")?;
         post_fn.apply(&self.worker, &post_args)?;
 
+        // Add a timeout to prevent hanging if the worker never responds.
+        let timeout_promise = Promise::new(&mut {
+            move |resolve: js_sys::Function, reject: js_sys::Function| {
+                let js_code = format!(
+                    "setTimeout(function(){{ reject(new Error('Worker response timeout after {}ms')); }}, {});",
+                    WORKER_TIMEOUT_MS, WORKER_TIMEOUT_MS
+                );
+                let wrapper = js_sys::Function::new_with_args("resolve, reject", &js_code);
+                wrapper.call2(&JsValue::undefined(), &resolve, &reject).ok();
+            }
+        });
+        let raced = Promise::race(&Array::of2(&promise, &timeout_promise));
+
         // Await the response.
-        let resp_val = JsFuture::from(promise).await?;
+        let resp_val = JsFuture::from(raced).await?;
         let resp_str = resp_val
             .as_string()
             .ok_or_else(|| JsValue::from_str("expected string response"))?;

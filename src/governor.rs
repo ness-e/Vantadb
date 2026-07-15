@@ -38,10 +38,11 @@ impl ResourceGovernor {
 
     /// Request allocation before executing an expensive step
     pub fn request_allocation(&self, bytes: usize) -> Result<AllocationStatus> {
-        let current = ALLOCATED_BYTES.load(Ordering::Relaxed);
-        let new_total = current + bytes;
+        let previous = ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
+        let new_total = previous + bytes;
 
         if new_total > self.max_memory_bytes {
+            ALLOCATED_BYTES.fetch_sub(bytes, Ordering::SeqCst);
             return Err(VantaError::ResourceLimit(
                 "OOM Guard triggered: query exceeds soft memory limit.".to_string(),
             ));
@@ -54,7 +55,6 @@ impl ResourceGovernor {
             AllocationStatus::Granted
         };
 
-        ALLOCATED_BYTES.fetch_add(bytes, Ordering::SeqCst);
         Ok(status)
     }
 

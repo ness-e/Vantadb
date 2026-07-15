@@ -243,6 +243,24 @@ fn parse_metadata(obj: &serde_json::Map<String, Value>) -> vantadb::sdk::VantaMe
 
 /// Serialize value to JSON string; on error produces a JSON-error string rather
 /// than silently returning "".
+fn escape_iql_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => {
+                out.push_str(&format!("\\x{:02x}", c as u8));
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 fn serialize_content(value: &impl Serialize) -> String {
     serde_json::to_string(value)
         .unwrap_or_else(|e| format!("{{\"error\":\"Serialization failed: {}\"}}", e))
@@ -359,6 +377,22 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
         if req.jsonrpc != "2.0" {
             metrics.errors_total.fetch_add(1, Ordering::Relaxed);
             warn!("Invalid jsonrpc version: {:?}", req.jsonrpc);
+            let response = RpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: req.id,
+                result: None,
+                error: Some(
+                    McpError::invalid_request(format!(
+                        "Invalid JSON-RPC version: {:?}",
+                        req.jsonrpc
+                    ))
+                    .to_json(),
+                ),
+            };
+            if let Ok(out) = serde_json::to_string(&response) {
+                let _ = writeln!(stdout, "{}", out);
+                let _ = stdout.flush();
+            }
             continue;
         }
 
@@ -374,6 +408,11 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
             result,
             error,
         };
+
+        if !running.load(Ordering::SeqCst) {
+            info!("Graceful shutdown after processing in-flight request");
+            break;
+        }
 
         if let Ok(out) = serde_json::to_string(&response) {
             let _ = writeln!(stdout, "{}", out);
@@ -1166,7 +1205,7 @@ pub fn handle_tools_call(
                 )));
             }
 
-            let escaped_content = content.replace('\\', "\\\\").replace('"', "\\\"");
+            let escaped_content = escape_iql_string(content);
             let query = format!(
                 "INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}",
                 escaped_content, thread_id
@@ -1284,17 +1323,30 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
 
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
-
             let records = match collect_all_records(&embedded, namespace, config) {
                 Ok(r) => r,
                 Err(e) => return Ok(error_content(format!("Collection delete error: {}", e))),
             };
 
-            let records_removed = records.len();
+            let total = records.len();
+            let mut failures = 0;
+            let mut last_error = String::new();
+
             for record in &records {
                 if let Err(e) = embedded.delete(namespace, &record.key) {
+                    failures += 1;
+                    last_error = format!("{}: {}", record.key, e);
                     warn!(error = %e, key = %record.key, "Failed to delete record during collection_delete");
                 }
+            }
+
+            let records_removed = total - failures;
+
+            if failures > 0 {
+                return Ok(error_content(format!(
+                    "Partial delete: {}/{} removed, last error: {}",
+                    records_removed, total, last_error
+                )));
             }
 
             let result = json!({
