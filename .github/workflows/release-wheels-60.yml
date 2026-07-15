@@ -17,12 +17,6 @@ on:
       - ".github/workflows/release-wheels-60.yml"
   push:
     tags: ["v*.*.*"]
-    paths:
-      - "src/**"
-      - "vantadb-python/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - ".github/workflows/release-wheels-60.yml"
 
 permissions:
   contents: read

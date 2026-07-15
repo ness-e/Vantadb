@@ -16,7 +16,7 @@ git_tag_enable = true
 git_tag_name = "v{{ version }}"
 
 # GitHub release
-git_release_enable = false
+git_release_enable = true
 
 # Changelog
 changelog_update = true

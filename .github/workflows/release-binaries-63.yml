@@ -1,6 +1,7 @@
 name: 'RELEASE: Binaries — Build & Upload'
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
