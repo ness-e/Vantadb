@@ -387,13 +387,7 @@ impl WalWriter {
         self.record_count += 1;
         self.records_since_sync += 1;
 
-        if self.sync_mode == crate::config::SyncMode::Always {
-            self.sync()?;
-        } else if let Some(threshold) = self.flush_threshold {
-            if self.records_since_sync >= threshold as u64 {
-                self.sync()?;
-            }
-        }
+        self.maybe_sync()?;
         Ok(())
     }
 
@@ -427,6 +421,12 @@ impl WalWriter {
         self.record_count += records.len() as u64;
         self.records_since_sync += records.len() as u64;
 
+        self.maybe_sync()?;
+        Ok(())
+    }
+
+    /// Conditionally sync based on sync mode and flush threshold.
+    fn maybe_sync(&mut self) -> Result<()> {
         if self.sync_mode == crate::config::SyncMode::Always {
             self.sync()?;
         } else if let Some(threshold) = self.flush_threshold {
