@@ -73,6 +73,14 @@ impl McpConfig {
     }
 }
 
+/// Centralized Iron Axioms definition (Devil's Advocate rules).
+const AXIOMS: &str = r#"[
+    {"id":1,"name":"Topological Axiom","description":"References (edges) to orphan nodes or nodes in Tombstone storage are not allowed."},
+    {"id":2,"name":"Confidence Constraint","description":"Divergent vector mutations with high historical Confidence Score are rejected."},
+    {"id":3,"name":"Immortal Axiom","description":"Maintenance: Nodes marked as PINNED evade degradation by Data Decay."},
+    {"id":4,"name":"Resource Allocation","description":"Maintenance: 5% of memory reserved for nodes with semantic priority >= 0.8."}
+]"#;
+
 // ── Error type ─────────────────────────────────────────────────────────────
 
 /// Structured JSON-RPC error.
@@ -1229,12 +1237,7 @@ pub fn handle_tools_call(
         }
 
         "read_axioms" => {
-            let axioms = json!([
-                {"id": 1, "name": "Topological Axiom", "description": "References (edges) to orphan nodes or nodes in Tombstone storage are not allowed."},
-                {"id": 2, "name": "Confidence Constraint", "description": "Divergent vector mutations with high historical Confidence Score are rejected."},
-                {"id": 3, "name": "Immortal Axiom", "description": "Maintenance: Nodes marked as PINNED evade degradation by Data Decay."},
-                {"id": 4, "name": "Resource Allocation", "description": "Maintenance: 5% of memory reserved for nodes with semantic priority >= 0.8."}
-            ]);
+            let axioms: Value = serde_json::from_str(AXIOMS).unwrap_or_else(|_| json!([]));
             Ok(text_content(serialize_content(&axioms)))
         }
 
