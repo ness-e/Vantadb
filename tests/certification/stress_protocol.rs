@@ -13,6 +13,8 @@
 //! construction parameters. Datasets are regenerated on-demand (deterministic
 //! via seed) to avoid holding >100MB of vector data in memory alongside indexes.
 
+#![cfg(feature = "rayon")]
+
 use console::style;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
