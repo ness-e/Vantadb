@@ -82,16 +82,18 @@ Requiere re-ejecutar `/loop-goal` manualmente para cada tarea.
 
 Al terminar todas las tareas, ejecuta `skill progreso` y reporta campaña completada.
 
-## MODO EJECUCIÓN — Arrancar ejecución (legacy, paso a paso)
+## MODO EJECUCIÓN — Arrancar ejecución (MCP, paso a paso)
 
-Buscá el plan file más reciente en `docs/plans/` con Estado ⏳ EN PROGRESO.
+Buscá el plan file más reciente con `campaign_get_next_task` (MCP) o en `docs/plans/`.
 Mostrá AMBOS métodos:
 
-**Chat (paso a paso, iter-loop-tools legacy):**
+**Chat (paso a paso, con auto-skill-loading):**
 ```
 /loop-goal "Ejecutá UNA iteración de campaña siguiendo `.opencode/prompts/iter-loop-tools.md`"
 ```
-Usa `campaign_get_next_task`/`campaign_update_task_state`/`campaign_verify_cmd` (MCP) — no lee el plan file completo.
+Usa `campaign_get_next_task`/`campaign_update_task_state`/`campaign_verify_cmd` (MCP)
++ `campaign_load_skills`/`campaign_detect_task_type` para carga automática de skills.
+No lee el plan file completo — usa MCP tools.
 Cada iteración procesa UN PASO (no una tarea completa). Útil para depuración.
 
 **Fallback (harness PowerShell, para terminal dedicada):**

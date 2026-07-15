@@ -376,7 +376,7 @@ server.tool(
     const m = content.match(pattern)
     if (!m) return { content: [{ type: "text", text: JSON.stringify({ error: `Task ${taskId} block not found` }) }] }
 
-    return { content: [{ type: "text", text: m[0].trim() }] },
+    return { content: [{ type: "text", text: m[0].trim() }] }
   },
 )
 
