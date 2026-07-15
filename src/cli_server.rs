@@ -246,15 +246,28 @@ pub fn client_ip(req: &axum::extract::Request) -> String {
 }
 
 /// Axum middleware that validates Bearer tokens and enforces RBAC permissions.
-pub async fn auth_middleware(
-    Extension(auth): Extension<AuthState>,
-    req: axum::extract::Request,
-    next: middleware::Next,
-) -> Response {
+///
+/// Returns 401 instead of panicking if `AuthState` is missing from request
+/// extensions (invariant violated — e.g. router misconfigured).
+pub async fn auth_middleware(req: axum::extract::Request, next: middleware::Next) -> Response {
     // Health endpoint is always public
     if req.uri().path() == "/health" {
         return next.run(req).await;
     }
+
+    let auth = match req.extensions().get::<AuthState>() {
+        Some(a) => a.clone(),
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Unauthorized: authentication state not available",
+                })),
+            )
+                .into_response();
+        }
+    };
 
     // No API key configured — allow all (dev mode)
     let Some(expected_key) = &auth.api_key else {

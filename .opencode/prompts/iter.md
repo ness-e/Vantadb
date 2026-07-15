@@ -69,23 +69,30 @@ skill progreso
 
 3. codegraph_explore "símbolos/archivos de la tarea"
 
-4. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
+4. Zero-code planning: antes de escribir código o crear el task file, describí
+   la solución en ≤3 viñetas de pseudocódigo. Sin tocar archivos todavía.
+   Identificá: qué archivos cambiar, qué funciones modificar, qué firma tendrá,
+   qué tests escribir. Si hay ambigüedad → web research antes de continuar.
+   Validá que el enfoque es correcto antes de comprometerte.
+
+5. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
    que apunte al próximo step.
 
-5. Web research si hay ambigüedad (API externa, patrón no familiar):
+6. Web research si hay ambigüedad (API externa, patrón no familiar):
    MetaSearchMCP.search_web("consulta") + Argus.extract_content(url)
    → Documentar en Investigation Notes del task file
 
-6. Documentar en el task file:
+7. Documentar en el task file:
    - CALLERS: qué módulos llaman
    - CALLEES: de qué depende
    - IMPLICACIONES: contratos, API, performance, migración
    - RIESGO: alto / medio / bajo
    - Contrato verificable (NO vago — ver tabla abajo)
    - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, etc.)
+   - Solución planeada (de step 4: zero-code planning)
    - Descomponer en steps atómicos (cada uno: archivo + acción + verify)
 
-7. Escribir task file en {{TASK_BASE}}<ID>.md
+8. Escribir task file en {{TASK_BASE}}<ID>.md
    Agregar last-synced en ambos archivos (plan + task).
 ```
 
@@ -227,6 +234,15 @@ Stagnation Detection (gate previo a errores colaterales):
     Errores colaterales: [ninguno | lista con destino]
 
 8. skill progreso (Trigger 1)
+
+9. Context Save Point: registrá decisiones y estado en la sección ## Context Save
+   del task file (al final, después de ## Notas):
+   - **Fecha:** ISO
+   - **Branch:** nombre
+   - **CI pendiente:** sí/no
+   - **Decisiones:** X sobre Y porque [razón breve]
+   - **Problemas conocidos:** [ninguno | lista]
+   - **Próxima tarea:** TASK-N+1
 ```
 
 ### Paso 4: Verificar con MCP
