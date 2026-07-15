@@ -24,72 +24,97 @@ $ErrorActionPreference = 'Continue'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
+# Fix console encoding for Unicode box-drawing chars
+$oldEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$Host.UI.RawUI.ForegroundColor = 'Gray'
+
 $logDir = Join-Path $ProjectRoot $ReportDir
 $null = New-Item -ItemType Directory -Path $logDir -Force
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logFile = Join-Path $logDir "cli-$Mode-$ts.log"
+"VantaDB Audit CLI — Mode: $Mode — $ts" | Out-File $logFile -Encoding utf8
+"Project: $ProjectRoot" | Out-File $logFile -Append -Encoding utf8
+"─" * 60 | Out-File $logFile -Append -Encoding utf8
 
-function Write-Phase {
-    param([string]$Name, [string]$Cmd)
-    Write-Host "`n  ═══ $Name ═══" -ForegroundColor Cyan
-    Write-Host "  $ $Cmd" -ForegroundColor DarkGray
-    $output = Invoke-Expression $Cmd 2>&1
+function Write-Step {
+    param([string]$Label, [string[]]$Lines)
+    $color = if ($LASTEXITCODE -eq 0) { 'Green' } else { 'Red' }
+    $mark  = if ($LASTEXITCODE -eq 0) { '[OK]' } else { "[EXIT $LASTEXITCODE]" }
+    Write-Host "  $mark $Label" -ForegroundColor $color
+    foreach ($l in $Lines) {
+        if ($l.Trim()) { Write-Host "       $l" -ForegroundColor DarkGray }
+    }
+}
+
+function Run-Check {
+    param([string]$Name, [scriptblock]$ScriptBlock)
+    Write-Host "`n  --- $Name " -NoNewline -ForegroundColor Cyan
+    Write-Host "-" * ([Math]::Max(1, 60 - $Name.Length)) -ForegroundColor DarkGray
+    $output = & $ScriptBlock 2>&1
     $exit = $LASTEXITCODE
-    $output | Out-File -FilePath $logFile -Append -Encoding utf8
+    $text = $output | Out-String
+    $text | Out-File $logFile -Append -Encoding utf8
+    $lines = $text -split "`n" | Where-Object { $_.Trim() }
+    if ($lines.Count -gt 20) {
+        Write-Step $Name $lines[0..4]
+        Write-Host "       ... ($($lines.Count - 10) lines truncated, see log)" -ForegroundColor DarkGray
+        Write-Step '' $lines[($lines.Count-5)..($lines.Count-1)]
+    } else {
+        Write-Step $Name $lines
+    }
     if ($exit -ne 0) {
-        Write-Host "  ❌ $Name (exit $exit)" -ForegroundColor Red
+        Write-Host "  >>> FAILED (exit $exit)" -ForegroundColor Red
         return $false
     }
-    Write-Host "  ✅ $Name" -ForegroundColor Green
     return $true
 }
 
-Write-Host @"
-╔══════════════════════════════════════════╗
-║     VantaDB Audit — Phase 1 CLI Checks    ║
-║     Mode: $Mode                             ║
-╚══════════════════════════════════════════╝
-"@ -ForegroundColor Magenta
+Write-Host "┌────────────────────────────────────────────────────────────┐" -ForegroundColor Magenta
+Write-Host "│  VantaDB Audit  —  Phase 1: CLI Mechanical Checks          │" -ForegroundColor Magenta
+Write-Host "│  Mode: $($Mode.PadRight(42))│" -ForegroundColor Magenta
+Write-Host "│  Log:  $($Mode)-$ts.log".PadRight(60) + "│" -ForegroundColor DarkGray
+Write-Host "└────────────────────────────────────────────────────────────┘" -ForegroundColor Magenta
 
 $results = @{}
-$core = "-p vantadb"
-$lite = '--no-default-features -F "cli,fjall,sysinfo,memmap2,fs2"'
+$core = '-p vantadb'
+$lite = '--no-default-features -F cli,fjall,sysinfo,memmap2,fs2'
 
 switch ($Mode) {
     'quick' {
-        $results.fmt    = Write-Phase 'cargo fmt --check'             'cargo fmt --check'
-        $results.clippy = Write-Phase "cargo clippy ($core)"          "cargo clippy $core $lite -- -D warnings"
-        $results.test   = Write-Phase "cargo nextest ($core)"         "cargo nextest run --profile audit $core $lite --build-jobs 2"
-        $results.deny   = Write-Phase 'cargo deny check'              'cargo deny check'
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.clippy = Run-Check "cargo clippy ($core)"       { cargo clippy $core $lite -- -D warnings }
+        $results.test   = Run-Check "cargo nextest ($core)"      { cargo nextest run --profile audit $core $lite --build-jobs 2 }
+        $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
     }
     'ci' {
-        $results.fmt    = Write-Phase 'cargo fmt --check'             'cargo fmt --check'
-        $results.clippy = Write-Phase 'cargo clippy'                  'cargo clippy --workspace -- -D warnings'
-        $results.test   = Write-Phase 'cargo nextest'                 'cargo nextest run --profile audit --workspace --build-jobs 2'
-        $results.deny   = Write-Phase 'cargo deny check'              'cargo deny check'
-        $results.audit  = Write-Phase 'cargo audit'                   'cargo audit'
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
+        $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
+        $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
+        $results.audit  = Run-Check 'cargo audit'                { cargo audit }
     }
     'full' {
-        $results.fmt    = Write-Phase 'cargo fmt --check'             'cargo fmt --check'
-        $results.clippy = Write-Phase 'cargo clippy'                  'cargo clippy --workspace -- -D warnings'
-        $results.test   = Write-Phase 'cargo nextest'                 'cargo nextest run --profile audit --workspace --build-jobs 2'
-        $results.deny   = Write-Phase 'cargo deny check'              'cargo deny check'
-        $results.audit  = Write-Phase 'cargo audit'                   'cargo audit'
-        $results.machete= Write-Phase 'cargo machete'                 'cargo machete'
-        $results.bloat  = Write-Phase 'cargo bloat --crates'          'cargo bloat --crates'
-        $results.docs   = Write-Phase 'docs coverage'                 'pwsh -NoProfile -File scripts/validate-docs-coverage.ps1'
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
+        $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
+        $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
+        $results.audit  = Run-Check 'cargo audit'                { cargo audit }
+        $results.machete= Run-Check 'cargo machete'              { cargo machete }
+        $results.bloat  = Run-Check 'cargo bloat --crates'       { cargo bloat --crates }
+        $results.docs   = Run-Check 'docs coverage'              { pwsh -NoProfile -File scripts/validate-docs-coverage.ps1 }
     }
     'lint' {
-        $results.clippy  = Write-Phase "cargo clippy ($core pedantic)" "cargo clippy $core -- -D warnings -W clippy::pedantic"
-        $results.machete = Write-Phase 'cargo machete'                'cargo machete'
+        $results.clippy  = Run-Check "cargo clippy (pedantic)"    { cargo clippy $core -- -D warnings -W clippy::pedantic }
+        $results.machete = Run-Check 'cargo machete'              { cargo machete }
     }
     'security' {
-        $results.audit  = Write-Phase 'cargo audit'                   'cargo audit'
-        $results.deny   = Write-Phase 'cargo deny check'              'cargo deny check'
+        $results.audit  = Run-Check 'cargo audit'                { cargo audit }
+        $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
     }
     'perf' {
-        $results.bloat   = Write-Phase 'cargo bloat --crates'         'cargo bloat --crates'
-        $results.outdated= Write-Phase 'cargo outdated'               'cargo outdated --exit-code 1'
+        $results.bloat   = Run-Check 'cargo bloat --crates'      { cargo bloat --crates }
+        $results.outdated= Run-Check 'cargo outdated'            { cargo outdated --exit-code 1 }
     }
 }
 
@@ -98,11 +123,12 @@ $failed = ($results.Values | Where-Object { -not $_ }).Count
 $total = $results.Count
 
 $color = if ($failed -eq 0) { 'Green' } else { 'Red' }
-Write-Host @"
-╔══════════════════════════════════════════╗
-║  CLI Phase: $passed/$total passed, $failed failed  ║
-╚══════════════════════════════════════════╝
-"@ -ForegroundColor $color
+Write-Host "`n┌────────────────────────────────────────────────────────────┐" -ForegroundColor $color
+Write-Host "│  CLI Phase: $passed/$total passed, $failed failed" + ' ' * [Math]::Max(1, 30 - "$passed/$total passed, $failed failed".Length) + "│" -ForegroundColor $color
+Write-Host "└────────────────────────────────────────────────────────────┘" -ForegroundColor $color
+Write-Host "  Log: $logFile" -ForegroundColor Gray
 
-Write-Host "Log: $logFile" -ForegroundColor Gray
+# Restore encoding
+[Console]::OutputEncoding = $oldEncoding
+
 exit $(if ($failed -gt 0) { 1 } else { 0 })

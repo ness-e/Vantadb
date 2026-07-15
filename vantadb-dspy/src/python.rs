@@ -76,7 +76,7 @@ impl VantaDBRM {
         for hit in hits {
             let d = PyDict::new(py);
             d.set_item("passage", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
+            d.set_item("score", 1.0 - (hit.score / 2.0))?;
             d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
             passages.push(d.unbind().into());
         }

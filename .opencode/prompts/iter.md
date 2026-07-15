@@ -1,4 +1,4 @@
-Cargá las skills campaign-executor, progreso, ponytail (full).
+Cargá las skills campaign-executor, progreso, ponytail (full). Después de determinar la tarea activa, usá `campaign_load_skills` (MCP) para cargar skills específicas del tipo de tarea.
 
 Plan file: {{PLAN_FILE}}
 Single task: {{SINGLE_TASK}} (vacío = todas las tareas)
@@ -22,14 +22,29 @@ y te detenés. No intentes continuar ni loopear.
   Si hay un problema, expresalo modificando código o tests.
 - **No cambiar scope:** si encontrás algo extra (bug no relacionado, feature faltante),
   anotalo en Notas del task file, no lo implementes
+- **Skills de ingeniería:** cargá los skills que devuelva `campaign_load_skills` según
+  el tipo de tarea detectado. No saltees pasos (ver agent-skills lifecycle en AGENTS.md).
+
+### Paso 0: Auto-cargar skills vía MCP
+
+1. Llamá `campaign_get_next_task` (MCP) para obtener la próxima tarea
+2. Con los `Archivos clave` de la tarea, llamá `campaign_load_skills` (MCP) para obtener:
+   - Tipo de tarea detectado
+   - Lista de skills a cargar
+   - Comandos de verificación
+3. Cargá CADA skill devuelta con `skill <nombre>` (no te saltees ninguna)
+4. Si es bug → cargá `systematic-debugging` además
+5. Si es lógica nueva/compleja → cargá `test-driven-development` además
+6. Si es security-sensitive → cargá `doubt-driven-development` además
 
 ### Paso 1: Leer estado actual
 
-1. Leé el plan file COMPLETO.
-2. Buscá la recitation block.
-3. Si hay recitation → la tarea activa es la que dice.
-4. Si no hay recitation → buscá la primera tarea ⬜ PENDING o ⏳ IN PROGRESS.
-5. Si `{{SINGLE_TASK}}` no está vacío → ignorá cualquier otra tarea, procesá solo esa.
+1. Llamá `campaign_get_next_task` (MCP) para obtener la tarea activa + recitation + resumen
+   (lee el plan file indirectamente — no necesitás leerlo con Read tool)
+2. Si la tarea existe y tiene recitation → la recitation dice el estado exacto
+3. Si no hay recitation o la tarea es nueva → estado = ⬜ PENDING
+4. Si `{{SINGLE_TASK}}` no está vacío → usá `campaign_get_task_detail` (MCP) para
+   ver el bloque completo de esa tarea específica
 
 ### Paso 2: Determinar próxima acción
 
@@ -44,31 +59,24 @@ y te detenés. No intentes continuar ni loopear.
 ```
 skill progreso
 
-1. Auto-detectar tipo de tarea según archivos involucrados:
+1. Auto-detectar tipo de tarea con MCP:
+   Llamá `campaign_detect_task_type` (MCP) con los `Archivos clave` de la tarea.
+   Devuelve: type, skills, checks, estimate.
+   Cargá los skills devueltos con `skill <nombre>`.
 
-   | Archivos | Tipo | Skills a cargar | Checks |
-   |----------|------|-----------------|--------|
-   | `src/**` (Rust core) | Rust | source-driven-development, doubt-driven-development | cargo check, nextest, fmt, clippy |
-   | `web/src/**` | Frontend | frontend-ui-engineering | npx tsc --noEmit, npm run lint |
-   | `vantadb-python/**` | Python SDK | source-driven-development | pytest |
-   | `vantadb-ts/**` | TypeScript SDK | source-driven-development | npx tsc, npm test |
-   | `docs/**` | Documentation | writing-guidelines, writing-plans | scripts/validate-docs-coverage |
-   | Mixto | Multiple | TODOS aplicables | TODOS los checks |
-
-2. Auto-estimar turns necesarios:
-   | Esfuerzo | Turns estimados |
-   |----------|----------------|
-   | 🟢 Bajo | 5-10 |
-   | 🟡 Medio | 15-30 |
-   | 🔴 Alto | 30-60 |
+2. Auto-estimar turns con `campaign_detect_task_type`:
+   El MCP devuelve estimate: { turns, label }
 
 3. codegraph_explore "símbolos/archivos de la tarea"
 
-4. Web research si hay ambigüedad (API externa, patrón no familiar):
+4. Llamá `campaign_update_task_state` (MCP) con `"in-progress"` y recitation
+   que apunte al próximo step.
+
+5. Web research si hay ambigüedad (API externa, patrón no familiar):
    MetaSearchMCP.search_web("consulta") + Argus.extract_content(url)
    → Documentar en Investigation Notes del task file
 
-5. Documentar en el task file:
+6. Documentar en el task file:
    - CALLERS: qué módulos llaman
    - CALLEES: de qué depende
    - IMPLICACIONES: contratos, API, performance, migración
@@ -77,7 +85,7 @@ skill progreso
    - Herramientas necesarias (cargo-mcp, rust-analyzer-mcp, etc.)
    - Descomponer en steps atómicos (cada uno: archivo + acción + verify)
 
-6. Escribir task file en {{TASK_BASE}}<ID>.md
+7. Escribir task file en {{TASK_BASE}}<ID>.md
    Agregar last-synced en ambos archivos (plan + task).
 ```
 
@@ -144,7 +152,9 @@ Stagnation Detection (gate previo a errores colaterales):
   - ¿3+ iteraciones con el mismo error?
   - ¿5+ iteraciones sin cambiar de step?
   - ¿Mismos archivos tocados en últimas 3 iteraciones?
-  Si ALGUNA → marcar ❌ FAILED y preguntar al usuario
+  Si ALGUNA → llamá `campaign_update_task_state` (MCP) con `"failed"`, anotá
+  la causa en recitation, y detenete. Si necesitás revisar tareas estancadas
+  usá `campaign_stalled_tasks` (MCP).
 ```
 
 ### Paso 3: Ejecutar (MODO CIERRE)
@@ -219,38 +229,50 @@ Stagnation Detection (gate previo a errores colaterales):
 8. skill progreso (Trigger 1)
 ```
 
-### Paso 4: Actualizar estado
+### Paso 4: Verificar con MCP
 
-Después de la acción, actualizá SIEMPRE:
+Cada verify debe usar `campaign_verify_cmd` (MCP) — nunca auto-reporte:
 
-**Plan file:**
-- Iteración agregada a la tabla
-- Estado de la tarea (⏳ IN PROGRESS / ✅ COMPLETED / ❌ FAILED)
-- Branch y Commit si corresponde
-- `last-synced` actualizado
+```
+campaign_verify_cmd command="cargo check -p vantadb"
+campaign_verify_cmd command="cargo fmt --check"
+campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"
+campaign_verify_cmd command="cargo clippy --workspace --all-targets --all-features -- -D warnings"
+```
+
+Si verify falla → retry ladder (4 escalones, ver arriba).
+Si verify pasa → continuar.
+
+### Paso 5: Actualizar estado vía MCP
+
+Después de la acción, actualizá SIEMPRE con `campaign_update_task_state` (MCP):
+
+- `"in-progress"` cuando arrancás un step (con recitation apuntando al próximo)
+- `"completed"` cuando todo el step está verificado y commiteado
+- `"failed"` cuando el retry ladder se agotó
+
+La recitation se escribe automáticamente en el plan file por el MCP server.
+No modificés el plan file manualmente — usá siempre el MCP tool.
 
 **Task file (si existe):**
 - Step marcado como ✅ o ❌
 - `last-synced` actualizado
 
-### Paso 5: Recitation
+### Paso 6: Recitation (handoff entre iteraciones)
 
-Al final del plan file, escribí:
+Después de cada acción, llamá `campaign_update_task_state` (MCP) con recitation:
 
 ```
-=== RECITATION ===
 Objetivo activo: TASK-N — ID
-Estado: discovery / plan / act / verify / stall / research /
-        collateral / evaluate / review / accept / completed / failed
-Última acción: qué se acaba de hacer
-Resultado: ✅ pasa / ❌ falla (con error)
-State: ESTADO_ACTUAL (desde: ESTADO_ANTERIOR)
-Próxima acción: el PRÓXIMO paso concreto (archivo + comando)
-Contrato: "condición verificable"
-Próxima tarea si completa: TASK-N+1 — ID
-last-synced: YYYY-MM-DDTHH:MM
-=== END RECITATION ===
+lastAction: qué se acaba de hacer
+result: ✅ / ❌
+nextAction: el PRÓXIMO paso concreto (archivo + comando)
+contract: "condición verificable"
+nextTask: TASK-N+1 — ID
 ```
+
+El MCP server escribe el bloque RECITATION en el plan file automáticamente.
+Sin recitation, la próxima iteración arranca perdida.
 
 ### Paso 6: STOP
 

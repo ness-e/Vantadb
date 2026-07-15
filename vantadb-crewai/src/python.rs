@@ -65,7 +65,14 @@ impl CrewAIMemory {
         embedding: Vec<f32>,
     ) -> PyResult<String> {
         let namespace = self.namespace.read().unwrap().clone();
-        let meta_str = serde_json::to_string(&py_dict_to_string_map(metadata)).unwrap_or_default();
+        let meta_str = {
+            let map = py_dict_to_string_map(metadata);
+            let pairs: Vec<String> = map
+                .iter()
+                .map(|(k, v)| format!("\"{k}\":\"{v}\""))
+                .collect();
+            format!("{{{}}}", pairs.join(","))
+        };
         let n = self.counter.fetch_add(1, Ordering::Relaxed);
         let key = format!("crew_{n}");
         let mut input = VantaMemoryInput::new(&namespace, &key, context);
