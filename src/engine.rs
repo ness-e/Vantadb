@@ -316,7 +316,7 @@ impl InMemoryEngine {
         } else {
             SourceType::VectorSearch
         };
-        build_query_result_from_scored(&mut scored, &*nodes, top_k, source_type)
+        build_query_result_from_scored(&mut scored, &nodes, top_k, source_type)
     }
 
     /// BFS graph traversal from start, following edges with matching label.
@@ -411,7 +411,7 @@ impl InMemoryEngine {
             })
             .collect();
 
-        build_query_result_from_scored(&mut scored, &*nodes, top_k, SourceType::Hybrid)
+        build_query_result_from_scored(&mut scored, &nodes, top_k, SourceType::Hybrid)
     }
 
     /// Flush WAL to disk
