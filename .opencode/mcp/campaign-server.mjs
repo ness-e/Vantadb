@@ -254,6 +254,163 @@ server.tool(
   },
 )
 
+// ---------- Tool 4: campaign_detect_task_type ----------
+
+const TYPE_PATTERNS = [
+  { pattern: /src\//, type: "rust", label: "Rust core", skills: ["source-driven-development", "doubt-driven-development", "ponytail (full)"], checks: ["cargo check -p vantadb", "cargo fmt --check", "cargo clippy --workspace --all-targets --all-features -- -D warnings", "cargo nextest run --profile audit --workspace --build-jobs 2"] },
+  { pattern: /vantadb-python\//, type: "python", label: "Python SDK", skills: ["source-driven-development"], checks: ["python -m pytest vantadb-python/tests/ -v"] },
+  { pattern: /vantadb-ts\//, type: "typescript", label: "TypeScript SDK", skills: ["source-driven-development"], checks: ["npx tsc --noEmit", "npm test"] },
+  { pattern: /web\/src\//, type: "frontend", label: "Web frontend", skills: ["frontend-ui-engineering", "design-taste-frontend"], checks: ["npx tsc --noEmit", "npm run lint"] },
+  { pattern: /docs\//, type: "docs", label: "Documentation", skills: ["writing-guidelines", "writing-plans"], checks: ["scripts/validate-docs-coverage.ps1"] },
+  { pattern: /\.github\//, type: "devops", label: "CI/CD / DevOps", skills: ["ci-cd-and-automation", "doubt-driven-development"], checks: ["yamllint .github/"] },
+  { pattern: /vantadb-server\//, type: "server", label: "HTTP server", skills: ["source-driven-development", "security-and-hardening"], checks: ["cargo check -p vantadb-server"] },
+]
+
+const ESTIMATE_MAP = { "🟢": { turns: "5-10", label: "Bajo" }, "🟡": { turns: "15-30", label: "Medio" }, "🔴": { turns: "30-60", label: "Alto" } }
+
+function detectType(archivosClave) {
+  if (!archivosClave || archivosClave.trim() === "") return { type: "unknown", label: "No detectable", skills: [], checks: [], estimate: null }
+
+  const matched = TYPE_PATTERNS.filter(tp => tp.pattern.test(archivosClave))
+  if (matched.length === 0) return { type: "unknown", label: "No detectable", skills: ["campaign-executor"], checks: ["cargo check -p vantadb"], estimate: null }
+
+  const tiposUnicos = [...new Set(matched.map(m => m.type))]
+  if (tiposUnicos.length > 1) {
+    return {
+      type: "multi", label: `Múltiple (${tiposUnicos.join(", ")})`, typeList: tiposUnicos,
+      skills: [...new Set(matched.flatMap(m => m.skills))],
+      checks: matched.flatMap(m => m.checks),
+      estimate: { turns: "15-45", label: "Medio-Alto" },
+    }
+  }
+
+  const m = matched[0]
+  const effortMatch = archivosClave.match(/[🟢🟡🔴]/)
+  const estimate = effortMatch ? ESTIMATE_MAP[effortMatch[0]] : null
+
+  return { type: m.type, label: m.label, skills: m.skills, checks: m.checks, estimate }
+}
+
+server.tool(
+  "campaign_detect_task_type",
+  {
+    archivosClave: z.string().describe("Campo 'Archivos clave' del plan file (ej: 'src/index/flat.rs:32, src/engine.rs')"),
+    effort: z.string().optional().describe("Indicador de esfuerzo opcional: 🟢 🟡 🔴"),
+  },
+  async ({ archivosClave, effort }) => {
+    const result = detectType(archivosClave)
+    if (effort && ESTIMATE_MAP[effort]) result.estimate = ESTIMATE_MAP[effort]
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] }
+  },
+)
+
+// ---------- Tool 5: campaign_analyze_task ----------
+
+server.tool(
+  "campaign_analyze_task",
+  {
+    taskId: z.string().describe("ID de la tarea a analizar (ej: '14', 'DRV-068')"),
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente."),
+  },
+  async ({ taskId, planFile }) => {
+    const worktree = process.cwd()
+    const planPath = resolvePlan(planFile, worktree)
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
+
+    const content = readFileSync(planPath, "utf-8")
+    const tasks = parseTasks(content)
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return { content: [{ type: "text", text: JSON.stringify({ error: `Task ${taskId} not found in plan` }) }] }
+
+    const typeInfo = detectType(task.files)
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        taskId: task.id, name: task.name, state: task.state, contract: task.contract, files: task.files,
+        type: typeInfo, priority: task.priority, effort: task.effort, source: task.source, notes: task.notes,
+      }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool 6: campaign_load_skills ----------
+
+server.tool(
+  "campaign_load_skills",
+  {
+    archivosClave: z.string().describe("Campo 'Archivos clave' del plan file"),
+    extraSkills: z.array(z.string()).optional().describe("Skills adicionales a incluir (ej: ['systematic-debugging', 'test-driven-development'])"),
+  },
+  async ({ archivosClave, extraSkills }) => {
+    const typeInfo = detectType(archivosClave)
+    const skills = [...new Set([...(typeInfo.skills || []), "campaign-executor", "progreso", "ponytail (full)", ...(extraSkills || [])])]
+    const sortOrder = ["campaign-executor", "progreso", "ponytail (full)"]
+    const sorted = [...sortOrder.filter(s => skills.includes(s)), ...skills.filter(s => !sortOrder.includes(s))]
+    const commands = sorted.map(s => `skill ${s}`)
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        type: typeInfo.type, label: typeInfo.label,
+        skills: sorted, commands,
+        checks: typeInfo.checks || [],
+        estimate: typeInfo.estimate,
+      }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool 7: campaign_get_task_detail ----------
+
+server.tool(
+  "campaign_get_task_detail",
+  {
+    taskId: z.string().describe("ID de la tarea (ej: '14', 'DRV-068')"),
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente."),
+  },
+  async ({ taskId, planFile }) => {
+    const worktree = process.cwd()
+    const planPath = resolvePlan(planFile, worktree)
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
+
+    const content = readFileSync(planPath, "utf-8")
+    const pattern = new RegExp(`(### Task\\s*${taskId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\\n]*\\n[\\s\\S]*?)(?=\n### Task |\\n## |\\n---|\\n===|$)`)
+    const m = content.match(pattern)
+    if (!m) return { content: [{ type: "text", text: JSON.stringify({ error: `Task ${taskId} block not found` }) }] }
+
+    return { content: [{ type: "text", text: m[0].trim() }] },
+  },
+)
+
+// ---------- Tool 8: campaign_stalled_tasks ----------
+
+server.tool(
+  "campaign_stalled_tasks",
+  {
+    planFile: z.string().optional().describe("Ruta al plan file. Si se omite, busca el más reciente."),
+    threshold: z.number().optional().default(2).describe("Iteraciones sin cambio para considerar stalled (default: 2)"),
+  },
+  async ({ planFile, threshold }) => {
+    const worktree = process.cwd()
+    const planPath = resolvePlan(planFile, worktree)
+    if (!planPath) return { content: [{ type: "text", text: JSON.stringify({ error: "No plan file found" }) }] }
+
+    const content = readFileSync(planPath, "utf-8")
+    const tasks = parseTasks(content)
+    const recitation = parseRecitation(content)
+
+    const stalled = tasks.filter(t => t.state === "⬜ PENDING" || t.state === "⏳ IN PROGRESS")
+    const recitationState = recitation ? recitation.status : null
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        totalStalled: stalled.length,
+        stalledTasks: stalled.map(t => ({ id: t.id, name: t.name, state: t.state, files: t.files })),
+        recitationState,
+        recitationAction: recitation ? recitation.nextAction : null,
+      }, null, 2) }],
+    }
+  },
+)
+
 // ---------- start ----------
 
 const transport = new StdioServerTransport()

@@ -1,5 +1,12 @@
 Cargá las skills campaign-executor, ponytail (full). Si es la primera iteración o después de compactación, cargá también progreso.
 
+Paso 0 — Auto-cargar skills según tipo de tarea:
+   Llamá `campaign_get_next_task` (MCP) para obtener la tarea. Con los `Archivos clave`,
+   llamá `campaign_load_skills` (MCP) que devuelve los skills exactos a cargar.
+   Ejecutá `skill <nombre>` para CADA skill devuelto. Si es bug → además
+   `systematic-debugging`. Si es lógica nueva → `test-driven-development`.
+   Si es security-sensitive → `doubt-driven-development`.
+
 INSTRUCCIONES — UNA SOLA ITERACIÓN:
 
 Operás en un entorno por turnos. Procesás EXACTAMENTE UNA iteración
