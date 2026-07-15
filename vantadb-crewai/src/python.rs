@@ -141,8 +141,16 @@ impl CrewAIMemory {
 fn py_dict_to_string_map(dict: &Bound<'_, PyDict>) -> std::collections::BTreeMap<String, String> {
     let mut map = std::collections::BTreeMap::new();
     for (k, v) in dict.iter() {
-        if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
-            map.insert(key, val);
+        if let Ok(key) = k.extract::<String>() {
+            let val = v
+                .extract::<String>()
+                .ok()
+                .or_else(|| v.extract::<bool>().ok().map(|b| b.to_string()))
+                .or_else(|| v.extract::<i64>().ok().map(|i| i.to_string()))
+                .or_else(|| v.extract::<f64>().ok().map(|f| f.to_string()));
+            if let Some(val) = val {
+                map.insert(key, val);
+            }
         }
     }
     map
