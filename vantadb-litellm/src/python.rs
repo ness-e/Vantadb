@@ -153,9 +153,9 @@ impl VantaDBLiteLLM {
             }
         }
 
-        let record = py
-            .detach(|| self.engine.put(input))
-            .map_err(|e: VantaError| PyRuntimeError::new_err(format!("store error: {:?}", e)))?;
+        let engine = self.engine.clone();
+        // GIL RELEASED — pure Rust insert
+        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 }
