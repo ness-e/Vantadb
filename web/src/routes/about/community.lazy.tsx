@@ -56,7 +56,7 @@ const WAYS = [
   },
   {
     title: "Build an integration",
-    desc: "LangChain, LlamaIndex, or your own framework — we'd love to link to it.",
+    desc: "Build an integration for your favorite framework — we'd love to link to it.",
   },
   {
     title: "Share your project",

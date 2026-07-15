@@ -49,7 +49,7 @@ function PricingPage() {
             Fair to scale.
           </span>
         }
-        sub="VantaDB is open source (Apache 2.0) and free forever. Sign up for cloud databases to scale in production with SLAs, team features, and zero ops."
+        sub="VantaDB is open source (Apache 2.0) and free forever. Self-hosted, no signup required."
       />
 
       <main>
@@ -57,18 +57,12 @@ function PricingPage() {
           <NbSectionHeader
             monoLabel="[PLANS]"
             headline="Four tiers. One free."
-            sub="Self-hosted is free forever under Apache 2.0. Cloud plans unlock managed infrastructure for teams that need it."
+            sub="Self-hosted is free forever under Apache 2.0. Enterprise adds custom licensing and dedicated support."
           />
 
           <div className="nc-price-board nc-price-part">
-            {tiers.slice(0, 2).map((tier) => (
+            {tiers.map((tier) => (
               <PricingCard key={tier.name} tier={tier} featured={tier.featured} />
-            ))}
-          </div>
-
-          <div className="nc-price-board nc-price-board--tight nc-price-part">
-            {tiers.slice(2).map((tier) => (
-              <PricingCard key={tier.name} tier={tier} />
             ))}
           </div>
         </NbSection>
@@ -96,8 +90,6 @@ function PricingPage() {
                   <tr key={row.feature}>
                     <td>{row.feature}</td>
                     <td>{row.os}</td>
-                    <td>{row.pro}</td>
-                    <td>{row.biz}</td>
                     <td>{row.ent}</td>
                   </tr>
                 ))}
@@ -110,7 +102,7 @@ function PricingPage() {
           <NbSectionHeader
             monoLabel="[FAQ]"
             headline="Common questions."
-            sub="Everything you need to know about VantaDB pricing, licensing, and cloud plans."
+            sub="Everything you need to know about VantaDB pricing, licensing, and deployment options."
           />
 
           <div className="nc-price-faq nc-price-part">

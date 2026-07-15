@@ -53,7 +53,7 @@ const TEAM = [
     avatarStatus: "connecting",
     name: "Sarah Mitchell",
     role: "Product & Community",
-    desc: "Developer relations lead. Built communities at LangChain and Hugging Face.",
+    desc: "Developer relations lead. Open-source community advocate and ecosystem builder.",
   },
 ];
 
