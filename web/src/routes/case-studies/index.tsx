@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/case-studies")({
+export const Route = createFileRoute("/case-studies/")({
   head: () => ({
     meta: [
       { title: "VantaDB — Case Studies" },
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/case-studies")({
         property: "og:description",
         content: "Real-world case studies of teams using VantaDB.",
       },
+      { property: "og:url", content: "https://vantadb.dev/case-studies" },
     ],
     links: [{ rel: "canonical", href: "https://vantadb.dev/case-studies" }],
   }),
