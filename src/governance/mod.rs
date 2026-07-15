@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod admission;
 pub mod conflict;
 pub mod consistency;
