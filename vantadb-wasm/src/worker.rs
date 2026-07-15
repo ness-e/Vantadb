@@ -1,8 +1,6 @@
 //! Web Worker bridge for offloading OPFS I/O to a dedicated thread.
 //!
 //! The worker communicates with the main thread via `postMessage` / `onmessage`.
-//! Each message is a JSON-encoded `WorkerRequest`, and the worker replies
-//! with a `WorkerResponse` containing the result.
 //!
 //! # Message Protocol
 //!
@@ -25,6 +23,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
 use crate::opfs::OpfsStorage;
+
+const WORKER_TIMEOUT_MS: u32 = 5000;
 
 /// Requests that can be sent to the worker.
 #[derive(Serialize, Deserialize, Debug)]
@@ -200,12 +200,18 @@ impl OpfsWorkerProxy {
         // Set up the response listener on port1.
         let promise = js_sys::Promise::new(&mut {
             let port1 = port1.clone();
-            move |_resolve: js_sys::Function, _reject: js_sys::Function| {
+            move |resolve: js_sys::Function, reject: js_sys::Function| {
+                Reflect::set(&port1, &"_resolve".into(), &resolve).ok();
+                Reflect::set(&port1, &"_reject".into(), &reject).ok();
                 let onmessage = js_sys::Function::new_no_args(
                     r#"
-                    const msg = arguments[0];
-                    this.onmessage = null;
-                    arguments[1](msg.data);
+                    const port = this;
+                    port.onmessage = null;
+                    try {
+                        port._resolve(arguments[0].data);
+                    } catch(e) {
+                        port._reject(e);
+                    }
                     "#,
                 );
                 Reflect::set(&port1, &"onmessage".into(), &onmessage).ok();
@@ -236,10 +242,7 @@ impl OpfsWorkerProxy {
 
         // Await the response.
         let resp_val = JsFuture::from(raced).await?;
-        let resp_str = resp_val
-            .as_string()
-            .ok_or_else(|| JsValue::from_str("expected string response"))?;
-        serde_json::from_str(&resp_str)
+        serde_wasm_bindgen::from_value(resp_val)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))
     }
 
