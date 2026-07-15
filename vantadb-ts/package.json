@@ -23,6 +23,7 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "lint": "eslint .",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -46,7 +47,10 @@
     "vantadb-wasm": "file:../vantadb-wasm/pkg"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.64.0",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^3.1.3"
   }

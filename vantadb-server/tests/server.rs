@@ -4,6 +4,9 @@
 #[path = "../../tests/common/mod.rs"]
 mod common;
 
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use axum::{
     body::Body,
     extract::ConnectInfo,
@@ -15,8 +18,8 @@ use std::sync::Arc;
 #[cfg(feature = "tls")]
 use std::time::Duration;
 use tower::ServiceExt;
-use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
+use std::path::Path;
 
 struct TestContext {
     _temp_dir: tempfile::TempDir,
@@ -24,18 +27,8 @@ struct TestContext {
 }
 
 fn build_context(api_key: Option<&str>, concurrency: usize) -> TestContext {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
-    let state = Arc::new(ServerState {
-        storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
-        api_key: api_key.map(Arc::from),
-        rbac_config: Default::default(),
-    });
-    TestContext {
-        _temp_dir: temp_dir,
-        state,
-    }
+    let (_temp_dir, state) = helpers::build_server_state(Path::new(""), api_key, concurrency);
+    TestContext { _temp_dir, state }
 }
 
 fn add_addr(req: Request<Body>) -> Request<Body> {
