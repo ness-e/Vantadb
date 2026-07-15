@@ -16,6 +16,7 @@ y te detenés. No intentes continuar ni loopear.
   Prosa no indexada (plan files, skills) → sub-agentes via `task` tool. Cada
   sub-agente lee un archivo y devuelve resumen enfocado en 3-5 líneas. Stale cache:
   si codegraph muestra "edited since last sync", leé SOLO esos archivos.
+- **Context Budget:** uso inicial < 20% del contexto (~40k tokens en 200k). Si estás cerca del límite, usá sub-agentes para tareas largas. No leas archivos completos si solo necesitás 5 líneas — usá `grep` o `codegraph_explore`.
 - Preferir `edit` con oldString/newString sobre reescribir archivos completos
 - No cargar MCPs que no uses para esta tarea
 - **No prosa defensiva:** no expliques código ni justifiques decisiones en comentarios.

@@ -121,6 +121,23 @@ Nunca auto-reportar "anda". Siempre ejecutar un comando real:
 - `cargo fmt --check`
 - `cargo clippy -- -D warnings`
 
+### Rust Safety Rules (motor DB)
+
+- `unsafe` prohibido por defecto. Si es indispensable: `// SAFETY:` invariant documentado explicando por qué es seguro.
+- `Rc<T>` prohibido en contextos multi-hilo. Siempre `Arc<T>`.
+- Sin `#[allow(unsafe_code)]` sin aprobación explícita en code review.
+- Sin `unwrap()` en código de producción que toque datos de usuario o E/S — usar `?` o `expect("contexto del error")`.
+
+### Capa Determinista (barreras infranqueables)
+
+Estas verificaciones NO se saltan bajo ninguna circunstancia:
+
+1. `cargo clippy --all-targets -- -D warnings` — cero advertencias
+2. `cargo fmt --check` — formato correcto
+3. `cargo nextest run --profile audit --workspace --build-jobs 2` — tests pasan
+4. Si el diff contiene `unsafe` → `cargo +nightly miri test` (detección de UB)
+5. Si el componente es crítico (parser, serializador, WAL, protocolo de red) → marcar para fuzzing + quickcheck/proptest en CI
+
 ### 5. Ponytail ladder
 
 1. ¿Ya existe en el codebase? → reusar
@@ -165,3 +182,9 @@ actual.
 | Review | code-review-and-quality, doubt-driven-development |
 | Docs | writing-guidelines |
 | Siempre | campaign-executor, progreso, ponytail (full) |
+
+### Rule 11 — Session lifecycle
+
+Una tarea completa + commiteada → sesión cerrada mentalmente.
+La siguiente tarea arranca con contexto fresco. No arrastres estado entre tareas.
+Si necesitás continuar algo, dejalo en la recitation o en Context Save Point.

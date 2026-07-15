@@ -62,6 +62,12 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
   4. `campaign_verify_cmd command="scripts/validate-docs-coverage.ps1"`
 - Si todo pasa: `git add -A && git commit -m "feat: <ID> — <name>"`
+- **AGENTS.md learnings:** documentá 1-2 aprendizajes de la tarea en una entrada al final de `.opencode/AGENTS.md`:
+  ```markdown
+  <!-- Learnings: TASK-ID — fecha -->
+  - <qué fue más difícil de lo esperado>
+  - <qué patrón o técnica funcionó bien>
+  ```
 - Llamá `campaign_update_task_state` con `"completed"` y recitation
 - Auto-mejora: evaluá qué fue más difícil de lo esperado
 

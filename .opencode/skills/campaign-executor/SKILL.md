@@ -215,11 +215,14 @@ last-synced: YYYY-MM-DDTHH:MM
 
 ## Budget management
 
-| Budget | Default | Acción |
-|--------|---------|--------|
-| Iteraciones por tarea | 5 | ❌ FAILED y sigue |
-| Stall consecutivo | 2 iguales | Preguntar al usuario |
-| Tokens por invocación | N/A | OpenCode maneja |
+| Control | Default | Hard Limit | Comportamiento |
+|---------|---------|------------|----------------|
+| Iteraciones por tarea | 5 | 10 | Al alcanzar → ❌ FAILED |
+| Sub-agentes totales (FAIL_MODE parallel) | 20 | 40 | HARD STOP + reporte parcial |
+| Consecutive fails | 3 | 5 | FAIL_MODE pasa a "stop" forzosamente |
+| NO_PROGRESS_LIMIT (stagnation) | 3 | 5 | `campaign_stalled_tasks` + pausa |
+| Tool calls por sub-agente | 8 | 15 | Timeout + kill |
+| Contexto inicial | < 20% (~40k tokens) | — | Si excede → usar sub-agentes |
 
 ## Ejecución paralela
 
