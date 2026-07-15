@@ -5,11 +5,14 @@
 //! Unlike the unit tests in server.rs (which use axum::Router::oneshot),
 //! these tests exercise the entire socket-level HTTP pipeline.
 
+#[path = "helpers/mod.rs"]
+mod helpers;
+
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
 /// Probe a TCP address until it accepts a connection, or panic after timeout.
@@ -54,15 +57,7 @@ fn build_e2e_context(
     api_key: Option<&str>,
     concurrency: usize,
 ) -> (tempfile::TempDir, Arc<ServerState>) {
-    let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let state = Arc::new(ServerState {
-        storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
-        api_key: api_key.map(Arc::from),
-        rbac_config: Default::default(),
-    });
-    (dir, state)
+    helpers::build_server_state(Path::new("db"), api_key, concurrency)
 }
 
 #[tokio::test]

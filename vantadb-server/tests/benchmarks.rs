@@ -4,11 +4,14 @@
 //! under load and print results for manual inspection or CI aggregation.
 //! Run with: cargo test --features tls --test benchmarks -- --nocapture
 
+#[path = "helpers/mod.rs"]
+mod helpers;
+
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::net::TcpListener;
-use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -21,14 +24,7 @@ struct BenchContext {
 }
 
 async fn setup_bench(concurrency: usize) -> BenchContext {
-    let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let state = Arc::new(ServerState {
-        storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(concurrency)),
-        api_key: None,
-        rbac_config: Default::default(),
-    });
+    let (_dir, state) = helpers::build_server_state(Path::new("db"), None, concurrency);
     let router = app(state, 0);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -48,7 +44,7 @@ async fn setup_bench(concurrency: usize) -> BenchContext {
 
     BenchContext {
         base,
-        _dir: dir,
+        _dir,
         _handle: handle,
         counter: Arc::new(AtomicU64::new(1000)),
     }
