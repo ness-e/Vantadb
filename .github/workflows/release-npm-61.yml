@@ -111,7 +111,7 @@ jobs:
       - name: Rewrite dependency for publish
         working-directory: vantadb-ts
         run: |
-          WASM_VER=$(grep '^version' vantadb-wasm/Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+          WASM_VER=$(grep '^version = "' ../Cargo.toml | head -1 | sed 's/.*= "//' | sed 's/".*//')
           # Sanitize: allow only semver-safe characters
           if ! echo "$WASM_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$'; then
             echo "ERROR: Invalid version extracted: '$WASM_VER'" >&2

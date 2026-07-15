@@ -1,6 +1,6 @@
 {
   "name": "vantadb",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "VantaDB TypeScript SDK — WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
   "type": "module",
   "main": "dist/vantadb.js",
