@@ -890,6 +890,20 @@ These tasks reached 100% completion and were moved here from the active backlog.
 - **Resultado:** ✅ No-op — no `.github/workflows/` files exist in this repository
 - **Ids:** `DEVOPS-13`
 
+### DRV-063: Ollama metadata no-string ignorado
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Handle bool/int/float metadata values in Ollama store() instead of silently dropping non-string values — same pattern as DRV-058
+- **Resultado:** ✅ `cargo check -p vantadb-ollama` clean, clippy clean.
+- **Ids:** `DRV-063`
+
+### DRV-062: Ollama client recreado en cada embed()
+- **Fuente:** Plan 2026-07-14 backlog-campaign
+- **Fecha:** 2026-07-14
+- **Objetivo:** Cache `Py<PyAny>` Ollama client in struct field instead of recreating per `embed()` call — same pattern as DRV-057
+- **Resultado:** ✅ `cargo check -p vantadb-ollama` clean, clippy clean.
+- **Ids:** `DRV-062`
+
 ### DRV-058: OpenAI metadata no-string ignorado
 - **Fuente:** Plan 2026-07-14 backlog-campaign
 - **Fecha:** 2026-07-14

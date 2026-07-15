@@ -1,4 +1,5 @@
 # Plan de Ejecución: Backlog Campaign (Jul 14)
+> **Harness PID:** 5188 ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
 
 > **Inicio:** 2026-07-14
 > **Estado:** ⏳ EN PROGRESO
@@ -163,7 +164,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo bug que DRV-057. Cachear cliente.
 - **Contrato:** "`cargo check -p vantadb-ollama` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 13: DRV-063 — Ollama metadata no-string ignorado
 
@@ -174,7 +175,7 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Mismo bug que DRV-058. Copy-paste del adapter openai.
 - **Contrato:** "`cargo check -p vantadb-ollama` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
 ### Task 14: DRV-068 — LiteLLM GIL no liberado en search()
 
@@ -185,7 +186,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** GIL bloqueado durante búsqueda vectorial, impide concurrencia Python.
 - **Contrato:** "`cargo check -p vantadb-litellm` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `47e94c2`
 
 ### Task 15: DRV-069 — LiteLLM store() sin parámetro py
 
@@ -196,7 +198,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** No puede liberar GIL. Necesita cambio de firma para agregar `py: Python`.
 - **Contrato:** "`cargo check -p vantadb-litellm` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `51a5374`
 
 ### Task 16: DRV-070 — LiteLLM metadata no-string ignorado
 
@@ -207,7 +210,8 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 - **Gate Result:** ✅ DO
 - **Gate Justificación:** Tercera copia del mismo bug DRV-058/063.
 - **Contrato:** "`cargo check -p vantadb-litellm` pasa"
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Commit:** `0d57442`
 
 ### Task 17: DRV-103 — LangChain metadata no-string ignorado
 
@@ -1105,11 +1109,17 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 ===
 
 === RECITATION ===
-Objetivo activo: Task 11 — DRV-058 OpenAI metadata no-string ignorado
+Objetivo activo: DRV-068 — LiteLLM GIL no liberado en search()
 Estado: completed
-Última acción: replaced single extract::<String>() with cascade: String → Bool → Int → Float using or_else chain
-Resultado: ✅ cargo check -p vantadb-openai clean, clippy clean
-Próxima acción: Task 12 — DRV-062 Ollama client recreado en cada embed()
-Contrato: "cargo check -p vantadb-openai pasa"
-Próxima tarea si completa: Task 12 — DRV-062
+Última acción: Wrapped engine.search() in py.detach() to release GIL during vector search. Pattern from langchain adapter. Files: vantadb-litellm/src/python.rs:111
+Resultado: ✅ cargo check -p vantadb-litellm, cargo fmt --check, cargo clippy -p vantadb-litellm all pass
+Próxima acción: Task 15 — DRV-069 LiteLLM store() sin parámetro py
+Contrato: "cargo check -p vantadb-litellm pasa"
+Próxima tarea si completa: Task 15 — DRV-069
 === END RECITATION ===
+
+
+
+
+
+
