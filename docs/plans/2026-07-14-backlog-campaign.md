@@ -1,6 +1,5 @@
 # Plan de Ejecución: Backlog Campaign (Jul 14)
 > **Harness PID:** 5188 ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
-
 > **Inicio:** 2026-07-14
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** `docs/Backlog.md`
@@ -1133,12 +1132,10 @@ Total ❌ en Backlog.md: ~130+ items. Gate aplicado con criterios: relevancia, i
 
 ---
 
-===
 **This plan file was created by Prompt 0 (backlog-executor) on Jul 14, 2026.**
 **98 tasks ✅ DO, ready for execution via `iter-prompt.md` or harness.**
-===
 
-=== RECITATION ===
+## RECITATION
 Objetivo activo: Task 36 — DRV-041 Worker.rs Promise timeout
 Estado: completed
 Última acción: Fixed 4 tasks: Task 35/DRV-035 (TS types in tests), Task 90/DRV-037 (duplicate type fix), Task 36/DRV-041 (Promise timeout in worker.rs), Task 34/DRV-043 (verified compiled).
