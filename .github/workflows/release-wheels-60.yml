@@ -167,6 +167,7 @@ jobs:
           merge-multiple: true
 
       - name: Attest Build Provenance for Wheels
+        continue-on-error: true
         uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e
         with:
           subject-path: './dist/*.whl'

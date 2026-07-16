@@ -44,10 +44,11 @@ async fn vector_scale_performance_certification() {
             };
 
             assert!(!results.is_empty());
+            let top = results[0].1;
             assert!(
-                (results[0].1 - 1.0).abs() < 0.001,
+                (top - 1.0).abs() < 0.001,
                 "identical vector should have cosine similarity ~1.0, got {}",
-                results[0].1
+                top
             );
 
             TerminalReporter::success("Topological search precision verified at scale.");

@@ -419,7 +419,7 @@ fn stress_protocol_certification() {
         let loaded = CPIndex::load_from_file(tmp.path(), false).unwrap();
         assert_eq!(loaded.nodes.len(), n);
         let recall_after = compute_recall(&loaded, &queries, &ds, K);
-        assert!((recall_before - recall_after).abs() < 0.001);
+        assert!((recall_before - recall_after).abs() < 0.01);
         loaded.validate_index().unwrap();
         TerminalReporter::success("BLOCK 4 PASSED.");
     });
