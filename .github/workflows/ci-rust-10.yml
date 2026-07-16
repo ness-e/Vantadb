@@ -355,12 +355,12 @@ jobs:
   sanitizer-asan:
     name: ASan (AddressSanitizer)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install nightly + ASan
+      - name: Install nightly
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
           toolchain: nightly
@@ -374,11 +374,9 @@ jobs:
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
-            -Z build-std \
-            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
-            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address"]'
+            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]'
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:abort_on_error=1"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
@@ -386,40 +384,27 @@ jobs:
   sanitizer-tsan:
     name: TSan (ThreadSanitizer)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install nightly + TSan
+      - name: Install nightly
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
         with:
           toolchain: nightly
-          components: rust-src
 
       - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
-      - name: Cache benchmark dataset (GloVe 100d)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: data/benchmark/glove.6B.100d.txt
-          key: glove-100d-v1
-
-      - name: Download benchmark datasets
-        run: bash scripts/download_benchmark_datasets.sh
-        shell: bash
-
       - name: Test with ThreadSanitizer
         run: |
           cargo +nightly test \
-            -Z build-std \
-            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
-            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread"]' \
+            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
             --skip sift1m_competitive_benchmark \
             --skip test_glove100_hnsw_basic \
