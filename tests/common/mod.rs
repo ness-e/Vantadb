@@ -235,13 +235,13 @@ impl VantaHarness {
             sys.refresh_all();
             let pid = sysinfo::get_current_pid().expect("Failed to get PID");
             let start_memory = sample_process_memory(&mut sys, pid);
-            return Self {
+            Self {
                 sys,
                 pid,
                 _start_time,
                 start_memory,
                 test_name,
-            };
+            }
         }
 
         #[cfg(not(feature = "sysinfo"))]
