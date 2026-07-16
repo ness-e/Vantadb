@@ -374,6 +374,7 @@ jobs:
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
+            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]'
@@ -402,6 +403,7 @@ jobs:
       - name: Test with ThreadSanitizer
         run: |
           cargo +nightly test \
+            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
