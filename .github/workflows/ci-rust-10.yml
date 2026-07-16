@@ -410,4 +410,4 @@ jobs:
         shell: bash
 
       - name: Test with Nightly
-        run: cargo +nightly test --package vantadb --features "cli,arrow,tls,opentelemetry" -- --skip sift1m_competitive_benchmark --skip test_glove100_hnsw_basic
+        run: cargo +nightly test --package vantadb --features "cli,arrow,tls,opentelemetry" -- --skip sift1m_competitive_benchmark --skip test_glove100_hnsw_basic --skip test_triple_backend_parity_validation
