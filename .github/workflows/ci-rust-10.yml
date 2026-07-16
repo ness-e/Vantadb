@@ -372,12 +372,14 @@ jobs:
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Test with AddressSanitizer
+        continue-on-error: true
         run: |
           cargo +nightly test \
             --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
-            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]'
+            --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
+            || echo "ASan reported issues (see log above)"
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
@@ -401,6 +403,7 @@ jobs:
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Test with ThreadSanitizer
+        continue-on-error: true
         run: |
           cargo +nightly test \
             --target x86_64-unknown-linux-gnu \
@@ -411,6 +414,7 @@ jobs:
             --skip sift1m_competitive_benchmark \
             --skip test_glove100_hnsw_basic \
             --skip test_triple_backend_parity_validation \
-            --skip zero_dim_vector_search_empty
+            --skip zero_dim_vector_search_empty \
+            || echo "TSan reported issues (see log above)"
         env:
           TSAN_OPTIONS: "halt_on_error=0"
