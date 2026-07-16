@@ -355,7 +355,7 @@ jobs:
   sanitizer-asan:
     name: ASan (AddressSanitizer)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -374,6 +374,8 @@ jobs:
       - name: Test with AddressSanitizer
         run: |
           cargo +nightly test \
+            -Z build-std \
+            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address"]'
@@ -413,6 +415,8 @@ jobs:
       - name: Test with ThreadSanitizer
         run: |
           cargo +nightly test \
+            -Z build-std \
+            --target x86_64-unknown-linux-gnu \
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=thread"]' \
