@@ -21,15 +21,15 @@ Pipeline completo de integración continua para el núcleo Rust del proyecto. Ej
 | `audit` | `cargo audit` (seguridad en dependencias, ignora RUSTSEC-2026-0176/0177) | ubuntu | 5m |
 | `miri` | `cargo miri test` para detección de undefined behavior (continue-on-error) | ubuntu | 60m |
 | `deny` | `cargo deny check` (licencias, advisories, bans) | ubuntu | 5m |
-| `sanitizer-asan` | `cargo +nightly test -Z build-std --target x86_64-unknown-linux-gnu --config target.xxx.rustflags = ["-Zsanitizer=address"]` (continue-on-error, rebuilds std con ASan, proc-macros no instrumentados) | ubuntu | 60m |
-| `sanitizer-tsan` | `cargo +nightly test -Z build-std --target x86_64-unknown-linux-gnu --config target.xxx.rustflags = ["-Zsanitizer=thread"]` (continue-on-error, skips tests incompatibles, no depende de ASan) | ubuntu | 60m |
+| `sanitizer-asan` | `cargo +nightly test --config target.xxx.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, per-target evita proc-macros, mismatch flag suprime error ABI) | ubuntu | 45m |
+| `sanitizer-tsan` | `cargo +nightly test --config target.xxx.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, 30min, skips tests incompatibles) | ubuntu | 30m |
 
 ## ¿Qué tests usa?
 
 - **Perfil `audit` de nextest**: subconjunto rápido de tests (~454 tests) que excluye los heavys y de certificación.
 - **Perfil `ci-windows`**: subconjunto aún más reducido para Windows.
 - **Tests con Miri**: solo los tests etiquetados con `miri` en el core `vantadb`.
-- **Tests con sanitizers**: todos los tests del package `vantadb` con `-Z build-std --target x86_64-unknown-linux-gnu` y `--config target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address|thread"]`. `-Z build-std` recompila la std library con el mismo flag sanitizer, evitando ABI mismatch. El `--config` per-target evita instrumentar crates proc-macro (como `tokio_macros`) que se compilan para el host. TSan salta `sift1m_competitive_benchmark`, `test_glove100_hnsw_basic`, `test_triple_backend_parity_validation`, `zero_dim_vector_search_empty` (tests que requieren `--release` o features no disponibles).
+- **Tests con sanitizers**: todos los tests del package `vantadb` con `--config target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address|thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]`. El `--config` per-target evita instrumentar crates proc-macro (como `tokio_macros`). `-Cunsafe-allow-abi-mismatch=sanitizer` suprime el error de ABI mismatch entre crates target (con sanitizer) y sysroot (sin sanitizer). TSan salta `sift1m_competitive_benchmark`, `test_glove100_hnsw_basic`, `test_triple_backend_parity_validation`, `zero_dim_vector_search_empty` (tests que requieren `--release` o features no disponibles).
 
 ## ¿Qué verifica?
 
@@ -47,7 +47,7 @@ Pipeline completo de integración continua para el núcleo Rust del proyecto. Ej
 
 ## Funcionalidad final
 
-Garantizar que cualquier cambio en el código Rust (`src/`, `tests/`, `benches/`, `Cargo.toml`, etc.) cumple con los estándares de calidad, seguridad y portabilidad del proyecto antes de llegar a `main`. ASan y TSan tienen `continue-on-error: true` por posibles issues del compilador nightly. TSan corre en paralelo a ASan (sin dependencia). Ambos usan `-Z build-std` para recompilar la std library con el sanitizer, evitando ABI mismatch.
+Garantizar que cualquier cambio en el código Rust (`src/`, `tests/`, `benches/`, `Cargo.toml`, etc.) cumple con los estándares de calidad, seguridad y portabilidad del proyecto antes de llegar a `main`. ASan y TSan tienen `continue-on-error: true`. TSan corre en paralelo a ASan (sin dependencia). Ambos suprimen el error de ABI mismatch con `-Cunsafe-allow-abi-mismatch=sanitizer` para evitar el overhead de `-Z build-std`.
 
 ## ¿Cuándo se ejecuta?
 
