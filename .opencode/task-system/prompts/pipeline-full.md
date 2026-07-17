@@ -1,3 +1,11 @@
+> **ACTIVE INSTRUCTION — Execute Complete Task**
+> Cargado por `commands/pipeline.md` (modo TASK, ejecución NOW) o por `/pipeline run` vía sub-agente.
+> Path resolution: `skills/X` → `.opencode/skills/X/`, `tasks/ID.md` → `.opencode/skills/campaign-executor/tasks/ID.md`
+> Ejecutar UNA TAREA COMPLETA por invocación: discovery → implementación → cierre.
+> Seguir el flujo según estado (PENDING / IN PROGRESS / FAILED).
+> Al finalizar: commit, actualizar plan file, ejecutar skill progreso, handoff y STOP.
+> NO continuar a la siguiente tarea — el loop externo (pipeline-run / sub-agentes) lo maneja.
+
 Cargá las skills campaign-executor, progreso, ponytail (full).
 
 Paso 0 — Auto-cargar skills según tipo de tarea:

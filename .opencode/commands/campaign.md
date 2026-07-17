@@ -2,6 +2,13 @@
 description: Gestionar campañas: crear plan desde backlog, definir tarea, ejecutar
 ---
 
+> **ENTRY POINT — Campaign Command**
+> El agente DEBE leer este archivo cuando el usuario envía un mensaje que empieza con `/campaign`.
+> Path resolution: `prompts/X.md` → `.opencode/task-system/prompts/X.md`
+> Skills: `skills/X` → `.opencode/skills/X/`
+> Instrucciones: cargar cada prompt con Read tool y ejecutar secuencialmente.
+> Al finalizar: mostrar comando recomendado para el siguiente paso.
+
 Cargá las skills campaign-executor, brainstorming, writing-plans, progreso, ponytail (full).
 
 Entrada: $1

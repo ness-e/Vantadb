@@ -1852,3 +1852,11 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 **Pre-existing issue:** 80/219 TS tests fail with `unreachable!()` panics in Node.js vitest environment — pre-existing WASM runtime bug, not blocking publish. 113 pass (type guards, lifecycle, errors), 26 skip (search tests need data). Requires separate investigation.
 
 **Verificación:** `wasm-pack build --release` ✅ in `vantadb-wasm/`. `tsc` ✅ in `vantadb-ts/`. `npm publish --dry-run` ✅ (`npm pkg fix` applied). `release-npm-61.yml` CI fix verified by reading YAML.
+
+### 2026-07-17 — P1-2: Windows test step timeout 25→30 min
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-2 | Windows step timeout 25→30 min | Increased step timeout from 25 to 30 min in `ci-rust-10.yml` `test-windows` job to match job timeout. `test-threads=2` preserved (needed to avoid OS error 1455). | ✅ |
+
+**Verificación:** diff inspeccionado, commit 3acd07c.

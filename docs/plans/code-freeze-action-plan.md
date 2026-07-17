@@ -25,7 +25,7 @@
 | ID | Área | Hallazgo | Archivo:Línea | Estado |
 |:--:|:----:|----------|:-------------:|:------:|
 | **P1-1** | CI | Benchmark dataset (GloVe) descargado en cada `test` job, incluso para PRs de docs/lint. Solución: mover a solo `coverage` o agregar `if: steps.cache-benchmark.outputs.cache-hit != 'true'`. | `ci-rust-10.yml:104-106` | ⏳ |
-| **P1-2** | CI | Windows `test-threads=2` + timeout 25 min flaquea bajo carga del runner. `slow-timeout` 60s aborta tests I/O lentos. Solución: evaluar si `test-threads=2` sigue siendo necesario o aumentar timeout. | `nextest.toml:67`, `ci-rust-10.yml:142` | ⏳ |
+| **P1-2** | CI | Windows `test-threads=2` + timeout 25 min flaquea bajo carga del runner. Solución: aumentar step timeout a 30 min (igual al job timeout). | `ci-rust-10.yml:145` | ✅ |
 | **P1-3** | CI | Cache GloVe con key fija (`glove-100d-v1`) que nunca se invalida. Si el script `download_benchmark_datasets.sh` cambia, la cache sigue sirviendo el viejo. Solución: usar hash del script como cache key. | `ci-rust-10.yml:102` | ⏳ |
 | **P1-4** | CI | macOS carece de `rust-setup action` — no usa el action compartido `.github/actions/rust-setup` que Linux y Windows sí usan. Solución: unificar con `rust-setup`. | `ci-rust-10.yml:152` | ⏳ |
 | **P1-5** | WASM | `wasm-opt = false` en `vantadb-wasm/Cargo.toml` — bundle 30-50% más grande, sin optimización post-compile. Nota ponytail: "re-enable when CI binaryen catches up to bulk-memory + sign-extension features". Verificar si binaryen ya soporta estas features. | `vantadb-wasm/Cargo.toml:15` | ⏳ |

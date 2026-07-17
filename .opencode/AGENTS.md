@@ -2,6 +2,48 @@
 
 > **🛡️ Validation Rule:** Si no estás 100% seguro de una respuesta, análisis o decisión técnica, DEBES validar contra internet (`websearch`/`webfetch`). Para herramientas, librerías o APIs, la fuente de verdad es su documentación oficial o GitHub. No confíes en conocimiento interno del modelo si hay duda.
 
+## Pipeline & Command System
+
+El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía un comando.
+
+### Entry Points
+
+| Mensaje del usuario | Archivo a leer | Modos |
+|---|---|---|
+| `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive |
+| `/campaign ...` | `.opencode/commands/campaign.md` | Plan / Task / Pipeline / Run |
+| `/audit ...` | `.opencode/commands/audit.md` | Full / Quick / Certify / Review |
+| `/certify` | `.opencode/commands/certify.md` | Pre-push gate (8 layers) |
+
+### Path Resolution
+
+Todas las rutas relativas en comandos y prompts se resuelven así:
+
+| Referencia en el archivo | Resuelve a |
+|---|---|
+| `prompts/X.md` | `.opencode/task-system/prompts/X.md` |
+| `skills/X` | `.opencode/skills/X/` |
+| `tasks/<ID>.md` | `.opencode/skills/campaign-executor/tasks/<ID>.md` |
+| `docs/plans/X.md` | `docs/plans/X.md` (ruta directa) |
+
+### Cómo ejecutar un comando
+
+1. **Detectar:** el usuario manda un mensaje que coincide con un patrón de comando (`/pipeline task P1-2`, `/audit quick`, `/campaign`, etc.)
+2. **Leer entry point:** el agente LEE el archivo de comando correspondiente en `.opencode/commands/` con Read tool
+3. **Interpretar modo:** el archivo describe cómo rutear según el argumento (plan / task / run / etc.)
+4. **Resolver rutas:** cada referencia a `prompts/X.md`, `skills/X`, `tasks/X.md` se resuelve según la tabla de Path Resolution
+5. **Cargar prompts:** cada prompt listado se carga con Read tool y se ejecuta secuencialmente
+6. **Seguir sin saltar:** los prompts son instrucciones activas — seguir fases y pasos en orden
+7. **Handoff:** al finalizar, escribir recitation y detenerse (no continuar a la siguiente tarea sin que el usuario lo pida)
+
+### Skills base para pipeline
+
+| Skill | Cuándo cargar |
+|---|---|
+| `progreso` | Al inicio de sesión y al completar cada tarea |
+| `ponytail (full)` | Siempre activo (modo lazy default) |
+| `campaign-executor` | En modo task / run (no es skill instalado, leer `.opencode/skills/campaign-executor/SKILL.md`) |
+
 ## CodeGraph
 
 CodeGraph tiene un índice pre-construido del código fuente de VantaDB (7.3K símbolos, 24.7K edges). **Úsalo SIEMPRE antes de grep/find/Read** para preguntas estructurales.
@@ -796,3 +838,7 @@ El saldo neto de deuda técnica por PR debe ser **cero o negativo**.
 | P2-6 | `lib.rs:688-712` | Match no exhaustivo en `VantaError` | 🟢 15 min |
 | P2-7 | `lib.rs:895-901` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
 | P2-8 | `lib.rs:394-413` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |
+
+<!-- Learnings: P1-2 — 2026-07-17 -->
+- `nextest.toml` está en `.config/` (no en raíz). Buscar con `Get-ChildItem -Filter` si `Read` falla.
+- Cambios CI-only no necesitan `cargo check`/`clippy`/`nextest` para verify — el diff es suficiente.

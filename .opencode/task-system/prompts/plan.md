@@ -1,3 +1,10 @@
+> **ACTIVE INSTRUCTION — Create Plan from Backlog**
+> Cargado por `commands/pipeline.md` (modo PLAN) o `commands/campaign.md`.
+> Path resolution: skills por nombre → `.opencode/skills/<nombre>/`
+> Aplicar triage gate (✅ DO / 🟡 DEFER / ❌ SKIP / 🔴 BLOQUEADO) a cada tarea.
+> Crear `docs/plans/<FECHA>-<nombre>.md` solo con tareas ✅ DO.
+> Al finalizar: mostrar comando recomendado (`/pipeline run` o `/pipeline task <ID>`).
+
 Cargá las skills brainstorming, writing-plans, idea-refine, progreso, ponytail (full).
 
 Backlog: {{BACKLOG_PATH}}
