@@ -61,7 +61,7 @@ function Check-Methods {
 # ═══════════════════════════════════════
 #  1. SDK
 # ═══════════════════════════════════════
-$sdkAll = Select-String -Path "$root\src\sdk.rs" -Pattern '^\s*pub (unsafe )?(async )?fn (\w+)' |
+$sdkAll = Select-String -Path "$root\src\sdk\builder.rs","$root\src\sdk\api.rs","$root\src\sdk\graph.rs","$root\src\sdk\search.rs" -Pattern '^\s{4}pub (unsafe )?(async )?fn (\w+)' |
   ForEach-Object { $_.Matches[0].Groups[3].Value } | Sort-Object -Unique
 
 $sdkNormal = $sdkAll | Where-Object { $_ -notlike 'debug_*' }
@@ -103,7 +103,7 @@ $allErrors = if ($errorEnumBody) {
     ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
 } else { @() }
 
-Check-Methods -Label "src/error.rs (VantaError)" -Methods $allErrors -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md"
+Check-Methods -Label "src/error.rs (VantaError)" -Methods $allErrors -DocRelPath "docs\api\EMBEDDED_SDK.md" -DocLabel "EMBEDDED_SDK.md" -Exclude @('fn','pub','use')
 
 # ═══════════════════════════════════════
 #  4. CLI commands
