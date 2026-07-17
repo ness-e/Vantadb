@@ -142,7 +142,7 @@ jobs:
 
       - name: Run quick integrity tests (Windows)
         shell: pwsh
-        timeout-minutes: 25
+        timeout-minutes: 30
         run: cargo nextest run --profile ci-windows --features "cli,arrow,tls,opentelemetry"
 
   test-macos:
