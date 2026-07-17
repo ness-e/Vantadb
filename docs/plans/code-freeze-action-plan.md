@@ -13,8 +13,8 @@
 |:--:|:----:|----------|:-------------:|:------:|
 | **P0-1** | CI | `cancel-in-progress: true` mata jobs de test a los 25 min si hay push rápido. 14 workflows afectados: `ci-rust-10`, `ci-web-11`, `heavy-certification-50`, `heavy-bench-nightly-51`, `fuzz-40`, `perf-bench-40`, `gate-docs-21`, `sec-codeql-30`, `release-adapters-62`, `release-npm-61`, `release-wheels-60`. Solución: `cancel-in-progress: true` solo para lint jobs (fmt, clippy), no para `test`/`coverage`. | `.github/workflows/*.yml` | ✅ |
 | **P0-2** | CI | `memory-concurrency` con `continue-on-error: true` silencia fallos críticos (`memory_brutality`, `concurrency_parity`, `memory_api`, `memory_telemetry`, `edge_cases`). Tests que nadie monitorea. Solución: remover `continue-on-error` o crear GitHub Issues con tag `flaky` para cada test que falle. | `heavy-certification-50.yml:166` | ✅ |
-| **P0-3** | CI | `failpoint-tests` sin `timeout-minutes` definido. Si un failpoint se cuelga (ej. panic en `crash_injection`), el job corre hasta 360 min (default GH Actions). Solución: agregar `timeout-minutes: 30` al job. | `heavy-certification-50.yml:89-107` | ⏳ |
-| **P0-4** | CI | Miri con `continue-on-error: true` — Undefined Behavior en bindings FFI (PyO3, wasm-bindgen) no bloquea CI. Solución: evaluar si Miri ya es estable para el toolchain actual y cambiar a `continue-on-error: false`, o crear Issue para seguimiento. | `ci-rust-10.yml:332` | ⏳ |
+| **P0-3** | CI | `failpoint-tests` sin `timeout-minutes` definido. Si un failpoint se cuelga (ej. panic en `crash_injection`), el job corre hasta 360 min (default GH Actions). Solución: agregar `timeout-minutes: 30` al job. | `heavy-certification-50.yml:89-107` | ✅ |
+| **P0-4** | CI | Miri con `continue-on-error: true` — Undefined Behavior en bindings FFI (PyO3, wasm-bindgen) no bloquea CI. Solución: evaluar si Miri ya es estable para el toolchain actual y cambiar a `continue-on-error: false`, o crear Issue para seguimiento. | `ci-rust-10.yml:332` | ✅ |
 
 ---
 

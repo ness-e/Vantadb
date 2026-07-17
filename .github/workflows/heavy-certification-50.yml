@@ -89,6 +89,7 @@ jobs:
   failpoint-tests:
     name: "Certification: failpoint_injections"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     concurrency:
       group: failpoints-${{ github.ref }}
       cancel-in-progress: true
@@ -163,7 +164,6 @@ jobs:
         with:
           swap-mb: 4096
       - name: Run memory & concurrency heavy tests
-        continue-on-error: true
         timeout-minutes: 60
         run: >
           cargo test --release
