@@ -104,6 +104,7 @@ jobs:
           key: glove-100d-v1
 
       - name: Download benchmark datasets
+        if: steps.cache-benchmark.outputs.cache-hit != 'true'
         run: bash scripts/download_benchmark_datasets.sh
         shell: bash
 
@@ -238,6 +239,7 @@ jobs:
           key: glove-100d-v1
 
       - name: Download benchmark datasets
+        if: steps.cache-benchmark.outputs.cache-hit != 'true'
         run: bash scripts/download_benchmark_datasets.sh
         shell: bash
 
@@ -331,7 +333,6 @@ jobs:
         env:
           MIRI_NO_HOST_FALLBACK: 1
           RUSTFLAGS: "-Zrandomize-layout"
-        continue-on-error: true
 
   deny:
     name: Dependency Policy Check
