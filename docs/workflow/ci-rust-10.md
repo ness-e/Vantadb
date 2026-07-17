@@ -21,8 +21,8 @@ Pipeline completo de integración continua para el núcleo Rust del proyecto. Ej
 | `audit` | `cargo audit` (seguridad en dependencias, ignora RUSTSEC-2026-0176/0177) | ubuntu | 5m |
 | `miri` | `cargo miri test` para detección de undefined behavior (continue-on-error) | ubuntu | 60m |
 | `deny` | `cargo deny check` (licencias, advisories, bans) | ubuntu | 5m |
-| `sanitizer-asan` | `cargo +nightly test --config target.xxx.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, per-target evita proc-macros, mismatch flag suprime error ABI) | ubuntu | 45m |
-| `sanitizer-tsan` | `cargo +nightly test --config target.xxx.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, 30min, skips tests incompatibles) | ubuntu | 30m |
+| `sanitizer-asan` | `cargo +nightly test --target x86_64-unknown-linux-gnu --config target.xxx.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, `--target` separa host de target, proc-macros sin flag, ABI mismatch suprimido, hallazgos reportados sin abortar) | ubuntu | 45m |
+| `sanitizer-tsan` | `cargo +nightly test --target x86_64-unknown-linux-gnu --config target.xxx.rustflags = ["-Zsanitizer=thread", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, 30min, skips tests incompatibles) | ubuntu | 30m |
 
 ## ¿Qué tests usa?
 
