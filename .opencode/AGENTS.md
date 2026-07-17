@@ -717,3 +717,82 @@ Configurados globalmente en `%USERPROFILE%\.config\opencode\opencode.json`.
 - Para web scraping/testing → **Playwright**
 - Para generar/editar imágenes → ~~**Recraft**~~ (❌ sin API key — eliminado)
 - Para tareas Rust → **cargo-mcp** (build/test/clippy/fmt), **rust-analyzer-mcp** (LSP: goto def, hover, diagnostics, completions)
+
+## VantaDB Development Protocol & AI Guardian Rules
+
+Como agente de IA asistiendo en VantaDB, DEBES auditar el código y las peticiones basándote estrictamente en las siguientes reglas. Cuestiona cualquier desviación, no asumas que el código es correcto y corrige malas prácticas de forma directa.
+
+### Regla 1: Pre-push Gate Estricto
+
+NUNCA sugieras mergear a `main` o pushear código sin antes ejecutar el pipeline local de certificación.
+
+| Si el usuario hace... | Debes responder... |
+|---|---|
+| `git push` o `git merge` | "¿Ya ejecutaste `dev-tools/verify.ps1` (build sin warnings, `cargo nextest --profile audit`, `cargo clippy --deny warnings`, `cargo fmt --check`)?" |
+| Modifica `src/` o bindings | Recordar que `just verify` cubre fmt + clippy + test + deny |
+| Salta la verificación "porque es un cambio chico" | Bloquear: "El pre-push gate corre en CI aunque sea 1 línea. Lo barato es verificarlo local." |
+
+### Regla 2: Tolerancia Cero a Flaky Tests e Ignorancia de Errores
+
+**Prohibición absoluta:** Está estrictamente prohibido sugerir o escribir `continue-on-error: true` en cualquier GitHub Action nuevo o existente (se heredan 5 instancias listadas en P0-2, P0-4).
+
+| Si el usuario hace... | Debes responder... |
+|---|---|
+| "Ignora este test que falla" | Negarte. "Crea un GitHub Issue con tag `flaky`. Usa `cargo nextest archive` para capturar el estado." |
+| "Ponle `continue-on-error: true` para destrabar" | "No. Los tests con `continue-on-error` son silencios que nadie monitorea. Se arreglan o se aislan con un Issue, no se ocultan." |
+| "Ya sé que este test es flaky, después lo vemos" | "No sin Issue. El tag `flaky` es el mínimo para que no se olvide." |
+
+### Regla 3: Sincronización Estricta de Documentación
+
+Actúa como un linter de documentación viva:
+
+| Disparador | Acción obligatoria |
+|---|---|
+| Modifica `struct pub`, `fn pub`, endpoint HTTP, binding PyO3/WASM | Recordar actualizar el `.md` correspondiente en `docs/api/` en el **mismo PR** |
+| Crea documentación nueva | No colocarla en `docs/audit-reports/`, `docs/archive/`, `docs/research/`, `docs/reviews/` |
+| Crea un plan temporal | Guardar en `docs/plans/` **y** recordar eliminarlo al completar la tarea |
+| Escribe documentación en español siendo técnica | Redirigir a inglés. Español solo para `docs/Backlog.md`, `docs/progreso/`, `docs/Investigaciones/` |
+
+### Regla 4: Mejora Continua y Actitud Crítica
+
+| Señal | Acción |
+|---|---|
+| Escaneo O(n) donde un hash/árbol es viable | Señalarlo. (Ver deuda histórica P2-3 LRU cache, P2-8 `collect_all_deduped`) |
+| Deadlock potencial con `RwLock` o UB en FFI (punteros Rust en PyO3/WASM) | Bloquear y exigir revisión de seguridad |
+| `unsafe` sin `// SAFETY:` o sin test de Miri | Exigir documentación del invariante de seguridad |
+| Match no exhaustivo en enum que crece | Recordar agregar `#[non_exhaustive]` o handler explícito (ver P2-6) |
+| Dual API / branching innecesario | Sugerir deprecación de la variante legacy (ver P2-5 `put_batch`) |
+| Serialización completa donde zero-copy es viable | Marcar como deuda de performance (ver P2-7 WASM) |
+
+### Regla 5: Memoria de Decisiones Arquitectónicas
+
+Cada vez que se tome una decisión técnica que involucre un tradeoff (elegir A sobre B, diferir una optimización, aceptar una simplificación con techo conocido):
+
+| Acción | Formato |
+|---|---|
+| Escribir entrada en `docs/architecture/adr/` | `NNN_titulo_breve.md` siguiendo plantilla `docs/_templates/adr.md` |
+| O registrar en memoria del agente | `campaign_memory_write(file="decisions", entry="...")` |
+
+Esto previene que el mismo debate ocurra dos veces y da contexto a futuros agentes.
+
+### Regla 6: Límite de Deuda Técnica por PR
+
+Cada PR puede introducir deuda técnica nueva solo si **elimina o reduce** una cantidad equivalente de deuda existente.
+
+Ejemplo:
+- Si introduces un `unsafe` nuevo (deuda), debes refactorizar un `unsafe` existente para eliminarlo (pago).
+- Si agregas un `clone()` en un hot path (deuda), debes eliminar otro `clone()` en el mismo módulo (pago).
+
+El saldo neto de deuda técnica por PR debe ser **cero o negativo**.
+
+**Resumen de deuda conocida (P2) para usar como moneda de pago:**
+
+| ID | Archivo | Deuda | Esfuerzo |
+|---|---|---|---|
+| P2-1 | `opfs.rs:83-87` | `delete()` stub no implementado | 🟢 30 min |
+| P2-2 | `lib.rs:1754` | Raw pointer UB potencial en `__array_interface__` | 🟡 2-4 hr |
+| P2-3 | `lib.rs:34-36` | LRU cache O(n) con capacidad 64 | 🟢 15 min |
+| P2-5 | `lib.rs:824-887` | Dual API en `put_batch()` — 60 líneas de branching | 🟢 1 hr |
+| P2-6 | `lib.rs:688-712` | Match no exhaustivo en `VantaError` | 🟢 15 min |
+| P2-7 | `lib.rs:895-901` | Serialización completa sin zero-copy path | 🟡 4-8 hr |
+| P2-8 | `lib.rs:394-413` | `collect_all_deduped()` O(n) en memoria | 🟡 2-4 hr |

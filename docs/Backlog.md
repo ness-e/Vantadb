@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-16
 ---
 
 # Active Backlog — VantaDB
@@ -11,7 +11,7 @@ last_reviewed: 2026-07-13
 > **Purpose:** Single source of truth for all project tasks.
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
-> **Total open items:** 91 (66 previos + 22 del docs-audit Jul 13 + 3 del full review Jul 13)
+> **Total open items:** 165 (108 previos + 22 del rescate OLD Jul 16 + 5 cross-ref Wave 3 + 30 competitive features COMP Jul 16)
 > **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
@@ -369,8 +369,34 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | `DRV-112` | **delete() silenciosamente no-op en IDs malformados** — `split(':')` con `parts.len() != 2` ignora error. Mismo bug que DRV-105 | `vantadb-llamaindex/src/python.rs:120-128` | 🟢 30min | 🔵 | ❌ |
 | `DRV-113` | **Test coverage: 5 tests/43L** — Idéntico a langchain. Sin tests para: delete con IDs malformados, empty, metadata return, no-string metadata | `vantadb-llamaindex/tests/test_llamaindex.py:1-43` | 🟢 1h | ⚪ | ❌ |
 | `DRV-114` | **AtomicU64 counter no persistido** — Mismo que DRV-108 | `vantadb-llamaindex/src/python.rs:23,59,63` | 🟢 30min | ℹ️ | ❌ |
+| `DRV-115` | **🚫 `vantadb-openai` STATUS_STACK_BUFFER_OVERRUN en MSVC linker** — Compila individualmente (`cargo check -p vantadb-openai`) pero revienta en workspace build. El linker `link.exe` de MSVC se desborda con pyo3 + dependencias grandes. `build-jobs = 2` en `.cargo/config.toml` mitiga parcialmente pero no alcanza. Cascadea a `vantadb-wasm` (48 errores: `can't find crate for vantadb`). Fix: excluir adaptadores pyo3 de workspace build o usar `rust-lld` | `.cargo/config.toml`, todo workspace | 🟡 4h | 🔴 | ❌ |
+| `DRV-116` | **10 warnings de compilación en `vantadb` core** — 9x `unnecessary unsafe block` en `graph.rs:178`, `serialize.rs:528,598`, `archive.rs:74,104`, `maintenance.rs:141`, `vfile.rs:481,485,567` (Mmap::map y MmapMut::map_mut son safe en vfile. MCP v0.6). 4 dead code methods en `vfile.rs:79-91` (`flush`, `flush_async`, `flush_range`, `is_empty`) | `src/index/graph.rs`, `src/index/serialize.rs`, `src/storage/archive.rs`, `src/storage/engine/maintenance.rs`, `src/storage/vfile.rs` | 🟢 30min | ⚪ | ❌ |
+| `DRV-117` | **2 stale advisory ignores en `deny.toml`** — `RUSTSEC-2024-0436` (paste) y `RUSTSEC-2025-0134` (rustls-pemfile) ya no matchean ningún crate. Limpiar del ignore list | `deny.toml:11,15` | 🟢 5min | ⚪ | ❌ |
+| `DRV-118` | **Windows builds missing from CI release matrix** — release.yml builds Linux+macOS only. No Windows binaries available. Blocks Windows adoption | `.github/workflows/release.yml` | 🟡 1d | 🔴 | ❌ |
+| `DRV-119` | **No multi-layer storage rollback (ACID Phase 0)** — WAL/VantaFile/HNSW/KV writes uncoordinated; partial failure leaves inconsistent state. Pre-requisite for ACID Phase 1-3 | `src/storage/engine/ops.rs` | 🟠 3-5d | 🔴 | ❌ |
+| `DRV-120` | **HNSW layer-0-only navigation** — Search is O(n) instead of sub-linear. Multi-layer graph algorithm never completed; HNSW degrades to flat scan at scale | `src/index/graph.rs` | 🟠 3-5d | 🔴 | ❌ |
+| `DRV-121` | **Planner AST/LogicalPlan/PhysicalPlan not implemented** — IQL parsed directly to execution with no intermediate representation. No query optimization, no cost-based planning | `src/query.rs` | 🟠 3-5d | 🟠 | ❌ |
+| `DRV-122` | **IQL lacks JOINs, subqueries, SQL compatibility** — Biggest feature gap vs Qdrant/Chroma. No FROM/JOIN/WHERE/GROUP BY | `src/query.rs` | 🟠 5-10d | 🟠 | ❌ |
+| `DRV-123` | **Auto-embedding on INSERT not implemented** — LlmClient.generate_embedding() exists but never called from executor. Landing page falsely claims auto-embedding support | `src/llm.rs`, `src/executor.rs` | 🟡 2-3d | 🟠 | ❌ |
+| `DRV-124` | **macOS code signing/notarization missing** — No Apple Developer Account, no codesign, no Gatekeeper notarization. macOS users get security warnings | — | 🟡 2-3d | 🟡 | ❌ |
+| `DRV-125` | **No Miri tests for UB detection** — Unsafe code paths (SIMD, mmap, zero-copy deserialize) without undefined behavior testing | `src/index/distance.rs`, `src/index/graph.rs` | 🟡 1-2d | 🟡 | ❌ |
+| `DRV-126` | **No regression benchmarks in CI** — Performance regressions undetected. nightly_bench.yml exists but not gated | `.github/workflows/ci-rust-10.yml` | 🟡 1d | 🟡 | ❌ |
+| `DRV-127` | **WAL encryption does not exist (plain text)** — WAL data stored unencrypted even when enterprise feature enabled. Enterprise encryption is a no-op stub | `vantadb-enterprise/src/encryption.rs`, `src/storage/wal.rs` | 🟡 2-3d | 🟡 | ❌ |
+| `DRV-128` | **No governance production tests** — AdmissionFilter, ConflictResolver lack covering tests for production paths | `src/governance/admission.rs`, `src/governance/conflict.rs` | 🟡 1d | 🟡 | ❌ |
+| `DRV-129` | **Enterprise crate fully disconnected from main crate** — vantadb_enterprise never imported; 96% placeholder code (267L, ~10L real logic). Should integrate or delete | `vantadb-enterprise/` | 🟡 1d | 🟡 | ❌ |
+| `DRV-130` | **SIFT 1M high-recall 127s bottleneck** — Known performance blocker for certification benchmarks. Anti-locality in SSD layout | `src/index/search.rs` | 🟡 2-3d | 🟡 | ❌ |
+| `DRV-131` | **Missing index types beyond HNSW** — Only 1 index type vs 8 in Quiver. No Flat/IVF/PQ/Int8/FP16/Binary for diverse workload optimization | `src/index/` | 🟠 5-10d | 🔵 | ❌ |
+| `DRV-132` | **AuthRateLimiter unbounded HashMap — DoS memory exhaustion** — `AuthRateLimiter` en `cli_server.rs` usa HashMap sin límite de crecimiento. Un atacante con IPs distintas puede llenar la memoria del servidor. Fix: LRU cache o `BoundedHashMap` con TTL | `src/cli_server.rs:146-211` | 🟢 2h | 🔴 | ❌ |
+| `DRV-133` | **Tombstoned nodes contaminate HNSW search_layer heap** — Nodos marcados como tombstone no se filtran durante `search_layer`, contaminando el heap de resultados. Puede devolver nodos eliminados como hits válidos | `src/index/core.rs:562-570` | 🟢 2h | 🔴 | ❌ |
+| `DRV-134` | **NbAccordion sin keyboard navigation** — Componente accordion no soporta navegación por teclado (Enter/Space/ArrowKeys). Violación WCAG 2.1. Sin focus management ni aria-expandido dinámico | `web/src/components/nb/NbAccordion.tsx` | 🟢 2h | 🟡 | ❌ |
+| `DRV-135` | **3 unmaintained dependencies** — atomic-polyfill, paste, rustls-pemfile (via axum-server) no mantenidos. Solo paste+RUSTSEC-2024-0436 en deny.toml, faltan los otros 2 | `deny.toml`, `Cargo.lock` | 🟢 30min | 🟡 | ❌ |
+| `DRV-136` | **vantadb-wasm monolítico — CRUD user descarga 1MB+** — WASM build no feature-gated. Usuario que solo necesita CRUD básico descarga graph, governance, crypto, MCP. Sin tree-shaking WASM posible | `vantadb-wasm/Cargo.toml` | 🟡 2-3d | 🟡 | ❌ |
 
-| ID | Tarea | Archivo | Esfuerzo | Prioridad | Estado |
+### 🔍 Hallazgos del Cross-Ref Docs-vs-Code (Wave 3)
+
+> Items descubiertos durante la reconciliación cross-ref docs vs code (Jul 16). Ver `docs/audit-reports/cross-ref-wave3-final-report.md`.
+
+| ID | Tarea | Archivo
 |----|-------|---------|----------|-----------|--------|
 | `REV-001` | **CI: Rust fails on main — TSan ABI mismatch** — `-Zsanitizer=thread` incompatible con toolchain 1.94.1 | `.github/workflows/ci-rust-10.yml` → H05-ERROR-001 | 🟢 2h | 🔴 | ✅ |
 | `REV-002` | **CI: Web fails on main — 21 lint issues** — 14 ESLint errors + 7 warnings rompen build | `.github/workflows/ci-web-11.yml` → H05-ERROR-002 | 🟢 2h | 🔴 | ✅ |
@@ -494,7 +520,7 @@ Jul 18-25  TIER 1 (🟠 35+ items):
                ─ Docs: MKT-14 (case studies), TSK-106 (Discussions)
                ─ NUEVO-01/07/08/10: README, migrations, learning, benchmarks
                ─ Launch: LEG-01, MKT-03/04/05/10/15/16
-                ─ Code health: VFY-001→012, **REV-003→018**, **DRV-001→045**, **DRV-046→056**, **DRV-057→061**, **DRV-062→067**, **DRV-068→073**, **DRV-074→078**, **DRV-079→084**, **DRV-085→090**, **DRV-091→095**, **DRV-096→101**, **DRV-102→108**, **DRV-109→114**
+                ─ Code health: VFY-001→012, **REV-003→018**, **DRV-001→045**, **DRV-046→056**, **DRV-057→061**, **DRV-062→067**, **DRV-068→073**, **DRV-074→078**, **DRV-079→084**, **DRV-085→090**, **DRV-091→095**, **DRV-096→101**, **DRV-102→108**, **DRV-109→114**, **DRV-118→136** (cross-ref Wave 3 gaps)
                ─ WASM: NUEVO-11→15
                ─ Docs-audit: SEC-14, WEB-03/04, DEVOPS-13/14/15, TEST-11/12, DOC-20
 Ago+       TIER 2-4:
@@ -525,4 +551,538 @@ Ago+       TIER 2-4:
 - [ ] Changelog actualizado si es cambio visible al usuario
 
 ---
+
+## TIER 5 — 🔴🧩 Rescate de Old Docs (Features Perdidas)
+
+> Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agents). Ver `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 para detalles completos de cada item.
+> **Total items:** 22 (6 🔴 + 8 🟡 + 4 🟢 + 4 ⚪)
+
+### 🗂 Referencia de Archivos Old Docs
+
+Los items de este tier se identificaron a partir de archivos en `C:\Users\Eros\VantaDB Proyect\VANTADB DOC OLD\`. Los números de "Batch" en cada item referencian el batch de lectura del reporte, que contiene estos archivos:
+
+| Batch | Archivos old docs relevantes |
+|-------|------------------------------|
+| Batch 2 | `spec-20-sleep-worker.md`, `spec-26-bayesian-forgetfulness.md` |
+| Batch 3 | `spec-30-rehydration.md`, `spec-31-contextual-priming.md` |
+| Batch 4 | `ADR-001.md`, `ADR-002.md`, `ADR-003.md`, `cp-index-design.md`, `pipeline-architecture.md` |
+| Batch 8 | `report.md` (auditoría), `plan-accion-alto-rendimiento.md`, `FASE-5-auditoria.md` |
+| Batch 9 | `implementation_plan.md`, `FASE-2-implementation.md`, `SEC-WAL-plan.md` |
+| Batch 11 | `python_sdk_design.md`, `pgwire_spec.md`, `langchain_integration.md` |
+| Batch 12 | `hnsw_execution.md`, `temporal_scoring.md`, `tiered_storage.md`, `eviction_policy.md`, `electric_vs_chemical_synapse.md` |
+| Batch 13 | `marketing_strategy.md`, `investor_pitch_deck.md`, `gtm_timeline.md` |
+| Batch 14 | `BENCHMARKS.md`, `FUZZING.md`, `MEMORY_TELEMETRY.md`, `REPO_CHECKLIST.md` |
+| Batch 16 | `ADVANCED_TOKENIZER.md` (docs_backup) |
+| Batch 17 | `pilot/PILOT_ONBOARDING.md`, `pilot/PILOT_FEEDBACK_FORM.md` |
+| Batch 18 | `GraphRAG/README.md` (VantaDB-MPTS) |
+| Batch 20 | `VantaDB_CLI_TUI_Design_Spec.md`, `how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`, `why_i_built.md`, `FROM_CHROMADB.md`, `FROM_LANCEDB.md` |
+
+---
+
+### 🔴 Alta — Esto sí se perdió y duele
+
+> Features implementables, iban con el mercado, abandonadas sin razón técnica sólida.
+
+---
+#### OLD-01: PGWire (PostgreSQL wire protocol)
+
+- **Archivos old docs:** Batch 11 (`pgwire_spec.md`)
+- **Qué era:** Compatibilidad con protocolo PostgreSQL para usar psql, pgAdmin, DBeaver, y todo el ecosistema PG.
+- **Por qué es pérdida grave:** pgvector es el vector DB más usado del mundo — no porque sea el mejor, sino porque ya está en PostgreSQL. PGWire le daría a VantaDB acceso instantáneo a todo el ecosistema PG: ORMs (SQLAlchemy, Prisma), tools (pgAdmin, DBeaver), hosting (Supabase, Render). **Esto solo valdría más que todas las specs cognitivas juntas.** Sería el diferenciador #1: "PostgreSQL-compatible vector DB embedida en Rust."
+- **Viable:** Sí. Existen crates Rust maduros: `pgwire` (tokio-postgres wire protocol), `pg_extend` (para extensiones PG nativas). Implementación factible en 2-3 semanas. No requiere ser PostgreSQL completo — solo el protocolo wire para aceptar conexiones PG y traducir queries SELECT/INSERT a IQL internamente.
+- **Dependencias:** Ninguna técnica. Decisión de producto.
+
+---
+#### OLD-02: GraphRAG pipeline formal
+
+- **Archivos old docs:** Batch 18 (`GraphRAG/README.md` en VantaDB-MPTS), Batch 20 (`GraphRAG/README.md` en docs_backup)
+- **Qué era:** Pipeline completo de GraphRAG: seed node → expand edges → retrieve subgraph → generate context. Aprovecha que VantaDB tiene grafo + vector en el mismo motor.
+- **Por qué es pérdida grave:** VantaDB es la **ÚNICA** embedida que tiene grafo + vector en el mismo motor. Qdrant no tiene grafo. LanceDB no tiene grafo. Chroma no tiene grafo. Armar el pipeline de GraphRAG es un feature que ningún competidor directo puede igualar sin cambiar su arquitectura. El traversal de grafo (`bfs_traversal` en `src/graph/`) existe y está implementado; lo que falta es la orquestación: wrapper que recibe un seed, expande N hops, recupera los vectores de los nodos alcanzados, scores por similitud semántica, y devuelve el subgrafo enriquecido.
+- **Viable:** ~1-2 semanas. El traversal BFS existe y funciona. Solo falta: (1) wrapper `GraphRAGPipeline` en `src/graph/rag.rs`, (2) API endpoint `graphrag(query, seed_id, max_hops, top_k)`, (3) integración con el contexto generator para producir el prompt final con el subgrafo serializado como contexto. No requiere cambios en el motor HNSW/BM25.
+- **Dependencias:** Auto-embedding (DRV-123 en backlog TIER 4) recomendado para DX completa, pero funcional sin él si el usuario provee vectores.
+
+---
+#### OLD-03: Chaos testing (Jepsen/Maelstrom)
+
+- **Archivos old docs:** Batch 8 (`report.md`, `FASE-5-auditoria.md`), Batch 14 (`FUZZING.md`)
+- **Qué era:** Suite de chaos testing para certificar linearizabilidad y comportamiento ACID bajo caos de red, crashes, particiones.
+- **Por qué es pérdida grave:** Sin esto, los claims ACID de VantaDB no tienen respaldo. Cualquier cliente enterprise que evalúe la DB va a preguntar "¿y cómo sabés que no perdés datos bajo partición de red o crash?" Hoy la respuesta es "implementamos WAL con CRC32C", que no es lo mismo que "probado bajo Jepsen". La metodología ya está documentada en `docs/report.md` y `docs/FUZZING.md` — plan de 6 fases con escenarios de caos específicos para VantaDB. Solo falta ejecutar.
+- **Viable:** ~2-3 semanas. Usar Maelstrom (herramienta de tests distribuidos de Jepsen) con el driver personalizado para VantaDB. Los escenarios ya están definidos: (1) kill -9 del proceso durante INSERT, (2) fsync falla intermitentemente, (3) WAL truncado a mitad de escritura, (4) partición de red si se usa WAL shipping. Ejecutar en CI como test semanal, no blocking.
+- **Dependencias:** Docker. WAL shipping existente.
+
+---
+#### OLD-04: OpenTelemetry tracing
+
+- **Archivos old docs:** Batch 14 (`MEMORY_TELEMETRY.md`)
+- **Qué era:** Instrumentación completa con OpenTelemetry para tracing de queries, WAL writes, index builds, memory usage.
+- **Por qué es pérdida grave:** Enterprise observabilidad es requisito #1 para cualquier cliente que pague. Sin tracing, debuggear una DB embedida en producción es a ciegas — no sabés qué query es lenta, dónde está el bottleneck, por qué crece la memoria. `MEMORY_TELEMETRY.md` documenta el contrato completo de telemetría planificada, pero no hay código de OTel en el binary. El contrato incluye: span por query (parse → plan → exec → score), span por WAL write (fsync latency, batch size), span por index build (HNSW insert, BM25 merge), métricas de memory pool, métricas de cache hit rate.
+- **Viable:** ~1 semana. La crate `opentelemetry` para Rust es madura (`.01` estable). Instrumentar los 3 hotspots: (1) `executor.execute()` crear span raíz, (2) `wal::write()` crear span hijo, (3) `hnsw::search()` crear span de index. Export via OTLP o stdout. Configurable vía `unified_config` con feature flag.
+- **Dependencias:** Ninguna. Feature flag independiente.
+
+---
+#### OLD-05: Search Quality v2 (Unicode + snippets)
+
+- **Archivos old docs:** Batch 14 (`REPO_CHECKLIST.md`), Batch 16 (`ADVANCED_TOKENIZER.md` en docs_backup)
+- **Qué era:** Tokenizer avanzado con Tantivy, stemming, stopwords, Unicode folding, soporte multilingüe, phrase queries con snippets públicos.
+- **Por qué es pérdida grave:** El tokenizer actual (`lowercase-ascii-alnum`) no soporta español (tildes, ñ), ni stemming, ni snippets. Para ser "SQLite para agentes" la búsqueda de texto debe funcionar en cualquier idioma. El advanced-tokenizer ya existe como default feature (TSK-123 completado), pero los snippets públicos y el Unicode folding completo siguen pendientes desde RELIABILITY_GATE.
+- **Viable:** ~3-4 días. Advanced tokenizer ya es default. Cerrar: (1) Unicode normalization (NFC/NFD) en el tokenizer, (2) exponer `snippet()` en la API pública que devuelva el contexto alrededor del match, (3) agregar stopword lists para EN/ES.
+- **Dependencias:** Ninguna. Continuación de trabajo existente.
+
+---
+#### OLD-06: Blog posts (3 artículos técnicos completos)
+
+- **Archivos old docs:** Batch 13 (`marketing_strategy.md`), Batch 20 (`how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`, `why_i_built.md`)
+- **Qué era:** Tres artículos técnicos ya escritos y listos para publicar: (1) how_hybrid_search_works, (2) sqlite_for_ai_agents, (3) why_i_built_vantadb.
+- **Por qué es pérdida grave:** Están **completos**. No falta escribirlos, no falta investigar — falta publicarlos. Esto es tráfico orgánico gratis, credibilidad técnica, y contenido para HN launch. Cada día que no se publican es contenido muerto. El artículo "sqlite_for_ai_agents" es el posicionamiento exacto de VantaDB y debería ser la página principal del docs site.
+- **Viable:** ~2-3 días. (1) Revisar y actualizar a v0.3.0 API, (2) publicar en blog.vantadb.com o Medium/Dev.to, (3) linkear desde README. El artículo "why_i_built" funciona como post de HN launch directo.
+- **Dependencias:** Decisión de publicación. No técnica.
+
+---
+
+### 🟡 Medio — Podría tener valor pero no es crítico
+
+---
+#### OLD-07: AutoHot/Cold tiering (STN/LTN simplificado)
+
+- **Archivos old docs:** Batch 12 (`tiered_storage.md`, `governor_design.md`)
+- **Qué era:** Separación lógica automática entre datos calientes (RAM, FP32) y fríos (disco, SQ8 mmap). Promoción/democión automática basada en patrones de acceso.
+- **Por qué es viable:** Para "memoria de agente AI" a largo plazo, algunos vectores se acceden siempre y otros nunca. Sin tiering automático, todo vive en RAM o todo en disco. `VectorRepresentations::Full` vs `QuantizedSQ8` ya existe en `src/vector/governor.rs` como semilla, pero sin política automática de movimiento entre tiers.
+- **Implementación:** ~1 semana. La semilla `QuantizationGovernor` existe. Solo falta: (1) medir hit rate por página, (2) si baja de un umbral → demover a SQ8 en mmap, (3) si sube → promover a FP32 en RAM. Política configurable vía `unified_config`.
+- **Dependencias:** Ninguna. Usa infraestructura existente.
+
+---
+#### OLD-08: Life Insurance / snapshots hard-link
+
+- **Archivos old docs:** Batch 13 (`marketing_strategy.md` — referenciado como "life insurance feature")
+- **Qué era:** Sistema de snapshots zero-cost antes de operaciones destructivas usando hard links (o `cp --reflink` en COW filesystems). `vanta-cli snapshot create` toma un snapshot inmediato, `vanta-cli snapshot restore` lo restaura.
+- **Por qué es viable:** En una DB embedida, las operaciones destructivas (delete_all, drop collection, vacuum) no tienen "undo". Con hard links, un snapshot es instantáneo (0 bytes extra en disco si nada cambia) porque hard linkea el directorio de datos. Solo los archivos que cambian después del snapshot ocupan espacio nuevo. Es el mismo mecanismo que usan ZFS/Btrfs snapshots pero a nivel filesystem POSIX.
+- **Implementación:** ~3-4 días. (1) `SnapshotManager` en `src/storage/snapshot.rs` que hace hard link del directorio de datos a `./snapshots/<name>/`, (2) comando `vanta-cli snapshot create <name>` y `vanta-cli snapshot restore <name>`, (3) integración con WAL: antes de restore, hacer backup del WAL actual. Usar `std::fs::hard_link()` en Windows y `link()` en Unix. Para COW filesystems, detectar y usar `ioctl` de reflink.
+- **Dependencias:** Ninguna. Solo syscalls POSIX estándar.
+
+---
+#### OLD-09: Olvido Bayesiano (hit decay)
+
+- **Archivos old docs:** Batch 2 (`spec-26-bayesian-forgetfulness.md`), Batch 12 (`temporal_scoring.md`, `eviction_policy.md`)
+- **Qué era:** Sistema de decaimiento de scores basado en frecuencia de acceso. Una entrada con hits=0 durante semanas se degrada automáticamente.
+- **Por qué es viable:** Para el caso de uso principal (memoria de agente AI), el olvido automático de memorias no accedidas es real. No es "bayesiano" literal — es un TTL extendido con scoring exponencial. El `temporal_scoring` ya existe con `hits`, `last_accessed`, `eviction_score`; solo falta agregar el decaimiento temporal en el cálculo de score.
+- **Implementación:** ~3-4 días. Modificar `EvictionPolicy` en `src/storage/eviction.rs` (línea ~14 actual: select based on score) para agregar decay factor exponencial: `score = hits / (1 + α·elapsed_days)`. El `ResourceGovernor` en `src/governor/mod.rs` ya maneja watermarks.
+- **Dependencias:** Ninguna. Usa infraestructura existente.
+
+---
+#### OLD-10: Sinapsis eléctrica (index-free adjacency)
+
+- **Archivos old docs:** Batch 12 (`electric_vs_chemical_synapse.md`), Batch 4 (arquitectura grafos)
+- **Qué era:** Para edges en el grafo, saltar por punteros directos (direcciones de memoria/offset) en lugar de lookup por ID. Inspirado en Neo4j.
+- **Por qué es viable:** Para grafos traversal-heavy (GraphRAG, multi-hop queries), el ID lookup por HashMap es O(1) amortizado pero con penalidad de caché. Index-free adjacency usando offsets dentro del mmap permitiría O(1) real con localidad de referencia. VantaDB almacena edges como `(source, target, weight)` en `src/storage/graph.rs`; cambiarlos a offsets raw dentro del page mmap es una optimización contenida.
+- **Implementación:** ~1 semana. No cambiar la API pública (edges siguen siendo source→target). Solo cambiar representación interna en `GraphEdge` para que `target` sea un offset dentro del mismo page en lugar de un ID global. Aplicable solo a edges intra-page.
+- **Dependencias:** Requiere page structure mmap consolidada. Postergable hasta después de HNSW multi-capa.
+
+---
+#### OLD-11: CLI/TUI interactivo
+
+- **Archivos old docs:** Batch 20 (`VantaDB_CLI_TUI_Design_Spec.md` — 1106 líneas)
+- **Qué era:** REPL shell tipo `vantadb-cli` con `\connect`, `\status`, comandos tipo psql. TUI con ratatui con paneles, mocks diseñados.
+- **Por qué es pérdida grave:** El CLI actual es imperativo (`vanta-cli put --key X --value Y`). No hay REPL, no hay exploración interactiva de datos. Para una DB que se posiciona como "SQLite para agentes", no tener una shell interactiva es un gap enorme en developer experience. El spec está completamente diseñado en `VantaDB_CLI_TUI_Design_Spec.md` (1106 líneas). CLI-01 existente cubre "REPL/TUI" genéricamente pero no referencia el spec completo.
+- **Viable:** Spec de 1106 líneas ya escrito. ratatui + clap. ~1-2 semanas. Incluir: REPL con historial, paneles de exploración de colecciones, query builder visual, exportación de resultados.
+- **Dependencias:** Ninguna. Proyecto aparte dentro del repo.
+
+---
+#### OLD-12: Pilot program formal
+
+- **Archivos old docs:** Batch 17 (`pilot/PILOT_ONBOARDING.md`, `pilot/PILOT_FEEDBACK_FORM.md` en docs_backup)
+- **Qué era:** Programa de early adopters con onboarding estructurado: script `agent_memory_loop.py`, formulario de feedback, sesiones de pairing, canal privado. Diseñado para conseguir los primeros 10-20 usuarios reales antes del launch público.
+- **Por qué es viable:** El GTM actual es "build it and they will come" — no funciona para DBs embedidas. Los early adopters necesitan: (1) un caso de uso obvio (agent memory), (2) un script que funcione en 5 minutos, (3) un humano que los ayude cuando algo falla. El script `agent_memory_loop.py` ya existe en `python/examples/`. El formulario de feedback está diseñado. El onboarding está redactado. Solo falta lanzarlo: anuncio en r/LocalLLaMA, HN, y Discord del proyecto.
+- **Implementación:** ~1 semana. (1) Verificar que `agent_memory_loop.py` funciona con v0.3.0, (2) publicar docs/pilot/ en `docs/`, (3) crear canal `#pilot` en Discord, (4) escribir post de reclutamiento para HN/r/LocalLLaMA, (5) ofrecer sesiones de 30min a los primeros 10 inscritos.
+- **Dependencias:** PyPI publication (gap analysis 🔴 Alta) — sin PyPI, el onboarding es manual.
+
+---
+#### OLD-13: Explainable ranking (explain flag)
+
+- **Archivos old docs:** Batch 9 (`implementation_plan.md`, `FASE-2-implementation.md`)
+- **Qué era:** Flag `explain` en queries de búsqueda para obtener desglose detallado de scores BM25/RRF por resultado.
+- **Por qué es viable:** `explain_memory_search()` existe en Python SDK pero no expuesto en API pública completa. Devuelve desglose BM25/RRF por resultado: qué término de la query matcheó, qué peso tuvo el vector score, cómo se fusionó en RRF. Esto es debug UX para developers que ningún competidor ofrece.
+- **Implementación:** ~2-3 días. Exponer `explain` como parámetro en `search()` de Python SDK y CLI. El backend `ExplainableRanking` ya existe en Rust core.
+- **Dependencias:** Ninguna. Feature ya implementada en backend, solo falta exponer.
+
+---
+#### OLD-14: MessageThread / GcWorker para agentic chat
+
+- **Archivos old docs:** Batch 11 (`python_sdk_design.md`, `agent_memory_api.md`)
+- **Qué era:** Primitivas conversacionales para agentes AI: MessageThread (hilo de mensajes con context window management) y GcWorker (garbage collector de memorias viejas).
+- **Por qué es viable:** Para posicionar VantaDB como "memoria de agente", tener primitivas de chat (crear hilo, agregar mensaje, resumir contexto, podar historia) es un feature esperado. GCWorker existe parcial en código (`src/worker/gc.rs`) pero nunca conectado al flujo de chat.
+- **Implementación:** ~1 semana. (1) `MessageThread` struct con add_message(), get_context(), trim_history(), (2) conectar GCWorker para podar mensajes viejos automáticamente, (3) exponer en Python SDK.
+- **Dependencias:** Ninguna. Código de worker existe.
+
+---
+
+### 🟢 Bajo — Quick wins de ~1 día
+
+---
+#### OLD-15: Distancia Euclidiana L2
+
+- **Archivos old docs:** Batch 9 (`implementation_plan.md`)
+- **Qué era:** Soportar distancia Euclidiana (L2) como métrica de similitud además de Cosine.
+- **Por qué es viable:** Hoy solo Cosine similarity. Muchos modelos de embedding (OpenAI text-embedding-3-small, Cohere embed-multilingual) prefieren o recomiendan L2. `distance.rs` en `src/index/` ya tiene estructura SIMD para `euclidean_distance_squared_f32` (usada internamente en HNSW) pero no expuesta como métrica de query.
+- **Implementación:** ~2 días. (1) Agregar `DistanceMetric::Euclidean` enum variant, (2) hook en query path para usar L2 en vez de Cosine, (3) exponer en Python SDK como `metric="cosine"|"l2"`.
+- **Dependencias:** Ninguna. Código de distancia existe.
+
+---
+#### OLD-16: WAL rotation a 256MB
+
+- **Archivos old docs:** Batch 9 (`SEC-WAL-plan.md`)
+- **Qué era:** Rotación automática del WAL cuando alcanza 256MB para evitar crecimiento infinito.
+- **Por qué es viable:** WAL compaction existe pero rotación formal no. Sin rotación, el WAL puede crecer sin límite en workloads de alta escritura. Un solo archivo WAL enorme es difícil de backup, replica, y debuggear.
+- **Implementación:** ~1 día. En `src/storage/wal.rs`, agregar check post-append: si `wal_size > 256MB`, iniciar rotación (cerrar WAL actual → rename a `.old` → abrir nuevo WAL). Usar `max_wal_size` de `unified_config`.
+- **Dependencias:** Ninguna.
+
+---
+#### OLD-17: Migration guides públicos (FROM_CHROMADB, FROM_LANCEDB)
+
+- **Archivos old docs:** Batch 20 (`FROM_CHROMADB.md`, `FROM_LANCEDB.md`)
+- **Qué era:** Guías completas de migración desde ChromaDB y LanceDB a VantaDB.
+- **Por qué es viable:** Están **completas y escritas**. Solo falta: (1) mover a `docs/guides/`, (2) linkear desde README en sección "Migrating from...", (3) actualizar API calls si cambiaron desde que se escribieron.
+- **Implementación:** ~1 día. Copy + review + link.
+- **Dependencias:** Ninguna.
+
+---
+#### OLD-18: Query TEMPERATURE parameter (diversidad controlada)
+
+- **Archivos old docs:** Batch 12 (`temperature_control.md`)
+- **Qué era:** Parámetro TEMPERATURE para controlar softmax temperature sobre scores de resultados. Temp alta → resultados más diversos (scores planos). Temp baja → resultados más precisos (scores sharp).
+- **Por qué es viable:** Existe como parámetro interno de query en `src/query/temperature.rs` pero no expuesto en API pública. Útil para recommendation systems (temp alta → más exploración) y agent memory (temp baja → más precisión).
+- **Implementación:** ~1 día. Exponer `temperature: Option<f32>` en search() de Python SDK y CLI. Default = 1.0 (sin cambio). Rango 0.1-2.0.
+- **Dependencias:** Ninguna. Código interno existe.
+
+---
+
+### ⚪ Futuro / Con Dependencias
+
+---
+#### OLD-19: Rehidratación desde shadow archive
+
+- **Archivos old docs:** Batch 3 (`spec-30-rehydration.md`), Batch 12 (`shadow_kernel.md`)
+- **Qué era:** Capacidad de "recordar" datos archivados cuando un patrón de acceso similar reaparece. Equivalente a cache promotion/demotion de disco a RAM.
+- **Por qué es viable:** El concepto `shadow_kernel` ya existe como semilla en `src/kernel/shadow_kernel.rs` pero sin política de rehidratación. Para agente memory, una memoria que estuvo fría y vuelve a ser relevante debería promoverse automáticamente a hot tier.
+- **Implementación:** ~1 semana. Hook en el path de query: si el score de un resultado frío supera un umbral, copiarlo de vuelta a hot storage.
+- **Dependencias:** AutoHot/Cold tiering (OLD-07). Hacer después de ese.
+
+---
+#### OLD-20: Contextual Priming (cache warming predictivo)
+
+- **Archivos old docs:** Batch 3 (`spec-31-contextual-priming.md`), Batch 12
+- **Qué era:** Pre-cargar vecinos frecuentes de un nodo cuando se accede a él. Predictivo basado en patrones históricos de traversal.
+- **Por qué es viable:** Cache warming predictivo es una técnica estándar. Cuando haces una query HNSW por el vector A y siempre terminas en los mismos vecinos B, C, D, esos vecinos deberían estar precargados. Se implementa con un HashMap de frecuencias de co-acceso: `(source, neighbor) → count`.
+- **Implementación:** ~2-3 días. Agregar `CoAccessTracker` en `src/hnsw/search.rs` que registre pares query→resultado. Segundo lookup: al buscar por A, pre-cargar en L2 cache los vecinos con co-access score alto. Desactivado por defecto (feature flag).
+- **Dependencias:** Ninguna. Es puramente aditivo.
+
+---
+#### OLD-21: CP-Index formal (query routing inteligente)
+
+- **Archivos old docs:** Batch 4 (`cp-index-design.md`, `pipeline-architecture.md`)
+- **Qué era:** Content-Provider Index: ruteador de queries al sub-index correcto (BM25 vs HNSW vs Graph) basado en el tipo de query.
+- **Por qué es viable:** Hoy el routing BM25 vs HNSW vs Graph es ad-hoc en el executor (`src/executor.rs`). Formalizarlo en un CP-Index mejoraría: (1) performance en queries mixtas, (2) extensibilidad para nuevos index types, (3) capacidades de explain.
+- **Implementación:** ~1 semana. (1) Crear `CPIndexRouter` que inspeccione el query plan y decida qué índice(s) usar, (2) migrar routing actual del executor al CP-Index, (3) exponer métricas de ruteo.
+- **Dependencias:** DRV-121/122 (Planner AST + IQL completo). Hacer después de esos.
+
+---
+#### OLD-22: Apache Arrow columnar export
+
+- **Archivos old docs:** Batch 4 (`columnar-export-design.md`)
+- **Qué era:** Exportación de resultados de query en formato Apache Arrow columnar para integración directa con Pandas, DataFusion, y ML pipelines.
+- **Por qué es viable:** `columnar.rs` existe en `src/sdk/columnar.rs` pero como implementación mínima. Productizarlo como feature público permitiría: (1) zero-copy a Pandas via PyArrow, (2) integración con DataFusion para SQL queries, (3) exportación eficiente de batches grandes.
+- **Implementación:** ~3-4 días. (1) Expandir `columnar.rs` para soportar schemas completos (metadata, vectores, scores), (2) exponer `to_arrow()` en Python SDK que devuelva `pyarrow.Table`, (3) agregar batch export para resultados >1M filas.
+- **Dependencias:** Ninguna.
+---
+
+## TIER 6 — 🆕 Competitive Features (Vector + Graph DBs)
+
+> **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura). Ver `docs/audit-reports/competitive-features-consolidated-report.md` y `docs/audit-reports/deep-analysis-{vector,graph,arch}.md` para análisis completo.
+> **Total:** 30 items (7 🔴 + 17 🟠 + 6 🟡)
+> **IDs:** COMP-001→COMP-030
+
+### 🔴 Alta — Features competitivas críticas para adopción
+
+---
+
+#### COMP-001: SQ8/PQ Quantization (4x-16x compression)
+- **Fuente:** ARC-019 (Arquitectura) / QDR-009 (Qdrant)
+- **Qué es:** Cuantización escalar (f32→i8, 4x) y Product Quantization (subespacios, 16x). SQ8 existe como `VectorRepresentations::SQ8` pero no expuesto en query path. PQ requiere entrenamiento K-means por subespacio.
+- **Por qué es crítico:** Sin cuantización, VantaDB no puede procesar datasets >1M vectores en RAM. El benchmark SIFT 1M (127s) es síntoma directo — 4x compresión = 4x más vectores en RAM = page faults eliminados. Además, habilita el tier Pro (monetizable).
+- **Esfuerzo:** 🟡 2-3 semanas. SQ8: ~1 semana (exponer en query path). PQ: ~2 semanas (entrenamiento + distancia asimétrica).
+- **Dependencias:** ARC-014 (HNSW Persistence) recomendado antes para evitar rebuild post-cuantización.
+
+---
+
+#### COMP-002: HNSW Persistence (no rebuild en startup)
+- **Fuente:** ARC-014 (wal_strategy.md)
+- **Qué es:** Serializar neighbor lists del grafo HNSW a disco en lugar de rebuildear desde vectores en cada cold start. Hoy cada startup rebuild: 3-5s para 100K, 30-60s para 1M+.
+- **Por qué es crítico:** Una DB "embebida" que tarda 30s+ en abrir no es embebida. Para agentes AI en serverless/edge (que hacen cold starts frecuentes), este tiempo es unacceptable.
+- **Esfuerzo:** 🟡 1-2 semanas. CPIndex.nodes (DashMap) ya tiene neighbor lists en memoria. Serializar con bincode + load condicional.
+- **Dependencias:** Ninguna técnica.
+
+---
+
+#### COMP-003: In-filter traversal (bitset durante HNSW walk)
+- **Fuente:** QDR-004 (Qdrant) / GRF-006 (Neo4j)
+- **Qué es:** Durante la caminata del grafo HNSW, intersectar un bitset de filtro en cada hop. Solo se exploran nodos que matchean el filtro. Elimina el post-filter overhead y el problema de zero-results.
+- **Por qué es crítico:** Para RAG con filtros de metadata (el caso de uso #1), el post-filtering actual puede descartar todos los K resultados. Sin in-filter traversal, VantaDB no es competitivo para filtered search.
+- **Esfuerzo:** 🟢 ~50 líneas en `graph.rs:search_nearest()`. `FilterBitset` ya existe en `HnswNode`. Solo falta intersectarlo durante el traversal.
+- **Dependencias:** PIN-005 (RoaringBitmaps) para construir los bitsets de metadata eficientemente.
+
+---
+
+#### COMP-004: Bitset-based filtering + soft deletes
+- **Fuente:** MLV-005 (Milvus)
+- **Qué es:** Usar RoaringBitmaps para tracking de deletes (soft deletes: marcar bit, no remover nodo) y filtros. La búsqueda AND-ea bitsets de deleted mask + filter mask. Periodically compact.
+- **Por qué es crítico:** Base para CRUD en HNSW sin rebuild completo. Sin soft deletes, cada delete requiere reconstruir el índice o dejar tombstones que degradan recall.
+- **Esfuerzo:** 🟢 3-5 días. `croaring` crate está disponible. VantaDB ya tiene `FilterBitset` como concepto.
+- **Dependencias:** Previo a COMP-011 (HNSW CRUD con tombstones).
+
+---
+
+#### COMP-005: HNSW params configurables (M, ef_construction, ef_search)
+- **Fuente:** GRF-005 (Neo4j/universal)
+- **Qué es:** Exponer M (conexiones por nodo), ef_construction (calidad build), ef_search (calidad search) como parámetros configurables por índice. Valor por defecto sensible pero override por colección.
+- **Por qué es crítico:** Feature mínima esperada por cualquier usuario de bases vectoriales. Sin parámetros ajustables, no hay tuning para tradeoff recall/latencia. Todos los competidores (Qdrant, Milvus, pgvector) los soportan.
+- **Esfuerzo:** 🟢 2-3 días. `HnswConfig` ya existe. Extender y exponer en API pública.
+- **Dependencias:** Ninguna.
+
+---
+
+#### COMP-006: Edge Label Interning (u32 label_id)
+- **Fuente:** ARC-004 (unified_node.md)
+- **Qué es:** Reemplazar `Edge.label: String` por `Edge.label_id: u32` + lookup table global. Ahorra ~20 bytes/edge (de 36B a 16B). Matching de labels pasa de O(n) string compare a O(1) integer compare.
+- **Por qué es crítico:** Para 1M nodos con ~4 edges/nodo, ~80MB en strings repetidos. Label interning reduce a ~12MB. En travesías SIGUE (hot path de GraphRAG), el matching de labels es O(n) hoy → O(1).
+- **Esfuerzo:** 🟢 ~2 días. `Edge` struct tiene solo 6 callers. Label interning es patrón estándar.
+- **Dependencias:** Ninguna.
+
+---
+
+#### COMP-007: Bitset inline u128 en UnifiedNode
+- **Fuente:** ARC-002 (unified_node.md)
+- **Qué es:** Reemplazar `FilterBitset` (Vec<u64> heap-allocated) por u128 inline en UnifiedNode. Ahorra 24-56 bytes/nodo + elimina indirección de heap. Scan de filtros con instrucción única AND (no loop de memoria).
+- **Por qué es crítico:** Impacta TODAS las operaciones de filtrado (~40% más rápido). Cada nodo en cada query paga el costo del FilterBitset actual.
+- **Esfuerzo:** 🟡 1 semana. Cambio localizado en `node.rs:705` (UnifiedNode) y `node.rs:15` (FilterBitset). ~20 callers en el mismo módulo.
+- **Dependencias:** Ninguna. Migración de formato con versionado simple.
+
+---
+
+### 🟠 Media-Alta — Features competitivas importantes
+
+---
+
+#### COMP-008: Pluggable index engine (VecIndex trait)
+- **Fuente:** MLV-016 (Milvus)
+- **Qué es:** Abstraer operaciones de indexación detrás de un trait VecIndex: Train, Add, Search, Serialize, Load. Permite múltiples implementaciones (HNSW, IVF, DiskANN) hot-swappables.
+- **Por qué es valioso:** Desacopla la API de indexación de la implementación. Permite agregar nuevos index types sin cambiar el query pipeline. Habilita third-party index plugins.
+- **Esfuerzo:** 🟡 1-2 semanas. Refactor de `CPIndex` para implementar `VecIndex` trait. No cambia el algoritmo, solo la organización.
+- **Dependencias:** Previo a COMP-027 (múltiples index types).
+
+---
+
+#### COMP-009: Binary bulk import (5-10x faster than INSERT)
+- **Fuente:** PGV-008 (pgvector)
+- **Qué es:** Formato binario para importación masiva de vectores. Datos vectoriales directamente memory-mappeados/streamed, bypassing serialization. Similar a PostgreSQL COPY BINARY.
+- **Por qué es valioso:** Para benchmarks y migraciones, la diferencia entre minutos y horas. Esencial para onboarding de usuarios con datasets existentes.
+- **Esfuerzo:** 🟢 3-4 días. Formato FlatBuffer/bincode para vectores + metadata. Endpoint CLI `vanta-cli import --binary dataset.vec`.
+- **Dependencias:** Ninguna.
+
+---
+
+#### COMP-010: Auto-embedding (embedding function abstraction)
+- **Fuente:** CHR-004/CHR-011 (Chroma)
+- **Qué es:** Capa de abstracción para proveedores de embedding: EF(texts) → vectors. Soporta OpenAI, Ollama, HuggingFace, custom providers. Usuario pasa texto crudo, VantaDB genera vectores automáticamente.
+- **Por qué es valioso:** Elimina la fricción de generar embeddings client-side. Chroma y Pinecone lo tienen como feature principal. Mejora DX significativamente.
+- **Esfuerzo:** 🟡 1-2 semanas. Trait `EmbeddingProvider` + implementaciones para Ollama (ya existe LlmClient) y OpenAI.
+- **Dependencias:** DRV-123 (auto-embedding on INSERT) ya existe como feature flag.
+
+---
+
+#### COMP-011: HNSW CRUD con tombstones + async cleanup
+- **Fuente:** WEV-001 (Weaviate)
+- **Qué es:** Custom HNSW con soporte de updates/deletes elementales sin rebuild completo. Tombstones mask deleted nodes; periodic cleanup thread remueve tombstoned entries y repara enlaces.
+- **Por qué es valioso:** Esencial para workloads con updates frecuentes (memoria de agente, datasets cambiantes). Sin esto, cada delete/update requiere rebuild completo del índice.
+- **Esfuerzo:** 🟡 2-3 semanas. Depende de COMP-004 (soft deletes) como base. Cleanup thread similar al GcWorker existente.
+- **Dependencias:** COMP-004 (bitset + soft deletes), COMP-014 (FreshHNSW).
+
+---
+
+#### COMP-012: RoaringBitmaps for metadata indexing
+- **Fuente:** PIN-005 (Pinecone) / MLV-005 (Milvus)
+- **Qué es:** Cada valor único de metadata tiene su propio RoaringBitmap apuntando a nodos que lo contienen. Filtro `color=red AND size>10` = bitmap intersection. O(1) lookup por valor + compresión nativa.
+- **Por qué es valioso:** Sin un metadata index eficiente, el bitset de COMP-003 no tiene de dónde venir. Es el complemento necesario para in-filter traversal.
+- **Esfuerzo:** 🟡 1 semana. `croaring` crate para Rust. Metadata index separado del HNSW. Actualización en upsert/delete.
+- **Dependencias:** Previo a COMP-003 (in-filter traversal necesita los bitsets).
+
+---
+
+#### COMP-013: Segment optimizer pipeline (Vacuum/Merge/Index)
+- **Fuente:** QDR-003 (Qdrant)
+- **Qué es:** Tres tipos de optimizadores: VacuumOptimizer (remueve soft-deletes), MergeOptimizer (combina segmentos pequeños), IndexOptimizer (construye HNSW/cuantización en segmentos sealed).
+- **Por qué es valioso:** Previene fragmentación del storage. Los soft deletes y writes incrementales fragmentan el dataset sin compactación periódica.
+- **Esfuerzo:** 🟡 1-2 semanas. Background thread con scheduler configurable. Similar al GcWorker existente.
+- **Dependencias:** COMP-004 (soft deletes), COMP-011 (tombstones).
+
+---
+
+#### COMP-014: FreshHNSW (background repair de enlaces huérfanos)
+- **Fuente:** ARC-022 (Documento Maestro)
+- **Qué es:** Hilos background que reparan enlaces huérfanos en HNSW generados por borrados masivos, sin bloquear lecturas. Mantiene recall estable bajo cargas delete-heavy.
+- **Por qué es valioso:** Sin FreshHNSW, el recall de HNSW se degrada con borrados. Los agents de IA escriben/borran memorias frecuentemente — el recall debe mantenerse estable durante la vida del agente.
+- **Esfuerzo:** 🟡 1 semana. Background thread similar al repair worker. Operación O(M×degree) por nodo afectado.
+- **Dependencias:** COMP-004 (soft deletes), COMP-011 (tombstones).
+
+---
+
+#### COMP-015: Hybrid Graph+Vector search pipeline
+- **Fuente:** GRF-017 (TigerGraph/ArangoDB)
+- **Qué es:** Pipeline de búsqueda híbrida: vector search → graph traversal en misma query. Los resultados vectoriales alimentan la navegación estructural sin round-trips externos: `(vector_search(query, k=10) → SIGUE 1..3 --relacion→)`.
+- **Por qué es valioso:** Diferenciador #1 de VantaDB. Ningún competidor (Qdrant, Pinecone, Chroma) tiene grafo+vector nativo. Es la feature que justifica "graph+vector en Rust, single binary".
+- **Esfuerzo:** 🟡 2-3 semanas. Requiere integrar `CPIndex::search()` con el traversal `SIGUE` existente. El BFS traversal ya funciona.
+- **Dependencias:** COMP-005 (HNSW params), COMP-003 (in-filter filtering).
+
+---
+
+#### COMP-016: Supernode mitigation (indexed relationships)
+- **Fuente:** GRF-009 (Neo4j)
+- **Qué es:** Cuando un nodo tiene millones de relaciones, agrupar edges por label en `HashMap<label_id, Vec<VantaEdgeRecord>>` para búsqueda O(1) por label, evitando escaneo lineal.
+- **Por qué es valioso:** Sin esto, un solo nodo popular puede degradar toda la query. Especialmente relevante para RAG donde un "documento" puede tener miles de "chunks". Edge Label Interning (COMP-006) lo complementa.
+- **Esfuerzo:** 🟢 3-5 días. Cambio en `UnifiedNode.edges` de Vec plano a HashMap agrupado. Impacto localizado.
+- **Dependencias:** COMP-006 (Edge Label Interning para usar u32 labels como keys).
+
+---
+
+#### COMP-017: Accumulators for parallel graph algorithms
+- **Fuente:** GRF-050 (TigerGraph)
+- **Qué es:** Variables especiales con exclusión mutua para recolectar información durante travesías paralelas: Global (@@), Local (@), Collection (List/Set/Map). Base para algoritmos GDS: PageRank, Centrality, Community Detection.
+- **Por qué es valioso:** Sin accumulators, los algoritmos de grafo requieren locks pesados o son secuenciales. Con accumulators lock-free en Rust (AtomicU64, fetch_add), VantaDB puede ejecutar PageRank nativo sin mover datos a Python.
+- **Esfuerzo:** 🟡 1-2 semanas. Implementar tipos Accumulator en Rust con crossbeam para epoch-based reclamation.
+- **Dependencias:** Ninguna. Base para COMP-022 (GDS library).
+
+---
+
+#### COMP-018: Double-linked relationship chains
+- **Fuente:** GRF-003 (Neo4j)
+- **Qué es:** Cada edge almacena punteros previo/siguiente tanto para origen como destino. Navegar relaciones de un nodo es O(k) (solo las que existen), no O(n) (todas las relaciones del nodo).
+- **Por qué es valioso:** En travesías multi-hop (SIGUE 1..3), cada salto requiere escanear todas las relaciones del nodo. Con cadenas doblemente enlazadas, cada salto cuesta solo las relaciones del label específico.
+- **Esfuerzo:** 🟡 1-2 semanas. Implementar como AdjacencyList separada, no modificar UnifiedNode. EdgeIndex existente (DashSet) puede coexistir.
+- **Dependencias:** COMP-006 (Edge Label Interning).
+
+---
+
+#### COMP-019: Binary protocol (rkyv/FlatBuffers over gRPC)
+- **Fuente:** GRF-004 (Neo4j Bolt / TigerGraph RESTPP)
+- **Qué es:** Reemplazar serialización JSON por formato binario zero-copy (rkyv o FlatBuffers) para transporte API. gRPC para streaming bidireccional. Reduce CPU de serialización ~10-100x.
+- **Por qué es valioso:** Para queries que devuelven miles de nodos, la serialización JSON es el bottleneck dominante. rkyv permite zero-copy desde la estructura en memoria directo al wire.
+- **Esfuerzo:** 🟡 1-2 semanas. Usar rkyv para el formato + tonic (gRPC) como transporte. No requiere protocolo custom.
+- **Dependencias:** Ninguna. Puede coexistir con JSON legacy.
+
+---
+
+#### COMP-020: Hybrid search with RRF (Reciprocal Rank Fusion)
+- **Fuente:** QDR-016 (Qdrant) / CHR-012 (Chroma) / GRF-029 (ArangoDB)
+- **Qué es:** Búsqueda híbrida que combina dense vector similarity + sparse BM25 retrieval usando RRF: score = 1/(k + rank). K configurable (default 60). No requiere normalización de scores entre retrievers.
+- **Por qué es valioso:** RRF es más simple y robusto que weighted sum fusion. Los scores de BM25 y cosine similarity tienen distribuciones incompatibles — RRF las fusiona basado en ranking, no en score absoluto.
+- **Esfuerzo:** 🟡 1 semana. BM25 existe. Sparse retriever existe. RRF fusion es simple: rank fusion sobre los resultados de ambos retrievers.
+- **Dependencias:** Ninguna. BM25 y vector search existen.
+
+---
+
+#### COMP-021: Temporal edges (timestamp-aware relationships)
+- **Fuente:** ARC-021 (Documento Maestro)
+- **Qué es:** Timestamp en edges para búsquedas cronológicas. Permite queries como "qué conexiones tenía este nodo antes de fecha X" y windowed graph traversal. Pruning automático de relaciones expiradas.
+- **Por qué es valioso:** Feature diferenciador para "memoria de agente AI". Los agentes necesitan memoria episódica (qué sabía el agente en momento T). Sin edges temporales, no hay time-travel en el grafo.
+- **Esfuerzo:** 🟡 1 semana. Agregar `created_at: u64` (timestamp) y `ttl: Option<u64>` a Edge struct. Modificar traversal para aceptar `BEFORE <timestamp>`.
+- **Dependencias:** Ninguna. Feature flag independiente.
+
+---
+
+#### COMP-022: Graph Data Science library (PageRank, centrality, community)
+- **Fuente:** GRF-056 (Neo4j GDS / TigerGraph)
+- **Qué es:** Librería de algoritmos de grafos nativa en Rust: PageRank, Betweenness Centrality, Louvain Community Detection, BFS, DFS, Shortest Path. Ejecutados directo sobre storage, sin mover datos a sistemas externos.
+- **Por qué es valioso:** VantaDB es la única DB embedida que podría tener GDS nativa (grafo+vector en el mismo motor). Para GraphRAG, PageRank y community detection son esenciales. La alternativa hoy es exportar a networkx.
+- **Esfuerzo:** 🟡 2-3 semanas. PageRank primero (más simple, más útil). Louvain después (más complejo).
+- **Dependencias:** COMP-017 (Accumulators) como base para PageRank.
+
+---
+
+#### COMP-023: 3 filtering strategies (pre/post/in-index)
+- **Fuente:** GRF-048 (SurrealDB/Neo4j/ArangoDB/TigerGraph)
+- **Qué es:** Las tres estrategias de filtrado implementadas: pre-filter (aplica filtro durante walk HNSW), post-filter (ANN luego filtra), in-index filtering (bitsets en hot path). Optimizador elige según selectividad.
+- **Por qué es valioso:** No hay una estrategia superior en todos los casos. Pre-filter gana con filtros poco selectivos. Post-filter gana con filtros muy selectivos. In-index es el default balanceado.
+- **Esfuerzo:** 🟡 1-2 semanas. Pre-filter es COMP-003. Post-filter ya existe. In-index requiere integración con metadata index (COMP-012).
+- **Dependencias:** COMP-003 (in-filter), COMP-012 (RoaringBitmaps), COMP-028 (SCE).
+
+---
+
+#### COMP-024: ACORN algorithm (second-hop filtered search)
+- **Fuente:** QDR-005 (Qdrant)
+- **Qué es:** Cuando in-filter traversal da pocos candidatos (filtro muy selectivo), ACORN expande a vecinos-de-vecinos (second hop) para densificar el pool de candidatos antes de re-ranking.
+- **Por qué es valioso:** Soluciona el "empty result" problem en filtered search de alta selectividad. Complemento necesario de COMP-003.
+- **Esfuerzo:** 🟡 1-2 semanas. Segundo nivel de indirección en el traversal. Feature flag detrás de HnswConfig.
+- **Dependencias:** COMP-003 (in-filter traversal).
+
+---
+
+#### COMP-025: JSON shredding (dynamic schema to columns)
+- **Fuente:** MLV-003 (Milvus)
+- **Qué es:** Dynamic JSON fields se "shreddean" en columnas tipeadas automáticamente. Cada unique key se convierte en columna. Permite SQL-like filtering sin schema definition.
+- **Por qué es valioso:** Para metadata heterogénea (cada nodo tiene campos distintos), JSON shredding permite filtrar por cualquier campo sin schema definitions manuales. Milvus lo usa como feature destacado.
+- **Esfuerzo:** 🟡 2-3 semanas. Analizador de schemas + column store auxiliar + query pushdown.
+- **Dependencias:** Ninguna. Feature independiente.
+
+---
+
+#### COMP-026: Multi-level LSM compaction (L0→L1→L2→L3)
+- **Fuente:** PIN-001/PIN-011 (Pinecone)
+- **Qué es:** Slabs inmutables promovidos por niveles: L0 (small, merges frecuentes) → L3 (large, merges infrecuentes). Capacidad exponencial por nivel. Spread compaction cost over time.
+- **Por qué es valioso:** Para write-heavy workloads con actualizaciones frecuentes. La compactación multi-nivel evita picos de I/O cuando se mergean todos los segmentos a la vez.
+- **Esfuerzo:** 🟡 1-2 semanas. Implementar sobre el segment lifecycle actual. Política de promoción configurable.
+- **Dependencias:** COMP-013 (segment optimizer pipeline).
+
+---
+
+#### COMP-027: Multiple index types (IVF, DiskANN, SCANN)
+- **Fuente:** MLV-007 (Milvus)
+- **Qué es:** Además de HNSW, ofrecer IVF_FLAT (balance velocidad/calidad), DiskANN (billones de vectores en NVMe), SCANN (PQ + SIMD). Selector por colección.
+- **Por qué es valioso:** HNSW no es óptimo para todos los workloads. IVF es mejor para alta dimensionalidad (>1024). DiskANN es necesario para datasets >RAM (billones de vectores).
+- **Esfuerzo:** 🟠 5-10 días. DiskANN es el más complejo (requiere I/O asíncrono + clustering compaction). IVF es más simple.
+- **Dependencias:** COMP-008 (VecIndex trait) para abstraer los backends.
+
+---
+
+### 🟡 Medio — Features de madurez y ecosystem
+
+---
+
+#### COMP-028: Semantic Cost Estimator (SCE)
+- **Fuente:** ARC-001 (cbo_design.md)
+- **Qué es:** Estimador de costos semántico que usa Density Metadata (out-degree promedio) y Radius Entropy (selectividad de vector search) para orden dinámico de ejecución cross-model.
+- **Por qué es valioso:** Reemplaza el orden fijo actual (bitset→graph→vector) por routing dinámico. Para queries híbridas complejas, puede elegir el orden óptimo.
+- **Esfuerzo:** 🟡 2 semanas. Metadata collector + cost model + planner integration.
+- **Dependencias:** DRV-121/122 (Planner AST + IQL completo).
+
+---
+
+#### COMP-029: Node.js/TS bindings via napi-rs
+- **Fuente:** ARC-025 (Documento Maestro)
+- **Qué es:** Bindings nativos para Node.js via crate napi-rs, generando módulo .node para ecosistema Vercel AI SDK, LangChain.js y agentes TypeScript.
+- **Por qué es valioso:** El ecosistema JS/TS es el más grande para AI agents. WASM build existe pero es limitado (sin FS, sin threading). napi-rs da acceso completo al engine desde Node.js.
+- **Esfuerzo:** 🟡 2-3 semanas. napi-rs tiene macros para generar bindings automáticamente. El desafío es la API surface.
+- **Dependencias:** Ninguna técnica. Decisión de producto.
+
+---
+
+#### COMP-030: Survival Mode (backpressure + Docker OOM prevention)
+- **Fuente:** ARC-028 (Documentación Actualizada)
+- **Qué es:** Mecanismo que respeta límites de Cgroups/Docker con 10% safe margin. Al acercarse al umbral de memoria, reduce block cache y memtables para evitar OOMKilled.
+- **Por qué es valioso:** Para despliegue en contenedores (el formato de deploy más común para agentes). Sin esto, VantaDB puede ser OOMKilled sin warning. La confianza en producción depende de esto.
+- **Esfuerzo:** 🟡 1-2 semanas. Integrar memory_governor.rs con Cgroups + Docker memory limits. Tests bajo `--memory 512m`.
+- **Dependencias:** Ninguna. ResourceGovernor existe.
+
+---
+
 **Fuente de REV-001→018:** `docs/reviews/2026-07-13-full-review.md` — generado por `vantadb-full-review` skill.
+**Fuente de DRV-118→136:** `docs/plans/2026-07-15-cross-ref-docs-vs-code.md` + `docs/plans/2026-07-16-cross-ref-full-pipeline.md` — reconciliación cross-ref findings vs backlog. Reportes: `docs/audit-reports/cross-ref-wave3-report.md` y `docs/audit-reports/cross-ref-wave3-final-report.md`.
+**Fuente de OLD-001→022:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 — análisis de ~280 archivos VANTADB DOC OLD vía 21 sub-agentes.
+**Fuente de COMP-001→030:** `docs/audit-reports/competitive-features-consolidated-report.md` + `docs/audit-reports/deep-analysis-vector.md` + `docs/audit-reports/deep-analysis-graph.md` + `docs/audit-reports/deep-analysis-arch.md` — análisis de 27 archivos VANTADB DOC OLD, 172 features, top 30 priorizados.
