@@ -12,8 +12,7 @@ license = "Apache-2.0"
 crate-type = ["cdylib", "lib"]
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-# ponytail: re-enable when CI binaryen catches up to bulk-memory + sign-extension features
+# wasm-opt defaults to true (-Os) since binaryen v121+ supports bulk-memory-opt
 
 [dependencies]
 vantadb = { path = "../", default-features = false, features = ["wasm"] }
