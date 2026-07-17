@@ -254,6 +254,10 @@ pub fn get_resident_bytes_impl(addr: *const u8, len: usize) -> Option<u64> {
                 )
             };
             #[cfg(not(target_os = "macos"))]
+            // SAFETY: same invariants as the macOS branch above — `chunk_addr` is
+            // page-aligned, `chunk_len` is bounded, and `vec_buffer` is a valid
+            // writable buffer. The pointer cast differs between platforms but the
+            // kernel contract is identical.
             let res = unsafe { libc::mincore(chunk_addr, chunk_len, vec_buffer.as_mut_ptr()) };
             if res == 0 {
                 for &page_state in vec_buffer.iter().take(pages_in_chunk) {
