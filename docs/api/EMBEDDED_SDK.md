@@ -427,3 +427,20 @@ All fallible methods return `Result<T, VantaError>` where `VantaError` is an enu
 - `VantaError::ResourceLimit(String)` — resource limit exceeded (backpressure)
 - `VantaError::Execution(String)` — runtime errors (collisions, invariants)
 - `VantaError::DatabaseBusy(String)` — database locked by another process
+- `VantaError::NodeIdCollision(u128)` — two nodes have colliding IDs
+- `VantaError::CycleDetected` — cycle detected in graph operation
+- `VantaError::ValidationError { field, reason }` — input validation failed
+- `VantaError::Timeout { operation, duration_ms }` — operation exceeded time budget
+- `VantaError::UnsupportedOperation { operation, detail }` — unsupported operation
+- `VantaError::ExecutionConflict { resource, detail }` — concurrent modification conflict
+- `VantaError::IqlError(ChainedError)` — IQL query processing error
+- `VantaError::IqlParseError { msg, line, col }` — IQL parse error at a specific line/col
+- `VantaError::CliError(ChainedError)` — CLI command processing error
+- `VantaError::SearchError(ChainedError)` — search execution error
+- `VantaError::RuntimeError(ChainedError)` — unexpected runtime error
+- `VantaError::RestoreError(ChainedError)` — restore operation error
+- `VantaError::BackupError(ChainedError)` — backup operation error
+- `VantaError::BackendError(ChainedError)` — storage backend error
+- `VantaError::InvalidInput(String)` — invalid input provided
+- `VantaError::SchemaError(String)` — schema-related error
+- `VantaError::Generic(ChainedError)` — generic catch-all error

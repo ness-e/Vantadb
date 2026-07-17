@@ -48,6 +48,13 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `10000` | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
 | `advanced_tokenizer_config` | `Option<...>` | `None` | — | Advanced tokenizer config (feature-gated) |
+| `batch_size` | `Option<usize>` | `None` (1000) | `VANTADB_BATCH_SIZE` | Max nodes per batch ingestion operation |
+| `encryption_key` | `Option<String>` | `None` | `VANTADB_ENCRYPTION_KEY` | AES-256-GCM key (hex 32-byte) for at-rest encryption (feature-gated) |
+| `flat_threshold` | `Option<usize>` | `10000` | `VANTADB_FLAT_THRESHOLD` | Brute-force flat scan threshold; ≤ this many nodes skips HNSW |
+| `hot_reload_config` | `Arc<RwLock<...>>` | — | — | Hot-reloadable config snapshot (feature-gated) |
+| `rbac_config` | `RbacConfig` | `{ token_role_map: {} }` | — | RBAC config mapping API tokens to roles |
+| `require_auth` | `bool` | `false` | `VANTADB_REQUIRE_AUTH` | Refuse to start unless `api_key` is configured |
+| `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 
 ### Enums
 
@@ -122,6 +129,10 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `repair-text-index` | Repair text index if inconsistencies are detected |
 | `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
 | `restore --from <path> [--rebuild]` | Restore from backup, verify CRC32, optional rebuild |
+| `check [--namespace <ns>]` | Validate database structural integrity |
+| `migrate [--target-version <v>]` | Migrate storage format between versions |
+| `plan` | Preview migration steps without executing |
+| `run` | Execute a pre-planned migration |
 | `export [--namespace <ns>] --out <path>` | Export records to a JSONL file |
 | `import --in <path>` | Import records from a JSONL file |
 | `namespace list` | List all namespaces |

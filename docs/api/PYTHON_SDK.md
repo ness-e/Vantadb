@@ -332,6 +332,44 @@ Generate a text snippet from a payload, highlighting matched query terms.
 db.close() -> None
 ```
 
+#### `put_batch_raw()`
+```python
+db.put_batch_raw(
+    namespace: str,
+    keys: List[str],
+    payloads: List[str],
+    vectors: Optional[List[List[float]]] = None,
+    metadata_list: Optional[List[dict]] = None,
+    ttl_ms_list: Optional[List[Optional[int]]] = None,
+) -> List[dict]
+```
+Batch insert with raw arrays (no tuple wrapping). Optimized for large batches.
+
+#### `new()`
+```python
+VantaDB.__new__(cls, *args, **kwargs) -> VantaDB
+```
+Internal constructor — prefer the class constructor `VantaDB(db_path, ...)`.
+
+### NumPy / Buffer Protocol
+
+```python
+db.get_array_interface() -> dict
+db.get_search_hit_array_interface() -> dict
+```
+Return `__array_interface__`-compatible descriptors for zero-copy NumPy interop.
+
+### Iteration Protocol
+
+```python
+db.__iter__() -> VantaDB    # iterator over search results / record lists
+db.__next__() -> dict        # next record
+db.__len__() -> int          # length of current result set
+db.__getitem__(key) -> Any   # index into current result set
+db.__getstate__() -> dict    # pickle serialization
+db.__setstate__(state) -> None  # pickle deserialization
+```
+
 ## Data Types
 
 ### Memory Record
