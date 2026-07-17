@@ -35,10 +35,6 @@ on:
       - '!web/**'
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
@@ -51,6 +47,9 @@ jobs:
     name: Format Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: lint-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
@@ -68,6 +67,9 @@ jobs:
     name: Clippy Lints
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: lint-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
