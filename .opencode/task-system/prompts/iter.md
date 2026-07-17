@@ -1,3 +1,10 @@
+> **ACTIVE INSTRUCTION — One Harness Iteration**
+> Cargado por el harness loop (legacy) cuando hay una tarea ⬜ PENDING o ⏳ IN PROGRESS.
+> Path resolution: `skills/X` → `.opencode/skills/X/`
+> Procesar EXACTAMENTE UNA iteración (no una tarea completa).
+> Usar MCP tools (`campaign_get_next_task`, `campaign_verify_cmd`, etc.) para estado.
+> Al finalizar: recitation + STOP. El harness externo maneja el loop.
+
 Cargá las skills campaign-executor, progreso, ponytail (full). Después de determinar la tarea activa, usá `campaign_load_skills` (MCP) para cargar skills específicas del tipo de tarea.
 
 Plan file: {{PLAN_FILE}}

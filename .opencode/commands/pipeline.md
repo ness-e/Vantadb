@@ -2,6 +2,14 @@
 description: Pipeline unificado: crear plan, ejecutar tarea compleja, ejecutar backlog completo
 ---
 
+> **ENTRY POINT — Pipeline Command**
+> El agente DEBE leer este archivo cuando el usuario envía un mensaje que empieza con `/pipeline`.
+> Path resolution: `prompts/X.md` → `.opencode/task-system/prompts/X.md`
+> Skills: `skills/X` → `.opencode/skills/X/`
+> Tasks: `tasks/ID.md` → `.opencode/skills/campaign-executor/tasks/ID.md`
+> Instrucciones: cargar cada prompt con Read tool y ejecutar secuencialmente.
+> Al finalizar: handoff y stop (no continuar sin que el usuario lo pida).
+
 Cargá las skills campaign-executor, progreso, ponytail (full).
 
 Entrada: $1

@@ -2,6 +2,13 @@
 description: "Audit pipeline unificado: CLI checks + 8 skills de review en subagentes paralelos + reporte unificado"
 ---
 
+> **ENTRY POINT — Audit Command**
+> El agente DEBE leer este archivo cuando el usuario envía un mensaje que empieza con `/audit`.
+> Path resolution: `prompts/X.md` → `.opencode/task-system/prompts/X.md`
+> Skills: `skills/X` → `.opencode/skills/X/`
+> Instrucciones: cargar skills listados, ejecutar fases según modo. Waves paralelas vía sub-agentes.
+> Al finalizar: escribir reporte en `docs/audit-reports/`.
+
 # /audit — VantaDB Audit Pipeline
 
 Pipeline de auditoría completo. Unifica CLI checks (`just` 5 comandos) + 8 skills de review en subagentes paralelos + reporte estructurado.

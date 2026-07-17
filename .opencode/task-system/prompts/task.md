@@ -1,3 +1,10 @@
+> **ACTIVE INSTRUCTION — Define Task**
+> Cargado por `commands/pipeline.md` (modo TASK) cuando el task file no existe.
+> Path resolution: skills por nombre → `.opencode/skills/<nombre>/`
+> Ejecutar las 4 fases SECUENCIALMENTE. No saltar pasos.
+> Al finalizar: crear task file en `.opencode/skills/campaign-executor/tasks/<ID>.md`,
+> actualizar plan file, mostrar próximo comando recomendado.
+
 Cargá las skills source-driven-development, progreso, ponytail (full).
 Si la tarea toca API pública → cargá api-and-interface-design.
 

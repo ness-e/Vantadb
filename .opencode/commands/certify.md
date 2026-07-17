@@ -2,7 +2,13 @@
 description: Pre-push certification — all layers, all skills
 ---
 
-Cargá la skill vantadb-certify.
+> **ENTRY POINT — Certification Command**
+> El agente DEBE leer este archivo cuando el usuario envía `/certify`.
+> Path resolution: `skills/X` → `.opencode/skills/X/`
+> Instrucciones: ejecutar las 8 layers secuencialmente. Detenerse al primer error.
+> No usar `prompts/` — todo está en la skill `vantadb-certify`.
+
+Cargá la skill vantadb-certify (`.opencode/skills/vantadb-certify/SKILL.md`).
 
 Ejecutá las 8 layers SECUENCIALMENTE. Detenete al primer error.
 

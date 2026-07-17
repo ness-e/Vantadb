@@ -1,3 +1,11 @@
+> **ACTIVE INSTRUCTION — Execute Full Backlog**
+> Activado por `/pipeline run [plan]`.
+> Path resolution: `skills/X` → `.opencode/skills/X/`, `prompts/X.md` → `.opencode/task-system/prompts/X.md`
+> Procesar TODAS las tareas del plan file en una sesión usando sub-agentes.
+> Cada tarea se ejecuta en un sub-agente con contexto fresco.
+> Al finalizar: skill progreso, checkpoint, detenerse.
+> Si FAIL_MODE=stop: detener en primera falla. Si skip: registrar y seguir.
+
 Cargá las skills campaign-executor, progreso, ponytail (full).
 
 INSTRUCCIONES — EJECUTAR BACKLOG COMPLETO:
