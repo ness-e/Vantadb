@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: data/benchmark/glove.6B.100d.txt
-          key: glove-100d-v1
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
 
       - name: Download benchmark datasets
         if: steps.cache-benchmark.outputs.cache-hit != 'true'
@@ -236,7 +236,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: data/benchmark/glove.6B.100d.txt
-          key: glove-100d-v1
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
 
       - name: Download benchmark datasets
         if: steps.cache-benchmark.outputs.cache-hit != 'true'
