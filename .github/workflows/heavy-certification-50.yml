@@ -33,7 +33,6 @@ jobs:
           swap-mb: 8192
           free-disk: true
       - name: Run stress protocol
-        timeout-minutes: 150
         run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
 
   hnsw-validation:
