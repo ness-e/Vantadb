@@ -12,7 +12,7 @@ last_reviewed: 2026-07-16
 > **Completed tasks:** `docs/CHANGELOG.md` + `docs/progreso/README.md`
 > **Verification method:** All claims cross-checked against actual codebase via 4 sub-agents (Jul 13). See `docs/archive/` for superseded audit reports.
 > **Total open items:** 165 (108 previos + 22 del rescate OLD Jul 16 + 5 cross-ref Wave 3 + 30 competitive features COMP Jul 16)
-> **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
+> **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
 
 ---
 
@@ -78,7 +78,7 @@ last_reviewed: 2026-07-16
 
 ### 🚨 Hallazgos de Docs Audit (nuevos)
 
-> Items verificados como pendientes en docs/ pero no trackeados previamente. Referencia: `docs/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`.
+> Items verificados como pendientes en docs/ pero no trackeados previamente. Referencia: `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`.
 
 | ID | Tarea | Origen | Esfuerzo | Prioridad | Estado |
 |----|-------|--------|----------|-----------|--------|

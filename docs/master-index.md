@@ -196,7 +196,7 @@ Migrated from `migration/` to `tutorials/` (consolidated into the tutorial serie
 | 2 | [[CHANGELOG.md\|CHANGELOG]] | Release history and version changelog |
 | 3 | [[QUICKSTART.md\|QUICKSTART]] | Quickstart guide for new users |
 | 4 | [[README.md\|Documentation Overview]] | Docs landing page and reading guide |
-| 5 | [[bitacora.md\|Devlog (Bitacora)]] | Development log and daily notes |
+| 5 | [[progreso/bitacora.md\|Devlog (Bitacora)]] | Development log and daily notes |
 | 6 | [[FAQ.md\|FAQ]] | Frequently Asked Questions |
 | 7 | [[DESIGN_RULES.md\|Design Rules]] | Swiss + Neubrutalism visual design rules |
 | 8 | [[backlog-guide.md\|Backlog Guide]] | Backlog management conventions |
