@@ -165,6 +165,13 @@ impl OpfsWorker {
 
 // ─── Main-thread proxy ──────────────────────────────────────────────
 
+const MAX_RETRIES: u32 = 2;
+const BASE_DELAY_MS: u32 = 1000;
+
+fn is_retryable(err: &JsValue) -> bool {
+    err.as_string().is_some_and(|s| s.contains("timeout"))
+}
+
 /// A proxy that communicates with an OPFS Web Worker.
 ///
 /// Sends `WorkerRequest` messages and awaits `WorkerResponse` replies.
@@ -182,8 +189,32 @@ impl OpfsWorkerProxy {
         Self { worker }
     }
 
-    /// Send a request and await the response.
+    /// Send a request and await the response, with retry on timeout.
     async fn send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
+        let mut delay = BASE_DELAY_MS;
+        for attempt in 0..=MAX_RETRIES {
+            match self.try_send(req).await {
+                Ok(resp) => return Ok(resp),
+                Err(e) if attempt < MAX_RETRIES && is_retryable(&e) => {
+                    let p = Promise::new(&mut {
+                        let d = delay;
+                        move |r: js_sys::Function, _: js_sys::Function| {
+                            let code = format!("setTimeout(() => r(), {});", d);
+                            js_sys::Function::new_no_args(&code)
+                                .call0(&JsValue::undefined())
+                                .ok();
+                        }
+                    });
+                    JsFuture::from(p).await.ok();
+                    delay *= 2;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        unreachable!()
+    }
+
+    async fn try_send(&self, req: &WorkerRequest) -> Result<WorkerResponse, JsValue> {
         let msg = serde_wasm_bindgen::to_value(req)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
 

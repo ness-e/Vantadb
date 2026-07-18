@@ -28,9 +28,6 @@ pub use idb::IdbStorage;
 #[cfg(feature = "opfs")]
 pub mod worker;
 
-/// WASM SIMD-accelerated cosine distance computation.
-pub mod simd;
-
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
 #[serde(default)]
@@ -397,15 +394,22 @@ impl VantaDB {
         let mut state: Vec<VantaMemoryRecord> = Vec::new();
         let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
         for ns in &namespaces {
-            let opts = VantaMemoryListOptions {
-                filters: VantaMemoryMetadata::new(),
-                limit: usize::MAX,
-                cursor: None,
-            };
-            let page = self.inner.list(ns, opts).map_err(to_js_err)?;
-            for record in page.records {
-                if seen.insert((record.namespace.clone(), record.key.clone())) {
-                    state.push(record);
+            let mut cursor: Option<usize> = None;
+            loop {
+                let opts = VantaMemoryListOptions {
+                    filters: VantaMemoryMetadata::new(),
+                    limit: 10_000,
+                    cursor,
+                };
+                let page = self.inner.list(ns, opts).map_err(to_js_err)?;
+                for record in page.records {
+                    if seen.insert((record.namespace.clone(), record.key.clone())) {
+                        state.push(record);
+                    }
+                }
+                cursor = page.next_cursor;
+                if cursor.is_none() {
+                    break;
                 }
             }
         }
@@ -899,6 +903,10 @@ fn from_js<T: serde::de::DeserializeOwned>(val: JsValue) -> Result<T, JsValue> {
 fn to_js<T: serde::Serialize>(val: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(val).map_err(|e| js_sys::Error::new(&e.to_string()).into())
 }
+// ponytail: P2-7 zero-copy path para Float32Array — ~2-5µs overhead por vector de 384/768 dims via serde.
+// Implementar cuando profiling muestre que es bottleneck (vs HNSW search ~100µs-1ms).
+// Output: memory_record_to_js → Float32Array::from(&sanitized[..]) en vez de serde_wasm_bindgen::to_value
+// Input: from_js → extraer Float32Array directamente en vez de serde_wasm_bindgen::from_value
 
 #[cfg(test)]
 mod tests {
