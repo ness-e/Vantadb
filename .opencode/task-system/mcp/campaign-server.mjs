@@ -878,6 +878,7 @@ const WORKFLOW_KEYWORDS = {
   "feature-add": ["feature", "add", "implement", "new", "create", "support", "integrate"],
   "refactor": ["refactor", "clean", "simplify", "rename", "extract", "inline", "split", "restructure"],
   "research": ["research", "investigate", "explore", "how does", "find", "search", "learn"],
+  "nine-second-saloon": ["quick", "fast", "urgent", "hotfix", "emergency", "critical", "immediate", "ship"],
 }
 
 function classifyWorkflow(taskName, taskDescription) {
@@ -958,6 +959,257 @@ server.tool(
         hasCustomWorkflow: workflow !== null,
         fallback: !workflow ? "Use generic C0 state machine from iter.md" : undefined,
       }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool 13: campaign_validate_command (cross-validate with PS1 script) ----------
+
+server.tool(
+  "campaign_validate_command",
+  {
+    command: z.string().describe("Command to validate"),
+    type: z.enum(["shell", "file_path", "python", "code", "sql", "html", "text"]).optional().default("shell"),
+    workspace: z.string().optional().describe("Workspace root"),
+  },
+  async ({ command, type, workspace }) => {
+    const jsResult = validateOutput(command, type, workspace || PROJECT_ROOT)
+    let ps1Result = null
+    try {
+      const psCmd = `& '${join(TASK_SYSTEM, "validation", "validate-output.ps1")}' -Content '${command.replace(/'/g, "''")}' -Type ${type}${workspace ? ` -Workspace '${workspace.replace(/'/g, "''")}'` : ""}`
+      const out = execSync(psCmd, { encoding: "utf-8", timeout: 10000, shell: "pwsh" })
+      ps1Result = JSON.parse(out.trim())
+    } catch {}
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        valid: jsResult.valid && (ps1Result ? ps1Result.valid : true),
+        jsValidation: jsResult,
+        ps1Validation: ps1Result,
+        crossValid: !ps1Result || jsResult.valid === ps1Result.valid,
+      }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool 14: campaign_diagnose_pipeline ----------
+
+server.tool(
+  "campaign_diagnose_pipeline",
+  {
+    pipelinePath: z.string().optional().default("").describe("Path to pipeline root (default: project root)"),
+  },
+  async ({ pipelinePath }) => {
+    const pyScript = join(TASK_SYSTEM, "self-modification", "performance_diagnosis.py")
+    if (!existsSync(pyScript)) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Diagnosis script not found" }) }] }
+    }
+    try {
+      const cmd = `python "${pyScript}" "${pipelinePath || PROJECT_ROOT}" 2>$null`
+      const out = execSync(cmd, { encoding: "utf-8", timeout: 60000, shell: "pwsh" })
+      const result = JSON.parse(out.trim())
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] }
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Diagnosis failed: ${e.message}`, hint: "Install python + dependencies to use full diagnosis" }) }] }
+    }
+  },
+)
+
+// ---------- Tool 15: campaign_get_workflow ----------
+
+server.tool(
+  "campaign_get_workflow",
+  {
+    name: z.string().describe("Workflow name (bug-fix, feature-add, refactor, research, nine-second-saloon)"),
+  },
+  async ({ name }) => {
+    const workflow = loadWorkflow(name)
+    if (!workflow) {
+      const available = Object.keys(WORKFLOW_KEYWORDS).filter(w => loadWorkflow(w))
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Workflow '${name}' not found`, available }, null, 2) }] }
+    }
+    return { content: [{ type: "text", text: JSON.stringify(workflow, null, 2) }] }
+  },
+)
+
+// ---------- Tool 16: campaign_enforce_state ----------
+
+server.tool(
+  "campaign_enforce_state",
+  {
+    state: z.string().describe("Current C0 state name"),
+    toolName: z.string().describe("Tool to validate"),
+    toolArgs: z.record(z.any()).optional().default({}).describe("Tool arguments for context-aware checks"),
+  },
+  async ({ state, toolName, toolArgs }) => {
+    const stateKey = state.toUpperCase()
+    const allowed = getAllowedTools(stateKey)
+    const actionCheck = validateAction(stateKey, toolName)
+
+    const warnings = []
+    const blocks = []
+
+    if (!actionCheck.allowed) {
+      blocks.push(`Tool '${toolName}' is not allowed in state '${stateKey}'`)
+    }
+
+    if (toolArgs.command && toolName.toLowerCase() === "bash") {
+      const val = validateShellCommand(toolArgs.command)
+      if (!val.valid) blocks.push(...val.errors)
+      warnings.push(...val.warnings)
+    }
+
+    if (toolArgs.filePath && toolName.toLowerCase().match(/edit|write/)) {
+      const val = validateFilePath(toolArgs.filePath, PROJECT_ROOT)
+      if (!val.valid) blocks.push(...val.errors)
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({
+        allowed: blocks.length === 0,
+        state: stateKey,
+        tool: toolName,
+        blocks,
+        warnings,
+        allowedTools: allowed,
+        actionCheck,
+      }, null, 2) }],
+    }
+  },
+)
+
+// ---------- Tool 17: campaign_session_track ----------
+
+const SESSION_DIR = join(TASK_SYSTEM, "enforcement", "sessions")
+if (!existsSync(SESSION_DIR)) {
+  try { mkdirSync(SESSION_DIR, { recursive: true }) } catch {}
+}
+
+function sessionPath(sessionId) { return join(SESSION_DIR, `${sessionId.replace(/[<>:"/\\|?*]/g, "_")}.json`) }
+
+function readSession(sessionId) {
+  const p = sessionPath(sessionId)
+  try { return JSON.parse(readFileSync(p, "utf-8")) } catch { return null }
+}
+
+function writeSession(sessionId, data) {
+  writeFileSync(sessionPath(sessionId), JSON.stringify(data, null, 2), "utf-8")
+}
+
+server.tool(
+  "campaign_session_track",
+  {
+    action: z.enum(["create", "get", "update", "list", "delete"]).describe("Session action"),
+    sessionId: z.string().optional().describe("Session ID (required for create/get/update/delete)"),
+    state: z.string().optional().describe("Current state (for create/update)"),
+    context: z.record(z.any()).optional().default({}).describe("Session context data"),
+  },
+  async ({ action, sessionId, state, context }) => {
+    switch (action) {
+      case "create": {
+        if (!sessionId) return { content: [{ type: "text", text: JSON.stringify({ error: "sessionId required" }) }] }
+        const existing = readSession(sessionId)
+        if (existing) return { content: [{ type: "text", text: JSON.stringify({ error: "Session exists", session: existing }) }] }
+        const session = { sessionId, state: state || "PLAN", context, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), iterationCount: 0, transitionCount: 0 }
+        writeSession(sessionId, session)
+        return { content: [{ type: "text", text: JSON.stringify({ created: true, session }) }] }
+      }
+      case "get": {
+        if (!sessionId) return { content: [{ type: "text", text: JSON.stringify({ error: "sessionId required" }) }] }
+        const session = readSession(sessionId)
+        if (!session) return { content: [{ type: "text", text: JSON.stringify({ error: "Session not found" }) }] }
+        return { content: [{ type: "text", text: JSON.stringify(session, null, 2) }] }
+      }
+      case "update": {
+        if (!sessionId) return { content: [{ type: "text", text: JSON.stringify({ error: "sessionId required" }) }] }
+        const s = readSession(sessionId)
+        if (!s) return { content: [{ type: "text", text: JSON.stringify({ error: "Session not found" }) }] }
+        if (state) s.state = state
+        if (context) s.context = { ...s.context, ...context }
+        s.iterationCount++
+        s.updatedAt = new Date().toISOString()
+        writeSession(sessionId, s)
+        return { content: [{ type: "text", text: JSON.stringify({ updated: true, session: s }) }] }
+      }
+      case "list": {
+        const sessions = []
+        if (existsSync(SESSION_DIR)) {
+          for (const f of readdirSync(SESSION_DIR).filter(f => f.endsWith(".json"))) {
+            try { sessions.push(JSON.parse(readFileSync(join(SESSION_DIR, f), "utf-8"))) } catch {}
+          }
+        }
+        return { content: [{ type: "text", text: JSON.stringify({ sessions }) }] }
+      }
+      case "delete": {
+        if (!sessionId) return { content: [{ type: "text", text: JSON.stringify({ error: "sessionId required" }) }] }
+        const p = sessionPath(sessionId)
+        if (existsSync(p)) { rmSync(p, { force: true }) }
+        return { content: [{ type: "text", text: JSON.stringify({ deleted: true, sessionId }) }] }
+      }
+      default:
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Unknown action" }) }] }
+    }
+  },
+)
+
+// ---------- Tool 18: campaign_mount_harness ----------
+
+server.tool(
+  "campaign_mount_harness",
+  {
+    planFile: z.string().describe("Path to plan file (e.g. docs/plans/plan.md)"),
+    interval: z.number().optional().default(5).describe("Pause seconds between iterations"),
+    stallThreshold: z.number().optional().default(2).describe("Consecutive stalls before abort"),
+    singleTask: z.string().optional().describe("Run only one specific task"),
+    timeout: z.number().optional().default(900).describe("Timeout per iteration in seconds"),
+    parallel: z.boolean().optional().default(false).describe("Run parallel waves"),
+    maxParallel: z.number().optional().default(4).describe("Max parallel tasks"),
+    model: z.string().optional().default("deepseek-v4-flash-free").describe("Model to use"),
+    dryRun: z.boolean().optional().default(false).describe("Preview only, no execution"),
+  },
+  async ({ planFile, interval, stallThreshold, singleTask, timeout, parallel, maxParallel, model, dryRun }) => {
+    const harnessPath = join(PROJECT_ROOT, ".opencode", "task-system", "harness", "harness-executor.ps1")
+    if (!existsSync(harnessPath)) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "harness-executor.ps1 not found at .opencode/task-system/harness/" }) }] }
+    }
+
+    const planPath = resolve(PROJECT_ROOT, planFile)
+    if (!existsSync(planPath)) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Plan file not found: ${planPath}` }) }] }
+    }
+
+    const planContent = readFileSync(planPath, "utf-8")
+    const { campaignId } = getOrCreateCampaignId(planContent)
+
+    const args = [
+      `-PlanFile '${planPath}'`,
+      `-Interval ${interval}`,
+      `-StallThreshold ${stallThreshold}`,
+      `-CampaignId '${campaignId}'`,
+      timeout ? `-Timeout ${timeout}` : "",
+      parallel ? "-Parallel" : "",
+      dryRun ? "-DryRun" : "",
+      singleTask ? `-SingleTask '${singleTask}'` : "",
+      model ? `-Model '${model}'` : "",
+      maxParallel ? `-MaxParallel ${maxParallel}` : "",
+    ].filter(Boolean).join(" ")
+
+    const cmd = `& '${harnessPath}' ${args}`
+
+    if (dryRun) {
+      return { content: [{ type: "text", text: JSON.stringify({ dryRun: true, command: cmd, harnessPath, planPath, campaignId }) }] }
+    }
+
+    traceEmit(campaignId, "campaign.started", { planFile: planPath, parallel, model, maxParallel }, PROJECT_ROOT)
+
+    try {
+      const ps = execSync(cmd, { encoding: "utf-8", timeout: (timeout || 900) * 1000, shell: "pwsh" })
+      traceEmit(campaignId, "campaign.completed", { planFile: planPath }, PROJECT_ROOT)
+      return { content: [{ type: "text", text: JSON.stringify({ started: true, completed: true, harnessPath, planPath, campaignId, output: ps.trim().slice(0, 1000) }) }] }
+    } catch (e) {
+      const out = e.stdout || ""
+      const err = e.stderr || ""
+      traceEmit(campaignId, "campaign.failed", { planFile: planPath, error: e.message }, PROJECT_ROOT)
+      return { content: [{ type: "text", text: JSON.stringify({ started: false, completed: false, error: e.message, campaignId, stdout: out.slice(0, 500), stderr: err.slice(0, 500) }) }] }
     }
   },
 )

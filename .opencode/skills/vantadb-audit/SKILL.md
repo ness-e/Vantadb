@@ -130,3 +130,22 @@ Al finalizar, escribir reporte estructurado en `docs/audit-reports/audit-<mode>-
 - Each review skill can VETO — if veto, record objection and continue (don't abort full pipeline, but flag it)
 - Report covers ALL phases regardless of pass/fail
 - Timestamp all reports for audit trail
+
+## Task System Integration
+
+Toda ejecución de `/audit` crea o actualiza un plan file (`docs/plans/plan-*.md`) con:
+- `task_id` del audit actual
+- Las fases ejecutadas y su resultado
+- Los hallazgos como subtareas
+
+El plan file se crea automáticamente al iniciar `/audit` y se marca como `completed` al finalizar o `failed` si Phase 1 aborta.
+
+```yaml
+# docs/plans/plan-audit-2026-07-18.md (generado)
+task_id: audit-2026-07-18-001
+description: "Audit mode=quick"
+fases:
+  phase_1_cli: "✅"
+  phase_4_review: "⚠️ 1 veto"
+status: completed
+```

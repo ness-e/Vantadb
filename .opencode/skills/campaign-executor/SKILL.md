@@ -24,13 +24,13 @@ HARNESS (PowerShell)                AGENTE (por turno)
 
 | Componente | Ubicación | Propósito |
 |------------|-----------|-----------|
-| **plan.md** | `.opencode/task-system/prompts/plan.md` | Crear plan de campaña desde backlog |
-| **task.md** | `.opencode/task-system/prompts/task.md` | Definir tarea individual a profundidad |
-| **iter.md** | `.opencode/task-system/prompts/iter.md` | Prompt único del harness (1 iteración) |
-| **campaign.md** | `.opencode/commands/campaign.md` | Entry point: backlog / task ID / run |
-| **harness-executor.ps1** | `.opencode/task-system/legacy/harness-executor.ps1` | Loop PowerShell (timeout, git check, sync) |
+| **plan.md** | `prompts/plan.md` → `.opencode/task-system/prompts/plan.md` | Crear plan desde backlog |
+| **task.md** | `prompts/task.md` → `.opencode/task-system/prompts/task.md` | Definir tarea individual |
+| **iter.md** | `prompts/iter.md` → `.opencode/task-system/prompts/iter.md` | Prompt único del harness (1 iteración) |
+| **pipeline.md** | `.opencode/commands/pipeline.md` | Entry point: backlog / task ID / run |
+| **harness-executor.ps1** | `.opencode/task-system/harness/harness-executor.ps1` | Loop PowerShell (timeout, git check, sync) |
 | **Plan file** | `docs/plans/<fecha>-<nombre>.md` | Orquestación: qué tasks, en qué estado |
-| **Task file** | `skills/campaign-executor/tasks/<ID>.md` | Profundidad: steps atómicos, blast radius |
+| **Task file** | `tasks/<ID>.md` (resuelve a `.opencode/skills/campaign-executor/tasks/<ID>.md`) | Profundidad: steps atómicos, blast radius |
 | **RULES.md** | `skills/campaign-executor/RULES.md` | North star + reglas invariantes del sistema |
 
 ## Estados de una tarea
@@ -44,8 +44,8 @@ HARNESS (PowerShell)                AGENTE (por turno)
 
 ### Fase 0: Crear plan
 
-1. Usuario invoca `/campaign docs/Backlog.md`
-2. `campaign.md` carga `.opencode/task-system/prompts/plan.md`
+1. Usuario invoca `/pipeline plan docs/Backlog.md`
+2. `pipeline.md` carga `.opencode/task-system/prompts/plan.md`
 3. El agente aplica triage gate a cada tarea
 4. Crea `docs/plans/<fecha>-<nombre>.md` con todas las ✅ DO
 5. Muestra comando para arrancar el harness
@@ -58,28 +58,30 @@ HARNESS (PowerShell)                AGENTE (por turno)
 4. `codegraph_explore` para blast radius
 5. Web research si hay ambigüedad
 6. Descompone en steps atómicos
-7. Crea `tasks/<ID>.md` con steps, contrato, herramientas
+7. Crea `tasks/<ID>.md` (`.opencode/skills/campaign-executor/tasks/<ID>.md`) con steps, contrato, herramientas
 8. Actualiza plan file: Estado → ⏳ IN PROGRESS
 9. Recitation → STOP
 
 ### Fase 2: Ejecución (un step por iteración)
 
 ```
-State machine por step:
-  PLAN → ACT → VERIFY
-          ↑      │
-          └──────┘ (falló → PLAN con feedback)
-                 │
-                 ↓ (3 veces mismo error)
-               STALL → ❌ FAILED
+States válidos (C0 — Statewright pattern, iter.md canonical):
 
-  VERIFY pasa ↓
-         COLLATERAL → RESEARCH → ACT (si ambigüedad)
-                    → EVALUATE (sin errores)
-                         ↓ falla → ACT
-                         ↓ pasa  → REVIEW
-                                    ↓ issues → VERIFY
-                                    ↓ pasa  → ACCEPT → CLOSE
+  PLAN     → ACT
+  ACT      → VERIFY
+  VERIFY   → PLAN      (falló → reintentar)
+  VERIFY   → STALL     (3 same-error → bloqueo)
+  VERIFY   → COLLATERAL (pasó → colaterales)
+  COLLATERAL → RESEARCH (ambigüedad → investigar)
+  RESEARCH → ACT       (investigado → implementar)
+  COLLATERAL → EVALUATE (sin errores → evaluar)
+  EVALUATE → REVIEW    (auto-evaluación pasa → revisión)
+  EVALUATE → ACT       (auto-evaluación falla → re-implementar)
+  REVIEW   → VERIFY    (review encuentra issues → re-verificar)
+  REVIEW   → ACCEPT    (review pasa → aceptar)
+  ACCEPT   → CLOSE     (aceptado → cerrar/commit)
+
+  STALL → ❌ FAILED (agotado)
 ```
 
 1. Harness re-inyecta `.opencode/task-system/prompts/iter.md`
@@ -252,6 +254,29 @@ propia invocación de `opencode run`.
 | "Refactorizar módulo" | "cargo check --workspace, clippy sin warnings nuevos, tests existentes pasan" |
 | "Funciona bien" | "cargo build && cargo nextest run pasa, y comportamiento específico funciona" |
 
+## System Integration
+
+campaign-executor es el núcleo del sistema de tareas. Se relaciona con:
+
+| Componente | Relación |
+|------------|----------|
+| `AGENTS.md` | Path resolution: `tasks/<ID>.md` → `.opencode/skills/campaign-executor/tasks/<ID>.md` |
+| `pipeline.md` (command) | Entry point: `/pipeline plan\|task\|run` → invoca campaign-executor |
+| `plan.md` (prompt) | Crea plan file desde Backlog, delega a campaign-executor |
+| `iter.md` (prompt) | State machine ejecución — per-state tool enforcement vía MCP |
+| `progreso` | Post-commit: migra tarea completada de Backlog a progreso |
+| `vantadb-certify` | Verify pre-push: certificación completa |
+| `ponytail` | Siempre activo: escalera YAGNI en cada step |
+| `RULES.md` | North star invariante — no se edita durante ejecución |
+
+**Integración con pipeline commands:**
+
+```
+/pipeline plan docs/Backlog.md   → plan.md → docs/plans/<file>.md
+/pipeline task DRV-NN            → task.md → tasks/<ID>.md
+/pipeline run                    → .opencode/task-system/harness/harness-executor.ps1 + iter.md
+```
+
 ## Apéndice A: Comandos rápidos VantaDB
 
 | Comando | Propósito |
@@ -275,7 +300,7 @@ oc plugin install opencode-loop
 Uso con Goal Mode (el plugin monitorea idle events y re-inyecta):
 
 ```
-/loop-goal "Cargá campaign-executor. Ejecutá el plan file docs/plans/campaign.md
+/loop-goal "Cargá campaign-executor. Ejecutá el plan file docs/plans/<nombre>.md
 una tarea a la vez. Después de cada tarea, actualizá el plan file y escribí
 la recitation. No avances sin haber completado verificación, commit, progreso."
 ```
@@ -300,12 +325,12 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 | **Parallel DAG + waves** | task-executor batch-prompt §1.5 | pipeline-run.md step 6 |
 | **Probes de integridad** | backlog-executor §8 | SKILL.md, pipeline-run.md step 3 |
 | **Compaction periódica** | backlog-executor §7 | SKILL.md |
-| **Prompt Templates** | backlog-executor §11 | commands/campaign.md Apéndice
+| **Prompt Templates** | backlog-executor §11 | commands/pipeline.md Apéndice
 
 ### Referencias locales clonadas
 
 ```
-.agents/references/
+.opencode/references/
   awesome-harness-engineering/   ← catálogo patrones (walkinglabs, 3.6k⭐)
   statewright/                   ← state machine guardrails en Rust (415⭐)
   deepclaude/                    ← loop engine interchangeable (1k⭐)
@@ -345,11 +370,11 @@ la recitation. No avances sin haber completado verificación, commit, progreso."
 ## Diagrama de flujo completo
 
 ```
-/campaign docs/Backlog.md
+/pipeline plan docs/Backlog.md
   │
   ├─ plan.md: triage gate → docs/plans/<fecha>.md
   │
-  ├─ harness-executor.ps1
+  ├─ .opencode/task-system/harness/harness-executor.ps1
   │   │
   │   ├─ FASE 1: DISCOVERY (por tarea, 1 vez)
   │   │   ├─ auto-detect tipo (Rust/Frontend/Python/...)

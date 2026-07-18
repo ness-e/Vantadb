@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Manages the Node.js model proxy lifecycle. Designed to be called by
-    harness-executor.ps1 or used directly for campaign tasks.
+    .opencode/task-system/harness/harness-executor.ps1 or used directly for campaign tasks.
 
     Backend providers:
       ds  — DeepSeek V4 (direct, cheapest)

@@ -1,5 +1,5 @@
 > **ACTIVE INSTRUCTION — Create Plan from Backlog**
-> Cargado por `commands/pipeline.md` (modo PLAN) o `commands/campaign.md`.
+> Cargado por `commands/pipeline.md` (modo PLAN).
 > Path resolution: skills por nombre → `.opencode/skills/<nombre>/`
 > Aplicar triage gate (✅ DO / 🟡 DEFER / ❌ SKIP / 🔴 BLOQUEADO) a cada tarea.
 > Crear `docs/plans/<FECHA>-<nombre>.md` solo con tareas ✅ DO.
@@ -90,5 +90,5 @@ Si no reconoce el formato → el agente interpreta con LLM para extraer tareas.
 Mostrá el comando exacto para ejecutar:
 
 ```
-.\harness-executor.ps1 -PlanFile docs\plans\YYYY-MM-DD-<nombre>.md -Interval 10
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\YYYY-MM-DD-<nombre>.md -Interval 10
 ```

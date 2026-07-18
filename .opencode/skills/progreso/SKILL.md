@@ -51,6 +51,8 @@ For each modified file, verify the corresponding doc is updated:
 | `vantadb-mcp/src/` | `docs/api/MCP.md` |
 | `vantadb-wasm/src/lib.rs` | `vantadb-ts/README.md` |
 
+> **Mantenimiento:** Esta tabla debe actualizarse cuando se agreguen nuevos archivos fuente o nuevos docs. Si encontrás un archivo modificado que no está en la tabla, agregalo.
+
 If a new technical capability was added (not just an internal bugfix), add a cross-reference from the relevant Spanish MPTS to the English doc.
 
 ### B. Extract task data
@@ -64,7 +66,7 @@ Completed tasks may come from 3 sources. Check ALL:
 | Source | What to do |
 |--------|-----------|
 | `docs/Backlog.md` | Find the ✅ row, delete it |
-| `docs/bitacora.md` | Mark the issue as resuelto ✅ |
+| *(bitácora legacy — migrada a plan files)* | Verificar que el issue esté marcado en el plan file activo |
 | `docs/plans/YYYY-MM-DD-*.md` | Update status tracker + recitation |
 
 ### D. Migrate to progreso (sin duplicados)
@@ -97,7 +99,10 @@ If it reports gaps, document the missing surface before proceeding.
 
 ### G. Notify
 
-Tell the user that Backlog.md, bitacora.md, plan file and progreso/README.md were updated and validation passed. Do NOT commit — wait for explicit instruction.
+Tell the user that Backlog.md, plan file and progreso/README.md were updated and validation passed. Commit policy:
+- **Standalone** (no campaign-executor): no commit — esperar instrucción
+- **Desde campaign-executor**: el executor maneja commits automáticos (el progreso no hace commit directo)
+- Si aplica, registrar decisión: `campaign_memory_write(file="decisions", entry="progreso: migración de <ID> completada")`
 
 ---
 
@@ -107,7 +112,7 @@ Before generating a new plan:
 
 1. Read `docs/progreso/README.md` — check if the previous task was already migrated.
 2. If not, run **Trigger 1** first to flush it.
-3. Find the task in `docs/Backlog.md`, `docs/bitacora.md`, or the active plan file. If status is ❌, change it to 🟡 (or leave it and update after completion).
+3. Find the task in `docs/Backlog.md` or the active plan file (`docs/plans/`). If status is ❌, change it to 🟡 (or leave it and update after completion).
 4. Proceed with the new work.
 
 ---
@@ -128,3 +133,23 @@ Before generating a new plan:
 - [ ] Affected docs updated (see Trigger 1.A table)
 - [ ] MPTS cross-reference added if new technical feature
 - [ ] `scripts/validate-docs-coverage.ps1` passes clean
+- [ ] **Certify gate recomendado:** `skill vantadb-certify` para validación completa pre-push
+  - Si no es posible (cambio chico): mínimo `just verify-quick`
+
+## Campaign Memory Integration
+
+Al completar una tarea, registrar la decisión si es relevante:
+
+```python
+# Registrar migración de tarea
+campaign_memory_write(
+    file="decisions",
+    entry="progreso: migrada <ID> de Backlog a progreso. Archivos tocados: <paths>"
+)
+
+# Si fue una decisión arquitectónica
+campaign_memory_write(
+    file="decisions",
+    entry="progreso: <ID> implicó tradeoff entre <X> y <Y>. Se eligió <X> por <razón>"
+)
+```

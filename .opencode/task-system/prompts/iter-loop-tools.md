@@ -5,7 +5,11 @@ Paso 0 — Auto-cargar skills según tipo de tarea:
    llamá `campaign_load_skills` (MCP) que devuelve los skills exactos a cargar.
    Ejecutá `skill <nombre>` para CADA skill devuelto. Si es bug → además
    `systematic-debugging`. Si es lógica nueva → `test-driven-development`.
-   Si es security-sensitive → `doubt-driven-development`.
+    Si es security-sensitive → `doubt-driven-development`.
+    Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el
+    workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon).
+    El workflow define estados, allowed_tools y transiciones específicas.
+
 
 INSTRUCCIONES — UNA SOLA ITERACIÓN:
 
@@ -40,6 +44,9 @@ y `skills/campaign-executor/RULES.md` (167L) — seguilas exactamente.
    b. **⏳ IN PROGRESS con pasos pendientes** → MODO EJECUCIÓN (Fase 2):
       - Continuá desde donde quedó (usá recitation de `campaign_get_next_task` (MCP))
       - State machine: PLAN → ACT → VERIFY
+        * Antes de ACT → `campaign_validate_command` (MCP) para validar el comando
+        * Si el comando es riesgoso (rm, format, dangerous) → `campaign_run_sandboxed` (MCP)
+        * En cada transición de estado → `campaign_enforce_state` (MCP) para pre-call checks
         * Si verify falla: retry ladder (RULES.md §9)
           1. Retry con feedback procesado
           2. Contexto fresco (~200 tokens resumen)
@@ -59,7 +66,8 @@ y `skills/campaign-executor/RULES.md` (167L) — seguilas exactamente.
         3. `campaign_verify_cmd command="cargo nextest run --profile audit --workspace --build-jobs 2"`
       - Si todo pasa: `git add -A && git commit -m "feat: <id> — <name>"`
       - Llamá `campaign_update_task_state` con `"completed"` y recitation completa
-       - Auto-mejora (RULES.md §10): evaluá qué fue más difícil de lo esperado
+        - Auto-mejora (RULES.md §10): evaluá qué fue más difícil de lo esperado
+        - Llamá `campaign_diagnose_pipeline` (MCP) para diagnosticar performance y obtener sugerencias de mejora
        - Ejecutá `skill progreso` — mueve la tarea de docs/Backlog.md → docs/progreso/README.md
        - **IMPORTANTE:** skill progreso se ejecuta SIEMPRE, en CADA tarea, sin excepción
 

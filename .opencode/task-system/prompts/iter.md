@@ -9,6 +9,7 @@ Cargá las skills campaign-executor, progreso, ponytail (full). Después de dete
 
 Plan file: {{PLAN_FILE}}
 Single task: {{SINGLE_TASK}} (vacío = todas las tareas)
+Campaign ID: {{CAMPAIGN_ID}}
 {{SUMMARY}}
 
 ## INSTRUCCIONES — UNA SOLA ITERACIÓN

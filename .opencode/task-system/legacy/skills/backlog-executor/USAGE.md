@@ -5,7 +5,7 @@
 ### Forma 1: PowerShell Harness (auto-loop)
 
 ```powershell
-.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md
 ```
 
 El harness: lee plan → invoca `opencode run` → espera → detecta stall → repite.
@@ -65,7 +65,7 @@ Esto ejecuta exactamente una iteración (Plan → Act → Verify → actualizar 
 |--------|--------------|---------|
 | **Prompt 0** | Crear plan file desde backlog | `"Ejecutá Prompt 0 del SKILL.md con <ruta>"` |
 | **Prompt 1** | Una iteración (con harness) | `"Usá Prompt 1 del SKILL.md. Plan file: <ruta>"` |
-| **Prompt 2** | Arrancar harness PowerShell | `.\harness-executor.ps1 -PlanFile <ruta>` |
+| **Prompt 2** | Arrancar harness PowerShell | `.opencode\task-system\harness\harness-executor.ps1 -PlanFile <ruta>` |
 | **/loop-goal** | Loop autónomo sin harness | `"/loop-goal <objetivo>"` |
 
 ## Contractos válidos (copiar/pegar)
