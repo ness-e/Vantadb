@@ -75,7 +75,7 @@ SKILL.md                   ← hub con entry points + innovaciones 2026
 templates/task-definition.md ← template para tasks/ID.md
 tasks/                     ← auto-generated task definitions
 AGENTS.md                  ← learnings post-ejecución
-.agents/references/        ← repos clonados (awesome-harness-engineering, statewright, deepclaude, darwin-godel-machine)
+.opencode/references/        ← repos clonados (awesome-harness-engineering, statewright, deepclaude, darwin-godel-machine)
 
 ## Pattern Coverage (5/5 gaps cerrados)
 

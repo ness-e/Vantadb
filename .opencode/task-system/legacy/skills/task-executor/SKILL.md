@@ -69,10 +69,10 @@ Basadas en investigación de harness engineering y agent loops (julio 2026):
 
 ### Referencias locales (repos clonados)
 
-Los repos clonados están en `.agents/references/` para consulta directa:
+Los repos clonados están en `.opencode/references/` para consulta directa:
 
-```
-.agents/references/
+   ```
+   .opencode/references/
   awesome-harness-engineering/   ← catálogo patrones (walkinglabs, 3.6k⭐)
   statewright/                   ← state machine guardrails en Rust (415⭐)
   deepclaude/                    ← loop engine interchangeable (1k⭐)

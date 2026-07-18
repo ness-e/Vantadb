@@ -141,13 +141,15 @@ El review se divide en **8 capas**. Cada capa tiene:
 
 ## FASE 0 — Setup
 
-Cargá las skills base que aplican transversalmente:
+Cargá las skills base que aplican transversalmente (usando `skill <nombre>`):
 - `ponytail-audit` — detectar over-engineering en todo el repo
 - `code-review-and-quality` — framework de revisión multi-eje
 - `doubt-driven-development` — adversarial review para hallazgos críticos
 - `ponytail-review` — revisión de over-engineering en diff
 - `code-simplification` — detectar código innecesariamente complejo
-- `codegraph_explore` — mapear estructura y dependencias entre módulos
+
+También usá los tools MCP para análisis estructural:
+- `codegraph_explore` — mapear estructura y dependencias entre módulos (MCP tool, no skill)
 
 ### Análisis del Repo Git
 
@@ -212,8 +214,8 @@ codegraph_explore "WorkspaceOverview top-level modules"
 **Performance:**
 - [ ] Hot paths identificados sin lock contention (`parking_lot`, `dashmap` uso correcto)
 - [ ] Allocaciones en hot paths minimizadas
-- [ ] WAL: sharded o single mutex? (ver P2 en bitacora)
-- [ ] HNSW: insert_lock bottleneck? (ver P1 en bitacora)
+- [ ] WAL: sharded o single mutex? (ver deuda P2 en AGENTS.md → Regla 6)
+- [ ] HNSW: insert_lock bottleneck? (ver deuda P1 en AGENTS.md → Regla 6)
 - [ ] Benchmarks pasan sin regresiones: `cargo bench 2>&1 | tail -30`
 
 **Security:**
@@ -512,10 +514,9 @@ Get-ChildItem -Recurse -Filter "README.md" | ForEach-Object { $_.FullName }
 - [ ] Doc-drive: docs escritos ANTES del código
 
 **Spanish docs:**
-- [ ] Backlog.md actualizado
-- [ ] bitacora.md issues resueltos marcados
-- [ ] progreso/README.md migrado
-- [ ] MPTS docs cross-referenciados con inglés
+- [ ] `docs/Backlog.md` actualizado
+- [ ] `docs/progreso/README.md` migrado desde Backlog.md
+- [ ] `docs/VantaDB-MPTS/` cross-referenciado con docs en inglés
 
 **Website SEO:**
 - [ ] llms.txt presente (AI search optimization)
@@ -713,19 +714,13 @@ Errores en la lógica de negocio que causan comportamiento incorrecto.
 | **Incorrect serialization** | Forward/backward compat, field missing, format mismatch | `cargo test` |
 | **Async/sync mismatch** | Sync en async context, `.block()` sin cuidado | `performance-optimization` |
 
-**Checklist de validación lógica:**
-- [ ] `cargo test --workspace` pasa (tests existentes)
-- [ ] Tests específicos para el edge case del hallazgo
-- [ ] Fuzzing (si aplica): `cd fuzz && cargo +nightly fuzz run fuzz_parser`
-- [ ] Verificación manual: código revisado línea por línea
-
 #### 2. Fallas de Patrón (`PATTERN`)
 
 Violaciones de patrones de diseño establecidos o anti-patrones.
 
 | Subcategoría | Qué buscar | Herramienta/Skill |
 |-------------|-----------|-------------------|
-| **GoF pattern violation** | State/Strategy implementado con if-else gigante, Singleton mal implementado | `code-review-and-quality` |
+| **GoF pattern violation** | State/Strategy con if-else gigante, Singleton mal implementado | `code-review-and-quality` |
 | **Rust anti-pattern** | `clone()` everywhere, `Rc<RefCell>` en vez de `Arc<Mutex>`, `unsafe` innecesario | `code-review-and-quality` |
 | **Python anti-pattern** | Mutable default args, `*args`/`**kwargs` para todo, falta type hints | `code-review-and-quality` |
 | **JS/TS anti-pattern** | `any` everywhere, `null` vs `undefined` inconsistente, callback hell | `code-review-and-quality` |
@@ -733,14 +728,7 @@ Violaciones de patrones de diseño establecidos o anti-patrones.
 | **CSS anti-pattern** | `!important`, inline styles, selector explosivo | `visual-review` |
 | **API design anti-pattern** | Verbos en URL, error sin código, versioning incorrecto | `api-and-interface-design` |
 | **Database anti-pattern** | N+1 queries, sin índices, full table scans frecuentes | `database-schema-designer` |
-| **CQRS/CQRS violation** | Query commands en misma ruta, write en read path | `api-and-interface-design` |
 | **Adapter pattern mal aplicado** | Integración acoplada al provider, sin abstracción | `doubt-driven-development` |
-
-**Checklist de validación de patrones:**
-- [ ] El patrón usado es el mínimo necesario (no over-engineering)
-- [ ] No hay patrones mezclados (Strategy + Factory + Decorator en mismo lugar)
-- [ ] El patrón se aplica consistentemente en todo el proyecto
-- [ ] Si se desvía del patrón, hay `ponytail:` comment explícito
 
 #### 3. Fallas de Arquitectura (`ARCH`)
 
@@ -757,13 +745,6 @@ Problemas estructurales en la organización del código.
 | **Premature abstraction** | Interface con 1 implementation, factory para 1 producto | `ponytail-audit` |
 | **Leaky abstraction** | Abstracción que expone detalles de implementación | `doubt-driven-development` |
 | **Incorrect module boundary** | Módulo mezcla concerns no relacionados | `codegraph_explore` |
-| **Architecture mismatch** | Stack elegido vs stack necesario (ej: REST para streaming) | `idea-refine` |
-
-**Checklist de validación arquitectónica:**
-- [ ] `codegraph_explore "arch dependencies modules"` — sin ciclos
-- [ ] Todas las dependencias apuntan en una dirección (no bidireccional entre layers)
-- [ ] El diagrama de paquetes coincide con la arquitectura documentada
-- [ ] No hay imports entre módulos que no deberían conocerse
 
 #### 4. Fallas de Dirección del Proyecto (`DIRECTION`)
 
@@ -773,20 +754,12 @@ Problemas estratégicos, de producto o de gestión del proyecto.
 |-------------|-----------|-------------------|
 | **Scope creep** | Features que no están en el backlog/MPTS | `git log --oneline` + `docs/Backlog.md` |
 | **Abandoned effort** | Código escrito, committeado, pero nunca terminado ni eliminado | `git log --oneline --grep="WIP\|wip\|draft"` |
-| **Tech debt no priorizado** | Issues conocidos pero sin plan de resolución | `docs/bitacora.md`, `docs/Backlog.md` |
+| **Tech debt no priorizado** | Issues conocidos pero sin plan de resolución | `docs/Backlog.md` |
 | **Strategic misalignment** | Feature implementada que no aporta al roadmap | `docs/VantaDB-MPTS/` |
 | **Missing validation** | Feature shipping sin tests ni benchmarks | `cargo nextest` |
 | **Over-engineering** | Solución demasiado compleja para el problema actual | `ponytail-audit` |
 | **Under-engineering** | Sin tests, sin logging, sin error handling | `code-review-and-quality` |
-| **No dogfooding** | El equipo no usa su propio producto | — |
 | **Missing roadmap** | No hay dirección pública clara | `docs/CHANGELOG.md`, README |
-| **Release cadence** | Releases demasiado espaciados o sin proceso | `git tag --sort=-creatordate`, release-plz |
-
-**Checklist de validación de dirección:**
-- [ ] Revisar `docs/Backlog.md` vs lo implementado — ¿hay features fuera de plan?
-- [ ] Revisar `docs/bitacora.md` — ¿issues conocidos sin plan?
-- [ ] Revisar `docs/VantaDB-MPTS/` — ¿el proyecto sigue el MPTS?
-- [ ] `git log --oneline --grep="fix\|bug\|hotfix"` — ¿mucho bug fixing post-release?
 
 #### 5. Fallas de Claridad (`CLARITY`)
 
@@ -805,12 +778,6 @@ Código, docs o comunicación que son difíciles de entender.
 | **Config oculta** | Valores hardcodeados que deberían ser configurables | `ci-cd-and-automation` |
 | **Formatting inconsistente** | Mezcla de tabs/spaces, llaves inconsistente | `cargo fmt --check` |
 
-**Checklist de validación de claridad:**
-- [ ] Un dev nuevo puede entender el código solo leyendo
-- [ ] `cargo doc --no-deps` sin warnings
-- [ ] README.md tiene quickstart funcional
-- [ ] No hay `TODO` sin issue asociado
-
 #### 6. Fallas de Código (`CODE`)
 
 Violaciones de estándares de calidad de código.
@@ -828,12 +795,6 @@ Violaciones de estándares de calidad de código.
 | **Error swallowing** | `let _ =`, `ok()`, `ignore()` en Result/Error | `code-review-and-quality` |
 | **Panic en library code** | `panic!()` en código que no es binary | `code-review-and-quality` |
 
-**Checklist de validación de código:**
-- [ ] `cargo check --workspace` sin warnings (0)
-- [ ] `cargo clippy --workspace -- -D warnings` pasa
-- [ ] `cargo fmt --check` pasa
-- [ ] `npx tsc --noEmit` sin errors
-
 #### 7. Fallas de Diseño (`DESIGN`)
 
 Problemas de UI/UX y diseño visual.
@@ -848,13 +809,7 @@ Problemas de UI/UX y diseño visual.
 | **Touch targets** | Botones < 44px, muy juntos | `platform-design` |
 | **Loading states** | Sin skeleton/spinner en operaciones largas | `frontend-ui-engineering` |
 | **Empty states** | Lista vacía sin mensaje útil | `frontend-ui-engineering` |
-| **Error states** | Error mostra-do como raw JSON/stack trace al usuario | `frontend-ui-engineering` |
-
-**Checklist de validación de diseño:**
-- [ ] Playwright MCP snapshot + screenshot en 1440×900 y 390×844
-- [ ] `plan-design-review` ejecutado (si aplica a web/)
-- [ ] No hay layout shift en transiciones
-- [ ] Modo claro/oscuro soportado
+| **Error states** | Error mostrado como raw JSON/stack trace al usuario | `frontend-ui-engineering` |
 
 #### 8. Errores (`ERROR`)
 
@@ -873,19 +828,13 @@ Errores concretos que rompen build, tests, o runtime.
 | **Security vulnerability** | CVE en dependencias | `cargo audit` |
 | **Dependency conflict** | Versiones incompatibles | `cargo deny check` |
 
-**Checklist de validación de errores:**
-- [ ] `just verify` pasa completo
-- [ ] `cargo audit` sin advisories críticos
-- [ ] `gh run list --conclusion failure` = 0 runs fallidos en últimas 50
-- [ ] Test flaky identificados y fixeados
-
 #### 9. Cosas que Faltan (`MISSING`)
 
 Elementos que deberían estar presentes pero no están.
 
 | Subcategoría | Qué buscar | Herramienta/Skill |
 |-------------|-----------|-------------------|
-| **Missing test** | Función pública sin test | `test-driven-development` (coverage gap) |
+| **Missing test** | Función pública sin test | `test-driven-development` |
 | **Missing validation** | Input sin sanitizar, sin bounds check | `security-and-hardening` |
 | **Missing error handling** | Result/Error ignorado | `code-review-and-quality` |
 | **Missing docs** | `pub fn` sin docstring, API endpoint sin doc | `documentation-and-adrs` |
@@ -894,7 +843,6 @@ Elementos que deberían estar presentes pero no están.
 | **Missing recovery** | WAL sin replay, sin retry en fallos transitorios | `debugging-and-error-recovery` |
 | **Missing migration** | Schema change sin migration path | `database-schema-designer` |
 | **Missing env config** | `.env.example` desactualizado o faltante | — |
-| **Missing license** | Archivos sin header de licencia | `cargo deny check` |
 
 #### 10. Features que Faltan (`FEATURE`)
 
@@ -908,10 +856,9 @@ Capacidades que deberían existir para completitud del producto.
 | **Missing storage backend** | Solo Fjall, falta RocksDB/InMemory para prod | `src/storage/` |
 | **Missing auth** | Sin API key, sin JWT, sin RBAC | `security-and-hardening` |
 | **Missing telemetry** | Sin tracing, sin metrics export | `observability-and-instrumentation` |
-| **Missing cli command** | CLI sin subcomando necesario (ej: no hay `backup`) | `src/cli.rs` |
+| **Missing cli command** | CLI sin subcomando necesario | `src/cli.rs` |
 | **Missing python binding** | Feature de Rust sin binding en Python | `vantadb-python/` |
 | **Missing WASM target** | Feature que no build para WASM | `vantadb-wasm/` |
-| **Missing enterprise feature** | Multi-tenancy, audit log, SSO | `docs/VantaDB-MPTS/` |
 
 #### 11. Fallas de Algoritmo (`ALGO`)
 
@@ -929,11 +876,6 @@ Ineficiencias algorítmicas o elección incorrecta de estructura de datos.
 | **Index missing** | Query sin índice, full table scan | `database-schema-designer` |
 | **Inefficient batch** | Insert one-by-one en vez de batch insert | `code-review-and-quality` |
 | **Memory bloat** | Cargar todo en memoria cuando streaming es posible | `performance-optimization` |
-
-**Checklist de validación algorítmica:**
-- [ ] Benchmarks: `cargo bench 2>&1 | tail -30` — sin regresiones
-- [ ] Hot paths identificados y optimizados
-- [ ] No hay allocaciones innecesarias en loops calientes
 
 #### 12. Otras Fallas (`ANY`)
 
@@ -1184,7 +1126,7 @@ Revisá solo la capa Rust Core Layer del proyecto VantaDB.
 ### Review desde terminal
 
 ```powershell
-.\harness-executor.ps1 -PlanFile docs/plans/YYYY-MM-DD-full-review.md
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs/plans/YYYY-MM-DD-full-review.md
 ```
 
 ## Herramientas de referencia
@@ -1243,29 +1185,52 @@ Revisá solo la capa Rust Core Layer del proyecto VantaDB.
 
 ### Skills relacionadas
 
-| Skill | Propósito |
-|-------|-----------|
-| `code-review-and-quality` | Framework de revisión multi-eje |
-| `ponytail-audit` | Detección de over-engineering en todo el repo |
-| `ponytail-review` | Revisión de over-engineering en diff actual |
-| `doubt-driven-development` | Adversarial review para hallazgos críticos |
-| `debugging-and-error-recovery` | Root-cause debugging para fallas lógicas y errores |
-| `systematic-debugging` | Metodología de debugging paso a paso |
-| `code-simplification` | Detección de complejidad innecesaria |
-| `plan-design-review` | Senior Designer Review: puntúa diseño 0-10 |
-| `impeccable` | Design critique, anti AI-Slop, accesibilidad |
-| `platform-design` | Apple HIG + Material 3 + WCAG 2.2 (300+ reglas) |
-| `design-motion-principles` | Auditoría de animaciones anti-slop |
-| `seo-audit` | Auditoría SEO técnica |
-| `audit-website` | Website audit (230+ reglas con squirrelscan) |
-| `visual-review` | Visual review pipeline (Playwright + ImageMagick + pixelmatch) |
-| `performance-optimization` | Análisis de performance, bottlenecks |
-| `security-and-hardening` | Revisión de seguridad y hardening |
-| `database-schema-designer` | Review de schema de base de datos |
-| `observability-and-instrumentation` | Detección de falta de logging/metrics/tracing |
-| `ci-cd-and-automation` | Revisión de CI/CD pipelines y quality gates |
-| `git-workflow-and-versioning` | Análisis de historial git y versionado |
-| `writing-guidelines` | Revisión de claridad en docs y comunicación |
-| `api-and-interface-design` | Validación de diseño de APIs y boundaries |
-| `test-driven-development` | Detección de falta de cobertura de tests |
-| `frontend-ui-engineering` | Review de componentes React, estados, UX |
+| Skill | Propósito | Cómo cargar |
+|-------|-----------|-------------|
+| `code-review-and-quality` | Framework de revisión multi-eje | `skill code-review-and-quality` |
+| `ponytail-audit` | Detección de over-engineering en todo el repo | `skill ponytail-audit` |
+| `ponytail-review` | Revisión de over-engineering en diff actual | `skill ponytail-review` |
+| `doubt-driven-development` | Adversarial review para hallazgos críticos | `skill doubt-driven-development` |
+| `debugging-and-error-recovery` | Root-cause debugging para fallas lógicas | `skill debugging-and-error-recovery` |
+| `systematic-debugging` | Metodología de debugging paso a paso | `skill systematic-debugging` |
+| `code-simplification` | Detección de complejidad innecesaria | `skill code-simplification` |
+| `plan-design-review` | Senior Designer Review: puntúa diseño 0-10 | `skill plan-design-review` |
+| `impeccable` | Design critique, anti AI-Slop, accesibilidad | `skill impeccable` |
+| `platform-design` | Apple HIG + Material 3 + WCAG 2.2 (300+ reglas) | `skill platform-design` |
+| `design-motion-principles` | Auditoría de animaciones anti-slop | `skill design-motion-principles` |
+| `seo-audit` | Auditoría SEO técnica | `skill seo-audit` |
+| `audit-website` | Website audit (230+ reglas) | `skill audit-website` |
+| `visual-review` | Visual review pipeline | `skill visual-review` |
+| `performance-optimization` | Análisis de performance | `skill performance-optimization` |
+| `security-and-hardening` | Revisión de seguridad y hardening | `skill security-and-hardening` |
+| `observability-and-instrumentation` | Logging/metrics/tracing | `skill observability-and-instrumentation` |
+| `ci-cd-and-automation` | CI/CD pipelines | `skill ci-cd-and-automation` |
+| `git-workflow-and-versioning` | Git y versionado | `skill git-workflow-and-versioning` |
+| `writing-guidelines` | Claridad en docs | `skill writing-guidelines` |
+| `api-and-interface-design` | APIs y boundaries | `skill api-and-interface-design` |
+| `test-driven-development` | Cobertura de tests | `skill test-driven-development` |
+| `frontend-ui-engineering` | Componentes React | `skill frontend-ui-engineering` |
+| `database-schema-designer` | Schema de base de datos | `skill database-schema-designer` |
+
+## Task System Integration
+
+Cada invocación del review crea un plan file en `docs/plans/plan-review-<date>.md` con las 10 fases como tareas.
+
+1. Al iniciar: crear plan file con todas las fases en estado `pending`
+2. Por cada fase: marcarla como `in-progress`, luego `completed` o `failed`
+3. Los hallazgos de FASE 9 se registran como subtareas del plan
+4. Al finalizar: el plan queda como `completed` con el reporte linkeado
+
+```yaml
+# docs/plans/plan-review-2026-07-18.md (generado)
+task_id: review-2026-07-18
+description: "Full project review"
+fases:
+  f0_setup: "✅"
+  f1_rust_core: "✅"
+  f2_python_sdk: "✅"
+  f9_findings: "⚠️ 3 hallazgos"
+  f10_report: "✅"
+status: completed
+report: docs/reviews/2026-07-18-full-review.md
+```

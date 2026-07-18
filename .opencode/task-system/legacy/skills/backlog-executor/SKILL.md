@@ -75,7 +75,7 @@ Cada invocación del agente ejecuta **una iteración del loop interno**:
 ### Forma 1: PowerShell Harness (recomendada, sin dependencias)
 
 ```powershell
-.\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-campaign.md
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-campaign.md
 ```
 
 El script:
@@ -223,7 +223,7 @@ exactamente UN paso y devuelve el control.
 ### Preparación del Harness (se ejecuta una vez al arrancar)
 
 ```powershell
-# harness-executor.ps1 hace esto:
+# .opencode/task-system/harness/harness-executor.ps1 hace esto:
 # 1. Validar que el plan file existe y tiene tasks
 # 2. Verificar que no hay cambios sin commit en el repo
 # 3. Identificar el task runner (cargo, npm, just, etc.)
@@ -517,7 +517,7 @@ REGLAS:
 # Abrir PowerShell como administrador NO es necesario.
 # Ejecutar desde la raíz del proyecto:
 
-.\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-code-task-execution-campaign.md
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\2026-07-13-code-task-execution-campaign.md
 
 # Alternativa con opencode-loop (si está instalado):
 /loop-goal "implementar todas las tareas ❌ del plan file docs/plans/campaign.md"
@@ -527,17 +527,17 @@ REGLAS:
 
 ## Apéndice A: Harness PowerShell
 
-Ver `harness-executor.ps1` en la raíz del proyecto.
+Ver `.opencode/task-system/harness/harness-executor.ps1`.
 
 ```powershell
 # Uso básico
-.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md
 
 # Con modo debug (no ejecuta opencode, solo muestra qué haría)
-.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -DryRun
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -DryRun
 
 # Con intervalo entre iteraciones (segundos)
-.\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -Interval 30
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\mi-plan.md -Interval 30
 ```
 
 ---

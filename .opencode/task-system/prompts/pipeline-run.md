@@ -34,18 +34,24 @@ estancadas.
    - Recitation block (si existe)
    - Próxima tarea pendiente con sus datos
 
-3. PROBES DE INTEGRIDAD (antes de empezar):
+3. TRACKING DE SESIÓN:
+   - Llamá `campaign_session_track` (MCP) con `action: "create"` y `sessionId` único al inicio
+   - En cada tarea completada → `campaign_session_track` con `action: "update"` para registrar progreso
+   - Si hay harness activo (`.opencode/task-system/harness/harness-executor.ps1`) → verificar PID con `campaign_mount_harness` (MCP) dry-run antes de empezar
+   - Al finalizar → `campaign_session_track` con `action: "update"` y estado final
+
+4. PROBES DE INTEGRIDAD (antes de empezar):
    - Validá: (a) plan file existe y tiene tasks, (b) recitation block es legible,
      (c) última tarea no es la misma dos veces seguidas sin progreso,
      (d) plan file no tiene harness PID activo de otra sesión,
      (e) git status está limpio o los cambios son del pipeline actual
    - Si alguna probe falla → preguntá al usuario antes de continuar
 
-4. ENCONTRAR próxima tarea pendiente vía MCP:
+5. ENCONTRAR próxima tarea pendiente vía MCP:
    - `campaign_get_next_task` devuelve la primera ⬜ PENDING o null
    - Si no hay → **campaña completada**. Ejecutá `skill progreso`, detenete.
 
-5. MIENTRAS haya tareas pendientes:
+6. MIENTRAS haya tareas pendientes:
    a. Identificá: `id`, `name`, `contract`, `archivos clave`
    b. Si FAIL_MODE=parallel y hay ≥2 tareas independientes → saltá a **Paso 6 (waves paralelas)**
    c. Auto-cargá skills para el sub-agente:
@@ -112,7 +118,7 @@ estancadas.
       ```
    k. Leer plan file con `campaign_get_next_task` (MCP) y buscar próxima ⬜ PENDING
 
-6. WAVES PARALELAS (FAIL_MODE=parallel):
+7. WAVES PARALELAS (FAIL_MODE=parallel):
    a. Construí DAG de dependencias entre las N tareas pendientes:
       - Tarea A tiene `depende de X` → arista X → A
       - codegraph_explore en archivos de cada tarea para detectar conflictos
@@ -125,11 +131,11 @@ estancadas.
       ```
    c. MAX_CONCURRENT = min(4, tareas_en_wave)
    d. Por cada wave: spawn N sub-agentes en paralelo (task tool), esperá que
-      todos terminen, procesá resultados individuales (mismo que paso 5.f/5.g)
+      todos terminen, procesá resultados individuales (mismo que paso 6.f/6.g)
    e. Si una tarea falla en parallel → las demás de la wave terminan, waves
       siguientes NO arrancan. Reporte parcial.
 
-7. CUANDO no haya más ⬜ PENDING:
+8. CUANDO no haya más ⬜ PENDING:
    - Reportá campaña completada: N/M ✅, K ❌, stalled: S
    - Ejecutá `skill progreso` (migración masiva de todas las completadas)
    - Si FAIL_MODE=parallel: verificá que no haya conflictos entre ramas paralelas

@@ -24,10 +24,10 @@ compatibility: opencode
   │
   ├─ FASE 0: Cargar skills según tipo de módulo
   │
-  ├─ FASE 0b: Tool lock-in por fase  ← statewright: ~5 tools visibles, no 30+
-  │   ├─ F1-F3 (análisis): solo read + codegraph + search
-  │   ├─ F4-F5 (research): solo search + browser
-  │   ├─ F6 (triage): solo edit (Backlog.md) + write
+  ├─ FASE 0b: Tool lock-in por fase  ← recomendación, depende del runtime del agente
+  │   ├─ F1-F3 (análisis): priorizar codegraph + read + bash (cargo/rust-analyzer)
+  │   ├─ F4-F5 (research): priorizar metasearchmcp + argus + browser
+  │   ├─ F6 (triage): priorizar edit (Backlog.md) + write
   │   └─ Transiciones explícitas: no saltar de F3 a F6 sin pasar por F4-F5
   │
   ├─ FASE 1: CodeGraph structural mapping
@@ -59,8 +59,8 @@ compatibility: opencode
   │   └─ Testing → coverage, edge cases, flaky?
   │
   ├─ FASE 4: Web research por cada hallazgo
-  │   ├─ MetaSearchMCP.search_web("patrón/issue específico")
-  │   ├─ Argus.extract_content("url con solución/documentación")
+  │   ├─ metasearchmcp_search_web("patrón/issue específico")
+  │   ├─ argus_extract_content("url con solución/documentación")
   │   ├─ ¿Hay librería mejor? ¿patrón más moderno?
   │   └─ Registrar: source URL, solución recomendada, alternativas
   │
@@ -127,7 +127,7 @@ Wave 6 — Utilidades y misc (3 módulos):
   vantadb-cli       → CLI handlers
   vantadb-enterprise → enterprise crate
 ```
-<!-- ponytail: waves secuenciales. Si un wave tarda y el siguiente no depende, se podría solapar. DAG solver si >30 módulos. -->
+ponytail: waves secuenciales. Si un wave tarda y el siguiente no depende, se podría solapar. DAG solver si >30 módulos.
 
 Cada wave espera a que la anterior termine (dependencias naturales).
 Dentro de una wave, los módulos se pueden revisar en paralelo.
@@ -149,10 +149,9 @@ guarda hallazgos intermedios para no perder contexto entre iteraciones.
 
 ### Scorecard por Iteración (darwin-godel pattern)
 
-Cada iteración del loop registra una entrada en el scorecard:
+Cada iteración del loop registra una entrada en `.opencode/skills/review-deep/tmp/${MODULE}-<timestamp>.json`:
 
-```
-.iterations/${MODULE}-${TIMESTAMP}.json
+```json
 {
   "module": "vantadb-sdk",
   "wave": 0,
@@ -161,9 +160,7 @@ Cada iteración del loop registra una entrada en el scorecard:
   "fixed_now": 3,
   "to_backlog": 4,
   "discarded": 3,
-  "research_urls": 7,
-  "competitor_gaps": 2,
-  "previous_comparison": { "prev_total": 18, "delta": -2 }
+  "research_urls": 7
 }
 ```
 
@@ -328,12 +325,12 @@ Buscar en ${MODULE}:
 Para CADA hallazgo que no sea trivial, investigar:
 
 ```
-MetaSearchMCP.search_web("<issue específico>")
+metasearchmcp_search_web("<issue específico>")
 → Por ejemplo: "rust RwLock poisoned recover best practice 2026"
 → Por ejemplo: "HNSW ef_search auto-tuning PID loop"
 → Por ejemplo: "fjall column family compression performance"
 
-Argus.extract_content("<url resultado>")
+argus_extract_content("<url resultado>")
 → Documentación oficial
 → Stack Overflow / Discourse
 → Blog posts / RFCs

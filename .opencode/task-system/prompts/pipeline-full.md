@@ -12,8 +12,11 @@ Paso 0 — Auto-cargar skills según tipo de tarea:
    Llamá `campaign_get_next_task` (MCP) para obtener la tarea activa.
    Con los `Archivos clave`, llamá `campaign_load_skills` (MCP) que devuelve
    skills + checks exactos. Ejecutá `skill <nombre>` para CADA skill.
-   Si es bug → además `systematic-debugging`. Si es lógica nueva →
-   `test-driven-development`. Si es security-sensitive → `doubt-driven-development`.
+    Si es bug → además `systematic-debugging`. Si es lógica nueva →
+    `test-driven-development`. Si es security-sensitive → `doubt-driven-development`.
+    Llamá `campaign_get_workflow` (MCP) con el tipo detectado para cargar el
+    workflow JSON (bug-fix/feature-add/refactor/research/nine-second-saloon).
+    El workflow define estados, allowed_tools y transiciones específicas.
 
 INSTRUCCIONES — UNA TAREA COMPLETA POR ITERACIÓN:
 
@@ -52,6 +55,9 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
 **Implementación:**
 - Llamá `campaign_update_task_state` con `"in-progress"` y recitation
 - State machine: PLAN → ACT → VERIFY por cada step (~100 líneas por step)
+  * Antes de ACT → `campaign_validate_command` (MCP) para validar el comando
+  * Si el comando es riesgoso → `campaign_run_sandboxed` (MCP)
+  * En cada transición de estado → `campaign_enforce_state` (MCP) para pre-call checks
 - Si verify falla: retry ladder:
   1. Retry con feedback procesado
   2. Contexto fresco (~200 tokens resumen)
@@ -78,6 +84,7 @@ ejecutala. Si está ✅ o ❌, informalo y detenete.
   ```
 - Llamá `campaign_update_task_state` con `"completed"` y recitation
 - Auto-mejora: evaluá qué fue más difícil de lo esperado
+- Llamá `campaign_diagnose_pipeline` (MCP) para diagnosticar performance y obtener sugerencias de mejora
 
 **Progreso:**
 - Ejecutá `skill progreso`

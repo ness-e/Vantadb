@@ -7,7 +7,7 @@ Pipeline completo para ejecutar campañas de tareas desde backlog en loop autom�
 ```
 /USER                         /AGENT                        /LOOP PLUGIN
 ┌──────────────────┐         ┌──────────────────────┐      ┌──────────────────┐
-│ /campaign        │──────▶  │ Leer backlog          │      │ ./harness-executor.ps1 │
+│ /campaign        │──────▶  │ Leer backlog          │      │ .opencode/task-system/harness/harness-executor.ps1 │
 │ docs/Backlog.md  │         │ Triage gate           │      │ monitorea idle   │
 │                  │         │ Crear plan file       │      │ re-inyecta cada  │
 │                  │◀──────  │ Mostrar comando loop  │      │ vez que para     │
@@ -116,7 +116,7 @@ Aplica triage gate, crea `docs/plans/<FECHA>-<nombre>.md`, muestra el comando de
 ### Ejecutar campaña
 
 ```
-.\harness-executor.ps1 -PlanFile docs\plans\<plan>.md -Interval 10
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\<plan>.md -Interval 10
 ```
 
 El harness invoca `opencode run` con el prompt completo de `hybrid-prompt.md`, espera a que termine, y recién ahí avanza a la siguiente iteración.
@@ -144,5 +144,5 @@ Muestra turno actual, si está activo/pausado/bloqueado.
 ## Referencias
 
 - Loop plugin: `@bybrawe/opencode-loop` (v0.5.15+, `npx -y @bybrawe/opencode-loop@latest`)
-- Agent skills: addyosmani/agent-skills (`.agents/skills/`)
+- Agent skills: addyosmani/agent-skills (`.opencode/skills/`)
 - OpenCode custom commands: https://opencode.ai/docs/commands/

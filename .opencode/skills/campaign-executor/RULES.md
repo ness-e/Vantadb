@@ -64,17 +64,17 @@ encargadas y volver a encontrar todo hecho, verificado y comiteado.
 
 ```
 ¿Querés ejecutar tareas desde un backlog?
-  ├─ Sí → /campaign docs/Backlog.md
-  │       (crea plan file + muestra comando harness)
+  ├─ Sí → /pipeline plan docs/Backlog.md
+  │       (crea plan file + muestra próximo paso)
   │
   └─ No → ¿Querés definir una tarea a profundidad?
-       ├─ Sí → /campaign task DRV-NN
+       ├─ Sí → /pipeline task DRV-NN
        │       (investiga, crea task file con steps atómicos)
        │
        └─ No → ¿Querés ejecutar un plan existente?
-            ├─ Completo → .\harness-executor.ps1 -PlanFile ...
-            ├─ Una tarea → .\harness-executor.ps1 -PlanFile ... -SingleTask DRV-NN
-            └─ En paralelo → .\harness-executor.ps1 -PlanFile ... -Parallel
+├─ Completo → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ...
+├─ Una tarea → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ... -SingleTask DRV-NN
+└─ En paralelo → .opencode\task-system\harness\harness-executor.ps1 -PlanFile ... -Parallel
 ```
 
 ### Relación con archivos
@@ -84,11 +84,11 @@ RULES.md / VISION.md          ← north star (este archivo, no se modifica)
 .opencode/task-system/prompts/plan.md               ← crear plan desde backlog (triage gate)
 .opencode/task-system/prompts/task.md               ← definir tarea a profundidad
 .opencode/task-system/prompts/iter.md               ← ejecutar una iteración del harness
-.opencode/commands/campaign.md                      ← entry point: backlog | task ID | run
-.opencode/task-system/legacy/harness-executor.ps1    ← loop externo PowerShell
+.opencode/commands/pipeline.md                      ← entry point: plan | task | run | interactive
+.opencode/task-system/harness/harness-executor.ps1   ← loop externo PowerShell
 SKILL.md                      ← referencia completa del skill
-.tasks/<ID>.md               ← auto-generated task definitions
-.agents/references/           ← repos clonados (awesome-harness-engineering, statewright, ...)
+tasks/<ID>.md               ← auto-generated task definitions (resuelve a .opencode/skills/campaign-executor/tasks/<ID>.md)
+.opencode/references/           ← repos clonados (awesome-harness-engineering, statewright, ...)
 ```
 
 ---

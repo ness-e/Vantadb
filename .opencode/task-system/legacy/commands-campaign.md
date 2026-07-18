@@ -30,7 +30,7 @@ Al final del archivo, mostrame el comando exacto para ejecutar el plan:
 
 **Opción recomendada (bloqueante, espera a que cada iteración termine):**
 ```
-.\harness-executor.ps1 -PlanFile docs\plans\<FECHA>-<nombre>.md -Interval 10
+.opencode\task-system\harness\harness-executor.ps1 -PlanFile docs\plans\<FECHA>-<nombre>.md -Interval 10
 ```
 
 **Alternativa (loop plugin — requiere intervalo >0s para evitar overlap):**

@@ -10,10 +10,15 @@ El sistema de pipeline vive en `.opencode/` y se activa cuando el usuario envía
 
 | Mensaje del usuario | Archivo a leer | Modos |
 |---|---|---|
-| `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive |
-| `/campaign ...` | `.opencode/commands/campaign.md` | Plan / Task / Pipeline / Run |
+| `/pipeline ...` | `.opencode/commands/pipeline.md` | Plan / Task / Run / Interactive / Pipeline / Ejecución |
 | `/audit ...` | `.opencode/commands/audit.md` | Full / Quick / Certify / Review |
-| `/certify` | `.opencode/commands/certify.md` | Pre-push gate (8 layers) |
+| `/build ...` | `.opencode/commands/build.md` | Default / Auto / Prove |
+| `/ship` | `.opencode/commands/ship.md` | Fan-out GO/NO-GO |
+| `/rollback` | `.opencode/commands/rollback.md` | Revertir ship fallido |
+| `/status` | `.opencode/commands/status.md` | Dashboard de un vistazo |
+| `/spec` | `.opencode/commands/spec.md` | Spec-Driven Development |
+| `/webperf` | `.opencode/commands/webperf.md` | Web performance audit |
+| `/code-simplify` | `.opencode/commands/code-simplify.md` | Simplify code |
 
 ### Path Resolution
 
@@ -28,7 +33,7 @@ Todas las rutas relativas en comandos y prompts se resuelven así:
 
 ### Cómo ejecutar un comando
 
-1. **Detectar:** el usuario manda un mensaje que coincide con un patrón de comando (`/pipeline task P1-2`, `/audit quick`, `/campaign`, etc.)
+1. **Detectar:** el usuario manda un mensaje que coincide con un patrón de comando (`/pipeline task P1-2`, `/audit quick`, `/status`, etc.)
 2. **Leer entry point:** el agente LEE el archivo de comando correspondiente en `.opencode/commands/` con Read tool
 3. **Interpretar modo:** el archivo describe cómo rutear según el argumento (plan / task / run / etc.)
 4. **Resolver rutas:** cada referencia a `prompts/X.md`, `skills/X`, `tasks/X.md` se resuelve según la tabla de Path Resolution
@@ -451,7 +456,7 @@ Para cargar: `skill <nombre>` o leer el SKILL.md correspondiente.
 
 ### Skill Loading Guide — Ingeniería (agent-skills)
 
-Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (`.agents/agent-skills/`). Son **workflows obligatorios** — el agente DEBE usarlos cuando apliquen. No saltarse pasos.
+Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (`.opencode/`). Son **workflows obligatorios** — el agente DEBE usarlos cuando apliquen. No saltarse pasos.
 
 **Lifecycle mapping (detección automática por contexto):**
 
@@ -482,9 +487,47 @@ Skills de ingeniería instaladas desde [addyosmani/agent-skills](https://github.
 | **SHIP** | `observability-and-instrumentation` | Telemetría, logging estructurado, métricas RED |
 | **META** | `using-agent-skills` | Cómo usar este pack — consultar si hay dudas |
 
-**Personas especializadas** (`.agents/agents/`): `code-reviewer` (Staff Engineer), `test-engineer` (QA), `security-auditor` (Security), `web-performance-auditor` (Web Perf).
+**Personas especializadas** (`.opencode/agents/`): `vanta-audit` (Security + Code Review), `vanta-chaos` (Fuzzing + Resilience), `vanta-tuner` (Performance + Observability). Legacy `code-reviewer`, `security-auditor`, `test-engineer` eliminados — reemplazados por vanta-*.
 
-**Referencias** (`.agents/references/`): `definition-of-done.md`, `testing-patterns.md`, `security-checklist.md`, `performance-checklist.md`, `accessibility-checklist.md`, `observability-checklist.md`.
+**Referencias** (`.opencode/references/`): `definition-of-done.md`, `testing-patterns.md`, `security-checklist.md`, `performance-checklist.md`, `accessibility-checklist.md`, `observability-checklist.md`.
+
+### Anti-Rationalization (MUST)
+
+Las siguientes excusas son incorrectas y DEBEN ser ignoradas:
+
+- "Esto es muy chico para una skill"
+- "Yo lo implemento rápido, no necesito spec/test/review"
+- "Ya conozco el código, no hace falta cargar skills"
+- "Después agrego los tests"
+
+**Comportamiento correcto:** siempre evaluar qué skills aplican y cargarlas antes de cualquier acción. Si hay duda, cargar la skill igual.
+
+### Regla 0: Análisis de Impacto Antes de Modificar/Eliminar (MUST)
+
+**Nunca modifiques o elimines un archivo sin antes:**
+
+1. **Leer su contenido completo**
+2. **Mapear todas sus referencias** — grep por el nombre del archivo en TODO el workspace (no solo `.opencode/`)
+3. **Mapear qué archivos referencia hacia afuera** — imports, includes, depends
+4. **Evaluar impacto** — ¿qué se rompe si el archivo desaparece? ¿qué depende de él?
+5. **Presentar hallazgos al usuario** con: contenido, referencias entrantes, referencias salientes, veredicto propuesto
+
+**Prohibido:** eliminar basado en "parece duplicado" o "no se usa (sin grep)". Siempre verificar con grep primero.
+
+### Orchestration: Personas, Skills, Commands
+
+Tres capas componibles con roles distintos:
+
+- **Skills** (`.agents/skills/<name>/SKILL.md`) — workflows con pasos y criterios de salida. El *how*. Obligatorios cuando un intento matchea.
+- **Personas** (`.opencode/agents/<role>.md`) — roles con perspectiva y formato de output. El *who*.
+- **Comandos** (`.opencode/commands/*.md`) — entry points del usuario. El *when*. Capa de orquestación.
+
+**Regla de composición:** el usuario (o un comando) es el orquestador. Las personas pueden invocar skills. El único patrón multi-persona endorsed es **parallel fan-out con merge step**.
+
+**Excepción asimétrica:** algunas personas *sí* invocan otras personas vía `task` tool, pero solo en una dirección:
+- **Orquestadores** (vanta-arch, vanta-worker, vanta-lead, vanta-engine) pueden invocar especialistas
+- **Especialistas** (vanta-audit, vanta-chaos, vanta-tuner, vanta-docs) tienen `task: * deny` — son leaf nodes
+- Esto refleja el patrón real: el que diseña/implementa delega al que revisa/testea/optimiza, nunca al revés. La regla general ("personas no invocan otras personas") aplica estrictamente a especialistas.
 
 **Reglas:**
 1. Antes de cualquier acción, evaluar qué skill de ingeniería aplica

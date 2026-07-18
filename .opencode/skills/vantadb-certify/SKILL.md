@@ -15,10 +15,10 @@ Certificación completa pre-push. El pipeline entero (CI) debe pasar localmente.
 ### Layer 0: CodeGraph Impact Analysis
 
 ```
-codegraph affected --stdin < git diff --name-only HEAD
+codegraph_explore "affected modules by $(git diff --name-only HEAD)"
 ```
 
-Identifica qué tests se ven afectados por los cambios staged.
+Identifica qué tests se ven afectados por los cambios staged vía el knowledge graph del workspace.
 Si detecta archivos sensibles (workflows, configs, unsafe), escala la revisión.
 
 ### Layer 1: Rust — Compilación + Lints + Tests
@@ -112,7 +112,7 @@ Si el diff omite actualizar un workflow que debería cambiar → FAIL.
 | `security-and-hardening` | Input validation, trust boundaries, data exposure |
 | `deprecation-and-migration` | Si se removió algo público |
 
-Ejecutar cada skill secuencialmente. Cada una puede vetar el push.
+Cargar cada skill con `skill <nombre>` en orden. Cada skill puede vetar el push registrando la objeción. El reporte final incluye todos los vetos, pero la certificación continúa (el dev decide qué vetos atender antes del push real).
 
 ### Layer 8: Commit Readiness
 
@@ -124,26 +124,26 @@ Ejecutar cada skill secuencialmente. Cada una puede vetar el push.
 [ ] Referencia cruzada a issue/backlog ID
 ```
 
-## Early exit
+## Failure handling
 
-Si cualquier layer falla → el comando se detiene ahí.
-No seguir con la siguiente layer hasta que la falla esté resuelta.
+Si una layer mecánica (L1-L5) falla → **detenerse**, reportar la falla y no continuar. No tiene sentido revisar código que no compila.
+
+Si una layer cognitiva (L7) encuentra issues → **registrar todos los hallazgos** en el reporte pero continuar con las siguientes sub-layers. El reporte final consolida TODO: layers pasadas, fallos, y vetos de skills en un solo documento.
 
 ## Pre-push hook (instalación local)
 
 El hook es la **primera línea de defensa** — si falla, OpenCode ni se invoca.
 
-```bash
-#!/bin/bash
-# .git/hooks/pre-push — SIPP
-echo "[SIPP] Barrera determinista..."
-cargo check --workspace --all-targets || exit 1
-cargo clippy --workspace --all-targets -- -D warnings || exit 1
-cargo test --workspace || exit 1
-mypy . --strict 2>/dev/null || true    # si existe
-pytest -q 2>/dev/null || true          # si existe
-npx tsc --noEmit 2>/dev/null || true   # si existe
-echo "[SIPP] Barrera superada."
+```powershell
+# .git/hooks/pre-push.ps1 — SIPP
+Write-Host "[SIPP] Barrera determinista..."
+cargo check --workspace --all-targets
+if ($LASTEXITCODE -ne 0) { exit 1 }
+cargo clippy --workspace --all-targets -- -D warnings
+if ($LASTEXITCODE -ne 0) { exit 1 }
+cargo nextest run --profile audit --workspace --build-jobs 2
+if ($LASTEXITCODE -ne 0) { exit 1 }
+Write-Host "[SIPP] Barrera superada."
 ```
 
 ## Referencias CI
