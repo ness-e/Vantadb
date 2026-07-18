@@ -29,6 +29,8 @@ impl<'a> FlatBufferView<'a> {
 
     /// Read the i-th row into an owned Vec<f32> by copying each element.
     /// Skips the intermediate full-buffer Vec<f32> from `to_vec()`.
+    // ponytail: P2-10 row_to_vec() copia por fila (inherente — necesitás Vec<f32> individual por record).
+    // No hay zero-copy alternativo para put_batch() con PyBuffer. No aplicar en search().
     pub fn row_to_vec(&self, index: usize) -> Vec<f32> {
         let start = index * self.ndims;
         self.data[start..start + self.ndims]

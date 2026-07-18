@@ -40,6 +40,7 @@ struct LruCache {
     order: Vec<String>,
     capacity: usize,
 }
+// ponytail: O(n) scan on Vec order (capacity=64). Add lru crate iff >256 entries are ever cached.
 
 impl LruCache {
     fn new(capacity: usize) -> Self {
@@ -226,6 +227,9 @@ pub(crate) fn try_numpy_array(py: Python<'_>, data: &[f32]) -> PyResult<Option<P
 /// with fallback to Python list extraction.
 ///
 /// Uses a thread-local buffer cache to reduce allocation churn in hot paths.
+// ponytail: P2-9 PyO3 PyBuffer::as_slice() devuelve ReadOnlyCell<f32> con cell.get() atomic load.
+// Para 768 dims ~768ns overhead — implementar zero-copy real (PtrExt::as_ptr + copy_nonoverlapping)
+// solo si profiling muestra bottleneck en extracción de vectores.
 fn extract_vector<'py>(obj: &Bound<'py, PyAny>, py: Python<'py>) -> PyResult<Vec<f32>> {
     // Attempt zero-copy via buffer protocol (requires Python 3.11+)
     if let Ok(buf) = pyo3::buffer::PyBuffer::<f32>::get(obj) {
@@ -820,6 +824,9 @@ impl VantaDB {
     ///
     /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
+    #[deprecated(
+        note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., ttls=...) instead"
+    )]
     #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, ttls=None))]
     fn put_batch(
         &self,
@@ -834,6 +841,7 @@ impl VantaDB {
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         // Backward compat: old tuple-based list-of-entries API
         if let Some(entries_list) = entries {
+            let _ = py.import("warnings")?.call_method1("warn", ("put_batch() with positional tuples is deprecated; use keyword arguments (keys=..., vectors=..., ...) instead",))?;
             let mut inputs = Vec::with_capacity(entries_list.len().unwrap_or(0));
             for entry in entries_list.try_iter()? {
                 let entry = entry?.cast::<PyTuple>()?.clone();
@@ -1756,14 +1764,16 @@ fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
 /// for pure-Python consumers.
 #[pyclass(name = "VantaVector")]
 pub(crate) struct VantaVector {
-    data: Vec<f32>,
+    data: Box<[f32]>,
 }
 
 #[pymethods]
 impl VantaVector {
     #[new]
     fn new(data: Vec<f32>) -> Self {
-        VantaVector { data }
+        VantaVector {
+            data: data.into_boxed_slice(),
+        }
     }
 
     fn __len__(&self) -> usize {
@@ -1781,14 +1791,14 @@ impl VantaVector {
 
     fn __iter__(slf: PyRef<'_, Self>) -> VantaVectorIter {
         VantaVectorIter {
-            data: slf.data.clone(),
+            data: slf.data.to_vec(),
             index: 0,
         }
     }
 
     fn __repr__(&self) -> String {
         if self.data.len() <= 6 {
-            format!("VantaVector({:?})", self.data)
+            format!("VantaVector({:?})", &self.data[..])
         } else {
             format!(
                 "VantaVector([{:.4}, ..., {:.4}], dim={})",
@@ -1801,6 +1811,8 @@ impl VantaVector {
 
     /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
     /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
+    /// The backing `Box<[f32]>` is never reallocated (unlike `Vec`),
+    /// preventing UB from a Rust realloc while NumPy references the buffer.
     #[getter(__array_interface__)]
     fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
@@ -1815,11 +1827,11 @@ impl VantaVector {
 
     /// Support ``__getstate__`` / ``__setstate__`` for pickle compatibility.
     fn __getstate__(&self) -> Vec<f32> {
-        self.data.clone()
+        self.data.to_vec()
     }
 
     fn __setstate__(&mut self, state: Vec<f32>) {
-        self.data = state;
+        self.data = state.into_boxed_slice();
     }
 }
 
