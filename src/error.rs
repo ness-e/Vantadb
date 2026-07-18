@@ -87,6 +87,7 @@ impl StdError for ChainedError {
 /// Core error type for all VantaDB operations
 #[derive(Error, Debug)]
 #[must_use]
+#[non_exhaustive]
 pub enum VantaError {
     /// A node with the given ID was not found.
     #[error("Node not found: {0}")]
