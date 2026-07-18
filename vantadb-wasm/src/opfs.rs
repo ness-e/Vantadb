@@ -79,11 +79,10 @@ impl OpfsFile {
         Ok(())
     }
 
-    /// Delete the file from OPFS. Returns `Ok(true)` if deleted, `Ok(false)` if not found.
+    /// Delete the file from OPFS. Returns `Ok(true)` if deleted.
     pub async fn delete(&self) -> Result<bool, JsValue> {
-        Err(JsValue::from_str(
-            "OpfsFile::delete requires the parent directory handle — use OpfsStorage::delete_file instead",
-        ))
+        js_call(&self.handle, "remove", &js_sys::Array::new()).await?;
+        Ok(true)
     }
 }
 
