@@ -8,7 +8,7 @@ aliases: []
 
 # General Progress of VantaDB Project
 
-> **Last updated:** 2026-07-14
+> **Last updated:** 2026-07-17
 > **Release version:** [`docs/CHANGELOG.md`]([[CHANGELOG.md]]) — formal changelog by version
 > **Activate backlog:** [`docs/Backlog.md`]([[Backlog.md]]) — prioritized tasks
 
@@ -1860,3 +1860,83 @@ Migración completa del sistema de node_id de `u64` (XxHash64) a `u128` (XxHash3
 | P1-2 | Windows step timeout 25→30 min | Increased step timeout from 25 to 30 min in `ci-rust-10.yml` `test-windows` job to match job timeout. `test-threads=2` preserved (needed to avoid OS error 1455). | ✅ |
 
 **Verificación:** diff inspeccionado, commit 3acd07c.
+
+### 2026-07-17 — P1-3: Cache key hashFiles para GloVe dataset
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-3 | Cache key `glove-100d-v1` → `hashFiles('scripts/download_benchmark_datasets.sh')` | Replaced static cache key with `hashFiles` in both `test` and `coverage` jobs of `ci-rust-10.yml`. Cache now invalidates when download script changes. `hashFiles` is native GitHub Actions expression — no dependency needed. | ✅ |
+
+**Verificación:** `grep hashFiles ci-rust-10.yml` → 2 matches (L104, L239). Commit 9386079.
+
+### 2026-07-17 — P1-4: macOS unificar con rust-setup action
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-4 | macOS usar `.github/actions/rust-setup` | Replaced manual `dtolnay/rust-toolchain` + `Swatinem/rust-cache` + `cargo install cargo-nextest` with single `uses: ./.github/actions/rust-setup`. -10 lines. Homebrew deps preserved. | ✅ |
+
+**Verificación:** diff inspeccionado — 2 inserts, 10 deletes. Commit 8bd15fa.
+
+### 2026-07-17 — P1-5: Re-activar wasm-opt
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-5 | Re-activar `wasm-opt` en WASM build | Removed `wasm-opt = false` override. Binaryen v121+ (current: v128+) supports bulk-memory-opt. wasm-opt now runs with default `-Os` on release builds, saving ~30-50% bundle size. | ✅ |
+
+**Verificación:** diff inspeccionado — -1 línea neta. Commit e96a6f5.
+
+### 2026-07-17 — P1-6: Worker timeout 5s sin retry — exponential backoff
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-6 | Worker timeout 5s sin retry | `send()` wrappeado con retry loop (max 3, backoff 1s→2s→4s). Solo timeout errors reintentan. `try_send()` extraído con body original. `cargo check -p vantadb-wasm` ✅ | ✅ |
+
+**Verificación:** `cargo check -p vantadb-wasm` — 0 errores, 0 warnings nuevos.
+
+### 2026-07-17 — P1-7: CI — Version extraction frágil con grep
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-7 | Version extraction frágil en CI | `grep '^version'` → `grep -A1 '^\[workspace\.package\]'` en `release-wheels-60.yml` y `release-npm-61.yml`. Ahora extrae del source of truth real (`[workspace.package]`), no del coincidencial `[package]`. | ✅ |
+
+**Verificación:** diff inspeccionado — 2 líneas cambiadas (1 por file). Semver regex en npm actúa como catch extra.
+
+### 2026-07-17 — P1-8: CI — Inconsistencia de timeouts
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-8 | Inconsistencia de timeouts en heavy-certification-50.yml | Removido `timeout-minutes: 150` del step `Run stress protocol`. Job timeout (180 min) actúa como único guardián. -1 línea neta. | ✅ |
+
+**Verificación:** diff inspeccionado — 1 línea eliminada.
+
+### 2026-07-17 — P1-9: WASM — SIMD duplicado eliminado
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-9 | SIMD duplicado en WASM (cosine_distance_simd) | Eliminado `vantadb-wasm/src/simd.rs` (208 líneas) + `pub mod simd` de `lib.rs`. `cosine_distance_simd()` era dead code (0 callers externos). Alternativa: `vantadb::index::cosine_sim_f32`. | ✅ |
+
+**Verificación:** `cargo check -p vantadb-wasm` — 0 errores, 0 warnings nuevos. -208 líneas netas.
+
+### 2026-07-17 — P1-10: PyPI CDN propagation sleep → retry loop
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P1-10 | CI: PyPI CDN sleep → retry loop | Reemplazado `sleep 90` + step install separado por un solo step con retry loop (1s, 2s, 4s, 8s, 16s, 32s, 64s). Si CDN propaga en 10s, instala en 10s. Max 127s vs 90s fijo antes. `release-wheels-60.yml:256-259` → `:256-264` | ✅ |
+
+**Verificación:** diff inspeccionado. 2 pasos fusionados en 1. Sin compilación Rust (cambio YAML puro).
+
+### 2026-07-17 — P2-1: OpfsFile::delete() implementado
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P2-1 | WASM: OpfsFile::delete() stub → real | Reemplazado error stub con `js_call(&self.handle, "remove", ...)`. `opfs.rs:83-87` — 5 líneas → 3 líneas. `cargo check -p vantadb-wasm` ✅ | ✅ |
+
+**Verificación:** `cargo check -p vantadb-wasm` — 0 errores.
+
+### 2026-07-17 — P2-2: VantaVector.__array_interface__ UB fix (Vec→Box)
+
+| ID | Tarea | Cambio | Estado |
+|----|-------|--------|--------|
+| P2-2 | PyO3: VantaVector Vec→Box&lt;[f32]&gt; | `Vec<f32>` → `Box<[f32]>` en struct + `new()`/`__iter__`/`__getstate__`/`__setstate__`. Elimina realloc como fuente de UB en `__array_interface__`. `cargo check` ✅ | ✅ |
+
+**Verificación:** `cargo check` en `vantadb-python/` — 0 errores.

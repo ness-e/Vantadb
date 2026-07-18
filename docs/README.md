@@ -41,7 +41,7 @@ The primary entry point to all documentation is the [[master-index|Master Index]
 | [[Backlog.md]] | Active task backlog |
 | [[CHANGELOG.md]] | Project changelog |
 | [[QUICKSTART.md]] | 5-minute quickstart guide |
-| [[bitacora.md]] | Development log and daily notes |
+| [[progreso/bitacora.md]] | Development log and daily notes |
 | [[README.md]] | This overview file |
 
 ## Conventions
