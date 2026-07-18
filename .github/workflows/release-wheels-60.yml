@@ -207,7 +207,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           else
-            version=$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+            version=$(grep -A1 '^\[workspace\.package\]' Cargo.toml | grep '^version' | sed 's/.*"\(.*\)"/\1/')
             echo "version=${version}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -253,15 +253,15 @@ jobs:
         id: pkg_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for PyPI CDN propagation
+      - name: Install from PyPI with retry on CDN delay
         run: |
-          echo "Waiting 90 seconds for PyPI CDN propagation..."
-          sleep 90
-
-      - name: Install from PyPI (clean environment)
-        run: |
-          python -m pip install --no-cache-dir \
-            "vantadb-py==${{ steps.pkg_version.outputs.version }}"
+          set -e
+          for i in 1 2 4 8 16 32 64; do
+            python -m pip install --no-cache-dir \
+              "vantadb-py==${{ steps.pkg_version.outputs.version }}" && break
+            echo "Package not yet available, retrying in ${i}s..."
+            sleep $i
+          done
 
       - name: Functional smoke test - verify published wheel
         env:
