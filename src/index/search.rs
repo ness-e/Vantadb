@@ -1,6 +1,5 @@
+use ahash::RandomState;
 use std::collections::BinaryHeap;
-use std::hash::BuildHasherDefault;
-use twox_hash::XxHash64;
 
 use super::distance::*;
 use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
@@ -20,12 +19,8 @@ impl CPIndex {
         query_mask: &FilterBitset,
         vector_store: Option<&crate::storage::vfile::VantaFile>,
         metric: DistanceMetric,
+        visited: &mut std::collections::HashSet<u128, RandomState>,
     ) -> BinaryHeap<NodeSimMin> {
-        let mut visited: std::collections::HashSet<u128, _> =
-            std::collections::HashSet::with_capacity_and_hasher(
-                ef * 2,
-                BuildHasherDefault::<XxHash64>::default(),
-            );
         let mut candidates = BinaryHeap::new();
         let mut results = BinaryHeap::new();
 
@@ -409,9 +404,15 @@ impl CPIndex {
             }
         };
         let mut curr_entry_points = vec![ep];
+        let mut visited: std::collections::HashSet<u128, RandomState> =
+            std::collections::HashSet::with_capacity_and_hasher(
+                ef_search.max(top_k) * 2,
+                RandomState::new(),
+            );
 
         let max_l = self.max_layer.load(std::sync::atomic::Ordering::Acquire);
         for layer in (1..=max_l).rev() {
+            visited.clear();
             let mut w = self.search_layer(
                 query_vec,
                 query_norm,
@@ -422,12 +423,14 @@ impl CPIndex {
                 &crate::node::ALL_BITSET,
                 vector_store,
                 effective_metric,
+                &mut visited,
             );
             if let Some(NodeSimMin(_, best_id)) = w.pop() {
                 curr_entry_points = vec![best_id];
             }
         }
 
+        visited.clear();
         let w = self.search_layer(
             query_vec,
             query_norm,
@@ -438,6 +441,7 @@ impl CPIndex {
             query_mask,
             vector_store,
             effective_metric,
+            &mut visited,
         );
 
         let mut result: Vec<NodeSimMin> = w.into_sorted_vec();

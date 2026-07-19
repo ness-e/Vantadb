@@ -220,15 +220,15 @@ pub(crate) fn get_u64_field(fields: &VantaFields, key: &str) -> Option<u64> {
     }
 }
 
-pub fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
+pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> {
     if !node.is_alive() {
         return None;
     }
 
     let mut fields: VantaFields = node
         .relational
-        .into_iter()
-        .map(|(key, value)| (key, value.into()))
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone().into()))
         .collect();
 
     let namespace = get_string_field(&fields, FIELD_NAMESPACE)?;
@@ -258,8 +258,8 @@ pub fn memory_record_from_node(node: UnifiedNode) -> Option<VantaMemoryRecord> {
         }
     }
 
-    let vector = match node.vector {
-        VectorRepresentations::Full(vector) => Some(vector),
+    let vector = match &node.vector {
+        VectorRepresentations::Full(vector) => Some(vector.clone()),
         _ => None,
     };
 

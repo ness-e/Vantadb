@@ -79,6 +79,7 @@ web-time = "1.1.0"
 # ── Encryption (optional, behind feature = "encryption") ──
 aes-gcm = { version = "0.10", optional = true }
 sha2 = { version = "0.10", optional = true }
+ahash = "0.8.12"
 
 [features]
 default = ["cli", "arrow", "fjall", "sysinfo", "memmap2", "fs2", "prometheus", "rayon", "advanced-tokenizer"]

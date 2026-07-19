@@ -178,6 +178,17 @@ impl StorageEngine {
                     }
                 }
             }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
+                }
+            }
         }
 
         // PERF-07: add new edges to global index
@@ -358,6 +369,17 @@ impl StorageEngine {
                     for (field, value) in &node.relational {
                         si.insert(field, value, node.id);
                     }
+                }
+            }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
                 }
             }
         }
@@ -728,6 +750,17 @@ impl StorageEngine {
                     val_map.retain(|_, &mut v| v > 0);
                 }
             }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
+                }
+            }
 
             // PERF-07: cascade — remove all edges referencing this node
             if let Some(ref ei) = self.edge_index {
@@ -831,6 +864,17 @@ impl StorageEngine {
                     if let Some(ref si) = self.scalar_index {
                         si.remove_node(id);
                     }
+                }
+            }
+            // ponytail: drop the field with fewest entries if total pairs > global cap
+            let total: usize = stats.values().map(|m| m.len()).sum();
+            if total > crate::config::MAX_CARDINALITY_PAIRS {
+                if let Some(min_field) = stats
+                    .iter()
+                    .min_by_key(|(_, m)| m.len())
+                    .map(|(k, _)| k.clone())
+                {
+                    stats.remove(&min_field);
                 }
             }
         }

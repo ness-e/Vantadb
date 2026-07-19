@@ -4626,6 +4626,7 @@ name = "vantadb"
 version = "0.3.0"
 dependencies = [
  "aes-gcm",
+ "ahash",
  "arc-swap",
  "arrow",
  "axum",

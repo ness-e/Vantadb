@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use web_time::{SystemTime, UNIX_EPOCH};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+
+use crate::storage::vfile::Mmap;
 
 const MAX_VEC_F32_LEN: usize = 10_000_000; // Max ~40MB for a single f32 vector
 
@@ -187,25 +190,8 @@ pub enum DistanceMetric {
 
 // ─── Vector Data ───────────────────────────────────────────
 
-/// Wrapper around a raw `*const f32` pointer that implements `Send` + `Sync`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SendPtr(pub *const f32);
-// SAFETY: SendPtr wraps a `*const f32` that is only ever dereferenced behind
-// shared `&` references with valid bounds checked at the call site. The
-// pointer is never mutated through, so sharing across threads is sound.
-unsafe impl Send for SendPtr {}
-// SAFETY: Same reasoning as `Send` — `SendPtr` is used exclusively for
-// read-only mmap-backed vector access. No mutable aliasing crosses threads.
-unsafe impl Sync for SendPtr {}
-
-impl Default for SendPtr {
-    fn default() -> Self {
-        SendPtr(std::ptr::null())
-    }
-}
-
 /// Vector storage — supports tiered precision (Hybrid Quantization)
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum VectorRepresentations {
     /// L1: Fast binary index in RAM. Hamming distance (XOR + POPCNT).
     Binary(Box<[u64]>),
@@ -216,10 +202,32 @@ pub enum VectorRepresentations {
     SQ8(Box<[i8]>, f32),
     /// L3: Full precision float32.
     Full(Vec<f32>),
-    /// L3 (MMap): Zero-copy view into the memory-mapped file
-    MmapFull(#[serde(skip)] SendPtr, #[serde(skip)] usize),
+    /// L3 (MMap): Zero-copy view into the memory-mapped file.
+    /// The `Arc<Mmap>` keeps the mapping alive, preventing dangling pointers
+    /// when the index file is re-mapped during checkpoint/sync.
+    MmapFull(#[serde(skip)] Option<Arc<Mmap>>),
     /// No vector attached
     None,
+}
+
+// Manual PartialEq: Arc<Mmap> doesn't implement PartialEq, so we
+// compare MmapFull by content (same pointer + len is sufficient for tests).
+impl PartialEq for VectorRepresentations {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Full(a), Self::Full(b)) => a == b,
+            (Self::MmapFull(a), Self::MmapFull(b)) => match (a, b) {
+                (Some(am), Some(bm)) => am.as_ptr() == bm.as_ptr() && am.len() == bm.len(),
+                (None, None) => true,
+                _ => false,
+            },
+            (Self::Binary(a), Self::Binary(b)) => a == b,
+            (Self::Turbo(a), Self::Turbo(b)) => a == b,
+            (Self::SQ8(a, sa), Self::SQ8(b, sb)) => a == b && (sa - sb).abs() < f32::EPSILON,
+            (Self::None, Self::None) => true,
+            _ => false,
+        }
+    }
 }
 
 impl VectorRepresentations {
@@ -227,7 +235,9 @@ impl VectorRepresentations {
     pub fn dimensions(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len(),
-            VectorRepresentations::MmapFull(_, len) => *len,
+            VectorRepresentations::MmapFull(mmap_opt) => {
+                mmap_opt.as_ref().map_or(0, |m| m.len() / 4)
+            }
             VectorRepresentations::Binary(data) => data.len() * 64,
             VectorRepresentations::Turbo(data) => data.len() * 2,
             VectorRepresentations::SQ8(data, _) => data.len(),
@@ -244,14 +254,8 @@ impl VectorRepresentations {
     pub fn to_f32(&self) -> Option<Vec<f32>> {
         match self {
             VectorRepresentations::Full(v) => Some(v.clone()),
-            VectorRepresentations::MmapFull(ptr, len) => {
-                if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
-                    return None;
-                }
-                // SAFETY: ptr.0 is guaranteed non-null and len is bounded by
-                // MAX_VEC_F32_LEN (10M). The SendPtr is only constructed from
-                // valid mmap regions that outlive the read lock held by caller.
-                let slice = unsafe { std::slice::from_raw_parts(ptr.0, *len) };
+            VectorRepresentations::MmapFull(_) => {
+                let slice = self.as_f32_slice()?;
                 Some(slice.to_vec())
             }
             VectorRepresentations::SQ8(data, scale) => {
@@ -267,12 +271,14 @@ impl VectorRepresentations {
     pub fn as_f32_slice(&self) -> Option<&[f32]> {
         match self {
             VectorRepresentations::Full(v) => Some(v.as_slice()),
-            VectorRepresentations::MmapFull(ptr, len) => {
-                if ptr.0.is_null() || *len == 0 || *len > MAX_VEC_F32_LEN {
+            VectorRepresentations::MmapFull(mmap_opt) => {
+                let mmap = mmap_opt.as_ref()?;
+                let len = mmap.len() / 4;
+                if len == 0 || len > MAX_VEC_F32_LEN {
                     return None;
                 }
-                // SAFETY: same invariants as to_f32 — non-null ptr + bounded len.
-                Some(unsafe { std::slice::from_raw_parts(ptr.0, *len) })
+                // SAFETY: the mmap is kept alive by Arc; length bounds checked above.
+                Some(unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) })
             }
             _ => None,
         }
@@ -361,7 +367,7 @@ impl VectorRepresentations {
     pub fn memory_size(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len() * 4,
-            VectorRepresentations::MmapFull(_, _) => 0, // Zero heap allocations for mapped memory
+            VectorRepresentations::MmapFull(_) => 0, // Zero heap allocations for mapped memory
             VectorRepresentations::Binary(data) => data.len() * 8,
             VectorRepresentations::Turbo(data) => data.len(),
             VectorRepresentations::SQ8(data, _) => data.len() + 4,

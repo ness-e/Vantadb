@@ -245,7 +245,9 @@ impl StorageEngine {
             let mmap = vstore.mmap_bytes();
             let vector_size = match &persisted.vector {
                 VectorRepresentations::Full(v) => v.len() * 4,
-                VectorRepresentations::MmapFull(_, len) => *len,
+                VectorRepresentations::MmapFull(mmap_opt) => {
+                    mmap_opt.as_ref().map_or(0, |m| m.len() / 4)
+                }
                 VectorRepresentations::Binary(b) => b.len() * 8,
                 VectorRepresentations::Turbo(t) => t.len(),
                 VectorRepresentations::SQ8(d, _) => d.len() + 4,

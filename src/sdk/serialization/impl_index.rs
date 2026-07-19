@@ -175,6 +175,14 @@ impl VantaEmbedded {
                             if let Ok(stats) = crate::text_index::decode_term_stats(value) {
                                 let mut cache = engine.text_stats_cache.write();
                                 cache.insert((ns, token), stats);
+                                // ponytail: watermark eviction — drop first half if over limit
+                                if cache.len() > crate::config::MAX_TEXT_STATS_CACHE {
+                                    let keys: Vec<_> =
+                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                    for k in keys {
+                                        cache.remove(&k);
+                                    }
+                                }
                             }
                         }
                     } else if crate::text_index::is_namespace_stats_key(key) {
@@ -182,6 +190,14 @@ impl VantaEmbedded {
                             if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
                                 let mut cache = engine.text_ns_cache.write();
                                 cache.insert(ns, stats);
+                                // ponytail: watermark eviction — drop first half if over limit
+                                if cache.len() > crate::config::MAX_TEXT_NS_CACHE {
+                                    let keys: Vec<_> =
+                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                    for k in keys {
+                                        cache.remove(&k);
+                                    }
+                                }
                             }
                         }
                     }
