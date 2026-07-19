@@ -25,6 +25,10 @@ mod idb;
 /// IndexedDB-based storage for browsers without OPFS support.
 pub use idb::IdbStorage;
 
+/// Web Worker bridge for offloading OPFS I/O to a dedicated thread.
+///
+/// Provides `OpfsWorkerProxy` for main-thread communication with a
+/// background worker that handles all `opfs::OpfsStorage` operations.
 #[cfg(feature = "opfs")]
 pub mod worker;
 
@@ -101,6 +105,7 @@ fn default_distance() -> String {
     "Cosine".to_string()
 }
 
+/// List/pagination options deserialized from JS.
 #[derive(Serialize, Deserialize)]
 struct ListOptions {
     #[serde(default)]

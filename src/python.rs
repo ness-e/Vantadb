@@ -16,12 +16,8 @@ pub struct ClientEngine {
     _storage: StorageEngine,
 }
 
-impl Default for ClientEngine {
-    fn default() -> Self {
-        Self::new().expect("ClientEngine::default() failed to open StorageEngine")
-    }
-}
-
+// ponytail: removed Default impl — was panicking on storage open across PyO3 FFI,
+// which is UB (panic across FFI). Python callers use ClientEngine() → #[new] → PyResult.
 #[pymethods]
 impl ClientEngine {
     /// Create a new engine, opening `vantadb_data` as the storage path.

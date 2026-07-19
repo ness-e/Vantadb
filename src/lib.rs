@@ -4,8 +4,55 @@
 
 //! # VantaDB — Embedded Persistent Memory Engine
 //!
-//! Embedded core for durable local memory, vector retrieval,
-//! and structured fields.
+//! Durable local memory with vector (HNSW) and lexical (BM25) retrieval,
+//! structured fields, property graphs, and a DSL query planner — all in
+//! one embedded Rust crate.
+//!
+//! ## Core Types
+//!
+//! | Type | Role |
+//! |------|------|
+//! | [`VantaEmbedded`](sdk/struct.VantaEmbedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
+//! | [`InMemoryEngine`](engine/struct.InMemoryEngine.html) | In-memory engine with WAL persistence. |
+//! | [`UnifiedNode`](node/struct.UnifiedNode.html) | Single node representation (fields, vector, edges, metadata). |
+//! | [`VantaMemoryRecord`](sdk/struct.VantaMemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
+//! | [`VantaError`](error/enum.VantaError.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
+//!
+//! ## Feature Flags
+//!
+//! | Feature | Description |
+//! |---------|-------------|
+//! | `encryption` | AES-256-GCM at-rest encryption |
+//! | `cli` | Interactive REPL and CLI commands |
+//! | `server` | HTTP server (axum) |
+//! | `arrow` | Apache Arrow columnar export |
+//! | `python_sdk` | Python bindings (via PyO3) |
+//! | `wal-shipping` | Async WAL shipping to replicas |
+//! | `pitr` | Point-in-time recovery from WAL archives |
+//! | `async-ingestion` | Background ingestion worker pool |
+//! | `governance` | Governance policy engine |
+//! | `remote-inference` | Remote LLM inference integration |
+//!
+//! ## Quick Example
+//!
+//! ```rust,no_run
+//! use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
+//! use vantadb::config::VantaConfig;
+//!
+//! let config = VantaConfig::default();
+//! let engine = VantaEmbedded::open_with_config(config).unwrap();
+//!
+//! engine.put(VantaMemoryInput {
+//!     namespace: "docs".into(),
+//!     key: "example".into(),
+//!     payload: "Hello, VantaDB!".into(),
+//!     ..Default::default()
+//! }).unwrap();
+//!
+//! let record = engine.get("docs", "example").unwrap();
+//! assert_eq!(record.unwrap().payload, "Hello, VantaDB!");
+//! engine.close().unwrap();
+//! ```
 
 /// AES-256-GCM at-rest encryption for storage files.
 #[cfg(feature = "encryption")]

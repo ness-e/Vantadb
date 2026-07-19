@@ -528,8 +528,15 @@ impl CPIndex {
                 Err(_) => return None,
             };
 
-            // SAFETY: `file` is a valid open handle; `map_mut` checks the
-            // resulting pointer internally and returns `Err` on failure.
+            let file_len = file.metadata().ok().map(|m| m.len()).unwrap_or(0);
+            if file_len < 64 {
+                warn!("HNSW index file too small ({file_len} bytes) — will rebuild");
+                return None;
+            }
+
+            // SAFETY: file size verified above — `map_mut` on a file shorter
+            // than the mapping causes SIGBUS on access. We checked file_len >= 64
+            // which covers the header, so the mapping cannot fault on header reads.
             let mmap = match unsafe { MmapMut::map_mut(&file) } {
                 Ok(m) => m,
                 Err(e) => {

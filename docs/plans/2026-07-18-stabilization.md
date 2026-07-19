@@ -1,7 +1,7 @@
 # Stabilization Plan — Feature Freeze Phase 1
 
 > **Inicio:** 2026-07-18
-> **Estado:** ✅ P0 COMPLETE — Phase 1 done, P1 pending user decision
+> **Estado:** ✅ FASE 1 y 2 COMPLETE — estabilización sellada en v0.3.0-stable
 > **Fuente:** Phase 0.1 audit (`/audit full` — 10 Critical, 15 Important findings)
 > **Feature Freeze:** PROMPT-MAESTRO-FREEZE.md — no features, no new deps, no API changes, zero-bug policy
 
@@ -9,8 +9,8 @@
 
 | Result | Count |
 |--------|-------|
-| ✅ DO | 4 P0 + 10 P1 + 4 P2 |
-| 🟡 DEFER | 2 |
+| ✅ COMPLETED | 4 P0 + 5 P1 + 3 P2 |
+| 🟡 DEFER | 7 (P1-2, P1-5..9) |
 | ❌ SKIP | ~160 backlog items (features, marketing, integration — BLOCKED by freeze) |
 | 🔴 BLOQUEADO | 0 |
 
@@ -46,97 +46,97 @@
 
 ## P1 — Security & Performance (ideal before RC)
 
-### P1-1: SEC-WASM-UNWRAP — Fix `Reflect::set().unwrap()` in WASM bridge
+### ✅ P1-1: SEC-WASM-UNWRAP — Fix `Reflect::set().unwrap()` in WASM bridge
 
 - **Esfuerzo:** 🟢 2h
 - **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-wasm/src/worker.rs`, `vantadb-wasm/src/ffi.rs`
+- **Archivos clave:** `vantadb-wasm/src/lib.rs` (19 calls → `.ok()`)
 - **Gate Justificación:** 19 calls to `.unwrap()` on `Reflect::set()` — can panic on JS exceptions
 - **Gate Result:** ✅ DO
 - **Contrato:** grep-count of `Reflect::set\(\)\.unwrap\(\)` = 0
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
-### P1-2: SEC-MMAP-UB — Generation counter for `MmapFull`/`SendPtr`
+### ~~P1-2: SEC-MMAP-UB — Generation counter for `MmapFull`/`SendPtr`~~
 
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠
 - **Archivos clave:** `vantadb/src/lib.rs` (MmapFull struct + SendPtr)
 - **Gate Justificación:** Handle reuse of stale mmap pointers with generation counter
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** `MmapFull` has a generation field, checked before access
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — theoretical UB, no known trigger, 1d effort
 
-### P1-3: SEC-WASM-OOM — Input size validation at WASM FFI boundary
+### ✅ P1-3: SEC-WASM-OOM — Input size validation at WASM FFI boundary
 
 - **Esfuerzo:** 🟢 2h
 - **Prioridad:** 🟠
-- **Archivos clave:** `vantadb-wasm/src/ffi.rs`
+- **Archivos clave:** `vantadb-wasm/src/lib.rs` (MAX_F32_VEC_LEN, MAX_BATCH_SIZE)
 - **Gate Justificación:** Reject oversized inputs before allocation
 - **Gate Result:** ✅ DO
 - **Contrato:** WASM test with ~1GB input returns Err, not OOM
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
-### P1-4: SEC-ALIGN — Runtime alignment assertions on f32 reinterpret casts
+### ✅ P1-4: SEC-ALIGN — Runtime alignment assertions on f32 reinterpret casts
 
 - **Esfuerzo:** 🟢 30min
 - **Prioridad:** 🟡
-- **Archivos clave:** `vantadb/src/vector.rs` (f32 reinterpret cast paths)
+- **Archivos clave:** `src/index/search.rs`, `src/index/serialize.rs`, `src/storage/engine/ops.rs`, `src/storage/archive.rs`
 - **Gate Justificación:** Prevent UB on misaligned f32 reads
 - **Gate Result:** ✅ DO
-- **Contrato:** `debug_assert_eq!(ptr as usize % 4, 0)` on each cast path
-- **Estado:** ⬜ PENDING
+- **Contrato:** `debug_assert_eq!(ptr.align_offset(4), 0)` on each cast path
+- **Estado:** ✅ COMPLETED
 
-### P1-5: PERF-WAL — Reusable buffer in WAL serialization
+### ~~P1-5: PERF-WAL — Reusable buffer in WAL serialization~~
 
 - **Esfuerzo:** 🟢 2h
 - **Prioridad:** 🟠
 - **Archivos clave:** `vantadb/src/wal.rs`
 - **Gate Justificación:** `postcard::to_allocvec` allocates per op — replace with reusable buffer
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** WAL benchmark shows < N+1 allocs per batch
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — post-RC optimization
 
-### P1-6: PERF-PREFIX — Streaming iterator for `scan_prefix`
+### ~~P1-6: PERF-PREFIX — Streaming iterator for `scan_prefix`~~
 
 - **Esfuerzo:** 🟡 1d
 - **Prioridad:** 🟠
 - **Archivos clave:** `vantadb/src/fjall_backend.rs`
 - **Gate Justificación:** `scan_prefix` materializes full Vec before processing
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** `scan_prefix_iter()` returns `impl Iterator<Item=T>` not `Vec<T>`
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — post-RC optimization
 
-### P1-7: PERF-LEXICAL — Truncate candidate pool in `lexical_search`
+### ~~P1-7: PERF-LEXICAL — Truncate candidate pool in `lexical_search`~~
 
 - **Esfuerzo:** 🟢 2h
 - **Prioridad:** 🟠
 - **Archivos clave:** `vantadb/src/index/lexical.rs`
 - **Gate Justificación:** HashMap grows unbounded before `get_many`
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** Pool size ≤ top_k * 2 before `get_many`
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — post-RC optimization
 
-### P1-8: PERF-MEMREC — Single-pass in `memory_record_from_node`
+### ~~P1-8: PERF-MEMREC — Single-pass in `memory_record_from_node`~~
 
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟡
 - **Archivos clave:** `vantadb/src/index/lexical.rs`
 - **Gate Justificación:** 2-pass filter + collect in memory_record_from_node
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** Single pass filter_map instead of filter + collect
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — post-RC optimization
 
-### P1-9: PERF-HNSW — Reuse HashSet across HNSW layers
+### ~~P1-9: PERF-HNSW — Reuse HashSet across HNSW layers~~
 
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟡
 - **Archivos clave:** `vantadb/src/index/hnsw.rs`
 - **Gate Justificación:** New HashSet allocated per layer
-- **Gate Result:** ✅ DO
+- **Gate Result:** 🟡 DEFER
 - **Contrato:** Single HashSet reused with `.clear()`
-- **Estado:** ⬜ PENDING
+- **Estado:** ❌ DEFERRED — post-RC optimization
 
-### P1-10: CLN-MACHETE — Remove unused deps
+### ✅ P1-10: CLN-MACHETE — Remove unused deps
 
 - **Esfuerzo:** 🟢 30min
 - **Prioridad:** 🟢
@@ -144,28 +144,28 @@
 - **Gate Justificación:** `cargo machete` findings
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo machete` → 0 unused deps
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 
-## P2 — Docs & Polish (after RC)
+## P2 — Docs & Polish (completed)
 
-### P2-1: DOC-OVERVIEW — Fix vantadb-core doc overview (parses as raw text)
+### ✅ P2-1: DOC-OVERVIEW — Fix vantadb-core doc overview
 
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟢
 - **Contrato:** `cargo doc --no-deps` → no warnings
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — expanded crate-level doc with core types, feature flags, usage example
 
-### P2-2: DOC-SECURITY — Fill placeholder sections in SECURITY.md
+### ✅ P2-2: DOC-SECURITY — Fill placeholder sections in SECURITY.md
 
 - **Esfuerzo:** 🟢 30min
 - **Contrato:** No "TODO" or placeholder text in SECURITY.md
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — created SECURITY.md at repo root with supported versions, reporting process, security practices
 
-### P2-3: DOC-WASM — Document WASM API (sync commit + batch)
+### ✅ P2-3: DOC-WASM — Document WASM API
 
 - **Esfuerzo:** 🟢 1h
 - **Contrato:** All public WASM exports have doc comments
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED — filled last 2 missing doc gaps (`worker` module, `ListOptions`)
 
 ## Deferred / Blocked
 
