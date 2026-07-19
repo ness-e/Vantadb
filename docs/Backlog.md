@@ -427,6 +427,7 @@ Nota: El código es casi byte-for-byte idéntico a `vantadb-langchain`. Los hall
 | `NUEVO-14` | **WASM bundle size <500KB gzip** | 🟡 1-2d | 🟡 | ❌ |
 | `NUEVO-15` | **Code coverage report en CI** + upload | 🟢 1d | 🟡 | ❌ |
 | `NUEVO-19` | **Mover SourceDesign/ fuera de web/src/** | 🟢 1h | 🔵 | ❌ |
+| `BENCH-01` | **Descargar Cohere-1M + Cohere-10M** (768d, embeddings LLM reales) — estándar industria para validar recall en alta dimensión. Script de descarga automática + integración en heavy-bench | 🟢 2h | 🟡 | ❌ |
 
 ---
 

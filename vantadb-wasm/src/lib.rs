@@ -28,6 +28,9 @@ pub use idb::IdbStorage;
 #[cfg(feature = "opfs")]
 pub mod worker;
 
+const MAX_F32_VEC_LEN: usize = 10_000_000;
+const MAX_BATCH_SIZE: usize = 100_000;
+
 /// Minimal WASM-friendly config that maps to VantaConfig
 #[derive(Deserialize)]
 #[serde(default)]
@@ -490,6 +493,15 @@ impl VantaDB {
     /// Insert or update a single memory record from a JS object.
     pub fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
         let input: MemoryInput = from_js(input)?;
+        if let Some(ref v) = input.vector {
+            if v.len() > MAX_F32_VEC_LEN {
+                return Err(to_js_err(VantaError::InvalidInput(format!(
+                    "vector length {} exceeds max {}",
+                    v.len(),
+                    MAX_F32_VEC_LEN
+                ))));
+            }
+        }
         let vanta_input = VantaMemoryInput {
             namespace: input.namespace,
             key: input.key,
@@ -505,6 +517,24 @@ impl VantaDB {
     /// Insert or update multiple memory records from a JS array.
     pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
         let inputs: Vec<MemoryInput> = from_js(inputs)?;
+        if inputs.len() > MAX_BATCH_SIZE {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "batch size {} exceeds max {}",
+                inputs.len(),
+                MAX_BATCH_SIZE
+            ))));
+        }
+        for input in &inputs {
+            if let Some(ref v) = input.vector {
+                if v.len() > MAX_F32_VEC_LEN {
+                    return Err(to_js_err(VantaError::InvalidInput(format!(
+                        "vector length {} exceeds max {}",
+                        v.len(),
+                        MAX_F32_VEC_LEN
+                    ))));
+                }
+            }
+        }
         let vanta_inputs: Vec<VantaMemoryInput> = inputs
             .into_iter()
             .map(|i| VantaMemoryInput {
@@ -559,9 +589,9 @@ impl VantaDB {
         for rec in page.records {
             arr.push(&memory_record_to_js(rec));
         }
-        js_sys::Reflect::set(&obj, &"records".into(), &arr).unwrap();
+        js_sys::Reflect::set(&obj, &"records".into(), &arr).ok();
         if let Some(cursor) = page.next_cursor {
-            js_sys::Reflect::set(&obj, &"next_cursor".into(), &(cursor as f64).into()).unwrap();
+            js_sys::Reflect::set(&obj, &"next_cursor".into(), &(cursor as f64).into()).ok();
         }
         Ok(obj.into())
     }
@@ -570,8 +600,8 @@ impl VantaDB {
     /// Sanitizes NaN/Infinity in explanation scores to avoid JSON serialization errors.
     fn search_hit_to_js(hit: VantaMemorySearchHit) -> JsValue {
         let obj = js_sys::Object::new();
-        js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).unwrap();
-        js_sys::Reflect::set(&obj, &"score".into(), &(hit.score as f64).into()).unwrap();
+        js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).ok();
+        js_sys::Reflect::set(&obj, &"score".into(), &(hit.score as f64).into()).ok();
         if let Some(ref explanation) = hit.explanation {
             let mut sanitized = explanation.clone();
             if sanitized.score.is_nan() || sanitized.score.is_infinite() {
@@ -584,7 +614,7 @@ impl VantaDB {
             }
             let expl_js: JsValue =
                 serde_wasm_bindgen::to_value(&sanitized).expect("search explanation serialization");
-            js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).unwrap();
+            js_sys::Reflect::set(&obj, &"explanation".into(), &expl_js).ok();
         }
         obj.into()
     }
@@ -592,6 +622,13 @@ impl VantaDB {
     /// Search memory records by vector similarity with optional filters and text query.
     pub fn search(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: SearchRequest = from_js(request)?;
+        if req.query_vector.len() > MAX_F32_VEC_LEN {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "query vector length {} exceeds max {}",
+                req.query_vector.len(),
+                MAX_F32_VEC_LEN
+            ))));
+        }
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
@@ -615,6 +652,13 @@ impl VantaDB {
 
     /// Search nodes by raw vector without namespace scoping.
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
+        if vector.len() > MAX_F32_VEC_LEN {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "vector length {} exceeds max {}",
+                vector.len(),
+                MAX_F32_VEC_LEN
+            ))));
+        }
         let hits = self
             .inner
             .search_vector(&vector, top_k)
@@ -622,8 +666,8 @@ impl VantaDB {
         let arr = js_sys::Array::new();
         for hit in hits {
             let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"node_id".into(), &hit.node_id.to_string().into()).unwrap();
-            js_sys::Reflect::set(&obj, &"score".into(), &(hit.distance as f64).into()).unwrap();
+            js_sys::Reflect::set(&obj, &"node_id".into(), &hit.node_id.to_string().into()).ok();
+            js_sys::Reflect::set(&obj, &"score".into(), &(hit.distance as f64).into()).ok();
             arr.push(&obj);
         }
         Ok(arr.into())
@@ -632,6 +676,13 @@ impl VantaDB {
     /// Run a search with explanation metadata for debugging scoring.
     pub fn explain_memory_search(&self, request: JsValue) -> Result<JsValue, JsValue> {
         let req: SearchRequest = from_js(request)?;
+        if req.query_vector.len() > MAX_F32_VEC_LEN {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "query vector length {} exceeds max {}",
+                req.query_vector.len(),
+                MAX_F32_VEC_LEN
+            ))));
+        }
         let distance = match req.distance_metric.as_str() {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
@@ -670,6 +721,13 @@ impl VantaDB {
     /// Import records from a JS array of memory record objects.
     pub fn import_records(&self, records: JsValue) -> Result<JsValue, JsValue> {
         let records: Vec<VantaMemoryRecord> = from_js(records)?;
+        if records.len() > MAX_BATCH_SIZE {
+            return Err(to_js_err(VantaError::InvalidInput(format!(
+                "record batch size {} exceeds max {}",
+                records.len(),
+                MAX_BATCH_SIZE
+            ))));
+        }
         let report = self.inner.import_records(records).map_err(to_js_err)?;
         to_js(&report)
     }
@@ -751,6 +809,15 @@ impl VantaDB {
         vector: Option<Vec<f32>>,
         fields: JsValue,
     ) -> Result<(), JsValue> {
+        if let Some(ref v) = vector {
+            if v.len() > MAX_F32_VEC_LEN {
+                return Err(to_js_err(VantaError::InvalidInput(format!(
+                    "vector length {} exceeds max {}",
+                    v.len(),
+                    MAX_F32_VEC_LEN
+                ))));
+            }
+        }
         let fields: VantaFields = if fields.is_undefined() || fields.is_null() {
             VantaFields::new()
         } else {
@@ -848,23 +915,23 @@ fn to_js_err(e: VantaError) -> JsValue {
 
 fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
     let obj = js_sys::Object::new();
-    js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).unwrap();
-    js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).unwrap();
-    js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).unwrap();
+    js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).ok();
+    js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).ok();
+    js_sys::Reflect::set(&obj, &"payload".into(), &rec.payload.into()).ok();
     js_sys::Reflect::set(
         &obj,
         &"created_at_ms".into(),
         &rec.created_at_ms.to_string().into(),
     )
-    .unwrap();
+    .ok();
     js_sys::Reflect::set(
         &obj,
         &"updated_at_ms".into(),
         &rec.updated_at_ms.to_string().into(),
     )
-    .unwrap();
-    js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).unwrap();
-    js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).unwrap();
+    .ok();
+    js_sys::Reflect::set(&obj, &"version".into(), &rec.version.to_string().into()).ok();
+    js_sys::Reflect::set(&obj, &"node_id".into(), &rec.node_id.to_string().into()).ok();
     if let Some(ref vector) = rec.vector {
         // Sanitize NaN/Inf → 0.0: JSON/JS cannot represent NaN or Infinity as
         // f32 values, and serde_wasm_bindgen would throw on serialization.
@@ -880,7 +947,7 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
             .collect();
         let v: JsValue =
             serde_wasm_bindgen::to_value(&sanitized).expect("vector Vec<f32> serialization");
-        js_sys::Reflect::set(&obj, &"vector".into(), &v).unwrap();
+        js_sys::Reflect::set(&obj, &"vector".into(), &v).ok();
     }
     if let Some(expires_at) = rec.expires_at_ms {
         js_sys::Reflect::set(
@@ -888,11 +955,11 @@ fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
             &"expires_at_ms".into(),
             &expires_at.to_string().into(),
         )
-        .unwrap();
+        .ok();
     }
     let meta: JsValue =
         serde_wasm_bindgen::to_value(&rec.metadata).expect("metadata serialization");
-    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).unwrap();
+    js_sys::Reflect::set(&obj, &"metadata".into(), &meta).ok();
     JsValue::from(&obj)
 }
 
