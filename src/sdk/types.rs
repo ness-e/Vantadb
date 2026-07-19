@@ -589,6 +589,7 @@ pub enum VantaQueryResult {
     /// Query detected stale context for the given node.
     StaleContext {
         /// Node id with stale context.
+        #[serde(with = "u128_serde")]
         node_id: u128,
     },
 }
