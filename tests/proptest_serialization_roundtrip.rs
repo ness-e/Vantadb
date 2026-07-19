@@ -130,10 +130,10 @@ proptest! {
     }
 
     #[test]
-    fn test_edge_record_postcard_roundtrip(
+    fn test_edge_record_json_roundtrip(
         target: u128, label: String, weight: f32,
     ) {
-        assert_postcard(&VantaEdgeRecord { target, label, weight });
+        assert_json(&VantaEdgeRecord { target, label, weight });
     }
 }
 
@@ -431,7 +431,80 @@ proptest! {
     }
 }
 
-// ── VantaNodeRecord (postcard) ──────────────────────────────────────────
+// ── VantaNodeRecord (JSON) ──────────────────────────────────────────────
+// Uses float-free VantaFields (arb_vanta_value_json) to avoid f64 precision
+// loss through serde_json. Also tests u128_serde on VantaNodeRecord.id.
+
+fn arb_vanta_fields_json() -> impl Strategy<Value = VantaFields> {
+    prop::collection::btree_map("[a-zA-Z_][a-zA-Z0-9_]{0,15}", arb_vanta_value_json(), 0..8)
+}
+
+fn arb_node_record_json() -> impl Strategy<Value = VantaNodeRecord> {
+    (
+        arb_u128(),
+        arb_vanta_fields_json(),
+        arb_option_vector(),
+        any::<usize>(),
+        prop::collection::vec(arb_edge_record(), 0..3),
+        any::<f32>(),
+        any::<f32>(),
+        any::<u32>(),
+        any::<u64>(),
+        any::<u32>(),
+        arb_storage_tier(),
+        any::<bool>(),
+    )
+        .prop_map(
+            |(
+                id,
+                fields,
+                vector,
+                vector_dimensions,
+                edges,
+                confidence_score,
+                importance,
+                hits,
+                last_accessed,
+                epoch,
+                tier,
+                is_alive,
+            )| {
+                VantaNodeRecord {
+                    id,
+                    fields,
+                    vector,
+                    vector_dimensions,
+                    edges,
+                    confidence_score,
+                    importance,
+                    hits,
+                    last_accessed,
+                    epoch,
+                    tier,
+                    is_alive,
+                }
+            },
+        )
+}
+
+fn arb_query_result_json() -> impl Strategy<Value = VantaQueryResult> {
+    prop_oneof![
+        prop::collection::vec(arb_node_record_json(), 0..3).prop_map(VantaQueryResult::Read),
+        (
+            any::<usize>(),
+            any::<String>(),
+            prop::option::of(arb_u128())
+        )
+            .prop_map(
+                |(affected_nodes, message, node_id)| VantaQueryResult::Write {
+                    affected_nodes,
+                    message,
+                    node_id,
+                }
+            ),
+        arb_u128().prop_map(|node_id| VantaQueryResult::StaleContext { node_id }),
+    ]
+}
 
 fn arb_edge_record() -> impl Strategy<Value = VantaEdgeRecord> {
     (arb_u128(), any::<String>(), any::<f32>()).prop_map(|(target, label, weight)| {
@@ -493,8 +566,8 @@ fn arb_node_record_full() -> impl Strategy<Value = VantaNodeRecord> {
 
 proptest! {
     #[test]
-    fn test_node_record_postcard_roundtrip(rec in arb_node_record_full()) {
-        assert_postcard(&rec);
+    fn test_node_record_json_roundtrip(rec in arb_node_record_json()) {
+        assert_json(&rec);
     }
 }
 
@@ -521,8 +594,8 @@ fn arb_query_result_full() -> impl Strategy<Value = VantaQueryResult> {
 
 proptest! {
     #[test]
-    fn test_query_result_postcard_roundtrip(result in arb_query_result_full()) {
-        assert_postcard(&result);
+    fn test_query_result_json_roundtrip(result in arb_query_result_json()) {
+        assert_json(&result);
     }
 }
 
@@ -585,8 +658,8 @@ proptest! {
 
 proptest! {
     #[test]
-    fn test_search_hit_simple_postcard_roundtrip(node_id: u128, distance: f32) {
-        assert_postcard(&VantaSearchHit { node_id, distance });
+    fn test_search_hit_simple_json_roundtrip(node_id: u128, distance: f32) {
+        assert_json(&VantaSearchHit { node_id, distance });
     }
 }
 
