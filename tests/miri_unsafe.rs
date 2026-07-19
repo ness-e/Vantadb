@@ -43,9 +43,8 @@ fn miri_send_ptr_across_threads() {
     let data: Box<[f32; 2]> = Box::new([1.5, 2.5]);
     let ptr = SendPtr(&*data as *const f32);
 
-    let raw = ptr.0;
     let handle = std::thread::spawn(move || {
-        let slice: &[f32] = unsafe { std::slice::from_raw_parts(raw, 2) };
+        let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr.0, 2) };
         assert_eq!(slice[0], 1.5);
     });
 

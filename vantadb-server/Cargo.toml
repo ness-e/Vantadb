@@ -29,7 +29,7 @@ rcgen = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 rustls = { version = "0.23", features = ["ring"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "time", "macros"] }
-axum-server = { version = "0.7", features = ["tls-rustls"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
 
 [features]
 custom-allocator = ["mimalloc"]

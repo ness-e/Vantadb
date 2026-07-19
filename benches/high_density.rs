@@ -94,13 +94,14 @@ fn high_density_benchmark(c: &mut Criterion) {
     // Sub-Task 2: Spam Mutations Collision (Logarithmic Friction Validation)
     let mut spam_group = c.benchmark_group("logarithmic_spam_friction");
     let spam_samples = if is_ci { 3 } else { 10 }; // ponytail: CI 6h timeout, 3 samples sufficient for throughput magnitude check
+    let spam_inserts: u128 = if is_ci { 5_000 } else { 50_000 }; // ponytail: CI inserts reduced to stay under 6h
     spam_group.sample_size(spam_samples);
 
     spam_group.bench_function("50k_spam_mutations", |b: &mut criterion::Bencher| {
         b.iter_batched(
             || {
-                let mut dummy_nodes = Vec::with_capacity(50_000);
-                for i in 0..50_000 {
+                let mut dummy_nodes = Vec::with_capacity(spam_inserts as usize);
+                for i in 0..spam_inserts {
                     let mut node = UnifiedNode::new((target_nodes + 1 + i) as u128);
                     node.relational.insert(
                         "content".to_string(),
@@ -119,7 +120,7 @@ fn high_density_benchmark(c: &mut Criterion) {
             },
             |dummy_nodes| {
                 rt.block_on(async {
-                    // Inject the 50k nodes. Logarithmic friction should limit damage without heavy performance degradation on safe nodes
+                    // Inject the spam nodes. Logarithmic friction should limit damage without heavy performance degradation on safe nodes
                     for node in dummy_nodes {
                         // Using raw inserts to simulate bulk spam
                         let _ = storage.insert(&node);

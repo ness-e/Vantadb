@@ -1056,7 +1056,11 @@ pub fn handle_tools_call(
             }
 
             match executor.execute_hybrid(query) {
-                Ok(ExecutionResult::Read(nodes)) => Ok(text_content(serialize_content(&nodes))),
+                Ok(ExecutionResult::Read(nodes)) => {
+                    let records: Vec<vantadb::sdk::VantaNodeRecord> =
+                        nodes.into_iter().map(Into::into).collect();
+                    Ok(text_content(serialize_content(&records)))
+                }
                 Ok(ExecutionResult::Write {
                     affected_nodes,
                     message,
@@ -1064,13 +1068,13 @@ pub fn handle_tools_call(
                 }) => Ok(text_content(serialize_content(&json!({
                     "affected_nodes": affected_nodes,
                     "message": message,
-                    "node_id": node_id
+                    "node_id": node_id.map(|id| id.to_string())
                 })))),
                 Ok(ExecutionResult::StaleContext(summary_id)) => {
                     Ok(text_content(serialize_content(&json!({
                         "stale_context": true,
                         "rehydration_available": true,
-                        "summary_id": summary_id,
+                        "summary_id": summary_id.to_string(),
                         "message": "Suggested Historical Recovery (Critical Confidence Score)."
                     }))))
                 }
@@ -1187,7 +1191,7 @@ pub fn handle_tools_call(
                         if let Ok(Some(target_node)) = embedded.get_node(edge.target) {
                             neighbors.push(json!({
                                 "rel": edge.label,
-                                "target_id": edge.target,
+                                "target_id": edge.target.to_string(),
                                 "target_confidence": target_node.confidence_score,
                                 "target_priority": target_node.importance
                             }));
